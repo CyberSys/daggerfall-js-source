@@ -246,7 +246,7 @@ import { preloadMessageBoxArt } from '../ui/messageBox.js';
 import { nativeMetrics, pointToNative } from '../ui/nativePanel.js';
 import { templateByIndex, itemBaseValue } from '../systems/itemTemplates.js';
 import { questLetterName, itemLongName } from '../systems/itemInfo.js';   // ResolveItemLongName's quest-letter arm; DECOR2a: an own item's name
-import { applyTransfer } from '../systems/itemTransfer.js';   // DECOR2a: one's own item leaves the pack as a drop does
+import { applyTransfer, planTake, CANNOT_CARRY_TEXT } from '../systems/itemTransfer.js';   // DECOR2a: one's own item leaves the pack as a drop does
 import { decorItemName, decorOwnBackLine } from '../systems/decorItems.js';   // DECOR2a: an own item's piece named from its numbers
 import { isFurnishing, furnishingDeliveredLine, ownBackLines } from '../systems/decorFurnish.js';   // DECOR2b: furniture delivered, never carried
 import { goldAmount, totalGoldAmount, deductGold, addGold, setCrimeCommitted, CRIMES } from '../systems/court.js';   // PT1: the ONE crime write (V4's SuppressCrime gate rides it)
@@ -356,7 +356,7 @@ import { setPassiveSpecialsHost, FIGHTER_TRAINERS_FACTION } from '../systems/pas
 import { DaedraSummonedWindow, REFUSAL_FOE_COUNT, COVEN_FAIL_FOE_COUNT } from '../ui/daedraSummonedWindow.js';   // G7b: the summoning's own film window
 import { orderOf } from '../systems/guildVariants.js';
 import { joinedGuildOfGroup } from '../systems/guilds.js';
-import { GUILD_GROUPS } from '../formats/factionFile.js'; import { lootRarityOn } from '../systems/lootRarity.js'; import { reforgePiece, salvagePiece } from '../systems/reforge.js'; import { createReforgeOverlay } from '../ui/reforgeDoor.js'; import { imprintPiece } from '../systems/lootCodex.js';   // LOOT9: the Mages Guild's Reforge; LOOT10: its imprint
+import { GUILD_GROUPS } from '../formats/factionFile.js'; import { lootRarityOn } from '../systems/lootRarity.js'; import { reforgePiece, salvagePiece, shardsHeld } from '../systems/reforge.js'; import { buyPortalStone, PORTAL_TEXT } from '../systems/portalStone.js'; import { createReforgeOverlay } from '../ui/reforgeDoor.js'; import { imprintPiece } from '../systems/lootCodex.js';   // LOOT9: the Mages Guild's Reforge; LOOT10: its imprint
 import { SpellMakerWindow, preloadSpellMakerArt, spellMakerArtLoaded } from '../ui/spellMakerWindow.js';   // S1: the Mages Guild / Kynareth spell maker; E8: on INFO01I0 art
 import { hasSpellbook } from '../systems/spellMaker.js';   // AUDIT 63 F12: MakeSpells' door gate (DaggerfallGuildServicePopupWindow.cs:391)
 // M2: the potion maker - the other half of the guild's magic economy.
@@ -1355,7 +1355,7 @@ export function createWorldModes(host) {
    *  This host owned two pools and ran NO fan-out at all - no
    *  runMagicRoundsFor, so no tickActiveEffects and no updatePoisons
    *  (worldTick.js:393-394), and no killIfAnyLiveStatZero. Both pools
-   *  READ the effect list every frame (exteriorFoes.js:1335-1338 and
+   *  READ the effect list every frame (exteriorFoes.js:1336-1339 and
    *  cityGuards.js:1042-1050 each take `entityIsParalyzed` +
    *  `applyEnemyMotorEffectFlags`), and nothing ever ended one: a
    *  Continuous Damage bundle on a foe in a shop never took a round,
@@ -3236,6 +3236,7 @@ export function createWorldModes(host) {
           onRepair: () => openRepairService({}),
           onTalk: () => openStaticNpc(pn, { forceTalk: true }),
           onSell: () => openMerchantSell(),
+          portal: portalRow(),   // PORTAL1: the Portal Stone's row, for shards
           // The U24 identity guard: a window that dispatches to another
           // must not be nulled by its OWN onClose.
           onClose: () => { if (interiorOverlay === win) interiorOverlay = null; },
@@ -3274,6 +3275,7 @@ export function createWorldModes(host) {
         label: custom ? getCustomMerchantServiceLabel(pn.factionID) : undefined,
         onTalk: () => openStaticNpc(pn, { forceTalk: true }),
         onService: () => { if (custom) openCustomMerchantService(custom); else if (banking) openBank(); else openMerchantSell(); },
+        portal: banking || custom ? undefined : portalRow(),   // PORTAL1: a shop's keeper sells the Portal Stone for shards - a teller and a mod's service never
       }));
       return;
     }
@@ -4830,6 +4832,32 @@ export function createWorldModes(host) {
       wearer: playerEntity, nameOf: (item) => itemLongName(item),
     });
     return o ? mountServiceWindow(o) : null;
+  }
+
+  /** PORTAL1 (systems/portalStone.js): THE PORTAL STONE AT THE COUNTER - every shop's keeper (isShop's nine kinds) offers
+   *  one on their popup's own row (ui/merchantServiceWindow.js portalRowRect; the Enhanced Plus panel's button), in a
+   *  building and nowhere else (a bank's teller and a street's driver have none). The row is the hook; undefined, none. */
+  const portalRow = () => (mode === 'interior' && isShop(interiorBuilding?.buildingType)
+    ? { label: PORTAL_TEXT.row, onBuy: () => askPortalStone() } : undefined);
+  /** A press asks first - DFU's Yes/No box on either skin - and Yes is the sale. */
+  function askPortalStone() {
+    mountInterior(new YesNoBoxWindow({
+      rows: [{ text: PORTAL_TEXT.ask(shardsHeld(playerEntity.items ?? [])), center: true }],
+      onYes: () => buyPortalStoneNow(), onNo: () => {},
+    }));
+  }
+  /** THE SALE: the shards out, a fresh stone in (always in stock - nothing is kept to run out), through the pack's own
+   *  carry gate (the Broker's: planTake's dry run, the pack as the shards leave it); refused in words, nothing taken. */
+  function buyPortalStoneNow() {
+    playerEntity.items = playerEntity.items || [];
+    const sale = buyPortalStone(playerEntity.items, {
+      canCarry: (item, rest) => planTake(item, { bag: rest, entity: playerEntity, dryRun: true }).ok,
+    });
+    if (!sale.ok) { say(sale.reason === 'heavy' ? CANNOT_CARRY_TEXT : PORTAL_TEXT.shards(shardsHeld(playerEntity.items))); return false; }
+    audio.playOneShot(SOUND.GoldPieces, 1);
+    surfacePlayer();
+    say(PORTAL_TEXT.bought);
+    return true;
   }
 
   /** U42: the CLASSIC spellbook in CAST mode - the interior host's
@@ -9341,7 +9369,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:16363's own wave-46 note); the interior
+          // a blow (world.js:16416's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -12068,7 +12096,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3653-3675), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:12252). So an F9 pressed in a shop
+     *  unconditionally (world.js:12267). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -12107,7 +12135,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:12611)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:12626)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -12117,7 +12145,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:11157`
+     *  HARD2c: this used to spell them out, and named `world.js:11172`
      *  and `dungeonContext.js:8457` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */

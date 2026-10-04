@@ -123,7 +123,7 @@ import { BAG_KG_LIMIT } from '../net/bagLaw.js';
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // AUDIT 26: PlayerEntity.MaxEncumbrance, enchantment allowance and all
 import { liveStat } from '../systems/statMods.js';
 import { conditionWord, conditionPercentage, itemNameParts, itemLongName, itemDamageLine, itemArmourLine, itemHandsLine } from '../systems/itemInfo.js';   // RF6: the long name's two parts, ResolveItemLongName's arms once
-import { survivalInfoTokens, potionMacroName, potionRecipeIngredientNames } from '../systems/itemInfo.js';   // AUDIT SURV C: the survival items' tokens on this skin's card too
+import { survivalInfoTokens, potionMacroName, potionRecipeIngredientNames } from '../systems/itemInfo.js'; import { isPortalStone } from '../systems/gateSpoils.js';   // AUDIT SURV C: the survival items' tokens on this skin's card too
 import { isSurvivalItem } from '../systems/survival/items.js';
 import { hoodCapable, hoodUp } from '../systems/survival/temperature.js';   // HOOD-SAID: the one hood law, on the card and the panel
 import { rarityAttr, rarityLines, lootRarityOn } from '../systems/lootRarity.js';   // LR1: the row's tier attribute and the card's lines
@@ -415,6 +415,7 @@ export function itemLine(item, identity = undefined) {
     // AUDIT SURV C: a food's worth and stage, a skin's water, the gear's uses - the classic popup's tokens (systems/itemInfo.js
     // survivalInfoTokens, less the name and the weight this card already carries), so a Waterskin says its water here too
     survival: isSurvivalItem(item) || isRestItem(item) ? survivalInfoTokens(item).slice(2).map((r) => r.text) : null,   // REST6: the seven's lines too
+    ...(isPortalStone(item) ? { survival: survivalInfoTokens(item).slice(2).map((r) => r.text) } : {}),   // PORTAL1: and the Portal Stone's
     // MAPLOOT1 (Discord: "Potion recipe's can't be read at all"): a recipe is READ, not used - DFU's use arm
     // is cannotUseThis (DaggerfallInventoryWindow.cs:1732-1740) and the knowledge is ShowInfoPopup's
     // (:1602-1609): "Recipe for Potion of %po" and the chained PotionRecipeIngredients box. This skin has no
@@ -544,7 +545,7 @@ export function localPrimaryAct(item, entity = null) {
  * why `pending` exists and why the classic window's own USE_PENDING
  * strings are reused here rather than reworded.
  */
-export function useResultAction(r, { openBook = null, openSpellbook = null, placeCamp = null } = {}) {
+export function useResultAction(r, { openBook = null, openSpellbook = null, placeCamp = null, openPortal = null } = {}) {
   if (!r) return { kind: 'nothing' };
   // AUDIT 26: DaggerfallUI.PopToHUD() + return (:1687-1688). A watched
   // quest item that is neither parchment nor clothing closes the whole
@@ -568,6 +569,12 @@ export function useResultAction(r, { openBook = null, openSpellbook = null, plac
     return placeCamp
       ? { kind: 'placeCamp', item: r.item, closeFirst: true }
       : { kind: 'message', text: USE_PENDING[r.kind] };
+  }
+  // PORTAL1: a Portal Stone - close, then hand it to the host's travel map (the camp's shape)
+  if (r.kind === 'openPortal') {
+    return openPortal
+      ? { kind: 'openPortal', item: r.item, closeFirst: true }
+      : { kind: 'message', text: USE_PENDING.openPortal };
   }
   // MEND-AIM: a use that asks WHICH (a repair kit, more than one piece to mend) - the pack asks, and uses it again aimed
   if (r.kind === 'chooseTarget') return { kind: 'chooseTarget', item: r.item, targets: r.targets, labels: r.labels, title: r.title };
@@ -1311,7 +1318,7 @@ function use(item, collection = deps.items?.() ?? [], target = null) {
     // reach. The same seam the transfer ladder's quest arm reads.
     getQuest: deps.getQuest ?? null,
   });
-  const act = useResultAction(r, { openBook: deps.openBook, openSpellbook: deps.openSpellbook, placeCamp: deps.placeCamp });
+  const act = useResultAction(r, { openBook: deps.openBook, openSpellbook: deps.openSpellbook, placeCamp: deps.placeCamp, openPortal: deps.openPortal });
   // AUDIT 26's PopToHUD: the window stack goes, nothing is said.
   if (act.kind === 'close') { onExit(); return; }
   // THE HOOKS ARE READ BEFORE ANYTHING CLOSES. `onExit` unmounts, and
@@ -1336,6 +1343,12 @@ function use(item, collection = deps.items?.() ?? [], target = null) {
     const place = deps.placeCamp;
     onExit();   // SURV3: the same law - the host's HUD line says where the camp stands, or why not
     place(act.item, collection);   // AUDIT SURV-TIERS: the list it came from (a wagon's tent leaves the wagon)
+    return;
+  }
+  if (act.kind === 'openPortal') {
+    const openPortal = deps.openPortal;
+    onExit();   // PORTAL1: the camp's law - the map takes the slot the pack leaves
+    openPortal(act.item, collection);
     return;
   }
   if (act.kind === 'chooseTarget') { askTarget(act, collection); return; }   // MEND-AIM
@@ -1500,7 +1513,7 @@ function stow(item) {
   // 26 F156: planStore answers `{ ok: true, map: true }` for a
   // MiscItems.Map - the reveal runs, the paper is consumed, nothing
   // lands in the destination. The classic window routes it
-  // (nativeInventory.js:947) and this one did not, so dragging a
+  // (nativeInventory.js:954) and this one did not, so dragging a
   // treasure map out of the pack dropped the paper on the floor and
   // revealed nothing.
   if (plan.map) { use(item, deps.items?.() ?? []); return; }
@@ -1519,7 +1532,7 @@ function stow(item) {
   // again on the other side, and a tip that stays open after every
   // press is the quirk being fixed.
   // AUDIT INV2 B-F1: THE ENTITY AND THE PROVENANCE RIDE, as they do at
-  // the classic window's own call (nativeInventory.js:953). Without them
+  // the classic window's own call (nativeInventory.js:960). Without them
   // `clearLightSourceOnLeave` - AUDIT 26 F157's first statement inside
   // applyTransfer - is a no-op, so a LIT TORCH dropped on the ground
   // went on lighting the player from where it lay. INV2 made that a
@@ -1556,7 +1569,7 @@ function take(item) {
   if (amount == null) { notice = HOW_MANY_ITEMS(plan.amount); render(); return; }
   // MAC-O6 (report: "looting gold/items makes no sound"): DoTransferItem's
   // own cue (:1569 gold's clink, :1583 everything else), which the classic
-  // window plays (nativeInventory.js:973) and this one never did - the ONLY
+  // window plays (nativeInventory.js:980) and this one never did - the ONLY
   // difference between the two windows' calls to planTake/applyTransfer was
   // that this one dropped `plan.sound` on the floor. Played here, ahead of
   // the gold interception below, exactly as DFU's own PlayOneShot sits

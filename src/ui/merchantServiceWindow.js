@@ -33,7 +33,7 @@
 // Roleplay & Realism's master armorer: the host hands the label in as
 // `hooks.label` and runs the service from its own `onService`.
 
-import { loadImg, drawImg, nativeMetrics, DEFAULT_TEXT_COLOR } from './nativePanel.js';
+import { loadImg, drawImg, nativeMetrics, drawRect, shadowText, DEFAULT_TEXT_COLOR } from './nativePanel.js';
 import { drawScreenDimBackdrop } from './chargenArt.js';
 import { drawText, measureText } from './text.js';
 import { audio } from '../systems/audio.js';   // F141: the ButtonClick roster
@@ -53,6 +53,21 @@ export const MERCHANT_RECTS = Object.freeze({
 
 /** serviceLabel.Position (:71) inside the service button. */
 const SERVICE_LABEL_OFFSET_Y = 1;
+
+/** PORTAL1 (systems/portalStone.js): THE PORTAL STONE'S ROW - every shop's keeper sells one for Welkynd Shards when the
+ *  host hands `hooks.portal` ({ label, onBuy }). Neither shop popup's art (GNRC01I0 here, REPR01I0 in
+ *  merchantRepairWindow.js) has room for it, so this one row is the port's own, drawn just under the panel in the
+ *  parchment's dark - the guild popup's Reforge row's law (guildServiceWindow.js REFORGE_RECT) - and its key is P.
+ *  Panel-relative, at the panel's foot. */
+export const portalRowRect = (panelH) => Object.freeze([5, panelH + 2, 120, 10]);
+export const PORTAL_ROW_KEY = 'KeyP';
+const PORTAL_ROW_BG = Object.freeze([0.16, 0.11, 0.06, 0.92]);
+/** The row, drawn under a panel at (px, py) of height ph. */
+export function drawPortalRow(renderer, m, font, px, py, ph, label) {
+  const [rx, ry, rw, rh] = portalRowRect(ph);
+  drawRect(renderer, m, px + rx, py + ry, rw, rh, PORTAL_ROW_BG);
+  shadowText(renderer, font, label, m, px + rx, py + ry + 2, { align: 'center', w: rw });
+}
 
 /** GetServiceLabelText's switch (:78-88), with the `default:` folded
  *  into Sell exactly as the C# folds it. */
@@ -90,6 +105,7 @@ export class MerchantServiceWindow {
   _talk() { this._click(); this._close(); this.hooks.onTalk?.(); }
   _service() { this._click(); this._close(); this.hooks.onService?.(); }
   _exit() { this._click(); this._close(); }
+  _portal() { this._click(); this._close(); this.hooks.portal?.onBuy?.(); }   // PORTAL1: closes first, as the three do
 
   input(code) {
     // ROAD-G G7: these three letters ARE the port's own, and the
@@ -105,13 +121,15 @@ export class MerchantServiceWindow {
     // PORT'S OWN, cited by name.
     if (code === 'Escape' || code === 'Enter' || code === 'KeyE') { this._exit(); return; }
     if (code === 'KeyT') { this._talk(); return; }
-    if (code === 'KeyS') this._service();
+    if (code === 'KeyS') { this._service(); return; }
+    if (code === PORTAL_ROW_KEY && this.hooks.portal) this._portal();   // PORTAL1
   }
 
   click(vx, vy) {
     if (inRect(MERCHANT_RECTS.talk, vx, vy)) { this._talk(); return true; }
     if (inRect(MERCHANT_RECTS.service, vx, vy)) { this._service(); return true; }
     if (inRect(MERCHANT_RECTS.exit, vx, vy)) { this._exit(); return true; }
+    if (this.hooks.portal && inRect(portalRowRect(MERCHANT_PANEL_H), vx, vy)) { this._portal(); return true; }   // PORTAL1
     return true;   // the panel eats its own clicks
   }
 
@@ -125,5 +143,6 @@ export class MerchantServiceWindow {
     drawText(renderer, font, label,
       m.ox + (MERCHANT_PANEL_X + sx + Math.round((sw - lw) / 2)) * m.s,
       m.oy + (MERCHANT_PANEL_Y + sy + SERVICE_LABEL_OFFSET_Y) * m.s, m.s, DEFAULT_TEXT_COLOR);
+    if (this.hooks.portal) drawPortalRow(renderer, m, font, MERCHANT_PANEL_X, MERCHANT_PANEL_Y, MERCHANT_PANEL_H, this.hooks.portal.label);   // PORTAL1
   }
 }

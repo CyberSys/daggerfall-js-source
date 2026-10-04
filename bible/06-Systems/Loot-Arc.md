@@ -620,6 +620,9 @@ letter of credit paying, once reforged only that line), the window (both pages, 
 ask), the guild's fourth row (classic click and key, no hook no row, the Plus face, the host's hook), and the pack
 card's Salvage; `tools/mutants/loot9.json` (52, all dead).
 
+**PORTAL1 (2026-10-04)**: the shard's second coin - a Portal Stone at every shop's counter for five of them
+(`06-Systems/Portal-Stone.md`), spent through the same purse (`shardsHeld`, `spendShards`: unlocked stacks only).
+
 ### LOOT10 - the codex, and the imprint (2026-10-01)
 
 **`systems/lootCodex.js`** (new): the character's CODEX - every Legendary record and every Aetheric piece taken, with

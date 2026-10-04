@@ -300,6 +300,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   let _onNavalClear = null;     // NAV-G: called wherever the teams' clear runs - the peers' ships go with the puppets
   let _onDuel = null;           // DUEL1: (from, record | null, nowMs) - the duel ring a peer stands in, off their foes frame (null: theirs is down)
   let _onDuelClear = null;      // DUEL1: called wherever clearPuppets runs - the peers' rings go with the puppets
+  let _onPortals = null;        // PORTAL1: (from, record) - the portal a peer opened, off their foes frame (systems/portalStone.js validPortalRecord)
   let _foesSeq = 0;             // my frames out, numbered
   // AUDIT WORLD6b B4/C3: an OWNER's record - the last frame number applied (a stale frame is not the world), when it
   // arrived (an owner whose stream has died is swept after staleMs), and the build generation (a build the clear or
@@ -2100,6 +2101,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   function setOnCsa(fn, onClear = null) { _onCsa = typeof fn === 'function' ? fn : null; _onCsaClear = typeof onClear === 'function' ? onClear : null; }   // CSA-J
   function setOnCsaAboard(fn, onClear = null) { _onCsaAboard = typeof fn === 'function' ? fn : null; _onCsaAboardClear = typeof onClear === 'function' ? onClear : null; }   // CSA-K
   function setOnNaval(fn, onClear = null) { _onNaval = typeof fn === 'function' ? fn : null; _onNavalClear = typeof onClear === 'function' ? onClear : null; }   // NAV-G
+  function setOnPortals(fn) { _onPortals = typeof fn === 'function' ? fn : null; }   // PORTAL1
   function setOnDuel(fn, onClear = null) { _onDuel = typeof fn === 'function' ? fn : null; _onDuelClear = typeof onClear === 'function' ? onClear : null; }   // DUEL1
   const _now = () => (_net?.now ? _net.now() : Date.now());
   /** My foes out, and my watch behind them (WATCH1) - every one of MINE whose streamed state changed since its last
@@ -2349,6 +2351,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (data.sa !== undefined) _onCsa?.(from, data.sa, _now());   // CSA-J: the owner's boats (null: none stand) - a frame without the field leaves the last word standing; past the same room test
     if (data.ab !== undefined) _onCsaAboard?.(from, data.ab, _now());   // CSA-K: the sender's place aboard a boat (null: aboard none) - the same law, the same test
     if (data.nv !== undefined) _onNaval?.(from, data.nv, _now());   // NAV-G: the owner's sea (null: none) - the ships they stand, their last volleys and barrels; past the same room test
+    if (data.pg !== undefined) _onPortals?.(from, data.pg);   // PORTAL1: the owner's portal - a frame without it leaves the copy to run out on its own time; past the same room test
     if (data.hv !== undefined) _onHcc?.(from, data.hv, _now());   // HCC-ONLINE: the owner's horse and wagon (null: none stand) - a frame without the field leaves the last word standing; past the same room test the camps pass
     if (Array.isArray(data.c)) _onCamps?.(from, data.c, _now());   // SURV3: the owner's camps ride the same frame, past the same room test - the host's pool lands them
     return true;
@@ -2905,5 +2908,6 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     setOnSeaRaiders,   // OW6
     setOnCsaAboard,   // CSA-K
     setOnNaval,   // NAV-G
+    setOnPortals,   // PORTAL1
     setOnCamps, setOnHcc, setOnDuel };   // SURV3; HCC-ONLINE
 }

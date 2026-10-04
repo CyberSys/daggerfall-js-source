@@ -10,6 +10,7 @@ import { walkModeOn, bindWalkMode } from '../player/walkMode.js';   // PADWALK: 
 import { iilSyncLane } from '../systems/improvedInteriorLighting.js';   // IIL2
 import { dfmodGroundLayers } from '../systems/dfmodTextures.js';   // GROUND1: an attached mod's terrain tile set
 import { RESURRECT_HOLD_MS, RESURRECT_HEALTH_PCT, RESURRECT_TEXT, rezSnapshot, rezFor } from '../systems/resurrect.js';   // RESURRECT1
+import { createPortalGates } from './portalGates.js'; import { PORTAL_TEXT, spendPortalStone, portalSpot } from '../systems/portalStone.js';   // PORTAL1: the Portal Stone's portals
 import { createPartyMapSender, hasSharedCartography } from '../systems/partyMap.js';   // PARTY-MAP
 import { liveDungeonAutomapKey, getDungeonAutomap, mergePartyAutomap } from '../systems/automap.js';   // PARTY-MAP: the live dungeon's record, and a mate's rows merged into it
 import { FlatAnimator, armFlatAnim } from '../render/flatAnimation.js';   // FA1: the flats that move
@@ -5921,6 +5922,19 @@ export async function bootWorld(canvas, renderer, params, status) {
     fieldCook: () => fieldCookNow(),   // PROF9: a Field Cook's own Campfire keeps its fuel
     deck: { at: (pos) => campDeckAt(pos), resolve: (ref) => campDeckResolve(ref) },   // DECK-CAMP: a camp on a boat's deck rides her
   });
+  // PORTAL1 (systems/portalStone.js): THE PORTALS IN THE OPEN WORLD - mine, torn open by a Portal Stone (openPortalStone),
+  // and online the cell's, off their openers' foes frames (`pg`). Kept in the world frame (the camps' wire converters),
+  // drawn on the flats' axis in the street, and WALKED INTO: the Mages Guild's arrival (teleportTo - free, at once),
+  // behind its own black (the guild box's smash, ui/teleportPopUp.js _yes). A destination is named off this map.
+  const portalGates = createPortalGates({
+    renderer, audio, toScene: (p) => campToScene(p), toWire: (p) => campToWire(p),
+    destOf: (x, y) => {
+      const s = travelLocationSummaryAt(mapDict, x, y);
+      const loc = s ? maps.getLocation(s.regionIndex, s.mapIndex) : null;
+      return loc?.name ? { pixel: { x, y }, name: loc.name } : null;
+    },
+    onEnter: (g) => { hudFade.smashHUDToBlack(); teleportTo(g.dest); },
+  });
   /** PROF9 (bible/06-Systems/Professions-Arc.md 3.3): whether the player stands as a Field Cook - online, the professions
    *  the account's, Cooking's choice at 50 - so a night at their own Campfire spends no fuel (survival/camp.js spendCampNight). */
   const fieldCookNow = () => profBook?.state?.open === true && profBook.track('cooking')?.specs?.[50] === 'field-cook';
@@ -9533,7 +9547,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:3070 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:7240
+  // that context through modes.dungeonCtx - so worldModes.js:7268
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -9628,7 +9642,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:570-575) never looks the record up in `foes`, and
+    // (exteriorFoes.js:571-576) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
     // got exactly what removeGuard (cityGuards.js:1630-1648) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
@@ -10212,6 +10226,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const packDoors = {
     openBook: openBookHook,   // B1: the use-mode book arm
     placeCamp: (item, list) => camps.placeItem(item, list ?? playerEntity.items ?? []),   // SURV3: Camping Equipment and the Campfire Kit are placed on this host's ground - AUDIT SURV-TIERS: off the list they were used from (the pack or the wagon)
+    openPortal: (item, list) => openPortalStone(item, list),   // PORTAL1: a Portal Stone - the travel map in teleport mode, a portal where the player stands (a building's pack is this one too, and says why not)
     // U42: USING the Spellbook item opens the book
     // (DaggerfallInventoryWindow.cs:1748-1764). showOverlay REPLACES
     // the slot, so this bypasses toggleSpellbook's already-open guard
@@ -12772,6 +12787,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         quays?.destroyAll();   // QUAYS: and the quays, off the harbours found again
         camps.dropOwn();   // AUDIT SURV-TIERS (the third pass): the save says which camps are mine - the pitch after it is undone, not kept beside the gear it gave back
         camps.restore(restandAt('pos')(w.camps), campFromNatives);   // SURV3
+        portalGates.clear();   // PORTAL1: a load ends every portal standing - the save's pack is the truth
         // F216/F217: the pools re-mint through their one spawn chain,
         // then overlay the saved truth (SerializableEnemy's own
         // rebuild-then-set shape). Async behind the art; the teleport
@@ -13223,6 +13239,43 @@ export async function bootWorld(canvas, renderer, params, status) {
     });
     win?.activateTeleportationTravel();
     return win;
+  }
+  /** PORTAL1 (systems/portalStone.js): A PORTAL STONE USED - in the open world alone (a building's pack is this host's
+   *  too), never with an enemy near (the travel map's own pool) or a move under way, and one portal of mine at a time.
+   *  The travel map opens in teleport mode - the Mages Guild's, with no Travel Options fee: the stone is the fare - and a
+   *  place picked there spends ONE stone (standPortal). A map closed without a pick spends nothing. Answers false when
+   *  refused (the hotbar's refusal), the refusal said. */
+  function openPortalStone(item, list) {
+    const refuse = (line) => { townTalk.say(line); return false; };
+    if (_mode() !== 'exterior') return refuse(PORTAL_TEXT.notHere);
+    if (worldMoveBusy() || _teleporting || !(playerEntity.health > 0)) return refuse(PORTAL_TEXT.busy);
+    if (duelEnemyNear() || areEnemiesNearby([...cityGuards.guards, ...exteriorFoes.foes]) || navalHostileNear()) return refuse(PORTAL_TEXT.enemies);
+    if (portalGates.mine()) return refuse(PORTAL_TEXT.standing);
+    if (!travelMapDoorReady()) return refuse(PORTAL_TEXT.noMap);
+    // the list it came from, read again at the pick - a load in between stands a new one (AUDIT PRE-MERGE 0928 S2's law)
+    const live = list === playerEntity.wagonItems ? () => playerEntity.wagonItems : () => playerEntity.items;
+    const win = buildTravelMapWindow({
+      travelOptions: () => null,   // the stone is the fare - never Travel Options' teleport fee
+      onTeleport: (pick) => { standPortal(pick, item, live); },
+    });
+    if (!win) return refuse(PORTAL_TEXT.noMap);
+    win.activateTeleportationTravel();
+    townTalk.showOverlay(win);
+    return true;
+  }
+  /** The pick: asked again (the world may have moved while the map stood), ONE stone spent, the portal torn open
+   *  PORTAL_AHEAD in front of the player on the ground there, and - online - the next foes frame owed full, so the cell
+   *  hears of it at once. The classic teleport box smashed the screen to black for an arrival that is not coming yet. */
+  function standPortal(pick, item, live) {
+    hudFade.fadeHUDFromBlack();
+    if (!pick?.pixel || _mode() !== 'exterior' || worldMoveBusy() || portalGates.mine()) { townTalk.say(PORTAL_TEXT.busy); return; }
+    if (!spendPortalStone(item, live())) { townTalk.say(PORTAL_TEXT.gone); return; }
+    const feet = walkMode && playerSpawned ? player.feetAt() : cam.pos;
+    const at = portalSpot(feet, cam.yaw, (o, d, m) => collider.surfaceHit(o, d, m)?.dist);   // the ground there (a mesh or the terrain, whichever is nearer - CAMP-GROUND's probe)
+    portalGates.open(at, { pixel: { x: pick.pixel.x, y: pick.pixel.y }, name: pick.name });
+    _foesFullAt = -Infinity;
+    surfacePlayer();
+    townTalk.say(PORTAL_TEXT.opened(pick.name));
   }
 
   // ── TO1: TRAVEL OPTIONS ────────────────────────────────────────────
@@ -15430,7 +15483,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10937-11001 -
+  // worldModes answers it in BOTH modes (worldModes.js:10965-11029 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -17043,7 +17096,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const seaRaidMoved = cell && seaRaidWord(null, full);   // OW6: and a raider's at sea
     const frame = cell ? ((modes?.mode ?? 'exterior') === 'exterior' ? exteriorFoes.foesFrame(full, _hccDirty || csaMoved || csaAboardMoved || bandMoved || navalMoved || seaRaidMoved) : null) : modes?.dungeonFoesFrame?.(full);
     if (!frame) return false;
-    if (cell && full) frame.c = camps.wireRecords(campToWire); if (cell && (full || _hccDirty)) { frame.hv = hcc.wireRecord(campToWire); _hccDirty = false; } if (cell) duelRingWord(frame, full); if (cell) csaWord(frame, full); if (cell) csaAboardWord(frame, full); if (cell) bandWord(frame, full); if (cell) navalWord(frame, full); if (cell) seaRaidWord(frame, full); if (cell) { const rk = raidWireWord(); if (rk) frame.rk = rk; }   // HCC-ONLINE: my horse and wagon as shown (null: none stand) ride beside the camps - on every full frame, and on a moved word between them   // AUDIT SURV B: an empty list says "none stand" - the last camp packed reaches the peers   // SURV3: my camps ride my full frame - a shared world object in the cell's own way; RAID2: my word on the raids I run or fought - my share of their deaths, and my claim
+    if (cell && full) frame.c = camps.wireRecords(campToWire); if (cell && (full || _hccDirty)) { frame.hv = hcc.wireRecord(campToWire); _hccDirty = false; } if (cell) duelRingWord(frame, full); if (cell) csaWord(frame, full); if (cell) csaAboardWord(frame, full); if (cell) bandWord(frame, full); if (cell) navalWord(frame, full); if (cell) seaRaidWord(frame, full); if (cell) { const rk = raidWireWord(); if (rk) frame.rk = rk; } if (cell) portalWord(frame, full);   // HCC-ONLINE: my horse and wagon as shown (null: none stand) ride beside the camps - on every full frame, and on a moved word between them   // AUDIT SURV B: an empty list says "none stand" - the last camp packed reaches the peers   // SURV3: my camps ride my full frame - a shared world object in the cell's own way; RAID2: my word on the raids I run or fought - my share of their deaths, and my claim; PORTAL1: my portal, on every full frame while it stands and I stand near it
     if (!online.sendFoes(frame)) { _foesFullAt = -Infinity; return false; }   // AUDIT WORLD2 A9: a refused frame's deltas were already committed - the next frame carries every foe
     if (full) _foesFullAt = now;
     return true;
@@ -17626,6 +17679,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // take no blow), and my copy of the quest counts the injury and the kill it sees on a partner's foe
     exteriorFoes.setOnRaids((from, rk, at) => raidPeerWord(from, rk, at));   // RAID2: a peer's word on the raids it fought, past the pool's room test
     exteriorFoes.setQuestShare(questShareSeam);   // QUEST-PARTY: the party's law, one home (questShareSeam)
+    exteriorFoes.setOnPortals((from, r) => { portalGates.applyOwner(from, r); });   // PORTAL1: a peer's portal, kept until its own time runs out
     exteriorFoes.setOnDuel((from, r, at) => { const rec = r === null ? null : validRingRecord(r); if (rec) _duelRings.set(from, { rec, at }); else _duelRings.delete(from); }, () => _duelRings.clear());   // DUEL1: a peer's ring, for the wall
     online.onPark = (room, e) => hcc.applyKept(room, e, campToScene, performance.now());   // HCC-PARK: a cell's word about a parked team (mine or a halo's cell), its owner here or not
     online.onParks = (room, list) => hcc.replaceKept(room, list, campToScene, performance.now());   // HCC-PARK: and a cell's whole memory, after its welcome   // HCC-ONLINE: a peer's horse and wagon, the same frame, the same room test, through validHccRecord; and the peers' teams go wherever the pool's puppets go (a room change, a leave)
@@ -19416,6 +19470,14 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!player.arena && modes?.gateArenaDay?.() != null) { _courtArena.xa = gateLink?.state()?.xa ?? _gateFloor.none; _courtArena.now = Date.now() + _sharedOffsetMs; player.arena = _courtArena; }
     if (!player.arena) player.arena = arenaBouts.ring(); if (!player.arena) { const s = arenaOnline?.session?.(); player.arena = standsRail(modes?.arenaFloorStage?.()?.centre?.() ?? null, player.feetAt()[1], !!s && (s.state ? s.state.h === 1 : !!s.host)); }   // ARENA2: my bout's ring on the arena's sand (the duel's clamp); HOTFIX 1003i: else the stands' rail - no watcher jumps down onto the sand (the session's host may)
     duelPrompt?.render();
+  };
+  /** PORTAL1 (systems/portalStone.js): MY PORTAL, FOR THE CELL, on my foes frame (portalWire's shape): on every FULL frame
+   *  while it stands and I stand near it (a joiner learns it within FOES_FULL_MS; opening one owes the next frame full).
+   *  A frame without it leaves the peers' copies to run out on their own time - nothing is said when it closes. */
+  const portalWord = (frame, full) => {
+    if (!full) return;
+    const pg = portalGates.wireRecord(campToWire(walkMode && playerSpawned ? player.feetAt() : cam.pos));
+    if (pg) frame.pg = pg;
   };
   /** DUEL1: THE RING I DUEL IN, FOR THE ONLOOKERS, on my foes frame (validRingRecord's shape): on every FULL frame while it
    *  stands (a joiner learns it within FOES_FULL_MS) and once more, as null, when it comes down; a frame without it leaves
@@ -27012,6 +27074,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     livePersonBatches.push(...hitEffects.batches());
     // HT1: the dropped torches burn, the thrown one flies, a burning foe's flame follows it (the transition sweep is at the mode branch above, AUDIT 66 F11)
     if (_mode() === 'exterior') { droppedTorches.tick(dt); livePersonBatches.push(...droppedTorches.batches()); camps.tick(dt); livePersonBatches.push(...camps.batches()); livePersonBatches.push(...navalFlames.batches()); }   // SURV3: the fires burn on the same axis; NAV-B: and a burning ship's
+    portalGates.tick(_mode() === 'exterior' && walkMode && playerSpawned ? player.feetAt() : null, { canEnter: !worldMoveBusy() && !_teleporting && playerEntity.health > 0 });   // PORTAL1: the portals run out, and a step in is an arrival - indoors nobody steps in
+    if (_mode() === 'exterior') livePersonBatches.push(...portalGates.batches());   // PORTAL1: the vortexes on the flats' axis
     if (sigilBroker && _mode() === 'exterior') livePersonBatches.push(...sigilBroker.batches());   // SET7: the Broker on the flats' axis, as a foe stands
     if (riteHost && _mode() === 'exterior') { riteHost.tick(dt); livePersonBatches.push(...riteHost.batches()); }   // WB12d: the braziers' flames and the faithful's fire
     // HCC: the horse billboards on the flats' axis (the runtime ticked above, hccTick - AUDIT HCC H1)

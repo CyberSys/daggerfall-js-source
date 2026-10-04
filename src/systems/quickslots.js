@@ -365,7 +365,11 @@ function useQuickslotNow(slot, { entity = null, items = null, hooks = {}, say = 
     if (hooks.placeCamp(res.item ?? r.item, pack) === false) return { kind: 'refused', name: r.name, result: res };
     return { kind: 'used', name: r.name, result: res };
   }
-  if ((res?.kind === 'book' || res?.kind === 'spellbook' || res?.kind === 'pitchCamp' || res?.kind === 'placeFire') && USE_PENDING[res.kind]) {
+  if (res?.kind === 'openPortal' && typeof hooks.openPortal === 'function') {   // PORTAL1: the host's travel map, or its refusal in words
+    if (hooks.openPortal(res.item ?? r.item, pack) === false) return { kind: 'refused', name: r.name, result: res };
+    return { kind: 'used', name: r.name, result: res };
+  }
+  if ((res?.kind === 'book' || res?.kind === 'spellbook' || res?.kind === 'pitchCamp' || res?.kind === 'placeFire' || res?.kind === 'openPortal') && USE_PENDING[res.kind]) {
     say?.(USE_PENDING[res.kind]);
     return { kind: 'refused', name: r.name, result: res };
   }

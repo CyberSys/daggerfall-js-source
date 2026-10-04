@@ -45,6 +45,7 @@ import { drawScreenDimBackdrop } from './chargenArt.js';
 import { audio } from '../systems/audio.js';   // F141: the ButtonClick roster
 import { SOUND } from '../systems/soundClips.js';
 import { firstHotkey } from '../systems/dialogShortcuts.js';   // A8: the DaggerfallShortcut table
+import { portalRowRect, PORTAL_ROW_KEY, drawPortalRow } from './merchantServiceWindow.js';   // PORTAL1: the Portal Stone's row, the shop popups' one
 
 /** The window's DaggerfallShortcut.Buttons in ctor ADD order (:82-103),
  *  which is the order Panel.ProcessHotkeySequences asks them in. */
@@ -99,6 +100,7 @@ export class MerchantRepairWindow {
   input(code, e = null) {
     // Escape/Enter are the port host's close keys, not DFU buttons.
     if (code === 'Escape' || code === 'Enter') { this._act(null); return; }
+    if (code === PORTAL_ROW_KEY && this.hooks.portal) { this._act(this.hooks.portal.onBuy); return; }   // PORTAL1
     const hit = firstHotkey(MERCHANT_REPAIR_BUTTONS, code, e);
     if (hit === null) return;
     switch (hit) {
@@ -114,15 +116,17 @@ export class MerchantRepairWindow {
     if (inRect(REPAIR_RECTS.talk, vx, vy)) { this._act(this.hooks.onTalk); return true; }
     if (inRect(REPAIR_RECTS.sell, vx, vy)) { this._act(this.hooks.onSell); return true; }
     if (inRect(REPAIR_RECTS.exit, vx, vy)) { this._act(null); return true; }
+    if (this.hooks.portal && inRect(portalRowRect(REPAIR_PANEL_H), vx, vy)) { this._act(this.hooks.portal.onBuy); return true; }   // PORTAL1
     return true;   // the panel eats its own clicks
   }
 
-  draw(renderer, canvas) {
+  draw(renderer, canvas, font = null) {
     if (!_art) { this._close(); return; }   // art gone mid-session: release the slot
     const m = nativeMetrics(canvas);
     // AUDIT 26 F136 / AUDIT 24 ui: `ParentPanel.BackgroundColor =
     // Color.clear` (:62) - the letterbox is NOT painted, the room shows.
     drawScreenDimBackdrop(renderer, canvas);
     drawImg(renderer, _art, m, REPAIR_PANEL_X, REPAIR_PANEL_Y);
+    if (this.hooks.portal && font) drawPortalRow(renderer, m, font, REPAIR_PANEL_X, REPAIR_PANEL_Y, REPAIR_PANEL_H, this.hooks.portal.label);   // PORTAL1
   }
 }

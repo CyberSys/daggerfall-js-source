@@ -1,0 +1,362 @@
+[
+  {
+    "name": "PORTAL1-stone-unbound",
+    "file": "src/systems/gateSpoils.js",
+    "old": "  bound: true, stackable: true,   // the shard's two laws",
+    "new": "  stackable: true,   // the shard's two laws",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-stone-unstacked",
+    "file": "src/systems/gateSpoils.js",
+    "old": "  bound: true, stackable: true,   // the shard's two laws",
+    "new": "  bound: true,   // the shard's two laws",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-stone-a-gem",
+    "file": "src/systems/gateSpoils.js",
+    "old": "group: 'UselessItems2', templateIndex: PORTAL_STONE_TEMPLATE",
+    "new": "group: 'Gems', templateIndex: PORTAL_STONE_TEMPLATE",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-stone-unregistered",
+    "file": "src/systems/gateSpoils.js",
+    "old": "registerCustomTemplates(PORTAL_STONE_TEMPLATES);",
+    "new": "void PORTAL_STONE_TEMPLATES;",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-stone-unlisted",
+    "file": "src/net/realmTradeLaw.js",
+    "old": "Object.freeze([570, 571, 572]);",
+    "new": "Object.freeze([570, 571]);",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-price-four",
+    "file": "src/systems/portalStone.js",
+    "old": "export const PORTAL_STONE_SHARDS = 5;",
+    "new": "export const PORTAL_STONE_SHARDS = 4;",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-heavy-never-refused",
+    "file": "src/systems/portalStone.js",
+    "old": "  if (!canCarry(portalStones(1), packAfterShards(items))) return 'heavy';",
+    "new": "  if (false) return 'heavy';",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-carry-gate-sees-the-full-pack",
+    "file": "src/systems/portalStone.js",
+    "old": "canCarry(portalStones(1), packAfterShards(items))",
+    "new": "canCarry(portalStones(1), items)",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-sale-takes-no-shards",
+    "file": "src/systems/portalStone.js",
+    "old": "  spendShards(items, PORTAL_STONE_SHARDS);\n  const item = portalStones(1);",
+    "new": "  const item = portalStones(1);",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-use-unrouted",
+    "file": "src/systems/portalStone.js",
+    "old": "registerItemUseHandler(PORTAL_STONE_TEMPLATE, (item) => ({ kind: 'openPortal', item }));",
+    "new": "void registerItemUseHandler;",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-pick-spends-the-stack",
+    "file": "src/systems/portalStone.js",
+    "old": "  if ((item.stackCount ?? 1) > 1) item.stackCount -= 1;",
+    "new": "  if (false) item.stackCount -= 1;",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-pick-spends-a-stranger",
+    "file": "src/systems/portalStone.js",
+    "old": "  if (!isPortalStone(item) || !Array.isArray(list) || !list.includes(item)) return false;",
+    "new": "  if (!Array.isArray(list)) return false;",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-spot-behind",
+    "file": "src/systems/portalStone.js",
+    "old": "  const x = feet[0] + Math.sin(yaw) * PORTAL_AHEAD, z = feet[2] + Math.cos(yaw) * PORTAL_AHEAD;",
+    "new": "  const x = feet[0] - Math.sin(yaw) * PORTAL_AHEAD, z = feet[2] - Math.cos(yaw) * PORTAL_AHEAD;",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-spot-floats",
+    "file": "src/systems/portalStone.js",
+    "old": "  return [x, Number.isFinite(d) && d <= 3 ? top - d : feet[1], z];",
+    "new": "  return [x, feet[1], z];",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-opens-on-someone",
+    "file": "src/systems/portalStone.js",
+    "old": "  return { inside, entered: inside && was === false };",
+    "new": "  return { inside, entered: inside && was !== true };",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-over-it-is-in-it",
+    "file": "src/systems/portalStone.js",
+    "old": " && Math.abs(feet[1] - at[1]) <= PORTAL_REACH_Y;",
+    "new": ";",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-wire-says-the-name",
+    "file": "src/systems/portalStone.js",
+    "old": "d: [gate.dest.pixel.x, gate.dest.pixel.y], r:",
+    "new": "d: [gate.dest.pixel.x, gate.dest.pixel.y], n: gate.dest.name, r:",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-wire-time-unbounded",
+    "file": "src/systems/portalStone.js",
+    "old": "  if (!Number.isFinite(r.r) || r.r <= 0 || r.r > PORTAL_OPEN_MS) return null;",
+    "new": "  if (!Number.isFinite(r.r) || r.r <= 0) return null;",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-wire-off-the-map",
+    "file": "src/systems/portalStone.js",
+    "old": "  if (r.d[0] < 0 || r.d[0] >= MAX_MAP_PIXEL_X || r.d[1] < 0 || r.d[1] >= MAX_MAP_PIXEL_Y) return null;",
+    "new": "  if (r.d[0] < 0 || r.d[1] < 0) return null;",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-wire-carries-anything",
+    "file": "src/systems/portalStone.js",
+    "old": "  return { i: r.i, p: [r.p[0], r.p[1], r.p[2]], d: [r.d[0], r.d[1]], r: r.r };",
+    "new": "  return r;",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-pool-busy-lets-through",
+    "file": "src/scenes/portalGates.js",
+    "old": "if (!entered && step.entered && canEnter && t < g.until - PORTAL_MS.close) entered = g;",
+    "new": "if (!entered && step.entered && t < g.until - PORTAL_MS.close) entered = g;",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-pool-off-foot-forgets-nothing",
+    "file": "src/scenes/portalGates.js",
+    "old": "      if (!feet) { g.was = null; continue; }",
+    "new": "      if (!feet) continue;",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-pool-nameless-kept",
+    "file": "src/scenes/portalGates.js",
+    "old": "    if (!r || !dest) return false;",
+    "new": "    if (!r) return false;",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-pool-two-of-a-peer",
+    "file": "src/scenes/portalGates.js",
+    "old": "    if (old) drop(old);\n",
+    "new": "",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-pool-two-of-mine",
+    "file": "src/scenes/portalGates.js",
+    "old": "    for (const g of gates.filter((x) => x.owner === null)) drop(g);\n",
+    "new": "",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-pool-never-runs-out",
+    "file": "src/scenes/portalGates.js",
+    "old": "      if (t >= g.until) { drop(g); continue; }",
+    "new": "      if (false) { drop(g); continue; }",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-pool-said-far",
+    "file": "src/scenes/portalGates.js",
+    "old": "> PORTAL_SAY_REACH) return null;",
+    "new": "> Infinity) return null;",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-pool-scene-frame-kept",
+    "file": "src/scenes/portalGates.js",
+    "old": "native: toWire(pos), dest, until",
+    "new": "native: pos, dest, until",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-vortex-follows-the-eye",
+    "file": "src/scenes/portalFx.js",
+    "old": "      if (p.fixed) { p.origin[0] = p.feet[0]; p.origin[2] = p.feet[2]; }   // PORTAL1: a gate stands where it opened\n      else if (eye) {",
+    "new": "      if (eye) {",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-vortex-hold-ignored",
+    "file": "src/scenes/portalFx.js",
+    "old": "  const hold = Number.isFinite(holdMs) ? Math.max(0, holdMs) : short ? PORTAL_MS.shortHold : PORTAL_MS.hold;",
+    "new": "  const hold = short ? PORTAL_MS.shortHold : PORTAL_MS.hold;",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-row-key-without-a-row",
+    "file": "src/ui/merchantServiceWindow.js",
+    "old": "    if (code === PORTAL_ROW_KEY && this.hooks.portal) this._portal();",
+    "new": "    if (code === PORTAL_ROW_KEY) this._portal();",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-row-buys-before-it-closes",
+    "file": "src/ui/merchantServiceWindow.js",
+    "old": "  _portal() { this._click(); this._close(); this.hooks.portal?.onBuy?.(); }",
+    "new": "  _portal() { this._click(); this.hooks.portal?.onBuy?.(); this._close(); }",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-repair-row-on-the-art",
+    "file": "src/ui/merchantRepairWindow.js",
+    "old": "inRect(portalRowRect(REPAIR_PANEL_H), vx, vy)",
+    "new": "inRect(portalRowRect(REPAIR_PANEL_H - 9), vx, vy)",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-a-teller-sells-stones",
+    "file": "src/scenes/worldModes.js",
+    "old": "portal: banking || custom ? undefined : portalRow(),",
+    "new": "portal: portalRow(),",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-no-shop-check",
+    "file": "src/scenes/worldModes.js",
+    "old": "const portalRow = () => (mode === 'interior' && isShop(interiorBuilding?.buildingType)",
+    "new": "const portalRow = () => (mode === 'interior'",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-the-door-reads-the-wrong-words",
+    "file": "src/systems/useItem.js",
+    "old": "  openPortal: 'A portal can only be opened under the open sky.',",
+    "new": "  openPortal: 'There is nowhere to set that up here.',",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-hotbar-door-ignored",
+    "file": "src/systems/quickslots.js",
+    "old": "    if (hooks.openPortal(res.item ?? r.item, pack) === false) return { kind: 'refused', name: r.name, result: res };\n",
+    "new": "    hooks.openPortal(res.item ?? r.item, pack);\n",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-enhanced-reader-says-pending",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "    return openPortal\n      ? { kind: 'openPortal', item: r.item, closeFirst: true }",
+    "new": "    return false\n      ? { kind: 'openPortal', item: r.item, closeFirst: true }",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-frame-never-heard",
+    "file": "src/scenes/exteriorFoes.js",
+    "old": "    if (data.pg !== undefined) _onPortals?.(from, data.pg);",
+    "new": "    void _onPortals;",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  },
+  {
+    "name": "PORTAL1-a-load-keeps-portals",
+    "file": "src/scenes/world.js",
+    "old": "        portalGates.clear();   // PORTAL1: a load",
+    "new": "        // portalGates.clear();   // PORTAL1: a load",
+    "tests": [
+      "test/portal1_stone.test.js"
+    ]
+  }
+]
