@@ -20,3 +20,5 @@ export const TELL_NEAR_M = 6;
 export const TELL_NEAR_FLOOR = 0.6;
 /** TELL3 (section 5): an IRON blow's wind-up runs this much longer than its shape's. */
 export const TELL_IRON_EXTRA = 0.2;
+/** TELL5 (7.3): a cut feint's mark fades out, dashed, over this (s). */
+export const TELL_FEINT_FADE = 0.15;

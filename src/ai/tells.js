@@ -15,7 +15,7 @@
 import { weaponSkillUsed } from '../characters/weapons.js';
 import { SKILLS } from '../systems/skills.js';
 import { getItemHands, ITEM_HANDS } from '../characters/equipTable.js';
-import { TELL_NOW, TELL_NEAR_M, TELL_NEAR_FLOOR, TELL_IRON_EXTRA } from './blowShapes.js';   // TELL2: the ground's numbers, homed in the leaf the renderer reads; TELL3: the iron wind-up's extra
+import { TELL_NOW, TELL_NEAR_M, TELL_NEAR_FLOOR, TELL_IRON_EXTRA, TELL_FEINT_FADE } from './blowShapes.js';   // TELL2: the ground's numbers, homed in the leaf the renderer reads; TELL3: the iron wind-up's extra
 
 /** Every TELL number on one table (section 27). Seconds, shares, multipliers. */
 export const TELL = Object.freeze({
@@ -73,6 +73,23 @@ export const TELL = Object.freeze({
   TELL_LATE: 0.25,              // the feet sampled this long before the landing: inside then, outside at it, a perfect dodge
   PERFECT_WINDOW: 1.5,          // ...whose window is this much longer
   PERFECT_PITCH: 1.25,          // ...and whose parry ring is bright (SOUND.Parry6)
+  // TELL5: patterns - the length, the tracking, the feint, the chain
+  WINDUP_VARY: Object.freeze([0.9, 1.25]),   // a wind-up's length: its shape's times U(these), drawn at its start
+  WINDUP_ELITE: 0.9,            // ...an elite's times this
+  WINDUP_RANK: 0.03,            // ...a revenant's less this a rank
+  TELL_MIN_WINDUP: 0.55,        // ...never under this (iron's extra after)
+  TRACKERS: Object.freeze(['lunge', 'charge']),   // the shapes that turn after their target
+  TRACK_RATE: 120,              // degrees a second
+  TRACK_SHARE: 0.5,             // through this share of the wind-up, then locked
+  FEINT_CHANCE: 1 / 5,          // a higher-tier blade's wind-up, one in this
+  FEINT_AT: 0.55,               // the mark fills to here, then is cut
+  FEINT_GAP: 3,                 // never two feints within this many wind-ups
+  FEINT_FADE: TELL_FEINT_FADE,  // the cut mark fades out dashed over this (ai/blowShapes.js)
+  CHAIN_CHANCE: 0.35,           // at a landing, a second blow at once
+  CHAIN_WINDUP: 0.5,            // its wind-up...
+  CHAIN_FLOOR: 0.45,            // ...never under this
+  CHAIN_GAP: 0.15,              // the landing's strike drawn before the chain winds up (a frame step and a margin)
+  CHAIN_NEXT: Object.freeze({ sweep: 'lunge', lunge: 'sweep', slam: 'sweep', ring: 'slam' }),   // a sweep then a lunge; a slam then a sweep; a ring then a slam
 });
 
 /** The weight class of a foe of `weight` classic units. */
@@ -167,13 +184,13 @@ export function glintStrength(sinceStart, toLand, reduced = false) {
 }
 
 /** TELL3 (section 5): a blow's guard as it is wound up - 'iron' for the slam and the ring of a heavy or massive body
- *  (`weight` DFU's, in classic units), and one blow in IRON_ELITE from an elite (`ent.eliteFoe`, the ELITE FOES system);
- *  else 'poise'. `roll` in [0, 1), drawn only for an elite. The revenant's iron (its signature from rank 3, a last stand,
+ *  (`weight` DFU's, in classic units), and one blow in IRON_ELITE from an elite (`isElite`: the ELITE FOES gold or an
+ *  Elite Dungeon's - section 9's reading of the word, taken at TELL5); else 'poise'. `roll` in [0, 1), drawn only for an elite. The revenant's iron (its signature from rank 3, a last stand,
  *  a Steadfast one) joins with the slices that make them (RVN2, RVN4, RVN5). */
 export function blowGuard(kind, weight, ent = null, roll = null) {
   const cls = weightClass(weight);
   if (TELL.IRON_SHAPES.includes(kind) && (cls === 'heavy' || cls === 'massive')) return 'iron';
-  if (ent?.eliteFoe === true && (roll ?? Math.random()) < TELL.IRON_ELITE) return 'iron';
+  if (isElite(ent) && (roll ?? Math.random()) < TELL.IRON_ELITE) return 'iron';
   return 'poise';
 }
 
@@ -182,4 +199,50 @@ export function blowGuard(kind, weight, ent = null, roll = null) {
 export function punishSeconds(kind, guard = 'poise', perfect = false) {
   const base = TELL.PUNISH_S[kind] ?? TELL.PUNISH_S.lunge;
   return (base + (guard === 'iron' ? TELL.PUNISH_IRON : 0)) * (perfect ? TELL.PERFECT_WINDOW : 1);
+}
+
+// ── TELL5: PATTERNS (bible/12-Enhanced-AI/Feud-Arc.md section 7) ─────────────────────────────────────────────────
+/** An elite: the ELITE FOES gold or an Elite Dungeon's (section 9's "an elite (`elite`, `eliteFoe`)"). */
+export const isElite = (ent) => ent?.eliteFoe === true || ent?.elite === true;
+/** The revenant's rank (0 for none). */
+export const revenantRank = (ent) => (Number.isFinite(ent?.revenant?.rank) ? ent.revenant.rank : 0);
+/** The higher tier (7.3): an elite, a champion, a revenant of rank 2 or more - never an ordinary level-10 foe. */
+export const higherTier = (ent) => isElite(ent) || !!ent?.champion || revenantRank(ent) >= 2;
+
+/** TELL5 (7.1): a wind-up's length - its shape's `base` (s) times U(WINDUP_VARY) (`roll` in [0, 1)), an elite's
+ *  x WINDUP_ELITE, a revenant's x(1 - WINDUP_RANK a rank); iron's extra after; never under `floor`. A chain's passes its
+ *  own base and floor and `roll` null (no draw: a chain is quick by law). The fill runs on it, so the mark tells the truth.
+ *  @param {number} base @param {object|null} [ent] @param {{ guard?: string, roll?: number|null, floor?: number }} [opts] */
+export function windupSeconds(base, ent = null, { guard = 'poise', roll = Math.random(), floor = TELL.TELL_MIN_WINDUP } = {}) {
+  const [lo, hi] = TELL.WINDUP_VARY;
+  let w = base * (roll == null ? 1 : lo + (hi - lo) * roll);
+  if (isElite(ent)) w *= TELL.WINDUP_ELITE;
+  const rank = revenantRank(ent);
+  if (rank > 0) w *= 1 - TELL.WINDUP_RANK * rank;
+  if (guard === 'iron') w += TELL.IRON_EXTRA;
+  return Math.max(floor, w);
+}
+/** TELL5 (7.3): may this foe feint - a blade of the higher tier - now (`sinceFeint` wind-ups since its last)? */
+export function feints(family, ent, sinceFeint = Infinity) {
+  return family === 'blade' && higherTier(ent) && sinceFeint >= TELL.FEINT_GAP;
+}
+/** TELL5 (7.4): may this foe chain - a brute of the higher tier, an elite, a revenant of rank 3 or more - with two shapes
+ *  or more to chain between? */
+export function chains(family, ent, shapes) {
+  if (!Array.isArray(shapes) || shapes.length < 2) return false;
+  return (family === 'brute' && higherTier(ent)) || isElite(ent) || revenantRank(ent) >= 3;
+}
+/** TELL5 (7.4): the chain's next shape - its law's (a sweep then a lunge; a slam then a sweep; a ring then a slam), or
+ *  any other of its own. */
+export function chainShape(prev, shapes) {
+  const want = TELL.CHAIN_NEXT[prev];
+  if (want && shapes.includes(want)) return want;
+  return shapes.find((k) => k !== prev) ?? null;
+}
+/** TELL5 (7.2): `yaw` turned toward `want` by at most TRACK_RATE x `dt` (radians, the short way). */
+export function trackYaw(yaw, want, dt) {
+  let d = want - yaw;
+  d = Math.atan2(Math.sin(d), Math.cos(d));
+  const max = (TELL.TRACK_RATE * Math.PI / 180) * Math.max(0, dt);
+  return yaw + Math.max(-max, Math.min(max, d));
 }

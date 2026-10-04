@@ -143,8 +143,8 @@
   {
     "name": "TELL2-wind-never-raised",
     "file": "src/ai/tactics.js",
-    "old": "      ai._blowHold = true; ai._blowWind = true;   // TELL2",
-    "new": "      ai._blowHold = true; ai._blowWind = false;   // TELL2",
+    "old": "  ai._blowHold = true; ai._blowWind = true;   // TELL2",
+    "new": "  ai._blowHold = true; ai._blowWind = false;   // TELL2",
     "tests": [
       "test/tell2_tell.test.js",
       "test/tact4.test.js"
@@ -302,8 +302,8 @@
   {
     "name": "TELL2-break-lands",
     "file": "src/scenes/hostCombat.js",
-    "old": "    c.land = landed && (ai._blowHold === false || ai._blowHold === 'spent');",
-    "new": "    c.land = true;",
+    "old": "    c.land = (landed && (ai._blowHold === false || ai._blowHold === 'spent'))",
+    "new": "    c.land = (true)",
     "tests": [
       "test/tell2_tell.test.js"
     ]

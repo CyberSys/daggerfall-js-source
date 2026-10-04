@@ -6,7 +6,7 @@ these enemies and breath more depth into it"*; then, on the sixteen ideas offere
 detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
-(section 30's order) - TELL1 to TELL4 built; each slice's record is at the foot.**
+(section 30's order) - TELL1 to TELL5 built; each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -1193,8 +1193,9 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
 - **Who throws iron** - `ai/tells.js blowGuard(kind, weight, ent, roll)`: the slam and the ring (`TELL.IRON_SHAPES`; the
   ring is TELL6's) of a heavy or massive body by DFU's own weight - the Giant, the Orc Warlord (700, heavy at the
   bound), the Daedra Lord and the Iron and Flesh Atronachs; the Daedroth's, the Gargoyle's and the Dreugh's slams stay
-  poise - and one blow in three (`TELL.IRON_ELITE`) from an elite, read as the ELITE FOES gold (`entity.eliteFoe`), not
-  the Elite Dungeon's doubling; the roll drawn only for an elite whose shape has not decided. The brain
+  poise - and one blow in three (`TELL.IRON_ELITE`) from an elite (first read as the ELITE FOES gold alone; read again at
+  TELL5 by section 9's "an elite (`elite`, `eliteFoe`)" - an Elite Dungeon's foe too); the roll drawn only for an elite
+  whose shape has not decided. The brain
   (`ai/tactics.js`) asks it as it winds up, with the kind's own weight (no class throws an iron shape), and colours the
   blow by it. The revenant's iron (its signature from rank 3, a last stand, a Steadfast one) joins with RVN2, RVN4 and
   RVN5, in `blowGuard`.
@@ -1256,3 +1257,42 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
   answered overreach. Mutant records re-aimed by content: `audittact` D6, `tact4` (two), `tell1` (seven), `tell2`
   (four).
 - Mutants `tools/mutants/tell4.json` (40), all dead.
+
+### TELL5 - BUILT 2026-10-04 (the Enhanced AI switch on, every host)
+
+- **The law** - `ai/tells.js`: `WINDUP_VARY` [0.9, 1.25], `WINDUP_ELITE` 0.9, `WINDUP_RANK` 0.03, `TELL_MIN_WINDUP`
+  0.55; `TRACKERS` (lunge, charge), `TRACK_RATE` 120 degrees a second, `TRACK_SHARE` 0.5; `FEINT_CHANCE` 1/5,
+  `FEINT_AT` 0.55, `FEINT_GAP` 3, `FEINT_FADE` 0.15 (homed in `ai/blowShapes.js`, the ground reads it); `CHAIN_CHANCE`
+  0.35, `CHAIN_WINDUP` 0.5, `CHAIN_FLOOR` 0.45, `CHAIN_GAP` 0.15, `CHAIN_NEXT` (a sweep then a lunge, a lunge then a
+  sweep, a slam then a sweep, a ring then a slam). `isElite` (either flag - section 9's reading; TELL3's iron read
+  again by it), `revenantRank`, `higherTier` (an elite, a champion, a revenant of rank 2), `windupSeconds`, `feints`,
+  `chains`, `chainShape`, `trackYaw`. `ai/foeBlows.js blowFamily`; `makeBlow`'s drawn `windup`.
+- **Length** - every wind-up's drawn at its start (`beginWindup`, `ai/tactics.js`): the shape's x U(0.9, 1.25), an
+  elite's x0.9, a revenant's x(1 - 0.03 a rank), iron's 0.2 s after, never under 0.55 s; the fill runs on it. A last
+  stand's x0.85 joins with RVN4.
+- **Tracking** - a lunge turns its mark after my feet at up to 120 degrees a second through the first half of its
+  wind-up, the foe facing it, then locks; a sweep and a slam lock at their start. The charge tracks when TELL6 brings
+  it. A Patient revenant's 0.7 joins with RVN2.
+- **Feints** - a blade of the higher tier, one wind-up in five (never two within three; never a chain's blow): the mark
+  fills to 0.55 of its drawn length, then (the brain's next turn past it) the foe cuts it and its held swing goes at
+  once as a plain DFU blow - no verdict (`blowConnects` answers DFU's reach), no weight, no overreach. The mark freezes
+  and fades out dashed over 0.15 s (`blowPhase`'s `cut`; `render/foeTelegraph.js uCut`); a cut feint is no wind-up near
+  the player. No glint and no WIND (TELL2); the plain blow's strike sounds as a LAND. A Patient revenant's one in three
+  joins with RVN2.
+- **Chains** - a brute of the higher tier, an elite (any family) or a revenant of rank 3, with two shapes or more: at a
+  landing at me, hit or miss, one in `CHAIN_CHANCE` holds `CHAIN_GAP` (its strike drawn - the sprite's frame step - and
+  its token kept) and winds up its law's next shape from the new facing, `CHAIN_WINDUP` long (an elite's and a
+  revenant's quicker, never under `CHAIN_FLOOR`; iron's extra after). The landed blow stays its foe's one wind-up near
+  me through the gap (`windupNear`'s `chainUntil`); the punish window opens only after the chain's last blow; a break
+  ends it; a knock, a paralysis or a target turned away in the gap spends it. A chain is two blows; a last stand's three
+  join with RVN4.
+- **Not built here** - the charge's tracking and its chain (TELL6); a revenant's Patient and last-stand numbers (RVN2,
+  RVN4); a peer's (TELL8).
+- Pins `test/tell5_patterns.test.js` (10): the lengths; the tiers and the families; the turn; ON THE MOTOR a drawn
+  length (an elite's quicker), a lunge tracking then locking with its foe turning, a sweep never turning, a feint cut
+  into a plain blow (no verdict, no weight, no overreach, its fade, no wind-up near, none from an ordinary orc), a chain
+  (its gap, its law's shape from the new facing, quick, the window after its last) and a break ending it, none from an
+  ordinary giant; the ground's dashed fade; the ear. Pins moved: `tact4` (a lunge's sidestep after its lock),
+  `tell3_iron` (the giant's drawn length; an Elite Dungeon's foe an elite), `tell1_poise` (the table). Mutant records
+  re-aimed by content: `audittact` D4, `tact4`, `tell2` (two), `tell3` (five and three for the elite), `tell4`.
+- Mutants `tools/mutants/tell5.json` (45), all dead.

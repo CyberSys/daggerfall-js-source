@@ -167,8 +167,8 @@
   {
     "name": "ATACT-D4-dead-blocks",
     "file": "src/ai/foeBlows.js",
-    "old": "    if (ai === except || now >= b.land || gone(ai, now)) continue;",
-    "new": "    if (ai === except || now >= b.land) continue;",
+    "old": "    if (ai === except || b.cut != null || gone(ai, now)) continue;",
+    "new": "    if (ai === except || b.cut != null) continue;",
     "tests": [
       "test/audittact.test.js"
     ]

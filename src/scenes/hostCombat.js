@@ -693,7 +693,7 @@ export function windupFeedback(word, f, { audio = null, hitEffects = null, shake
  *   RELEASE TELL.RELEASE_LEAD before its landing - the low swing at TELL.RELEASE_PITCH;
  *   LAND at the strike frame that follows its landing (the sprite's `meleeSeq`) - the kind's attack sound, always
  *   (DFU's half-the-time roll stays on its plain swings).
- * A wind-up that breaks plays neither of the last two; a feint (TELL5) no WIND. TELL4: a perfect dodge rings at its
+ * A wind-up that breaks plays neither of the last two; a feint (TELL5) no WIND, and its cut's plain blow the LAND. TELL4: a perfect dodge rings at its
  * landing - `SOUND.Parry6` at TELL.PERFECT_PITCH. Called once a frame per live foe,
  * after its sprite's update. Answers the cues it played this frame (tests).
  */
@@ -723,7 +723,8 @@ export function tellCues(f, audio, hearing = 1, now = tacticsNow()) {
     // landed (the brain stamped its landing at or after this blow's), or broken - only a landing strikes; its strike may
     // already be this frame's (the sprite stepped past the release before this call)
     const landed = ai._blowLandedAt != null && ai._blowLandedAt >= c.blow.land - 1e-6;
-    c.land = landed && (ai._blowHold === false || ai._blowHold === 'spent');   // TELL4: a miss strikes too, then stands spent
+    c.land = (landed && (ai._blowHold === false || ai._blowHold === 'spent'))   // TELL4: a miss strikes too, then stands spent
+      || c.blow.cut != null;   // TELL5: a cut feint's plain blow sounds at its strike
     // TELL4 (6.2): a perfect dodge - the bright parry ring, at the landing
     if (landed && ai._perfectAt != null && ai._perfectAt >= c.blow.land - 1e-6) play(SOUND.Parry6, TELL.PERFECT_PITCH);
     c.blow = null;

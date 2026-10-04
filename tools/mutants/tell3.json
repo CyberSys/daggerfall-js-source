@@ -21,8 +21,8 @@
   {
     "name": "TELL3-extra-dropped",
     "file": "src/ai/foeBlows.js",
-    "old": "land: now + P.windup + (iron ? TELL_IRON_EXTRA : 0),",
-    "new": "land: now + P.windup,",
+    "old": ": P.windup + (iron ? TELL_IRON_EXTRA : 0);",
+    "new": ": P.windup;",
     "tests": [
       "test/tell3_iron.test.js"
     ]
@@ -30,8 +30,8 @@
   {
     "name": "TELL3-extra-on-poise",
     "file": "src/ai/foeBlows.js",
-    "old": "land: now + P.windup + (iron ? TELL_IRON_EXTRA : 0),",
-    "new": "land: now + P.windup + TELL_IRON_EXTRA,",
+    "old": ": P.windup + (iron ? TELL_IRON_EXTRA : 0);",
+    "new": ": P.windup + TELL_IRON_EXTRA;",
     "tests": [
       "test/tell3_iron.test.js"
     ]
@@ -114,7 +114,7 @@
   {
     "name": "TELL3-elite-never",
     "file": "src/ai/tells.js",
-    "old": "  if (ent?.eliteFoe === true && (roll ?? Math.random()) < TELL.IRON_ELITE) return 'iron';",
+    "old": "  if (isElite(ent) && (roll ?? Math.random()) < TELL.IRON_ELITE) return 'iron';",
     "new": "",
     "tests": [
       "test/tell3_iron.test.js"
@@ -123,17 +123,17 @@
   {
     "name": "TELL3-elite-always",
     "file": "src/ai/tells.js",
-    "old": "  if (ent?.eliteFoe === true && (roll ?? Math.random()) < TELL.IRON_ELITE) return 'iron';",
-    "new": "  if (ent?.eliteFoe === true) return 'iron';",
+    "old": "  if (isElite(ent) && (roll ?? Math.random()) < TELL.IRON_ELITE) return 'iron';",
+    "new": "  if (isElite(ent)) return 'iron';",
     "tests": [
       "test/tell3_iron.test.js"
     ]
   },
   {
-    "name": "TELL3-dungeon-elite",
+    "name": "TELL3-gold-only",
     "file": "src/ai/tells.js",
-    "old": "  if (ent?.eliteFoe === true && (roll ?? Math.random()) < TELL.IRON_ELITE) return 'iron';",
-    "new": "  if ((ent?.eliteFoe === true || ent?.elite === true) && (roll ?? Math.random()) < TELL.IRON_ELITE) return 'iron';",
+    "old": "  if (isElite(ent) && (roll ?? Math.random()) < TELL.IRON_ELITE) return 'iron';",
+    "new": "  if (ent?.eliteFoe === true && (roll ?? Math.random()) < TELL.IRON_ELITE) return 'iron';",
     "tests": [
       "test/tell3_iron.test.js"
     ]
@@ -141,8 +141,8 @@
   {
     "name": "TELL3-roll-always-drawn",
     "file": "src/ai/tells.js",
-    "old": "  if (ent?.eliteFoe === true && (roll ?? Math.random()) < TELL.IRON_ELITE) return 'iron';",
-    "new": "  const r = roll ?? Math.random();\n  if (ent?.eliteFoe === true && r < TELL.IRON_ELITE) return 'iron';",
+    "old": "  if (isElite(ent) && (roll ?? Math.random()) < TELL.IRON_ELITE) return 'iron';",
+    "new": "  const r = roll ?? Math.random();\n  if (isElite(ent) && r < TELL.IRON_ELITE) return 'iron';",
     "tests": [
       "test/tell3_iron.test.js"
     ]
@@ -160,8 +160,8 @@
   {
     "name": "TELL3-brain-never-iron",
     "file": "src/ai/tactics.js",
-    "old": "      const guard = blowGuard(shape, ENEMY_BASICS[ent.mobileType]?.weight ?? 0, ent);",
-    "new": "      const guard = 'poise';",
+    "old": "  const guard = blowGuard(shape, ENEMY_BASICS[ent.mobileType]?.weight ?? 0, ent);",
+    "new": "  const guard = 'poise';",
     "tests": [
       "test/tell3_iron.test.js"
     ]
@@ -169,8 +169,8 @@
   {
     "name": "TELL3-brain-poise-colour",
     "file": "src/ai/tactics.js",
-    "old": "guard === 'iron' ? IRON_COLOR : BLOW_COLOR, guard)",
-    "new": "BLOW_COLOR, guard)",
+    "old": "guard === 'iron' ? IRON_COLOR : BLOW_COLOR, guard, windup)",
+    "new": "BLOW_COLOR, guard, windup)",
     "tests": [
       "test/tell3_iron.test.js"
     ]
@@ -178,8 +178,8 @@
   {
     "name": "TELL3-brain-weightless",
     "file": "src/ai/tactics.js",
-    "old": "      const guard = blowGuard(shape, ENEMY_BASICS[ent.mobileType]?.weight ?? 0, ent);",
-    "new": "      const guard = blowGuard(shape, 0, ent);",
+    "old": "  const guard = blowGuard(shape, ENEMY_BASICS[ent.mobileType]?.weight ?? 0, ent);",
+    "new": "  const guard = blowGuard(shape, 0, ent);",
     "tests": [
       "test/tell3_iron.test.js"
     ]

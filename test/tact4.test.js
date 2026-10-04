@@ -19,6 +19,7 @@ import {
   drawableBlows, resetBlows, windupNear, BLOW_TIER_LEVEL, BLOW_COOLDOWN_MIN, BLOW_FLASH, BLOW_VERDICT_LIFE, BLOW_NEAR,
 } from '../src/ai/foeBlows.js';
 import { blowField, BLOW_QUAD_HALF } from '../src/render/foeTelegraph.js';
+import { TELL } from '../src/ai/tells.js';   // TELL5: the trackers
 
 const rd = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const DT = 1 / 60;
@@ -191,6 +192,11 @@ test('TACT4: a step out of the shape during the wind-up dodges it', () => {
   const player = [0, 0, 0];
   const blow = untilWindup([f], f, player);
   assert.ok(blow);
+  // PIN MOVED (TELL5, bible/12-Enhanced-AI/Feud-Arc.md 7.2): a lunge turns after its target through the first half of its
+  // wind-up, then locks - "a sidestep the moment the mark appears no longer beats a lunge". The step comes once its aim
+  // is locked (at once for a sweep or a slam, which lock at their start)
+  const lockAt = TELL.TRACKERS.includes(blow.kind) ? blow.start + TELL.TRACK_SHARE * (blow.land - blow.start) + 0.07 : 0;
+  run([f], Math.max(0, lockAt - T), player);
   const at = [...f.ai.feet], yaw = f.ai.yaw;
   player[0] += 3.5; player[2] -= 1;   // out of every shape's reach from where it aimed
   let verdict = null, moved = 0, turned = 0;

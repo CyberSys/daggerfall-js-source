@@ -20,7 +20,7 @@ import { tacticsNow } from './tacticsClock.js';   // AUDIT TACT: the foes' own t
 const M = MOBILE_TYPES;
 
 export { BLOW } from './blowShapes.js';   // the shapes' one home - a leaf the ground's pass reads too
-import { BLOW, TELL_NEAR_M, TELL_NEAR_FLOOR, TELL_IRON_EXTRA } from './blowShapes.js';
+import { BLOW, TELL_NEAR_M, TELL_NEAR_FLOOR, TELL_IRON_EXTRA, TELL_FEINT_FADE as FEINT_FADE } from './blowShapes.js';
 export const BLOW_TIER_LEVEL = 10;      // Mac: level 10 and up, or an elite
 export const BLOW_COOLDOWN_MIN = 8;     // seconds between one foe's blows
 export const BLOW_COOLDOWN_MAX = 15;
@@ -45,6 +45,11 @@ const FAMILY = new Map([
 ]);
 const CASTERS = new Set([M.Mage, M.Sorcerer, M.Healer]);
 
+/** TELL5: the kind's family - 'beast', 'brute' or 'blade' (null: none throws a telegraphed blow). */
+export function blowFamily(mobileType) {
+  const s = blowShapesOf(mobileType);
+  return s === BEAST ? 'beast' : s === BRUTE ? 'brute' : s === BLADE ? 'blade' : null;
+}
 /** The shapes this kind may throw ([] for none). */
 export function blowShapesOf(mobileType) {
   if (FAMILY.has(mobileType)) return FAMILY.get(mobileType);
@@ -60,11 +65,13 @@ export function blowTier(entity) {
 export const throwsBlows = (entity) => blowTier(entity) && blowShapesOf(entity.mobileType).length > 0;
 
 /** A blow wound up at `origin` facing `yaw` (atan2(dx, dz)), at `now`. TELL3: its `guard` - 'poise' (TELL1's meter) or
- *  'iron' (no meter: it lands; its wind-up TELL_IRON_EXTRA longer). */
-export function makeBlow(kind, origin, yaw, now, color = null, guard = 'poise') {
+ *  'iron' (no meter: it lands; its wind-up TELL_IRON_EXTRA longer). TELL5: `windup` its drawn length (ai/tells.js
+ *  windupSeconds - iron's extra in it), or null for the shape's own. */
+export function makeBlow(kind, origin, yaw, now, color = null, guard = 'poise', windup = null) {
   const P = BLOW[kind];
   const iron = guard === 'iron';
-  return { kind, origin: [origin[0], origin[1], origin[2]], yaw, start: now, land: now + P.windup + (iron ? TELL_IRON_EXTRA : 0), mult: P.mult, color, guard: iron ? 'iron' : 'poise' };
+  const w = Number.isFinite(windup) && windup > 0 ? windup : P.windup + (iron ? TELL_IRON_EXTRA : 0);
+  return { kind, origin: [origin[0], origin[1], origin[2]], yaw, start: now, land: now + w, mult: P.mult, color, guard: iron ? 'iron' : 'poise' };
 }
 
 /**
@@ -107,6 +114,11 @@ export function inBlow(b, px, pz) {
  *  BLOW_FLASH) - null once it is gone. */
 export function blowPhase(b, now) {
   if (!b) return null;
+  if (b.cut != null) {   // TELL5: a feint cut - its fill frozen where it stopped, fading out dashed over FEINT_FADE
+    const after = now - b.cut;
+    if (after > FEINT_FADE || after < 0) return null;
+    return { t: Math.max(0, Math.min(1, (b.cut - b.start) / (b.land - b.start))), flash: 0, cut: 1 - after / FEINT_FADE };
+  }
   if (now < b.land) return { t: Math.max(0, (now - b.start) / (b.land - b.start)), flash: 0 };
   const after = now - b.land;
   if (after > BLOW_FLASH) return null;
@@ -120,7 +132,8 @@ export function setLiveBlow(ai, b) { if (b) _live.set(ai, b); else _live.delete(
 /** Is any foe winding up within BLOW_NEAR of `feet`? (one at a time near the player) */
 export function windupNear(feet, now, except = null) {
   for (const [ai, b] of _live) {
-    if (ai === except || now >= b.land || gone(ai, now)) continue;
+    if (ai === except || b.cut != null || gone(ai, now)) continue;   // TELL5: a cut feint is no wind-up
+    if (now >= b.land && !(b.chainUntil > now)) continue;   // TELL5: a landing about to chain is still its foe's one
     if (Math.hypot(b.origin[0] - feet[0], b.origin[2] - feet[2]) <= BLOW_NEAR) return true;
   }
   return false;

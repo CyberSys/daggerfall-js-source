@@ -19,7 +19,7 @@ import { ENEMY_BASICS } from '../src/characters/enemyBasics.js';
 import { setTacticsClock, resetTactics, noteLocalPlayer, windupStruck, windupHolds, foeGlint } from '../src/ai/tactics.js';
 import { liveBlows, resetBlows, makeBlow, BLOW, BLOW_COLOR, IRON_COLOR, blowShapesOf } from '../src/ai/foeBlows.js';
 import { TELL_IRON_EXTRA } from '../src/ai/blowShapes.js';
-import { TELL, blowGuard } from '../src/ai/tells.js';
+import { TELL, blowGuard, windupSeconds } from '../src/ai/tells.js';
 import { windupDoor } from '../src/scenes/hostCombat.js';
 import { TELEGRAPH_STYLE_GLSL, IRON_INSET, IRON_HATCH } from '../src/render/telegraphStyle.js';
 import { readFileSync } from 'node:fs';
@@ -62,13 +62,15 @@ test('TELL3: the guard - a heavy or massive body\'s slam and ring are iron, by D
   assert.deepEqual(poise.sort(), ['Daedroth', 'Dreugh', 'Gargoyle']);
 });
 
-test('TELL3: an elite\'s blow is iron one time in three - whatever its shape; an Elite Dungeon\'s foe is not an elite here; the roll drawn only for an elite (mutants: the share moved; every elite blow iron)', () => {
+test('TELL3: an elite\'s blow is iron one time in three - whatever its shape, the gold\'s or an Elite Dungeon\'s; the roll drawn only for an elite (mutants: the share moved; every elite blow iron)', () => {
   const el = { eliteFoe: true };
   assert.equal(blowGuard('sweep', 600, el, 0.33), 'iron');
   assert.equal(blowGuard('lunge', 600, el, 0), 'iron');
   assert.equal(blowGuard('sweep', 600, el, 1 / 3), 'poise');
   assert.equal(blowGuard('sweep', 600, el, 0.9), 'poise');
-  assert.equal(blowGuard('sweep', 600, { elite: true }, 0), 'poise', 'the Elite Dungeon\'s doubling is not the ELITE FOES gold');
+  // PIN MOVED (TELL5, Feud-Arc.md section 9: "an elite (`elite`, `eliteFoe`)"): an Elite Dungeon's foe is an elite too
+  assert.equal(blowGuard('sweep', 600, { elite: true }, 0), 'iron', 'an Elite Dungeon\'s foe is an elite');
+  assert.equal(blowGuard('sweep', 600, { elite: true }, 0.5), 'poise');
   assert.equal(blowGuard('sweep', 600, null, 0), 'poise');
   const had = Math.random;
   let drawn = 0;
@@ -131,7 +133,9 @@ test('TELL3: A GIANT\'S SLAM IS IRON - every blow holds it and none fills a mete
   assert.equal(blow.kind, 'slam');
   assert.equal(blow.guard, 'iron');
   assert.equal(blow.color, IRON_COLOR);
-  assert.ok(Math.abs(blow.land - blow.start - (BLOW.slam.windup + TELL.IRON_EXTRA)) < 1e-9);
+  // PIN MOVED (TELL5, Feud-Arc.md 7.1): its length drawn - the shape's times U(0.9, 1.25) on the pinned roll, iron's after
+  assert.ok(Math.abs(blow.land - blow.start - windupSeconds(BLOW.slam.windup, f.ent, { guard: 'iron', roll: 0.05 })) < 1e-9);
+  assert.ok(blow.land - blow.start > BLOW.slam.windup * TELL.WINDUP_VARY[0] + TELL.IRON_EXTRA - 1e-9, 'iron\'s extra on the drawn length');
   for (let i = 0; i < 6; i++) assert.equal(windupStruck(f.ai, f.ent, 3000, 1e9), 'hold', `blow ${i + 1}: held`);
   assert.equal(blow.taken, undefined, 'nothing weighed');
   assert.equal(blow.poise, undefined);
