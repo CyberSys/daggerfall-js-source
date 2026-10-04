@@ -60,12 +60,12 @@ const look = (e, c) => { const u = [0, 1, 0]; const z = [e[0] - c[0], e[1] - c[1
 const mul = (a, b) => { const o = new Float32Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) for (let k = 0; k < 4; k++) o[c * 4 + r] += a[k * 4 + r] * b[c * 4 + k]; return o; };
 window.probe = { err, linked: pass ? gl.getProgramParameter(pass.program, gl.LINK_STATUS) : false, ringR: AURA_RING_R, period: AURA_CLOCK_PERIOD, wardR: WARD_RING_R, runeR: WARD_RUNE_R, radR: RADIANCE_R, radH: RADIANCE_H, poolR: RADIANCE_POOL_R, cloakPoolR: CLOAK_POOL_R, cloakSigilY: CLOAK_SIGIL_Y, cloakSigilR: CLOAK_SIGIL_R, cloakH: CLOAK_H, cloakClaspY: CLOAK_CLASP_Y, cloakRipS: CLOAK_RIP_S };
 /** Draw the floor and the aura at the origin from \`eye\` at \`t\` seconds, kindled \`kindle\`; read back \`pts\` (world). */
-window.draw = (eye, t, kindle, pts, aura, at = [0, 0.2, 0], yaw = 0, lit = 1, torn = -1) => {   // PRIMARCH: \`at\` - where the eye looks (the first person looks level); SHADOW-CLOAK: the wearer's facing, and the floor lit brighter so a shadow shows
+window.draw = (eye, t, kindle, pts, aura, at = [0, 0.2, 0], yaw = 0, lit = 1, torn = -1, extra = null) => {   // PRIMARCH: \`at\` - where the eye looks (the first person looks level); SHADOW-CLOAK: the wearer's facing, and the floor lit brighter so a shadow shows
   const proj = persp(0.9, 640 / 480, 0.05, 100), view = look(eye, at), vp = mul(proj, view);
   gl.enable(gl.DEPTH_TEST); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   if (lit !== 1) gl.disable(gl.CULL_FACE);   // SHADOW-CLOAK: the lit floor drawn whichever way it faces (the pass leaves culling on behind it)
   gl.useProgram(pr); gl.uniformMatrix4fv(gl.getUniformLocation(pr, 'vp'), false, vp); gl.uniform1f(gl.getUniformLocation(pr, 'lit'), lit); gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLES, 0, 6); gl.bindVertexArray(null);
-  pass.draw([{ at: [0, 0, 0], seed: 0.37, kindle, aura, yaw, torn }], proj, view, new Float32Array(eye), t, null);   // SHADOW-CLOAK: torn, its wearer turned beast
+  pass.draw([{ at: [0, 0, 0], seed: 0.37, kindle, aura, yaw, torn, ...(extra ?? {}) }], proj, view, new Float32Array(eye), t, null);   // SHADOW-CLOAK: torn, its wearer turned beast; \`extra\` its swing and its pose
   const px = (w) => {
     const c = [0, 1, 2, 3].map((r) => vp[r] * w[0] + vp[4 + r] * w[1] + vp[8 + r] * w[2] + vp[12 + r]);
     const x = Math.round((c[0] / c[3] * 0.5 + 0.5) * 640), y = Math.round((c[1] / c[3] * 0.5 + 0.5) * 480);
@@ -283,6 +283,12 @@ try {
   const shredN = [];
   for (const t of [3.1, 17.9, 44.4]) { const f = await cl([0, 1.2, -4], t, 1, ringPts, [0, 1.1, 0], 0, p.cloakRipS + t); shredN.push(f.px.filter((c, i) => Math.abs(lum(c) - lum(ringBare.px[i])) > 40).length); }
   check('its shreds float round the beast', shredN.every((n) => n >= 6), shredN.join(' '));
+  // it swings: from the side, a run's trail carries its hem out behind the wearer over floor it left bare at rest
+  const trailPts = Array.from({ length: 12 }, (_, i) => [0, 0.08 + (i % 3) * 0.12, -0.62 - Math.floor(i / 3) * 0.06]);
+  const swingAt = (extra) => page.evaluate(([e, ps, a, l, x]) => window.draw(e, 13.2, 1, ps, 'shadowcloak', a, 0, l, -1, x), [[3.2, 0.9, 0], trailPts, [0, 0.6, 0], LIT, extra]);
+  const still = await swingAt(null), running = await swingAt({ swing: { x: 0, z: -0.35, lift: 0, twist: 0 } }), trailBare = await bare([3.2, 0.9, 0], trailPts, [0, 0.6, 0]);
+  const covered = (f) => f.px.filter((c, i) => lum(c) < lum(trailBare.px[i]) - 40).length;
+  check('it swings with its wearer - a run trails its hem out behind them', covered(running) >= covered(still) + 4, `${covered(still)} of ${trailPts.length} behind it covered still, ${covered(running)} running`);
   // the wearer's own eye, looking level and looking down: no shadow over the view, no red over it
   const own = [];
   for (const [look, pts] of [[[0, 1.6, -3], [[0, 0, -2.5], [1, 0, -2], [-1, 0, -2.2]]], [[0, 0, -0.9], [[0, 0, -0.7], [0.25, 0, -0.75]]]]) {

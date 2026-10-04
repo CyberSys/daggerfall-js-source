@@ -34,8 +34,12 @@ import {
   CLOAK_MANTLE_Y, CLOAK_POOL_R, CLOAK_GLYPH, CLOAK_GLYPH_EYE, CLOAK_SIGIL_Y, CLOAK_SIGIL_R, CLOAK_CLASP_R, CLOAK_EMBLEMS,
   CLOAK_EMBLEM_LIFE, CLOAK_RIP_S, CLOAK_SHREDS, CLOAK_SHRED_AT, CLOAK_SHRED_HZ, CLOAK_HZ, CLOAK_FLOW, CLOAK_RGB, cloakRatesWhole,
   auraCloakGrid, glyphEdges, auraBeastStep, AuraRingRenderer, WARD_GLYPHS, RADIANCE_R, RADIANCE_H,
+  CLOAK_SWING, CLOAK_REST_POSE, CLOAK_ACROSS, CLOAK_HEAD_ABOVE, CLOAK_BONES, auraMotionStep, auraCapePose, auraCapeStep,
 } from '../src/render/auraRing.js';
 import { glslFunctions, GlslDiscard } from './glsl.mjs';
+import { rigPointToBody, armBonesInBody, NIF_TO_PASS } from '../src/combat/fpArm.js';
+import { MW_UNITS_PER_METER } from '../src/formats/mwFirstPerson.js';
+import { trs, multiply, transformPoint } from '../src/world/mat4.js';
 
 const rd = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const { subtle } = webcrypto;
@@ -131,6 +135,20 @@ test('SHADOW-CLOAK the service end to end: SirMcMobdon registers, holds the cloa
   assert.equal('au' in m.claims, false, 'off the list: the next token carries no cloak');
 });
 
+test('SHADOW-CLOAK the account card: wearing the cloak, the card says its name - never its key (AUDIT)', async () => {
+  const { AccountFlow } = await import('../src/ui/accountFlow.js');
+  const { SESSION_KEY } = await import('../src/net/accountClient.js');
+  const m = new Map([[SESSION_KEY, JSON.stringify({ id: 'acct-sir', name: 'SirMcMobdon', kind: 'linked', sessionId: 's1', secret: 'sec' })]]);
+  const storage = { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) };
+  const wardrobe = { titles: ['shadowfang'], title: 'shadowfang', glyphs: ['shadowfang'], auras: ['shadowcloak'], aura: null, insignia: [] };
+  const answers = { '/v1/account': { account: { id: 'acct-sir', name: 'SirMcMobdon', kind: 'linked', handle: 'sirmcmobdon' }, wardrobe, devices: [] }, '/v1/account/aura': { ok: true, ...wardrobe, aura: 'shadowcloak' } };
+  const fetch = async (url) => { const path = url.replace(/^https?:\/\/[^/]+/, ''); return { ok: true, status: 200, json: async () => answers[path] }; };
+  const flow = AccountFlow({ io: { fetch }, storage });
+  await flow.start();
+  assert.equal(await flow.wearAura('shadowcloak'), true);
+  assert.equal(flow.note, 'Wearing Holo Shadow Cloak.');
+});
+
 test('SHADOW-CLOAK token and relay: a token may carry the cloak and verifies; the relay - world165, the one that knows the word - reads it out of the signature onto their row for everyone near (mutants: the vocabulary\'s aura)', async () => {
   assert.equal(RELAY_VERSION, 'world165', 'SHADOW-CLOAK moved it on (world165): the vocabulary rides the relay\'s bundle');
   const kp = await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
@@ -140,7 +158,9 @@ test('SHADOW-CLOAK token and relay: a token may carry the cloak and verifies; th
   const got = await verifyToken(tok, pub, { subtle, nowS });
   assert.ok(got.ok, got.why);
   assert.equal(got.claims.au, 'shadowcloak');
-  assert.equal(claimsValid({ s: 'acct-sir', n: 'SirMcMobdon', k: 'linked', i: nowS, e: nowS + 60, g: [...GLYPHS], au: 'shadowcloak' }), true, 'every glyph and the cloak at once still fit');
+  assert.equal(claimsValid({ s: 'acct-sir', n: 'SirMcMobdon', k: 'linked', i: nowS, e: nowS + 60, g: [...GLYPHS], au: 'shadowcloak' }), true, 'every glyph and the cloak at once: claims the vocabulary takes');
+  const full = await mintToken({ s: 'acct-sir', n: 'SirMcMobdon', k: 'linked', t: 'shadowfang', g: [...GLYPHS], au: 'shadowcloak' }, kp.privateKey, { subtle, nowS });
+  assert.match(full, /^[A-Za-z0-9]{1,8}\.[A-Za-z0-9_-]{1,640}\.[A-Za-z0-9_-]{1,128}$/, `and a token carrying them all inside the relay's own bound (net/wire.js TOKEN_RE: ${full.split('.')[1].length} of 640)`);
   assert.equal(claimsValid({ s: 'acct-sir', n: 'SirMcMobdon', k: 'linked', i: nowS, e: nowS + 60, au: 'holoshadowcloak' }), false, 'a word the vocabulary does not hold is refused');
   const room = fakeRoom('town:m9');
   const a = room.connect(), b = room.connect();
@@ -154,18 +174,18 @@ test('SHADOW-CLOAK token and relay: a token may carry the cloak and verifies; th
 // ── THE CLOAK'S SHAPE ───────────────────────────────────────────────
 
 const I = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
-const BASE = { uSeed: 0.37, uRingR: CLOAK_HEM_R, uGroundR: AURA_GROUND_R, uFlameH: CLOAK_H, uFogMode: 0, uFogDensity: 0, uFogRange: [0, 1], uAt: [0, 0, 0], uFocus: [0, 0, 0, 0], uLift: AURA_LIFT_M, uVP: I, uAura: 3, uSide: 1, uTorn: -1 };
+const BASE = { uSeed: 0.37, uRingR: CLOAK_HEM_R, uGroundR: AURA_GROUND_R, uFlameH: CLOAK_H, uFogMode: 0, uFogDensity: 0, uFogRange: [0, 1], uAt: [0, 0, 0], uFocus: [0, 0, 0, 0], uLift: AURA_LIFT_M, uVP: I, uAura: 3, uSide: 1, uTorn: -1, uSwing: [0, 0, 0, 0], uCapeS: [0, CLOAK_SHOULDER_Y, 0, 1], uCapeH: [0, CLOAK_HOOD_Y, 0, 0], uKneeL: [0, 0, 0], uKneeR: [0, 0, 0] };
 /** The vertex half's answer: where a mesh point (or an emblem's or a shred's corner) stands. */
-const vsAt = (kind, aP, { t = 13.5, yaw = 0, at = [0, 0, 0], eye = [0, 1.2, -5], torn = -1 } = {}) => {
-  const f = glslFunctions(AURA_VS, { ...BASE, aP, uKind: kind, uTime: t, uYaw: yaw, uAt: at, uCamPos: eye, uTorn: torn });
+const vsAt = (kind, aP, { t = 13.5, yaw = 0, at = [0, 0, 0], eye = [0, 1.2, -5], torn = -1, pose = {} } = {}) => {
+  const f = glslFunctions(AURA_VS, { ...BASE, ...pose, aP, uKind: kind, uTime: t, uYaw: yaw, uAt: at, uCamPos: eye, uTorn: torn });
   f.main();
   return { w: f.globals.vWorld, vP: f.globals.vP, vS: f.globals.vS };
 };
 /** One draw's answer, premultiplied: [light r, g, b, how much it covers] - or 'discard'. `side` the cloth's draw (0 the
  *  far, 1 the near). */
-const fsSide = (kind, vP, side, { t = 13.5, yaw = 0, kindle = 1, world = null, eye = [0, 1.2, -5], s = [0, 0, 0], fog = null, at = [0, 0, 0], torn = -1 } = {}) => {
-  const w = world ?? (kind === 1 ? vsAt(1, vP, { t, yaw, at, torn }).w : [0, 0, 0]);
-  const f = glslFunctions(AURA_FS, { ...BASE, vP, vWorld: w, vS: s, uKind: kind, uTime: t, uYaw: yaw, uKindle: kindle, uCamPos: eye, uAt: at, uFogMode: fog ? 2 : 0, uFogDensity: fog?.density ?? 0, uSide: side, uTorn: torn });
+const fsSide = (kind, vP, side, { t = 13.5, yaw = 0, kindle = 1, world = null, eye = [0, 1.2, -5], s = [0, 0, 0], fog = null, at = [0, 0, 0], torn = -1, pose = {} } = {}) => {
+  const w = world ?? (kind === 1 ? vsAt(1, vP, { t, yaw, at, torn, pose }).w : [0, 0, 0]);
+  const f = glslFunctions(AURA_FS, { ...BASE, ...pose, vP, vWorld: w, vS: s, uKind: kind, uTime: t, uYaw: yaw, uKindle: kindle, uCamPos: eye, uAt: at, uFogMode: fog ? 2 : 0, uFogDensity: fog?.density ?? 0, uSide: side, uTorn: torn });
   try { f.main(); } catch (e) { if (e instanceof GlslDiscard) return 'discard'; throw e; }
   return f.globals.o;
 };
@@ -438,7 +458,7 @@ test('SHADOW-CLOAK the emblems and the shreds, RUN: an emblem is the wearer\'s g
   assert.ok(insideSum < outsideSum * 0.5, `dimmer to the beast's own eye (${insideSum.toFixed(1)} vs ${outsideSum.toFixed(1)})`);
 });
 
-test('SHADOW-CLOAK the draw: the cloak premultiplied - its ground, its cloth\'s far side then its near (two draws of its mesh), its emblems - and the blend handed back whole; each wearer\'s facing and tear set beside its place; torn, its shreds drawn with its emblems, and once torn through no cloth at all; the fire and the radiance as before - one program for the four (mutants: the blend not set, not restored, the two sides, the shreds\' cards, the torn cloth still drawn, the facing, the tear)', () => {
+test('SHADOW-CLOAK the draw: the cloak premultiplied - its ground, its cloth\'s far side then its near (two draws of its mesh), its emblems - and the blend handed back whole; each wearer\'s facing, tear, swing and pose set beside its place; torn, its shreds drawn with its emblems, and once torn through no cloth at all; riding, the cape folded away; the fire and the radiance as before - one program for the four (mutants: the blend not set, not restored, the two sides, the shreds\' cards, the torn cloth still drawn, the facing, the tear, the swing, the pose, a rider\'s cape)', () => {
   const calls = [];
   const gl = new Proxy({ VERTEX_SHADER: 1, FRAGMENT_SHADER: 2, COMPILE_STATUS: 3, LINK_STATUS: 4, ARRAY_BUFFER: 5, STATIC_DRAW: 6, FLOAT: 7, TRIANGLES: 8, BLEND: 9, ONE: 10, CULL_FACE: 11, POLYGON_OFFSET_FILL: 12, ONE_MINUS_SRC_ALPHA: 13 }, {
     get(tg, k) {
@@ -467,20 +487,144 @@ test('SHADOW-CLOAK the draw: the cloak premultiplied - its ground, its cloth\'s 
   const seq = calls.filter((c) => c[0] === 'blendFunc' || c[0] === 'drawArrays').map((c) => (c[0] === 'blendFunc' ? `blend ${c[1]},${c[2]}` : 'draw'));
   assert.deepEqual(seq, ['blend 10,10', 'blend 10,13', 'draw', 'draw', 'draw', 'draw', 'blend 10,10', 'draw', 'draw', 'draw', 'draw'], 'added; premultiplied for the cloak; added again for the others');
   assert.equal(calls.filter((c) => c[0] === 'useProgram').length, 1, 'the program bound once for the frame');
+  assert.deepEqual(calls.filter((c) => c[0] === 'uniform4f' && c[1] === 'uSwing').map((c) => c.slice(2)), [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]], 'no swing given, none drawn - a wearer each');
+  assert.deepEqual([...calls.filter((c) => c[0] === 'uniform4fv' && c[1] === 'uCapeS')[0][2]], [...CLOAK_REST_POSE.shoulders], 'no pose given: at rest');
+  calls.length = 0;
+  const posed = { shoulders: Float32Array.of(0.01, 1.3, 0.05, 1.1), head: Float32Array.of(0, 1.6, 0.04, 0.2), kneeL: Float32Array.of(-0.1, 0.5, 0.2), kneeR: Float32Array.of(0.1, 0.5, -0.1) };
+  r.draw([{ at: [1, 0, 1], aura: 'shadowcloak', swing: { x: 0.1, z: -0.2, lift: 0.05, twist: 0.3 }, cape: posed }], M, M, [0, 0, 0], 10);
+  const arg = (name, kind) => calls.find((c) => c[0] === kind && c[1] === name).slice(2);
+  assert.deepEqual(arg('uSwing', 'uniform4f'), [0.1, -0.2, 0.05, 0.3], 'its swing: across, along, its lift, its lag');
+  assert.deepEqual([arg('uCapeS', 'uniform4fv')[0], arg('uCapeH', 'uniform4fv')[0], arg('uKneeL', 'uniform3fv')[0], arg('uKneeR', 'uniform3fv')[0]], [posed.shoulders, posed.head, posed.kneeL, posed.kneeR], 'its pose: the shoulders, the head, the knees');
   calls.length = 0;
   r.draw([{ at: [1, 0, 1], aura: 'shadowcloak', torn: 0.5 }], M, M, [0, 0, 0], 10);
   assert.deepEqual([per('uTorn', 'uniform1f'), draws()], [[0.5], [6, MESH, MESH, (CLOAK_EMBLEMS + CLOAK_SHREDS) * 6]], 'tearing: the cloth still drawn, and its shreds with its emblems');
   calls.length = 0;
   r.draw([{ at: [1, 0, 1], aura: 'shadowcloak', torn: CLOAK_RIP_S + 4 }], M, M, [0, 0, 0], 10);
   assert.deepEqual(draws(), [6, (CLOAK_EMBLEMS + CLOAK_SHREDS) * 6], 'torn through: its ground and its shreds, no cloth');
+  calls.length = 0;
+  r.draw([{ at: [1, 0, 1], aura: 'shadowcloak', mounted: true }, { at: [5, 0, 5], aura: 'oblivionward', mounted: true }], M, M, [0, 0, 0], 10);
+  assert.deepEqual(draws(), [6, 6, AURA_STEPS * 6, WARD_GLYPHS * 6], 'riding: the cape folded away, its emblems with it - its ground stays; the ward on a rider as before');
 });
 
-test('SHADOW-CLOAK the hosts: the one gather every host draws through hands each wearer\'s facing - mine my body\'s own, as its third person is drawn, a peer\'s off their pose (to the wall on a climb) - and each wearer\'s beast form - mine my own lycanthropy turned, a peer\'s the pose\'s `wb` - on lines that were already there, so no cite below them moved', () => {
+test('SHADOW-CLOAK the hosts: the one gather every host draws through hands each wearer\'s facing - mine my body\'s own, as its third person is drawn, a peer\'s off their pose (to the wall on a climb) - each wearer\'s beast form (mine my own lycanthropy turned, a peer\'s the pose\'s `wb`) and each wearer\'s swing; and the draw, after the bodies are posed, hangs each cape on its body as drawn - mine at my body\'s feet and yaw with my posed bones (none in the sprite lane or first person), crouched with my crouch; a peer\'s from their body - on lines that were already there, so no cite below them moved', () => {
   const w = rd('src/scenes/world.js');
-  assert.match(w, /import \{ AuraRingRenderer, auraWearers, auraBeastStep, AURA_KINDLE_S \} from '\.\.\/render\/auraRing\.js'; import \{ peerBodyYaw \} from '\.\.\/net\/peerClimb\.js';/);
+  assert.match(w, /import \{ AuraRingRenderer, auraWearers, auraBeastStep, auraMotionStep, auraCapeStep, CLOAK_BONES, AURA_KINDLE_S \} from '\.\.\/render\/auraRing\.js'; import \{ peerBodyYaw \} from '\.\.\/net\/peerClimb\.js';/);
+  assert.match(w, /import \{ mwViewFirstPerson, mwViewFrame, mwViewWheel, mwViewDrawBody, mwViewBodyBones,/);
   assert.match(w, /_auraSelf\.aura = mine; _auraSelf\.yaw = player\.bodyYawFor\(cam\.yaw\); auraBeastStep\(_auraSelf, !!liveLycanthropy\(playerEntity\)\?\.isTransformed, t\);/, 'mine: the body\'s facing, and turned beast');
   assert.match(w, /w\.at\[2\] = p\[2\]; w\.yaw = peerBodyYaw\(d\.shown\) \?\? 0; auraBeastStep\(w, !!d\.shown\.wb, t\);/, 'a peer\'s: their pose\'s');
-  assert.match(w, /auraBeastStep\(_auraSelf[^\n]*\n\s+_auraSelf\.kindle = Math\.min\(1, \(t - _auraSelf\.since\)/, 'stepped before the kindling is read, so turning back kindles it again');
-  assert.match(w, /auraBeastStep\(w, [^\n]*\n\s+w\.kindle = Math\.min\(1, \(t - w\.since\)/, 'a peer\'s too');
-  assert.match(w, /const drawVeiledPeerBodies = \(\) => \{ peerBodies\?\.drawVeiled\(\); drawAuras\(\);/, 'drawn through the hook the street, the building and the dungeon all call');
+  assert.match(w, /auraBeastStep\(_auraSelf[^\n]*\n\s+_auraSelf\.kindle = Math\.min\(1, \(t - _auraSelf\.since\) \/ AURA_KINDLE_S\); _auraSelf\.mounted = !!player\.riding;/, 'stepped before the kindling is read, so turning back kindles it again; and riding');
+  assert.match(w, /auraBeastStep\(w, [^\n]*\n\s+w\.kindle = Math\.min\(1, \(t - w\.since\) \/ AURA_KINDLE_S\); w\.seen = t; w\.mounted = !!d\.shown\.rd;/, 'a peer\'s too - a horse or a cart');
+  // THE DRAW LINE, read as code - its comment cut off first (a call after a // is no call: FOE1's trap, met here once)
+  const line = w.split('\n').find((l) => l.includes('for (const w of _auraDraw) if (w.aura === \'shadowcloak\')'));
+  const code = line.slice(0, line.indexOf('   //'));
+  assert.ok(!code.includes('//'), 'no comment inside the code half');
+  assert.match(code, /const auraNow = performance\.now\(\) \/ 1000; for \(const w of _auraDraw\) if \(w\.aura === 'shadowcloak'\) \{ auraCapeStep\(w, w === _auraSelf \? \{ feet: player\.bodyFeetAt\(\), yaw: player\.bodyYawFor\(cam\.yaw\), bones: mwViewBodyBones\(CLOAK_BONES\) \} : peerBodies\?\.bonesOf\(w\.id, CLOAK_BONES\), w === _auraSelf && player\.crouching \? player\.height \/ CAPSULE_HEIGHT : 1\); auraMotionStep\(w, auraNow\); \} _auraPass\?\.draw\(_auraDraw, proj, view, eye, auraNow, \{/, 'each cape hung on its body and swung where it is drawn, THEN every aura drawn');
+  assert.match(w, /const drawVeiledPeerBodies = \(\) => \{ peerBodies\?\.drawVeiled\(\); drawAuras\(\);/, 'drawn through the hook the street, the building and the dungeon all call - after the bodies');
+  const a = rd('src/combat/fpArm.js');
+  assert.match(a, /lastThirdModel = model;[^\n]*\n\s+drawnPose = \{ arm: t\.arm, mats: t\.arm\.mats \};/, 'the body\'s bones read in the pose it was drawn in');
+  assert.match(a, /const arm = thirdBuilt\.arm, drawn = drawnPose && drawnPose\.arm === arm \? drawnPose\.mats : null;/, 'while it is this arm\'s');
+  const v = rd('src/player/mwView.js');
+  assert.match(v, /export function mwViewBodyBones\(names\) \{\n\s+if \(eotbLane\(\) \|\| !mwCamera\.thirdPerson\(\)\) return null;\n\s+return fpArm\.thirdBones\(names\);/, 'no bones from the sprite lane or in first person');
+});
+
+test('SHADOW-CLOAK the pose, RUN: at rest the cape is the cape; it hangs from the shoulders where they are - scaled between the feet and them (a crouch presses it down and it gathers out), the collar with them, the hem following half as far - the hood with the head and turned with it, the cloth as broad as the shoulders and the hood not; trailing its wearer\'s motion the more the lower, rising as a pendulum, lagging a turn below the shoulders, lifting and filling in a fall; and a knee carried past the cloth presses it out (mutants: the crouch, the lean, the head, the head\'s turn, the scale across, the trail, the pendulum, the twist, the lift, a knee)', () => {
+  const at = (u, y, pose, o = {}) => vsAt(1, [u, y / CLOAK_H], { t: QUIET, pose, ...o }).w;
+  const near = (p, q, e = 1e-6) => p.every((x, i) => Math.abs(x - q[i]) < e);
+  const rest = { uCapeS: [0, CLOAK_SHOULDER_Y, 0, 1], uCapeH: [0, CLOAK_HOOD_Y, 0, 0] };
+  for (const [u, y] of [[0.5, 0.4], [0.3, 1.0], [0.5, 1.5], [0.37, CLOAK_H]]) assert.ok(near(at(u, y, rest), at(u, y, {})), `at rest, the cape as it was (${u}, ${y})`);
+  // a crouch: the shoulders 0.7 as high - the cloth there with them, the hem gathered out
+  const crouch = { uCapeS: [0, CLOAK_SHOULDER_Y * 0.7, 0, 1], uCapeH: [0, CLOAK_HOOD_Y * 0.7, 0, 0] };
+  const sh = at(0.5, CLOAK_SHOULDER_Y - 0.001, crouch), knee = at(0.25, 0.5, crouch), kneeRest = at(0.25, 0.5, rest);
+  assert.ok(Math.abs(sh[1] - CLOAK_SHOULDER_Y * 0.7) < 0.01, `pressed down with the shoulders (${sh[1].toFixed(3)})`);
+  assert.ok(Math.abs(knee[1] - 0.35) < 0.02 && Math.hypot(knee[0], knee[2]) > Math.hypot(kneeRest[0], kneeRest[2]) + 0.05, `and gathered out below (${knee.map((x) => x.toFixed(3))})`);
+  assert.ok(Math.abs(at(0.37, CLOAK_H, crouch)[1] - CLOAK_HOOD_Y * 0.7 - (CLOAK_H - CLOAK_HOOD_Y)) < 1e-4, 'the hood down with the head');
+  // a lean: the shoulders 0.1 m forward - the collar with them, the hem half as far
+  const lean = { uCapeS: [0, CLOAK_SHOULDER_Y, 0.1, 1], uCapeH: [0, CLOAK_HOOD_Y, 0.1, 0] };
+  assert.ok(Math.abs(at(0.5, CLOAK_SHOULDER_Y + 0.02, lean)[2] - at(0.5, CLOAK_SHOULDER_Y + 0.02, rest)[2] - 0.1) < 1e-4, 'the collar with the shoulders');
+  assert.ok(Math.abs(at(0.5, 0, lean)[2] - at(0.5, 0, rest)[2] - 0.05) < 1e-4, 'the hem half as far');
+  // the head: the hood's peak moves with it and turns with it; the shoulders stay
+  const head = { uCapeS: rest.uCapeS, uCapeH: [0.05, CLOAK_HOOD_Y - 0.03, 0.04, 0] };
+  assert.ok(near(at(0.37, CLOAK_H, head), at(0.37, CLOAK_H, rest).map((x, i) => x + [0.05, -0.03, 0.04][i]), 1e-5), 'the hood\'s peak with the head');
+  assert.ok(near(at(0.5, 1.0, head), at(0.5, 1.0, rest)), 'the cape below the shoulders not');
+  const turned = at(0.0, CLOAK_FACE.y, { uCapeS: rest.uCapeS, uCapeH: [0, CLOAK_HOOD_Y, 0, Math.PI / 2] }), ahead = at(0.0, CLOAK_FACE.y, rest);
+  assert.ok(ahead[2] > 0.08 && turned[0] > 0.08 && Math.abs(turned[2]) < 0.04, `the hood's face turned with the head (${ahead.map((x) => x.toFixed(3))} to ${turned.map((x) => x.toFixed(3))})`);
+  // broader shoulders: the cloth broader below them, the hood not
+  const broad = { uCapeS: [0, CLOAK_SHOULDER_Y, 0, 1.2], uCapeH: rest.uCapeH };
+  const wide = at(0.25, 1.0, broad), narrow = at(0.25, 1.0, rest);
+  assert.ok(Math.abs(wide[0] / narrow[0] - 1.2) < 0.05, `as broad as the shoulders (${(wide[0] / narrow[0]).toFixed(3)})`);
+  assert.ok(near(at(0.25, CLOAK_HOOD_Y, broad), at(0.25, CLOAK_HOOD_Y, rest)), 'the hood the head\'s size');
+  // the swing: trailing 0.3 m behind at the hem, none at the shoulders, risen as a pendulum
+  const trail = { ...rest, uSwing: [0, -0.3, 0, 0] };
+  const hem = at(0.25, 0.05, trail), hem0 = at(0.25, 0.05, rest);
+  assert.ok(hem[2] < hem0[2] - 0.2 && hem[1] > hem0[1] + 0.01, `the hem trails behind and rises (${hem.map((x) => x.toFixed(3))} from ${hem0.map((x) => x.toFixed(3))})`);
+  assert.ok(near(at(0.25, CLOAK_SHOULDER_Y + 0.01, trail), at(0.25, CLOAK_SHOULDER_Y + 0.01, rest)), 'the shoulders hold');
+  const tw = at(0.5, 0.05, { ...rest, uSwing: [0, 0, 0, 0.5] }), tw0 = at(0.5, 0.05, rest);
+  assert.ok(Math.abs(Math.atan2(tw[0], -tw[2]) - Math.atan2(tw0[0], -tw0[2])) > 0.3, 'a turn\'s lag swings the hem round');
+  assert.ok(near(at(0.5, CLOAK_SHOULDER_Y + 0.01, { ...rest, uSwing: [0, 0, 0, 0.5] }), at(0.5, CLOAK_SHOULDER_Y + 0.01, rest)), 'and not the shoulders');
+  const fall = at(0.25, 0.05, { ...rest, uSwing: [0, 0, 0.2, 0] });
+  assert.ok(fall[1] > hem0[1] + 0.15 && Math.hypot(fall[0], fall[2]) > Math.hypot(hem0[0], hem0[2]) + 0.08, 'a fall lifts it and fills it out');
+  // a knee carried out past the cloth at the wearer's left presses it out round it
+  const kneeOut = { ...rest, uKneeL: [-0.5, 0.5, 0.0] };
+  const pressed = at(0.75, 0.5, kneeOut), unpressed = at(0.75, 0.5, rest);
+  assert.ok(-pressed[0] > 0.5 && -pressed[0] > -unpressed[0] + 0.1, `a knee presses it out (${(-unpressed[0]).toFixed(3)} to ${(-pressed[0]).toFixed(3)})`);
+  assert.ok(near(at(0.25, 0.5, kneeOut), at(0.25, 0.5, rest)), 'only where the knee is');
+});
+
+test('SHADOW-CLOAK the swing and the pose from the body: the swing is a damped spring off how its wearer moves - trailing a run, swinging past and settling when they stop, lagging a turn, lifting in a fall, still at first sight and after a teleport; the pose reads the body\'s own bones - the rig\'s frame exactly where its draw puts it, the shoulders\' middle and breadth (bounded), the head past its joint, the knees, nothing from a skeleton without them; each cape placed where its body is drawn, at rest or crouched without one; a peer\'s bones off its standing body alone (mutants: the trail\'s sign, the spring, the turn, the fall, the snap, the frame, the breadth\'s bounds, the head\'s reach, the placing, the crouch, a peer with no body)', async () => {
+  const run = (path, steps, dt = 1 / 60) => { const w = { at: [0, 0, 0], yaw: path(0).yaw ?? 0 }; let t = 0; const out = []; for (let i = 0; i <= steps; i++) { const p = path(i * dt); w.at = p.at; w.yaw = p.yaw ?? 0; auraMotionStep(w, t); out.push({ ...w.swing }); t += dt; } return out; };
+  assert.deepEqual(run(() => ({ at: [0, 0, 0] }), 0)[0], { x: 0, z: 0, lift: 0, twist: 0 }, 'still at first sight');
+  const fwd = run((t) => ({ at: [0, 0, t * 5] }), 120);
+  assert.ok(fwd[120].z < -0.2 && Math.abs(fwd[120].x) < 1e-6, `running north (forward at yaw 0), it trails behind (${fwd[120].z.toFixed(3)})`);
+  const east = run((t) => ({ at: [t * 5, 0, 0], yaw: Math.PI / 2 }), 120);
+  assert.ok(east[120].z < -0.2 && Math.abs(east[120].x) < 1e-3, 'running east facing east, the same - in the body\'s frame');
+  const side = run((t) => ({ at: [t * 5, 0, 0] }), 120);
+  assert.ok(side[120].x < -0.2, 'stepping to the right, it trails to the left');
+  const stop = run((t) => ({ at: [0, 0, Math.min(t, 2) * 5] }), 300);
+  assert.ok(Math.max(...stop.slice(121, 200).map((s) => s.z)) > 0.01, 'stopping, it swings past');
+  assert.ok(Math.abs(stop[300].z) < 0.01, 'and settles');
+  assert.ok(Math.min(...fwd.map((s) => s.z)) >= -CLOAK_SWING.trailMax - 0.1, 'never past its reach by more than its swing');
+  const turn = run((t) => ({ at: [0, 0, 0], yaw: t * 2 }), 120);
+  assert.ok(turn[120].twist < -0.1, `turning right, it lags (${turn[120].twist.toFixed(3)})`);
+  const fall = run((t) => ({ at: [0, -4 * t * t, 0] }), 60);
+  assert.ok(fall[60].lift > 0.1, `falling, it lifts (${fall[60].lift.toFixed(3)})`);
+  const tele = run((t) => ({ at: [0, 0, t < 1 ? t * 5 : 500] }), 300);
+  assert.deepEqual(tele[60], tele[59], 'a teleport (or the floating origin moving the world) is no motion: nothing read off it, the swing it had carried on');
+  assert.ok(tele[60].z < -0.15 && Math.abs(tele[300].z) < 0.01 && Math.min(...tele.slice(59).map((x) => x.z)) >= tele[59].z - 1e-9, 'and it settles from there, never flung');
+  // the rig's frame: where drawThird's own model puts a rig point, about the feet
+  const feet = [10, 2, -3], yaw = 0.7, rs = { weight: 1.1, height: 0.95 }, rigPt = [5, 7, 90];
+  const u = 1 / MW_UNITS_PER_METER;
+  const model = multiply(trs(feet[0], feet[1], feet[2], 0, yaw * 180 / Math.PI + 180, 0, -u * rs.weight, u * rs.height, u * rs.weight), NIF_TO_PASS);
+  const world = transformPoint(model, ...rigPt), b = rigPointToBody(rigPt, rs);
+  const R = [Math.cos(yaw), 0, -Math.sin(yaw)], Fw = [Math.sin(yaw), 0, Math.cos(yaw)];
+  for (let i = 0; i < 3; i++) assert.ok(Math.abs(world[i] - (feet[i] + R[i] * b[0] + (i === 1 ? b[1] : 0) + Fw[i] * b[2])) < 1e-4, `the body's frame is the draw's (axis ${i})`);
+  // the pose
+  const bones = { 'bip01 l upperarm': [-0.24, 1.36, 0.02], 'bip01 r upperarm': [0.24, 1.36, 0.02], 'bip01 neck': [0, 1.5, 0], 'bip01 head': [0, 1.6, 0], 'bip01 l calf': [-0.1, 0.5, 0.2], 'bip01 r calf': [0.1, 0.48, -0.1] };
+  const p = auraCapePose(bones);
+  assert.deepEqual([...p.shoulders].map((x) => +x.toFixed(4)), [0, 1.36, 0.02, 1.2], 'the shoulders\' middle and their breadth');
+  assert.deepEqual([...p.head].map((x) => +x.toFixed(4)), [0, +(1.6 + CLOAK_HEAD_ABOVE).toFixed(4), 0, 0], 'the head\'s middle a hand past its joint, along the neck');
+  assert.deepEqual([[...p.kneeL], [...p.kneeR]].map((k) => k.map((x) => +x.toFixed(4))), [[-0.1, 0.5, 0.2], [0.1, 0.48, -0.1]], 'the knees');
+  assert.equal(auraCapePose({ ...bones, 'bip01 l upperarm': [-0.9, 1.36, 0], 'bip01 r upperarm': [0.9, 1.36, 0] }).shoulders[3], CLOAK_ACROSS[1], 'its breadth bounded');
+  assert.equal(auraCapePose({ ...bones, 'bip01 head': null }), null, 'a skeleton without them (the wolf\'s): no pose');
+  const w = auraCapeStep({ at: [0, 0, 0], yaw: 0 }, { feet: [1, 2, 3], yaw: 0.5, bones });
+  assert.deepEqual([w.at, w.yaw, [...w.cape.shoulders].map((x) => +x.toFixed(4))], [[1, 2, 3], 0.5, [0, 1.36, 0.02, 1.2]], 'placed where the body is drawn, hung from its bones');
+  assert.equal(auraCapeStep({ at: [0, 0, 0] }, { feet: [1, 2, 3], yaw: 0.5, bones: null }).cape, CLOAK_REST_POSE, 'no bones (the sprite lane, first person): at rest');
+  const c = auraCapeStep({ at: [0, 0, 0] }, null, 0.7).cape;
+  assert.deepEqual([c.shoulders[1], c.head[1]].map((x) => +x.toFixed(4)), [+(CLOAK_SHOULDER_Y * 0.7).toFixed(4), +(CLOAK_HOOD_Y * 0.7).toFixed(4)], 'crouched without a body\'s bones');
+  // a posed arm's bones, by name, in the body's frame; none it lacks; nothing from an arm not posed
+  const ref = new Map([['bip01 head', 7], ['bip01 neck', 6]]), mats = new Map([[7, { t: [0, 1.4, 112] }], [6, { t: [0, 0, 105] }]]);
+  const arm = armBonesInBody({ skeleton: { byName: ref }, mats }, ['Bip01 Head', 'bip01 neck', 'bip01 tail'], { weight: 1, height: 1.1 });
+  assert.deepEqual(Object.keys(arm), ['Bip01 Head', 'bip01 neck', 'bip01 tail']);
+  assert.deepEqual(arm['Bip01 Head'].map((x) => +x.toFixed(4)), rigPointToBody([0, 1.4, 112], { weight: 1, height: 1.1 }).map((x) => +x.toFixed(4)), 'by name, case aside, through the body\'s frame');
+  assert.equal(arm['bip01 tail'], null, 'a bone it lacks');
+  assert.equal(armBonesInBody({ skeleton: { byName: ref }, mats: null }, ['bip01 head']), null, 'an arm not posed');
+  // a peer's bones off its standing body alone
+  const { PeerBodies } = await import('../src/net/peerBodies.js');
+  const pb = new PeerBodies({ renderer: {}, createRig: () => ({}) });
+  const rig = { thirdActive: () => true, thirdBones: (names) => Object.fromEntries(names.map((n) => [n, bones[n] ?? null])) };
+  pb._bodies.set('p1', { state: 'ok', goneAt: null, far: false, feet: [4, 0, 4], yaw: 1.25, rig });
+  pb._bodies.set('p2', { state: 'building', goneAt: null, far: false, feet: [4, 0, 4], yaw: 1.25, rig });
+  pb._bodies.set('p3', { state: 'ok', goneAt: null, far: true, feet: [4, 0, 4], yaw: 1.25, rig });
+  const got = pb.bonesOf('p1', CLOAK_BONES);
+  assert.deepEqual([got.feet, got.yaw, got.bones['bip01 head']], [[4, 0, 4], 1.25, [0, 1.6, 0]], 'its feet and eased yaw, and its bones');
+  for (const id of ['p2', 'p3', 'none']) assert.equal(pb.bonesOf(id, CLOAK_BONES), null, `no standing body, no bones (${id})`);
 });

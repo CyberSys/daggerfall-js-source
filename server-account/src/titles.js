@@ -266,7 +266,7 @@ export function titlesHeld(player, env) {
 }
 
 /** WB9g: THE AURAS THIS PLAYER HOLDS - the Broker's, bought (the row's `insignia`), in the offers' order. AEGIS: and,
- *  first, the auras their listed titles carry (TIER_AURA), in TIER_LISTS' order - read off the config as the title is,
+ *  first, the auras their listed titles carry (TIER_AURA), in TIER_AURA's own order - read off the config as the title is,
  *  so `env` is owed wherever a list could grant one (a caller without it reads the Broker's alone, as before). */
 export function aurasHeld(player, env) {
   const held = [];

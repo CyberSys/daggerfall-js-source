@@ -4652,8 +4652,34 @@ accents. Extremely detailed". SirMcMobdon already holds SHADOW-FANG's title and 
     clock (`cloakRatesWhole`, the shreds' among them), every pattern round a whole number, so no seam and no jump at
     the wrap. THE FOUR HOSTS, untouched: the pass's hosts are AEGIS's (`scenes/world.js`, `scenes/worldModes.js`,
     `scenes/dungeonContext.js`; `scenes/exterior.js` draws no aura - FLAGGED, unchanged).
-  - WHAT IT DOES NOT FOLLOW: the body's skeleton. It is placed by the wearer's feet and facing alone - it does not
-    bend with a stride, an arm, a crouch or a swim, and the inventory's paper doll does not draw it.
+  - IT MOVES WITH THE BODY (Mac: "Does this work with the paper doll animations? Like the aura flows with it?", then
+    "Tie the cape to animations"). Two halves, both per wearer:
+    - THE POSE, off the body's own skeleton: `drawAuras` (after every body is posed and drawn this frame) reads the
+      third-person Morrowind body's bones - mine through `player/mwView.js mwViewBodyBones` (`combat/fpArm.js
+      thirdBones` / `armBonesInBody`: a bone's posed origin through `rigPointToBody`, the very frame drawThird places
+      by its feet and yaw, the race's weight across and height up), a peer's through `net/peerBodies.js bonesOf` (its
+      standing body, at the feet and EASED yaw it is drawn at). `auraCapePose` (CLOAK_BONES: both shoulder joints, the
+      neck, the head, both knees) gives the shoulders' middle and breadth (CLOAK_SHOULDER_HALF 0.2 m at rest, bounded
+      CLOAK_ACROSS 0.8-1.25), the head's middle (CLOAK_HEAD_ABOVE 9 cm past its joint along the neck) and the knees.
+      The vertex half hangs the cape from the shoulders where they stand - scaled between the feet and them, so a
+      crouch, a stride's bob and a taller or shorter race carry it, gathering out as it is pressed down; the collar
+      with the shoulders and the hem half as far; the hood with the head; the cloth as broad as the shoulders (the hood
+      the head's own size); and a knee carried past the cloth presses it out round it. `auraCapeStep` places each cape
+      where its body is DRAWN (its feet and yaw - mine `player.bodyFeetAt()`, not the camera's smoothed feet).
+    - THE SWING, off how the wearer moves: `auraMotionStep`, stepped in `auraFrame` for every wearer whatever their body
+      (a rig or a sprite, mine or a peer's) from their feet and facing frame to frame - velocity and turning smoothed
+      (0.1 s), set where the hem would hang (CLOAK_SWING: 0.05 s of speed behind them up to 0.42 m - a walk's 4 m/s a
+      hand and a half; lifted 0.04 m per m/s of fall up to 0.25 m; lagging 0.12 s of turn up to 0.6 rad) and carried
+      there on a damped spring (1.2 Hz, damping 0.45: it swings past when they stop and settles). The vertex half
+      trails the cloth the more the lower, rising as a pendulum does; lifts and fills it in a fall; lags it round on a
+      turn below the shoulders (the fragment half's facing turned with it). A jump of more than 3 m in a frame (a
+      door, a teleport, the floating origin) is no motion.
+    - WITHOUT BONES - the sprite body (the EOTB lane), first person (which poses no third-person body; nor is the cape
+      drawn over one's own view), a peer with no body standing (building, past BODY_RANGE, a doll), the wolf's
+      skeleton - it hangs at rest (CLOAK_REST_POSE), my own pressed down to my crouch (`player.height` over
+      CAPSULE_HEIGHT while crouching), and swings all the same. The head's turn (`uCapeH` w) is carried by the shader
+      and pinned, but nothing sets it yet: the head bone's axes in the retail skeleton are not verified here. The
+      inventory's paper doll draws no aura.
 - **Seen**: in a real WebGL2 round a stand-in body (a lit floor, so the shadow can be read; the preview mirrored as
   the game's projection is) from a third-person camera, from behind, the front, the side, three-quarters, close on the
   hood, half kindled, through the tear and torn, and from the wearer's own eye. `tools/auraProbe.mjs` draws all four

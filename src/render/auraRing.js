@@ -533,6 +533,12 @@ float cloakOpenHalf(float y) {
   float fy = (y - ${g3(CLOAK_FACE.y)}) / ${g3(CLOAK_FACE.h)};
   return max(body, ${g3(CLOAK_OPEN.face)} * sqrt(max(0.0, 1.0 - fy * fy)));
 }
+// a body-frame offset (x the wearer's right, y their forward, m) in the world's x and z
+vec2 cloakWorldXZ(vec2 b) { return vec2(cos(uYaw), -sin(uYaw)) * b.x + cloakFwd() * b.y; }
+// how far down its hang a height is: 0 at the shoulders and over them, 1 at the feet
+float cloakHangOf(float y) { return clamp(1.0 - y / ${g3(CLOAK_SHOULDER_Y)}, 0.0, 1.0); }
+// THE SWING's lag on a turn at y (\`uSwing\` w, rad): the turns its bearing has fallen behind, the more the lower
+float cloakTwistAt(float y) { return uSwing.w / CLOAK_TAU * pow(cloakHangOf(y), 1.2); }
 // THE TEAR: how far the cloak has torn apart (0 whole .. 1 gone) - \`uTorn\` the seconds since its wearer turned beast,
 // negative while they have not
 float cloakRipOf() { return uTorn < 0.0 ? 0.0 : clamp(uTorn / ${g3(CLOAK_RIP_S)}, 0.0, 1.0); }
@@ -612,7 +618,7 @@ vec4 cloakWall(vec2 q) {
   // (\`uSide\` 0) laid first and the near (1) over it, so one row's far cloth never lies over the next row's near
   float drape = cloakDrapeOf(y);
   float phase = cloakFoldPhase(u), fold = cos(phase) * drape;
-  vec2 bn = cloakBearing(u + 0.02 * sin(phase) * drape);
+  vec2 bn = cloakBearing(u + 0.02 * sin(phase) * drape + cloakTwistAt(y));
   float lean = (cloakRadius(u, y + 0.01) - cloakRadius(u, y - 0.01)) * 50.0 - (cloakAxisBack(y + 0.01) - cloakAxisBack(y - 0.01)) * 50.0 * dot(cloakFwd(), bn);
   vec3 e = uCamPos - vWorld;
   float toward = dot(normalize(vec3(bn.x, -lean, bn.y)), dot(e, e) > 1e-8 ? normalize(e) : vec3(bn.x, 0.0, bn.y));
@@ -726,11 +732,42 @@ float cloakBillow(float u, float y, float t) {
   float w = 0.035 * sin(2.0 * th + y * 2.0 + t * CLOAK_TAU ${hzGlsl(CLOAK_HZ.billow)}) + 0.016 * sin(5.0 * th + y * 6.0 + t * CLOAK_TAU ${hzGlsl(CLOAK_HZ.wave)});
   return w * pow(cloakDrapeOf(y), 1.5) * (0.3 + 0.7 * cloakBackOf(u));
 }
+// A KNEE (k, the body's frame: x right, y up, z forward, m about the feet) pressing the cloth out where a stride carries
+// it past - at bearing u, radius r and height y: how far the cloth is pushed out round it
+float cloakKneePush(vec3 k, float u, float r, float y) {
+  float kr = length(k.xz);
+  if (kr < 1e-4) return 0.0;
+  return max(0.0, kr + 0.07 - r) * smoothstep(0.75, 0.97, dot(vec2(sin(u * CLOAK_TAU), cos(u * CLOAK_TAU)), k.xz / kr)) * exp(-pow(y - k.y, 2.0) / 0.04);
+}
 vec3 cloakPoint(vec2 q, float t) {
-  float u = q.x, y = q.y * uFlameH, rip = cloakRipOf();
-  float r = cloakRadius(u, y) + ${g3(CLOAK_FOLD_M)} * cloakFoldOf(u) * cloakDrapeOf(y) + cloakBillow(u, y, t) + rip * (0.15 + 0.35 * cloakBackOf(u));   // bursting out as it tears
-  vec2 d = cloakBearing(u) * r - cloakFwd() * cloakAxisBack(y);
-  return uAt + vec3(d.x, y + rip * 0.2 * q.y, d.y);
+  float u = q.x, y = q.y * uFlameH, rip = cloakRipOf(), h = cloakHangOf(y);
+  float ut = u + cloakTwistAt(y);   // lagging a turn
+  // THE BODY'S POSE: hung from its shoulders where they are (\`uCapeS\`, the body's frame) - scaled between the feet and
+  // them, so a crouch or a shorter or taller body carries it, and gathering out as it is pressed down; the collar
+  // with the shoulders, and the hood with the head (\`uCapeH\`), turned as the head turns
+  float ky = uCapeS.y / ${g3(CLOAK_SHOULDER_Y)};
+  float r = cloakRadius(u, y) * mix(uCapeS.w, 1.0, smoothstep(${g3(CLOAK_SHOULDER_Y)}, ${g3(CLOAK_NECK_Y)}, y)) + ${g3(CLOAK_FOLD_M)} * cloakFoldOf(u) * cloakDrapeOf(y) + cloakBillow(u, y, t) + rip * (0.15 + 0.35 * cloakBackOf(u)) + max(0.0, 1.0 - ky) * h * 0.3;   // as broad as the body's shoulders; bursting out as it tears; gathering as it is pressed down
+  vec2 d = cloakBearing(ut) * r - cloakFwd() * cloakAxisBack(y);
+  float py;
+  if (y < ${g3(CLOAK_SHOULDER_Y)}) {
+    d += cloakWorldXZ(uCapeS.xz) * (1.0 - 0.5 * h);
+    py = y * ky;
+  } else {
+    float wh = smoothstep(${g3(CLOAK_SHOULDER_Y)}, ${g3(CLOAK_HOOD_Y)}, y), a = uCapeH.w * wh;
+    d = vec2(d.x * cos(a) + d.y * sin(a), -d.x * sin(a) + d.y * cos(a));
+    vec3 off = mix(vec3(uCapeS.x, uCapeS.y - ${g3(CLOAK_SHOULDER_Y)}, uCapeS.z), vec3(uCapeH.x, uCapeH.y - ${g3(CLOAK_HOOD_Y)}, uCapeH.z), wh);
+    d += cloakWorldXZ(off.xz);
+    py = y + off.y;
+  }
+  // THE SWING (\`uSwing\`, auraMotionStep): trailing its wearer's motion, the more the lower, rising as a pendulum does;
+  // lifting and filling as they fall
+  vec2 trail = uSwing.xy * pow(h, 1.6);
+  float hang = ${g3(CLOAK_SHOULDER_Y)} * ky * h;
+  d += cloakWorldXZ(trail) + cloakBearing(ut) * uSwing.z * h * 0.6;
+  py += hang - sqrt(max(hang * hang - dot(trail, trail), 0.04 * hang * hang)) + uSwing.z * h * h;
+  // the knees, where a stride carries one past the cloth
+  d += cloakBearing(ut) * (cloakKneePush(uKneeL, ut, r, py) + cloakKneePush(uKneeR, ut, r, py));
+  return uAt + vec3(d.x, py + rip * 0.2 * q.y, d.y);
 }
 // emblem k's life (s): CLOAK_EMBLEM_LIFE[k mod 3]
 float cloakEmblemLife(float k) { float m = mod(k, 3.0); return m < 0.5 ? ${g1(CLOAK_EMBLEM_LIFE[0])} : m < 1.5 ? ${g1(CLOAK_EMBLEM_LIFE[1])} : ${g1(CLOAK_EMBLEM_LIFE[2])}; }
@@ -744,8 +781,8 @@ vec4 cloakEmblemFlight(float k, float t) {
   float n = cloakEmblemOf(k, t);
   float u = 0.5 + (cloakHash(vec2(k * 17.0 + n, 4.1)) - 0.5) * 0.45;
   float y0 = 1.05 + cloakHash(vec2(k * 5.0 + n, 8.3)) * 0.35;
-  vec2 d = cloakBearing(u) * (cloakRadius(u, y0) + 0.08 + 0.3 * age);
-  return vec4(d.x, y0 + (1.0 - (1.0 - age) * (1.0 - age)) * ${g3(CLOAK_EMBLEM_RISE)}, d.y, age);
+  vec2 d = cloakBearing(u) * (cloakRadius(u, y0) + 0.08 + 0.3 * age) + cloakWorldXZ(uCapeS.xz);   // off the back where the pose has it
+  return vec4(d.x, y0 * uCapeS.y / ${g3(CLOAK_SHOULDER_Y)} + (1.0 - (1.0 - age) * (1.0 - age)) * ${g3(CLOAK_EMBLEM_RISE)}, d.y, age);
 }
 // shred j, \`since\` seconds after the cloak tore: where it is about the feet (xyz, m) - torn off the cape at its own place
 // and flung out, then floating round the beast at its own height and pace, either way round, bobbing - and its turn in
@@ -770,6 +807,10 @@ uniform float uGroundR, uRingR, uFlameH, uLift;
 uniform float uTime;    // AEGIS: a symbol's flight
 uniform float uYaw;     // SHADOW-CLOAK: the wearer's facing
 uniform float uTorn;    // SHADOW-CLOAK: the seconds since the wearer turned beast (negative while not) - the tear, the shreds
+uniform vec4 uSwing;    // SHADOW-CLOAK: the swing (auraMotionStep) - its trail along the body's right and forward (m), its lift (m), its lag on a turn (rad)
+uniform vec4 uCapeS;    // SHADOW-CLOAK: the shoulders' middle in the body's frame (x right, y up, z forward, m about the feet) - the pose it hangs from - and (w) its scale across them
+uniform vec4 uCapeH;    // SHADOW-CLOAK: the head's middle in the same frame, and (w) its turn from the body's (rad)
+uniform vec3 uKneeL, uKneeR;   // SHADOW-CLOAK: the knees, in the same frame
 uniform vec3 uCamPos;   // AEGIS: the eye a symbol faces
 out vec2 vP;            // the ground: metres about the feet; the flames: (the angle's share, the height's); a symbol: its card's uv
 out vec3 vWorld;
@@ -843,6 +884,7 @@ uniform vec3 uAt;       // PRIMARCH: the feet - the axis the radiance's column s
 uniform float uYaw;     // SHADOW-CLOAK: the wearer's facing - the cloak's opening is at their front
 uniform int uSide;      // SHADOW-CLOAK: which side of the cloth this draw lays - 0 the far, 1 the near
 uniform float uTorn;    // SHADOW-CLOAK: the seconds since the wearer turned beast (negative while not)
+uniform vec4 uSwing;    // SHADOW-CLOAK: the swing - its lag on a turn (w) turns the cloth's facing too
 uniform float uTime, uSeed, uKindle, uRingR, uGroundR, uFlameH;
 uniform int uFogMode;
 uniform float uFogDensity;
@@ -946,6 +988,95 @@ export function auraCloakGrid() {
 /** The cards the third draw has to hand: the most any look floats (the ward's symbols, the cloak's emblems and shreds). */
 export const AURA_CARDS = Math.max(...Object.values(AURA_LOOK).map((l) => l.glyphs + ('shreds' in l ? l.shreds : 0)));
 
+/** SHADOW-CLOAK: THE BODY'S POSE AT REST - what the cape's measures are drawn about, in the body's frame (x right, y
+ *  up, z forward, m about the feet): the shoulders' middle (w its scale across them - 1 at rest), the head's middle (w
+ *  its turn from the body's, rad), and no knee to press it (at the feet's own axis, nowhere). A wearer with no posed
+ *  body hangs it from this. */
+export const CLOAK_REST_POSE = Object.freeze({ shoulders: Float32Array.of(0, CLOAK_SHOULDER_Y, 0, 1), head: Float32Array.of(0, CLOAK_HOOD_Y, 0, 0), kneeL: new Float32Array(3), kneeR: new Float32Array(3) });
+/** SHADOW-CLOAK: THE BONES IT HANGS FROM - the retail third-person skeleton's (base_anim.nif and its kin, lowercase as
+ *  the skeleton's byName keeps them): the shoulder joints, the neck and the head, the knees. */
+export const CLOAK_BONES = Object.freeze(['bip01 l upperarm', 'bip01 r upperarm', 'bip01 neck', 'bip01 head', 'bip01 l calf', 'bip01 r calf']);
+/** The rest shoulders' half-width its measures assume (m) - a broader or narrower body scales the cloth across, within
+ *  CLOAK_ACROSS - and how far past the head's own joint (the top of the neck) its middle is, along the neck (m). */
+export const CLOAK_SHOULDER_HALF = 0.2;
+export const CLOAK_ACROSS = Object.freeze([0.8, 1.25]);
+export const CLOAK_HEAD_ABOVE = 0.09;
+
+/** SHADOW-CLOAK: THE POSE FROM THE BONES - `bones` the body's (fpArm.thirdBones: each [right, up, forward] m about its
+ *  feet, or null) - the shoulders' middle and the scale across them, the head's middle and the knees, written into
+ *  `out` (or a new pose); null when the shoulders or the head are missing (another skeleton - the wolf's), so the cape
+ *  hangs at rest. Pure but for `out`. */
+export function auraCapePose(bones, out = null) {
+  const L = bones?.['bip01 l upperarm'], R = bones?.['bip01 r upperarm'], N = bones?.['bip01 neck'], H = bones?.['bip01 head'];
+  if (!L || !R || !H) return null;
+  const o = out ?? { shoulders: new Float32Array(4), head: new Float32Array(4), kneeL: new Float32Array(3), kneeR: new Float32Array(3) };
+  const half = Math.hypot(L[0] - R[0], L[1] - R[1], L[2] - R[2]) / 2;
+  o.shoulders.set([(L[0] + R[0]) / 2, (L[1] + R[1]) / 2, (L[2] + R[2]) / 2, Math.max(CLOAK_ACROSS[0], Math.min(CLOAK_ACROSS[1], half / CLOAK_SHOULDER_HALF))]);
+  const up = N ? [H[0] - N[0], H[1] - N[1], H[2] - N[2]] : [0, 1, 0], ul = Math.hypot(...up) || 1;
+  o.head.set([H[0] + (up[0] / ul) * CLOAK_HEAD_ABOVE, H[1] + (up[1] / ul) * CLOAK_HEAD_ABOVE, H[2] + (up[2] / ul) * CLOAK_HEAD_ABOVE, 0]);
+  o.kneeL.set(bones['bip01 l calf'] ?? [0, 0, 0]);
+  o.kneeR.set(bones['bip01 r calf'] ?? [0, 0, 0]);
+  return o;
+}
+
+/** SHADOW-CLOAK: THE POSE A WEARER'S CAPE HANGS FROM THIS FRAME, set on `w` (`w.cape`): `posed` the body's own - { feet,
+ *  yaw, bones } (mwView mwViewBodyBones beside my body's feet and yaw; peerBodies bonesOf) - the cape placed where that
+ *  body is drawn (its feet and yaw, which the gather's may lag) and hung from its bones when they stand; else from the
+ *  rest pose pressed down to `crouch` (the body's height over its standing height, 1 standing). Returns `w`. Pure but
+ *  for `w`. */
+export function auraCapeStep(w, posed, crouch = 1) {
+  if (posed?.feet && Number.isFinite(posed.yaw)) { w.at[0] = posed.feet[0]; w.at[1] = posed.feet[1]; w.at[2] = posed.feet[2]; w.yaw = posed.yaw; }   // where the body is drawn
+  const o = posed?.bones ? auraCapePose(posed.bones, w.cape && w.cape !== CLOAK_REST_POSE ? w.cape : null) : null;
+  if (o) { w.cape = o; return w; }
+  const k = Number.isFinite(crouch) ? Math.max(0.4, Math.min(1, crouch)) : 1;
+  if (k >= 1) { w.cape = CLOAK_REST_POSE; return w; }
+  const c = w.cape && w.cape !== CLOAK_REST_POSE ? w.cape : { shoulders: new Float32Array(4), head: new Float32Array(4), kneeL: new Float32Array(3), kneeR: new Float32Array(3) };
+  c.shoulders.set([0, CLOAK_SHOULDER_Y * k, 0, 1]); c.head.set([0, CLOAK_HOOD_Y * k, 0, 0]); c.kneeL.fill(0); c.kneeR.fill(0);
+  w.cape = c;
+  return w;
+}
+
+/** SHADOW-CLOAK: THE CAPE'S SWING - how its hem answers its wearer's motion: the seconds of their speed it trails
+ *  behind them (m per m/s, a walk's 4 m/s a hand and a half, a run's more) and the most it trails; the metres it lifts
+ *  per m/s of falling and the most; the radians it lags per rad/s of turning and the most; and the spring it swings on
+ *  (Hz, and its damping - under one, so it swings past and settles when they stop); the speeds smoothed over (s). A
+ *  jump of more than CLOAK_SWING.snap metres in a frame (a door, a teleport, the floating origin moving the world) is
+ *  no motion: nothing is read off it and the swing it had carries on. */
+export const CLOAK_SWING = Object.freeze({ trail: 0.05, trailMax: 0.42, lift: 0.04, liftMax: 0.25, twist: 0.12, twistMax: 0.6, hz: 1.2, damp: 0.45, smooth: 0.1, snap: 3 });
+
+/** SHADOW-CLOAK: THE CAPE'S SWING, a wearer's step each frame - from their feet (`w.at`) and facing (`w.yaw`) at the
+ *  clock `t` (s), whoever's body it is (a rig or a sprite, mine or a peer's): their velocity and turning, smoothed, set
+ *  where the hem would hang - behind them by their speed, lifted by their fall, lagging their turn - and a damped
+ *  spring carries it there. Writes `w.swing` { x, z (m, along the body's right and forward), lift (m), twist (rad) }
+ *  and the state it keeps (`w.motion`); returns `w`. Pure but for `w`. */
+const clampTo = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+export function auraMotionStep(w, t) {
+  const S = CLOAK_SWING;
+  const m = w.motion ?? (w.motion = { t: null, at: [0, 0, 0], yaw: 0, v: [0, 0, 0], yr: 0, p: [0, 0, 0, 0], q: [0, 0, 0, 0], goal: [0, 0, 0, 0] });
+  const yaw = Number.isFinite(w.yaw) ? w.yaw : 0, at = w.at;
+  const dt = m.t === null ? 0 : t - m.t;
+  const jump = Math.hypot(at[0] - m.at[0], at[1] - m.at[1], at[2] - m.at[2]);
+  if (m.t === null) { m.v.fill(0); m.yr = 0; m.p.fill(0); m.q.fill(0); }   // first seen: hanging still
+  else if (!(dt > 0) || dt > 0.5 || !(jump <= S.snap)) { m.v.fill(0); m.yr = 0; }   // a stalled frame, a teleport, the floating origin moving the world: no motion read off it - the swing it had carries on
+  else {
+    const a = 1 - Math.exp(-dt / S.smooth);
+    for (let i = 0; i < 3; i++) m.v[i] += ((at[i] - m.at[i]) / dt - m.v[i]) * a;
+    let dy = yaw - m.yaw;
+    dy -= Math.round(dy / (2 * Math.PI)) * 2 * Math.PI;
+    m.yr += (dy / dt - m.yr) * a;
+    const fwd = m.v[0] * Math.sin(yaw) + m.v[2] * Math.cos(yaw), right = m.v[0] * Math.cos(yaw) - m.v[2] * Math.sin(yaw);
+    const g = m.goal;
+    g[0] = clampTo(-right * S.trail, -S.trailMax, S.trailMax); g[1] = clampTo(-fwd * S.trail, -S.trailMax, S.trailMax);
+    g[2] = clampTo(-m.v[1] * S.lift, -0.05, S.liftMax); g[3] = clampTo(-m.yr * S.twist, -S.twistMax, S.twistMax);
+    const k = (2 * Math.PI * S.hz) ** 2, c = 2 * S.damp * 2 * Math.PI * S.hz;
+    for (let n = Math.ceil(dt / (1 / 60)), h = dt / n; n > 0; n--) for (let i = 0; i < 4; i++) { m.q[i] += (k * (g[i] - m.p[i]) - c * m.q[i]) * h; m.p[i] += m.q[i] * h; }
+  }
+  m.t = t; m.at[0] = at[0]; m.at[1] = at[1]; m.at[2] = at[2]; m.yaw = yaw;
+  const sw = w.swing ?? (w.swing = { x: 0, z: 0, lift: 0, twist: 0 });
+  sw.x = m.p[0]; sw.z = m.p[1]; sw.lift = m.p[2]; sw.twist = m.p[3];
+  return w;
+}
+
 /** SHADOW-CLOAK: THE BEAST FORM, a wearer's step each frame - `beast` whether they stand turned lycanthrope, `t` the
  *  clock (s). Turned, the cloak tears: `w.torn` the seconds since the turn, wrapped whole past the tear by the clock's
  *  period (the shreds' rates are whole over it, so their flights meet themselves); -1 while they are not. A wearer
@@ -969,7 +1100,7 @@ export class AuraRingRenderer {
     this.gl = gl;
     this.program = buildProgram(gl, AURA_VS, AURA_FS, 'aura ring');
     this.u = {};
-    for (const n of ['uVP', 'uKind', 'uAura', 'uAt', 'uGroundR', 'uRingR', 'uFlameH', 'uLift', 'uTime', 'uSeed', 'uKindle', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uFocus', 'uYaw', 'uSide', 'uTorn']) this.u[n] = gl.getUniformLocation(this.program, n);
+    for (const n of ['uVP', 'uKind', 'uAura', 'uAt', 'uGroundR', 'uRingR', 'uFlameH', 'uLift', 'uTime', 'uSeed', 'uKindle', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uFocus', 'uYaw', 'uSide', 'uTorn', 'uSwing', 'uCapeS', 'uCapeH', 'uKneeL', 'uKneeR']) this.u[n] = gl.getUniformLocation(this.program, n);
     this.quadVao = gl.createVertexArray();
     gl.bindVertexArray(this.quadVao);
     this.quadBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuf);
@@ -1032,6 +1163,10 @@ export class AuraRingRenderer {
       gl.uniform1f(U.uYaw, Number.isFinite(w.yaw) ? w.yaw : 0);   // SHADOW-CLOAK: the facing its opening is at
       const torn = Number.isFinite(w.torn) ? w.torn : -1;
       gl.uniform1f(U.uTorn, torn);   // SHADOW-CLOAK: turned beast, the cloak torn (auraBeastStep)
+      const sw = w.swing, pose = w.cape ?? CLOAK_REST_POSE;   // SHADOW-CLOAK: its swing (auraMotionStep) and the body's pose it hangs from (auraCapePose)
+      gl.uniform4f(U.uSwing, sw?.x || 0, sw?.z || 0, sw?.lift || 0, sw?.twist || 0);
+      gl.uniform4fv(U.uCapeS, pose.shoulders); gl.uniform4fv(U.uCapeH, pose.head);
+      gl.uniform3fv(U.uKneeL, pose.kneeL); gl.uniform3fv(U.uKneeR, pose.kneeR);
       // SHADOW-CLOAK: a look that SHADES is drawn premultiplied - its light added, what is behind it covered by its alpha
       // - and every other look as it always was, its light added whole
       if (look.shade) gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -1041,12 +1176,12 @@ export class AuraRingRenderer {
       gl.uniform1i(U.uKind, 1);
       if (look.mesh === 'cloak') {   // SHADOW-CLOAK: the cloak's cloth, not the strip - none left once it has torn
         gl.bindVertexArray(this.cloakVao);
-        if (torn < CLOAK_RIP_S) for (const side of [0, 1]) { gl.uniform1i(U.uSide, side); gl.drawArrays(gl.TRIANGLES, 0, CLOAK_ROUND * CLOAK_ROWS * 6); }   // the far side, then the near over it
+        if (torn < CLOAK_RIP_S && w.mounted !== true) for (const side of [0, 1]) { gl.uniform1i(U.uSide, side); gl.drawArrays(gl.TRIANGLES, 0, CLOAK_ROUND * CLOAK_ROWS * 6); }   // the far side, then the near over it
       } else {
         gl.bindVertexArray(this.flameVao);
         gl.drawArrays(gl.TRIANGLES, 0, AURA_STEPS * 6);
       }
-      if (look.glyphs) {   // AEGIS: the ward's floating symbols, a third draw
+      if (look.glyphs && !(look.mesh === 'cloak' && w.mounted === true)) {   // AEGIS: the ward's floating symbols, a third draw (SHADOW-CLOAK: a rider's cape folded away, its emblems with it)
         gl.uniform1i(U.uKind, 2);
         gl.bindVertexArray(this.glyphVao);
         gl.drawArrays(gl.TRIANGLES, 0, (look.glyphs + (look.shreds && torn >= 0 ? look.shreds : 0)) * 6);   // SHADOW-CLOAK: and its shreds, torn
