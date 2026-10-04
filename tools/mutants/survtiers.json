@@ -72,15 +72,6 @@
     ]
   },
   {
-    "name": "SURVTIERS-casual-hunt-harms",
-    "file": "src/systems/survival/difficulty.js",
-    "old": "    huntHarms: false,    // a hunt may",
-    "new": "    huntHarms: true,    // a hunt may",
-    "tests": [
-      "test/survtiers.test.js"
-    ]
-  },
-  {
     "name": "SURVTIERS-casual-rough-hour-halved",
     "file": "src/systems/survival/difficulty.js",
     "old": "    roughRest: { recovery: 1, encounters: 1, stiffHours: 0 },",
@@ -308,24 +299,6 @@
     ]
   },
   {
-    "name": "SURVTIERS-hunt-keeps-its-harms",
-    "file": "src/systems/survival/hunting.js",
-    "old": "  if (twin) result = outcome(twin, { meat: result.meat, fruit: result.fruit, skills: result.skills });",
-    "new": "",
-    "tests": [
-      "test/survtiers.test.js"
-    ]
-  },
-  {
-    "name": "SURVTIERS-twin-drops-the-catch",
-    "file": "src/systems/survival/hunting.js",
-    "old": "  if (twin) result = outcome(twin, { meat: result.meat, fruit: result.fruit, skills: result.skills });",
-    "new": "  if (twin) result = outcome(twin, { skills: result.skills });",
-    "tests": [
-      "test/survtiers.test.js"
-    ]
-  },
-  {
     "name": "SURVTIERS-barkeep-always-pours",
     "file": "src/systems/survival/tavernMenu.js",
     "old": "  if ((s?.drunk ?? 0) + (strength | 0) > endurance) return { ok: false, text: TAVERN_MENU_TEXT.cutOff };",
@@ -357,15 +330,6 @@
     "file": "src/ui/tavernWindow.js",
     "old": "        if (!order.ok) return [{ rows: line(order.text) }];",
     "new": "",
-    "tests": [
-      "test/survtiers.test.js"
-    ]
-  },
-  {
-    "name": "SURVTIERS-hunt-scene-drops-the-tier",
-    "file": "src/scenes/hunting.js",
-    "old": "rolls, rules: survivalRules() ?? undefined });",
-    "new": "rolls });",
     "tests": [
       "test/survtiers.test.js"
     ]

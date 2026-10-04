@@ -22,8 +22,6 @@ import { setPref, _resetForTests } from '../src/systems/uiPrefs.js';
 import { SKILLS } from '../src/systems/skills.js';
 import { RACES } from '../src/systems/races.js';
 import { EQUIP_SLOTS } from '../src/systems/equip.js';
-import { HuntWindow, HUNT_PHASE, BUSY_DOTS } from '../src/ui/huntWindow.js';
-import { createHunting } from '../src/scenes/hunting.js';
 import { TavernWindow } from '../src/ui/tavernWindow.js';
 import { itemLine, localPrimaryAct } from '../src/ui/enhancedInventory.js';
 import { usableItem } from '../src/systems/useItem.js';
@@ -173,45 +171,6 @@ test('AUDIT SURV B/C: the rest gate - a host that does not own the mode answers 
   clearPreventRestConditions(); _resetForTests();
 });
 
-test('AUDIT SURV C: the hunt window - dropped from under, it closes without a search; Escape abandons the busy page; the result page is a click-anywhere box; the last dot is drawn; the beast stands only after a search', () => {
-  _resetForTests();
-  let closed = [], searched = 0;
-  let w = new HuntWindow({ prompt: ['A?'], seconds: 2, onSearched: () => { searched++; return ['x']; }, onClosed: (s) => closed.push(s) });
-  assert.equal(w.isChoiceWindow, true, 'the Yes/No page takes raw keys');
-  w.input('KeyY'); w.tick(0.5);
-  w.dispose();
-  assert.equal(w.done, true); assert.deepEqual(closed, [false]); assert.equal(searched, 0, 'a death screen over the search: no search, no beast');
-  closed = [];
-  w = new HuntWindow({ prompt: ['A?'], seconds: 2, onSearched: () => { searched++; return ['x']; }, onClosed: (s) => closed.push(s) });
-  w.input('KeyY'); w.tick(1); w.input('Escape');
-  assert.equal(w.done, true); assert.deepEqual(closed, [false]); assert.equal(searched, 0, 'Escape walks away from the search, nothing charged');
-  closed = [];
-  w = new HuntWindow({ prompt: ['A?'], seconds: 1, onSearched: () => { searched++; return ['x']; }, onClosed: (s) => closed.push(s) });
-  w.input('KeyY'); w.tick(1);
-  assert.equal(w.phase, HUNT_PHASE.Result); assert.equal(w.isChoiceWindow, false, 'the result page goes through the action route like every click-anywhere box');
-  assert.equal(searched, 1);
-  w.click(0, 0); assert.deepEqual(closed, [true]);
-  // the dots
-  w = new HuntWindow({ prompt: ['A?'], seconds: 10, onSearched: () => [] });
-  w.input('KeyY'); w.tick(9.99);
-  assert.equal(w.dots.length, BUSY_DOTS, 'the row fills before the page turns');
-  w = new HuntWindow({ prompt: ['A?'], seconds: 10, onSearched: () => [] });
-  w.input('KeyY'); w.tick(5);
-  assert.equal(w.dots.length, BUSY_DOTS / 2 + 1, 'halfway: the seventh dot is being drawn, not the sixth finished');
-  w = new HuntWindow({ prompt: ['A?'], seconds: 10, onSearched: () => [] });
-  w.input('KeyY'); w.tick(0.01);
-  assert.equal(w.dots.length, 1);
-  // composed: an external drop frees the slot for the next minute's roll; the beast only after a search
-  const p = player(); const spawned = [], shown = [];
-  const e = { minute: 600, luck: 50, winter: false, outdoors: true, inLocationRect: false, night: false, enemiesNear: false, resting: false, climateIndex: 232, hasBow: false, skills: {} };
-  const h = createHunting({ entity: p, env: () => e, rolls: () => 0, showOverlay: (x) => shown.push(x), spawnBeast: (b) => spawned.push(b) });
-  const w1 = h.tick(); assert.ok(w1);
-  w1.input('KeyY'); w1.dispose();
-  assert.equal(h.window, null, 'the slot is free'); assert.deepEqual(spawned, [], 'no search, no beast');
-  p.survival.huntAt = 0; e.minute += 1;
-  assert.ok(h.tick(), 'the next minute rolls again');
-});
-
 test('AUDIT SURV C/D: the tavern - the divider keeps the picker; before six the kitchen refuses in the mod\'s two words and the drinks still pour; breakfast runs to ten', () => {
   assert.equal(breakfastHours(10), true, 'ten is breakfast (the mod\'s hour <= 10)');
   assert.equal(breakfastHours(11), false);
@@ -352,13 +311,13 @@ test('AUDIT SURV B: the camps - the sweep spares them and the scene cache carrie
   setWorldMinutes(0);
 });
 
-test('AUDIT SURV D: the save carries the record - the markers and the cooldown round-trip, the notes do not', () => {
-  const e = { ...player(), skillUses: [] }; e.survival = { ...newSurvival(1000), lastAte: 900, thirst: 33, huntAt: 4321, notes: { 'hunger:peckish': 'on' } };
+test('AUDIT SURV D: the save carries the record - the markers round-trip, the notes do not', () => {
+  const e = { ...player(), skillUses: [] }; e.survival = { ...newSurvival(1000), lastAte: 900, thirst: 33, notes: { 'hunger:peckish': 'on' } };
   const snap = snapshotPlayer(e, { classicMinutes: 1000 });
-  assert.equal(snap.survival.lastAte, 900); assert.equal(snap.survival.huntAt, 4321); assert.equal(snap.survival.notes, undefined);
+  assert.equal(snap.survival.lastAte, 900); assert.equal(snap.survival.notes, undefined);
   const back = { ...player(), skillUses: [] };
   restorePlayer(back, JSON.parse(JSON.stringify(snap)));
-  assert.equal(back.survival.lastAte, 900); assert.equal(back.survival.thirst, 33); assert.equal(back.survival.huntAt, 4321);
+  assert.equal(back.survival.lastAte, 900); assert.equal(back.survival.thirst, 33);
   assert.deepEqual(back.survival.notes, {});
   const none = { ...player(), skillUses: [] }; restorePlayer(none, JSON.parse(JSON.stringify(snapshotPlayer({ ...player(), skillUses: [] }, { classicMinutes: 1 }))));
   assert.equal(none.survival, null, 'a pre-arc save starts fresh at the first tick');

@@ -134,8 +134,8 @@ export class RaiseTime extends ActionTemplate {
     }
     // FORAGE4 (the Ledger A FORAGING row's departure 5): online the shared clock is nobody's to move (WORLD5), so the
     // seconds are the host's WAIT (scenes/foragingWait.js, FORAGE0 13.1); offline the clock moves, as QAE's. MERGE 2
-    // (main's LIVED1, "your own time"): online they pass on the character's OWN clock too, as a hunt's minutes do after
-    // its page - the host's raiseTime is the character's time in both lanes (the one clock offline)
+    // (main's LIVED1, "your own time"): online they pass on the character's OWN clock too, after the wait page - the
+    // host's raiseTime is the character's time in both lanes (the one clock offline)
     if (seconds > 0) {
       if (hooks?.sharedClock?.()) hooks?.waitOnline?.(seconds, this.parentQuest);
       hooks?.raiseTime?.(seconds);

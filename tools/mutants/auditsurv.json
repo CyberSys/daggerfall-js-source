@@ -118,49 +118,21 @@
     ]
   },
   {
-    "name": "AUDITSURV-a-dropped-hunt-window-never-closes",
-    "file": "src/ui/huntWindow.js",
+    "name": "AUDITSURV-a-dropped-wait-window-never-closes",
+    "file": "src/ui/waitWindow.js",
     "old": "  dispose() { this._end(false); }",
     "new": "  dispose() {}",
     "tests": [
-      "test/auditsurv.test.js"
-    ]
-  },
-  {
-    "name": "AUDITSURV-escape-cannot-leave-the-search",
-    "file": "src/ui/huntWindow.js",
-    "old": "      if ((code === 'Escape' || code === 'back') && this._escape) this._end(false);\n",
-    "new": "",
-    "tests": [
-      "test/auditsurv.test.js"
-    ]
-  },
-  {
-    "name": "AUDITSURV-the-result-page-takes-raw-keys",
-    "file": "src/ui/huntWindow.js",
-    "old": "  get isChoiceWindow() { return this.phase === HUNT_PHASE.Ask; }",
-    "new": "  get isChoiceWindow() { return true; }",
-    "tests": [
-      "test/auditsurv.test.js"
+      "test/forage4_wait.test.js"
     ]
   },
   {
     "name": "AUDITSURV-the-last-dot-is-never-drawn",
-    "file": "src/ui/huntWindow.js",
+    "file": "src/ui/waitWindow.js",
     "old": "  get dots() { return '.'.repeat(Math.min(BUSY_DOTS, Math.floor(this.progress * BUSY_DOTS) + 1)); }",
     "new": "  get dots() { return '.'.repeat(Math.max(1, Math.round(this.progress * BUSY_DOTS))); }",
     "tests": [
-      "test/auditsurv.test.js"
-    ]
-  },
-  {
-    "name": "AUDITSURV-the-beast-stands-under-a-death-screen",
-    "file": "src/scenes/hunting.js",
-    "old": "        if (searched && outcome?.beast) spawnBeast?.(outcome.beast);",
-    "new": "        if (outcome?.beast) spawnBeast?.(outcome.beast);",
-    "tests": [
-      "test/auditsurv.test.js",
-      "test/surv6_hunting.test.js"
+      "test/forage4_wait.test.js"
     ]
   },
   {
