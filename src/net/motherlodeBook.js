@@ -84,9 +84,9 @@ export function createMotherlodeBook({ door, character, me, nowS, onChange = () 
     if (m !== meNowV) {
       meNowV = m;
       watches.clear();
-      // Applied results belong to the old account even if its next read fails.
+      // Applied results belong to the old account even if its next read fails. The host hears of it from the
+      // frame's own settle (tick) - never from here: standingOn and found are asked inside the gather host's stand.
       state.found = null;
-      settle(nowS());
     }
     return meNowV;
   }
@@ -204,7 +204,7 @@ export function createMotherlodeBook({ door, character, me, nowS, onChange = () 
     /** A lode by its node key. */
     lodeOf: (key) => state.lodes.find((l) => l.key === key) ?? null,
     /** Whether this account's Motherlode today is found. */
-    found: () => { meNow(true); return state.found; },
+    found: () => { meNow(); return state.found; },   // AUDIT SILVER-WAYS D7: the gather host's marks ask it every frame
     /** A strike's answer heard: the find, the count - and the change of standing handed on; then read again. */
     heard(data) {
       if (!data?.motherlode) return;

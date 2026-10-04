@@ -144,7 +144,7 @@ export class TravelControlUI {
     this.isChoiceWindow = true;      // the port's raw-key routing flag
   }
 
-  // A temporary path or settings cap must not overwrite the player's chosen rate.
+  // TRAVEL-LAST-SPEED (bible/06-Systems/Travel-Options.md): a path's or a dial's cap never overwrites the chosen rate.
   get timeAcceleration() { return this._timeAcceleration; }
   set timeAcceleration(value) { this._preferredAcceleration = value; this._timeAcceleration = value; }
 
@@ -152,7 +152,7 @@ export class TravelControlUI {
   accelerationLimit() { return this.halfLimit ? this.halfAccelLimit : this.accelLimit; }
 
   /** TO-LIVE (scenes/world.js refreshTravelOptionsSettings): the tile's Acceleration Limit dial turned in play - the
-   *  constructor's rounding again, and the acceleration in force brought under it. */
+   *  constructor's rounding again, and the acceleration in force the chosen one under it (TRAVEL-LAST-SPEED). */
   setAccelerationLimit(accelerationLimit) {
     this.accelLimit = accelLimitOf(accelerationLimit);
     this.halfAccelLimit = halfAccelLimitOf(accelerationLimit);
@@ -169,8 +169,8 @@ export class TravelControlUI {
   /** :156-163, ShowMessage - three seconds of unscaled time. */
   showMessage(message) { this.message = String(message ?? ''); this.messageTimer = MESSAGE_SECONDS; }
 
-  /** :186-193, OnPush - the panel appears and the acceleration is
-   *  clamped into the limit in force. */
+  /** :186-193, OnPush - the panel appears and the CHOSEN acceleration is
+   *  clamped into the limit in force (TRAVEL-LAST-SPEED: the mod's kept it). */
   show() {
     this.isShowing = true;
     this.done = false;

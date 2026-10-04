@@ -7548,10 +7548,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     const win = createNavalPlunderOverlay({
       model, nameOf: (item) => itemLongName(item),
       prepareHold: () => {
-        if (isTransformedLycanthrope(playerEntity)) return 'You cannot open inventory while transformed. Return to your normal form first.';
+        // DISC10-E L3: a beast's refusal is the pack door's own (its DFU box, said there) - never a host's copy; refused, it is null
         if (!inventoryDoorReady()) return 'Inventory is still loading. Please try again.';
         hold = makeInventoryWindow({ loot: { items: () => model.items, containerImage: () => CONTAINER_IMAGES.Chest, playerOwned: false } });
-        return hold ? null : 'The hold could not be opened. Please try again.';
+        return hold ? null : 'The hold could not be opened.';
       },
       onClose: (reason) => { why = reason; if (reason !== 'hold' && model.raid && !model.fated()) model.fate('sail'); if (reason === 'leave') model.leave?.(); },   // a voyage's raid never waits on a window shut; AUDIT NAV1 (B11): Leave her - back to my own helm
     });
