@@ -190,7 +190,10 @@ import { placeFoeFreely, PLACE_FOE_DEFAULTS } from '../systems/quest/sceneMount.
 import { PLAYED_STEP_MAX_SECONDS } from '../systems/quest/clock.js';   // WORLD7: the quest clocks' played step online
 import { mintQuestFoeWave, placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour, heldSpots, holdSpotWhile, questBoxHoldsFoes, questShareTag, sharedQuestFoe, partnerStandsQuestFoes, questBehaviourFor, adoptsOrphanQuestFoe, isPrivateQuestFoe, KeptKillLedger, creditKeptKills } from './questFoeHost.js';   // B1   // AUDIT 63r F24: SerializableEnemy.cs:206-217's quest-link arm, the one home both hosts use
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag
-import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, foeHostile } from '../systems/encounters.js';   // OW6: foeHostile, the one hostility gate
+import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, foeHostile, quietNights } from '../systems/encounters.js';   // OW6: foeHostile, the one hostility gate   // REST5: a carried night wakes to no ambush
+import { nightDue, setNightListener, nightStamp, nightKindOf, isNightStamp, carriedNightEnd, REST_ACT_TEXT } from '../systems/restAct.js';   // REST5: the party's night   // AUDIT REST-PARTY: and where it was slept   // AUDIT REST II: the mark asked lazily (P5), and what a carried night says (P3)
+import { createNightWatch, carriedNightAction, carriedRestKind } from '../systems/partyRestLaw.js';   // AUDIT REST-PARTY: the party's night, pinned by execution   // AUDIT REST II P1/P2: its watch
+import { ambushNight } from '../systems/restAct.js';   // AUDIT REST-PARTY A1: a resting encounter stood breaks the night that rolled it
 import { createStandingWatch, installLegalNotices } from './standingHost.js';   // REP1: the watch's stop; REP5: the law's notices
 import { SPAWNER_ARMS } from '../systems/encounters.js';   // SURV6: the hunt's beast stands on the wilderness arm
 import { skillValue } from '../systems/skills.js';   // SURV6: the hunter's four skills
@@ -400,7 +403,7 @@ import { facetBand } from '../net/recipeLaw.js';   // PROF10: the facet's attrib
 import { panBand, DISH_LEVEL } from '../net/recipeLaw.js';   // PROF9: the pan's attribute band; a feast's level at the table
 import { COOK_FIRE } from '../net/professionLaw.js';   // PROF9: the fire Cooking is done at - any lit one, no fee
 import { setFeastShare, takeFeastGift, shareFeastWith } from '../systems/cookItems.js';   // PROF9: a feast shared with the party at the table
-import { hasSkillet } from '../systems/survival/camp.js';   // PROF9: C&C's Skillet widens the pan's window
+import { hasSkillet, packSavedFires, CAMP_TEXT } from '../systems/survival/camp.js';   // PROF9: C&C's Skillet widens the pan's window; AUDIT REST II H5: a dungeon save's fires carried out
 import { allyCastFrame } from '../systems/allyCast.js';   // PROF9: a feast reaches a party mate as ALLY-CAST's gift
 import { questActionsExtensionTemplates } from '../systems/quest/questActionsExtension.js';   // FORAGE1: QAE's four actions, which Foraging's quests say
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // FORAGE1: PlayerEntity.MaxEncumbrance, for Foraging's last check
@@ -5057,7 +5060,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // Mac's word, and the whole of it: `resting` is not a fatigue knob,
     // it is the needs' one word for "sat still", and three other laws
     // read it. It held the bare-skin block's naked-cold and sunburn
-    // ticks and the byFire exposure damage (needs.js:522, :498) - the
+    // ticks and the byFire exposure damage (needs.js:537, :513) - the
     // health Mac wants ticking - and, the one TO-FIELD never counted,
     // it shut the HUNTING roll off entirely (hunting.js:120 refuses on
     // `resting`), so a traveller could not hunt on the road at all.
@@ -5841,10 +5844,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     openRest: () => { townTalk.closeOverlay(); toggleRest(); },   // the menu's picker leaves the slot first (toggleRest refuses under a window); SURV4 takes the camp's own rest law from here
     advanceMinutes: (n) => { playerTicker.advance(n); runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, true); },   // the cook's minutes pass - online on the character's own clock (LIVED1)   // CAMP-REST: spent through the tick as a skip, never replayed as walking time (no group roll)
     selfId: () => online?.id ?? null, onChanged: () => { _foesFullAt = -Infinity; },   // a change asks for a full frame, which carries the camps
-    fieldCook: () => fieldCookNow(),   // PROF9: a Field Cook's kit keeps its charge
+    fieldCook: () => fieldCookNow(),   // PROF9: a Field Cook's own Campfire keeps its fuel
   });
   /** PROF9 (bible/06-Systems/Professions-Arc.md 3.3): whether the player stands as a Field Cook - online, the professions
-   *  the account's, Cooking's choice at 50 - so a Campfire Kit lights without its charge spent (survival/camp.js `keep`). */
+   *  the account's, Cooking's choice at 50 - so a night at their own Campfire spends no fuel (survival/camp.js spendCampNight). */
   const fieldCookNow = () => profBook?.state?.open === true && profBook.track('cooking')?.specs?.[50] === 'field-cook';
   /** PROF9 (professionLaw COOK_FIRE): THE FIRE THE PLAYER STANDS AT for Cooking - on the street and in the wilderness any
    *  lit camp or the world's own brazier within C&C's reach of its flame (camps.js fireNear, the world's fire in every
@@ -5856,6 +5859,24 @@ export async function bootWorld(canvas, renderer, params, status) {
   // named once for the three that need them: the save, the load, and the teleport that re-anchors the frame under the pool
   const campToNatives = (pos) => { const wc = state.worldCoords(pos); return [wc.x, pos[1] - state.compensation[1], wc.z]; };
   const campFromNatives = (p) => { const [lx, lz] = state.localFromWorld(p[0], p[2]); return [lx, p[1] + state.compensation[1], lz]; };
+  /** AUDIT REST II H6: THE CAMPS I LEFT STANDING OUTSIDE ride a dungeon save too (outerCampsSave, in natives) and a load
+   *  stands the save's, as the world branch does - without it a Campfire placed after the save stood beside the pack's
+   *  restored one (two), and a fresh page lost every camp outside. A save from before carries none, and what stands,
+   *  stands. AUDIT REST III A1: ONE HOME, for both loads that land underground - the world host's (worldQuickLoad's
+   *  dungeon branch) and the dungeon's own, the same dungeon's F9 (dungeonContext quickLoad, through outerCampsLoad),
+   *  which never stood them: there the duplicate and the loss H6 named were still whole. */
+  function standSavedOuterCamps(extras) {
+    const outer = extras?.world?.outerCamps;
+    if (!Array.isArray(outer)) return;
+    const savedScale = scaleOf(extras.terrainScale);   // TERRAIN-SCALE1: each stood again on today's ground, as the world branch's
+    const rows = savedScale === STREAMING_TERRAIN_SCALE ? outer : outer.map((r) => {
+      const p = r?.pos;
+      if (!Array.isArray(p)) return r;
+      const [x, z] = state.localFromWorld(p[0], p[2]);
+      return { ...r, pos: [p[0], restandHeight(p[1], x, z, savedScale), p[2]] };
+    });
+    camps.dropOwn(); camps.restore(rows, campFromNatives);
+  }
   // HCC (2026-09-23, Mac: "Next mod I want to implement 1 to 1 and also enhance its online integration
   // functionality") - HORSE CART AND CARGO. The machine is systems/horseCart.js (TrailingWagonRuntime, off the IL);
   // this host hands it its seams below and the pool (scenes/horseCartPool.js) draws what it says, answers its physics
@@ -9313,10 +9334,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2956 mounts the same one, gated on
+  // and dungeonContext.js:3066 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:7061
+  // that context through modes.dungeonCtx - so worldModes.js:7066
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -9490,6 +9511,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       });
     }
     if (!spot) return null;
+    ambushNight();   // AUDIT REST-PARTY A1: a night running now (restAct.js runRestNight) breaks at its next sub-tick - spawnFoe stands the foe after its awaits
     const fly = (ENEMY_BASICS[hit.mobileType]?.behaviour ?? 'General') === 'Flying';
     const stood = exteriorFoes.spawnFoe(hit.mobileType, [spot.x, fly ? spot.y + 1.5 : spot.y, spot.z], {
       yaw: Math.atan2(feet[0] - spot.x, feet[2] - spot.z),   // LookAt player
@@ -10440,7 +10462,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT PARTY-REST: where the sleeper stands, not where this bag was built - a follower's mirror inherits this
     // bag in a dungeon or a building too (partyRestMirrorDeps), and RapidHealing's InLight/InDarkness rate reads it.
     inside: () => (modes?.mode ?? 'exterior') !== 'exterior',
-    restKind: () => (camps.fireNear(walkMode && playerSpawned ? player.pos : cam.pos) ? 'camp' : 'rough'),   // SURV4: a lit fire near is the sleep; the window alone is rough (AUDIT SURV-TIERS: the world's fire, in every tier)
+    restKind: () => (_restFromBed ? 'bed' : camps.fireNear(walkMode && playerSpawned ? player.pos : cam.pos) ? 'camp' : 'rough'),   // AUDIT REST-PARTY A3: a bed pressed (a ship's) prices as the bed it is named - it slept rough in Hard: half the night, stiff, two ambush asks a minute   // SURV4: a lit fire near is the sleep; the window alone is rough (AUDIT SURV-TIERS: the world's fire, in every tier)
+    // REST1: online the rest point - a bed pressed (a ship's, CSA-J's) or a lit fire in reach; the open road alone is none
+    restPoint: () => (_restFromBed ? { kind: 'bed', where: null } : camps.restPointAt(walkMode && playerSpawned ? player.pos : cam.pos)),   // REST6: a fire, or the Bedroll laid
+    onNightSlept: () => camps.spendNightNear(walkMode && playerSpawned ? player.pos : cam.pos),   // REST2: a night at your own camp spends a charge
   });
   // CSA-J (the audit): the press is a bed's - Roleplay Realism's BedActivation is DaggerfallUI's gate less its GiveOffer
   // rung (RoleplayRealism.cs:487-525), so a bed clicked leaves a pending offer where the R key would hand it over
@@ -12017,7 +12042,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:8285), so exterior mode and a
+    // composer, dungeonContext.js:8417), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -12417,7 +12442,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // the entity's cache is already the SAVE's own (restorePlayer
       // above), and DFU's load path deregisters rather than
       // serializes it (:464).
-      if ((modes?.mode ?? 'exterior') !== 'exterior') modes?.forceExitToExterior({ cacheScene: false });
+      if ((modes?.mode ?? 'exterior') !== 'exterior') modes?.forceExitToExterior({ cacheScene: false, load: true });   // AUDIT REST II H1: a load, said - a Recall out of a dungeon passes cacheScene false too
       setWorldMinutes(extras.classicMinutes ?? worldMinutes());
       magic.setReadiedByIndex(extras.readiedSpellIndex ?? null, spellsByIndex);
       // Q4-v: the quest envelope rides the same slot; a pre-Q4-v save
@@ -12519,6 +12544,17 @@ export async function bootWorld(canvas, renderer, params, status) {
         // RestorePosition after it (SerializablePlayer.cs:441-454). The
         // envelope names its pixel now (dungeonContext's composer); one
         // from before it did is found by its id across the index.
+        // AUDIT REST II H6: the camps I left standing OUTSIDE ride a dungeon save too, and a load stands the save's
+        // (standSavedOuterCamps - AUDIT REST III A1: the one home, the dungeon's own load's too)
+        const standOuterCamps = () => standSavedOuterCamps(extras);
+        // AUDIT REST II H5: a load that does not enter the dungeon carries my Campfires out of it (packSavedFires) - the
+        // save stood them there, and the restored pack has none
+        const carrySavedFires = () => {
+          const items = packSavedFires(extras.world?.camps);
+          if (!items.length) return;
+          (playerEntity.items ??= []).push(...items);
+          townTalk.say(CAMP_TEXT.carriedOut);
+        };
         const pixel = extras.dungeon?.pixel ?? dungeonPixelFor(extras.locationKey, locationIndex.values(), (mt) => longitudeLatitudeToMapPixel(mt.longitude, mt.latitude));
         csaElsewhere = !pixel;   // CSA-J (the audit): a dungeon this world cannot find is no landing at the save's place
         if (!pixel) townTalk.say('(saved in a dungeon this world cannot find - character restored; travel there yourself)');
@@ -12536,6 +12572,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           { const s = walkMode && playerSpawned; const f = s ? player.pos : cam.pos; wodOnLoad([f[0], f[1] + (s ? player.height / 2 : 0), f[2]]); }
           townTalk.say(undergroundWakeText(wake.kind));
           csaElsewhere = true;
+          standOuterCamps(); carrySavedFires();   // AUDIT REST II H5 + H6: woken outside - my fires come with me
         } else {
           _wodInside = true;   // WOD6: a dungeon save lands inside - no marker hears this load
           await _teleportToPixel(pixel.x, pixel.y, null, { modEvent: 'load' });   // SIB2: SaveLoadManager.OnLoad
@@ -12543,7 +12580,10 @@ export async function bootWorld(canvas, renderer, params, status) {
           if (entered) { playerSpawned = true; await modes?.restoreDungeonSave?.(extras); }   // AUDIT OH-F B1: RestoreEnemyData whole before the mod loop below
           else { _wodInside = false; townTalk.say('(the dungeon has no entrance here - character restored at its door)'); }   // WOD6: it landed outside after all
           if (!entered) csaElsewhere = true;   // CSA-J (the audit): outside at its door, not where the save stood
+          if (!entered) carrySavedFires();   // AUDIT REST II H5: my fires with me
+          standOuterCamps();   // AUDIT REST II H6: the save's camps outside, in or out
         }
+        if (!pixel) { standOuterCamps(); carrySavedFires(); }   // AUDIT REST II H5 + H6: a dungeon this world cannot find - restored outside, my fires with me
       } else if (extras.locationKey && extras.locationKey !== 'world') {
         townTalk.say('(saved elsewhere - character restored; travel there yourself)');
         csaElsewhere = true;
@@ -15083,7 +15123,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10749-10813 -
+  // worldModes answers it in BOTH modes (worldModes.js:10761-10825 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -16048,7 +16088,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     classicSeconds: () => playerTicker.ownMinutes * 60,   // TIME3 (Online-Time-Arc.md 6.3): the quest's clock is the CHARACTER's own - its countdowns, intervals and tombstones; a rest spends it (the one clock offline)
     skySeconds: () => skyMinutes() * 60,   // TIME3: a quest's hour, date and season are the sky's
     worldSeconds: () => playerTicker.classicMinutes * 60,   // TIME3: the event clock - the journal's dates are stamped on it
-    raisedSeconds: () => raisedMinutes() * 60,   // TIME3: the session's raises - a countdown charges them whole
+    raisedSeconds: () => raisedMinutes() * 60,   // TIME3: the session's raises - QCLOCK-WORLD: a countdown charges none of them
     questClockStepMax: () => (sharedClockOn() ? PLAYED_STEP_MAX_SECONDS : Infinity),   // WORLD7: online a quest clock charges PLAYED time - one step a frame, the time away forgiven (WORLD5 stood every clock down, and no delay ever ran)
     sharedClock: () => sharedClockOn(),   // GUARD-ONLINE: a guarded quest's window online is the player's arrival's
     playerEntity,
@@ -16439,7 +16479,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     startQuest: (name) => questBridge.machine.startQuestByName(name),
     startQuestObject: (q) => questBridge.machine.startQuestImmediate(q),
     findQuests: (name) => [...questBridge.machine.quests.values()].filter((q) => q.questName === name),
-    activeQuestNames: () => [...questBridge.machine.quests.values()].filter((q) => !q.questComplete && !q.questTombstoned).map((q) => q.questName), // TIMEFREE
+    activeQuestNames: () => [...questBridge.machine.quests.values()].filter((q) => !q.questComplete && !q.questTombstoned).map((q) => q.questName), // REST8: the curse arms' idle check (racialArmIdle)
     tombstoneQuestsByName: (name) => {
       for (const q of [...questBridge.machine.quests.values()]) {
         if (q.questName === name && !q.questTombstoned) questBridge.machine.tombstoneQuest(q);
@@ -17659,7 +17699,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           // AUDIT PARTY-REST (2026-09-23): the chat's vote keeps the Rest key's own law (PARTY-REST26) - a member
           // answers the leader's round and never opens one - and is stamped on the SHARED clock: `readyAt` rides
           // the pose (world95) so every reader judges the vote's freshness alike. Un-readying is always allowed.
-          if (!social?.party) { chatLog.push(tabId, { text: NO_PARTY_TEXT, system: true }); return true; }
+          if (!social?.party) { chatLog.push(tabId, { text: NO_PARTY_TEXT, system: true }); return true; } if (sharedClockOn()) { chatLog.push(tabId, { text: REST_ACT_TEXT.noVote, system: true }); return true; }   // AUDIT REST: online there is no vote (REST5)
           if (!restTogether()) { chatLog.push(tabId, { text: restAloneText(restsWithParty()), system: true }); return true; }   // REST-OPT
           if (!_partyRestReady && !social.leads() && !partyRoundActive()) { chatLog.push(tabId, { text: 'Only the leader can start a resting vote.', system: true }); return true; }
           _partyRestReady = !_partyRestReady;
@@ -19086,7 +19126,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const socialActText = (k, who) => (k === 'friend.request' ? `Friend request sent to ${who}`
     : k === 'party.invite' ? `Party invite sent to ${who}`
       : k === 'friend.remove' ? `${who} is no longer your friend` : 'Sent');
-  /** PARTY-REST1: RestWindow's own `mode` string ('loiter'|'timed'|'full', restWindow.js:615) to the wire's small
+  /** PARTY-REST1: RestWindow's own `mode` string ('loiter'|'timed'|'full', restWindow.js:664) to the wire's small
    *  numbers (net/wire.js validPartyPose: 0/1/2) - the one place the three hosts' restState getters (worldModes.js,
    *  dungeonContext.js) and this host's own outdoor overlay converge, so the mapping is written once. */
   const partyRestModeCode = (mode) => (mode === 'timed' ? 1 : mode === 'full' ? 2 : 0);
@@ -19565,10 +19605,80 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  (TAVERN-REST1/GUILD-REST1, every member sleeps for themselves there). The same two questions partyRestGate asks
    *  before it asks the party anything; ui/restDoor.js reads it (the rest deps' `partyRest`) to open the party card
    *  on either skin. */
-  const partyRestHere = () => !!social?.party && !modes?.insidePartyRestExempt && restTogether();   // REST-OPT: resting alone is a rest of my own
+  // REST5 (2026-10-03, bible/06-Systems/Rest-Arc.md 2.6; OPEN 11 and 15): ONLINE THE NIGHT CARRIES THE PARTY. The vote,
+  // the gather and the mirrors retire online (partyRestGate and partyRestHere answer nothing there, and
+  // markPartyRestSpent stamps no start - the stamp is the night's):
+  // a rest is an act at a rest point, and when a member sleeps a NIGHT through to its end, the pose's `restStartedAt`
+  // - already on the wire, on the shared clock - is stamped with it (setNightListener; createRestDeps' restNight calls
+  // it, never for a carried night). Every member within 15 m who keeps "Rest with my party" on (nearRestMembers: here,
+  // the same place, not resting alone) sees the stamp move and sleeps the same night in the same step, through their
+  // OWN host's bag - their own clock, their own rest kind and yield, their own night interval (inside it, a short
+  // rest) - and wakes to no ambush (encounters.js quietNights: only the rester rolls). A member mid-fight, swimming,
+  // in a window or resting already is skipped and told, never refused. No relay bump: an older client reads the stamp
+  // as its own "a rest just happened" cooldown, at worst.
+  // AUDIT REST-PARTY (2026-10-03): the decision is systems/partyRestLaw.js's now (nightMoved, carriedNightAction,
+  // carriedRestKind), run on a table there - a tavern, temple or guild hall carries nobody (TAVERN-REST1/GUILD-REST1),
+  // a carried night is slept at the rester's spot or my own, whichever is better (PARTY-REST4's per-request), the dead
+  // are not told they slept, and a mate who rests a night here beyond the party's reach is said once (PARTY-REST-FAR1).
+  const hostRestDeps = () => {
+    const mode = modes?.mode ?? 'exterior';
+    return mode === 'interior' ? modes?.restDeps?.() ?? null : mode === 'dungeon' ? modes?.dungeonCtx?.restDeps?.() ?? null : outdoorRestDeps;
+  };
+  /** A rest point everyone may use - a fire, a tent, a bed; never a Bedroll, which keeps the stranger rule. */
+  const publicRestPoint = () => { const pt = hostRestDeps()?.restAct?.()?.point; return !!pt && pt.where !== 'bedroll'; };
+  // AUDIT REST II (2026-10-03): a member's stamp is watched by partyRestLaw.js's night watch - over its high-water mark,
+  // at most one move a minute answered, a missing pose leaving the mark where it was, a mate who left forgotten (P1/P2);
+  // the mark asked only of a stamp that moved (P5); the act's town law asked of a member it would carry (P4).
+  const _nightWatch = createNightWatch();   // acct -> the highest night stamp seen on that member's pose, and when one was last answered
+  const carryPartyNight = () => {
+    if (!social?.party) { _nightWatch.clear(); return; }
+    const now = social.now();
+    const others = social.others();
+    _nightWatch.keep(others);   // AUDIT REST II P2: a mate who left the party is a first sight when they come back
+    for (const m of others) {
+      const at = stampOf(m.p?.restStartedAt, now);
+      if (!_nightWatch.moved(m.acct, !!m.p, at, now, isNightStamp, () => nightDue(playerEntity, ownMinutes()))) continue;   // AUDIT REST F7: a night's, never an older build's open - AUDIT REST II: over the mark, once a minute, the mark asked last - AUDIT REST III C1: a night my clock owes me inside the minute
+      const present = memberPresent(m);
+      const dead = playerEntity.health <= 0 || !!modes?.deathUp?.();
+      const act = carriedNightAction({
+        withParty: restsWithParty(), resterAlone: restsAlone(m), exempt: !!modes?.insidePartyRestExempt, dead,
+        near: present && nearAccount(m.acct, m.p),
+        here: present && samePlace(myPartyLocation(), { px: m.p.px, py: m.p.py, in: m.p.in, bk: m.p.bk }),
+        busy: () => playerEntity.isResting || playerEntity.isLoitering || !!townTalk.overlay || mirrorRestRefused(),
+        town: () => !!hostRestDeps()?.restPlace?.()?.inTownOutside,   // AUDIT REST II P4: the act's own first refusal (restWindow.js _openAct)
+      });
+      if (!act) continue;
+      const name = m.name || 'A party member';
+      if (act === 'far') setMidScreenText(REST_ACT_TEXT.carriedFar(name), 4);   // PARTY-REST-FAR1's word and its four seconds, said once a night
+      else if (act === 'busy') setMidScreenText(REST_ACT_TEXT.carriedSkipped(name), 4);
+      else if (act === 'town') setMidScreenText(REST_ACT_TEXT.carriedTown(name), 4);
+      else sleepCarriedNight(name, nightKindOf(at));
+      return;   // one night a frame
+    }
+  };
+  const sleepCarriedNight = (name, theirs) => {
+    const bag = hostRestDeps();
+    if (!bag?.restNight) return;
+    const night = nightDue(playerEntity, ownMinutes());
+    const kind = carriedRestKind(bag.placeKind?.() ?? null, theirs);   // AUDIT REST-PARTY: by their fire, not on the ground beside it
+    let r = null;
+    quietNights(() => {
+      if (kind) bag.overrideRestKind?.(() => kind);   // read by the open below; the close clears it (createRestDeps setResting)
+      bag.setResting(true);
+      try { r = night ? bag.restNight({ carried: true }) : bag.restShort(); } finally { bag.setResting(false); }
+    });
+    // AUDIT REST II P3: a night slept whole says so; one a foe broke or a prevent-rest condition cut says its own line -
+    // AUDIT REST III C3: and each raises the skills, as the window's close gives the rester (EndRest's every arm)
+    const end = carriedNightEnd(name, night, r, bag.endLines);
+    if (end.raise) bag.onRestFinished?.();
+    if (end.text) setMidScreenText(end.text, 5);
+  };
+  setNightListener((kind) => { if (social && sharedClockOn()) { _partyRestJustStartedAt = nightStamp(social.now(), kind ?? undefined); _partyComposedAt = -Infinity; } });
+  const partyRestHere = () => !sharedClockOn() && !!social?.party && !modes?.insidePartyRestExempt && restTogether();   // REST-OPT: resting alone is a rest of my own
   const partyRestGate = () => {
     if (!social?.party) return null;
     if (!restTogether()) return null;   // REST-OPT: I (or the leader) rest alone - my rest is my own, as in a tavern
+    if (sharedClockOn()) return null;
     // ONLINE-REST1 (2026-09-21, per-request: "what we are working with here is online mode only. the
     // partyrest feature should not be used in classic and offline enhanced"): the whole consensus/mirror
     // mechanic is an ONLINE-only feature - `social?.party` above already excludes offline (both skins: `social`
@@ -19775,7 +19885,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // about waiting for THIS SAME round; this one is about not starting a DIFFERENT one moments after
     // finishing), and the chat tracker (`_partyRestVoteTrackTick`) skips announcing anything at all while it
     // is recent, rather than mistaking my own momentary "not ready" for a fresh partial vote.
-    _partyRestJustStartedAt = social.now();
+    if (!sharedClockOn()) _partyRestJustStartedAt = social.now();
     _partyRestStartWaived = false;   // PARTY-REST29: a fresh grant cools down again
     _cancelSeen = snapshotCancels(social.others());   // AUDIT PARTY-REST: a request already in flight is not aimed at this rest
     _restAloneNight = !restTogether();   // REST-OPT (AUDIT C3): a night granted as my own stays my own - a leader who turns the switch back on mid-night pulls nobody into it
@@ -19820,6 +19930,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const strangerRestGate = () => {
     const mode = modes?.mode ?? 'exterior';
     if (mode === 'interior') return null;   // taverns, shops, guild halls - walls already do this job
+    if (sharedClockOn() && publicRestPoint()) return null;   // REST5 (OPEN 15): a rest point is public - a stranger never blocks a rest at a fire or a bed; a Bedroll keeps the rule
     const radius = mode === 'dungeon' ? STRANGER_REST_BLOCK_RADIUS_DUNGEON : STRANGER_REST_BLOCK_RADIUS;
     const near = peersNear();
     if (!near?.length) return null;
@@ -19880,7 +19991,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // now the ONE place the tally ever reaches chat at all, so it has to announce every transition, the first
   // included, or nobody but the presser would ever see "someone wants to rest" show up.
   const _partyRestVoteTrackTick = () => {
-    if (!social?.party || modes?.insidePartyRestExempt || !restTogether()) { _partyRestVoteLastReady = null; _partyRestVoteOrigin = null; return; }   // REST-OPT: resting alone, the tally is not mine
+    if (!social?.party || modes?.insidePartyRestExempt || !restTogether() || sharedClockOn()) { _partyRestVoteLastReady = null; _partyRestVoteOrigin = null; return; }   // REST-OPT: resting alone, the tally is not mine   // AUDIT REST-PARTY: online there is no vote to count (REST5)
     const now = performance.now();
     if (now - _partyRestVoteTrackAt < 1000) return;
     _partyRestVoteTrackAt = now;
@@ -19998,6 +20109,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // PARTY-REST15: runs from EVERY near member's own client now, each pushing its own local notice - see
     // this function's own doc comment above for why that's safe (no leader restriction needed anymore).
     _partyRestVoteTrackTick();
+    if (sharedClockOn()) { carryPartyNight(); return; }   // REST5: online a member's night carries me - no mirror, no vote (carryPartyNight)
     const ov = townTalk.overlay;
     const mirroring = !!(ov?.isRestWindow && ov.isPartyRestMirror);
     if (mirroring && ov.state !== 'resting') return;   // already finishing on its own (the wake message shown, refused, ...) - townTalk's own drain closes it; leave it be
@@ -21931,7 +22043,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     currentRegionIndex: () => _questRegionIndex(),   // UL1: PlayerGPS.CurrentRegionIndex for the mode machine's mods
     climateIndex: () => maps.getClimateIndex(playerTravelPixel().x, playerTravelPixel().y),   // SURV5: PlayerGPS.CurrentClimateIndex, for the tavern's menu
     survivalEnv: () => survivalEnvNow(),   // SURV7: the interior ticker's and the dungeon's env; each overrides the flags it owns
-    fieldCook: () => fieldCookNow(),   // PROF9: a Field Cook's kit keeps its charge underground too
+    fieldCook: () => fieldCookNow(),   // PROF9: a Field Cook's own Campfire keeps its fuel underground too
     currentLocation: () => _questLoc(),              // UL1: PlayerGPS.CurrentLocation
     // AUDIT 62 F8 (review): THE FINGER'S PRESS, published. worldModes
     // owns the interior and world-hosted-dungeon activate gate and has
@@ -22181,6 +22293,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // window wherever it is mounted - and an outdoor rest is exactly
     // where a quest CreateFoe wave lands beside a sleeping player.
     abortRestForEnemySpawn: () => {
+      ambushNight();   // AUDIT REST II P3: the act's night first - a carried night has no window, and a quest box over the window holds this slot
       if (townTalk.overlay?.isRestWindow) townTalk.overlay.abortForEnemySpawn?.();
     },
     // U43: and the other two windows the INTERIOR host answers keys
@@ -22207,6 +22320,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     horseCart: hccRuntimeOn,   // HCC: the runtime's transition handlers and storage-access word, when the mod is on
     onPreTransition: () => { const n = handOverFoes(); if (n) console.info(`[foes] handed ${n} foe(s) at the door`); },   // AUDIT PSCALE1 NET-3: a door out of the open country hands my foes to the players outside
     horseCartSave: () => hccRuntime.getSaveData(),   // AUDIT HCC H3: the record a dungeon save carries (DFU's per-mod slot, whatever the switch says)
+    outerCampsSave: () => camps.snapshot(campToNatives),   // AUDIT REST II H6: my camps standing outside, for a dungeon's own save
+    outerCampsLoad: (extras) => standSavedOuterCamps(extras),   // AUDIT REST III A1: and the save's stood again by the dungeon's own load
     horseCartLoad: (rec) => { hccRuntime.handleStartLoad(); if (rec) hccRuntime.restoreSaveData(rec); },   // AUDIT HCC H3: a same-dungeon load's OnStartLoad and RestoreSaveData
     modSaveRecords: () => modSaveRecords(),   // WA1: the records a dungeon save carries beside HCC's
     // CSA-J (the audit): the same-dungeon load's three doors - SaveLoadManager's OnStartLoad AHEAD of the save's player
@@ -25429,7 +25544,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             // SURV3: a camp under the ray - Info and Talk name it, any other mode opens its menu; a water source fills the skins
             if (_race.gateWins) { if (_gatePick.distance > _gatePick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else if (!riteHost?.activate(_gatePick.key)) gatePool.activate(_gatePick.key); }   // WB2: the gate's own door; WB12d: the casket's its own
             else if (_race.brokerWins) { if (_brokerPick.distance > _brokerPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else sigilBroker.activate(_brokerPick.key, getInteractionMode()); }   // SET7: Info names her, Steal is watched, anything else opens her window
-            else if (_race.campWins) { if (_campPick.distance > _campPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else camps.activate(_campPick.key, getInteractionMode()); }
+            else if (_race.campWins) { if (_campPick.distance > _campPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else camps.activate(_campPick.key, getInteractionMode(), plaqueActionFor(_campPick.key)); }   // REST2: the plaque's lit row
             else if (_race.waterWins) { if (_springPick.distance > _springPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else drinkAtSpring(_springPick.key); }
             else if (_race.wagonWins) { if (_wagonPick.distance > _wagonPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else mwViewWagonActivate(getInteractionMode(), { say: (l) => townTalk.say(l), openInventoryWithWagon: () => { const w = makeInventoryWindow(EOTB_WAGON_PACK); if (w) townTalk.showOverlay(w); } }); }   // DISC10-E L3: a refused pack is null
             else if (_race.horseCartWins) { hcc.activate(_hccPick.key, _hccPick.distance, (l) => townTalk.say(l), () => setMidScreenText(TOO_FAR_AWAY_TEXT), plaqueActionFor(_hccPick.key)); }

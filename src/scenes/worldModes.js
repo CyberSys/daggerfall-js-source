@@ -64,12 +64,14 @@ import { cabinSceneName, readSailingCabin } from '../systems/sailingCabin.js';
 import { INTERIOR_SHELL_BUCKET } from './decorBase.js';   // HOME-DOORS: a doorway is an opening in the shell's walls   // AUDIT 63 F22: AddFlats' RandomTreasure arm lives with the walk that finds its markers
 import { advanceMachinery, mountMachineryChild, machineryChildPos, MILL_SOUND } from '../world/windmills.js';   // WM4b: the machinery's moving parts; WM4c: its hum
 import { buildDungeonContext } from './dungeonContext.js';
+import { ambushNight } from '../systems/restAct.js';   // AUDIT REST II P3: a quest's CreateFoe reaches the act's night, window or none
 import { createTransitionGate } from './transitionGate.js';   // AUDIT 68 X3-transition-build-race: the door builds, serial and cancellable
 import { bowDamageArrow } from '../combat/enemyEquipment.js';   // MAC-N1: the recovered shaft is CreateWeapon's arrow, value and all
 import { DOOR_TYPE } from '../world/meshReader.js';
 import { getGroundArchive } from '../world/climateSwaps.js';
 import { DUNGEON_LIGHT_COLOR, DUNGEON_LIGHT_BLOCK_RANGE } from '../world/dungeonLights.js';   // A10: the block-range cut
 import { createCamps } from './camps.js';   // HEARTH1: not to STAND a camp indoors - nothing may be - but to answer the room's own fires
+import { CAMP_TEXT } from '../systems/survival/camp.js';   // AUDIT REST II H4: the carried-out word, said on the HUD outside
 import { collectHearths } from '../systems/survival/hearth.js';   // AUDIT HEARTH1 F4: the law's own collection, rather than a fourth hand-written copy of its test
 import { lanternColor, dungeonAmbient, dungeonTrilight, dungeonFog } from '../render/enhancedLighting.js';   // EL1: the world host installed the lane; this reads it; EL4: the dark; AUDIT-EL F6: the fog with it
 import { INTERIOR_AMBIENT, INTERIOR_NIGHT_AMBIENT, INTERIOR_LIGHT_DIR } from '../world/interiorLights.js';
@@ -540,7 +542,7 @@ export function createWorldModes(host) {
    *
    * AUDIT-WH H5. Three hover arms wrote `.Name` - the C# property, as
    * the mod's own source spells it (.cs:764, :725, :777) - and the
-   * record these hosts mint spells it `name` (exterior.js:4034 hands
+   * record these hosts mint spells it `name` (exterior.js:4035 hands
    * `dfLocation`, world.js hands `_questLoc()`; both are the port's
    * location record). `.Name` on it is `undefined`, so all three arms
    * fell to `''`, and `staticDoorName` answers NULL on an empty
@@ -728,6 +730,9 @@ export function createWorldModes(host) {
     place: () => ({ insideBuilding: true }),
     camera: () => ({ feet: player.pos, yaw: cam.yaw }),
     say: (l) => say(l), showOverlay: (w) => mountInterior(w),
+    // AUDIT REST II H2: a hearth's Rest row rests here as in the other hosts - the picker leaves the slot first
+    // (toggleRest refuses under a window); without this the row did nothing online and opened cooking offline
+    openRest: () => { if (interiorOverlay?.done) { interiorOverlay = null; interiorWindows.reconcile(null); } interiorKeyCtx.toggleRest(); },
     advanceMinutes: (n) => { interiorTicker.advance(n); host.encounterTick?.(); },
   });
   /** HE1: EnemyBlood.ShowBloodSplash, in the fourth host. The other
@@ -1706,10 +1711,10 @@ export function createWorldModes(host) {
    *  billboard is CENTRE-anchored, so the base ends up ON the marker
    *  inside a building and half a height BELOW it inside a dungeon.
    *  This port's billboard shader is BOTTOM-anchored (position = base,
-   *  the C11 law dungeonContext.js:2253 states), so the same visual
+   *  the C11 law dungeonContext.js:2315 states), so the same visual
    *  result needs the shift on the DUNGEON side - which is exactly the
    *  shift the dungeon's own RDB flats already take
-   *  (dungeonContext.js:2138, `y - size.h / 2`), and which a building's
+   *  (dungeonContext.js:2200, `y - size.h / 2`), and which a building's
    *  flats correctly do not (interiorContext.js passes its centers
    *  straight through).
    *
@@ -7215,7 +7220,7 @@ export function createWorldModes(host) {
         openBodyLoot(key);
         return true;
       }
-      if (key.startsWith('hearth:')) { interiorCamps.activate(key, getInteractionMode()); return true; }   // HEARTH1: name it, or cook on it
+      if (key.startsWith('hearth:')) { interiorCamps.activate(key, getInteractionMode(), plaqueActionFor(key)); return true; }   // HEARTH1: name it, or cook on it - AUDIT REST II H2: the plaque's lit row, as the other hosts pass it
       if (key.startsWith('droppedLoot:')) {
         // ID1: the pile the player dropped in this room. Activating a
         // container opens the inventory WITH it as the remote target
@@ -7706,7 +7711,7 @@ export function createWorldModes(host) {
           breathHeld: () => !!townTalk?.overlayActive,   // AUDIT 27h S1: a street-slot window up over the dungeon (Recall's prompt) holds its breath too, as its own slot's do
           activateHeld: () => held(keys, 'ActivateCenterObject') || !!host.activateDown?.(),
           survivalEnv: () => host.survivalEnv?.() ?? null,   // SURV7: the outer host's env; the dungeon overrides the flags it owns
-          fieldCook: () => host.fieldCook?.() === true,   // PROF9: a Field Cook's kit keeps its charge (the outer host's word)
+          fieldCook: () => host.fieldCook?.() === true,   // PROF9: a Field Cook's own Campfire keeps its fuel (the outer host's word)
           // PARTY-REST2: forwarded straight from THIS host's own host.partyRestGate (world.js's own gate) - see its doc comment.
           // PARTY-REST28: forwarded straight from THIS host's own host.markPartyRestSpent (world.js's own
           // function), the same way partyRestGate itself already is - see its doc comment for the bug this closes.
@@ -7732,6 +7737,8 @@ export function createWorldModes(host) {
           profActing: () => host.profActing?.() ?? false,   // PROF2: an act's strike is never a swing
           horseCart: () => host.horseCart?.() ?? null,   // HCC: the wagon's storage access at a dungeon exit is the runtime's word
           horseCartSave: () => host.horseCartSave?.() ?? null,   // AUDIT HCC H3: the mod's record, for the dungeon's own save
+          outerCampsSave: () => host.outerCampsSave?.() ?? null,   // AUDIT REST II H6: the camps outside, for the dungeon's own save
+          outerCampsLoad: (extras) => host.outerCampsLoad?.(extras),   // AUDIT REST III A1: and the save's stood again by its own load
           horseCartLoad: (rec) => host.horseCartLoad?.(rec),   // AUDIT HCC H3: and its own load
           // WA1 / OH-D: every registered mod's record rides the dungeon's own save and comes back on its own load, as
           // HCC's does - the host handed these two over and they stopped here, so a dungeon save carried no mod's record
@@ -7910,7 +7917,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:8301), so the OUTER host's one rides in.
+          // (dungeonContext.js:8433), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:847 -> the
@@ -8361,6 +8368,7 @@ export function createWorldModes(host) {
     unleveledLootPreTransition();   // UL1: OnPreTransition (TransitionDungeonExterior) - and NO OnTransitionExterior here, bug for bug
     // Verbatim PositionPlayerToDungeonExit; the camera faces the normal.
     const landing = returnLanding();   // WB3b: before the gate, out of the court
+    const carried = dungeonCtx.camps?.packOwnFires?.({ quiet: true }) ?? 0;   // AUDIT REST-PARTY B3: before the room's memory goes - AUDIT REST II H4: said outside, below
     const pose = dungeonPose();
     host.onDungeonLeave?.();   // WORLD1: the room's memory goes out while the dungeon still stands
     teardownDungeonQuestFlats();   // B2: OnDestroy for the quest stands, before the batch teardown
@@ -8372,6 +8380,7 @@ export function createWorldModes(host) {
     host.horseCart?.()?.handleExteriorTransition();   // HCC: OnTransitionExterior / OnTransitionDungeonExterior [IL_9ae4] - the interior access closes, the following horse resumes
     setMode('exterior');
     host.unlockOn?.();   // AUDIT 62 F16/F28: the lock never outlives a mode change
+    if (carried) say(CAMP_TEXT.carriedOut);   // AUDIT REST II H4: on the HUD that is up now - the dungeon's went with it
     destroyWorldPlaque();   // WORLD-HOVER: a DOM overlay stays painted unless it is told otherwise (AUDIT 64 F37) - and the exterior arm is not the plaque's host, so it has no frame in which to hide it
     host.applyWeaponPose?.(pose);   // JAN1: the exterior rig takes the pair the dungeon rig held
     {   // RR1: OnTransitionToDungeonExterior_ExtinguishLight (RoleplayRealism.cs:633-640) - by day, the lit light is doused with its own box
@@ -9156,7 +9165,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:16022's own wave-46 note); the interior
+          // a blow (world.js:16062's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -10098,7 +10107,7 @@ export function createWorldModes(host) {
   addEventListener('mousedown', (e) => {
     // AUDIT-MACK F2: THIS HOST DOES NOT FEED THE HELD SET, and MAC-K1
     // briefly made it. `keys` is not this host's - it arrives on the
-    // host bag (`exterior.js:4096`, `world.js`'s twin), and the OUTER
+    // host bag (`exterior.js:4097`, `world.js`'s twin), and the OUTER
     // host's own mousedown writes `keys.add(mouseCode(e.button))`
     // UNGATED, before any mode test, on a listener that is never
     // removed. So the three button codes were already in the Set while
@@ -10305,7 +10314,10 @@ export function createWorldModes(host) {
     say,
     onLevelUp: onInteriorLevelUp,   // AUDIT 68 S23-levelup-closure-dup: the walk and the rest level up through ONE arm
     day: () => false, inside: () => true,   // a building interior, always
-    restKind: () => { const p = interiorRestPlaceHere(); return p.houseOwned || p.isShip || !!p.room ? 'bed' : interiorCamps.fireNear(player.pos) ? 'camp' : 'rough'; },   // SURV4: a rented room, your house or your ship is a bed; a guild hall's boards are rough - AUDIT SURV-TIERS: and its hearth a camp's rest, as a brazier is outdoors (HEARTH1 warmed the room and forgot the sleep)
+    restKind: () => { const p = interiorRestPlaceHere(); return p.houseOwned || p.isShip || !!p.room ? 'bed' : interiorCamps.fireNear(player.pos) ? 'camp' : 'rough'; },
+    // REST1: online every building is a rest point and CanRest decides it (the rented room, the house, the ship, the hall),
+    // as the window always has; a hearth in reach names the fire
+    restPoint: () => { const p = interiorRestPlaceHere(); return { kind: p.houseOwned || p.isShip || !!p.room ? 'bed' : interiorCamps.fireNear(player.pos) ? 'camp' : 'rough', where: !(p.houseOwned || p.isShip || p.room) && interiorCamps.fireNear(player.pos) ? 'fire' : null }; },   // SURV4: a rented room, your house or your ship is a bed; a guild hall's boards are rough - AUDIT SURV-TIERS: and its hearth a camp's rest, as a brazier is outdoors (HEARTH1 warmed the room and forgot the sleep)
   });
 
   /** ESC-BOOK (2026-09-27): THIS HOST'S PAUSE BAG, one arm for both doors that mount the pause window in a building -
@@ -11421,6 +11433,7 @@ export function createWorldModes(host) {
      *  that stood here saying dungeon mode is the only mode with a
      *  rest window was true until this slice and is not now. */
     raiseOnEncounterEvent() {
+      ambushNight();   // AUDIT REST II P3: the act's night first (restAct.js) - a carried night has no window, and a quest box over the window holds the slot below
       if (mode === 'dungeon') { dungeonCtx?.abortRestForEnemySpawn?.(); return; }
       if (interiorOverlay?.isRestWindow) { interiorOverlay.abortForEnemySpawn?.(); return; }
       // ...and the OUTER host's slot, which is where an outdoor rest
@@ -11470,7 +11483,7 @@ export function createWorldModes(host) {
      *  the context had already freed, so the NEXT building's teardown
      *  double-freed them - and every quest behaviour missed its
      *  OnDestroy, so the resource side never decoupled. */
-    forceExitToExterior({ cacheScene = true } = {}) {
+    forceExitToExterior({ cacheScene = true, load = false } = {}) {
       transitionGate.abort();   // AUDIT 68 X3-transition-build-race: a door build still in flight is abandoned, never published over this exit
       const wasInside = mode !== 'exterior';
       // JAN1: the pair the live rig holds, read before either teardown (a load overwrites it a moment later with the save's own)
@@ -11522,6 +11535,13 @@ export function createWorldModes(host) {
         _insideTavern = false;   // ROAD-B B4: PlayerEnterExit.cs:874, the same latch on the teleport/load arm
         _insidePartyRestExempt = false;   // TAVERN-REST1/GUILD-REST1: cleared on the same teleport/load arm as the tavern latch above
       }
+      // AUDIT REST-PARTY B1 + B3: my own fires leave before the room's memory does (the leave hook below publishes it). A
+      // teleport carries a Campfire out (AUDIT REST F1); a LOAD drops it - the pack is already the save's (restorePlayer,
+      // above this call), and the save stands its own fires, so packing here minted a second Campfire on every quickload.
+      // AUDIT REST II H1: the load says so itself (`load`) - `cacheScene` false is ALSO every Recall and anchor teleport
+      // out of a dungeon (teleportPlan: a dungeon caches nothing), and read as a load it destroyed the standing Campfire
+      let carried = 0;
+      if (dungeonCtx) { if (load) dungeonCtx.camps?.dropOwn?.(); else carried = dungeonCtx.camps?.packOwnFires?.({ quiet: true }) ?? 0; }
       if (dungeonCtx) {
         host.onDungeonLeave?.();   // WORLD1: a load or a teleport out is a leave too
         teardownDungeonQuestFlats();
@@ -11535,6 +11555,7 @@ export function createWorldModes(host) {
       host.horseCart?.()?.handleExteriorTransition();   // HCC: a load or a teleport out is an exterior transition too
       setMode('exterior');
       host.unlockOn?.();   // AUDIT 62 F16/F28: the lock never outlives a mode change
+      if (carried) say(CAMP_TEXT.carriedOut);   // AUDIT REST II H4: on the HUD that is up now - the dungeon's went with it
       destroyWorldPlaque();   // WORLD-HOVER: a DOM overlay stays painted unless it is told otherwise (AUDIT 64 F37) - and the exterior arm is not the plaque's host, so it has no frame in which to hide it
       if (pose) host.applyWeaponPose?.(pose);   // JAN1: the exterior rig takes the pair the live rig held
       // AUDIT 63r F30: NO PlayerTeleportedIntoDungeon CLEAR HERE. The
@@ -11653,6 +11674,7 @@ export function createWorldModes(host) {
     // watching someone else's countdown never reads back as ITS OWN
     // leader, which would chain the mirror through a third member.
     restEnemiesNearby: () => interiorEnemiesNearby({ resting: true }),   // AUDIT PARTY-REST: the mirror's own foe question, this host's scan
+    restDeps: () => interiorRestDeps,   // REST5: the bag a party member's night is carried through, here
     get restState() {
       const w = interiorOverlay;
       // PARTY-REST6 (2026-09-21, per-request: "the non initiator gets back to the rest screen which
@@ -11868,9 +11890,9 @@ export function createWorldModes(host) {
      *  .cs:175-176 writes `weaponDrawn`/`usingLeftHand` off it,
      *  :420-421 restores them onto it. The port has FOUR PlayerWeapons
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
-     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3639-3661), and IS1 routed the inside-a-building save to
+     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3640-3662), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:12007). So an F9 pressed in a shop
+     *  unconditionally (world.js:12032). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11909,7 +11931,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:12336)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:12361)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11919,8 +11941,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:10912`
-     *  and `dungeonContext.js:8313` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:10937`
+     *  and `dungeonContext.js:8445` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

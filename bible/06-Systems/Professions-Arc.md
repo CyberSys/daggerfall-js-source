@@ -143,7 +143,7 @@ Marks** and a week's wait.
 | Masonry | **Quarryman** - Rough Stone cuts 1:1, not 2:1 / **Builder** - fortification projects need 10% less stone | **Fortifier** - once a Season a seat's Walls skip their drop on capture / **Sculptor** - stone decor pieces |
 | Alchemy | **Brewer** - 3 potions a brew at Journeyman / **Distiller** - Potent chance +10% | **Master Alchemist** - Potent is +40%, not +25% / **Transmuter** - two of a DFU metal and a Mercury make one of the next up (Tin, Copper, Silver, Gold, Platinum) (AUDIT PROF12 E3, Mac's choice - section 37) |
 | Enchanting | **Efficient** - a further -5% cost / **Disenchanter** - Arcane Essence x2 | **Soulbinder** - filled soul gems give +10% points / **Runecaster** - a Masterwork's property chosen from three |
-| Cooking | **Cook** - +1 serving a dish / **Field Cook** - a campfire without a Campfire Kit's charge | **Chef** - feasts last +50% / **Provisioner** - rations and dishes never spoil |
+| Cooking | **Cook** - +1 serving a dish / **Field Cook** - a night at their own Campfire spends no fuel (REST2; it was a campfire without a Campfire Kit's charge) | **Chef** - feasts last +50% / **Provisioner** - rations and dishes never spoil |
 | Jewelcrafting | **Gemcutter** - a set gem adds +10% enchantment points / **Goldsmith** - Silver counts as Gold | **Master Jeweller** - jewellery Masterwork chance +5% / **Lapidary** - Siege-cracked Gems set as any gem |
 
 BUILT (SEAT2b part two (a), 2026-10-01): the **Siegewright** is chosen (no longer `later`). DECIDED: "siege works a day
@@ -2893,7 +2893,10 @@ three). What sections 3.2, 3.3, 4.8, 9.3 and 9.4 left open for PROF9, DECIDED he
   Feast of the Hearth on you.").
 - **The specialisations** (3.3), all four chosen now: **Cook** - two servings a dish; **Field Cook** - DECIDED: a Campfire
   Kit lit **spends no charge** (`survival/camp.js` placeCampItem's `keep`, a campfire's alone - a tent wears as ever), in
-  the street and underground (`scenes/camps.js` `fieldCook`, `world.js` fieldCookNow); **Chef** - a feast lasts **half
+  the street and underground (`scenes/camps.js` `fieldCook`, `world.js` fieldCookNow) [SUPERSEDED by the Rest arc,
+  2026-10-03: REST2 spends no charge on any placing, and `keep` is gone - a Field Cook's NIGHT at their own Campfire
+  spends no fuel instead, a Campfire's alone (`survival/camp.js` fieldCookKeeps, spendCampNight's `fieldCook`;
+  `06-Systems/Rest-Arc.md` Record)]; **Chef** - a feast lasts **half
   again** (a day and a half); **Provisioner** - "rations and dishes never spoil": FOUND, C&C's Rations never spoil already;
   DECIDED, a Provisioner's **dishes** and the **foods they take from the Stores** never spoil (`noRot`, read by C&C's day
   beside the Butcher's `slowRot` - 29). **The cook's hand** (`recipeLaw.js` dishHand): what of the choice at 100 a dish
@@ -2903,8 +2906,8 @@ three). What sections 3.2, 3.3, 4.8, 9.3 and 9.4 left open for PROF9, DECIDED he
 - **The pages**: the Stores page's **The Fire** (the seven dishes, their inputs as the Stores hold them, the rank each asks,
   the effect, the servings, the pan's XP; a Skillet said); Cooking practised on the Professions page, its unlocks by rank.
 - **The four hosts** (17.1): **the streaming world** - the fire on the street and in the wilderness, the craft, the feast's
-  share, a Field Cook's kit; **building interiors** (`worldModes.js`) - a hearth's or a brazier's fire; **dungeons**
-  (`dungeonContext.js`) - its fire bowls and a campfire on its floor, a Field Cook's kit; **the fixed city**
+  share, a Field Cook's Campfire (its nights, REST2); **building interiors** (`worldModes.js`) - a hearth's or a brazier's fire; **dungeons**
+  (`dungeonContext.js`) - its fire bowls and a campfire on its floor, a Field Cook's Campfire; **the fixed city**
   (`scenes/exterior.js`) - **no Cooking**, as no profession (22's law): a dish carried there is eaten by every host
   (`scenes/shared.js` installCooking - a dish is the pack's, offline too).
 - **The service** is **acct67** (acct66 another branch's at the same time - the two must not collide); migration

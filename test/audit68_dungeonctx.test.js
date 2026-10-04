@@ -424,11 +424,13 @@ test('AUDIT 68 S19-rest-alert-decay-wrong-clock (LIVED1): the rest decays the al
     survivalFeed: () => null, survivalEnvNow: () => null, runSurvivalMinutes: () => {}, foes: [], foeSinks: () => ({}),
     decayEnemyAlert, dfLocation: { mapTableData: { dungeonType: 0 } }, _spawnEncounter: () => {},
     intermittentEnemySpawn: (ctx) => { rolled.push(ctx.enemyAlertActive); return null; },
+    camps: { tend: () => { state.tended = (state.tended ?? 0) + 1; } },   // AUDIT REST II H3: the arm tends my Campfire through the night
   };
   setEnemyAlert(state.playerEntity, true, 5000);
   const { restAdvance } = mount(`${declSrc('_restAdvance')} return { restAdvance: _restAdvance };`, state);
   restAdvance(10);
   assert.equal(own, 5000 + ALERT_DECAY_MINUTES + 10, 'the arm moved the character\'s clock by its ten minutes');
+  assert.equal(state.tended, 1, 'and tended my Campfire once (AUDIT REST II H3)');
   assert.equal(state.playerEntity.enemyAlertActive, false, 'PlayerEntity.Update:380-384 at the rest\'s own minute');
   assert.deepEqual(rolled, Array(10).fill(false), 'every sub-tick\'s IntermittentEnemySpawn rolls unarmed');
 });

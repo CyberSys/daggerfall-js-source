@@ -26,7 +26,7 @@ import {
   BOUNTY_VENDOR, bountyDay, bountySites, boardPostings, postingFromId, parseBountyId, postingState,
   bountyDungeons, newBountyLedger, readBountyLedger, takeBounty, dropBounty, payBounty, lapseBounties, pruneBountyLedger,
   bountyPoseField, bountyPackOwner, bountyHuntKey, bountyTierFits, bountyMinutesLeft, rewardStory, BOUNTY_REWARD_TITLE, BOUNTY_ACTIVE_MAX,
-  MINUTES_PER_DAY, bountyIdAtLevel, bountyPartyKills, bountyClearPays,
+  MINUTES_PER_DAY, bountyIdAtLevel, bountyPartyKills, bountyClearPays, restampNeverLapsed,
 } from '../systems/bountyBoard.js';
 import { mintBountyItem, bountyItemName, bountyRewardRows } from '../systems/bountyReward.js';
 import { registerModSaveData } from '../systems/modSaveData.js';
@@ -34,7 +34,7 @@ import { addGoldPieces, addItem } from '../systems/inventory.js';
 import { BOUNTY_RING_R } from '../ui/bountyMapMark.js';
 import { setBountyJournal, BOUNTY_QUEST_PREFIX } from '../systems/bountyJournal.js';
 import { rewardContract } from '../systems/standing.js';   // REP4: a contract finished, the region's law two points better
-import { sharedClockOn } from '../systems/worldTick.js';   // TIMEFREE: online a taken bounty never lapses
+import { sharedClockOn } from '../systems/worldTick.js';   // AUDIT REST II Q3: the never-lapse build's rows, re-stamped online
 
 /** How often the host looks at the world, seconds. */
 export const BOUNTY_TICK_S = 0.5;
@@ -194,7 +194,7 @@ export function createBountyHost(deps) {
       if (h.from) lines.push(`Shared with you by ${h.from}.`);
       return {
         id: `${BOUNTY_QUEST_PREFIX}${h.id}`, name: `Bounty: ${p.title}`, questName: 'BOUNTY', bounty: true,
-        clockSeconds: sharedClockOn() ? null : bountyMinutesLeft(h, now) * 60,   // TIMEFREE: online no time left to show
+        clockSeconds: bountyMinutesLeft(h, now) * 60,
         messages: [lines.map(line)],
       };
     }).filter(Boolean);
@@ -234,7 +234,7 @@ export function createBountyHost(deps) {
         posting: shown,
         state: postingState(ledger, p),
         mates: joined.map((j) => j.name),
-        held: held ? { killed: held.killed, left: sharedClockOn() ? null : bountyMinutesLeft(held, now), shared: !!held.shared } : null,   // TIMEFREE
+        held: held ? { killed: held.killed, left: bountyMinutesLeft(held, now), shared: !!held.shared } : null,
       };
     });
   }
@@ -242,7 +242,7 @@ export function createBountyHost(deps) {
   /** The bounties I hold, for the window's list. */
   const heldRows = () => {
     const now = deps.now();
-    return ledger.held.map((h) => ({ id: h.id, posting: postingOf(h.id), killed: h.killed, left: sharedClockOn() ? null : bountyMinutesLeft(h, now), shared: !!h.shared, from: h.from ?? null }))   // TIMEFREE
+    return ledger.held.map((h) => ({ id: h.id, posting: postingOf(h.id), killed: h.killed, left: bountyMinutesLeft(h, now), shared: !!h.shared, from: h.from ?? null }))
       .filter((r) => r.posting);
   };
 
@@ -492,10 +492,13 @@ export function createBountyHost(deps) {
     if (acc < BOUNTY_TICK_S) { showNextNotice(); return; }
     acc = 0;
     const now = deps.now();
+    // AUDIT REST II Q3: a ledger the never-lapse build (TIMEFREE) wrote, first played online here - its held rows kept
+    // no time there, so each runs from now, once; without it every row held a day lapsed on this tick, kills and all
+    if (sharedClockOn()) restampNeverLapsed(ledger, now);
     // AUDIT 28 B10: a bounty taken "later" than now was taken on another clock (an offline save played online): it
     // runs from now, never for days, and never lapses before it began
     for (const h of ledger.held) if (h.takenAt > now) h.takenAt = now;
-    for (const gone of (sharedClockOn() ? [] : lapseBounties(ledger, now))) {   // TIMEFREE: online a taken bounty never lapses
+    for (const gone of lapseBounties(ledger, now)) {
       const p = postingOf(gone.id);
       packs.delete(gone.id);
       if (p) deps.say(`The bounty on the ${p.foes} has lapsed.`);
