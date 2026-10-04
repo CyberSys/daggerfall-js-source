@@ -162,6 +162,8 @@ export const storesWhereLine = (key, carrying = false) => (carrying ? BAG_WORDS.
 /** GATHER-SAID: an act that ended before its end - let go, walked off, a window over it, the dungeon left - nothing asked. */
 export const ACT_STOPPED_LINE = 'The gathering stopped before its end - nothing was taken.';
 /** A harvest the service did not answer, kept and asked again (net/profBook.js PROF_QUEUE_MS: ten minutes). */
+/** AUDIT PACK-OVER C: the over-weight line, said at most once in this long (ms). */
+export const OVER_SAID_MS = 10_000;
 export const KEPT_LINE = 'The counting-house is slow to answer. Your gathering is kept and will be counted.';
 /** GATHER-SAID: kept because the account is signed out ('auth', 'no-session') - asked again once there is a session. */
 export const KEPT_SIGNED_OUT_LINE = 'You are signed out. Your gathering is kept for ten minutes, and counted once you sign in.';
@@ -268,6 +270,7 @@ export function createGatherHost(deps) {
   let act = null;             // { act, node, harvest, tool, profession, label, px, py, info, world, hand }
   let refreshAt = 0, pixelsAt = 0;
   let storesSaid = false;     // GATHER-SAID: storesWhereLine said this session
+  let overSaidAt = -Infinity;   // AUDIT PACK-OVER C: when the over-weight line was last said
   let passedOn = '';          // VEIN-NEED: what the node the last press passed on needs, until the host hands it back
   let passedCast = null;      // CAST-E: the cast the last press passed on - played when the host hands the press back
   let passedCastAt = 0;       // CAST-E: when (the shared clock's ms) - a press the ladder took is never handed back
@@ -603,7 +606,8 @@ export function createGatherHost(deps) {
       // AUDIT BAG1 B9: each by its own name - a gem or a second find left was said as the harvest's material
       if (hauled && d.carry === true && (d.put?.left ?? 0) > 0) hud.toast(`${leftWords(d)} left where gathered: no room in your bag or pack.`);
       // PACK-OVER (FIELD BUGS 2026-10-04): goods minted past the pack's weight - the card counts them, the line beside it says the weight
-      if (hauled && d.carry === true && (d.put?.over ?? 0) > 0) hud.toast(BAG_WORDS.overWeight);
+      // AUDIT PACK-OVER C: once in OVER_SAID_MS - a pump settling five kept harvests said it five times and pushed a rank's rise out
+      if (hauled && d.carry === true && (d.put?.over ?? 0) > 0 && deps.nowMs() - overSaidAt >= OVER_SAID_MS) { overSaidAt = deps.nowMs(); hud.toast(BAG_WORDS.overWeight); }
       const after = d.track?.rank ?? before;
       if (after > before) {
         hud.toast(`${professionName(profession)} ${before} -> ${after}`);

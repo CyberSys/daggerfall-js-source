@@ -70,5 +70,32 @@
     "tests": [
       "test/fb1004_endless.test.js"
     ]
+  },
+  {
+    "name": "ENDLESS-the-buy-back-open-online",
+    "file": "src/systems/shopStock.js",
+    "old": "  && !(isOnlinePage() && isEndlessStock(item));",
+    "new": ";",
+    "tests": [
+      "test/fb1004_endless.test.js"
+    ]
+  },
+  {
+    "name": "ENDLESS-the-buy-back-closed-offline",
+    "file": "src/systems/shopStock.js",
+    "old": "  && !(isOnlinePage() && isEndlessStock(item));",
+    "new": "  && !isEndlessStock(item);",
+    "tests": [
+      "test/fb1004_endless.test.js"
+    ]
+  },
+  {
+    "name": "ENDLESS-endless-offline",
+    "file": "src/systems/shopStock.js",
+    "old": "  if (!Array.isArray(shelfItems) || !isOnlinePage()) return 0;",
+    "new": "  if (!Array.isArray(shelfItems)) return 0;",
+    "tests": [
+      "test/fb1004_endless.test.js"
+    ]
   }
 ]

@@ -13,6 +13,7 @@ import { BUILDING_TYPES } from '../src/world/buildingNames.js';
 import { BAG_WORDS, isBagItem, holdsOtherBag } from '../src/net/bagLaw.js';
 import { planTake, REFUSAL } from '../src/systems/itemTransfer.js';
 import { mintMaterialItem } from '../src/systems/profItems.js';
+import { decorStandOf } from '../src/systems/decorItems.js';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const where = globalThis.location;
@@ -61,4 +62,18 @@ test('ONE-BAG wired: the keyed shelf\'s purchase refuses a second bag before it 
   const doBuy = w.slice(w.indexOf('function doBuy(shelf, it) {'), w.indexOf('function doSell(shelf, it) {'));
   assert.match(doBuy, /if \(at < 0\) return undefined;\n\s+if \(isBagItem\(it\) && holdsOtherBag\(\[playerEntity\.items, playerEntity\.wagonItems\], it\)\) return false;[^\n]*\n[\s\S]*deductGold\(playerEntity, price\);/);
   assert.match(w, /lines: \[bought === false \? BAG_WORDS\.second : 'You do not have enough gold\.'\]/);
+});
+
+test('AUDIT ONE-BAG 1: a bag out of the character\'s own wagon is never refused - two held from before, both carted, come back out one after the other; a bag from anywhere else is still refused beside one (mutants: the wagon\'s own refused)', () => {
+  const a = shelfBag(), b = shelfBag();
+  const e = body({ wagon: [a, b] });
+  assert.equal(planTake(a, { bag: e.items, entity: e }).ok, true, 'the first out of the wagon');
+  e.wagonItems.splice(e.wagonItems.indexOf(a), 1); e.items.push(a);
+  assert.equal(planTake(b, { bag: e.items, entity: e }).ok, true, 'the second, though the pack holds the first');
+  assert.equal(planTake(shelfBag(), { bag: e.items, entity: e }).refusal, REFUSAL.secondBag, 'a third, off a shelf, refused');
+});
+
+test('AUDIT ONE-BAG 2: the Materials Bag is never set out as a piece of decor - it would leave the pack and come back past the take ladder (mutants: the bag a piece)', () => {
+  assert.equal(decorStandOf(shelfBag()), null);
+  assert.notEqual(decorStandOf(mintMaterialItem('log:oak')), null, 'an Oak Log of the same group still stands - the rule asks the bag alone');
 });

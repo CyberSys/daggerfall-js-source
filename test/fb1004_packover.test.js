@@ -19,7 +19,7 @@ import { setItemFields } from '../src/systems/itemTemplates.js';
 import { carriedWeight } from '../src/systems/inventory.js';
 import { entityMaxEncumbrance } from '../src/combat/formulas.js';
 import { harvestHauls } from '../src/ui/haulCards.js';
-import { storesLine } from '../src/scenes/gatherHost.js';
+import { storesLine, OVER_SAID_MS } from '../src/scenes/gatherHost.js';
 import { herbPatches, nodeKey } from '../src/net/nodeLaw.js';
 import { herbKey } from '../src/net/professionLaw.js';
 import { sharedClassicMinutes } from '../src/net/wire.js';
@@ -139,5 +139,26 @@ test('PACK-OVER the words: goods past the pack\'s weight are the pack\'s, and th
   assert.equal(storesLine(d), `+4 ${materialCountLabel(OAK, 4)} to your pack - your pack is over its weight`);
   assert.equal(harvestHauls(d)[0].count, 4, 'the card counts what came - all of it');
   assert.equal(BAG_WORDS.overWeight, 'Your pack is over its weight. Put materials in your Stores in any town, or carry them in a Materials Bag.');
-  assert.match(src('src/scenes/gatherHost.js'), /\n\s+if \(hauled && d\.carry === true && \(d\.put\?\.over \?\? 0\) > 0\) hud\.toast\(BAG_WORDS\.overWeight\);\n/);
+});
+
+// ─── THE AUDIT ──────────────────────────────────────────────────────
+
+test('AUDIT PACK-OVER A: what goes past the pack\'s weight is minted as the pack\'s own - a Butcher\'s meat slow to rot and a Provisioner\'s food never rotting, and the Basket\'s food by Climates & Calories as asked (mutants: the overflow\'s rot words dropped; its C&C forced)', () => {
+  const meat = body({ packKg: 75 });
+  assert.deepEqual(giveCarried(meat, 'food:meat', 3, { slowRot: true, noRot: true }), { bag: 0, pack: 0, over: 3 });
+  const over = meat.items.filter((it) => it.templateIndex === mintMaterialItem('food:meat').templateIndex);
+  assert.ok(over.length >= 1 && over.every((it) => it.slowRot === true && it.noRot === true), 'every unit past the weight keeps both');
+  for (const cc of [true, false]) {
+    const e = body({ packKg: 75 });
+    assert.equal(giveCarried(e, 'food:apple', 2, { cc }).over, 2);
+    const want = mintMaterialItem('food:apple', cc).templateIndex;
+    assert.ok(e.items.some((it) => it.templateIndex === want), `C&C ${cc ? 'on' : 'off'}: template ${want}`);
+  }
+  assert.notEqual(mintMaterialItem('food:apple', true).templateIndex, mintMaterialItem('food:apple', false).templateIndex, 'the two skins differ');
+});
+
+test('AUDIT PACK-OVER B/C: the world\'s hands save a harvest that went wholly past the weight - its only change is `over`; and the over-weight line is said once in ten seconds, not once an answer (by source; mutants: `over` uncounted for the save; the line every answer)', () => {
+  assert.match(src('src/scenes/world.js'), /give: \(key, n\) => \{ const got = giveCarried\(playerEntity, key, n, carryOpts\(key\)\); if \(got\.bag \+ got\.pack \+ got\.over > 0\) saveSoon\.changed\(\); return got; \},/);
+  assert.equal(OVER_SAID_MS, 10_000);
+  assert.match(src('src/scenes/gatherHost.js'), /if \(hauled && d\.carry === true && \(d\.put\?\.over \?\? 0\) > 0 && deps\.nowMs\(\) - overSaidAt >= OVER_SAID_MS\) \{ overSaidAt = deps\.nowMs\(\); hud\.toast\(BAG_WORDS\.overWeight\); \}/);
 });

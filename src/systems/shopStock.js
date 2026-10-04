@@ -104,7 +104,10 @@ export const SHOP_BUYS_GROUPS = Object.freeze({
   [BUILDING_TYPES.PawnShop]: ['Armor', 'Books', 'MensClothing', 'WomensClothing', 'Gems', 'Jewellery', 'ReligiousItems', 'Weapons', 'UselessItems2', 'Paintings'],
   [BUILDING_TYPES.WeaponSmith]: ['Armor', 'Weapons'],
 });
-export const shopBuysItem = (buildingType, item) => (SHOP_BUYS_GROUPS[buildingType] ?? []).includes(item.group);
+export const shopBuysItem = (buildingType, item) => (SHOP_BUYS_GROUPS[buildingType] ?? []).includes(item.group)
+  // AUDIT ENDLESS-STOCK F1/F2: online no shop buys back what never sells out - bought at a cheap shop and sold at a dear one
+  // (the online asking price is halved, the buy-back cap is not) it was gold for nothing, and a sold one made any shelf endless
+  && !(isOnlinePage() && isEndlessStock(item));
 
 /** RMBLayout.IsShop, verbatim (the nine stocked storefronts). */
 export function isShop(buildingType) {
@@ -215,9 +218,11 @@ export const stockSearched = (container, today) => Number.isFinite(container?.op
 export const isEndlessStock = (item) => isBagItem(item) || (isSurvivalItem(item) && isCampfireKit(item));
 /** ENDLESS-STOCK: a purchase's endless rows put back on the shelf they were bought from - a fresh one for each (neither
  *  stacks), minted as the shelf mints it (worldModes.js commitTrade's Buy). Only a purchase restocks: a row taken from a
- *  closed shop's shelf is stolen, and stays gone. Answers how many went back. */
+ *  closed shop's shelf is stolen, and stays gone. Online alone; and online no shop buys one back (shopBuysItem), so the only
+ *  endless rows on a shelf are the ones it stocked itself. Answers how many went back. */
 export function restockEndless(shelfItems, bought) {
-  if (!Array.isArray(shelfItems)) return 0;
+  // AUDIT ENDLESS-STOCK F4: online alone, as the bag is - offline a shelf sells out as Daggerfall's does
+  if (!Array.isArray(shelfItems) || !isOnlinePage()) return 0;
   let n = 0;
   for (const it of bought ?? []) {
     if (!isEndlessStock(it)) continue;

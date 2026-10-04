@@ -285,8 +285,10 @@ export function planTake(item, {
   if (isSummoned(item)) return { ok: false, refusal: REFUSAL.summoned };
   if (isMap(item)) return { ok: true, map: true, amount: item.stackCount ?? 1 };   // F156: either direction
   // ONE-BAG: a Materials Bag is never taken while another is held - in the pack, in a trade's basket (the trade windows'
-  // `bag` is both) or in the wagon; the bag being taken is not "another", wherever it sits
-  if (isBagItem(item) && holdsOtherBag([bag, entity?.wagonItems], item)) return { ok: false, refusal: REFUSAL.secondBag };
+  // `bag` is both) or in the wagon; the bag being taken is not "another", wherever it sits. AUDIT ONE-BAG 1: nor is one out of
+  // the character's own wagon a bag taken - it is already theirs, and two held from before were locked in the wagon for good
+  const ownWagon = Array.isArray(entity?.wagonItems) && entity.wagonItems.includes(item);
+  if (isBagItem(item) && !ownWagon && holdsOtherBag([bag, entity?.wagonItems], item)) return { ok: false, refusal: REFUSAL.secondBag };
   // AUDIT 26: the quest arm, the OTHER caller. `from` is remoteItems
   // here, so the refusal cannot fire without CanDropQuestItems, and
   // picking the item back up CLEARS PlayerDropped (:1499-1500) - which

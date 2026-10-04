@@ -52,8 +52,8 @@ bag on each one sold one bag several times over") and only for a stocking charac
 buys shelf by shelf, and shelf 0 is just the first shelf model `interiorCtx.shelves` lists - nothing marks it. Online a
 shelf's roll is published to the building (`worldModes.js` interiorPublishLoot) and is the room's until the game day
 turns, so a bag-owner who opened that shelf first stocked it without a bag for everyone in the building. The bag stands
-on every General Store shelf online now, whoever stocks it, as the horse and the cart do; offline none, as before. A
-second bag bought is the buyer's choice, as a second cart is. A shelf already stocked this game day keeps that stock
+on every General Store shelf online now, whoever stocks it, as the horse and the cart do; offline none, as before (one to
+a character: ONE-BAG). A shelf already stocked this game day keeps that stock
 until its restock. The four hosts: shelves are stocked in `scenes/worldModes.js` alone (openShelf, openMerchantSell);
 exterior.js, world.js and dungeonContext.js stock no shop shelf. Pinned in `test/bag1_client.test.js` (BAG1 bought: a
 bag-owner's shelf and a second shelf both shelve it); `tools/mutants/bag1.json`'s shelf records retargeted (the first
@@ -69,12 +69,15 @@ the Campfire are endless now: both purchases - the counter's (commitTrade's Buy 
 after they take the bought rows off the shelf, put a fresh one back for each endless row - minted as the shelf mints it (the bag through `setItemFields`, the Campfire through
 `createSurvivalItem`, full), never the record the buyer took. A Campfire is the survival group's template 541; neither
 stacks, so one row bought is one row back. No other door calls it: a row taken from a closed shop's shelf is stolen
-(PT1) and is not put back, and the horse, the cart and the rest of a shelf sell out as before. A Pawn Shop that
+(PT1) and is not put back, and the horse, the cart and the rest of a shelf sell out as before. It is the online game's
+alone (the audit's F4): offline a shelf sells out as Daggerfall's does. And online no shop buys a bag or a Campfire back
+(`shopBuysItem`, the audit's F1/F2): the only endless rows on a shelf are those it stocked itself, so a Pawn Shop that
 rolled no Campfire still has none to sell. Online the restocked shelf is what the window's close publishes to the
 room. The four hosts: shop shelves are stocked and bought from in `scenes/worldModes.js` alone. Pinned by
-`test/fb1004_endless.test.js` (4: the bag bought five times and still one on the shelf, a fresh record; ten Campfires
+`test/fb1004_endless.test.js` (6: the bag bought five times and still one on the shelf, a fresh record; ten Campfires
 bought and the shelf as stocked, three in one purchase three back, fresh and whole; nothing else restocked; the two
-purchases' calls and no other, by source); `tools/mutants/fb1004_endless.json` (8, all dead). DECOR2b's counter pin
+purchases' calls and no other, by source; no buy-back online, DFU's offline; no restock offline);
+`tools/mutants/fb1004_endless.json` (11, all dead). DECOR2b's counter pin
 reads `decorDeliver` straight after the purchase's loop, so the restock stands after it.
 
 ## ONE-BAG (4)
@@ -82,13 +85,38 @@ reads `decorDeliver` straight after the purchase's loop, so the restock stands a
 `net/bagLaw.js` holdsOtherBag, BAG_WORDS.second; `systems/itemTransfer.js` planTake, REFUSAL.secondBag;
 `scenes/worldModes.js` doBuy, buyItem. BAG1 kept a second bag from a character by not shelving one to a stocker who
 held one - which online hid it from everyone (BAG-SHELF), and which never stopped a purchase. One bag to a character is
-the take's rule now: the take ladder every take runs - a pickup, quick loot, a container, a wagon, a ship's hold, and
-both trade windows' Buy basket (their `bag` is the pack and the basket together) - refuses a Materials Bag while
-another is held in the pack, that basket or the wagon, in "You already have a Materials Bag." The bag being taken is
-never "another", wherever it sits, so the wagon's own bag comes back into a pack with none. The keyed shelf, which runs
-no ladder, refuses it in doBuy before the gold and the row are taken, and says the same words. Nothing else is
-refused for a bag, and a character holding two from before keeps them (no save is rewritten). The four hosts: every
+the take's rule now: the take ladder (planTake) - a pickup, quick loot, a container, a wagon, a ship's hold, and both
+trade windows' Buy basket (their `bag` is the pack and the basket together) - refuses a Materials Bag while another is
+held in the pack, that basket or the wagon, in "You already have a Materials Bag." The bag being taken is never
+"another", wherever it sits, and one out of the character's own wagon is never refused (the audit's 1: two held from
+before, both carted, were locked in the wagon for good). The keyed shelf, which runs no ladder, refuses it in doBuy
+before the gold and the row are taken, and says the same words. The bag is no decor piece (`decorItems.js`
+decorStandOf - the audit's 2: a piece leaves the pack and comes back past the ladder, so one set out and a second bought
+made two). Nothing else is refused for a bag, and a character holding two from before keeps them (no save is
+rewritten). Not closed, and why: a companion's pack forced back into the player's (`navalTransfer.js` with `force`)
+takes whatever it held, a bag beside a bag among it - a second bag adds no room (the bag's list and its 300 kg are the
+character's), so it is a bag held twice, not a gain. The four hosts: every
 trade and keyed shelf is `scenes/worldModes.js`'s; the take ladder is the one module every host's windows call.
-Pinned by `test/fb1004_onebag.test.js` (4); `tools/mutants/fb1004_onebag.json` (6, all dead). The 97 line cites into
+Pinned by `test/fb1004_onebag.test.js` (6); `tools/mutants/fb1004_onebag.json` (8, all dead). The 97 line cites into
 worldModes.js that ENDLESS-STOCK and ONE-BAG moved, re-resolved by `tools/citeShift.mjs` (struck ones kept, but the
 one CD4 gates).
+
+## The audit (2026-10-04, Mac: "Audit when your done")
+
+Three readers, one a fix - the gathering, the shelves, the one bag - each finding reproduced against the real modules
+before it was fixed, then pinned and its fix mutated.
+
+| # | Found | Fixed |
+|---|---|---|
+| ENDLESS F1 | Online a Campfire's asking price is halved (`essentialPrice`) and a shop's buy-back cap is not, so one bought at a cheap shop sold dear at another for +4 to +13 gold, without end once the stock never ran out (the bag +20 a trip) | No shop buys back what never sells out, online (`shopBuysItem`) |
+| ENDLESS F2 | One sold to any shop landed on its shelf and made that shelf endless - a Pawn Shop that rolled none, a General Store's second shelf | The same: nothing endless is bought back online |
+| ENDLESS F3 | "a second bag bought is the buyer's choice" outlived ONE-BAG | The sentence deleted |
+| ENDLESS F4 | The restock ran offline too | Online alone, as the bag is |
+| ONE-BAG 1 | Two bags held from before, both carted, could never leave the wagon, and none could be bought | A bag out of the character's own wagon is never refused |
+| ONE-BAG 2 | The bag stood as a decor piece: out of the pack past the loaded-bag rule, back past the take ladder - two held | No decor piece |
+| PACK-OVER A/B | No pin held the overflow's rot words or C&C, nor the world's save for a harvest wholly past the weight | Pinned (`fb1004_packover`, its audit tests) |
+| PACK-OVER C | A pump settling five kept harvests over the weight said the long line five times, a rank's rise pushed out | Said once in ten seconds (`OVER_SAID_MS`) |
+
+Not changed, and why: a companion's pack forced back (ONE-BAG, above); and a swimmer with a max carry under 62.5 kg who
+starts a cast with room for one fish can be carried past DFU's afloat limit by the haul (motor.js afloatMessageStep) -
+DFU's own Foraging net does the same, and the weight's consequences are DFU's (PACK-OVER).

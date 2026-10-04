@@ -23,8 +23,8 @@ crafting materials in the inventory itself." And: "This is something I really wa
 - **Bought** at every General Store, online, after the horse and the cart (`systems/shopStock.js`) - on every shelf,
   whoever stocks it, as the horse and the cart are (BAG-SHELF, section 13: the first shelf alone, left off for a
   character who carried one, hid it - a shelf's stock is the room's for the day); and it never sells out - a bag bought
-  is back on its shelf (ENDLESS-STOCK, section 13) - one to a character: a second is refused wherever it is taken
-  (ONE-BAG, section 13). Its base price is **250**; DFU's shop price is 2 x (cost x (quality - 10) / 100 + cost), so **500 gold**
+  is back on its shelf, online, and no shop buys one back (ENDLESS-STOCK, section 13); one to a character - a second is
+  refused by the take ladder and the keyed shelf (ONE-BAG, section 13). Its base price is **250**; DFU's shop price is 2 x (cost x (quality - 10) / 100 + cost), so **500 gold**
   at a middling shop and 456 to 550 by the shop's quality (1 to 20), before the region and the haggle - "like 500g".
 - **It holds 300 kg** - two fifths of a wagon's 750 (`BAG_KG_LIMIT`): "quite a lot", never unlimited. A day's Logging
   (60 trees of 2-4 logs at 2 kg) is about 360 kg; the bag holds most of a day in one craft.
@@ -267,16 +267,18 @@ before it starts. The record: `01-Overview/Field-Bugs-2026-10-04.md`.
 first shelf alone (the second audit's H8) and was left off a shelf stocked by a character who carried one. The first
 shelf is only the first shelf model the building lists, and online a shelf's stock is the room's for the day - so one
 bag-owner's open hid it from everyone in the building until the next restock. It is on every shelf now, whoever stocks
-it, as the horse and the cart are (`systems/shopStock.js`); a second bag bought is the buyer's choice, as a second cart
-is. A shelf stocked earlier the same game day keeps its stock until its restock.
+it, as the horse and the cart are (`systems/shopStock.js`) - one to a character (ONE-BAG). A shelf stocked earlier the same game day keeps its stock until its restock.
 
 **ENDLESS-STOCK** (the same day, Mac: "I want the gathering bag to be unlimited purchases in stores. It shouldnt run
 out, same with campfires"). A shelf is a container, and a purchase took the bag off it for the day - for the whole
 building, online. A Materials Bag or a Campfire bought is put back on its shelf now, a fresh one for each
 (`systems/shopStock.js` restockEndless, called by the two purchases in `scenes/worldModes.js` - commitTrade's Buy arm
-and the keyed list's doBuy - and nothing else: one stolen from a closed shop's shelf stays gone). Pinned by `test/fb1004_endless.test.js`; `tools/mutants/fb1004_endless.json`.
+and the keyed list's doBuy - and nothing else: one stolen from a closed shop's shelf stays gone). Online alone; and online
+no shop buys a bag or a Campfire back (`shopBuysItem`) - bought cheap and sold dear they were gold for nothing, and one
+sold made any shelf endless. Pinned by `test/fb1004_endless.test.js`; `tools/mutants/fb1004_endless.json`.
 
 **ONE-BAG** (the same day, Mac: "Right, you shouldnt be able to hold multiple gathering bags"). A second Materials Bag is
-refused wherever one is taken - the take ladder (`systems/itemTransfer.js` planTake: a pickup, quick loot, a container,
-the wagon, both trade windows' Buy basket) and the keyed shelf (`scenes/worldModes.js` doBuy) - while another is held
-in the pack, a trade's basket or the wagon: "You already have a Materials Bag." Pinned by `test/fb1004_onebag.test.js`.
+refused by the take ladder (`systems/itemTransfer.js` planTake: a pickup, quick loot, a container, the wagon, both trade
+windows' Buy basket) and the keyed shelf (`scenes/worldModes.js` doBuy) while another is held in the pack, a trade's
+basket or the wagon: "You already have a Materials Bag." One out of the character's own wagon is never refused, and the
+bag is no decor piece. Pinned by `test/fb1004_onebag.test.js`; the audit's findings in the field-bug record.

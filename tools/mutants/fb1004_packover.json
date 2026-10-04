@@ -47,8 +47,44 @@
   {
     "name": "PACKOVER-the-toast-unsaid",
     "file": "src/scenes/gatherHost.js",
-    "old": "      if (hauled && d.carry === true && (d.put?.over ?? 0) > 0) hud.toast(BAG_WORDS.overWeight);\n",
-    "new": "",
+    "old": "hud.toast(BAG_WORDS.overWeight); }",
+    "new": "}",
+    "tests": [
+      "test/fb1004_packover.test.js"
+    ]
+  },
+  {
+    "name": "PACKOVER-the-overflows-rot-words-dropped",
+    "file": "src/systems/materialsBag.js",
+    "old": "got.left, opts.cc, { slowRot: opts.slowRot === true, noRot: opts.noRot === true });",
+    "new": "got.left, opts.cc, {});",
+    "tests": [
+      "test/fb1004_packover.test.js"
+    ]
+  },
+  {
+    "name": "PACKOVER-the-overflows-cc-forced",
+    "file": "src/systems/materialsBag.js",
+    "old": "over = withdrawIntoPack(entity, key, got.left, opts.cc, {",
+    "new": "over = withdrawIntoPack(entity, key, got.left, false, {",
+    "tests": [
+      "test/fb1004_packover.test.js"
+    ]
+  },
+  {
+    "name": "PACKOVER-over-uncounted-for-the-save",
+    "file": "src/scenes/world.js",
+    "old": "if (got.bag + got.pack + got.over > 0) saveSoon.changed(); return got; },",
+    "new": "if (got.bag + got.pack > 0) saveSoon.changed(); return got; },",
+    "tests": [
+      "test/fb1004_packover.test.js"
+    ]
+  },
+  {
+    "name": "PACKOVER-the-line-every-answer",
+    "file": "src/scenes/gatherHost.js",
+    "old": "(d.put?.over ?? 0) > 0 && deps.nowMs() - overSaidAt >= OVER_SAID_MS) {",
+    "new": "(d.put?.over ?? 0) > 0) {",
     "tests": [
       "test/fb1004_packover.test.js"
     ]

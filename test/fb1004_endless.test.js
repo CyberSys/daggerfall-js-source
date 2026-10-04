@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import '../src/systems/profTemplates.js';
-import { stockShopShelf, isEndlessStock, restockEndless } from '../src/systems/shopStock.js';
+import { stockShopShelf, isEndlessStock, restockEndless, shopBuysItem } from '../src/systems/shopStock.js';
 import { BUILDING_TYPES } from '../src/world/buildingNames.js';
 import { BAG_TEMPLATE, isBagItem } from '../src/net/bagLaw.js';
 import { isCampfireKit, createSurvivalItem, TEMPLATE } from '../src/systems/survival/items.js';
@@ -79,4 +79,25 @@ test('ENDLESS-STOCK wired: both purchases put the endless rows back after they t
   const doBuy = w.slice(w.indexOf('function doBuy(shelf, it) {'), w.indexOf('function doSell(shelf, it) {'));
   assert.match(doBuy, /shelf\.items\.splice\(at, 1\);[\s\S]*\) addItem\(playerEntity\.items, it\);\n\s+restockEndless\(shelf\.items, \[it\]\);/, 'the keyed list, after the row is taken');
   assert.equal(w.match(/restockEndless\(/g).length, 2, 'those two alone');
+});
+
+test('AUDIT ENDLESS-STOCK F1/F2: online no shop buys back a bag or a Campfire - bought cheap and sold dear it was gold for nothing, and one sold made any shelf endless; offline a shop buys them as before (mutants: the buy-back open online; closed offline)', () => {
+  const shelf = onlineShelf();
+  const bag = shelf.find(isBagItem), fire = shelf.find(isCampfireKit), rope = shelf.find((it) => !isEndlessStock(it) && shopBuysItem(BUILDING_TYPES.GeneralStore, it));
+  assert.ok(bag && fire && rope);
+  for (const shop of [BUILDING_TYPES.GeneralStore, BUILDING_TYPES.PawnShop]) {
+    assert.deepEqual([shopBuysItem(shop, bag), shopBuysItem(shop, fire)], [false, false], `online, shop ${shop}`);
+  }
+  assert.equal(shopBuysItem(BUILDING_TYPES.GeneralStore, rope), true, 'the rest of the shelf is bought as ever');
+  globalThis.location = { search: '' };
+  assert.deepEqual([shopBuysItem(BUILDING_TYPES.GeneralStore, bag), shopBuysItem(BUILDING_TYPES.PawnShop, fire)], [true, true], 'offline, DFU\'s groups');
+});
+
+test('AUDIT ENDLESS-STOCK F4: offline a Campfire bought is gone, as Daggerfall sells one - the restock is the online game\'s (mutants: endless offline)', () => {
+  const shelf = onlineShelf();
+  const fire = shelf.find(isCampfireKit);
+  globalThis.location = { search: '' };
+  const before = count(shelf, isCampfireKit);
+  assert.equal(buy(shelf, [fire]), 0);
+  assert.equal(count(shelf, isCampfireKit), before - 1);
 });
