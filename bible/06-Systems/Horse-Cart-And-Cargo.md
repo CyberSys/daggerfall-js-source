@@ -717,7 +717,7 @@ under the grown horse.
   `hitchAxle` and `WagonHitch`. The grown position and draw, and a
   following team not grown. Another player's wagon on its shafts at every
   frame, and a parked one never pulled. The host's wiring.
-- **The mutants:** `tools/mutants/wagonhitch.json`, 9 at the slice (31 after its audit), all dead. The
+- **The mutants:** `tools/mutants/wagonhitch.json`, 9 at the slice (32 after its audit), all dead. The
   re-aimed records of `hcc.json`, `auditbranch.json`, `auditinvis.json` and
   `prwagon1.json` are all dead too.
 
@@ -727,7 +727,8 @@ Four lenses read the commit whole - the runtime, the presentation (online and th
 Shift, the records - each proving its findings by execution (the UI lens in a real Chromium through vite and Playwright,
 from the scratchpad). One blocker, one major; every finding is paid below, pinned (`test/wagonhitch.test.js` 17,
 `test/shiftstow.test.js` 9, `test/audit_hcc_branch.test.js` IL3, `test/hcc_scope.test.js`) and killed by a mutant
-(`tools/mutants/wagonhitch.json`, `shiftstow.json`: 263 dead over the nine lists the change touches, none survived).
+(`tools/mutants/wagonhitch.json`, `shiftstow.json`: 264 dead over the nine lists the change touches, none survived;
+`test/el2_shadows.test.js`'s renderer pin re-aimed to the `noShadow` gate).
 
 **The runtime.**
 - **A1 (BLOCKER): the wagon swung round its hitch on any slope.** The drawn pose stands a metre up the ground's normal,

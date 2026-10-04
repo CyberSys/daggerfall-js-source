@@ -18865,6 +18865,8 @@ from the scratchpad, the pack mounted over a wagon of thirteen):
   scrolling. The list it left: a phone on its side 1 px (it had 203: 3 rows to 0), 1366x625 170 px (7 rows to 3),
   1366x768 292 px (9 to 5); at 390x500 head and bar overran the frame. The fake document has no layout, so the PX21e
   pin could not see it. ONE row now (the search beside a menu), the hint its own line and hidden where it costs most.
+  Re-measured in the same probe after the fix: a phone on its side 157 px (2 whole rows), 1366x625 360 px (6 rows),
+  1366x768 452 px (8 rows) - a row short of no filter at all - and nothing past the frame at any size.
 - **C2: the filter followed the player from store to store** - the wagon's Weapons and "mace" carried into the bag
   ("Nothing here matches." over a bag holding an ingot), and a wagon emptied on Materials hid the dagger shift-stowed
   into it next. Reset at each door and each emptied store.
