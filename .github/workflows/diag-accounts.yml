@@ -1,4 +1,4 @@
-# TEMPORARY (2026-10-04) - the account service answers 500 on sign-in (the deploy smoke's guest
+# TEMPORARY (2026-10-04; run on a push to this branch alone) - the account service answers 500 on sign-in (the deploy smoke's guest
 # sign-in since 00:49 UTC; players' logins land back on the title). Reads the live Worker's own
 # error log for ninety seconds of the players' own traffic and one refused login (it opens no
 # account), and prints ONLY the service's '[account]' error lines (path and stack), the outcomes'
@@ -7,7 +7,9 @@
 name: diag-accounts
 
 on:
-  pull_request:
+  push:
+    branches:
+      - ccr-1179df97-c4x5p3
     paths:
       - .github/workflows/diag-accounts.yml
 
