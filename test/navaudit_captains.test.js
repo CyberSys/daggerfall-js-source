@@ -54,7 +54,7 @@ test('AUDIT NAV1 M4 the way: the classes are rated at the player\'s own pace - C
 
 test('AUDIT NAV1 M5 x HELM-WAY the turn: a hull turns at the player\'s own responsive helm - her hull\'s helm times the steerage of her way (answering at rest, hardest at half her way) - and no faster than her class allows; a galley\'s oars turn her at OARS_TURN; the helm eases in over TURN_TAU and never overshoots the course; a hard turn costs her way (mutants: the steerage unread, the floor, the ease, the loss)', () => {
   for (const b of HULL_BUILDS) assert.ok(b.bowZ > 0 && b.aftZ < 0 && b.halfWidth > 0, `hull ${b.hull}'s extents`);
-  near(hullLength(HULL.SmallShip), 44.13, 0.01, 'the Small Ship\'s collider, stem to stern');
+  near(hullLength(HULL.SmallShip), 41.84, 0.01, 'the Small Ship\'s collider, stem to stern');   // PIN MOVED (GALLEON, 2026-10-01): Mac's galleon's, her stem 21.93 to her stern -19.91
   const b = ship('pirateBrig');
   near(turnRadius(b), classById('pirateBrig').speed / turnRateAt(b, classById('pirateBrig').speed), 1e-9, 'the lookout\'s room: the circle she sails at her class\'s way, whatever way she has on');
   assert.ok(turnRadius(b) > hullLength(HULL.SmallShip) * 0.5 && turnRadius(b) < 70, `${turnRadius(b).toFixed(1)} m - her circle was 70.6 m at every way`);

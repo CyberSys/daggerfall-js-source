@@ -2162,7 +2162,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:16479 / exterior.js:3936), set
+  // host's own townTalk sink (world.js:16489 / exterior.js:3936), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -4259,7 +4259,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:27217,
+              // playerArrowHitFoe is the one copy world.js:27238,
               // exterior.js:5599 and worldModes.js:9241 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP

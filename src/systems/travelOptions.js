@@ -680,11 +680,11 @@ export function createTravelOptions(deps = {}) {
   /** :521-534, InitTravelUI. */
   function initTravelUI(circumnavSpeedLimiter = false) {
     disableJunctionMap(true);
+    if (ui && !ui.isShowing) deps.pushWindow?.(ui);   // apply a newly opened panel's rate before setting its clock
     if (circumnavSpeedLimiter && ui && ui.timeAcceleration > MAX_CIRCUMNAVIGATION_ACCEL) setTimeScale(MAX_CIRCUMNAVIGATION_ACCEL);
     else setTimeScale(ui ? ui.timeAcceleration : 1);
     disableWeatherAndSound();
     st.diseaseCount = deps.diseaseCount?.() ?? 0;
-    if (ui && !ui.isShowing) deps.pushWindow?.(ui);
   }
 
   /** :606-612's InitLocationRects, and the two GPS events that call it

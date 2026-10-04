@@ -330,8 +330,8 @@
   {
     "name": "AUDIT-NAV2-F47-leader-taken-to-talk",
     "file": "src/systems/naval/crewLife.js",
-    "old": "|| o.mate || o === chanty?.leader || o === lookout || atPost(o)) continue;",
-    "new": "|| o.mate || o === lookout || atPost(o)) continue;",
+    "old": "|| o.mate || o === chanty?.leader || o === lookout || offMain(o) || atPost(o)) continue;",
+    "new": "|| o.mate || o === lookout || offMain(o) || atPost(o)) continue;",
     "tests": [
       "test/auditnav2_crew.test.js"
     ]
@@ -577,6 +577,15 @@
     "file": "src/systems/naval/crewLife.js",
     "old": "const at = deck?.rail?.(muster, z, undefined, level) ?? m.pos;",
     "new": "const at = deck?.rail?.(muster, z) ?? m.pos;",
+    "tests": [
+      "test/auditnav2_crew.test.js"
+    ]
+  },
+  {
+    "name": "GALLEON-hands-on-the-castle",
+    "file": "src/systems/naval/crewLife.js",
+    "old": "deck.spots(Math.max(16, roster.length * 3), Number.isNaN(main) ? undefined : main)",
+    "new": "deck.spots(Math.max(16, roster.length * 3))",
     "tests": [
       "test/auditnav2_crew.test.js"
     ]

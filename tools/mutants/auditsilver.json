@@ -258,8 +258,8 @@
   {
     "name": "AUDIT-SILVER-WAYS-D6-kept-for-return",
     "file": "src/net/motherlodeBook.js",
-    "old": "if (m !== meNowV) { meNowV = m; watches.clear(); }",
-    "new": "if (m !== meNowV) { meNowV = m; }",
+    "old": "      meNowV = m;\n      watches.clear();",
+    "new": "      meNowV = m;",
     "tests": [
       "test/auditsilver_client.test.js"
     ]
@@ -277,8 +277,8 @@
   {
     "name": "AUDIT-SILVER-WAYS-D7-list-a-frame",
     "file": "src/net/motherlodeBook.js",
-    "old": "    standingAll(out = []) {\n      out.length = 0;",
-    "new": "    standingAll(out = []) {\n      out = [];",
+    "old": "    standingAll(out = []) {\n      meNow();\n      out.length = 0;",
+    "new": "    standingAll(out = []) {\n      meNow();\n      out = [];",
     "tests": [
       "test/auditsilver_client.test.js"
     ]

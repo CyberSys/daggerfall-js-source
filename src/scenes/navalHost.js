@@ -58,7 +58,7 @@ import { createShotField, insideGrown } from '../systems/naval/navalShots.js';
 import { createNavalEffects } from '../systems/naval/navalEffects.js';
 import { createNavalDirector, DENSITY, seedBaseOf, SEED_SALT, DESPAWN_BEYOND } from '../systems/naval/navalDirector.js';
 import { createSeaShip, stepCaptain, quatOfYaw, forwardOfYaw, velocityOf, provoke, hostile, lookoutOf, fightingPower, TEMPERS, HEAR_S, RUN_OUT_S, RUN_OUT_DEG, BOW_RUN_OUT, SPARE_S, GUNS_SEEN_S, PROVOKED_S, NAVY_HUNTS } from '../systems/naval/navalAI.js';
-import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap
+import { wrapAngle, multiply } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap; AUDIT GN-R5: a rig box turned with its boom
 import { createShipDamage, shotDamage, shotMen, ballMen, SHIP_STATES, SINK_SECONDS, SINK_CLEAR, sinkAngles, sinkDepth, BRACE_TAKEN, FIRE_CHANCE, WRECKED_OARS, repairCost, STRUCK_AT } from '../systems/naval/navalDamage.js';
 import { createGunDeck, aimSolution, volleyLaunches, bearingOf, sideForBearing, toWorld, RIPPLE_S, READY_FLASH_S } from '../systems/naval/navalGunnery.js';
 import { hullBuild, firstBuildOf, batteryOf, batteriesOf, GUNS, classById, classFor, shipNames, crownOf, classLine, SIDES, SIDE_DIR, BARREL, NAVAL_FACTIONS, HULL } from '../systems/naval/navalShips.js';
@@ -78,17 +78,20 @@ import { createBoarding, berthPose, musterOf, crewTeamOf, handsOf, repelPartyOf,
 import { navalWireRecord, validNavalRecord, navalHitData, validNavalHit, NAVAL_SHARE_RADIUS, NAVAL_VOLLEY_KEEP_MS, NAVAL_GEN_MAX, NAVAL_WIRE_VOLLEYS, NAVAL_WIRE_SPENT, TRAFFIC_DEFAULT } from '../systems/naval/navalWire.js';
 import { Boat, boatAnimators, boatParticleSystems, animatorOf, setLights, meshLocalBounds, HULL_NAMES } from '../systems/comeSailAwayBoat.js';
 import { runsDark, nightSight, lampSize, lampAlpha, lampPoints, LAMP_NEAR_M, LAMP_COLOR } from '../systems/naval/shipWatch.js';   // SHIP-WATCH: the sea by night, and my lookout
-import { stowSail } from '../systems/comeSailAway.js';
+import { stowSail, vSignedAngle } from '../systems/comeSailAway.js';   // AUDIT GN2-RG6: sailWind's angle
 import { quatEuler } from '../world/unityAnimator.js';
-import { quatRotate, quatLookRotation } from '../world/quat.js';
+import { quatRotate, quatLookRotation, quatAngleAxis, mat4FromQuatPos } from '../world/quat.js';
 import { constantCurve } from '../world/unityParticles.js';
 import { amGroupRollOwner } from '../systems/campEncounters.js';
 import { NAVAL_SFX, NAVAL_CLASSIC, NAVAL_FIRE_LOOP, NAVAL_SINK_LOOP, navalSoundRange } from '../systems/naval/navalSounds.js';
 import { raiderPlan, raiderClassOf, RAIDER_DROP_M } from '../systems/naval/navalRaiders.js';
 import { pursue } from '../systems/naval/seaLanes.js';   // AUDIT BAY A6: a packet steered along her leg
 import { FADE_FLATS } from './comeSailAwayPool.js';   // AUDIT BAY A13/A14: what of a fading ship goes at half
-import { intoDeck, outOfDeck, mainLevel } from '../systems/naval/navalDeck.js';   // AUDIT NAV2 F36: the feet in her deck's frame (aboardShip); QUAYS: her rail where the gangway lands
-import { dockFor, madeFast, warpStep, quaySide, landwardOf, quayFrame, quayToScene, sceneToQuay, gangwayFoot, DOCK_WAY, DOCK_REACH_M, DOCK_REFUSED, GANGWAY_REACH, GANGWAY_ASHORE, GANGWAY_FACING, GANGWAY_SIDE, QUAY_GAP, QUAY_WIDTH, QUAY_DECK_UP } from '../systems/naval/quays.js';   // QUAYS: docking at a harbour's quays
+import { intoDeck, outOfDeck, mainLevel, DECK_STEP } from '../systems/naval/navalDeck.js';   // AUDIT NAV2 F36: the feet in her deck's frame (aboardShip); QUAYS: her rail where the gangway lands
+import { CAPSULE_RADIUS } from '../player/motor.js';   // AUDIT GN-D3: aboard under her main deck, a body's own reach (standsOn)
+import { createGalleonGunDeck } from '../systems/naval/galleonGunDeck.js';   // GALLEON: her shutters and guns at work
+import { timeScale } from '../systems/timeScale.js';   // AUDIT GN2-GN3: the real clock another player's word comes on
+import { dockFor, madeFast, warpStep, quaySide, landwardOf, quayFrame, quayToScene, sceneToQuay, gangwayFoot, DOCK_WAY, DOCK_REACH_M, DOCK_REFUSED, GANGWAY_REACH, GANGWAY_ASHORE, GANGWAY_FACING, gangwaySide, QUAY_GAP, QUAY_WIDTH, QUAY_DECK_UP } from '../systems/naval/quays.js';   // QUAYS: docking at a harbour's quays
 
 /** The record's name in the save's per-mod slot (systems/modSaveData.js) - the port's own, as the Sigil Broker's is. */
 export const NAVAL_SAVE_VENDOR = 'NavalCombat';
@@ -441,6 +444,10 @@ export const AIM_CAM_AFT = 3;
 export const AIM_CAM_TAU = 0.22;
 /** ...and stops this far (m) short of another ship's side on its way out from the ports. */
 export const AIM_CAM_CLEAR = 1.2;
+/** AUDIT GN-G3: how long (s) another player's word keeps her broadside laid on my screen - longer than the full frame
+ *  her word is said again by (net/online.js FOES_FULL_MS, 2 s), so a lay held still is never dropped between words.
+ *  AUDIT GN2-GN3: real seconds, as that frame is - on my sea's clock Come Sail Away's time scale made 2 s ten at x5. */
+export const PEER_LAY_S = 3;
 
 /** A boat's hull as an oriented box in the world: its MeshCollider's own bounds through its MeshObject (null before
  *  its mesh is known) - the shots' target, the ram's, the target card's, and the host's deck rays'. */
@@ -450,14 +457,52 @@ export function hullBoxOf(boat, models) {
   return orientedBox(boat.MeshObject.worldMatrix(), local.center, local.extent);
 }
 /** AUDIT NAV1 (the guns): a boat's rig as oriented boxes in the world - its build's canvas (navalShips.js HULL_BUILDS
- *  `rig`, the root's frame) through the same MeshObject the hull rides, so the masts heel and settle with her. */
+ *  `rig`, the root's frame) through the same MeshObject the hull rides, so the masts heel and settle with her.
+ *  AUDIT GN-R5/G9: a box on a boom (`boom`, `pivot`) turned about its pivot by that boom's own rotation as the trim sets
+ *  it - the canvas goes where the boom swings it, and so does the box; one askew (`obb`) as it lies. A boom the boat has
+ *  not (another variant's, none walked yet) leaves its box home. AUDIT GN2-RG3: a box of a sail (`sail`) only while
+ *  that sail is shown and set - furled or hidden (her sail share) her boxes took balls where no canvas hung. */
 export function rigBoxesOf(boat) {
   const rig = hullBuild(boat?.hull).rig;
   const mo = boat?.MeshObject;
   if (!rig?.length || !mo) return [];
   const m = mo.worldMatrix();
   const lp = mo.localPosition ?? [0, 0, 0];
-  return rig.map(([mn, mx]) => orientedBox(m, [(mn[0] + mx[0]) / 2 - lp[0], (mn[1] + mx[1]) / 2 - lp[1], (mn[2] + mx[2]) / 2 - lp[2]], [(mx[0] - mn[0]) / 2, (mx[1] - mn[1]) / 2, (mx[2] - mn[2]) / 2]));
+  const at = (p) => [p[0] - lp[0], p[1] - lp[1], p[2] - lp[2]];   // the root's frame in her mesh object's
+  const hangs = (k) => { const s = boat.Sails?.[k]; return !s || (s.activeSelf && !animatorOf(s)?.GetBool('Stowed')); };
+  return rig.filter((box) => /** @type {any} */ (box).sail == null || hangs(/** @type {any} */ (box).sail)).map((box) => {
+    const [mn, mx] = box, b = /** @type {any} */ (box);
+    if (b.obb) return orientedBox(multiply(m, mat4FromQuatPos(quatAngleAxis(b.obb.pitch, [1, 0, 0]), at(b.obb.c)), new Float32Array(16)), [0, 0, 0], b.obb.h);
+    const c = at([(mn[0] + mx[0]) / 2, (mn[1] + mx[1]) / 2, (mn[2] + mx[2]) / 2]), h = [(mx[0] - mn[0]) / 2, (mx[1] - mn[1]) / 2, (mx[2] - mn[2]) / 2];
+    const q = b.boom != null ? boat.Booms?.[b.boom]?.localRotation : null;
+    if (!q || !b.pivot) return orientedBox(m, c, h);
+    // about the pivot: there, turned, and back
+    const P = at(b.pivot);
+    const turn = multiply(mat4FromQuatPos(q, P), mat4FromQuatPos([0, 0, 0, 1], [-P[0], -P[1], -P[2]]), new Float32Array(16));
+    return orientedBox(multiply(m, turn, new Float32Array(16)), c, h);
+  });
+}
+
+/** AUDIT GN2-RG4: how high a sail's canvas hangs (world y) - the mean of its grid (galleonRig.js: a bone a grid point,
+ *  `*SailBones`, as built - her set canvas - at a sea ship's first pose, before her animators first run); a sail on one
+ *  bone or none (the mod's hulls': no grid) its node's height, as they were sorted. Her jib's node stands at her origin
+ *  and her gaff's at its boom's foot: by their nodes she lost her lowest canvas first. */
+function canvasHeight(sail) {
+  const grid = sail.children.find((c) => /SailBones$/.test(c.name))?.children ?? [];
+  if (grid.length < 2) return sail.worldMatrix()[13];
+  return grid.reduce((y, bone) => y + bone.worldMatrix()[13], 0) / grid.length;
+}
+/** AUDIT GN2-RG6: the sign Come Sail Away's sailWind (comeSailAway.js) gives a sail's Wind in the wind `w` (where it
+ *  blows to) - by its signed angle to the sail's own forward: a gaff or a staysail +1 blown to starboard, a lateen the
+ *  other way (its clips'); square canvas +1, full (a sea ship's yards are never braced, her way never backs). Every Wind
+ *  was +: a sea ship's gaff and jib bellied to starboard in a wind blowing to port. */
+function sailSide(boat, sail, w) {
+  if (boat.SailsSquare?.includes(sail)) return 1;
+  const f = quatRotate(sail.rotation, [0, 0, 1]);
+  const a = vSignedAngle([f[0], 0, f[2]], [w[0], 0, w[2]], [0, 1, 0]);
+  if (boat.SailsLateen?.includes(sail)) return a > 0 ? -1 : 1;
+  if (boat.SailsGaff?.includes(sail)) return a >= 0 ? 1 : -1;
+  return a > 0 ? 1 : -1;
 }
 
 /**
@@ -509,6 +554,12 @@ export function createNavalHost(deps) {
   const where = () => (whereNow ??= deps.where?.() ?? {});
   const now = () => clock;
   let clock = 0;
+  /** GALLEON: every galleon's gun deck in play - her shutters opened and her guns run out as a broadside is laid, each
+   *  gun kicked back as it fires (systems/naval/galleonGunDeck.js; a hull without the nodes is left alone). */
+  const galleonGuns = createGalleonGunDeck();
+  /** AUDIT GN2-GN3: the real clock (s) - my sea's at one (world.js naval.frame(dt * worldTimeScale())) - that another
+   *  player's lay is held on, her word coming on it. */
+  let realClock = 0;
   let enabled = true;
 
   // ── the sea's ships ──────────────────────────────────────────────────────────────────────────────────────────────
@@ -673,6 +724,38 @@ export function createNavalHost(deps) {
   /** AUDIT NAV1 (the presentation): how far into the far roll a report at `d` (m) is heard - 0 near, 1 far. */
   const farShare = (d) => clamp((d - (NEAR_BOOM_M - FAR_FADE_M)) / (2 * FAR_FADE_M), 0, 1);
 
+  /** GALLEON: the boat a shooter's id names - one of mine, a sea ship's, another player's at her helm - or null. */
+  function boatOfShooter(id) {
+    if (typeof id !== 'string') return null;
+    if (isMine(id)) return myBoats().find((b) => myBoatId(b) === id) ?? null;
+    if (id.startsWith('peer:')) { const owner = id.slice(5); return (deps.peerBoats?.() ?? []).find((p) => p.id === owner)?.boat ?? null; }
+    return sea.get(id)?.boat ?? null;
+  }
+
+  /**
+   * AUDIT GN-G5: a battery's muzzles through her hull as she lies - heeled and listed with her MeshObject, as her ports
+   * are drawn - so each ball leaves its own port; the root's upright frame stood a ball 0.89 m off the port at 8 deg of
+   * roll, under its sill on the high side. The lay (elevation, direction) is the root's, as aimed; a shooter with no
+   * hull drawn here keeps the root's muzzles. Her heel is taken in the root's own frame and stood on `pose` - the root
+   * as she fires: a sea ship's hull is posed after her captain's step, a frame behind her (her drawn world matrix put
+   * a captain's ball a frame's way aft of her port, 3 m at Come Sail Away's half-second frame) - and through whatever
+   * stands between her root and her MeshObject (the galleon's DaggerfallMesh node).
+   */
+  function heeled(solution, pose, boat) {
+    const mo = boat?.MeshObject, root = boat?.GameObject, up = mo?.parent;
+    if (!mo || !root || !up || !solution?.muzzles?.length) return solution;
+    const q = mo.localRotation, lp = mo.localPosition;
+    const inv = [-pose.rotation[0], -pose.rotation[1], -pose.rotation[2], pose.rotation[3]];
+    const muzzles = solution.muzzles.map((w) => {
+      const r = quatRotate(inv, [w[0] - pose.position[0], w[1] - pose.position[1], w[2] - pose.position[2]]);   // the root's frame
+      const p = up.inverseTransformPoint(root.transformPoint(r));   // her MeshObject's parent's (the root's own place cancels)
+      const h = quatRotate(q, [p[0] - lp[0], p[1] - lp[1], p[2] - lp[2]]);
+      const o = quatRotate(pose.rotation, root.inverseTransformPoint(up.transformPoint([h[0] + lp[0], h[1] + lp[1], h[2] + lp[2]])));
+      return [pose.position[0] + o[0], pose.position[1] + o[1], pose.position[2] + o[2]];
+    });
+    return { ...solution, muzzles };
+  }
+
   // ── firing ───────────────────────────────────────────────────────────────────────────────────────────────────────
   /**
    * A volley from a ship: its balls flown (resolved here when `resolve`), its word kept for the others.
@@ -690,7 +773,7 @@ export function createNavalHost(deps) {
       return solution.landings.length;
     }
     const seed = u32();
-    const launches = volleyLaunches(solution, seed, { skill, carry: pose.velocity });
+    const launches = volleyLaunches(heeled(solution, pose, boatOfShooter(shooter)), seed, { skill, carry: pose.velocity });
     const id = u32();
     shots.fireVolley({ id: String(id), shooter, launches, resolve, side: solution.side });
     if (isMine(shooter)) tallies.set(String(id), { balls: launches.length, ended: 0, hits: 0, holed: 0, rig: 0 });
@@ -700,16 +783,21 @@ export function createNavalHost(deps) {
 
   /** A peer's volley, flown here from its word: drawn, and a ball that strikes MY boat - an AI's - is mine to take. */
   function fireFromWord(owner, v, toScene) {
-    const pos = toScene(v.pos);
-    const pose = { position: pos, rotation: quatOfYaw(v.yaw), velocity: v.vel, hull: v.hull };
+    const shooter = v.shooter >= 0 ? `${owner}:${v.shooter}` : `peer:${owner}`;
+    const boat = boatOfShooter(shooter);
+    // AUDIT GN2-GN4: from her ports as drawn here - her drawn root, set back by her way over the volley's age to where it
+    // stood as the balls left (they fly on from there, `since`) - not her word's pose: her shutters and guns are the drawn
+    // copy's, gliding on between her words (PUPPET-GLIDE, csaPeers' ease), and the flash stood up to 1.16 m off them
+    const drawn = boat?.GameObject, back = Math.max(0, (v.age ?? 0) / 1000);
+    const pos = drawn ? drawn.position.map((x, k) => x - v.vel[k] * back) : toScene(v.pos);
+    const pose = { position: pos, rotation: drawn ? drawn.rotation : quatOfYaw(v.yaw), velocity: v.vel, hull: v.hull };
     const solution = aimSolution(pose, v.side, null, deps.seaY(), { range: 1 });
     if (!solution) return;
     if (solution.barrel) return;
     // the lay the shooter used, not a range this client would pick
     const g = GUNS[solution.gun];
     solution.elevation = clamp(v.elevation, g.minEl * NAVAL_DEG, g.maxEl * NAVAL_DEG);
-    const launches = volleyLaunches(solution, v.seed, { skill: v.skill, carry: v.vel });
-    const shooter = v.shooter >= 0 ? `${owner}:${v.shooter}` : `peer:${owner}`;
+    const launches = volleyLaunches(heeled(solution, pose, boat), v.seed, { skill: v.skill, carry: v.vel });
     shots.fireVolley({ id: `${owner}:${v.id}`, shooter, launches, resolve: false, side: v.side, owner, since: (v.age ?? 0) / 1000 });   // AUDIT NAV1 (online #15): as far along as she is
   }
 
@@ -719,6 +807,7 @@ export function createNavalHost(deps) {
     countTally(e);
     if (e.type === 'muzzle') {
       if ((e.index ?? 0) === 0) heardGun(e.pos, gunfireBy(e.shooter));   // SEA-PEACE: a volley's report, heard across the bay
+      if (e.side === 'starboard' || e.side === 'port') { const gb = boatOfShooter(e.shooter); if (gb) galleonGuns.fired(gb, e.side, e.index ?? 0, clock); }   // GALLEON: the gun that fired it kicks back
       const scale = e.gun === 'heavy' ? 1.35 : e.gun === 'swivel' ? 0.55 : 1;
       effects.muzzle(e.pos, e.dir, scale);
       flashes.push({ pos: [...e.pos], t: clock });
@@ -1408,16 +1497,16 @@ export function createNavalHost(deps) {
     const pitch = Math.sin(t * wl) * wl * 0.5 + sink.pitch;
     if (b.MeshObject) b.MeshObject.localRotation = quatEuler(pitch, 0, roll);
     // the sails: set while she fights or runs, stowed struck, taken or going down. AUDIT NAV1 (#15): her canvas shown by
-    // her sail share, her highest sails gone first
+    // her sail share, her highest sails gone first - AUDIT GN2-RG4: by where each canvas hangs (canvasHeight)
     const set = state === SHIP_STATES.afloat && s.sails > 0.5;
-    const sails = e.sailsByHeight ??= [...(b.Sails ?? [])].sort((p, q) => q.worldMatrix()[13] - p.worldMatrix()[13]);
+    const sails = e.sailsByHeight ??= (b.Sails ?? []).map((n) => [n, canvasHeight(n)]).sort((p, q) => q[1] - p[1]).map(([n]) => n);
     const shown = s.damage.maxSail > 0 ? sailsShown(sails.length, s.damage.sailShare()) : sails.length;
     sails.forEach((sail, i) => { const on = i >= sails.length - shown; if (sail.activeSelf !== on) sail.setActive(on); });
     for (const sail of b.Sails ?? []) {
       const a = animatorOf(sail);
       if (!a) continue;
       if (a.GetBool('Stowed') === set) stowSail(a, !set);
-      a.SetFloat('Wind', set ? Math.min(1, wl) : 0);
+      a.SetFloat('Wind', set ? sailSide(b, sail, w) * Math.min(1, wl) : 0);   // AUDIT GN2-RG6: blown to her lee side
     }
     // AUDIT NAV1 (the presentation): HER COLOURS BY HER STATE - her faction's while she sails and fights, struck with her
     // (the flag's emitter stops: they come down), the captor's once she is taken (the player's boats' own orange -
@@ -1889,7 +1978,16 @@ export function createNavalHost(deps) {
    *  quay point 19.6 m from her hull) and stood the hunt, a bounty's trail and a band's chase down. F60: a hull whose
    *  root stands past her own reach of the feet (her stem, her stern and her beam, and DECK_REACH_M) is never asked - her
    *  box was built for every boat and every sea ship on every call (3.34 us and 11 KB: each step's hostileNear, the
-   *  threats, playerAfloat each frame). */
+   *  threats, playerAfloat each frame). GALLEON (2026-10-01): DECK_REACH_M (by her rail, past her deck's inset edge) for
+   *  feet within DECK_STEP of her main deck or over it (mainLevel - DECK_STEP, on every hull); under that a floor of hers
+   *  within the body's own reach - the new galleon's gun deck lies 1.08 m over the sea, and a metre's reach of it stood
+   *  a swimmer or a quay against her side aboard. AUDIT GN-D3: that reach the capsule's own radius (motor.js
+   *  CAPSULE_RADIUS), never the feet's own cell alone - a 0.5 m cell read a man between her guns, on a gun, on her
+   *  mast's step as ashore (the galleon's 891 of 25197 standable points under her main deck, the Carrack's 638, the
+   *  Large Galley's 5436 (AUDIT GN2-DK5: it said 3829): no Sail ho!, no alarm, rest and journeys open, playerAfloat
+   *  false), while the capsule's reach misses none of the galleon's, and with her floors read only where they face up
+   *  (AUDIT GN-D-wall: her bottom's underside stood a swimmer on it) reads none of the points round her hull aboard (a
+   *  metre read 3.8%). */
   const _aboardLocal = [0, 0, 0];
   const standsOn = (boat, feet) => {
     const r = boat.GameObject?.worldMatrix?.(), b = hullBuild(boat.hull);
@@ -1897,7 +1995,7 @@ export function createNavalHost(deps) {
     const deck = boat.MeshObject && deps.pool.deckOf?.(boat.hull, boat.variant ?? 0);
     if (!deck?.count || !deck.under) { const box = hullBox(boat); return !!box && insideGrown(box, feet, DECK_REACH_M); }
     const l = intoDeck(boat.MeshObject.worldMatrix(), feet, _aboardLocal);
-    return deck.under(l[0], l[2], l[1], DECK_REACH_M);
+    return deck.under(l[0], l[2], l[1], l[1] >= mainLevel(deck) - DECK_STEP ? DECK_REACH_M : CAPSULE_RADIUS);
   };
   function aboardShip() {
     if (myBoat() || (boarding?.boat && myBoats().includes(boarding.boat)) || deps.aboardPeer?.()) return true;
@@ -2589,6 +2687,7 @@ export function createNavalHost(deps) {
     adopt(entry);
     boarding = createBoarding({ kind, shipId: entry.id, from, to: { pos: to.pos, yaw: to.yaw } });
     boarding.boat = boat;
+    boarding.peerOrigin = deps.aboardPeer?.() ?? null;
     if (!boat) boarding.t = Infinity;   // on foot: no haul - over the rail at once
     entry.ship.boarded = true;
     entry.ship.speed = 0;
@@ -2752,7 +2851,7 @@ export function createNavalHost(deps) {
     deps.mid?.(`${entry.ship.names?.name ?? 'The ship'} is yours!`, 3);
     if (yielded) deps.say?.('The rest of her crew throw down their arms.', 3);
     // the prize: her hold drawn once (whoever opens it again finds what is left), the boat that took her
-    entry.prize = { hold: drawHold(entry.ship.cls, entry.ship.seed, (key, tier) => deps.hold?.(key, tier) ?? []), boat: b.boat ?? nearestBoat(entry.ship.pos), chosen: null, fate: null };
+    entry.prize = { hold: drawHold(entry.ship.cls, entry.ship.seed, (key, tier) => deps.hold?.(key, tier) ?? []), boat: b.boat ?? nearestBoat(entry.ship.pos), peerOrigin: b.peerOrigin ?? null, chosen: null, fate: null };
     endBoarding();   // the hands go home over the rail; her dead lie on her deck (entry.deck)
     openPrize(entry);
   }
@@ -2891,15 +2990,16 @@ export function createNavalHost(deps) {
       fate(which) {
         if (pz.fate) return false;
         if (which === 'claim') return claimPrize(entry, boat);   // SHIP-CLAIM: she is mine
+        // Move to a surviving deck before releasing this one; a passenger never takes its owner's helm.
+        if (!returnFromPrize(pz, boat)) { deps.say?.('No safe return deck is available. Keep her here or claim her first.', 4); return false; }
         pz.fate = which === 'scuttle' ? 'scuttle' : 'adrift';
         if (pz.fate === 'scuttle') { s.damage.scuttle(); s.damage.apply({ hull: 0, sail: 0, crew: 0, fire: true }, clock); igniteShip(entry); deps.say?.(`You put a torch to ${s.names?.name ?? 'her'}. She burns to the waterline.`, 4); sound(NAVAL_CLASSIC.bubbles, s.pos, 1); }   // a sinking ship's fire burns on until she is gone (navalDamage.js step)
         else { s.adrift = true; deps.say?.(`You cast ${s.names?.name ?? 'her'} off to drift.`, 3); }   // AUDIT NAV1 (B11): she drifts off downwind
-        if (boat) returnAboard(boat);
         return true;
       },
       /** AUDIT NAV1 (B11): Leave her - she lies taken where she is (Activate opens her again), and I am back at my helm,
        *  never left on her deck with the water between the hulls. */
-      leave() { if (boat) returnAboard(boat); },
+      leave() { returnFromPrize(pz, boat); },
     }) !== false;
   }
 
@@ -2951,7 +3051,7 @@ export function createNavalHost(deps) {
     const name = s.names?.name ?? 'She';
     // HOLDINGS: her title to the Fleet's book (the world host's packDeed), never the pack
     deps.say?.(boat.crewed ? `${name} is yours - her title is in your Fleet ledger (Holdings). She has no crew: hire hands at a shipwright.` : `${name} is yours - she lies where you took her.`, 5);
-    if (captor) returnAboard(captor);
+    if (!returnFromPrize(pz, captor)) returnAboard(boat);
     return true;
   }
   /** SHIP-CLAIM: whether a prize can be claimed - mine to settle, and Come Sail Away here to place her. */
@@ -2962,10 +3062,21 @@ export function createNavalHost(deps) {
 
   /** Back over the rail onto your own deck - AUDIT NAV1 (B11): and at her helm, as Black Flag hands you the wheel when
    *  the prize is settled (Come Sail Away's StartSailing: a wreck rows). */
+  function returnFromPrize(prize, ownBoat) {
+    if (ownBoat && myBoats().includes(ownBoat)) return returnAboard(ownBoat);
+    const peer = prize.peerOrigin;
+    if (!peer?.GameObject?.activeSelf || !deps.pool.peerBoats.includes(peer)) return false;
+    const spot = deps.board?.deckSpots?.(peer, 4)?.[0];
+    if (!spot || !deps.board?.placePlayer) return false;
+    deps.board.placePlayer(spot[0], spot[1]);
+    return true;
+  }
   function returnAboard(boat) {
     const spots = deps.board?.deckSpots?.(boat, 4) ?? [];
-    if (spots[0]) deps.board?.placePlayer?.(spots[0][0], spots[0][1]);
+    if (!spots[0] || !deps.board?.placePlayer) return false;
+    deps.board.placePlayer(spots[0][0], spots[0][1]);
     deps.board?.takeHelm?.(boat);
+    return true;
   }
 
   function endBoarding() {
@@ -3147,6 +3258,7 @@ export function createNavalHost(deps) {
     // AUDIT NAV1: the sea keeps the world's time. A frame's time - Come Sail Away's time scale's too - is stepped in
     // FRAME_STEP_S steps (FRAME_STEPS_MAX at most; a longer stall drops the rest), and the hulls are posed once after
     const total = paused ? 0 : Math.min(Math.max(0, dt), FRAME_STEP_S * FRAME_STEPS_MAX);
+    if (!paused) realClock += Math.max(0, dt) / timeScale();   // AUDIT GN2-GN3: the frame's own, unscaled
     const seaY = deps.seaY();
     const boat = myBoat();
     const st = boat ? myBoatState(boat) : null;
@@ -3182,7 +3294,28 @@ export function createNavalHost(deps) {
     if (aiming && boat) {
       const side = lookSide(boat);
       if (side) { aim = lookAim(boat, side); aimHit = aimStrikes(aim); }
+      // GALLEON: laid - her shutters up, her guns out. AUDIT GN-G8: a battery reloading is not laid - its guns stay in to
+      // load (they stood run out through a 9 s reload)
+      if ((side === 'starboard' || side === 'port') && myBoatState(boat).guns.ready(side)) galleonGuns.lay(boat, side, clock);
     } else if (!boat) aiming = false;
+    // GALLEON: a captain's run-out opens her shutters as it runs her guns out (the tell, navalAI.js) - and every
+    // galleon in play stands her gun deck as this frame has it
+    const decks = [...myBoats()];
+    for (const e of sea.values()) {
+      if (!e.boat) continue;
+      decks.push(e.boat);
+      for (const side of e.ship.runOut?.keys?.() ?? []) if (side === 'starboard' || side === 'port') galleonGuns.lay(e.boat, side, clock);
+    }
+    for (const p of deps.peerBoats?.() ?? []) {
+      if (!p.boat) continue;
+      decks.push(p.boat);
+      // AUDIT GN-G3: another player's lay, from her word - while her word is fresh (it is said again at least every
+      // full frame, net/online.js FOES_FULL_MS 2 s). AUDIT GN2-GN3: on the real clock that frame is - on my sea's at x5
+      // her still lay lapsed between two words (laid 165 frames of 360)
+      const self = peerSelf.get(p.id);
+      if (self?.laid?.length && realClock - self.real <= PEER_LAY_S) for (const side of self.laid) if (side === 'starboard' || side === 'port') galleonGuns.lay(p.boat, side, clock);
+    }
+    galleonGuns.step(decks, clock);
     // the word's memory of the last moments
     wireVolleys = wireVolleys.filter((v) => clock - v.at <= NAVAL_VOLLEY_KEEP_MS / 1000);
     wireBarrels = wireBarrels.filter((v) => clock - v.at <= NAVAL_VOLLEY_KEEP_MS / 1000);
@@ -3355,7 +3488,7 @@ export function createNavalHost(deps) {
     return { pos: step.pos, rotation: quatOfYaw(step.yaw) };
   }
   /** The gangway run out to a boat of mine made fast at a quay, square to her side at her waist (quays.js gangwayFoot -
-   *  AUDIT HOLDINGS Q1: never through her): its head at her main deck's port or on her gunwale (GANGWAY_SIDE), its foot
+   *  AUDIT HOLDINGS Q1: never through her): its head at her main deck's port or on her gunwale (gangwaySide), its foot
    *  on the quay; `deckAt` her main deck's rail cell by it (navalDeck.js rail), where the player comes over her side;
    *  `ashore` where he steps off it onto the quay's deck - scene points - or null. AUDIT HOLDINGS Q9: none onto a quay
    *  not yet laid (`deps.quayLaid` - a plank over the water, a step ashore into the sea). */
@@ -3366,7 +3499,7 @@ export function createNavalHost(deps) {
     const deck = deps.pool?.deckOf?.(boat.hull, boat.variant ?? 0);
     const side = quaySide(yawOfRot(boat.GameObject.rotation), landwardOf(d.berth));
     const m = boat.MeshObject.worldMatrix();
-    const [sx, sy] = GANGWAY_SIDE[boat.hull] ?? GANGWAY_SIDE[0];
+    const [sx, sy] = gangwaySide(boat.hull);
     const head = outOfDeck(m, [side * sx, sy, 0]);
     const rail = deck?.count ? deck.rail(side, 0, [0, 0, 0], mainLevel(deck)) : null;
     const deckAt = rail ? outOfDeck(m, rail) : head;
@@ -3798,7 +3931,9 @@ export function createNavalHost(deps) {
     const volleys = wireVolleys.map((v) => ({ ...v, age: (clock - v.at) * 1000 }));
     // AUDIT NAV1 (online #15): my casks afloat - every player sees them, and any player's boat may haul one in
     const casks = shots.floaters().filter((f) => f.kind === 'flotsam' && !f.owner).map((f) => ({ id: Number(f.id), pos: f.pos, from: f.from, lot: f.lot }));
-    return navalWireRecord({ ships, volleys, barrels: wireBarrels, me, law: notoriety.snapshot(), traffic: setting('ShipsAtSea', TRAFFIC_DEFAULT), casks, spent: spentSaid }, toWire);   // AUDIT BAY A18: the packets I have seen spent
+    // AUDIT GN-G3: my boat's laid broadsides - another screen lays her as mine does (her shutters up, her guns out)
+    const laid = b ? Object.entries(galleonGuns.read(b, clock) ?? {}).filter(([, side]) => side.laid).map(([side]) => side) : [];
+    return navalWireRecord({ ships, volleys, barrels: wireBarrels, me, law: notoriety.snapshot(), traffic: setting('ShipsAtSea', TRAFFIC_DEFAULT), casks, spent: spentSaid, laid }, toWire);   // AUDIT BAY A18: the packets I have seen spent
   }
   /** A peer's word: their ships stood as puppets, their volleys flown and drawn, their barrels afloat. */
   function applyWord(owner, raw, toScene = (p) => p) {
@@ -3879,7 +4014,7 @@ export function createNavalHost(deps) {
       // own is a player's, never mine to take (no fight between players at sea)
       shots.dropBarrel({ id: `${owner}:${b.id}`, shooter: b.shooter >= 0 ? `${owner}:${b.shooter}` : `peer:${owner}`, pos: toScene(b.pos), resolve: false, owner });
     }
-    peerSelf.set(owner, { law: rec.law, me: rec.me, traffic: rec.traffic, at: clock, boat: rec.boat });
+    peerSelf.set(owner, { law: rec.law, me: rec.me, traffic: rec.traffic, at: clock, real: realClock, boat: rec.boat, laid: rec.laid });   // AUDIT GN-G3: her lay (GN2-GN3: said when, really)
     applyCasks(owner, rec.casks, toScene);
     // AUDIT BAY A18: the packets they have seen spent - none stood again here, and said on in my word
     for (const sd of rec.spent ?? []) noteSpent(sd);
@@ -4262,6 +4397,7 @@ export function createNavalHost(deps) {
     flashes.length = 0;
     aiming = false; aim = null; aimHit = null; heaveTo = null; wayIn = [];
     for (const [b, f] of [...myFires]) douseMine(b, f);
+    galleonGuns.clear();   // AUDIT GN2-GN5: every gun deck at rest - the sea's frame steps none while the arc is off
     if (boarding) {
       const quest = boarding.quest;
       for (const f of boarding.foes) deps.board?.removeFoe?.(f.handle);
@@ -4339,6 +4475,8 @@ export function createNavalHost(deps) {
 
   return {
     frame, attackInput, cancelAim, holdFire, activate, hudModel, drawFrame, lights, offsetAll, clear, stowPlunder, aimEye, wayScale, sailRefused, brake,
+    /** GALLEON: a galleon's gun deck as this frame stood it (her sides laid, her guns' places, her shutters) - a probe's reading. */
+    gunDeckOf: (boat) => galleonGuns.read(boat, clock),
     fleetStatus, repairAway, refitBoat, openYard, freeBerth, crewHands, assignRole,   // HOLDINGS: the Fleet page's (scenes/fleetHost.js) - with giveOrder and hostileNear, below
     harbourList, warp, dockedAt, gangways,   // QUAYS: the harbours the quays stand off (scenes/quayPool.js), Come Sail Away's warp seam, where a boat lies made fast, the gangways run out
     boatInPlay: () => boatInPlay(),

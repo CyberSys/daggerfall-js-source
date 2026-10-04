@@ -151,14 +151,15 @@ test('FB1001b PEER-HULL: ANOTHER PLAYER\'S HULL TAKES ME WHERE MY OWN TAKES ME -
 test('FB1001b PEER-HULL: HER DECK\'S FURNITURE AND HER HULL ARE MET AS MINE ARE - a ray across her deck at chest height meets her mainmast where the same ray meets mine, and the helm\'s sweep (world.js csaSphereCastAll, CheckCollision\'s) meets her hull at the distance it meets my boat\'s, so a boat of mine backs off hers as it backs off my own', async () => {
   const r = await rig({ hull: SMALL_SHIP });
   for (let i = 0; i < 2; i++) r.frame();
-  const mast = (boat) => colliderPoses(boat.GameObject).find((x) => x.node.name === 'GalleonMast2')?.collider;
-  assert.ok(mast(r.hers) && mast(r.own), 'the Small Ship carries her mainmast\'s collider (GalleonMast2)');
+  // PIN MOVED (GALLEON, 2026-10-01): the new galleon's mainmast (MainMast, Mac's), stepped 0.12 m abaft her middle
+  const mast = (boat) => colliderPoses(boat.GameObject).find((x) => x.node.name === 'MainMast')?.collider;
+  assert.ok(mast(r.hers) && mast(r.own), 'the Small Ship carries her mainmast\'s collider (MainMast)');
   /** A ray athwartships across a Small Ship's deck at the mainmast's station, chest high, from 3 m to port. */
   const across = (boat) => {
     const p = boat.GameObject.position;
-    const deck = raycastColliders(boat.GameObject, [p[0] - 3, p[1] + 30, p[2] - 5.74], [0, -1, 0], 60, { triggers: false, geometry: r.geometry });
+    const deck = raycastColliders(boat.GameObject, [p[0] - 3, p[1] + 30, p[2] - 0.12], [0, -1, 0], 60, { triggers: false, geometry: r.geometry });
     assert.ok(deck, 'her deck under the ray');
-    return r.colliders.exterior.raycastHit([p[0] - 3, deck.point[1] + 1.3, p[2] - 5.74], [1, 0, 0], 20);
+    return r.colliders.exterior.raycastHit([p[0] - 3, deck.point[1] + 1.3, p[2] - 0.12], [1, 0, 0], 20);
   };
   const mine = across(r.own), hers = across(r.hers);
   assert.ok(Number.isFinite(mine.dist) && r.w.buckets.get(mine.key)?.c === mast(r.own), `across my deck: my mainmast (${mine.key})`);
@@ -255,4 +256,61 @@ test('FB1001b FOUR-HOSTS: HER BOAT STANDS ON THE STREET ALONE - the world host s
   for (const host of ['src/scenes/worldModes.js', 'src/scenes/dungeonContext.js', 'src/scenes/exterior.js']) {
     assert.doesNotMatch(src(host), /peerBoats|csaPeers|comeSailAwayPeers|comeSailAwayAboard/, `${host} stands no peer's boat`);
   }
+});
+
+for (const owner of ['own', 'hers']) {
+  test(`Ladder arrival clears incoming motion on ${owner} boat and stays on deck`, async () => {
+    const r = await rig({ hull: SMALL_SHIP });
+    const boat = r[owner];
+    const at = boardPlaceOf(boat.BoardTriggers[0]);
+    const deck = raycastColliders(boat.GameObject, [at.position[0], at.position[1] + 1, at.position[2]], [0, -1, 0], 6, { triggers: false, geometry: r.geometry });
+    assert.ok(deck);
+    r.frame();
+    r.player.spawn(0, 20, 0);
+    r.player._airVelX = 8;
+    r.player._airVelZ = -8;
+    r.player.velY = -12;
+    r.player.falling = true;
+    r.player.fallStart = 20;
+    r.player.pinFeet(deck.point[0], deck.point[1] + 0.02, deck.point[2]);
+    // Run the actual host's completion seam after the ladder's deck alignment.
+    // eslint-disable-next-line no-new-func
+    const finish = new Function('player', `${cutLine(WORLD, '  const csaFinishBoarding =')} return csaFinishBoarding;`)(r.player);
+    finish();
+    assert.deepEqual([r.player._airVelX, r.player._airVelZ, r.player.velY, r.player.falling], [0, 0, 0, false]);
+    const start = [...r.player.pos];
+    for (let i = 0; i < 60; i++) r.frame();
+    assert.ok(r.player.grounded);
+    assert.ok(String(r.player.groundKey).startsWith(r.keyOf(boat)));
+    // The ladder marker overlaps nearby geometry: permit initial capsule
+    // separation, then require the player to remain still on this boat.
+    assert.ok(Math.hypot(r.player.pos[0] - start[0], r.player.pos[2] - start[2]) < 0.75);
+    const settled = [...r.player.pos];
+    for (let i = 0; i < 120; i++) r.frame();
+    assert.ok(Math.hypot(r.player.pos[0] - settled[0], r.player.pos[2] - settled[2]) < 0.02);
+    assert.ok(r.player.grounded && String(r.player.groundKey).startsWith(r.keyOf(boat)));
+  });
+}
+
+test('Both ladder activation paths finish placement after aligning to the deck', () => {
+  const motor = new PlayerMotor(new Collider(() => 0));
+  const finishBoarding = () => motor.spawn(...motor.pos);
+  const calls = [];
+  const deps = { helm: {
+    setPlayerPosition: () => { calls.push('place'); motor.pinFeet(1, 2, 3); },
+    setFacing: () => {},
+    alignToGround: () => { calls.push('align'); motor.pinFeet(1, 3, 3); },
+    finishBoarding: () => { calls.push('finish'); finishBoarding(); },
+  } };
+  motor._airVelX = 8;
+  // eslint-disable-next-line no-new-func
+  const own = new Function('deps', 'boatOfHit', 'boardPlaceOf', `${cut(src('src/systems/comeSailAway.js'), '  function BoardBoat(hit) {')} return BoardBoat;`)(deps, () => ({}), () => ({ position: [1, 2, 3], yaw: 0 }));
+  own({ node: {} });
+  assert.deepEqual(calls, ['place', 'align', 'finish']);
+  assert.equal(motor._airVelX, 0);
+  assert.deepEqual([...motor.pos], [1, 3, 3]);
+  const peer = cut(WORLD, '  function csaBoardPeer(pick) {');
+  assert.ok(peer.indexOf('csaFinishBoarding();') > peer.indexOf('alignControllerToGround('));
+  assert.ok(peer.indexOf('csaFinishBoarding();') < peer.indexOf('csaAboard.board('));
+  assert.match(WORLD, /finishBoarding: csaFinishBoarding/);
 });

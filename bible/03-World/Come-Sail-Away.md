@@ -2204,13 +2204,15 @@ on the mod's own states (`bible/10-UI/Controls.md` HELM-KEYS has the keys):
   `has('MoveLeft')` answers `TurnLeft` too, `horizontal()` swings the rudder
   with them), and the keyboard look leaves them be there.
 - **In irons** (`IRONS_TELL_DEG` of the wind's eye, under `IRONS_TELL_WAY` of her
-  own way through the water - `MoveVectorCurrent`, never the sea's current, which
-  under the mod's default waves is half the wind and kept the tell off: AUDIT NAV2
-  F15 - her sails up): the helm is told once how she comes out, again only after
+  own way AHEAD through the water - `MoveVectorCurrent`'s forward, so sternway counts
+  too (GALLEON), never the sea's current, which under the mod's default waves is half
+  the wind and kept the tell off: AUDIT NAV2 F15 - her sails up): the helm is told
+  once how she comes out, again only after
   she has been out of them - under the Classic helm `IRONS_TEXT` (strike sail and
   row her round), under the Responsive one `IRONS_HELM_TEXT` (put the helm over, or
-  strike sail and row: her rudder answers at rest, and the helm alone brings her
-  40 deg off the wind's eye in about 10 s - AUDIT NAV2 F18);
+  strike sail and row: her rudder answers at rest, and the helm alone brought the
+  mod's galleon 40 deg off the wind's eye in about 10 s, the new galleon in 6.4 s -
+  AUDIT NAV2 F18);
   `helmPanelState().inIrons` and `.responsive` put the right advice, with the
   keys, on the panel's line while it lasts (`ui/enhancedHelm.js helmHint`).
 - **The panel teaches the arrows**: its line is the helm's hand at a glance,
@@ -2255,6 +2257,18 @@ in 10.1 s (the mod's stays in irons).
 The heave-to's brake (NAV1's `accelScale`, ten times her own coast) is its own number now - `brake`, HEAVE_TO_DECEL
 m/s^2 - so the handling choice never moves it. Pins: `test/helmway.test.js` (the harness `test/csaScene.mjs`, the
 wind suite's scene, one module).
+
+GALLEON (2026-10-01): the Small Ship is Mac's galleon now (The new galleon, below) - five sails where the mod's galleon
+carried two lateens - and helmWay.js's header carries her figures, re-measured like for like (AUDIT NAV2 F20's pin
+holds them): under the mod's handling she takes 29.2 s to her full way of 8.75 m/s and 43.7 s (191 m) to lose it,
+0.75 deg/s at 1 m/s and 6.56 at her full way on the same 153 m circle; under the responsive helm 8.33 s to her full
+way and 14.6 s (64 m) to lose it, her rudder 8.49 deg/s at her full way on a 118 m circle. AUDIT GALLEON T11, the rest
+of hers like for like: to 95% of her way in 7.92 s (27.72 s the mod's handling), struck to 2.5 m/s in 10.42 s (31.25
+s), head to wind with the helm held over 40 deg off its eye in 6.37 s (the mod's handling stays in irons: she swings
+to about 30 deg off it in a minute and lies there, no way on); her rudder at rest, at 4.5 and 9 m/s and two seconds
+from rest as the mod's galleon's above. The
+mod's galleon's figures above stand for the record - she is hull 2 again whenever the new galleon's model will not
+load.
 
 ## The Overworld's crossing (OWS2, 2026-09-28)
 
@@ -2394,6 +2408,218 @@ packs every hull (`getBoatTransforms`: `Crewed` sets `packable` too), and makes 
   `test/csa_items.test.js` and `test/ows2_crossing.test.js` PIN MOVED. `tools/mutants/shippack.json` (24, all dead);
   boatmenu's, csa_items', csa_placing's, ows2's and audit0928_save's records re-aimed by content and killed again. Not
   seen in a browser.
+
+## The new galleon (GALLEON, 2026-10-01 - OURS)
+
+Mac: *"So this model is to replace the current ingame gallon model. The doors/hatches should open and close and we will
+need to give this a proper texture, along with a wheel at the helm, the sails and ropes, amd ensuring cannon fire shoots
+from the cannon holes properly."* Hull 2, the Small Ship (the pirate brig's, the merchant galleon's and the navy
+cutter's hull too), is Mac's own model now, fitted out round it. The Port-Ledger's GALLEON row carries the departures.
+
+**Her model.** Mac's export is committed - `src/assets/galleon/source/New_Ship.fbx`, his second since GALLEON-2 (the
+first came as three copies differing only in their creation stamps) - and `tools/bakeGalleon.mjs` bakes it to
+`src/assets/galleon/galleon.json`: each of the scene's objects named to its ROLE and refused unless it stands in the
+scene box it was read in, 2 cm let pass (the hull, her gun deck and main deck, two hatch covers, the castle with its
+parapet and rail, the bulkhead, the two flights up the castle, the balustrades, the masts with their partners and steps,
+the crow's nest and the bowsprit, her six deck beams - AUDIT GN-B5, which refuses a mirroring transform, an unread pivot
+or offset and an export's other axes as well); the scene's other stations, its spare pieces and her parts' twins
+skipped, each checked to be what it is said to be; the hull's five rudder faces split off to turn on their own post;
+every polygon cut as Blender cuts it (`tools/fbxMesh.mjs blenderTessellate`: a float32 port of Blender 5.1's
+mesh_tessellate projection and BLI_polyfill_calc - its precomputed point test and its kd-tree, node for node - on the
+mesh's own corners in their own order - AUDIT GN-B1, GN2-BK1; an export written by any Blender but 5.1.x is refused by
+name, since another version's fill may cut otherwise) and refused by object and
+polygon unless its triangles tile it exactly, then carried into the boat's frame (0.7 of the scene, the waterline and
+the midship taken off). The bake adds no vertex. Mac's faces are not all flat - his sides lean out of their planes by up
+to 0.55 m where he drew the bow in - so the cut decides their shape, and it is Blender's: the first bake's own ear clip
+cut her two sides unlike each other (a 22 m wedge 65 deg off its face on one, the sides 0.49 m apart) and its own fill
+laid two triangles over two of her ports from inside. Five faces still stand apart from their mirrors where Blender cuts
+them on other diagonals - the stern quarter's most, 0.37 m - as they do in his scene, and eleven of the cut's
+triangles lie on corners he drew on one line (no area: the drawing drops them). `test/galleon_model.test.js` re-bakes it
+to the byte; `test/auditgalleon_bake.test.js` and `auditgalleon2_bake` hold the cut to Blender 5.1.1's, compiled
+from its own source (the first port was 5.0's fill and cut her #2 and #34 otherwise, at most 1 mm apart).
+
+**Her prefab** (`world/galleonModel.js galleonPrefab`) is Come Sail Away's data shape built on the bake and stands in
+for prefab 112412 (`systems/comeSailAwayModels.js`: her components after the mod's, her meshes decoded already, her
+clips and overrides beside its own), so the mod's own SpawnBoat walks her as it walks any hull - her `NewGalleon` hull
+node the boat's frame (her MeshCollider her planking and her castle's), her triggers, her lanterns, her crew's flats,
+her sails, booms and rudder found by their names:
+- **Her hatches and doors open and close** - the two hatch covers (Mac's fore cover is both: his aft one he left propped
+  open) lift on their starboard edge and over to lie on her deck (`HATCH_OPEN_DEG`, -178, on battens 2 mm over it and
+  0.18 m outboard of the hatchway - AUDIT GALLEON P9: open at -105 the aft cover stood 2.5 m up in the gaff's sweep),
+  the castle's door and the bulkhead's swing aft, each on the mod's own Door Controller with a DoorTrigger the walk
+  sizes to its collider; TriggerDoor turns them over as it turns the mod's. A companion ladder stands under each hatch,
+  down to her gun deck, its manropes made fast under the cover (P2: they stood up through the shut covers).
+- **Her wheel** on the castle's roof before the helmsman's place - DrivePosition half a capsule over the roof (0.9 m),
+  where Come Sail Away pins the helmsman's capsule centre (AUDIT GALLEON P1: on the roof itself it stood his feet in the
+  great cabin and his eye under the hub), his eye at 12.72 clear over the wheel (its hub 0.72 m up) and the binnacle
+  (1.30) to the bow on every sight line - turned `WHEEL_TURNS` hard over each way and her rudder `RUDDER_DEG` on its
+  post at her sternpost (P8: it pivoted 0.62 m inside her stern and swung through her planking), both by the mod's
+  Rudder Wheel Controller's TurnAngle through her own ten clips.
+- **Her sails and ropes** (`world/galleonRig.js`) - a brigantine's five by the mod's own names, so its laws read them: a
+  fore course and a fore topsail and a main topsail (square, the two topsails small), a large main gaff sail and a large
+  jib; on four booms pivoting on her masts' own axes (the mod's trim turns them), each canvas a grid skinned a bone a
+  grid point, head row first, and baked as the mod bakes its own (FixDeformations), furled on its yard and set by the
+  wind's side through her own clips over the mod's Sail and Staysail Controllers (Stowed, or Unstowed blended by Wind) -
+  a square sail's head on its yard and its belly from nothing there, the topsails' half the course's; her shrouds with
+  their deadeyes and ratlines on channels flush on her side, her stays (the forestay over the fore topsail's yard, the
+  main stay from under the crow's nest to the fore mast's after face), backstays, bobstay (under the bowsprit to her
+  stem) and flagstaff (a mesh a piece, never one box round the whole rig), her braces and sheets skinned to the yards
+  and booms they work and belayed on her rails and bulwark, the mainsheet on her main deck at the castle's foot. AUDIT
+  GALLEON R1-R10: inside the auto-trim's 30 degrees nothing of her rig meets anything else or passes through her (the
+  least clearance 5 cm); the manual trim's extremes still cross in 19 named places, the gaff's sweep over the main
+  shrouds' sector the most (13 cm at 60-90 degrees) - the mod's trim limits stand.
+- **Her guns out of her ports.** Ten gunports (five a side, Mac's) carry a shutter each on the mod's Door Controller -
+  fitted to her side at its own port, hinged on her side at the lintel and bent to her at the knuckle (`LID_FIT`, AUDIT
+  GALLEON P6: a plumb board stood up to 47 cm off her), solid (P10: a crouching body crawled out of a shut port), swung
+  up `LID_OPEN_DEG` outboard, the port side's each the starboard's mirrored (G1) - and a gun behind it on her gun deck
+  (1.083 m); two chasers on swivels over her bow rail. HULL_BUILDS' Small Ship is measured off her
+  (`systems/naval/navalShips.js`, `GALLEON_BATTERIES`): each broadside muzzle at its port's middle a hair outside her
+  planking, so a ball leaves her through the hole it is fired from - the test shoots a line in through every port and
+  meets none of her hull, and her planking a port's width aside. `systems/naval/galleonGunDeck.js` works them for every
+  ship of hers in play: a battery laid (my look at the helm while it is loaded, a captain's run-out tell, another
+  player's word) opens that side's shutters and runs its guns out; each gun kicks `RECOIL` inboard as its own ball
+  leaves (the shot field's muzzle, its index the port's) and is hauled out over `HAUL_S`, a gun fired before it is out
+  stood out at its shot with its shutter snapped open (G2); `HOLD_S` past the last word the guns run in to load and the
+  shutters close. Each port's throat wears its own planking (R8: it wore the shutter's picture, iron straps and all).
+- **Her texture** (`world/galleonArt.js`): twenty-three pictures, each 64 x 64 (GALLEON-2, below), painted at the
+  boats' preload from numbers alone (her archive asked and her glass's glow cut before any boat stands - AUDIT
+  GN2-PF3; they had been painted at her first draw, a 100-440 ms stall) - the hull's painted livery and gilt bands, her bottom, her inner planking, her deck, the castle's
+  panels, the stern gallery (its glass glowing by night through the pool's emission mask), spars, iron, canvas, rope,
+  gilt, the hatch gratings, the shutters' red, the doors, the beams - registered as stand-ins of archive 38131 on the
+  vendor texture door, so a loose pack's `38131_<record>-0.png` would override one as it overrides any record. No file,
+  no ARENA2 pixel.
+- The mod's own small things are copied out of its galleon and stood in her, each clear of her (AUDIT GALLEON P3, P5,
+  P12): the anchor, weighed and let go, along her bow's flare outside her planking (it stood 1.6 m into her); her cargo
+  and its trigger; the stove, its flue carried to 0.14 m under her deckhead as the mod's is; the bed in the great cabin
+  0.262 over her deck, the mod's galleon's own; the lantern poles on her stern rail's cap (they stood buried in it) and
+  the hooks; her colours over the crow's nest, its masthead capped and its floor's underside built. Her six crew posts
+  (the officer and the coxswain on the castle's roof by the wheel, the boatswain and the quartermaster on her main deck,
+  the master-at-arms and the cook below). Her board triggers stand outside her side (P4: they reached into her gun
+  deck), and her stair wells and the cabin's casings wear her inner planking (P7).
+- **The loader never traps** (`loadComeSailAwayModels`): her model fetched beside the mod's five files
+  (`GALLEON_MODEL_URL`, never among them - AUDIT GN2-PF4: it had been asked only once they answered), and built once a
+  process (her bake's sha256, the same bake and mod tree - a second world's loader 0.8 ms, not 100-340); missing, or one that will not build, hull 2 is the mod's own galleon, said
+  once.
+
+**Her deck** (`systems/naval/navalDeck.js`, `systems/naval/crewLife.js`). Her castle's roof is her deck, up its two
+flights - each 1.4 m wide between its well's walls, its treads 0.385 m on 0.25 m risers: four of its fourteen gaps
+between two cells' centres cross two risers (0.51 m, over the motors' step), so each flight is cut three times, and the
+inset leaves a cell clear in the port well and two in the starboard. So a flight finer than a cell joins over the tread
+between (`linked`: a floor at the midpoint of the side two cells share, a step from each, within `FLIGHT_JOIN`), and a
+raised deck the inset parted from her open deck keeps every way up to it a cell wide (`keepFlights`) - the Carrack's
+forecastle up its stair joined with hers. The well's ramp under each flight is no collider of hers (it rose 2.3 cm
+through the top tread). Her hands work her main deck (`spots(n, level)`; AUDIT GALLEON D10: an idle hand goes back down
+to it, and a talk's place is on it), her officer and her coxswain stand at their posts on the castle (a flat on a raised
+deck a station), the crew's hatch post stands beside her fore hatchway (D7: the hatchways themselves are no deck - their
+covers open), and a boarding's musters stand on her main deck (T4); her castle is the walk's, up either flight - a
+boarder can reach the helm. The leash keeps a body on the piece it stood on (D1: the port flight dropped boarders into
+the great cabin, 192 of 1275 times), a landing comes down across from where it came from (D2), and her lookout keeps her
+main deck's bow (D4).
+
+**What it moved elsewhere.** Her guns are five a side where the mod's galleon had six, so every hull-2 class is a sixth
+lighter at the guns: a wary brig outguns no sound armed boat of the player's now (a crewless Large Galley 1.10 to one; a
+Small Ship hurt to four fifths and alone at her guns, 1.37), and the navy cutter's odds on the corsair galley fell to
+1.23 (fought four to four). Her low gun deck (1.08 m over the sea) brought the aboard reach to a step under her main
+deck, every hull's (`scenes/navalHost.js standsOn`: under it a capsule's reach of the feet - AUDIT GALLEON D3); her
+canvas aback in the wind's eye drives her astern, so the in-irons tell reads her way ahead
+(`systems/comeSailAway.js inIrons`); her narrower hull lies closer in to a boat she boards, so a boarding comes in on a
+sounded berth unswung by the lookout and sounds the berth as wide as its legs (`systems/naval/navalAI.js boardCourse`,
+`berthOpen`).
+
+Pins: `test/galleon_model.test.js` (13, GALLEON-2's two among them); the naval suites' PIN MOVED rows (`test/auditnav2_deck.test.js`,
+`auditnav2_crew`, `auditnav2_captains`, `auditnav2_helm`, `auditnav2_online`, `auditwatchkit_crew`, `deckwalk`,
+`livingcrew`, `nav_a_guns`, `nav_h_host`, `navaudit_captains`, `navaudit_guns`, `navaudit_helm`,
+`navaudit_presentation`, `fb1001b_peerboats`, `seapeace`); `test/csaScene.mjs` builds hull 2 on her as the game does.
+`tools/mutants/galleon.json` (25, all dead) and the naval lists' GALLEON records, all dead. Drawn offline with a
+scratch rasterizer over the real prefab and art (her livery, the castle and the stern gallery, the wheel, her sails
+stowed, set and trimmed, the hatches and shutters open, the guns run out, the gun deck and the cabin from inside); not
+seen in a browser.
+
+### Her second model, and her pictures at 64 (GALLEON-2, 2026-10-02 - OURS)
+
+Mac, sending `New_Ship_Even_EVEN_newer.fbx`: *"Replace it with this updated model and also textures should be 64x64."*
+
+**The model.** Committed over `New_Ship.fbx` and read against the first, part for part (`tools/bakeGalleon.mjs`'s
+header): the ship stands 36.25 m along the scene's Y now (`FRAME.centreline` - the hull object's own scene Y,
+36.24673828125 to the bit, AUDIT GN-B6 - is taken off as the waterline and the midship are); her hull is new on both
+sides of the wale - a deeper V on a keel 4.64 m under the sea where the first's was 3.89 (1.08 m lower in the scene),
+the wale's forward corners drawn in from 8.37 m to 7.48 m off her centreline, a finer entry and a forefoot swept up to
+the stem (95 faces where it was 87); six deck beams carry her main deck over the gun deck (`deckBeam`, six objects of
+one role); and every other part stands where the first's did to 3 µm in her frame - her decks, ports, castle, stairs,
+masts, hatch covers and shutter (cut as Blender cuts them since AUDIT GN-B1). The scene keeps a twin of most parts
+standing in the same place (a Shift+D never moved), skipped and checked vertex for vertex against the part it twins
+(`SKIP` `twin`), and, far along Y (`minY`), the first export's ship joined into one object with its fore hatch cover, a
+hull between the two exports with her parts and beams, her current parts joined twice over, and a spare aft cover, fore
+cover and gunport lid.
+
+**Her beams** are one node (`DeckBeams`), solid, in her oak with the grain along each (`MEASURED.beams`: 0.775 m fore
+and aft, their feet 5.22 m over the sea, their heads in the deck); none crosses a hatchway or a mast, and each companion
+passes under them a man's height clear. Her main deck's underside wears its planks alone now (`underDeck`) - the
+painted beams a metre apart stood in for the ones Mac has modelled, and stay only over the great cabin, where none of
+his stand. The gun deck's three lanterns hang from the second, third and fifth beams.
+
+**What the deeper hull moved.** HULL_BUILDS' Small Ship's keel is -4.64 (her box's floor - what a gun lays between to
+strike her). Two pins took their probes deeper: AUDIT NAV2 F36's swimmer under her keel (the floor inside her V lies
+within a step of -4.6; it is asked at -5.4) and FIELD BUGS 2026-09-29's frozen fish (from 2.5 m down its ray stopped
+17 cm short of her bottom; it hangs at 3 m). Nothing else moved.
+
+**Her pictures at 64** (`world/galleonArt.js`, `GALLEON_TEX_SIZE`). Every picture is 64 x 64, Daggerfall's own texture's
+size. The tiling ones were that or smaller - the smaller are painted at 64: the spar's, the iron's and the gilt's tiles
+doubled with them (the same texel over a face, halved round a prism), the rope's left as it was (64 texels round, where
+it had 16), and the dark's (record 16) repainted as each port's throat, oxblood planks at [2, 2] (AUDIT GALLEON R8/R11:
+worn by nothing, while the throats wore the shutter's picture); the whole-face ones (a sail's canvas, a door, a gunport
+lid) are painted at 64 over their face. The three liveries that ran one picture keel to rail - the hull's side (64 x
+256), the castle's and the stern's (64 x 128) - are painted as before and cut into 64-row slices by height (`BANDS`):
+the hull's side four slices of 2.9 m (`HULL_SIDE_Y0` down to -4.2 for her new forefoot), the castle's and the stern's
+two of 3.3 m, each slice a record of its own. Every face of a part a livery lies on is cut at its slices' heights,
+banded or not (`world/galleonModel.js slabs`, `bandPiece` - AUDIT GALLEON R14: cutting the banded faces alone left 28
+T-junctions at her ports and wells), every piece on the slice that holds it with its v that height up the slice - so the
+bands run round her as they did, at the density they had (her side's texels 4.4 x 4.5 cm, the castle's 4.1 x 5.2); every
+face lit flat on its polygon's own normal, as Blender draws it (B1); the stern's glass glows through both its slices.
+Twenty-three records: the seventeen, the five lower slices and the deck's underside.
+
+Pins: `test/galleon_model.test.js` THE BAKE (the six beams, the twins and stations skipped, her centreline), HER PARTS
+FACE OUT (the open-topped beams face by face), HER DECK BEAMS, HER PICTURES (each 64 x 64), HER LIVERY IN SLICES;
+`tools/mutants/galleon.json`'s GALLEON2 records. Drawn offline again, not seen in a browser.
+
+### Main merged in, and HOLDINGS on her (GALLEON-HOLDINGS, 2026-10-04 - OURS)
+
+The arc reached main by a pull request of its own, never opened before: it lived on
+`claude/enhanced-ai-feedback-ygvvj6` (TACT5's branch, #544, reused), and main had moved 324 commits past it
+(#547-#584). The merge: 85 files and 163 hunks, 143 of them cites alone - taken at main's line, then
+`tools/citeMerge.mjs origin/main 39b19e07b --apply --struck` (211 moved; 22 struck rows both sides carry word for
+word left as they stand, no gate reading them). The twenty real hunks kept both sides:
+
+- **TOUGHER-SHIPS** (#549) toughens her as every hull: `tough(420)` and `tough(160)` on her build and on the mod's
+  galleon kept as her stand-in (`MOD_SMALL_SHIP_BUILD`) alike - 672 / 256 - and `firstBuildOf` reads the build that
+  stands.
+- **HOLDINGS**' crew posts: a hand off her main deck walks back down first (AUDIT GN-D10), then keeps his post; a man
+  at his post is no man to talk to. The posts' extent fell back on the whole deck's `ext`, which this arc renamed to her
+  main deck's `mainExt` - that is what it reads.
+- `navalWire.js` carries this arc's laid broadsides (`g`) beside QUAYS' `w`; both F24 station pins stand.
+
+**HER GANGWAY** (`quays.js` `gangwaySide`). QUAYS measured where a gangway meets the Small Ship off the mod's galleon
+(`[7.65, 4.14]`), and the merge left Mac's galleon's plank there: its head 2.3 m off her side and 2.6 m under her main
+deck, hanging over the quay. Read off her own colliders, her waist's bulwark stands 5.33 m out to some 6.9 m up, her
+entry port open in it from z -0.5 to 1.5 over 6.25 m; her main deck is 6.20 m up. So her `GANGWAY_SIDE` is
+`[5.45, 6.7]` - 0.12 m off her side, half a metre over her main deck as the Carrack's and the galley's are - and
+`gangwaySide(hull)` answers the mod's galleon's (`MOD_SMALL_SHIP_GANGWAY`) while hers is the build that stands (AUDIT
+GN-G4); `navalHost.js` `gangwayOf` reads it. A plank from 6.7 m wants 8.8 m of quay to climb at GANGWAY_SLOPE, and a
+quay is 4.5 m deep: hers stops GANGWAY_BACK short of its back, as `gangwayFoot` always had it, and climbs 47.3 degrees
+over 6.94 m (the Carrack's 30 over 5.08). AUDIT HOLDINGS Q1 and QUAYS THE GANGWAY, which held every ship's at 30, are
+PIN MOVED to that stop; QUAYS ALONGSIDE, which held the Small Ship at the berth's point as wide as the Carrack, to hers
+2.57 m in (5.86 m a side to 8.43) and the mod's galleon at it. Steeper than any plank but the Rowboat's (49, down): a
+deeper quay where she berths, or a stair at her side, is the decision it leaves.
+
+**HER CARPENTER** (`crewLife.js` `rolePosts`). HOLDINGS stands him 1.1 m to starboard of her hatch; hers stands to port
+of her open fore hatchway (AUDIT GN-D7), so the post asked in the hole found her deck across it, 3.5 m off (CREW-ROLES'
+"by her hatch" failed on the merge). Where her deck lies to port of the hatch and not to starboard he stands to port,
+facing it; on every other hull his post is where HOLDINGS put it.
+
+Pins: `test/galleonholdings.test.js` (4) - every docking hull's head within 0.25 m of her side at her main deck, a
+ship's half a metre over it (the mod's galleon's numbers on hers fail by 2.3 m); hers in her entry port, her bulwark
+either side; the host's plank from the build that stands; the Carpenter on all four hulls with a deck.
+`tools/mutants/galleonholdings.json` (13, all dead). Measured over Come Sail Away's real pool; not seen in a browser.
 
 ## What was already waiting in the port
 

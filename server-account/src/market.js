@@ -65,7 +65,7 @@ import { CHAR_ID_RE } from './service.js';
 import { MARKS_MAX, MARK_WORTH_GOLD, utcDay } from '../../src/net/marksLaw.js';
 import { STORES_MAX } from '../../src/net/professionLaw.js';
 import { material, regionOk, WITNESS } from '../../src/net/nodeLaw.js';
-import { recipeById } from '../../src/net/recipeLaw.js';
+import { recipeById, RECIPES } from '../../src/net/recipeLaw.js';
 import {
   MARKET_LISTING_S, MARKET_ORDER_S, MARKET_ORDERS_MAX, MARKET_POSTS_MAX, MARKET_OPS_MAX, MARKET_WINDOW_S,
   MARKET_SHOWN, MARKET_HISTORY_SHOWN, MARKET_TRADES_SHOWN, MARKET_MEDIAN_DAYS, MARKET_KEEP_DAYS, MARKET_RID_RE, MARKET_ID_RE,
@@ -74,7 +74,7 @@ import {
   hubPixel, roadPixels, courierFee, courierSeconds, medianOf, medianLine, marketCatalogue,
   AUCTION_S, AUCTION_LATE_S, AUCTION_ADD_S, AUCTION_GRACE_S, bidOk, auctionNext, auctionable,
   currencyOk, goldSaleOf, MARKET_GOLD_HELD_MAX,
-  goodRefusal, goodFamily, MARKET_HELD_MAX,   // MARKET-ANY
+  goodRefusal, goodFamily, GOOD_GROUP_FAMILIES, MARKET_HELD_MAX,   // MARKET-ANY
 } from '../../src/net/marketLaw.js';
 import { MASTERWORK, PROVENANCE_RE } from '../../src/net/recipeLaw.js';
 import { takeTradeGoods, giveTradeGoods } from '../../src/net/realmTradeLaw.js';   // MARKET-ANY: a piece out of one record and into another, as a trade moves it
@@ -174,6 +174,17 @@ const goodOf = (text) => {
   try { v = typeof text === 'string' ? JSON.parse(text) : null; } catch { v = null; }
   return v && typeof v === 'object' && !Array.isArray(v) ? v : null;
 };
+// Only source-owned group names enter this SQL; the requested family remains a bound parameter.
+// Guard malformed persisted JSON before extracting its group; goodOf still validates every returned record.
+const goodSqlText = (value) => `'${value.replaceAll("'", "''")}'`;
+const GOODS_FAMILY_SQL = `CASE WHEN json_valid(item) THEN CASE json_extract(item, '$.group')
+  ${GOOD_GROUP_FAMILIES.map(([group, family]) => `WHEN ${goodSqlText(group)} THEN ${goodSqlText(family)}`).join(' ')}
+  ELSE 'other' END ELSE NULL END`;
+// Recipe families are source-owned. One JSON binding keeps filtering ahead of the row cutoff
+// without spending one D1 parameter per recipe; truthy unsupported families retain their empty result.
+const RECIPE_FAMILY_KEYS = new Map([...new Set(RECIPES.map((r) => r.family))]
+  .map((family) => [family, JSON.stringify(RECIPES.filter((r) => r.family === family).map((r) => r.id))]));
+const recipeFamilyKeys = (family) => family ? (RECIPE_FAMILY_KEYS.get(family) ?? '[]') : null;
 function listingView(l, me, extra = {}) {
   return {
     id: l.id, kind: l.kind, region: Number(l.region), ...(l.material ? { material: l.material } : {}),
@@ -548,7 +559,9 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
   if (view === 'crafted') {
     const { results = [] } = await db.prepare(`SELECT l.*, p.recipe, p.quality, p.seed, p.maker, p.marked, p.dye, p.hand, p.template, p.material AS dfu_material
       FROM market_listings l JOIN products p ON p.provenance = l.provenance
-      WHERE l.state = 'open' AND l.kind = 'piece' AND l.expires_at > ?1 AND l.currency = '${currency}' ORDER BY l.price, l.at LIMIT 500`).bind(nowS).all();   // GOLD-MARKET
+      WHERE l.state = 'open' AND l.kind = 'piece' AND l.expires_at > ?1 AND l.currency = '${currency}'
+        AND (?2 IS NULL OR p.recipe IN (SELECT value FROM json_each(?2)))
+      ORDER BY l.price, l.at LIMIT 500`).bind(nowS, recipeFamilyKeys(family)).all();   // GOLD-MARKET
     const famOk = (f) => !family || f === family;
     const rows = results.filter((l) => famOk(recipeById(l.recipe)?.family ?? null) && CRAFTED_FAMILIES.some(([f]) => f === recipeById(l.recipe)?.family))
       .slice(0, MARKET_SHOWN);
@@ -563,8 +576,11 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
   }
   if (view === 'goods') {
     // MARKET-ANY: every piece listed from a pack, cheapest first, each with its courier to this board - for gold alone
+    // Legacy truthy non-string filters match nothing; never pass their objects/arrays to a D1 binding.
+    const familyFilter = family ? (typeof family === 'string' ? family : '') : null;
     const { results = [] } = await db.prepare(`SELECT * FROM market_listings WHERE state = 'open' AND kind = 'item' AND expires_at > ?1
-      ORDER BY price, at LIMIT 500`).bind(nowS).all();
+      AND (?2 IS NULL OR (${GOODS_FAMILY_SQL}) = ?2)
+      ORDER BY price, at LIMIT 500`).bind(nowS, familyFilter).all();
     const rows = results.filter((l) => { const it = goodOf(l.item); return !!it && (!family || goodFamily(it) === family); }).slice(0, MARKET_SHOWN);
     const quotes = await quote(rows, () => 1);
     const reports = await reportsOf(rows.map((l) => l.id));
@@ -575,7 +591,9 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
     const { results = [] } = await db.prepare(`SELECT a.*, p.recipe, p.quality, p.seed, p.maker, p.marked, p.dye, p.hand, p.template, p.material AS dfu_material,
         (SELECT bidder FROM market_bids WHERE id = a.high_bid) AS high_bidder
       FROM market_auctions a JOIN products p ON p.provenance = a.provenance
-      WHERE a.state = 'open' AND a.ends_at > ?1 ORDER BY a.ends_at, a.at LIMIT 500`).bind(nowS).all();
+      WHERE a.state = 'open' AND a.ends_at > ?1
+        AND (?2 IS NULL OR p.recipe IN (SELECT value FROM json_each(?2)))
+      ORDER BY a.ends_at, a.at LIMIT 500`).bind(nowS, recipeFamilyKeys(family)).all();
     const famOk = (f) => !family || f === family;
     const rows = results.filter((a) => famOk(recipeById(a.recipe)?.family ?? null)).slice(0, MARKET_SHOWN);
     const quotes = await quote(rows, () => 1);

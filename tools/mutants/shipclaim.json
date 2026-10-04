@@ -164,11 +164,12 @@
   {
     "name": "SC-fate-answers-nothing",
     "file": "src/scenes/navalHost.js",
-    "old": "        if (boat) returnAboard(boat);\n        return true;\n      },",
-    "new": "        if (boat) returnAboard(boat);\n      },",
+    "old": "        return true;\n      },\n      /** AUDIT NAV1 (B11): Leave her",
+    "new": "      },\n      /** AUDIT NAV1 (B11): Leave her",
     "tests": [
       "test/shipclaim.test.js"
-    ]
+    ],
+    "note": "Repatch 8761: re-aimed at the same fate/return behavior after guarded passenger return; behavioral assertions retained."
   },
   {
     "name": "SC-fate-decided-again",
@@ -399,11 +400,12 @@
   {
     "name": "SC-helm-not-returned",
     "file": "src/scenes/navalHost.js",
-    "old": "    if (captor) returnAboard(captor);\n    return true;\n  }",
+    "old": "    if (!returnFromPrize(pz, captor)) returnAboard(boat);\n    return true;\n  }",
     "new": "    return true;\n  }",
     "tests": [
       "test/shipclaim.test.js"
-    ]
+    ],
+    "note": "Repatch 8761: re-aimed at the same fate/return behavior after guarded passenger return; behavioral assertions retained."
   },
   {
     "name": "SC-words-swapped",

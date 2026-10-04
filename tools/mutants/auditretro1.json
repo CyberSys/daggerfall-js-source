@@ -77,7 +77,7 @@
   {
     "name": "AUDITRETRO1-A4-the-pipeline-flags-nothing",
     "file": "src/scenes/dataPipeline.js",
-    "old": "    const replacement = !!swap;",
+    "old": "    const replacement = !!swap && !classicArt.has(Number(archive));",
     "new": "    const replacement = false;",
     "tests": [
       "test/auditretro1.test.js"

@@ -11,8 +11,8 @@
   {
     "name": "DECK-WALK-walls-unread",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "      for (let q = 0; clear && q < w.length; q += 2) if (w[q + 1] > y + DECK_STEP && w[q] < y + DECK_HEADROOM) clear = false;",
-    "new": "      for (let q = 0; false && q < w.length; q += 2) if (w[q + 1] > y + DECK_STEP && w[q] < y + DECK_HEADROOM) clear = false;",
+    "old": "      if (!clear || rises(walls[j], y)) continue;",
+    "new": "      if (!clear) continue;",
     "tests": [
       "test/deckwalk.test.js"
     ]
@@ -20,8 +20,8 @@
   {
     "name": "DECK-WALK-wall-footprints-dropped",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "        wallEdge(ax, az, bx, bz, lo, hi); wallEdge(bx, bz, cx, cz, lo, hi); wallEdge(cx, cz, ax, az, lo, hi);\n",
-    "new": "",
+    "old": "if (Math.abs(nY) < WALL_NY * len) { wallFace(moves ? leaves : walls, ax, ay, az, bx, by, bz, cx, cy, cz); continue; }",
+    "new": "if (Math.abs(nY) < WALL_NY * len) continue;",
     "tests": [
       "test/deckwalk.test.js"
     ]
@@ -65,8 +65,8 @@
   {
     "name": "DECK-WALK-clamp-a-centre",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "      out[0] = Math.min(x0 + cell - e, Math.max(x0 + e, x));",
-    "new": "      out[0] = x0 + cell / 2;",
+    "old": "    out[0] = Math.min(x0 + cell - e, Math.max(x0 + e, x));",
+    "new": "    out[0] = x0 + cell / 2;",
     "tests": [
       "test/deckwalk.test.js"
     ]
@@ -101,7 +101,7 @@
   {
     "name": "DECK-WALK-corner-cut-past-edge",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "          if (di && dk && !(Math.abs(y[k * nx + ii] - y[j]) <= DECK_JOIN && Math.abs(y[kk * nx + i] - y[j]) <= DECK_JOIN)) continue;   // no corner cut past the edge (AUDIT NAV2 F34: nor past a drop - a stair's tread beside the deck it climbs from)\n",
+    "old": "          if (di && dk && !(steps(j, k * nx + ii) && steps(j, kk * nx + i))) continue;   // no corner cut past the edge (AUDIT NAV2 F34: nor past a drop - a stair's tread beside the deck it climbs from)\n",
     "new": "",
     "tests": [
       "test/deckwalk.test.js"
@@ -128,7 +128,7 @@
   {
     "name": "DECK-WALK-leg-tread-unread",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "!Number.isNaN(y[kk * nx + ii]) && Math.abs(y[kk * nx + ii] - was) <= DECK_JOIN;",
+    "old": "!Number.isNaN(y[kk * nx + ii]) && steps(was, kk * nx + ii);",
     "new": "!Number.isNaN(y[kk * nx + ii]);",
     "tests": [
       "test/deckwalk.test.js"
@@ -181,9 +181,9 @@
   },
   {
     "name": "DECK-WALK-leash-a-centre",
-    "file": "src/scenes/world.js",
-    "old": "        if (Number.isNaN(floor)) deck.clamp(local[0], local[2], local, was ? deck.pieceAt(was[0], was[2], was[1]) : 0); else local[1] = floor;",
-    "new": "        if (Number.isNaN(floor)) { const c = deck.nearest(local[0], local[2]); local[0] = c[0]; local[1] = c[1]; local[2] = c[2]; } else local[1] = floor;",
+    "file": "src/systems/naval/navalDeck.js",
+    "old": "      if (j >= 0) { const h = ringH; squareOf(j, x, z, out, 0); out[1] = h; return out; }",
+    "new": "      if (j >= 0) { const h = ringH, c = centre(j); out[0] = c[0]; out[1] = h; out[2] = c[2]; return out; }",
     "tests": [
       "test/deckwalk.test.js"
     ]
@@ -191,8 +191,8 @@
   {
     "name": "DECK-WALK-leash-height-unread",
     "file": "src/scenes/world.js",
-    "old": "      if (!(Math.abs(local[1] - floor) <= DECK_STEP)) {",
-    "new": "      if (Number.isNaN(floor)) {",
+    "old": "      if (!(Math.abs(local[1] - floor) <= DECK_STEP) && !(Math.abs(local[1] - deck.ajarAt(local[0], local[2], local[1])) <= DECK_STEP)) {",
+    "new": "      if (Number.isNaN(floor) && !(Math.abs(local[1] - deck.ajarAt(local[0], local[2], local[1])) <= DECK_STEP)) {",
     "tests": [
       "test/deckwalk.test.js"
     ]
