@@ -42,11 +42,11 @@ const settle = (ms = 5) => new Promise((r) => setTimeout(r, ms));
 
 // ── THE PHASES ───────────────────────────────────────────────────────
 
-test('SUNBABY2 phases: one cycle - the baby 60 s, the wrath 45 s, the baby 30 s, Todd 30 s - each face morphing in over SUNBABY_MORPH_S; the said lines (mutants: none of their own - the table is the law)', () => {
+test('SUNBABY2 phases: one cycle - the baby 60 s, the wrath 45 s, the baby 30 s, Todd 30 s - each face morphing in over SUNBABY_MORPH_S (SUNBABY3: 1 s); the said lines (mutants: none of their own - the table is the law)', () => {
   assert.deepEqual(SUNBABY_PHASES, [{ face: 'baby', s: 60 }, { face: 'evil', s: 45 }, { face: 'baby', s: 30 }, { face: 'todd', s: 30 }]);
   assert.ok(Object.isFrozen(SUNBABY_PHASES) && SUNBABY_PHASES.every(Object.isFrozen));
   assert.equal(SUNBABY_CYCLE_S, 165);
-  assert.equal(SUNBABY_MORPH_S, 6);
+  assert.equal(SUNBABY_MORPH_S, 1);   // SUNBABY3 moved it: "transition much faster" (6 s)
   assert.deepEqual(SUNBABY_FACE_LINES, {
     evil: 'The sun baby stops laughing. Its eyes burn - fire rains on Daggerfall!',
     baby: 'The sun baby giggles again.',
@@ -60,19 +60,20 @@ test('SUNBABY2 phases: the face at each second of the cycle - the wrath and Todd
   for (const s of [NaN, -5, undefined]) assert.deepEqual(at(s), [0, 'baby', 0, 0, false], `${s}: before the stage, or none, is its first moment`);
   assert.deepEqual(at(59.9), [0, 'baby', 0, 0, false]);
   assert.deepEqual(at(60), [1, 'evil', 0, 0, false], 'the wrath begins as the baby');
-  assert.deepEqual(at(63), [1, 'evil', 0.5, 0, false], 'half way');
-  assert.deepEqual(at(64.5), [1, 'evil', 0.84375, 0, false], 'smoothstep, and no fire before it is whole');
-  assert.deepEqual(at(66), [1, 'evil', 1, 0, true], 'whole: the fire falls');
+  // SUNBABY3 moved these: the morph is 1 s
+  assert.deepEqual(at(60.5), [1, 'evil', 0.5, 0, false], 'half way');
+  assert.deepEqual(at(60.75), [1, 'evil', 0.84375, 0, false], 'smoothstep, and no fire before it is whole');
+  assert.deepEqual(at(61), [1, 'evil', 1, 0, true], 'whole: the fire falls');
   assert.deepEqual(at(104.9), [1, 'evil', 1, 0, true]);
   assert.deepEqual(at(105), [2, 'baby', 1, 0, false], 'the baby comes back out of the wrath, and the fire stops at once');
-  assert.deepEqual(at(108), [2, 'baby', 0.5, 0, false]);
-  assert.deepEqual(at(111), [2, 'baby', 0, 0, false]);
+  assert.deepEqual(at(105.5), [2, 'baby', 0.5, 0, false]);
+  assert.deepEqual(at(106), [2, 'baby', 0, 0, false]);
   assert.deepEqual(at(135), [3, 'todd', 0, 0, false]);
-  assert.deepEqual(at(138), [3, 'todd', 0, 0.5, false]);
-  assert.deepEqual(at(141), [3, 'todd', 0, 1, false]);
+  assert.deepEqual(at(135.5), [3, 'todd', 0, 0.5, false]);
+  assert.deepEqual(at(136), [3, 'todd', 0, 1, false]);
   assert.deepEqual(at(165), [0, 'baby', 0, 1, false], 'the second cycle begins as Todd');
-  assert.deepEqual(at(168), [0, 'baby', 0, 0.5, false]);
-  assert.deepEqual(at(171), [0, 'baby', 0, 0, false]);
+  assert.deepEqual(at(165.5), [0, 'baby', 0, 0.5, false]);
+  assert.deepEqual(at(166), [0, 'baby', 0, 0, false]);
   assert.deepEqual(at(165 * 40 + 70), at(70), 'it wraps');
 });
 
@@ -194,7 +195,7 @@ test('SUNBABY2 GLSL: the wrath\'s and Todd\'s faces are generated from the table
   assert.equal(SUNBABY_TODD_DETAIL ** 2, 16, 'sixteen times the detail');
   assert.ok(SUNBABY_GLSL.includes(`* (1.0 + ${(SUNBABY_TODD_DETAIL - 1).toFixed(4)} * todd)`), 'the grid, finer under Todd');
   assert.match(SUNBABY_GLSL, /float evil = clamp\(face\.x, 0\.0, 1\.0\), todd = clamp\(face\.y, 0\.0, 1\.0\);/);
-  assert.match(SUNBABY_GLSL, /col = sbSun\(col, uv, upx, t, evil, todd\);/);
+  assert.match(SUNBABY_GLSL, /col = sbSun\(col, uv, upx, t, evil, todd, photo, photoOn, duv\);/);   // SUNBABY3 moved it: the photograph
   assert.match(SUNBABY_GLSL, /vec4 l1 = sbFlowers\(p2, px2, 1\.0, [\d.]+, t, evil\);[\s\S]*vec4 l0 = sbFlowers\(p, px, 0\.0, [\d.]+, t, evil\);/, 'both layers burn');
   assert.match(FS, /uniform vec2 uFace;/);
 });
