@@ -16,20 +16,19 @@
 // PURE: the lanes, a lane's way and the open law are handed in (scenes/world.js's laneNet, laneWay and laneOpen - the
 // packets' own), so the pins drive it over a made sea. Not a DFU member. Ledger A (SERPENT1).
 import { serpentLaneOf, serpentAlongOf, serpentRing, SERPENT_LANE_TRIES } from '../net/serpentLaw.js';
+import { PIXEL_M } from '../net/gateLaw.js';
+import { PIXEL_UNITS } from '../net/wire.js';   // native units a map pixel (world/streamingWorld.js NATIVE_PIXEL's)
 import { REGION_NAMES } from '../formats/mapsFile.js';
-
-/** Native units a map pixel (seaLanes.js NATIVE_PIXEL, wire.js PIXEL_UNITS - pinned equal). */
-export const SITE_PIXEL = 32768;
 /** Every map pixel within this of the site's (Chebyshev) is open sea - a mile and more of water on every side. */
 export const SITE_CLEAR_PX = 1;
 /** The shortest lane a serpent rises on (m): its waters lie in the lane's middle, never a harbour mouth. */
-export const SITE_LANE_MIN_M = 6 * 819.2;
+export const SITE_LANE_MIN_M = 6 * PIXEL_M;
 /** How far along its way a try may slide from its rolled place looking for open sea, and the step. */
 export const SITE_SLIDE = 0.16;
 export const SITE_SLIDE_STEP = 0.04;
 
 /** The map pixel a native point stands in (wire.js mapPixelOfWire's arithmetic). */
-export const sitePixelOfNative = (x, z) => [Math.trunc(x / SITE_PIXEL), 499 - Math.trunc(z / SITE_PIXEL)];
+export const sitePixelOfNative = (x, z) => [Math.trunc(x / PIXEL_UNITS), 499 - Math.trunc(z / PIXEL_UNITS)];
 /** Is every pixel within `r` of (px, py) open sea? */
 export function openAround(px, py, open, r = SITE_CLEAR_PX) {
   for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (!open(px + dx, py + dy)) return false;

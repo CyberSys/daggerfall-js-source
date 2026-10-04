@@ -40,6 +40,13 @@ function surfaced(f, t = T0) {
   return f;
 }
 const worst = (a, b) => { let d = 0; for (let i = 0; i < a.length; i++) d = Math.max(d, Math.hypot(a[i].x - b[i].x, a[i].y - b[i].y, a[i].z - b[i].z)); return d; };
+/** A client's link on fight `f`'s site, and its fold of the brain's words as the relay fans them - each naming the
+ *  fight's site (server _serpentFan; AUDIT SERPENT 2 F1). */
+function clientOf(f, now) {
+  const L = createSerpentLink({ now, site: () => ({ day: f.day, sx: f.sx, sz: f.sz }) });
+  const fold = (words) => { for (const w of words) { const v = validSerpentOut(w.k === 'st' ? w : { ...w, sx: f.sx, sz: f.sz }); assert.ok(v, `the wire passes ${w.k}`); L.word(v); } };
+  return { L, fold };
+}
 
 // ═══ ONE TIMELINE (S2) ═══════════════════════════════════════════════════════════════════════════════════
 
@@ -50,9 +57,8 @@ test('AUDIT SERPENT S2: a word said now supersedes every leg or mode still to co
     const rng = seeded(seed), dice = seeded(seed + 100);
     const f = fightOf([HULL.Carrack, HULL.SmallShip, HULL.LargeGalley, HULL.LargeBoat], acct);
     let now = T0;
-    const L = createSerpentLink({ now: () => now });
-    L.word(validSerpentOut(serpentStateOf(f)));
-    const fold = (words) => { for (const w of words) { const v = validSerpentOut(w); assert.ok(v, `the wire passes ${w.k}`); L.word(v); } };
+    const { L, fold } = clientOf(f, () => now);
+    fold([serpentStateOf(f)]);
     // ships sailing rings about the waters, some out past the serpent's reach (the stray surfacing's wake)
     const orbit = [300, 650, 1050, 480].map((r, i) => ({ r, a: dice() * 6.28, w: (0.02 + dice() * 0.05) * (i % 2 ? -1 : 1) }));
     for (let n = 0; n < 1600; n++) {
@@ -78,13 +84,12 @@ test('AUDIT SERPENT S2: a kill while a breach\'s jump is still to come, and the 
     const rng = seeded(11);
     const b = [body(acct(0), 120, 0)];
     let now = T0;
-    const L = createSerpentLink({ now: () => now });
-    L.word(validSerpentOut(serpentStateOf(f)));
-    const fold = (ws) => { for (const w of ws) L.word(validSerpentOut(w)); };
+    const { L, fold } = clientOf(f, () => now);
+    fold([serpentStateOf(f)]);
     if (wake) {   // a room asleep: the head far out, its surfacing's jump and rise still to come
       f.legs = [{ k: LEG.line, at: T0 - 120_000, x: 0, z: 0, yw: 0, v: 11 }];
       f.modes = [{ at: T0 - 120_000, m: MODE.cruise }];
-      L.word(validSerpentOut(serpentStateOf(f)));
+      fold([serpentStateOf(f)]);
       fold(stepSerpentBrain(f, now, b, rng));
     } else {
       let breach = null;

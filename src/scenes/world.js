@@ -19178,9 +19178,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const serpentLink = params.has('online') ? createSerpentLink({
     now: () => Date.now() + _sharedOffsetMs,
     say: (text) => setMidScreenText(text, 5),   // the cell's refusal, once until I leave its waters
-    // AUDIT SERPENT S7/H1: and to the host - a refusal that holds for the day stops my volleys
-    onRefused: (why) => serpentHost?.refused?.(why),
-    // AUDIT SERPENT S1: the day's site as this machine found it - a whole state of another site's fight is not mine
+    // AUDIT SERPENT S1 / AUDIT SERPENT 2 F1: the day's site as this machine found it - a word of another site's fight is not mine
     site: () => serpentOmen?.current?.()?.site ?? null,
     // the hub's word of the kill, to everyone online - said for THIS machine's own site's serpent alone (AUDIT SERPENT S1:
     // a forged site's kill is said for nobody), the place named from it

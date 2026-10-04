@@ -110,7 +110,44 @@ feel each blow alike"; "the ship it hates most" (60% of the time); the Large Boa
 - **A video that holds the frame leaves the boss bar as it was** - the court's own gap, shared through the gate's bar
   and pinned in three places; left for the gate's next audit.
 - **Sounds above full volume have no limiter on the bus** - the game's, not the serpent's.
-- **A squat of all three sites** (S1's bound).
+- **A squat of all three sites** (S1's bound; AUDIT SERPENT 2 F6, below, says what it now costs).
+
+# AUDIT SERPENT 2 - the second pass, 2026-10-04
+
+The owner, of PR #592 after AUDIT SERPENT: *"Just want to audit it and make sure it's perfect"*, then *"fix everything
+and merge"*. A whole-PR review at its head (`999fc4a1`) found sixteen things; the first two were reproduced against the
+real Room and the brain before any fix. Main had moved on under it (#600-#604: PARTY-LEAD's `world164`, KNIGHT-HOUSE's
+`acct77` and migration 0079, HOME-VENDOR's 0080), so the branch was merged first and SERPENT1 renumbered past them -
+relay `world165`, account `acct78`, migration `0081_serpent_kills.sql` - and the fixes were made on the merged tree.
+
+| ID | Sev | Finding | Fix |
+|---|---|---|---|
+| F1 | High | **A forged site in the NEXT cell made an honest player's serpent read as slain.** Her halo's socket in that cell had no `in` there, so the relay fanned her the forged fight by her pose; the cell's own kill word named no site and was filed under her site's key - the omen went to slain, the chat said it, her client stopped drawing and fighting the real one, and the forged fight's swim, blows and health were folded into hers in her site's frame. S1's guards held a whole state and the hub's kill alone. | **Every word a fight says names its site** (`server/src/index.js` `_serpentFan` stamps `sx`/`sz`; `net/wire.js` `validSerpentOut` projects them on every fight kind), and **the link folds its own site's alone** (`net/serpentLink.js` - a word of no site, another site, or none this machine knows is nothing to its fight; a kill of any site is still kept by its own key). The relay's "no other fight about the pose" rule - which could not see another cell - is gone: a socket about two fights hears both, each naming its own. |
+| F2 | High | **The client kept a mode the relay had dropped.** A woken fight with its head strayed said "deep now" and "surface at +2.7 s"; a breach begun the same beat said "deep now" again - the relay dropped the surfacing and kept a SECOND identical entry; every client took the word for one it had (the check ran before the rule) and kept the surfacing: up to 5 s of a serpent drawn and aimed at above the sea while the relay held it under and refused the hits. Reproduced in 178 of 400 seeds. | **One timeline rule for both sides** (`net/serpentBody.js` `onTimeline`): supersede what is still to come, then keep the entry unless the track already ends on it. The relay's `pushLeg`/`pushMode` and the link's fold call it alike, so neither keeps a word twice and both drop what the other drops. |
+| F3 | Medium | **One refusal muted a ship all day.** `SERPENT_BARS` held 'the serpent is gone', which the relay also says to an `in` that comes a moment before the rising (a clock offset run ahead): the client barred itself for the day, and its next `in` - which joined - fired and wrecked unheard. | **The bar is gone.** The relay hears the words of an account its fight counts alone (`_serpentFrame`), so a refused ship is never heard and one let in since is; the world no longer hands refusals to the host. (S7's own law - a refused ship is never junked for firing - stands on the relay.) |
+| F4 | Medium | **A blow that had already landed was judged on my ship where she is now.** A ship sailing in on a state whose breach had landed 2.5 s before (its recovery still in the state), or a tab whose frame stalled past a landing, took a blow she never saw. | `LAND_JUDGE_MS` (500): a landing is judged on its own moment or not at all; one seen later plays for its venom alone (a spit's pool still lies on the water). The coil's word keeps its own late law. |
+| F5 | Medium | **S8 held only a known fighter to `ENGAGE_R`.** A newcomer's first `in` from 1,400 m brought her whole share into its health with a seen time of now, and kept it for 45 s - a string of guests anchored off made it tougher for the ships fighting it. | A newcomer from past `ENGAGE_R` joins with her share out of its health and unseen; the first beat that finds her at the fight brings it in (`serpentShareWanted`). |
+| F6 | Medium | **The cell let an honest fight go for a forged one, and a slain one too soon.** A fight with no part yet and at most one body about it was "idle" - a lone honest ship's first half-minute, given way to a third forged site, then born again by her next `in` at full health, over and over; and a slain, told fight was "over" before the storm sealed its waters - any `in` that missed the hub's word bore it again at full health. | A slain serpent is never let go while its waters stand open (after the seal no fight is born at all); a fight is idle only with nobody about its waters. |
+| F7 | Low | **The ram was chosen at ships its lane could not reach**: `range` 240 m against a reach of 171 m (the wind-up's 21.6 m crawl and the 149.6 m run) - 9.8 s spent on a blow that could not land. | `range` 170, within `ramReach()`. A balance shift - between 170 and 240 m it now breaches or spits instead - not re-simulated here. |
+| F8 | Low | **Every kept fight was written to storage every 2 s** while any fight in the cell beat - a slain fight's ~100 KB again and again for two hours. | A fight is checkpointed as it is stepped, its sounding at once; a slain or sounded one is still, its kill and its hub's answer saved as they come. |
+| F9 | Low | **The shots' targets were made at every ask** - the shots' field, the look and the aim each asked, at its own millisecond, and each rebuilt the body twice (25 spine walks) and 24 boxes. | Made once a frame, at the frame's moment (`live.t`); a ball's zone read off the same body. |
+| F10 | Low | `_serpentBodies` and the hub's receipt hand-off were the third and fourth copies of AUDIT SOC B9's newest-socket loop. | Both read the roll call's `_siegeSockets()`. |
+| F11 | Low | Re-made helpers: `serpentStrike.js`'s `wrap` (the brain's `serpentWrapYaw`), `SERPENT_PIXEL_M` (gateLaw's `PIXEL_M` - its comment cited a gateLaw export that never existed), `SITE_PIXEL` (wire's `PIXEL_UNITS`), `6 * 819.2`. | Imported. |
+| F12 | Low | Dead code: the brain's `bodyOf`, `SEGMENTS`, `SEGMENT_LEN`, `coilOn`, `headOf` and its `legAt` re-export; the host's `lastIn.answered`. | Removed. |
+| F13 | Low | Two relay pins patched `Date.now` before their `try`: a setup that threw left every later pin on the fake clock. | Patched inside it. |
+| F14 | High | **The branch could not merge or run CI**: 119 files conflicted with main, and its relay, account and migration numbers had been taken by main. `SERPENT_RELAY_MIN` 164 would have sent `serpent` frames to PARTY-LEAD's relay, which closes the socket on them. | Merged (cites by `tools/citeMerge.mjs`, 175 moved); renumbered `world165`, `acct78`, `0081`; every live-version pin moved and composed. |
+
+Pinned in `test/serpent1_audit2.test.js` (9) - each run against the pre-fix tree first, and each failed there at its own
+assertion - and in the earlier suites the laws moved (S1's hearing and eviction pins in
+`serpent1_auditrelay.test.js`, the link and host rigs fed the relay's stamped words). Mutation-proven:
+`tools/mutants/serpent1_audit2.json` (14); `serpent1_audit.json` re-aimed by content where the code moved (eleven
+records) and five retired whose law this pass reversed or deleted (S7's three bar records and the world's refusal
+wiring - F3; S1's "over" eviction - F6), with S1's fold-site record retired with the redundant check it named (F1's
+one rule took it).
+
+**Recorded, not fixed (this pass).** A squat of all three sites: three accounts that each stand at a forged site in
+the cell before the rising, and stay, refuse the true one ('the waters are full') - F6 chose that over letting a lone
+honest fight be torn down and reborn. The relay holds no map, so it cannot tell the true site from a forged one.
 
 See also: `11-Multiplayer/Sea-Serpent.md` (the design and the law), `11-Multiplayer/World-Bosses.md` (the gate it
 follows at sea).

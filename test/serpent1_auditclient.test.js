@@ -2,7 +2,7 @@
 // perfection"): the pins of the audit's findings ON THE CLIENT AND IN THE BOOKS (bible/01-Overview/Audit-Sea-Serpent.md) -
 // each a law that failed before its fix. The host end to end against the brain's own words: a new day's attacks judged
 // afresh (H3), a silent fight left (M5), the phase a ship sails in on not said, my ship held in the site's frame (L1), a
-// word the socket would not take said with the next (L3), a refusal for the day stopping my volleys (S7/H1), the wreck
+// word the socket would not take said with the next (L3), the wreck
 // said (T2), MOVE down a ram's whole lane (B2), the coil's ring met by any of her (B5), the head its first two segments
 // and the guns' lead (T4), the maelstrom's waters laid as it winds (T8), the ram's wake in the scene (M3); the omen
 // offline (L4); the claims (D3, D6); the cards (D4); the words; and the world's and the naval host's wiring by source.
@@ -19,7 +19,7 @@ import { bodyAt, segExposed } from '../src/net/serpentBody.js';
 import { newSerpentFight, joinSerpentFight, serpentStateOf, SERPENT_ATTACK_TABLE, ZONES, MAEL_R, ramLen } from '../src/net/serpentBrain.js';
 import { shapeMeets } from '../src/systems/serpentStrike.js';
 import { createSerpentOmen } from '../src/systems/serpentOmen.js';
-import { createSerpentHost, HIT_GATHER_MS, SERPENT_HEARD_MS, SERPENT_BARS, LEAD_DT_MS } from '../src/scenes/serpentHost.js';
+import { createSerpentHost, HIT_GATHER_MS, SERPENT_HEARD_MS, LEAD_DT_MS } from '../src/scenes/serpentHost.js';
 import { bodyMesh, spineRings, MESH_STRIDE, MESH_MAX_VERTS, RING_SIDES, SECTION_H } from '../src/render/serpentRender.js';
 import { createSerpentClaims, SERPENT_CLAIMS_MAX, SERPENT_CLAIM_TEXT } from '../src/net/serpentClaims.js';
 import { SPOILS_SPENT_MAX } from '../src/scenes/spoilsPool.js';
@@ -47,12 +47,11 @@ function rig({ shipAt = [60, 0] } = {}) {
   const sent = [], strikes = [], fx = [], mids = [];
   const off = [1000, 2000];
   const io = { ok: true };
-  let host = null;
-  const link = createSerpentLink({ now: () => now, onRefused: (w) => host?.refused(w) });
+  const link = createSerpentLink({ now: () => now, site: () => ({ day: sw.day, sx: SX, sz: SZ }) });
   const sw = { day: DAY, site: { sx: SX, sz: SZ }, phase: 'hunt', t: TT };
   const boat = { id: 'mine' };
   const ship = { at: [...shipAt], yaw: 0, wrecked: false };
-  host = createSerpentHost({
+  const host = createSerpentHost({
     now: () => now, link, omen: { swimming: () => sw },
     online: { ready: (cell) => cell === CELL, send: (w, cell) => { if (!io.ok) return false; sent.push({ ...w, cell }); return true; }, acct: () => 'acct-0001' },
     toScene: (sx, sz, x, z) => [x + off[0], z + off[1]],
@@ -64,7 +63,8 @@ function rig({ shipAt = [60, 0] } = {}) {
     strike: (b, hurt, o) => strikes.push({ b, hurt, o }),
     hurt: () => {}, say: () => {}, mid: (t) => mids.push(t), sound: () => {}, fx: (k, p) => fx.push([k, p]),
   });
-  const hear = (w) => { const v = validSerpentOut(w); assert.ok(v, `the wire passes ${w.k}`); link.word(v); };
+  // the cell's word as the relay fans it - its fight's site stamped on it (AUDIT SERPENT 2 F1)
+  const hear = (w) => { const v = validSerpentOut(w.k === 'no' || w.k === 'rcpt' || w.sx !== undefined ? w : { ...w, sx: SX, sz: SZ }); assert.ok(v, `the wire passes ${w.k}`); link.word(v); };
   return { host, link, sent, strikes, fx, mids, boat, ship, hear, sw, off, io, at: () => now, step: (ms) => { now += ms; return host.frame(); } };
 }
 const breachAt = (i, at, x = 50) => ({ k: 'atk', i, a: SERPENT_ATTACK_TABLE.breach.id, at, x: 0, z: 0, yw: 0, tg: [[x, 0]] });
@@ -115,7 +115,7 @@ test('AUDIT SERPENT H3/M5: a new day\'s fight forgets the last one\'s attacks - 
   assert.deepEqual(P.mids, [`${serpentBossById('sethrakul').name}: The Maelstrom`]);
 });
 
-test('AUDIT SERPENT L1/L3/S7/T2: my ship held in the site\'s frame - a scene whose origin moves under her keeps her where the coil took her; a word the socket would not take is said with the next; a refusal that holds for the day stops my volleys (one that may yet let me in does not); my ship\'s wreck said as it comes and her floating again (mutants: the hold in scene metres; the gathered damage dropped; the refused shooter firing on; the wreck unsaid or said every frame)', () => {
+test('AUDIT SERPENT L1/L3/T2: my ship held in the site\'s frame - a scene whose origin moves under her keeps her where the coil took her; a word the socket would not take is said with the next; my ship\'s wreck said as it comes and her floating again (mutants: the hold in scene metres; the gathered damage dropped; the wreck unsaid or said every frame). S7/H1\'s day-bar on a refused ship\'s volleys is gone - AUDIT SERPENT 2 F3 (serpent1_audit2.test.js)', () => {
   const R = rig();
   R.host.frame();
   R.hear(brainState(R.at()));
@@ -137,25 +137,6 @@ test('AUDIT SERPENT L1/L3/S7/T2: my ship held in the site\'s frame - a scene who
   H.host.struck(5, 12);
   H.step(HIT_GATHER_MS);
   assert.deepEqual(H.sent.filter((w) => w.k === 'hit').map((w) => [w.d, w.z]), [[42, ZONES.body]], 'the refused word said with the next');
-  // S7/H1
-  for (const why of SERPENT_BARS) {
-    const B = rig();
-    B.host.frame();
-    B.hear(brainState(B.at()));
-    B.hear({ k: 'no', m: why });
-    B.host.struck(5, 30);
-    B.step(HIT_GATHER_MS);
-    B.ship.wrecked = true;
-    B.step(10);
-    assert.equal(B.sent.filter((w) => w.k === 'hit' || w.k === 'wr').length, 0, `barred: ${why}`);
-  }
-  const F = rig();
-  F.host.frame();
-  F.hear(brainState(F.at()));
-  F.hear({ k: 'no', m: 'the waters are full' });
-  F.host.struck(5, 30);
-  F.step(HIT_GATHER_MS);
-  assert.equal(F.sent.filter((w) => w.k === 'hit').length, 1, 'a seat may free - she fires on');
   // T2
   const W = rig();
   W.host.frame();
@@ -294,10 +275,10 @@ test('AUDIT SERPENT D4/B8/B10/B11 and the words: the inspect card and the accoun
   assert.doesNotMatch(src('src/scenes/serpentHost.js'), /[`'"]Sethrakul/, 'no name written in the host\'s words');
 });
 
-test('AUDIT SERPENT M4/S1/S7/L4/D2/D6/D5 and L2/B6/T4: the world\'s wiring and the naval host\'s, by source - no `in` with the sea fight off; a refusal to the host; the kill said for my own site alone; the omen reset offline; the hoard at the fight\'s level, its grant\'s promise the carrier\'s; a ball in its hide a hit in the tally; the brace halving its blows; the guns leading it (mutants: each line reverted)', () => {
+test('AUDIT SERPENT M4/S1/L4/D2/D6/D5 and L2/B6/T4: the world\'s wiring and the naval host\'s, by source - no `in` with the sea fight off; no refusal to the host (AUDIT SERPENT 2 F3); the kill said for my own site alone; the omen reset offline; the hoard at the fight\'s level, its grant\'s promise the carrier\'s; a ball in its hide a hit in the tally; the brace halving its blows; the guns leading it (mutants: each line reverted)', () => {
   const w = src('src/scenes/world.js'), n = src('src/scenes/navalHost.js');
   assert.match(w, /ready: \(cell\) => navalOn\(\) && !!online\?\.serpentReady\?\.\(cell\)/);
-  assert.match(w, /onRefused: \(why\) => serpentHost\?\.refused\?\.\(why\)/);
+  assert.doesNotMatch(w, /serpentHost\?\.refused/);
   assert.match(w, /onFell: \(day, f, at\) => \{ const site = serpentOmen\?\.current\?\.\(\)\?\.site; if \(!site \|\| site\.day !== day \|\| !sameSerpentSite\(site, at\)\) return;/);
   assert.match(w, /site: \(\) => serpentOmen\?\.current\?\.\(\)\?\.site \?\? null/);
   assert.match(w, /fellAt: \(day, site\) => serpentLink\.fellAt\(day, site\)/);

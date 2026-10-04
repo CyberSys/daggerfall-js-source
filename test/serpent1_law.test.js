@@ -12,7 +12,7 @@ import {
   serpentTimes, serpentAt, serpentPhase, serpentDayAt, isSerpentDay, serpentAdmits, serpentHolds, serpentSwims, serpentMarked,
   serpentCountdown, serpentCountdownWords, serpentClock, serpentRing, serpentRoll, serpentLaneOf, serpentAlongOf, SERPENT_ALONG,
   serpentBossOf, serpentBossById, SERPENT_BOSSES, sightingLine, risingLine, sealLine, soundLine, slainLine, SERPENT_DAY_MINUTES,
-  SERPENT_EVERY_DAYS, SERPENT_SURFACE_MS, SERPENT_DIVE_MS, SERPENT_RING_PIXELS, SERPENT_PIXEL_M, SERPENT_NATIVE_PER_M,
+  SERPENT_EVERY_DAYS, SERPENT_SURFACE_MS, SERPENT_DIVE_MS, SERPENT_RING_PIXELS, SERPENT_NATIVE_PER_M,
 } from '../src/net/serpentLaw.js';
 import { gateTimes, GATE_COLLAPSE_MS, gameDayAt, PIXEL_M as GATE_PIXEL_M } from '../src/net/gateLaw.js';
 import {
@@ -117,8 +117,7 @@ test('SERPENT1 rolls: the lane tries and the place along each are the day\'s own
     assert.ok(a >= SERPENT_ALONG[0] && a <= SERPENT_ALONG[1]);
   }
   assert.equal(serpentLaneOf(363, 0, 0), -1, 'no lanes, no lane');
-  assert.equal(SERPENT_PIXEL_M, GATE_PIXEL_M);
-  assert.equal(SERPENT_NATIVE_PER_M, 32768 / SERPENT_PIXEL_M);
+  assert.equal(SERPENT_NATIVE_PER_M, 32768 / GATE_PIXEL_M, 'the map pixel\'s metres the gate\'s own (AUDIT SERPENT 2: imported, never a second literal)');
   let shifted = 0;
   for (let day = 1; day < 200; day += 2) {
     const sx = 250.5 * 32768, sz = (499 - 210 + 0.5) * 32768;

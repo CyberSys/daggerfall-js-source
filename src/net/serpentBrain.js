@@ -28,8 +28,8 @@
 //
 // Not a DFU member. Ledger A (SERPENT1).
 import {
-  LEG, MODE, legFrom, headAt, legAt, bodyAt, headExposed, nearestExposed, spinePoint, coilWeight, supersede,
-  BODY_LEN, LEGS_KEPT, MODES_KEPT, SEG_N, SEG_LEN, COIL_R, SWIM_MIN_V, MODE_BLEND_MS,
+  LEG, MODE, legFrom, headAt, bodyAt, headExposed, nearestExposed, spinePoint, onTimeline, sameLeg, sameMode,
+  BODY_LEN, LEGS_KEPT, MODES_KEPT, COIL_R, SWIM_MIN_V, MODE_BLEND_MS,
 } from './serpentBody.js';
 
 // ── the waters ─────────────────────────────────────────────────────────
@@ -151,7 +151,7 @@ export const SERPENT_PHASE_NAMES = Object.freeze(['The Hunt', 'The Coil', 'The M
 export const SERPENT_POOL_TICK_MS = 1000;
 export const SERPENT_ATTACK_TABLE = Object.freeze({
   lash: Object.freeze({ id: 0, key: 'lash', name: 'Tail Lash', windup: 2600, active: 400, recover: 900, shape: 'sector', r: 85, arc: 120, hull: 0.06, base: 6, sail: 0.06, crew: 2, shove: 4, mode: MODE.cruise, phase: 1, range: 170, minGap: 0, w: 3 }),
-  ram: Object.freeze({ id: 1, key: 'ram', name: 'Breaching Ram', windup: 3600, active: 4400, recover: 1800, shape: 'lane', width: 18, hull: 0.14, base: 12, sail: 0.05, crew: 3, shove: 9, mode: MODE.deep, phase: 1, range: 240, minGap: 60, w: 2 }),
+  ram: Object.freeze({ id: 1, key: 'ram', name: 'Breaching Ram', windup: 3600, active: 4400, recover: 1800, shape: 'lane', width: 18, hull: 0.14, base: 12, sail: 0.05, crew: 3, shove: 9, mode: MODE.deep, phase: 1, range: 170, minGap: 60, w: 2 }),   // AUDIT SERPENT 2 F7: its range its reach (ramReach - 171 m: the wind-up's crawl and the run) - at 240 it was chosen at ships its lane ends short of
   breach: Object.freeze({ id: 2, key: 'breach', name: 'Rising Maw', windup: 3200, active: 400, recover: 3000, shape: 'disc', r: 20, hull: 0.07, base: 8, sail: 0.1, crew: 2, shove: 6, mode: MODE.deep, phase: 1, range: 320, minGap: 0, w: 2 }),
   spit: Object.freeze({ id: 3, key: 'spit', name: 'Venom Spit', windup: 2600, active: 300, recover: 900, shape: 'disc', r: 13, hull: 0.015, base: 2, sail: 0, crew: 1, shove: 0, pool: Object.freeze({ r: 13, ms: 9000, pct: 0.02, base: 1 }), mode: MODE.breach, phase: 1, range: 260, minGap: 30, w: 2 }),
   coil: Object.freeze({ id: 4, key: 'coil', name: 'Constrict', windup: 4800, active: 0, recover: 600, shape: 'ring', r: 36, hull: 0, base: 0, sail: 0, crew: 0, shove: 0, mode: MODE.deep, phase: 2, range: 320, minGap: 0, w: 2 }),
@@ -171,6 +171,8 @@ export const SERPENT_PHASE_TURN = Object.freeze({
 });
 /** The ram's lane is as long as its run (m). */
 export const ramLen = () => RAM_V * (SERPENT_ATTACK_TABLE.ram.active / 1000);
+/** How far from its head as it begins the ram reaches (m): the wind-up's crawl, then the lane. */
+export const ramReach = () => RAM_WIND_V * (SERPENT_ATTACK_TABLE.ram.windup / 1000) + ramLen();
 /** The spit's glob is in the air this long before it lands (ms) - its arc drawn from the jaws. */
 export const SPIT_FLIGHT_MS = 900;
 /** A breach's head is placed under its mark this long before it bursts out (ms) - the swim up from below. */
@@ -308,7 +310,9 @@ export function restoreSerpentShare(f, p) {
  * AUDIT SERPENT B4/H2: a later claim of a bigger hull (a captain who sighted it off her helm, or from her rowboat)
  * takes her old share out and brings the new one in at the fraction it stands at, its bucket empty - the late ship's
  * law, so it buys no faster kill. `near` (AUDIT SERPENT S8): the word was said from within ENGAGE_R - only then does it
- * count as being at the fight (a ship anchored 1400 m off keeps no share in it by saying `in`).
+ * count as being at the fight (a ship anchored 1400 m off keeps no share in it by saying `in`). AUDIT SERPENT 2 F5: a
+ * NEWCOMER's too - one whose first `in` is from farther joins with her share out of its health and unseen, so the
+ * first beat that finds her at the fight brings it in (serpentShareWanted); S8's law held only a known fighter to it.
  * @returns {boolean}
  */
 export function joinSerpentFight(f, sub, name, lv, hl, now, admits, present = null, near = true) {
@@ -329,12 +333,11 @@ export function joinSerpentFight(f, sub, name, lv, hl, now, admits, present = nu
   if (f.fell || f.gone || !admits) return false;
   if (Object.keys(f.players).length >= SERPENT_FIGHTERS_MAX && !freeSerpentSeat(f, present)) return false;
   const hull = clampHull(hl), ref = refOf(hull), share = SERPENT_TTK_S * ref, frac = serpentStandsAt(f);
-  f.max += share;
-  f.hp += share * frac;
+  if (near) { f.max += share; f.hp += share * frac; }
   f.players[sub] = {
     name: String(name ?? '').slice(0, 24), lv: clampSerpentLv(lv), hl: hull, ref, share, dealt: 0, clipped: 0,
     bucket: frac >= 1 ? SERPENT_BUCKET_DEPTH_X * ref : 0, bucketAt: now, rate: SERPENT_HIT_HZ_MAX, rateAt: now, stoodMs: 0, joinedAt: now,
-    seenAt: now, hitAt: now, retired: false, wreck: false, hits: 0, best: 0, cd: 0,
+    seenAt: near ? now : now - SERPENT_ABSENT_RETIRE_MS - 1, hitAt: now, retired: !near, wreck: false, hits: 0, best: 0, cd: 0,
   };
   return true;
 }
@@ -511,9 +514,8 @@ export function chooseSerpentAttack(can, rng) {
 function pushLeg(f, L, out) {
   const leg = roundLeg(L);
   // AUDIT SERPENT S2: THE TIMELINE'S ONE RULE - a leg said now supersedes any still to come (the relay and every client
-  // apply it alike: serpentBody.js supersede), so the track is always in time order and every screen draws one body
-  supersede(f.legs, leg.at);
-  f.legs.push(leg);
+  // apply it alike: serpentBody.js onTimeline), so the track is always in time order and every screen draws one body
+  if (!onTimeline(f.legs, leg, sameLeg)) return leg;
   while (f.legs.length > LEGS_KEPT * 2) f.legs.shift();
   out?.push({ k: 'sw', l: leg });
   return leg;
@@ -546,14 +548,12 @@ function trackSince(legs, t, since) {
 /** A change of mode, kept and said. */
 function pushMode(f, at, m, out) {
   // AUDIT SERPENT S2: the timeline's one rule - and a mode still to come that it takes away is said away (the word is said
-  // even when the ride it keeps is the same, so every client's fold drops what the relay dropped)
-  const had = f.modes.length;
-  supersede(f.modes, Math.round(at));
-  const cur = f.modes[f.modes.length - 1];
-  if (f.modes.length === had && cur && cur.m === m && cur.at <= at) return;
-  f.modes.push({ at: Math.round(at), m });
+  // even when the ride it keeps is the same, so every client's fold drops what the relay dropped). AUDIT SERPENT 2 F2:
+  // the ride it keeps is never kept twice (serpentBody.js onTimeline - the client's fold the same)
+  const d = { at: Math.round(at), m };
+  if (!onTimeline(f.modes, d, sameMode)) return;
   while (f.modes.length > MODES_KEPT) f.modes.shift();
-  out?.push({ k: 'dv', at: Math.round(at), m });
+  out?.push({ k: 'dv', ...d });
 }
 /** A JUMP: the head placed at (x, z) heading `yw` from `at` - under the sea, between two of its sightings (a breach
  *  rising under a ship, a woken serpent surfacing again, the maelstrom's orbit). The body never reaches back past it. */
@@ -855,13 +855,3 @@ export function serpentStateOf(f) {
     gone: f.gone ? f.gone.at : null,
   };
 }
-/** The body's word a state carries, for serpentBody.js bodyAt - the fight is one. */
-export const bodyOf = (f) => f;
-/** Every segment it has, for a probe. */
-export const SEGMENTS = SEG_N;
-export const SEGMENT_LEN = SEG_LEN;
-/** A coil's weight on the body at `t` (serpentBody.js's, re-said for the relay's one import). */
-export const coilOn = (f, t) => coilWeight(f.coil, t);
-/** The head on its current leg at `t` (for the relay's probes). */
-export const headOf = (f, t) => headAt(f.legs, t);
-export { legAt };

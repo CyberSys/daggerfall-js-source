@@ -110,8 +110,9 @@ province and both ports the lane joins. A client with no map data yet asks again
 **The relay never reads a map.** Each `in` names the site it was said for (section 6). Its own cell must hold that
 site (`cellRoomOfWire(sx, sz)` is the cell's key), so a correct client always says it in the right room. A site is
 named to the whole native unit (`serpentSiteKey`); every honest client finds the same one, so they share one fight,
-and a forged site stands a fight of its own that none of them hears (AUDIT SERPENT S1). The account service's one row
-per (day, account) bounds what a forged site could buy.
+and a forged site stands a fight of its own that none of them folds as theirs: every word a fight says names its site,
+and a client folds its own site's alone (AUDIT SERPENT S1, AUDIT SERPENT 2 F1). The account service's one row per
+(day, account) bounds what a forged site could buy.
 
 ## 4. The body - a path, not a physics
 
@@ -149,7 +150,7 @@ law, which the naval fight already keeps.
 | attack | phase | shape | wind-up | what it does |
 |---|---|---|---|---|
 | Tail Lash | 1 | sector, 85 m, 120 degrees | 2.6 s | 6% of her hull + 6, canvas, two men; a throw |
-| Breaching Ram | 1 | lane, 18 m wide | 3.6 s | dives, then runs its lane at `RAM_V` (34 m/s); 14% + 12, three men; a throw across the lane - the heaviest, the one a helm can sail out of |
+| Breaching Ram | 1 | lane, 18 m wide | 3.6 s | dives, then runs its lane at `RAM_V` (34 m/s); 14% + 12, three men; a throw across the lane - the heaviest, the one a helm can sail out of; chosen at a ship within 170 m, its lane's reach (`ramReach`, 171 m - AUDIT SERPENT 2 F7) |
 | Rising Maw | 1 | disc, 20 m | 3.2 s | dives, and bursts up under its mark, running in on it the last `BREACH_LEAD_MS` (1.2 s); 7% + 8, two men; a throw |
 | Venom Spit | 1 | disc, 13 m | 2.6 s | a glob flies `SPIT_FLIGHT_MS`; 1.5% + 2 and a man; a venom pool stays 9 s and bites anyone standing in it (2% of their health + 1, each second) |
 | Constrict | 2 | ring, 36 m | 4.8 s | the coil (below) |
@@ -168,7 +169,9 @@ small boat feels the points more than a carrack does. Braced, her hull and canva
 of any ball (AUDIT SERPENT B6). A shape meets a ship at her bow, her middle or her stern, with her beam as slack
 (`shipPoints`), because a carrack is fifty metres long. The ram meets her only once its head has run as far as she lies
 (`shapeMeets` at `t`), but its **MOVE** is said for a ship anywhere down its lane as it winds (B2). The coil's ring,
-laid where the relay saw her helm, meets her if any of her lies inside it (B5).
+laid where the relay saw her helm, meets her if any of her lies inside it (B5). A landing is judged on its own moment
+or not at all: one this machine first sees (or comes back to) more than `LAND_JUDGE_MS` (500 ms) after it landed - a
+ship sailing in on its recovery, a stalled frame - strikes nothing, its venom laid all the same (AUDIT SERPENT 2 F4).
 
 **The throw** (`shoveOf`) pushes her away from the blow (across the ram's lane) and dies away over `SHOVE_S` (2.5 s).
 It is carried by Come Sail Away's new `drift` seam (section 7).
@@ -222,10 +225,14 @@ socket reaches it (`net/online.js` `sendSerpent(word, cell)`, `serpentReady(cell
 **One fight a site** (AUDIT SERPENT S1). The site is the client's word, so a cell keeps a fight for each site named to
 it (`serpentFightId`: `day@site`), at most `SERPENT_SITES_MAX` (3) a day, each under its own storage key
 (`serpent:<id>`, the ids under `serpents`). An account fights at one site a day in a cell. A fourth site stands only in
-the place of a fight over and told, or of one nobody has a part in and at most one ship keeps; otherwise it is refused
-*the waters are full*. A socket whose `in` named a site hears that site's fight alone (a ship refused a seat still
-watches it); a fighter hears its own; any other socket hears a fight within `FAN_R` only while no other fight of its
-day stands about it, so no client folds two serpents into one. A client folds a whole state of its own site alone, too.
+the place of one sounded, or of one nobody has a part in and nobody keeps about its waters; otherwise it is refused
+*the waters are full*. A slain serpent is never let go while its waters stand open, so an `in` that missed the hub's
+word finds it slain, never a new one at full health (AUDIT SERPENT 2 F6). A socket whose `in` named a site hears that
+site's fight alone (a ship refused a seat still watches it); a fighter hears its own; any other socket hears every
+fight within `FAN_R`. AUDIT SERPENT 2 F1: **every word a fight fans names its site** (`sx`/`sz`), and a client folds
+its own site's alone (`net/serpentLink.js`) - so a socket of a client's in another cell (a halo), hearing a forged
+site's fight by its pose there, never folds it into the client's own; S1's "no other fight about the pose", which could
+not see another cell, is gone.
 
 **The brain** (`net/serpentBrain.js`) is pure law: no clock of its own, an `rng` handed in, no I/O. The relay
 (`server/src/index.js`) owns the sockets, the alarm, the storage and the receipts:
@@ -233,7 +240,9 @@ day stands about it, so no client folds two serpents into one. A client folds a 
 - **The beat** steps it every `SERPENT_TICK_MS` (250 ms) on the cell's alarm. The cell's own duties (the raids, the
   rite, the world's memory) still run every `SERPENT_REST_MS` (5 s) and on their own firings. The alarm is the
   sooner of the two (`_alarmRest`), and a cell with no serpent keeps its alarm as before.
-- **The checkpoint** goes to storage every `SERPENT_CHECKPOINT_MS` (2 s) as plain numbers and strings, so a woken
+- **The checkpoint** goes to storage every `SERPENT_CHECKPOINT_MS` (2 s) while the fight is stepped (at once on a join,
+  the kill, the hub's answer and the sounding; a slain or sounded fight is still and not written again - AUDIT
+  SERPENT 2 F8) as plain numbers and strings, so a woken
   object steps on as the one that slept. Its attack numbers are carried `SERPENT_WAKE_SEQ` (50) past the checkpoint's
   (`serpentWoke` - S9), so no client takes a new attack for one it already lived through. The fight is forgotten
   `SERPENT_KEEP_MS` (2 h) after its dive.
@@ -247,7 +256,8 @@ day stands about it, so no client folds two serpents into one. A client folds a 
 deck (`hl`, -1 aboard none of its own - B4/H2), and the site). The level is never above the token's own character
 level (`cl` - E4). A later `in` claiming a bigger hull takes the old share out and brings the new one in at the
 fraction it stands at, its bucket empty; the level stays the first claim's. Only an `in` from within `ENGAGE_R` counts
-as being at the fight (S8). The relay refuses:
+as being at the fight (S8) - a newcomer's too: one whose first `in` is from farther joins with her share out of its
+health, and the first beat that finds her at the fight brings it in (AUDIT SERPENT 2 F5). The relay refuses:
 
 - an older law, with `reload`;
 - another day, with *the serpent is gone*;
@@ -260,8 +270,10 @@ as being at the fight (S8). The relay refuses:
 - a site in another cell, as junk.
 
 Every other word (`hit`, `wr`, `held`, `esc`) goes to the fight its account fights in here; from an account no fight
-counts (a ship refused a seat, her volleys already in the air) it is not heard - never junk (S7). The client stops its
-volleys after a refusal that holds for the day (`SERPENT_BARS`).
+counts (a ship refused a seat, her volleys already in the air) it is not heard - never junk (S7). The client never
+bars itself on a refusal: the relay's hearing is the one bar, so a ship let in by her next `in` fires and is heard
+(AUDIT SERPENT 2 F3 - `SERPENT_BARS` held 'the serpent is gone', said also to an `in` a moment before the rising, and
+muted that ship for the day).
 
 **The wreck** (`wr`, T2). Her machine says when her ship wrecks, and when she floats again. A wreck's share leaves its
 health; it no longer goes at her; her stood time still counts.
@@ -308,7 +320,8 @@ under the pins. Its job:
   asked for again (M5).
 - **My balls on it.** The naval host (`scenes/navalHost.js`) adds its exposed segments to the shots' targets as
   `serpent:<segment>`. A ball or barrel of MINE that strikes one gives its gun's own harm (my Guns refit's with it) to
-  `struck`. The host gathers them for `HIT_GATHER_MS` (500 ms) into one `hit` word per zone: the head while it is
+  `struck`. The targets are made once a frame, at the frame's moment (AUDIT SERPENT 2 F9). The host gathers them for
+  `HIT_GATHER_MS` (500 ms) into one `hit` word per zone: the head while it is
   thrown up, a coil while one holds, otherwise the body; a word the socket would not take is said with the next (L3).
   Anyone else's balls are their own machine's to say. Its segments carry their way (`v`, scene m/s), so the guns lead
   it as they lead a ship (T4); they redden the broadside's aim, count as hits in the volley's tally (L2), and count as
@@ -423,9 +436,10 @@ After the kill the bar holds a moment and fades.
   from where its own pose stands. A hull claim can be a lie: the health it brings grows with it, and its bucket fills
   at 1.5 times its reference, so a forged claim buys a kill some three to six times faster than honest fire, never the
   twelve to twenty of the first numbers (T5). A claim never backed by fire leaves the health after 90 s (E3).
-- A forged site stands a fight of its own (one a site, three a day in a cell), heard by no honest client; its kill is
-  said for its own site alone. A squat of all three sites, each kept by two accounts or a part, refuses a fourth that
-  day in that cell - the bound left. The account service counts one serpent per (day, account) whatever site it was
+- A forged site stands a fight of its own (one a site, three a day in a cell), folded by no honest client - every
+  word names its site (AUDIT SERPENT 2 F1); its kill is said for its own site alone. A squat of all three sites, each
+  kept by a ship about its waters or a part, refuses a fourth that day in that cell - the bound left (F6 chose it over
+  a lone honest fight torn down and reborn). The account service counts one serpent per (day, account) whatever site it was
   fought at.
 - A level claim is never above the token's character level.
 - The struck ship's hurts never leave its machine. A client that ignores a blow cheats only itself (co-op's law).
@@ -464,8 +478,11 @@ After the kill the bar holds a moment and fades.
   four hosts' wiring.
 - The audit's pins: `test/serpent1_audit.test.js` (12, the brain), `test/serpent1_auditrelay.test.js` (6, the relay and
   the hub), `test/serpent1_auditclient.test.js` (7, the host, the omen, the render, the claims, the cards, the words and
-  the wiring) and `test/serpent1_auditbooks.test.js` (6, the books lens's own).
-- Mutants: `tools/mutants/serpent1.json` (43) and `tools/mutants/serpent1_audit.json` (155), all dead.
+  the wiring) and `test/serpent1_auditbooks.test.js` (6, the books lens's own); AUDIT SERPENT 2's
+  `test/serpent1_audit2.test.js` (9 - the site on every word, one timeline, no bar, a landing on its moment, a far
+  newcomer, the slain and the lone ship kept, the ram's reach, the still fight unwritten, the targets once a frame).
+- Mutants: `tools/mutants/serpent1.json` (43), `tools/mutants/serpent1_audit.json` (149 - eleven re-aimed by AUDIT
+  SERPENT 2, six retired with the code or law it changed) and `tools/mutants/serpent1_audit2.json` (14), all dead.
 
 See also: `World-Bosses.md` (the gate, whose law this follows at sea), `03-World/Naval-Combat.md` (the guns, the
 hull and the seams it reaches).

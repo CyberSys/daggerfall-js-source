@@ -10,14 +10,13 @@
 // her stern (a carrack is fifty metres long - a disc that takes her stern takes her).
 //
 // PURE. Not a DFU member. Ledger A (SERPENT1).
-import { SERPENT_ATTACK_TABLE, SERPENT_ATTACK_BY_ID, CRUSH, GRIP, MAEL_R, MAEL_EYE_R, MAEL_PULL, MAEL_SWIRL, MAEL_GRIND, SPIT_FLIGHT_MS, ramLen, RAM_V } from '../net/serpentBrain.js';
+import { SERPENT_ATTACK_TABLE, SERPENT_ATTACK_BY_ID, CRUSH, GRIP, MAEL_R, MAEL_EYE_R, MAEL_PULL, MAEL_SWIRL, MAEL_GRIND, SPIT_FLIGHT_MS, ramLen, RAM_V, serpentWrapYaw } from '../net/serpentBrain.js';
 
 /** The points of her a shape is tested at: her bow, her middle and her stern. */
 export function shipPoints(boat) {
   const fx = Math.sin(boat.yw) * boat.hl, fz = Math.cos(boat.yw) * boat.hl;
   return [[boat.x + fx, boat.z + fz], [boat.x, boat.z], [boat.x - fx, boat.z - fz]];
 }
-const wrap = (a) => { let x = (a + Math.PI) % (2 * Math.PI); if (x < 0) x += 2 * Math.PI; return x - Math.PI; };
 
 /**
  * Does attack `atk` (its word - net/serpentBrain.js serpentAtkFrame) meet ship `boat` at `t`? The lane is the ram's: its head
@@ -34,7 +33,7 @@ export function shapeMeets(atk, boat, t = atk?.at ?? 0) {
     case 'rings': return pts.some(([x, z]) => { const d = Math.hypot(x - cx, z - cz); return d >= A.r0 - boat.hw && d <= A.r1 + boat.hw; });
     case 'sector': return pts.some(([x, z]) => {
       const d = Math.hypot(x - cx, z - cz);
-      return d <= A.r + boat.hw && (d < 1 || Math.abs(wrap(Math.atan2(x - cx, z - cz) - atk.yw)) <= (A.arc * Math.PI) / 360);
+      return d <= A.r + boat.hw && (d < 1 || Math.abs(serpentWrapYaw(Math.atan2(x - cx, z - cz) - atk.yw)) <= (A.arc * Math.PI) / 360);
     });
     case 'lane': {
       const [bx, bz] = atk.tg[1] ?? atk.tg[0];

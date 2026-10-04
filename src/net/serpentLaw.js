@@ -20,7 +20,7 @@
 //
 // Not a DFU member: Daggerfall has no other players and no sea serpent. Ledger A (SERPENT1).
 import { sharedClassicMinutes, wallMsForClassicMinutes } from './wire.js';
-import { gateHash } from './gateLaw.js';
+import { gateHash, PIXEL_M } from './gateLaw.js';
 
 /** Classic minutes in a game day (gameDate.js MINUTES_PER_DAY - pinned equal; the relay's graph stays flat). */
 export const SERPENT_DAY_MINUTES = 1440;
@@ -150,8 +150,7 @@ export const serpentAlongOf = (day, i) => SERPENT_ALONG[0] + unit(day, 200 + i) 
 /** The way it first swims as it rises, radians about y (0 north - the site frame's facing law). */
 export const serpentRiseYaw = (day) => unit(day, 7) * 2 * Math.PI;
 
-/** A map pixel's side, metres (gateLaw.js SERPENT_PIXEL_M - pinned equal), and native units to the metre (40: 32768 a pixel). */
-export const SERPENT_PIXEL_M = 819.2;
+/** Native units to the metre (40: wire.js PIXEL_UNITS, 32768, over gateLaw.js PIXEL_M, a map pixel's 819.2 m - pinned equal). */
 export const SERPENT_NATIVE_PER_M = 40;
 /** AUDIT SERPENT S1: A SITE'S NAME - its native point to the whole unit (every honest client finds the same point; the
  *  relay keeps one fight a name, and a client hears the kill of its own site's serpent alone). */
@@ -169,7 +168,7 @@ export const SERPENT_RING_SHIFT_PIXELS = 1.2;
  * @param {number} day @param {number} sx @param {number} sz the site, native units
  */
 export function serpentRing(day, sx, sz) {
-  const gx = sx / (SERPENT_PIXEL_M * SERPENT_NATIVE_PER_M), gy = 500 - sz / (SERPENT_PIXEL_M * SERPENT_NATIVE_PER_M);
+  const gx = sx / (PIXEL_M * SERPENT_NATIVE_PER_M), gy = 500 - sz / (PIXEL_M * SERPENT_NATIVE_PER_M);
   const a = unit(day, 8) * 2 * Math.PI, r = Math.sqrt(unit(day, 9)) * SERPENT_RING_SHIFT_PIXELS;
   return { cx: gx + Math.cos(a) * r, cy: gy + Math.sin(a) * r, r: SERPENT_RING_PIXELS, gx, gy };
 }

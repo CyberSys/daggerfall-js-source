@@ -83,6 +83,26 @@ export function supersede(list, at) {
   for (let i = list.length - 1; i >= 0; i--) if (list[i].at > at) list.splice(i, 1);
   return list;
 }
+/** Two legs alike in every number the wire carries. */
+export const sameLeg = (a, b) => a.at === b.at && a.k === b.k && a.x === b.x && a.z === b.z && a.yw === b.yw && a.v === b.v && (a.r ?? 0) === (b.r ?? 0) && (a.sd ?? 0) === (b.sd ?? 0) && !!a.j === !!b.j;
+/** A mode already ridden by `b`'s moment (`a` is the track's last, so begun by then). */
+export const sameMode = (a, b) => a.m === b.m && a.at <= b.at;
+/**
+ * AUDIT SERPENT 2 F2: A WORD ON THE TIMELINE, the relay's (serpentBrain.js pushLeg, pushMode) and every client's
+ * (net/serpentLink.js) alike: the one rule applied (supersede), then `entry` kept unless the track already ends on it
+ * (`same`). The client used to ask whether it held the word BEFORE superseding, and the relay kept a second 'deep now'
+ * after dropping a surfacing still to come: every client took that word for one it had and kept the surfacing the
+ * relay had dropped - its serpent drawn up and struck at for seconds while the relay held it under. Answers whether the
+ * track changed.
+ */
+export function onTimeline(list, entry, same) {
+  const had = list.length;
+  supersede(list, entry.at);
+  const last = list[list.length - 1];
+  if (last && same(last, entry)) return list.length !== had;
+  list.push(entry);
+  return true;
+}
 /** The leg swum at `t` (the last begun by then), its index, or -1 before the first. */
 export function legIndexAt(legs, t) {
   for (let i = legs.length - 1; i >= 0; i--) if (legs[i].at <= t) return i;

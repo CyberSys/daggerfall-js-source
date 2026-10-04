@@ -14531,3 +14531,9 @@ The design and the record are `11-Multiplayer/Sea-Serpent.md`. What it asks of t
 - Pins: `test/serpent1_law.test.js`, `test/serpent1_relay.test.js`, `test/serpent1_client.test.js`. Mutants:
   `tools/mutants/serpent1.json` (43, all dead). Re-aimed by content: `auditrealm2_client.json` (2), `eventtip.json`,
   `gatekeys.json`, `gateux.json`, `raid4.json`, `seapeace.json`, `survtiers3.json` (2) and `wb12d.json`.
+- **AUDIT SERPENT 2** (`01-Overview/Audit-Sea-Serpent.md`): every word a fight fans names its site (`sx`/`sz` on every
+  `serpent` frame of a fight; `validSerpentOut` projects it) and the client folds its own site's alone - a forged
+  site's fight heard on a halo socket in the next cell never reads as the client's serpent; a socket about two fights
+  hears both. A refusal no longer mutes the client; the cell's other changes are the brain's and the room's (one
+  timeline rule, the far newcomer, the slain kept, a still fight unwritten). Pins: `test/serpent1_audit2.test.js`;
+  mutants: `tools/mutants/serpent1_audit2.json` (14, all dead).

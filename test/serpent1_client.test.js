@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { findSerpentSite, sitePixelOfNative, openAround, pointAlong, SITE_LANE_MIN_M, SITE_PIXEL } from '../src/systems/serpentSite.js';
+import { findSerpentSite, sitePixelOfNative, openAround, pointAlong, SITE_LANE_MIN_M } from '../src/systems/serpentSite.js';
 import { serpentTimes, isSerpentDay, serpentRing, SERPENT_RING_PIXELS, SERPENT_DIVE_MS, SERPENT_BRAIN_V, SERPENT_NATIVE_PER_M } from '../src/net/serpentLaw.js';
 import { foldSerpent, createSerpentLink, SERPENT_STATE_EMPTY, SERPENT_NO_TEXT } from '../src/net/serpentLink.js';
 import { mintSerpentReceipt } from '../src/net/serpentReceipt.js';
@@ -40,12 +40,12 @@ const TT = serpentTimes(DAY);
 // ═══ WHERE IT RISES ═══════════════════════════════════════════════════════════════════════════════
 
 /** A made sea: ports on map pixels, a straight way between each pair in native units (seaLanes.js's own shape). */
-const nativeOf = (px, py) => ({ x: (px + 0.5) * SITE_PIXEL, z: (499 - py + 0.5) * SITE_PIXEL });
+const nativeOf = (px, py) => ({ x: (px + 0.5) * PIXEL_UNITS, z: (499 - py + 0.5) * PIXEL_UNITS });
 const port = (name, px, py, region = 17) => ({ name, region, road: { x: px, y: py } });
 const laneOf = (key, a, b) => ({ key, a, b });
 const wayOf = (lane) => {
   const pts = [nativeOf(lane.a.road.x, lane.a.road.y), nativeOf(lane.b.road.x, lane.b.road.y)];
-  return { pts, len: (Math.hypot(pts[1].x - pts[0].x, pts[1].z - pts[0].z) / SITE_PIXEL) * 819.2 };
+  return { pts, len: (Math.hypot(pts[1].x - pts[0].x, pts[1].z - pts[0].z) / PIXEL_UNITS) * 819.2 };
 };
 
 test('SERPENT1 site: on a packet lane, in its middle stretch, in open sea every way about it - the same site for every client on a day, the nearer port naming it, both ports on its card, its ring rolled about it; a lane too short or a sea closed is no site at all (mutants: the open law skipped; the lane\'s length unasked; the farther port named)', () => {
@@ -126,12 +126,11 @@ test('SERPENT1 link: a word before any whole state is nothing; the state replace
 });
 
 test('SERPENT1 link: a refusal said once until the fight is left; a receipt kept once a day, unsigned or not; the hub\'s kill said once a day; a whole state naming a kill never heard keeps it for the omen, unsaid (mutants: the refusal said every word; a receipt handed twice; the state\'s kill said or lost)', async () => {
-  const said = [], fells = [], rcpts = [], refused = [];
+  const said = [], fells = [], rcpts = [];
   let now = T0;
-  const L = createSerpentLink({ now: () => now, say: (t) => said.push(t), onFell: (d, f) => fells.push([d, f.at]), onReceipt: (r) => rcpts.push(r), onRefused: (w) => refused.push(w) });
+  const L = createSerpentLink({ now: () => now, say: (t) => said.push(t), onFell: (d, f) => fells.push([d, f.at]), onReceipt: (r) => rcpts.push(r) });
   L.word({ k: 'no', m: 'too far from its waters' }); L.word({ k: 'no', m: 'too far from its waters' });
   assert.deepEqual(said, [SERPENT_NO_TEXT['too far from its waters']]);
-  assert.equal(refused.length, 2, 'every refusal heard by the host');
   L.leave(); L.word({ k: 'no', m: 'too far from its waters' });
   assert.equal(said.length, 2, 'said again once the fight is left');
   const r = await mintSerpentReceipt({ d: DAY, b: 'sethrakul', s: 'acct-0001', c: 7, x: 'dealt', h: 4, l: 20 }, null, { nowS: 1_800_000_000 });
@@ -234,7 +233,14 @@ test('AUDIT SERPENT S1: a kill is its SITE\'s - the hub\'s word of another site\
   assert.equal(L.fellAt(DAY, OTHER), T0 + 5);
   L.word(validSerpentOut({ ...st, sx: OTHER.sx, h: 1 }));
   assert.equal(L.state().sx, SX, 'another site\'s whole state is not mine');
-  L.word({ k: 'fell', at: T0 + 9, top: ['Ama'], n: 1 });   // the cell's own word, no site: its fight's
+  // AUDIT SERPENT 2 F1: a word of a fight names its site - one of no site, or another site's, is nothing to my fight
+  const was = L.state();
+  L.word(validSerpentOut({ k: 'hp', h: 1, m: was.max }));
+  L.word(validSerpentOut({ k: 'hp', h: 1, m: was.max, ...OTHER }));
+  L.word({ k: 'fell', at: T0 + 7, top: ['Ama'], n: 1 });
+  assert.equal(L.state(), was, 'neither folded');
+  assert.equal(L.fellAt(DAY, SITE), null);
+  L.word({ k: 'fell', at: T0 + 9, top: ['Ama'], n: 1, sx: SX, sz: SZ });   // the cell's own word, its site its fight's
   assert.equal(L.fellAt(DAY, SITE), T0 + 9);
   assert.deepEqual(fells.at(-1), [DAY, SX]);
   assert.equal(L.state().fell.at, T0 + 9);
@@ -297,7 +303,7 @@ const OFF = [1000, 2000];
 function rig({ shipAt = [60, 0], acct = 'acct-0001' } = {}) {
   let now = T0;
   const sent = [], strikes = [], sounds = [], fx = [], mids = [], says = [], hurts = [];
-  const link = createSerpentLink({ now: () => now });
+  const link = createSerpentLink({ now: () => now, site: () => SITE });
   const sw = { day: DAY, site: { sx: SX, sz: SZ }, phase: 'hunt', t: TT };
   const boat = { id: 'mine' };
   const ship = { at: [...shipAt], yaw: 0, atHelm: true, none: false, wrecked: false };
@@ -314,7 +320,8 @@ function rig({ shipAt = [60, 0], acct = 'acct-0001' } = {}) {
     hurt: (pct, base, el) => hurts.push([pct, base, el]),
     say: (t) => says.push(t), mid: (t) => mids.push(t), sound: (k, p) => sounds.push([k, p]), fx: (k, p) => fx.push([k, p]),
   });
-  const hear = (w) => { const v = validSerpentOut(w); assert.ok(v, `the wire passes ${w.k}`); link.word(v); };
+  // the cell's word as the relay fans it - its fight's site stamped on it (AUDIT SERPENT 2 F1)
+  const hear = (w) => { const v = validSerpentOut(w.k === 'no' || w.k === 'rcpt' || w.sx !== undefined ? w : { ...w, sx: SX, sz: SZ }); assert.ok(v, `the wire passes ${w.k}`); link.word(v); };
   return { host, link, sent, strikes, sounds, fx, mids, says, hurts, boat, ship, hear, sw, at: () => now, step: (ms) => { now += ms; return host.frame(); } };
 }
 

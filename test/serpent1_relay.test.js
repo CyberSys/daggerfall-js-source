@@ -170,12 +170,16 @@ const IN = (o = {}) => ({ k: 'in', d: DAY, bv: SERPENT_BRAIN_V, lv: 20, hl: 4, s
 const FIGHT_AT = `${SERPENT_FIGHT_KEY}:${serpentFightId(DAY, serpentSiteKey(SX, SZ))}`;
 const fightIn = (r) => r.room._serpents?.get(serpentFightId(DAY, serpentSiteKey(SX, SZ))) ?? null;
 async function withSea(fn, { start = TT.riseAt + 20_000 } = {}) {
-  const realNow = Date.now; let clock = start; Date.now = () => clock;
-  const world = fakeRooms({ now: () => clock });
-  const r = world.room(CELL);
-  const tick = async (n = 1) => { for (let i = 0; i < n; i++) { clock += SERPENT_TICK_MS; if (r.alarm.at != null && clock >= r.alarm.at) await r.fire(); } };
-  const say = (ws, o) => r.raw(ws, JSON.stringify({ t: 'serpent', ...o }));
-  try { await fn({ world, r, tick, say, now: () => clock, set: (t) => { clock = t; } }); } finally { Date.now = realNow; }
+  // AUDIT SERPENT 2: Date.now patched INSIDE the try - a setup that throws never leaves every later pin on this clock
+  const realNow = Date.now; let clock = start;
+  try {
+    Date.now = () => clock;
+    const world = fakeRooms({ now: () => clock });
+    const r = world.room(CELL);
+    const tick = async (n = 1) => { for (let i = 0; i < n; i++) { clock += SERPENT_TICK_MS; if (r.alarm.at != null && clock >= r.alarm.at) await r.fire(); } };
+    const say = (ws, o) => r.raw(ws, JSON.stringify({ t: 'serpent', ...o }));
+    await fn({ world, r, tick, say, now: () => clock, set: (t) => { clock = t; } });
+  } finally { Date.now = realNow; }
 }
 
 test('SERPENT1 relay: THE JOIN - `in` from a pose by its waters stands the fight in the cell at the site it names and answers the whole state to the one who said it, the VERIFIED account joined with its hull\'s share; the beat goes on the cell\'s alarm and its words reach every fighter and every socket within FAN_R - none past it (mutants: the state fanned to all; the frame\'s name credited; the fan unbounded)', async () => {

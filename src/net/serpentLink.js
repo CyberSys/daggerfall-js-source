@@ -7,12 +7,14 @@
 //
 // PURE in its fold (`foldSerpent`): a state and a word in, the next state out. The link around it keeps the state, the
 // falls by day and site (the hub says each site's kill to everyone online - AUDIT SERPENT S1: a forged site's is not
-// this machine's serpent's) and the receipts by day, and says a refusal in words once.
+// this machine's serpent's) and the receipts by day, and says a refusal in words once. AUDIT SERPENT 2 F1: every word
+// of a fight names its site (the relay stamps each - server/src/index.js _serpentFan) and only this machine's own
+// site's is folded.
 //
 // Not a DFU member. Ledger A (SERPENT1).
 import { readSerpentReceipt } from './serpentReceipt.js';
 import { pruneLegs } from './serpentBrain.js';
-import { MODES_KEPT, LEGS_KEPT, supersede } from './serpentBody.js';
+import { MODES_KEPT, LEGS_KEPT, onTimeline, sameLeg, sameMode } from './serpentBody.js';
 import { serpentSiteKey, sameSerpentSite } from './serpentLaw.js';
 
 /**
@@ -29,7 +31,6 @@ export const SERPENT_STATE_EMPTY = Object.freeze({
 
 /** AUDIT SERPENT S4/M1: a coil still holding let go at `at` - a dead or sounded serpent grips nothing. */
 const letGo = (c, at) => (c && !(c.off > 0) ? { ...c, off: at } : c);
-const sameLeg = (a, b) => a.at === b.at && a.k === b.k && a.x === b.x && a.z === b.z && a.yw === b.yw && a.v === b.v && !!a.j === !!b.j;
 
 /**
  * One word folded into the state. `st` replaces everything it names (a coil already seen broken keeps who broke it);
@@ -50,20 +51,18 @@ export function foldSerpent(s, w, now) {
   }
   if (s.day === null) return s;
   switch (w.k) {
-    // AUDIT SERPENT S2: THE TIMELINE'S ONE RULE, the relay's own (serpentBody.js supersede) - a word supersedes every leg or
+    // AUDIT SERPENT S2: THE TIMELINE'S ONE RULE, the relay's own (serpentBody.js onTimeline) - a word supersedes every leg or
     // mode still to come after it, so this track is the relay's, word for word, and the body drawn here is the one it judges
     case 'sw': {
-      if (s.legs.some((l) => sameLeg(l, w.l))) return s;
-      const f = { legs: supersede([...s.legs], w.l.at) };
-      f.legs.push(w.l);
+      const f = { legs: [...s.legs] };
+      if (!onTimeline(f.legs, w.l, sameLeg)) return s;
       pruneLegs(f, now);
       while (f.legs.length > LEGS_KEPT * 2) f.legs.shift();
       return { ...s, legs: f.legs, heardAt: now };
     }
     case 'dv': {
-      if (s.modes.some((d) => d.at === w.at && d.m === w.m)) return s;
-      const modes = supersede([...s.modes], w.at);
-      modes.push({ at: w.at, m: w.m });
+      const modes = [...s.modes];
+      if (!onTimeline(modes, { at: w.at, m: w.m }, sameMode)) return s;
       return { ...s, modes: modes.slice(-MODES_KEPT), heardAt: now };
     }
     case 'atk': return { ...s, atk: { i: w.i, a: w.a, at: w.at, x: w.x, z: w.z, yw: w.yw, tg: w.tg, ...(w.s ? { s: w.s } : {}) }, heardAt: now };
@@ -77,7 +76,6 @@ export function foldSerpent(s, w, now) {
     case 'mael': return { ...s, mael: { at: w.at, x: w.x, z: w.z }, heardAt: now };
     case 'fell': {
       if (w.d !== undefined && w.d !== s.day) return s;
-      if (w.sx !== undefined && !sameSerpentSite(w, s)) return s;   // AUDIT SERPENT S1: another site's serpent
       if (s.fell) return w.dm && !s.fell.dm ? { ...s, fell: { ...s.fell, dm: w.dm }, heardAt: now } : s;
       return { ...s, fell: { at: w.at, top: w.top, n: w.n, ...(w.dm ? { dm: w.dm } : {}) }, hp: 0, atk: null, coil: letGo(s.coil, w.at), heardAt: now };
     }
@@ -100,13 +98,15 @@ const fallKey = (day, site) => `${day}|${serpentSiteKey(site.sx, site.sz)}`;
 
 /**
  * The link: the state, the falls by day and site and the receipts by day, and the words said. `site` this machine's
- * own site for the day (systems/serpentSite.js, null unknown): a whole state of another site's fight is not folded
- * (AUDIT SERPENT S1 - the relay says one fight to a socket; this is the client's own guard). `onFell` hears each kill
- * once, with the site it fell at.
+ * own site for the day (systems/serpentSite.js, null unknown). AUDIT SERPENT 2 F1: ONLY ITS OWN SITE'S WORDS ARE FOLDED -
+ * every word of a fight names the site it is of (the relay stamps each, the hub's kill its own), and one naming no
+ * site, another site or none this machine knows is not its serpent's: a socket of mine in a neighbouring cell heard a
+ * forged site's fight by its pose there, and its kill (which named no site) was filed as mine - my serpent read as
+ * slain, its blows struck at my ship in my site's frame. `onFell` hears each kill once, with the site it fell at.
  * @param {{now: () => number, say?: (text: string) => void, onFell?: (day: number, fell: any, site: {sx: number, sz: number}) => void,
- *   onReceipt?: (receipt: string) => void, onRefused?: (why: string) => void, site?: () => ({day: number, sx: number, sz: number}|null)}} deps
+ *   onReceipt?: (receipt: string) => void, site?: () => ({day: number, sx: number, sz: number}|null)}} deps
  */
-export function createSerpentLink({ now, say = () => {}, onFell = () => {}, onReceipt = () => {}, onRefused = () => {}, site = () => null }) {
+export function createSerpentLink({ now, say = () => {}, onFell = () => {}, onReceipt = () => {}, site = () => null }) {
   /** @type {Readonly<SerpentState>} */
   let state = SERPENT_STATE_EMPTY;
   const falls = new Map();
@@ -116,18 +116,19 @@ export function createSerpentLink({ now, say = () => {}, onFell = () => {}, onRe
     /** A word from the cell or the hub. */
     word(w) {
       if (!w) return;
-      if (w.k === 'no') { if (!refused.has(w.m)) { refused.add(w.m); say(SERPENT_NO_TEXT[w.m] ?? w.m); } onRefused(w.m); return; }
+      if (w.k === 'no') { if (!refused.has(w.m)) { refused.add(w.m); say(SERPENT_NO_TEXT[w.m] ?? w.m); } return; }
       if (w.k === 'rcpt') { const c = readSerpentReceipt(w.r); if (c && !receipts.has(c.d)) { receipts.set(c.d, w.r); onReceipt(w.r); } return; }
-      if (w.k === 'st') { const mine = site(); if (mine && mine.day === w.d && !sameSerpentSite(mine, w)) return; }
-      if (w.k === 'fell') {
-        // the hub's names its site; the cell's own is its fight's
-        const day = w.d ?? state.day;
-        const at = w.sx !== undefined ? { sx: w.sx, sz: w.sz } : state.day === day ? { sx: state.sx, sz: state.sz } : null;
-        if (Number.isSafeInteger(day) && at && !falls.has(fallKey(day, at))) { const f = { at: w.at, top: w.top, n: w.n }; falls.set(fallKey(day, at), f); onFell(day, f, at); }
+      // a kill, any site's, kept by its day and site (the hub's names its day; the cell's is the day of the fight here)
+      const mine = site();
+      if (w.k === 'fell' && w.sx !== undefined) {
+        const day = w.d ?? (mine && sameSerpentSite(mine, w) ? state.day ?? mine.day : null);
+        if (Number.isSafeInteger(day) && !falls.has(fallKey(day, w))) { const f = { at: w.at, top: w.top, n: w.n }; falls.set(fallKey(day, w), f); onFell(day, f, { sx: w.sx, sz: w.sz }); }
       }
       // a whole state naming a kill this link never heard said (a ship sailing in on a serpent slain while it was away,
       // a hub that missed the word): kept for the omen, unsaid - the bar says it
       if (w.k === 'st' && w.fell && Number.isSafeInteger(w.d) && !falls.has(fallKey(w.d, w))) falls.set(fallKey(w.d, w), { at: w.fell.at, top: w.fell.top, n: w.fell.n });
+      // a word of no site's fight, another site's, or one this machine knows no site for: not its serpent's
+      if (!mine || !sameSerpentSite(mine, w)) return;
       state = foldSerpent(state, w, now());
     },
     state: () => state,

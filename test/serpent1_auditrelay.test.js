@@ -39,19 +39,23 @@ function surfaced(f, now) {
   return f;
 }
 async function withSea(fn, { start = TT.riseAt + 20_000 } = {}) {
-  const realNow = Date.now; let clock = start; Date.now = () => clock;
-  const world = fakeRooms({ now: () => clock });
-  const r = world.room(CELL);
-  const tick = async (n = 1) => { for (let i = 0; i < n; i++) { clock += SERPENT_TICK_MS; if (r.alarm.at != null && clock >= r.alarm.at) await r.fire(); } };
-  const say = (ws, o) => r.raw(ws, JSON.stringify({ t: 'serpent', ...o }));
-  try { await fn({ world, r, tick, say, now: () => clock, set: (t) => { clock = t; } }); } finally { Date.now = realNow; }
+  // AUDIT SERPENT 2: Date.now patched INSIDE the try - a setup that throws never leaves every later pin on this clock
+  const realNow = Date.now; let clock = start;
+  try {
+    Date.now = () => clock;
+    const world = fakeRooms({ now: () => clock });
+    const r = world.room(CELL);
+    const tick = async (n = 1) => { for (let i = 0; i < n; i++) { clock += SERPENT_TICK_MS; if (r.alarm.at != null && clock >= r.alarm.at) await r.fire(); } };
+    const say = (ws, o) => r.raw(ws, JSON.stringify({ t: 'serpent', ...o }));
+    await fn({ world, r, tick, say, now: () => clock, set: (t) => { clock = t; } });
+  } finally { Date.now = realNow; }
 }
 const signer = async () => {
   const kp = await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
   return Buffer.from(await subtle.exportKey('pkcs8', kp.privateKey)).toString('base64');
 };
 
-test('AUDIT SERPENT S1: ONE FIGHT A SITE - a forged site in the same cell stands a fight of its own; a socket that said its `in` hears its own site\'s fight alone, one that said none hears no fight while two stand about it; each kill reaches the hub naming its site, and the hub keeps and says each (mutants: one fight a cell; the fan by distance alone; the site left off the kill; the hub keeping one kill)', async () => {
+test('AUDIT SERPENT S1: ONE FIGHT A SITE - a forged site in the same cell stands a fight of its own; a socket that said its `in` hears its own site\'s fight alone, one that said none hears both, each word naming its site (AUDIT SERPENT 2 F1); each kill reaches the hub naming its site, and the hub keeps and says each (mutants: one fight a cell; the fan by distance alone; the site left off the kill; the hub keeping one kill)', async () => {
   assert.equal(cellRoomOfWire(B.sx, B.sz), CELL, 'the forged site is in the same cell');
   assert.ok(Math.hypot(A.sx - B.sx, A.sz - B.sz) / SERPENT_NATIVE_PER_M < FAN_R, 'and about the true one\'s waters');
   assert.notEqual(serpentSiteKey(A.sx, A.sz), serpentSiteKey(B.sx, B.sz));
@@ -77,10 +81,13 @@ test('AUDIT SERPENT S1: ONE FIGHT A SITE - a forged site in the same cell stands
     await tick(Math.ceil(SERPENT_OPENING_MS / SERPENT_TICK_MS) + 24);
     const heard = (ws) => words(ws).filter((m) => m.k !== 'st').map(({ t, ...w }) => w);
     assert.ok(heard(a).some((w) => w.k === 'atk'), 'the true fight struck');
-    const said = (s) => fanned.get(idOf(s)).filter((w) => w.k !== 'st');
-    assert.deepEqual(heard(a), said(A), 'the true site\'s socket heard its own fight, every word, and nothing of the other');
+    const said = (s) => fanned.get(idOf(s)).filter((w) => w.k !== 'st').map((w) => ({ ...w, sx: s.sx, sz: s.sz }));
+    assert.deepEqual(heard(a), said(A), 'the true site\'s socket heard its own fight, every word naming its site, and nothing of the other');
     assert.deepEqual(heard(x), said(B));
-    assert.equal(words(mid).length, 0, 'a socket that said no site, between two fights, hears neither');
+    const both = heard(mid);
+    assert.deepEqual(both.filter((w) => w.sx === A.sx), said(A), 'a socket that said no site, between two fights, hears both - each word naming its own');
+    assert.deepEqual(both.filter((w) => w.sx === B.sx), said(B));
+    assert.equal(both.length, said(A).length + said(B).length);
     // the forged kill: said for its own site
     surfaced(fb, now()); fb.hp = 5;
     await say(x, { k: 'hit', d: 40, z: 0 });
@@ -118,21 +125,22 @@ test('AUDIT SERPENT S1: a ship refused a seat, between two fights, watches the o
     for (let i = 0; i < 40; i++) { set(now() + SERPENT_TICK_MS); if (r.alarm.at != null && now() >= r.alarm.at) await r.fire(); }
     const heard = words(late).slice(n).map(({ t, ...w }) => w);
     assert.ok(heard.length > 0, 'it hears');
-    assert.deepEqual(heard, fanned.get(idOf(A)), 'its own site\'s fight, word for word');
+    assert.deepEqual(heard, fanned.get(idOf(A)).map((w) => ({ ...w, sx: A.sx, sz: A.sz })), 'its own site\'s fight, word for word');
   });
 });
 
-test('AUDIT SERPENT S1: AT MOST SERPENT_SITES_MAX SITES A DAY, ONE AN ACCOUNT - an account fighting at one site is refused another; a fourth site is refused while every fight is kept, and stands in the place of one over and told or one nobody keeps (mutants: no cap; a fight with a part let go; an over fight kept; an account at two sites)', async () => {
+test('AUDIT SERPENT S1: AT MOST SERPENT_SITES_MAX SITES A DAY, ONE AN ACCOUNT - an account fighting at one site is refused another; a fourth site is refused while every fight is kept - a slain one too (AUDIT SERPENT 2 F6) - and stands in the place of one nobody keeps (mutants: no cap; a fight with a part let go; an account at two sites)', async () => {
   assert.equal(SERPENT_SITES_MAX, 3);
   await withSea(async ({ r, say, now, set }) => {
     const site = (k) => ({ sx: A.sx + k * 30 * SERPENT_NATIVE_PER_M, sz: A.sz });
     const socks = [];
     for (let k = 0; k < 4; k++) { const ws = r.connect(); await r.hello(ws, `peer-000${k + 1}`, at(site(k), 0, 40)); socks.push(ws); }
-    for (let k = 0; k < 3; k++) await say(socks[k], IN(site(k)));
-    assert.equal(r.room._serpents.size, 3);
-    await say(socks[0], IN(site(3)));
+    for (let k = 0; k < 2; k++) await say(socks[k], IN(site(k)));
+    await say(socks[0], IN(site(3)));   // room for a third site - but not hers
     assert.deepEqual(words(socks[0]).at(-1), { t: 'serpent', k: 'no', m: 'the waters are full' }, 'one site an account a day');
     assert.equal(fightAt(r, site(3)), null);
+    await say(socks[2], IN(site(2)));
+    assert.equal(r.room._serpents.size, 3);
     for (let k = 0; k < 3; k++) fightAt(r, site(k)).players[`acct-peer-000${k + 1}`].dealt = 1e6;   // each kept by a part in it
     await say(socks[3], IN(site(3)));
     assert.deepEqual(words(socks[3]).at(-1), { t: 'serpent', k: 'no', m: 'the waters are full' }, 'a fourth site, every fight kept');
@@ -140,16 +148,20 @@ test('AUDIT SERPENT S1: AT MOST SERPENT_SITES_MAX SITES A DAY, ONE AN ACCOUNT - 
     const f1 = fightAt(r, site(1));
     f1.fell = { at: now(), top: [], n: 1 }; f1.said = true; f1.told = true;
     await say(socks[3], IN(site(3)));
-    assert.ok(fightAt(r, site(3))?.players['acct-peer-0004'], 'stood in the place of the fight over and told');
-    assert.equal(fightAt(r, site(1)), null);
-    assert.equal(r.store.has(`${SERPENT_FIGHT_KEY}:${idOf(site(1))}`), false, 'and forgotten in storage');
-    assert.deepEqual(r.store.get(SERPENT_FIGHTS_KEY).sort(), [0, 2, 3].map((k) => idOf(site(k))).sort());
-    // a fight nobody has a part in, kept by one ship alone, gives way
+    assert.equal(words(socks[3]).at(-1).m, 'the waters are full', 'a slain fight kept while its waters stand open');
+    assert.equal(fightAt(r, site(1)), f1);
+    // a fight with a part in it is kept though nobody stands about its waters now...
+    await r.drop(socks[2]);
+    await say(socks[3], IN(site(3)));
+    assert.equal(words(socks[3]).at(-1).m, 'the waters are full', 'a part keeps it');
+    assert.ok(fightAt(r, site(2)));
+    // ...and one nobody has a part in and nobody keeps gives way
     fightAt(r, site(2)).players['acct-peer-0003'].dealt = 0;
-    const e = r.connect(); await r.hello(e, 'peer-0007', at(site(4), 0, 40));
-    await say(e, IN(site(4)));
-    assert.ok(fightAt(r, site(4)), 'the idle fight gave way');
+    await say(socks[3], IN(site(3)));
+    assert.ok(fightAt(r, site(3))?.players['acct-peer-0004'], 'stood in the place of the idle fight');
     assert.equal(fightAt(r, site(2)), null);
+    assert.equal(r.store.has(`${SERPENT_FIGHT_KEY}:${idOf(site(2))}`), false, 'and forgotten in storage');
+    assert.deepEqual(r.store.get(SERPENT_FIGHTS_KEY).sort(), [0, 1, 3].map((k) => idOf(site(k))).sort());
     // a site after the storm has closed its waters stands nothing
     r.room._serpents.delete(idOf(site(0)));
     const g = r.connect(); await r.hello(g, 'peer-0008', at(site(5), 0, 40));

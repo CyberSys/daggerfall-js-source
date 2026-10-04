@@ -141,29 +141,33 @@
   {
     "name": "AUDIT-SERPENT-S2-supersede-legs",
     "file": "src/net/serpentBrain.js",
-    "old": "  supersede(f.legs, leg.at);\n",
-    "new": "",
+    "old": "  if (!onTimeline(f.legs, leg, sameLeg)) return leg;\n",
+    "new": "  f.legs.push(leg);\n",
     "tests": [
       "test/serpent1_audit.test.js"
-    ]
+    ],
+    "note": "AUDIT SERPENT 2 (re-aimed by content): the rule is serpentBody.js onTimeline's, the relay's legs pushed through it."
   },
   {
     "name": "AUDIT-SERPENT-S2-supersede-modes",
     "file": "src/net/serpentBrain.js",
-    "old": "supersede(f.modes, Math.round(at));",
-    "new": "",
+    "old": "  if (!onTimeline(f.modes, d, sameMode)) return;\n",
+    "new": "  f.modes.push(d);\n",
     "tests": [
       "test/serpent1_audit.test.js"
-    ]
+    ],
+    "note": "AUDIT SERPENT 2 (re-aimed by content): the relay's modes pushed through onTimeline."
   },
   {
     "name": "AUDIT-SERPENT-S2-mode-said-away",
-    "file": "src/net/serpentBrain.js",
-    "old": "if (f.modes.length === had && cur && cur.m === m && cur.at <= at) return;",
-    "new": "if (cur && cur.m === m && cur.at <= at) return;",
+    "file": "src/net/serpentBody.js",
+    "old": "if (last && same(last, entry)) return list.length !== had;",
+    "new": "if (last && same(last, entry)) return false;",
     "tests": [
-      "test/serpent1_audit.test.js"
-    ]
+      "test/serpent1_audit.test.js",
+      "test/serpent1_audit2.test.js"
+    ],
+    "note": "AUDIT SERPENT 2 (re-aimed by content): a mode still to come taken away is said away - onTimeline answers that the track changed."
   },
   {
     "name": "AUDIT-SERPENT-S6-yaw-wrap",
@@ -286,20 +290,22 @@
   {
     "name": "AUDIT-SERPENT-S2-link-legs",
     "file": "src/net/serpentLink.js",
-    "old": "const f = { legs: supersede([...s.legs], w.l.at) };",
-    "new": "const f = { legs: [...s.legs] };",
+    "old": "      if (!onTimeline(f.legs, w.l, sameLeg)) return s;\n",
+    "new": "      f.legs.push(w.l);\n",
     "tests": [
       "test/serpent1_audit.test.js"
-    ]
+    ],
+    "note": "AUDIT SERPENT 2 (re-aimed by content): the client's fold through onTimeline."
   },
   {
     "name": "AUDIT-SERPENT-S2-link-modes",
     "file": "src/net/serpentLink.js",
-    "old": "const modes = supersede([...s.modes], w.at);",
-    "new": "const modes = [...s.modes];",
+    "old": "      if (!onTimeline(modes, { at: w.at, m: w.m }, sameMode)) return s;\n",
+    "new": "      modes.push({ at: w.at, m: w.m });\n",
     "tests": [
       "test/serpent1_audit.test.js"
-    ]
+    ],
+    "note": "AUDIT SERPENT 2 (re-aimed by content): the client's fold through onTimeline."
   },
   {
     "name": "AUDIT-SERPENT-S4-link-fell-lets-go",
@@ -321,22 +327,15 @@
     ]
   },
   {
-    "name": "AUDIT-SERPENT-S1-fold-site",
-    "file": "src/net/serpentLink.js",
-    "old": "if (w.sx !== undefined && !sameSerpentSite(w, s)) return s;",
-    "new": "",
-    "tests": [
-      "test/serpent1_client.test.js"
-    ]
-  },
-  {
     "name": "AUDIT-SERPENT-S1-link-state-guard",
     "file": "src/net/serpentLink.js",
-    "old": "if (w.k === 'st') { const mine = site(); if (mine && mine.day === w.d && !sameSerpentSite(mine, w)) return; }",
+    "old": "      if (!mine || !sameSerpentSite(mine, w)) return;\n",
     "new": "",
     "tests": [
-      "test/serpent1_client.test.js"
-    ]
+      "test/serpent1_client.test.js",
+      "test/serpent1_audit2.test.js"
+    ],
+    "note": "AUDIT SERPENT 2 (re-aimed by content): F1 made the whole state's guard every word's: only this machine's own site's is folded."
   },
   {
     "name": "AUDIT-SERPENT-S1-fall-key",
@@ -448,28 +447,10 @@
     ]
   },
   {
-    "name": "AUDIT-SERPENT-S7-barred-hits",
-    "file": "src/scenes/serpentHost.js",
-    "old": "if (barred !== sw.day) for (const [z, d] of pending)",
-    "new": "for (const [z, d] of pending)",
-    "tests": [
-      "test/serpent1_auditclient.test.js"
-    ]
-  },
-  {
     "name": "AUDIT-SERPENT-T2-wreck-said",
     "file": "src/scenes/serpentHost.js",
     "old": "if (deps.online?.send?.({ k: 'wr', w }, cellRoomOfWire(sw.site.sx, sw.site.sz))) wreckSaid = w;",
     "new": "",
-    "tests": [
-      "test/serpent1_auditclient.test.js"
-    ]
-  },
-  {
-    "name": "AUDIT-SERPENT-S7-barred-wreck",
-    "file": "src/scenes/serpentHost.js",
-    "old": "if (!b || barred === sw.day) return;",
-    "new": "if (!b) return;",
     "tests": [
       "test/serpent1_auditclient.test.js"
     ]
@@ -534,15 +515,6 @@
     "file": "src/scenes/serpentHost.js",
     "old": "if (lastPhase !== null && s.ph > lastPhase)",
     "new": "if (s.ph > (lastPhase ?? 1))",
-    "tests": [
-      "test/serpent1_auditclient.test.js"
-    ]
-  },
-  {
-    "name": "AUDIT-SERPENT-S7-refused-bars",
-    "file": "src/scenes/serpentHost.js",
-    "old": "refused(why) { if (live && SERPENT_BARS.includes(why)) barred = live.day; },",
-    "new": "refused(why) {},",
     "tests": [
       "test/serpent1_auditclient.test.js"
     ]
@@ -668,21 +640,25 @@
   {
     "name": "AUDIT-SERPENT-S1-wire-fell-half-site",
     "file": "src/net/wire.js",
-    "old": "if (site && !(finite(m.sx) && finite(m.sz) && Math.abs(m.sx) <= POSE_BOUND && Math.abs(m.sz) <= POSE_BOUND)) return null;",
-    "new": "if (site && !(finite(m.sx) && Math.abs(m.sx) <= POSE_BOUND)) return null;",
+    "old": ": finite(m.sx) && finite(m.sz) && Math.abs(m.sx) <= POSE_BOUND && Math.abs(m.sz) <= POSE_BOUND ? { sx: m.sx, sz: m.sz } : null);",
+    "new": ": finite(m.sx) && Math.abs(m.sx) <= POSE_BOUND ? { sx: m.sx, sz: m.sz } : null);",
     "tests": [
-      "test/serpent1_relay.test.js"
-    ]
+      "test/serpent1_relay.test.js",
+      "test/serpent1_auditrelay.test.js"
+    ],
+    "note": "AUDIT SERPENT 2 (re-aimed by content): the site is every fight word's (spSite), the kill's with them."
   },
   {
     "name": "AUDIT-SERPENT-S1-wire-fell-site-carried",
     "file": "src/net/wire.js",
-    "old": "...(site ? { sx: m.sx, sz: m.sz } : {}), ...(near",
-    "new": "...(near",
+    "old": "  return w ? { ...w, ...at } : null;",
+    "new": "  return w;",
     "tests": [
       "test/serpent1_relay.test.js",
-      "test/serpent1_auditrelay.test.js"
-    ]
+      "test/serpent1_auditrelay.test.js",
+      "test/serpent1_audit2.test.js"
+    ],
+    "note": "AUDIT SERPENT 2 (re-aimed by content): every fight word carries its site, the kill's with them."
   },
   {
     "name": "AUDIT-SERPENT-S1-hears-sps",
@@ -696,11 +672,13 @@
   {
     "name": "AUDIT-SERPENT-S1-hears-one",
     "file": "server/src/index.js",
-    "old": "for (const [other, o] of fights) if (other !== id && o.day === f.day && about(o)) return false;",
-    "new": "",
+    "old": "JSON.stringify({ t: 'serpent', ...fr, sx: f.sx, sz: f.sz })",
+    "new": "JSON.stringify({ t: 'serpent', ...fr })",
     "tests": [
-      "test/serpent1_auditrelay.test.js"
-    ]
+      "test/serpent1_auditrelay.test.js",
+      "test/serpent1_audit2.test.js"
+    ],
+    "note": "AUDIT SERPENT 2 (re-aimed by content): F1 replaced 'no other fight about the pose' (which could not reach another cell's) with the site stamped on every word the fight fans; a socket about two hears both, each naming its own."
   },
   {
     "name": "AUDIT-SERPENT-S1-one-site-account",
@@ -716,15 +694,6 @@
     "file": "server/src/index.js",
     "old": "if (today.length < SERPENT_SITES_MAX) return true;",
     "new": "return true;",
-    "tests": [
-      "test/serpent1_auditrelay.test.js"
-    ]
-  },
-  {
-    "name": "AUDIT-SERPENT-S1-evict-over",
-    "file": "server/src/index.js",
-    "old": "const over = today.find(([, f]) => (f.fell && f.said && f.told) || (f.gone && !f.fell));",
-    "new": "const over = null;",
     "tests": [
       "test/serpent1_auditrelay.test.js"
     ]
@@ -868,20 +837,22 @@
   {
     "name": "AUDIT-SERPENT-S5-hub-hands",
     "file": "server/src/index.js",
-    "old": "for (const [sub, { ws }] of newest) this._send(ws, JSON.stringify({ t: 'serpent', k: 'rcpt', r: rc.get(sub).r }));",
+    "old": "    for (const [sub, [ws]] of this._siegeSockets()) if (handed.has(sub) && !here.has(sub)) this._send(ws, JSON.stringify({ t: 'serpent', k: 'rcpt', r: rc.get(sub).r }));\n",
     "new": "",
     "tests": [
       "test/serpent1_auditrelay.test.js"
-    ]
+    ],
+    "note": "AUDIT SERPENT 2 (re-aimed by content): the newest socket an account's by the roll call's _siegeSockets (F10)."
   },
   {
     "name": "AUDIT-SERPENT-S5-hub-skips-here",
     "file": "server/src/index.js",
-    "old": "if (!b.sub || !handed.has(b.sub) || here.has(b.sub)) continue;",
-    "new": "if (!b.sub || !handed.has(b.sub)) continue;",
+    "old": "if (handed.has(sub) && !here.has(sub)) this._send(ws, JSON.stringify({ t: 'serpent', k: 'rcpt'",
+    "new": "if (handed.has(sub)) this._send(ws, JSON.stringify({ t: 'serpent', k: 'rcpt'",
     "tests": [
       "test/serpent1_auditrelay.test.js"
-    ]
+    ],
+    "note": "AUDIT SERPENT 2 (re-aimed by content): the newest socket an account's by _siegeSockets (F10)."
   },
   {
     "name": "AUDIT-SERPENT-S1-fells-per-site",
@@ -1005,15 +976,6 @@
     "file": "src/scenes/world.js",
     "old": "ready: (cell) => navalOn() && !!online?.serpentReady?.(cell)",
     "new": "ready: (cell) => !!online?.serpentReady?.(cell)",
-    "tests": [
-      "test/serpent1_auditclient.test.js"
-    ]
-  },
-  {
-    "name": "AUDIT-SERPENT-S7-world-refused",
-    "file": "src/scenes/world.js",
-    "old": "onRefused: (why) => serpentHost?.refused?.(why),",
-    "new": "",
     "tests": [
       "test/serpent1_auditclient.test.js"
     ]
