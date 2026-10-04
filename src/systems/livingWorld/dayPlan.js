@@ -19,8 +19,8 @@
 // window ARMED (LW0 decision 5 - the host draws the class sprite).
 import { NAV_CELL } from '../../world/cityNavigation.js';
 import { BUILDING_TYPES } from '../../world/buildingNames.js';
-import { lwRng, lwSeed, rangeInt, pickOf } from './seed.js';
-import { isShop } from './census.js';
+import { lwRng, lwSeed, rollInt, pickOf } from './seed.js';
+import { hasShopJob } from './census.js';
 import { exitNearest } from './places.js';
 
 /** The living day turns at 04:00 (minutes after midnight). */
@@ -91,7 +91,7 @@ export function favourites(res, places, home) {
     temple: near(buildingDoors(places, isType(BUILDING_TYPES.Temple), home)),
     guild: near(buildingDoors(places, isType(BUILDING_TYPES.GuildHall), home)),
     market: near(market) ?? places.square,
-    shops: buildingDoors(places, isShop, home),
+    shops: buildingDoors(places, hasShopJob, home),
   };
 }
 
@@ -126,21 +126,21 @@ export function dayPlan(res, places, day, { mpm, away = [], visitor = false, hom
     const a = spots[Math.floor(rng() * spots.length)];
     let b = spots[Math.floor(rng() * spots.length)];
     if (b === a) b = spots[(spots.indexOf(a) + 1) % spots.length];
-    I('social', a, from, rangeInt(rng, 6, 15));
-    I('market', b, from + 20, rangeInt(rng, 6, 15));
+    I('social', a, from, rollInt(rng, 6, 15));
+    I('market', b, from + 20, rollInt(rng, 6, 15));
   };
   const evening = (from = h(18)) => {
-    if (res.social > 0.3) I('social', pickOf(rng, fav.social.length ? fav.social : [null]), from, rangeInt(rng, 30, 90));
-    if (res.drink > 0.55 && rng() < 0.75) I('tavern', fav.tavern, from + 60, rangeInt(rng, 90, 180));
-    else if (res.pious > 0.7 && rng() < 0.6) I('temple', fav.temple, from + 30, rangeInt(rng, 30, 60));
+    if (res.social > 0.3) I('social', pickOf(rng, fav.social.length ? fav.social : [null]), from, rollInt(rng, 30, 90));
+    if (res.drink > 0.55 && rng() < 0.75) I('tavern', fav.tavern, from + 60, rollInt(rng, 90, 180));
+    else if (res.pious > 0.7 && rng() < 0.6) I('temple', fav.temple, from + 30, rollInt(rng, 30, 60));
     else if (res.social > 0.75 && rng() < 0.3) {
       const houses = buildingDoors(places, (t) => t >= BUILDING_TYPES.House1 && t <= BUILDING_TYPES.House6, null).filter((s) => s !== home);
-      if (houses.length) I('visit', houses[Math.floor(rng() * houses.length)], from + 45, rangeInt(rng, 60, 120));
+      if (houses.length) I('visit', houses[Math.floor(rng() * houses.length)], from + 45, rollInt(rng, 60, 120));
     }
   };
   const errand = (from) => {
-    if (rng() < 0.5 && fav.shops.length) I('shop', fav.shops[Math.floor(rng() * Math.min(4, fav.shops.length))], from, rangeInt(rng, 15, 35));
-    else I('market', fav.market, from, rangeInt(rng, 20, 40));
+    if (rng() < 0.5 && fav.shops.length) I('shop', fav.shops[Math.floor(rng() * Math.min(4, fav.shops.length))], from, rollInt(rng, 15, 35));
+    else I('market', fav.market, from, rollInt(rng, 20, 40));
   };
   const job = visitor ? 'visitor' : res.job;
   switch (job) {
@@ -157,27 +157,27 @@ export function dayPlan(res, places, day, { mpm, away = [], visitor = false, hom
     }
     case 'crafter': {
       if (rng() < 0.7) errand(h(9));
-      if (rng() < 0.5) I('stall', places.square ?? fav.market, h(13), rangeInt(rng, 60, 150));   // their wares at the square
+      if (rng() < 0.5) I('stall', places.square ?? fav.market, h(13), rollInt(rng, 60, 150));   // their wares at the square
       else if (rng() < 0.5) errand(h(14));
       evening();
       break;
     }
     case 'homemaker': {
-      I('market', fav.market, h(8.5 + rng()), rangeInt(rng, 45, 90));
+      I('market', fav.market, h(8.5 + rng()), rollInt(rng, 45, 90));
       errand(h(11));
       if (res.social > 0.5) stroll(h(13));
-      if (res.pious > 0.6) I('temple', fav.temple, h(15), rangeInt(rng, 30, 60));
-      if (res.social > 0.3) I('social', pickOf(rng, fav.social.length ? fav.social : [null]), h(16), rangeInt(rng, 45, 120));
+      if (res.pious > 0.6) I('temple', fav.temple, h(15), rollInt(rng, 30, 60));
+      if (res.social > 0.3) I('social', pickOf(rng, fav.social.length ? fav.social : [null]), h(16), rollInt(rng, 45, 120));
       evening(h(18.5));
       break;
     }
     case 'labourer': case 'courier': {
       let t = h(7);
-      for (let i = 0, n = rangeInt(rng, 3, 5); i < n; i++) {
+      for (let i = 0, n = rollInt(rng, 3, 5); i < n; i++) {
         const shop = fav.shops.length && rng() < 0.3;
         const spots = [...places.market, ...places.social];
         I(shop ? 'work' : 'stall', shop ? fav.shops[Math.floor(rng() * fav.shops.length)] : (spots.length ? spots[Math.floor(rng() * spots.length)] : null),
-          t, rangeInt(rng, 25, 60));
+          t, rollInt(rng, 25, 60));
         t += 120;
         if (i === 1 && rng() < 0.3) I('tavern', fav.tavern, h(12), 30);
       }
@@ -192,8 +192,8 @@ export function dayPlan(res, places, day, { mpm, away = [], visitor = false, hom
     case 'fisher': case 'sailor': {
       const dock = places.dock.length ? places.dock[lwSeed(res.town, res.slot) % places.dock.length] : null;
       I(dock ? 'dock' : 'fields', dock ?? exitNearest(places, home.cell), h(job === 'sailor' ? 6 : 5.5), 450, h(job === 'sailor' ? 15 : 13));
-      if (job === 'fisher') I('stall', places.square ?? fav.market, h(14), rangeInt(rng, 60, 90));
-      if (job === 'sailor' && res.drink > 0.3) I('tavern', fav.tavern, h(16), rangeInt(rng, 120, 240));
+      if (job === 'fisher') I('stall', places.square ?? fav.market, h(14), rollInt(rng, 60, 90));
+      if (job === 'sailor' && res.drink > 0.3) I('tavern', fav.tavern, h(16), rollInt(rng, 120, 240));
       evening(h(18.5));
       break;
     }
@@ -204,18 +204,18 @@ export function dayPlan(res, places, day, { mpm, away = [], visitor = false, hom
       break;
     }
     case 'innkeeper': case 'server': {
-      if (rng() < 0.6) I('market', fav.market, h(10.5), rangeInt(rng, 30, 45));
+      if (rng() < 0.6) I('market', fav.market, h(10.5), rollInt(rng, 30, 45));
       I('work', work ?? home, h(11), 900, bed);
       break;
     }
     case 'priest': {
-      if (rng() < 0.4) I('social', fav.temple ? (places.social.find((s) => s.building === fav.temple?.building) ?? null) : null, h(8), rangeInt(rng, 30, 60));
-      if (rng() < 0.3) I('market', fav.market, h(10), rangeInt(rng, 20, 30));
+      if (rng() < 0.4) I('social', fav.temple ? (places.social.find((s) => s.building === fav.temple?.building) ?? null) : null, h(8), rollInt(rng, 30, 60));
+      if (rng() < 0.3) I('market', fav.market, h(10), rollInt(rng, 20, 30));
       I('work', work ?? home, h(11), 600, bed);
       break;
     }
     case 'courtier': {
-      if (rng() < 0.35) I('social', places.square, h(15), rangeInt(rng, 30, 60));
+      if (rng() < 0.35) I('social', places.square, h(15), rollInt(rng, 30, 60));
       break;
     }
     case 'guard': {
@@ -224,7 +224,7 @@ export function dayPlan(res, places, day, { mpm, away = [], visitor = false, hom
       const beat = guardBeat(res, places, day);
       let t = from;
       for (let i = 0; beat.length && t < until && i < 64; i++) {
-        I('watch', beat[i % beat.length], t, rangeInt(rng, 3, 8), until, Infinity);
+        I('watch', beat[i % beat.length], t, rollInt(rng, 3, 8), until, Infinity);
         t += 1;   // each stop follows the last as soon as the walk to it allows
       }
       if (shift === 0) evening(h(18));
@@ -233,40 +233,40 @@ export function dayPlan(res, places, day, { mpm, away = [], visitor = false, hom
     case 'merchant': {
       I('stall', places.square ?? fav.market, h(8), 300, h(13));
       I('tavern', fav.tavern, h(13), 45);
-      for (let i = 0; i < 2 && fav.shops.length; i++) I('shop', fav.shops[Math.floor(rng() * fav.shops.length)], h(14.5 + i), rangeInt(rng, 30, 50));
-      I('tavern', fav.tavern, h(19), rangeInt(rng, 120, 200));
+      for (let i = 0; i < 2 && fav.shops.length; i++) I('shop', fav.shops[Math.floor(rng() * fav.shops.length)], h(14.5 + i), rollInt(rng, 30, 50));
+      I('tavern', fav.tavern, h(19), rollInt(rng, 120, 200));
       break;
     }
     case 'mercenary': {
-      I('social', places.square ?? fav.social[0] ?? null, h(10), rangeInt(rng, 60, 120));
+      I('social', places.square ?? fav.social[0] ?? null, h(10), rollInt(rng, 60, 120));
       I('tavern', fav.tavern, h(13), 60);
-      I('guild', fav.guild, h(15), rangeInt(rng, 60, 120));
-      I('tavern', fav.tavern, h(19), rangeInt(rng, 120, 240));
+      I('guild', fav.guild, h(15), rollInt(rng, 60, 120));
+      I('tavern', fav.tavern, h(19), rollInt(rng, 120, 240));
       break;
     }
     case 'adventurer': {
-      if (rng() < 0.3) I('temple', fav.temple, h(9), rangeInt(rng, 20, 40));
+      if (rng() < 0.3) I('temple', fav.temple, h(9), rollInt(rng, 20, 40));
       const outfitters = buildingDoors(places, (t) => t === BUILDING_TYPES.Armorer || t === BUILDING_TYPES.WeaponSmith || t === BUILDING_TYPES.Alchemist, home);
-      if (outfitters.length && rng() < 0.6) I('shop', outfitters[Math.floor(rng() * Math.min(3, outfitters.length))], h(10), rangeInt(rng, 30, 60));
+      if (outfitters.length && rng() < 0.6) I('shop', outfitters[Math.floor(rng() * Math.min(3, outfitters.length))], h(10), rollInt(rng, 30, 60));
       I('guild', fav.guild, h(11.5), 60);
-      I('social', places.square ?? fav.social[0] ?? null, h(14), rangeInt(rng, 60, 120));
-      I('tavern', fav.tavern, h(18.5), rangeInt(rng, 180, 300));
+      I('social', places.square ?? fav.social[0] ?? null, h(14), rollInt(rng, 60, 120));
+      I('tavern', fav.tavern, h(18.5), rollInt(rng, 180, 300));
       break;
     }
     case 'pilgrim': {
       I('temple', fav.temple, h(7), 60);
-      I('market', fav.market, h(10), rangeInt(rng, 30, 60));
+      I('market', fav.market, h(10), rollInt(rng, 30, 60));
       if (res.social > 0.5) stroll(h(12.5));
-      if (res.social > 0.4) I('social', fav.social[0] ?? null, h(15), rangeInt(rng, 30, 60));
+      if (res.social > 0.4) I('social', fav.social[0] ?? null, h(15), rollInt(rng, 30, 60));
       I('temple', fav.temple, h(17), 45);
       break;
     }
     case 'visitor': {
-      I('market', fav.market, h(9), rangeInt(rng, 30, 60));
-      if (fav.shops.length) I('shop', fav.shops[Math.floor(rng() * fav.shops.length)], h(10.5), rangeInt(rng, 30, 60));
-      if (res.pious > 0.5) I('temple', fav.temple, h(13), rangeInt(rng, 30, 45));
-      I('social', places.square ?? fav.social[0] ?? null, h(15), rangeInt(rng, 45, 90));
-      I('tavern', fav.tavern, h(18), rangeInt(rng, 180, 300));
+      I('market', fav.market, h(9), rollInt(rng, 30, 60));
+      if (fav.shops.length) I('shop', fav.shops[Math.floor(rng() * fav.shops.length)], h(10.5), rollInt(rng, 30, 60));
+      if (res.pious > 0.5) I('temple', fav.temple, h(13), rollInt(rng, 30, 45));
+      I('social', places.square ?? fav.social[0] ?? null, h(15), rollInt(rng, 45, 90));
+      I('tavern', fav.tavern, h(18), rollInt(rng, 180, 300));
       break;
     }
     default: evening();
@@ -284,7 +284,7 @@ export function guardBeat(res, places, day) {
   const rng = lwRng(res.town, res.roll.charCodeAt(0), res.slot, day, 0x62656174);   // 'beat'
   const pool = [...places.exits, ...places.social, ...places.market];
   const out = [];
-  for (let i = 0, n = Math.min(pool.length, rangeInt(rng, 4, 6)); i < n; i++) out.push(pool.splice(Math.floor(rng() * pool.length), 1)[0]);
+  for (let i = 0, n = Math.min(pool.length, rollInt(rng, 4, 6)); i < n; i++) out.push(pool.splice(Math.floor(rng() * pool.length), 1)[0]);
   return out;
 }
 

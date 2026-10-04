@@ -65,13 +65,13 @@ export function spotCircles(spotKey, present, t, roundMin) {
  * trades, the reader's weather and hour) a line every `lineMin` of the clock from the round's start, the first member
  * first and each in turn; between lines and after the last, nothing.
  * @param {Circle} circle @param {number} t @param {number} lineMin
- * @param {{ town?: string, region?: string, place?: string, weather?: string|null, hour?: number }} [ctx]
+ * @param {{ town?: string, region?: string, place?: string, weather?: string|null, hour?: number, road?: 'walk'|'camp'|null }} [ctx]
  * @returns {{ who: Talker, text: string, index: number } | null}
  */
 export function circleLine(circle, t, lineMin, ctx = {}) {
   if (!circle?.talks || !(lineMin > 0) || t < circle.start || t >= circle.end) return null;
   const index = Math.floor((t - circle.start) / lineMin);
-  const script = pickScript(circle.seed, { jobs: circle.members.map((m) => m.job), weather: ctx.weather ?? null, hour: ctx.hour ?? 12 });
+  const script = pickScript(circle.seed, { jobs: circle.members.map((m) => m.job), weather: ctx.weather ?? null, hour: ctx.hour ?? 12, road: ctx.road ?? null });
   if (index >= script.length) return null;
   const who = circle.members[index % circle.members.length];
   const other = circle.members[(index + 1) % circle.members.length];

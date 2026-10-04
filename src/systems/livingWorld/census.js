@@ -21,7 +21,7 @@ import { srand, getSeed, setSeed } from '../../formats/dfRandom.js';
 import { BUILDING_TYPES } from '../../world/buildingNames.js';
 import { MOBILE_TYPES } from '../../characters/mobileTypes.js';
 import { seededRng } from '../wind.js';
-import { lwSeed, rangeInt, pickOf, pickWeighted } from './seed.js';
+import { lwSeed, rollInt, pickOf, pickWeighted } from './seed.js';
 
 /** The most residents one town keeps - the households trimmed past it, plain hands first (a city's two hundred houses
  *  would otherwise mint six hundred people, and a day is drawn for each). */
@@ -38,10 +38,10 @@ export const JOBS = Object.freeze({
   server: 'server', priest: 'priest', guildsman: 'guildsman', courtier: 'courtier', guard: 'guard',
   labourer: 'labourer', farmer: 'farmer', fisher: 'fisher', crafter: 'crafter', homemaker: 'homemaker', beggar: 'beggar',
   merchant: 'merchant', mercenary: 'mercenary', adventurer: 'adventurer', sailor: 'sailor', pilgrim: 'pilgrim',
-  courier: 'courier',
+  courier: 'courier', pedlar: 'pedlar',
 });
 /** The jobs that travel (trips.js): the traveller roster's own. */
-export const TRAVELLER_JOBS = Object.freeze(['merchant', 'mercenary', 'adventurer', 'sailor', 'pilgrim', 'courier']);
+export const TRAVELLER_JOBS = Object.freeze(['merchant', 'mercenary', 'adventurer', 'sailor', 'pilgrim', 'courier', 'pedlar']);
 
 /** The shops a keeper keeps, and the trade it makes them. */
 const SHOP_JOB = Object.freeze({
@@ -52,7 +52,7 @@ const SHOP_JOB = Object.freeze({
 });
 /** A building a household lives in: House1-House6 (IsResidence is House1-4; 5 and 6 are lived in all the same). */
 export const isHome = (type) => type >= BUILDING_TYPES.House1 && type <= BUILDING_TYPES.House6;
-export const isShop = (type) => Object.prototype.hasOwnProperty.call(SHOP_JOB, type);
+export const hasShopJob = (type) => Object.prototype.hasOwnProperty.call(SHOP_JOB, type);
 
 /** The classes a traveller of each job walks out in (MOBILE_TYPES 128-145): an adventurer any of the eighteen, a
  *  sellsword the fighting ones, a courier the light-footed. */
@@ -112,11 +112,11 @@ export function mintResident(town, roll, slot, job, at = {}) {
   const w = TEMPER_OF[/** @type {keyof typeof TEMPER_OF} */ (job)] ?? DEFAULT_TEMPER;
   const temper = /** @type {0|1|2} */ (Number(pickWeighted(rng, { 0: w[0], 1: w[1], 2: w[2] }) ?? 1));
   const social = rng(), pious = rng(), drink = rng();
-  let cls = null, level = rangeInt(rng, 1, 5);
+  let cls = null, level = rollInt(rng, 1, 5);
   if (job === 'adventurer') { cls = pickOf(rng, ADVENTURER_CLASSES); level = 1 + Math.floor(19 * Math.pow(rng(), 1.6)); }
-  else if (job === 'mercenary') { cls = pickOf(rng, MERCENARY_CLASSES); level = rangeInt(rng, 3, 14); }
-  else if (job === 'courier') { cls = pickOf(rng, COURIER_CLASSES); level = rangeInt(rng, 2, 8); }
-  else if (job === 'guard') level = rangeInt(rng, 5, 15);
+  else if (job === 'mercenary') { cls = pickOf(rng, MERCENARY_CLASSES); level = rollInt(rng, 3, 14); }
+  else if (job === 'courier') { cls = pickOf(rng, COURIER_CLASSES); level = rollInt(rng, 2, 8); }
+  else if (job === 'guard') level = rollInt(rng, 5, 15);
   return {
     id: `L${town.mapId >>> 0}.${roll === 'h' ? '' : roll}${slot}`,
     town: town.mapId >>> 0, slot, roll,
@@ -138,11 +138,12 @@ export function travellerCounts(town) {
     sailor: town.port ? clamp(2 + Math.floor(b / 10), 2, 6) : 0,
     pilgrim: b >= 2 ? 1 + (b >= 16 ? 1 : 0) : 0,
     courier: b >= 16 ? 1 + (b >= 36 ? 1 : 0) : 0,
+    pedlar: clamp(1 + Math.floor(b / 6), 1, 6),
   };
 }
 
 /** The watch a town of `blocks` keeps: none in a hamlet, two to twelve in a town. @param {LwTown} town */
-export const watchCount = (town) => {
+export const townWatchCount = (town) => {
   const b = Math.max(1, town.blocks | 0);
   return b >= 4 ? Math.max(2, Math.min(12, 1 + Math.floor(b / 4))) : (b >= 2 ? 1 : 0);
 };
@@ -165,7 +166,7 @@ export function travellerRoster(town) {
 /** The town's watch, minted from the row alone too (a crime is answered by a person the player may have met). @param {LwTown} town */
 export function watchRoster(town) {
   const out = [];
-  for (let i = 0, n = watchCount(town); i < n; i++) out.push(mintResident(town, 'w', i, 'guard'));
+  for (let i = 0, n = townWatchCount(town); i < n; i++) out.push(mintResident(town, 'w', i, 'guard'));
   return out;
 }
 
@@ -185,7 +186,7 @@ export function householdCensus(town, buildings) {
   const trades = [];
   for (const b of list) {
     const q = b.quality ?? 0;
-    if (isShop(b.type)) {
+    if (hasShopJob(b.type)) {
       trades.push({ job: SHOP_JOB[b.type], work: b.key, faction: b.factionId ?? 0, livesAt: null });
       if (q >= 12 && rng() < 0.5) trades.push({ job: 'helper', work: b.key, faction: b.factionId ?? 0, livesAt: null });
     } else if (b.type === BUILDING_TYPES.Tavern) {

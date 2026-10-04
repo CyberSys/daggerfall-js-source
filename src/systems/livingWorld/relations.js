@@ -42,7 +42,7 @@ export const EVENTS = Object.freeze({
 /** @typedef {{ r: number, met: number, seen: number, talked: number }} Regard - `met`, `seen`, `talked` days (the clock's day numbers) */
 
 /** The standing a regard reads as. @param {number} r */
-export const standingOf = (r) => (r >= FRIEND_AT ? 'friend' : r <= HOSTILE_AT ? 'hostile' : r <= ENEMY_AT ? 'enemy' : 'neutral');
+export const regardStanding = (r) => (r >= FRIEND_AT ? 'friend' : r <= HOSTILE_AT ? 'hostile' : r <= ENEMY_AT ? 'enemy' : 'neutral');
 
 /**
  * One character's regards.
@@ -76,7 +76,7 @@ export function createRelations(record = null) {
     /** The regard of `id` on `day` (0 for a stranger). @param {string} id @param {number} day */
     regard: (id, day) => { const e = map.get(id); return e ? eased(e, day) : 0; },
     /** 'friend' | 'neutral' | 'enemy' | 'hostile'. @param {string} id @param {number} day */
-    standing(id, day) { return standingOf(this.regard(id, day)); },
+    standing(id, day) { return regardStanding(this.regard(id, day)); },
     /** Whether the player has met `id`. @param {string} id */
     known: (id) => map.has(id),
     /**

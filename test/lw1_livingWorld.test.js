@@ -12,15 +12,15 @@ import { getSeed, setSeed, rand } from '../src/formats/dfRandom.js';
 import { lwSeed, lwRng, pickWeighted, textSeed, LW_SALT } from '../src/systems/livingWorld/seed.js';
 import { hash32 } from '../src/world/spawnedDungeons.js';
 import {
-  travellerCounts, watchCount, travellerRoster, watchRoster, householdCensus, townCensus, mintResident, residentName,
-  raceOfPeople, CENSUS_MAX, ADVENTURER_CLASSES, MERCENARY_CLASSES, COURIER_CLASSES, isHome, isShop,
+  travellerCounts, townWatchCount, travellerRoster, watchRoster, householdCensus, townCensus, mintResident, residentName,
+  raceOfPeople, CENSUS_MAX, ADVENTURER_CLASSES, MERCENARY_CLASSES, COURIER_CLASSES, isHome, hasShopJob,
 } from '../src/systems/livingWorld/census.js';
 import { townPlaces, streetNet, exitToward, exitNearest, SOCIAL_OUT, MARKET_OUT } from '../src/systems/livingWorld/places.js';
 import { findTownPath, pathLine, pointAlong, stepCost, createPathBook } from '../src/systems/livingWorld/townPaths.js';
 import { dayPlan, entryAt, isOutdoor, walkMinutes, schedule, guardBeat, favourites, DAY_START_MIN, DAY_MIN, MIN_STAY, GEAR_MIN, HOME_GAP, WALK_DETOUR, WALK_EXTRA_M } from '../src/systems/livingWorld/dayPlan.js';
 import { spotCircles, circleLine, circleStands, aloneStand, lineMinutes, ROUND_S, TALK_SHARE, CIRCLE_APART } from '../src/systems/livingWorld/meetups.js';
-import { fillLine, firstNameOf, pickScript, TOWN_TALKS, JOB_TALKS, GREETINGS, TOKEN_FALLBACK } from '../src/systems/livingWorld/lines.js';
-import { createRelations, standingOf, EVENTS, FRIEND_AT, ENEMY_AT, HOSTILE_AT, EASE_PER_DAY, RELATIONS_MAX, LIVING_WORLD_VENDOR } from '../src/systems/livingWorld/relations.js';
+import { fillLine, firstNameOf, pickScript, TOWN_TALKS, JOB_TALKS, LIVING_GREETINGS, TOKEN_FALLBACK } from '../src/systems/livingWorld/lines.js';
+import { createRelations, regardStanding, EVENTS, FRIEND_AT, ENEMY_AT, HOSTILE_AT, EASE_PER_DAY, RELATIONS_MAX, LIVING_WORLD_VENDOR } from '../src/systems/livingWorld/relations.js';
 import { CREW_LINE_S } from '../src/systems/naval/crewLife.js';
 import { synthTown } from './lwTown.mjs';
 
@@ -39,17 +39,17 @@ test('LW1 seeds: the port\'s one mix under the living world\'s salt (hash32), mu
   assert.equal(textSeed('a'), Math.imul(0x811c9dc5 ^ 97, 0x01000193) >>> 0);
 });
 
-test('LW1 census: the travellers a town keeps by its size and its port (merchants from two blocks, sellswords from nine, adventurers from four, sailors at a port, pilgrims from two, couriers from sixteen); the watch two to twelve in a town, one in a hamlet of two, none in one (mutants: each threshold and clamp)', () => {
-  const rows = [[1, false], [2, false], [4, false], [8, false], [9, false], [16, true], [36, false], [64, true]].map(([blocks, port]) => [travellerCounts({ mapId: 1, blocks, port }), watchCount({ mapId: 1, blocks })]);
+test('LW1 census: the travellers a town keeps by its size and its port (merchants from two blocks, sellswords from nine, adventurers from four, sailors at a port, pilgrims from two, couriers from sixteen, a pedlar everywhere and one more each six blocks to six - LW3); the watch two to twelve in a town, one in a hamlet of two, none in one (mutants: each threshold and clamp)', () => {
+  const rows = [[1, false], [2, false], [4, false], [8, false], [9, false], [16, true], [36, false], [64, true]].map(([blocks, port]) => [travellerCounts({ mapId: 1, blocks, port }), townWatchCount({ mapId: 1, blocks })]);
   assert.deepEqual(rows, [
-    [{ merchant: 0, mercenary: 0, adventurer: 0, sailor: 0, pilgrim: 0, courier: 0 }, 0],
-    [{ merchant: 1, mercenary: 0, adventurer: 0, sailor: 0, pilgrim: 1, courier: 0 }, 1],
-    [{ merchant: 1, mercenary: 0, adventurer: 1, sailor: 0, pilgrim: 1, courier: 0 }, 2],
-    [{ merchant: 2, mercenary: 0, adventurer: 1, sailor: 0, pilgrim: 1, courier: 0 }, 3],
-    [{ merchant: 2, mercenary: 1, adventurer: 1, sailor: 0, pilgrim: 1, courier: 0 }, 3],
-    [{ merchant: 3, mercenary: 2, adventurer: 2, sailor: 3, pilgrim: 2, courier: 1 }, 5],
-    [{ merchant: 5, mercenary: 4, adventurer: 4, sailor: 0, pilgrim: 2, courier: 2 }, 10],
-    [{ merchant: 5, mercenary: 6, adventurer: 6, sailor: 6, pilgrim: 2, courier: 2 }, 12],
+    [{ merchant: 0, mercenary: 0, adventurer: 0, sailor: 0, pilgrim: 0, courier: 0, pedlar: 1 }, 0],
+    [{ merchant: 1, mercenary: 0, adventurer: 0, sailor: 0, pilgrim: 1, courier: 0, pedlar: 1 }, 1],
+    [{ merchant: 1, mercenary: 0, adventurer: 1, sailor: 0, pilgrim: 1, courier: 0, pedlar: 1 }, 2],
+    [{ merchant: 2, mercenary: 0, adventurer: 1, sailor: 0, pilgrim: 1, courier: 0, pedlar: 2 }, 3],
+    [{ merchant: 2, mercenary: 1, adventurer: 1, sailor: 0, pilgrim: 1, courier: 0, pedlar: 2 }, 3],
+    [{ merchant: 3, mercenary: 2, adventurer: 2, sailor: 3, pilgrim: 2, courier: 1, pedlar: 3 }, 5],
+    [{ merchant: 5, mercenary: 4, adventurer: 4, sailor: 0, pilgrim: 2, courier: 2, pedlar: 6 }, 10],
+    [{ merchant: 5, mercenary: 6, adventurer: 6, sailor: 6, pilgrim: 2, courier: 2, pedlar: 6 }, 12],
   ]);
 });
 
@@ -57,7 +57,8 @@ test('LW1 census: a resident is a DFU townsperson drawn once - the climate\'s pe
   const town = { mapId: 777, blocks: 16, region: 17, people: 2, port: true };
   const roster = travellerRoster(town);
   assert.deepEqual(roster.map((r) => `${r.id}:${r.job}`), ['L777.t0:merchant', 'L777.t1:merchant', 'L777.t2:merchant', 'L777.t3:mercenary', 'L777.t4:mercenary',
-    'L777.t5:adventurer', 'L777.t6:adventurer', 'L777.t7:sailor', 'L777.t8:sailor', 'L777.t9:sailor', 'L777.t10:pilgrim', 'L777.t11:pilgrim', 'L777.t12:courier']);
+    'L777.t5:adventurer', 'L777.t6:adventurer', 'L777.t7:sailor', 'L777.t8:sailor', 'L777.t9:sailor', 'L777.t10:pilgrim', 'L777.t11:pilgrim', 'L777.t12:courier',
+    'L777.t13:pedlar', 'L777.t14:pedlar', 'L777.t15:pedlar']);
   assert.deepEqual(travellerRoster(town).map((r) => r.name), roster.map((r) => r.name), 'the same people for every reader');
   assert.notDeepEqual(travellerRoster({ ...town, mapId: 778 }).map((r) => r.name), roster.map((r) => r.name), 'another town, other people');
   for (const r of roster) {
@@ -115,10 +116,10 @@ test('LW1 census: the households are the town\'s buildings - each house its fami
   assert.equal(big.filter((r) => r.job === 'innkeeper').length, 3);
   const whole = townCensus(TOWN, buildings);
   const guards = whole.filter((r) => r.job === 'guard');
-  assert.equal(guards.length, watchCount(TOWN));
+  assert.equal(guards.length, townWatchCount(TOWN));
   assert.ok(guards.every((g) => g.home === 1007), 'the watch at the palace');
   assert.ok(whole.filter((r) => r.roll === 't').every((r) => homes.includes(r.home) || r.home === 1000), 'a traveller in a house (an adventurer at the tavern)');
-  assert.equal(isShop(BUILDING_TYPES.Bank), true); assert.equal(isShop(BUILDING_TYPES.Temple), false);
+  assert.equal(hasShopJob(BUILDING_TYPES.Bank), true); assert.equal(hasShopJob(BUILDING_TYPES.Temple), false);
 });
 
 test('LW1 places: every door\'s cell is the street-net cell just before it (out along its normal, the other way where the normal faces in); social spots before the tavern, temple, guild hall and palace and the square; market spots before the shops; the square the most open net cell by the middle; an exit per side on the border (mutants: the normal never reversed, the net unread, the square\'s openness, an exit off the border)', () => {
@@ -350,8 +351,8 @@ test('LW1 lines: a token is filled from where and when it is said and a missing 
   assert.ok(JOB_TALKS.smith.every((sc) => all.has(sc)), 'the smith\'s talk is drawn');
   assert.ok([...all].some((sc) => TOWN_TALKS.includes(sc)), 'and the town\'s');
   assert.deepEqual(pickScript(7, { jobs: ['farmer'], weather: 'rain', hour: 19 }), pickScript(7, { jobs: ['farmer'], weather: 'rain', hour: 19 }));
-  for (const k of ['friend', 'known', 'stranger', 'enemy']) assert.ok(GREETINGS[k].length >= 4);
-  assert.ok(GREETINGS.friend.every((g) => g.includes('{player}') || !g.includes('{')), 'a friend may call you by name');
+  for (const k of ['friend', 'known', 'stranger', 'enemy']) assert.ok(LIVING_GREETINGS[k].length >= 4);
+  assert.ok(LIVING_GREETINGS.friend.every((g) => g.includes('{player}') || !g.includes('{')), 'a friend may call you by name');
 });
 
 test('LW1 regards: a stranger reads 0; a word counts once a day, a blow and a crime cost, help and a life saved earn; friend at FRIEND_AT, enemy at ENEMY_AT, hostile at HOSTILE_AT; a regard eases toward zero EASE_PER_DAY a day unseen and never across it; the save\'s record round-trips and a bad one reads as nobody known; the vendor is LivingWorld (mutants: talk counted twice, the ease crossing zero, a bad record kept)', () => {
@@ -375,7 +376,7 @@ test('LW1 regards: a stranger reads 0; a word counts once a day, a blow and a cr
   rel.note('L1.1', 'slain', 5);
   assert.equal(rel.standing('L1.1', 5), 'hostile');
   assert.equal(rel.regard('L1.1', 5), -100, 'clamped');
-  assert.deepEqual([standingOf(40), standingOf(39.9), standingOf(-40), standingOf(-70)], ['friend', 'neutral', 'enemy', 'hostile']);
+  assert.deepEqual([regardStanding(40), regardStanding(39.9), regardStanding(-40), regardStanding(-70)], ['friend', 'neutral', 'enemy', 'hostile']);
   const back = createRelations(JSON.parse(JSON.stringify(rel.snapshot())));
   assert.equal(back.regard('L1.0', 11), rel.regard('L1.0', 11));
   assert.equal(back.regard('L1.1', 5), -100);

@@ -144,8 +144,40 @@ export const NIGHT_TALKS = Object.freeze([
   S('Did you hear something?', 'Just the wind.', '...I hope.'),
 ]);
 
+/** LW3: a party on the road, walking - the train's own talk. */
+export const ROAD_TALKS = Object.freeze([
+  S('How far to {place}?', 'Two days, if the weather holds.', 'It never holds.'),
+  S('My feet are bleeding.', 'Walk on the grass, it\'s softer.', 'Then the snakes get me.'),
+  S('Keep your eyes on the treeline.', 'Bandits?', 'Or worse.'),
+  S('This road used to be safer.', 'Every road used to be safer.'),
+  S('Smell that? Rain coming.', 'Then we camp early.'),
+  S('Did you pack the salt pork?', 'I thought you did.', 'Wonderful.'),
+  S('We\'ll make {place} by nightfall.', 'You said that yesterday.'),
+  S('Sing something.', 'Not unless you want the wolves to come running.'),
+  S('Mind the wheel ruts.', 'I see them.', 'You saw the last one too.'),
+  S('Is that smoke ahead?', 'A farmstead, I hope.', 'Let\'s hope it\'s only a farmstead.'),
+  S('Back home they\'ll be at the tavern by now.', 'And we\'ll be in a ditch. Keep walking.'),
+]);
+/** LW3: a party camped for the night, about its fire. */
+export const CAMP_TALKS = Object.freeze([
+  S('I\'ll take first watch.', 'Wake me if anything moves.', 'Everything moves out here.'),
+  S('Pass the bread.', 'There\'s no bread.', 'Then pass whatever there is.'),
+  S('Hear that howling?', 'Far off. Keep the fire high.'),
+  S('Tell the one about the Wayrest sewer.', 'Not again.', 'Again!'),
+  S('Stars are bright tonight.', 'Good for walking, bad for hiding.'),
+  S('My grandmother said the dead walk on nights like this.', 'Your grandmother said a lot of things.'),
+  S('Get some sleep. Long road tomorrow.', 'Every road is a long road.'),
+]);
+/** LW3: what a traveller says to the player met on the road, by their regard. */
+export const ROAD_GREETINGS = Object.freeze({
+  friend: Object.freeze(['{player}! Well met on the road.', 'Safe travels, {player}.', 'Good to see a friendly face out here, {player}.']),
+  known: Object.freeze(['Safe travels.', 'The road\'s quiet today.', 'Mind yourself out here.']),
+  stranger: Object.freeze(['Traveller.', 'Safe road.', 'Watch the road ahead.', 'Keep your blade close.']),
+  enemy: Object.freeze(['Keep your distance.', 'Walk on.', 'I\'ve nothing for you.']),
+});
+
 /** What a resident says to the player in passing, by their regard (relations.js). */
-export const GREETINGS = Object.freeze({
+export const LIVING_GREETINGS = Object.freeze({
   friend: Object.freeze(['Well met, {player}!', '{player}! Good to see you.', 'Ho, {player}. Keeping safe?', 'There\'s a friendly face.']),
   known: Object.freeze(['Good day.', 'Hello again.', 'You again.', 'Mind how you go.']),
   stranger: Object.freeze(['Good day, stranger.', 'Traveller.', 'Mm.', 'Fine day.']),
@@ -165,19 +197,20 @@ export const firstNameOf = (name) => String(name ?? '').split(' ')[0] || '';
 
 /**
  * A script for two or three speakers: the pools that fit, drawn on `seed`. `jobs` the speakers' trades; `weather` the
- * reader's weather word; `hour` the hour of the day.
- * @param {number} seed @param {{ jobs?: readonly string[], weather?: string|null, hour?: number }} [o]
+ * reader's weather word; `hour` the hour of the day; `road` a party's talk ('walk' on the road, 'camp' at its fire) in
+ * place of the town's.
+ * @param {number} seed @param {{ jobs?: readonly string[], weather?: string|null, hour?: number, road?: 'walk'|'camp'|null }} [o]
  * @returns {readonly string[]}
  */
-export function pickScript(seed, { jobs = [], weather = null, hour = 12 } = {}) {
+export function pickScript(seed, { jobs = [], weather = null, hour = 12, road = null } = {}) {
   const rng = seededRng(seed);
   /** @type {(readonly (readonly string[])[])[]} */
-  const pools = [TOWN_TALKS, TOWN_TALKS];
+  const pools = road === 'camp' ? [CAMP_TALKS, CAMP_TALKS, CAMP_TALKS] : road === 'walk' ? [ROAD_TALKS, ROAD_TALKS, ROAD_TALKS] : [TOWN_TALKS, TOWN_TALKS];
   for (const j of jobs) { const p = JOB_TALKS[/** @type {keyof typeof JOB_TALKS} */ (j)]; if (p) pools.push(p); }
   const w = weather ? WEATHER_TALKS[/** @type {keyof typeof WEATHER_TALKS} */ (weather)] : null;
   if (w) pools.push(w);
-  if (hour >= 18 && hour < 23) pools.push(EVENING_TALKS);
-  if (hour >= 23 || hour < 5) pools.push(NIGHT_TALKS, NIGHT_TALKS);
+  if (!road && hour >= 18 && hour < 23) pools.push(EVENING_TALKS);
+  if (!road && (hour >= 23 || hour < 5)) pools.push(NIGHT_TALKS, NIGHT_TALKS);
   const pool = pools[Math.floor(rng() * pools.length)];
   return pool[Math.floor(rng() * pool.length)];
 }

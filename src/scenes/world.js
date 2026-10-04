@@ -105,6 +105,11 @@ import { livingWorldOn } from '../systems/livingWorld/livingSwitch.js';
 import { createRelations, LIVING_WORLD_VENDOR } from '../systems/livingWorld/relations.js';   // LW2: how the living world regards this character (modData `LivingWorld`)
 import { ResidentWalker } from '../characters/residentWalker.js';
 import { firstNameOf } from '../systems/livingWorld/lines.js';
+import { travellerRoster } from '../systems/livingWorld/census.js';   // LW3: a town's travellers, off its MAPS row alone
+import { townTrips, visitorsOf as tripVisitorsOf, awayOf as tripAwayOf } from '../systems/livingWorld/trips.js';   // LW3: the roads, pure
+import { createWayBook } from '../systems/livingWorld/ways.js';   // LW3: the travellers' ways, planned by the living world itself
+import { createLivingRoads } from './livingRoads.js';   // LW3: the parties on the road near the player
+import { createTravellerSprites, classLookOf } from '../world/travellerSprites.js';   // LW3: their bodies, and the armed walk's sprite
 import { GUARD_TEXTURE, MobilePerson, PERSON_TEXTURES, PERSON_MOVE_SPEED } from '../characters/mobilePerson.js';
 import { bowDamageArrow, weaponOfMaterial, armorOfMaterial } from '../combat/enemyEquipment.js';   // MAC-N1: the recovered shaft is CreateWeapon's arrow, value and all; OH-E: UpgradeLoot's SetItem + ApplyWeaponMaterial / ApplyArmorSettings
 import { createTownTalk, rayPersonDistance, nearestPerson } from './townTalk.js';   // AUDIT 63 F33 (review): the townsfolk's own pick distance, the enemy arm's rival
@@ -2109,6 +2114,97 @@ export async function bootWorld(canvas, renderer, params, status) {
   const ensurePersonTex = () =>
     (_personTexLoad ??= Promise.all(personArchives.map(async (a) => personTex.set(a, await getTexture(a)))));
 
+  // LW3 (bible/06-Systems/Living-World.md): THE LIVING WORLD'S ROADS. The trips are pure (systems/livingWorld/trips.js);
+  // their world is this host's: the towns - the game's OWN rows (a mod's addition stands on one client and not another),
+  // the populated types, each as its MAPS row says it (its blocks, its climate's people, its region, its port) - and the
+  // way between two, the Travel Options planner's on Hazelnut's roads (the follow key's and the static's own: his bytes
+  // or none), asked once a pair in ONE direction (the lower map id first, the other its reverse) so every client walks
+  // the same way, a few a frame. A traveller's trip of a cycle never changes, so the book keeps every one it has made.
+  let _livingTowns = null;
+  const livingTownsIndex = () => {
+    if (_livingTowns) return _livingTowns;
+    _livingTowns = new Map();
+    for (const loc of _hubRows) {
+      const md = loc.mapTableData;
+      if (!md || !populatesWanderingNpcs(md.locationType)) continue;
+      const p = longitudeLatitudeToMapPixel(md.longitude, md.latitude);
+      const ed = loc.exterior?.exteriorData;
+      _livingTowns.set(p.y * 1000 + p.x, {
+        mapId: md.mapId >>> 0, name: String(loc.name ?? ''), px: p.x, py: p.y, type: md.locationType, region: loc.regionIndex,
+        people: getWorldClimateSettings(maps.getClimateIndex(p.x, p.y))?.people, blocks: Math.max(1, (ed?.width ?? 1) * (ed?.height ?? 1)),
+        port: hasPort(md.mapId),
+      });
+    }
+    return _livingTowns;
+  };
+  const _livingNear = new Map();
+  const livingTownsNear = (px, py, r) => {
+    const key = `${px},${py},${r}`;
+    let got = _livingNear.get(key);
+    if (got) return got;
+    got = [];
+    const idx = livingTownsIndex();
+    for (let y = py - r; y <= py + r; y++) for (let x = px - r; x <= px + r; x++) { const t = idx.get(y * 1000 + x); if (t) got.push(t); }
+    got.sort((a, b) => a.mapId - b.mapId);
+    if (_livingNear.size > 512) _livingNear.clear();
+    _livingNear.set(key, got);
+    return got;
+  };
+  // the ways: the living world's own planner (livingWorld/ways.js) on the drawn roads and the game's own ground - never a
+  // player's attached massifs (TO-ROADS: the host plans the player's journeys alone)
+  let _livingGround = null;
+  const livingWays = createWayBook({
+    roads: () => terrainGen.roads(),
+    ground: () => (_livingGround ??= routeGround((px, py) => maps.getClimateIndex(px, py), (px, py) => woods.getHeightMapValue(px, py), WATER_BYTE)),
+  });
+  const livingRouteOf = (a, b) => livingWays.wayOf(a, b);
+  const _livingRosters = new Map();
+  const livingTripWorld = {
+    townsNear: livingTownsNear,
+    routeOf: livingRouteOf,
+    rosterOf: (t) => { let r = _livingRosters.get(t.mapId); if (!r) { r = travellerRoster(t); _livingRosters.set(t.mapId, r); } return r; },
+    templeTown: (t) => t.type === LOCATION_TYPES.ReligionTemple || t.blocks >= 9,
+  };
+  const _livingTripMemo = new Map();
+  let _livingWaysSeen = 0;
+  const livingTripsOf = (town, day) => {
+    if (_livingTripMemo.size > 40000 || livingWays.generation !== _livingWaysSeen) { _livingTripMemo.clear(); _livingWaysSeen = livingWays.generation; }   // a new network, new ways
+    const o = { mpm: PERSON_MOVE_SPEED / livingBaseRate(), memo: _livingTripMemo };
+    const trips = townTrips(town, day * 1440 + 240 + 720, livingTripWorld, o);
+    const visitors = tripVisitorsOf(town, day, livingTripWorld, o);
+    if (trips === undefined || visitors === undefined) return undefined;
+    const away = new Map();
+    for (const res of livingTripWorld.rosterOf(town)) { const w = tripAwayOf(res, trips); if (w.length) away.set(res.id, w); }
+    return { away, visitors };
+  };
+  /** LW3: a resident's class sprite for the armed walk - its art loaded into the people's own texture table (the people
+   *  pass reads its frames there), null until it is. */
+  const _livingClassLoading = new Set();
+  const livingArmOf = (res) => {
+    const look = classLookOf(res);
+    if (!look) return null;
+    const tex = personTex.get(look.archive);
+    if (!tex) {
+      if (!_livingClassLoading.has(look.archive)) { _livingClassLoading.add(look.archive); getTexture(look.archive).then((t) => { if (t) personTex.set(look.archive, t); }).catch(() => {}); }
+      return null;
+    }
+    return { ...look, frameCount: (rec) => tex.getFrameCount(rec), sex: res.sex };
+  };
+  // the person's town on the road: the roads' layer answers a refusal and notes a word (townTalk's `livingTalk` door)
+  const _livingRoadsDoor = { refuses: (p) => livingRoads?.refuses(p) ?? null, talked: (p) => livingRoads?.talked(p) ?? null, caught: (p) => livingRoads?.caught(p) ?? null, roadside: true };
+  /** @type {ReturnType<typeof createLivingRoads> | null} */
+  let livingRoads = null;
+  const livingRoadsOf = () => (livingRoads ??= createLivingRoads({
+    world: livingTripWorld, mpm: PERSON_MOVE_SPEED / livingBaseRate(), clock: skyMinutes, baseRate: livingBaseRate,
+    sceneOf: (nx, nz) => tvSceneOf(nx, nz, 0),
+    here: () => (playerSpawned ? state.worldCoords(walkMode ? player.pos : cam.pos) : null),
+    sprites: createTravellerSprites({ renderer, getTexture, uploadRecordFrame, living: _livingRoadsDoor }),
+    memo: _livingTripMemo, relations: () => livingRelations, playerName: () => playerEntity.name ?? '', weather: () => weather,
+  }));
+  /** LW3: the bodies on the road as the street's talk targets, beside the town's (`_livePersons`) - for the talk ray and
+   *  the hover alone: the watch's conversion and the trample are the town's. */
+  const _talkPersons = () => (livingRoads && livingWorldOn() ? _livePersons.concat(livingRoads.talkSeats()) : _livePersons);
+
   // --- Per-pixel build --------------------------------------------------
   const worldHeight = MAX_TERRAIN_HEIGHT * STREAMING_TERRAIN_SCALE;   // TERRAIN-SCALE1: the game scene's
   const tileSide = TERRAIN_SIZE / 128;
@@ -4092,12 +4188,13 @@ export async function bootWorld(canvas, renderer, params, status) {
           const h = heightAt(x + locOrigin[0] + t[0], z + locOrigin[2] + t[2]);
           return Number.isFinite(h) ? h - t[1] + 2.0 * 0.025 : locOrigin[1];
         };
+        const livingTown = livingTownsIndex().get(py * 1000 + px) ?? {
+          mapId: (dfLocation.mapTableData?.mapId ?? 0) >>> 0, name: dfLocation.name, px, py,
+          type: dfLocation.mapTableData?.locationType, region: dfLocation.regionIndex, people: climate?.people,
+          blocks: loc.width * loc.height, port: hasPort(dfLocation.mapTableData?.mapId),
+        };   // LW3: the roads' own record of the town (the same row the trips read), a mod's town its own
         population = livingWorldOn() ? new LivingTown(nav, {
-          town: {
-            mapId: (dfLocation.mapTableData?.mapId ?? 0) >>> 0, name: dfLocation.name, px, py,
-            type: dfLocation.mapTableData?.locationType, region: dfLocation.regionIndex, people: climate?.people,
-            blocks: loc.width * loc.height, port: hasPort(dfLocation.mapTableData?.mapId),
-          },
+          town: livingTown,
           buildings: buildingSummaries(dfLocation.exterior?.buildings ?? [], loc.blocks, { locationIndex: dfLocation.locationIndex ?? 0, locationName: dfLocation.name })
             .map((b) => ({ key: b.buildingKey, type: b.buildingType, quality: b.quality, factionId: b.factionId })),
           doors: buildingDoors.filter((d) => d.pixelKey === key && d.blockX != null).map((d) => {
@@ -4117,6 +4214,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           suppressSpawns: () => racialSuppressPopulationSpawns(playerEntity),   // V4: the transformed lycanthrope empties the streets - here they stay in
           relations: () => livingRelations, playerName: () => playerEntity.name ?? '', weather: () => weather,
           townName: dfLocation.name, regionName: dfLocation.regionName ?? '',
+          tripsOf: (day) => livingTripsOf(livingTown, day), armOf: livingArmOf,   // LW3: its travellers away and armed, its visitors
         }) : new TownPopulation(nav, {
           suppressSpawns: () => racialSuppressPopulationSpawns(playerEntity),   // V4: the transformed lycanthrope empties the streets
           totalBlocks: loc.width * loc.height,
@@ -5422,7 +5520,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     renderer, canvas, fetchBytes, playerEntity, palette,
     // LW2: the living world's two doors - an enemy's refusal, and a word noted in the resident's regard (the body's
     // own town answers both: systems/livingWorld/livingTown.js)
-    livingTalk: { refuses: (person) => person?.living?.town?.refuses(person) ?? null, talked: (person) => person?.living?.town?.talked(person) },
+    livingTalk: { refuses: (person) => person?.living?.town?.refuses(person) ?? null, talked: (person) => person?.living?.town?.talked(person), caught: (person) => person?.living?.town?.caught?.(person) },
     // RP1: a GETTER, not startLoc's number - see the note above. It is
     // declared below this call, so the arrow defers the read to call
     // time, which is what makes it live in the first place.
@@ -8056,6 +8154,20 @@ export async function bootWorld(canvas, renderer, params, status) {
         points.push({ x: at.x, y: at.y, text: l.text, name: livingRelations.known(id) ? firstNameOf(l.person.nameNPC) : null, who: key, kind: 'talk', distance: d });
       }
     }
+    // LW3: the road's - a party's own talk, a traveller's word to the player (their bodies stand in the world's frame)
+    if (!livingRoads || !livingWorldOn()) return;
+    for (const l of livingRoads.speech(eye)) {
+      const id = l.person.living?.id;
+      if (!id || !l.person.pos) continue;
+      const over = [l.person.pos[0], l.person.pos[1] + LIVING_HEAD_M, l.person.pos[2]];
+      const d = Math.hypot(over[0] - eye[0], over[1] - eye[1], over[2] - eye[2]);
+      if (d > CREW_SAY_RANGE) continue;
+      const at = projectToScreen(over, w, h, proj, view, rect);
+      if (!at.front || at.x < -80 || at.x > w + 80 || at.y < -40 || at.y > h + 40) continue;
+      const key = `road:${id}`;
+      if (crewSight.blocked(player.collider, eye, key, over)) continue;   // behind a hill, unheard
+      points.push({ x: at.x, y: at.y, text: l.text, name: livingRelations.known(id) ? firstNameOf(l.person.nameNPC) : null, who: key, kind: 'talk', distance: d });
+    }
   }
   /** WILD-ALERT (2026-10-04, Mac: "Enemies alerted are given an exclamation point"): THE "!" OVER EACH WILDERNESS FOE
    *  ALERTED TO ME (systems/encounters.js foeAlerted) - it stands while a fast traveller's clock is held for it, else
@@ -8490,7 +8602,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     (key) => cityGuards.liveHoverName?.(key) ?? null,
     (key) => {
       if (typeof key !== 'string' || !key.startsWith('mobileNpc:')) return null;
-      const t = mobilePersonName(_livePersons[Number(key.split(':')[1])]?.person?.nameNPC);
+      const t = mobilePersonName(_talkPersons()[Number(key.split(':')[1])]?.person?.nameNPC);   // LW3: a traveller's name too
       return t ? { title: t } : null;
     },
   ];
@@ -8500,7 +8612,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  distance with the MOD's 6.4 beside it, because the band is a gate
    *  inside the handler and not a shorter ray (AUDIT 65 MC-2). */
   const _hoverPersonPick = (eye, dir) => {
-    const n = nearestPerson(eye, dir, _livePersons);
+    const n = nearestPerson(eye, dir, _talkPersons());   // LW3: the road's people beside the town's
     return n && Number.isFinite(n.distance)
       ? { key: `mobileNpc:${n.index}`, distance: n.distance, reach: MOBILE_NPC_ACTIVATION_DISTANCE }
       : null;
@@ -24650,6 +24762,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         marks.push({ key: g.key, at: tvSceneKept(g, g.x, g.z, TV_PLACE_LIFT), label: g.loc.name, sub: farDistanceText(km), kind: 'far dungeon', pick: true, edge: true });   // OW-FILTER: 'dungeon' - the look is the first word's, the filter's group the second's
       } else marks.push({ key: g.key, at: tvSceneKept(g, g.x, g.z, TV_PLACE_LIFT), label: '?', kind: 'lair' });
     }
+    // LW3: THE ROAD'S PARTIES - a caravan, pilgrims, a pedlar, each where it is and where it is bound (scenes/livingRoads.js)
+    if (livingRoads && livingWorldOn()) {
+      for (const m of livingRoads.marks()) if (markShown({ kind: m.kind })) marks.push({ key: m.key, at: [m.at[0], m.at[1] + 2, m.at[2]], label: m.label, kind: m.kind });
+    }
     // TV7: THE BANDS - each with its kind and number where it walks; one chasing me held at the edge, pointing
     const bms = bandNowMs();
     // AUDIT OW4 B6: none drawn where none can come - the camps' own switch off, or the enemy spawns held
@@ -25449,6 +25565,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // front's 0.15) louder in a tavern than in the street - the Discord report itself - and a dungeon 6.7x.
       ambience.setPreset(presetForExterior(heardWeather(), isNight(minuteNow())));   // DISC9: the word the street last heard - the one truth Better Ambience's indoor rain reads too
       ambience.update(dt, { inside: true, underground: modes.mode === 'dungeon', indoorRainSource: betterAmbience.rainPlaying() });
+      if (livingRoads) livingRoads.clear();   // LW3: indoors, underground - the road's bodies freed with the open world they stood in
       if (dwPlayer) {
         audio.setListenerLowPass(0);   // DW-D: UpdateAudioFilter's IsPlayerInside - RemoveAudioFilter
         // AUDIT DW-F: UpdateSwimSfxAndWeather asks IsPlayingGame and IsPlayerSwimming && !IsWaterWalking and nothing of
@@ -26153,6 +26270,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           // this host and in exterior.js, character for character, which
           // is how AUDIT 66 F7 shipped a torch that had to beat the pile
           // but not the door. The ARMS below are still this host's own.
+          // LW3: the people under the ray are the town's and the road's (`_talkPersons`) - the person arm's distances and
+          // its talk ray alike
           const _race = raceActivation({
             corpse: _corpsePick,
             pile: _pilePick,
@@ -26165,7 +26284,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             broker: _brokerPick,   // SET7
             boat: _csaBoatPick,   // CSA-D
             doorDistance: modes.exteriorActivationDistance(cam.pos, useFwd),
-            personDistances: _livePersons.map((p) => rayPersonDistance(cam.pos, useFwd, p.pos)),
+            personDistances: _talkPersons().map((p) => rayPersonDistance(cam.pos, useFwd, p.pos)),
           });
           const _lootPick = _race.loot, _dropPick = _race.drop;
           // Every OTHER thing this ray can strike, at its own distance:
@@ -26189,7 +26308,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           // bottom-of-the-ladder call ran with `nearerThan` Infinity,
           // so a foe 20 units off ate a click DFU gives a door at 5.
           else if (_enemyArm(RAY_DISTANCE, _rivalDist)) { /* the enemy was the nearest hit */ }
-          else if (!townTalk.tryActivate(cam.pos, useFwd, _livePersons, _nonPersonRival)) {
+          else if (!townTalk.tryActivate(cam.pos, useFwd, _talkPersons(), _nonPersonRival)) {   // LW3: the road's people beside the town's
             const lootKey = _lootPick?.key ?? null;
             const dropKey = _dropPick?.key ?? null;
             // HT1: a dropped torch under the ray, nearer than the corpse and the pile: picked up (Grab, Steal) or named (Info, Talk)
@@ -27263,6 +27382,13 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         livePersonBatches.push(batch);
       }
     }
+    // LW3: THE ROADS - the living world's parties near, in file by day and about their fires by night (scenes/
+    // livingRoads.js), on the ground and grown under the Overworld; the planner asked a few ways a frame
+    livingWays.frame(); if (livingWays.generation !== _livingWaysSeen) { _livingTripMemo.clear(); _livingWaysSeen = livingWays.generation; }   // LW3: a new network, new ways
+    if (livingWorldOn() && _mode() === 'exterior') {
+      livingRoadsOf().frame(townTalk.overlayActive ? 0 : dt, cam.pos, { overworld: tvf ? { grow: tvf.grow, blend: tvf.blend } : null });
+      livePersonBatches.push(...livingRoads.batches());
+    } else if (livingRoads) livingRoads.clear();
     // G1: the guards drive + draw on the same flats' axis. WINFOE1
     // (2026-09-17, Mac: "enemies should still be able to do damage"): the
     // ENEMY pools no longer freeze under a window - a rest, the

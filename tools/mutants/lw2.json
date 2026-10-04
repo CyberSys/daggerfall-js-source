@@ -137,8 +137,8 @@
   {
     "name": "LW2-friend-unnamed",
     "file": "src/systems/livingWorld/livingTown.js",
-    "old": "    const pool = standing === 'friend' ? GREETINGS.friend : standing === 'enemy' || standing === 'hostile' ? GREETINGS.enemy",
-    "new": "    const pool = standing === 'friend' ? GREETINGS.known : standing === 'enemy' || standing === 'hostile' ? GREETINGS.enemy",
+    "old": "    const pool = standing === 'friend' ? LIVING_GREETINGS.friend : standing === 'enemy' || standing === 'hostile' ? LIVING_GREETINGS.enemy",
+    "new": "    const pool = standing === 'friend' ? LIVING_GREETINGS.known : standing === 'enemy' || standing === 'hostile' ? LIVING_GREETINGS.enemy",
     "tests": [
       "test/lw2_livingTown.test.js"
     ]
@@ -146,8 +146,8 @@
   {
     "name": "LW2-enemy-warm",
     "file": "src/systems/livingWorld/livingTown.js",
-    "old": "    const pool = standing === 'friend' ? GREETINGS.friend : standing === 'enemy' || standing === 'hostile' ? GREETINGS.enemy",
-    "new": "    const pool = standing === 'friend' ? GREETINGS.friend : standing === 'hostile' ? GREETINGS.enemy",
+    "old": "    const pool = standing === 'friend' ? LIVING_GREETINGS.friend : standing === 'enemy' || standing === 'hostile' ? LIVING_GREETINGS.enemy",
+    "new": "    const pool = standing === 'friend' ? LIVING_GREETINGS.friend : standing === 'hostile' ? LIVING_GREETINGS.enemy",
     "tests": [
       "test/lw2_livingTown.test.js"
     ]
@@ -155,8 +155,8 @@
   {
     "name": "LW2-enemy-talks",
     "file": "src/systems/livingWorld/livingTown.js",
-    "old": "    return s === 'enemy' || s === 'hostile' ? fillLine(REFUSAL, { a: firstNameOf(person.nameNPC) }) : null;",
-    "new": "    return s === 'hostile' ? fillLine(REFUSAL, { a: firstNameOf(person.nameNPC) }) : null;",
+    "old": "    return s === 'enemy' || s === 'hostile' ? fillLine(LIVING_REFUSAL, { a: firstNameOf(person.nameNPC) }) : null;",
+    "new": "    return s === 'hostile' ? fillLine(LIVING_REFUSAL, { a: firstNameOf(person.nameNPC) }) : null;",
     "tests": [
       "test/lw2_livingTown.test.js"
     ]
@@ -254,7 +254,7 @@
   {
     "name": "LW2-talk-doors-unwired",
     "file": "src/scenes/world.js",
-    "old": "    livingTalk: { refuses: (person) => person?.living?.town?.refuses(person) ?? null, talked: (person) => person?.living?.town?.talked(person) },",
+    "old": "    livingTalk: { refuses: (person) => person?.living?.town?.refuses(person) ?? null, talked: (person) => person?.living?.town?.talked(person), caught: (person) => person?.living?.town?.caught?.(person) },",
     "new": "    livingTalk: null,",
     "tests": [
       "test/lw2_livingTown.test.js"

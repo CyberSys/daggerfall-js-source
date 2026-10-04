@@ -129,7 +129,7 @@ Taken at the design, in the request's own order; each is Mac's to overrule.
   talk; a line each `CREW_LINE_S` of the clock, the first member first; `circleStands` round the spot on the golden
   angle, `CIRCLE_APART` apart, facing in.
 - **`lines.js`.** Original words in the crew's two-and-three-line shape: the town's talk, the trades', the weather's,
-  the evening's and the night's; tokens with fallbacks; GREETINGS by regard.
+  the evening's and the night's; tokens with fallbacks; LIVING_GREETINGS by regard.
 - **`relations.js`.** A regard per resident (-100..100), a stranger 0: a word +3 once a day, a polite word +1, a gift
   +8, help +20, a life saved +35, a blow -45, a crime -15, one of theirs slain -60, a blunt word -6; friend at 40, enemy
   at -40, hostile at -70; eased toward zero half a point a day unseen and never across; 600 kept; the save's record
@@ -161,7 +161,7 @@ the trample (`retire`), the probes.
   `CATCH_UP` (0.35) faster.
 - **Lines**: a talking circle's line at this minute over its speaker; a word to the player passing within
   `GREET_RANGE` (once in `GREET_REST_MIN` of the clock): a friend's by name, an enemy's cold, a known face's plain, a
-  stranger's now and then. `refuses(person)` an enemy's `REFUSAL`; `talked(person)` notes the word.
+  stranger's now and then. `refuses(person)` an enemy's `LIVING_REFUSAL`; `talked(person)` notes the word.
 - **The body** is `characters/residentWalker.js` `ResidentWalker`: a MobilePerson that wears the walker's billboard on
   a yaw of its own (MoveAnims through `mobileOrientation`, idle 5, the watch's 15, AUDIT 26 F021's reset) and claims no
   tile. `mobilePerson.js` exports its `MOVE_RECORDS` and `MOVE_FLIPS` for it, unchanged.
@@ -175,11 +175,70 @@ the trample (`retire`), the probes.
   `townTalk`'s new `livingTalk` door asks the body's town for a refusal before the conversation and notes the word
   once it is one.
 
+## LW3 - the roads (2026-10-04)
+
+`systems/livingWorld/trips.js`, pure; `scenes/livingRoads.js` and `world/travellerSprites.js`, the host's.
+
+- **The travellers.** The census's roster off the MAPS row gains the PEDLAR (every town one, one more each six blocks,
+  to six): the small places' own traffic. Merchants, adventurers, pilgrims, couriers and pedlars travel; sellswords
+  ride with merchants; sailors wait for the ports (LW5).
+- **A traveller's cycles** (`cycleOf`): the job's days (`CYCLE_DAYS` - a merchant's 7, an adventurer's 7, a pilgrim's
+  20, a courier's 5, a pedlar's 6: the pins found a four-day cycle held no pedlar's walk past the next town) times `paceScale` (the sky walks half as far a clock minute as the calendar: its
+  cycles are twice as long, so as many are on the road at once), offset by the traveller's seed. In each the traveller
+  goes at `TRIP_CHANCE` (`ownTrip`): to a town in `TRIP_RANGE_PX` - a merchant's the bigger the likelier, a pilgrim's a
+  temple's town (a temple location, or a town of nine blocks or more), a courier's anywhere, a pedlar's near - setting
+  out between six (an adventurer) or seven and nine of a morning, walking BY DAY (`WALK_FROM_H` 7 to `WALK_TO_H` 19) at
+  the job's `TRIP_PACE` of the street's 1.3 m/s, camping where night finds them, staying `STAY_DAYS` (none: a two-hour
+  rest if in by noon, else the next morning), home again inside the cycle - else the nearer towns than the pick,
+  farthest first, else none. THE LW3 PINS FOUND THE PICK DRAWN PER TOWN: the weighted pick sat inside the search for
+  its town, drawing again for each and as often finding none - a third of the trips never made; it is drawn once.
+- **The way** is the Travel Options planner's (`travelRoute.js planRoute`) on the roads the world draws (Hazelnut's
+  when Basic Roads is on, the port's own generated network when it is off), asked by the living world's own book
+  (`systems/livingWorld/ways.js createWayBook`) - not by the host, whose one construction seam is the player's journey
+  (TO-ROADS) - on the game's own ground alone (the climate and the heightmap: never a player's attached World of
+  Daggerfall massifs, which only that player has). Once a pair in ONE direction - the lower map id first, the other its
+  reverse - so every client walks the same way, `WAYS_PER_FRAME` (2) new pairs a frame; a new network clears the book
+  and the host's trips with it (`generation`). Two players on different road networks see their travellers on their
+  own roads. `wayOf` lays it through its pixels' centres, which is the road itself; each end is trimmed by the town's
+  half-width and a block (`townTrim`), so a party walks out of the town's edge.
+- **Caravans** (`formCaravans`), each a law of the trips alone: a merchant takes the town's sellswords UNDER CONTRACT
+  to them - the town's sellswords dealt to its merchants in slot order, the first to the first, round again - their
+  trip's own roll of up to `HIRE_MAX` (3) of them; a merchant's trips never overlap, so neither do their sellswords'.
+  A pilgrim, courier or pedlar setting out the day a merchant does, for the same town, joins the first such merchant's
+  train (slot order): one party, one pace, one timeline. THE GATES FOUND THE TRAIN READ OFF THE WINDOW: hires were
+  dealt among the merchants a minute's window held, so a train read on its way home - its neighbour's trip over and out
+  of the window - hired other sellswords than the train that set out, and they changed places mid-road; a train is now
+  the same whichever minute of it is read.
+- **The towns see the roads.** A home's `awayOf` window for each of a party, armed where they carry a class (LW1's
+  away windows: geared at home, out armed to the exit facing the road - `exitToward` of the way's first leg - home
+  armed); a town's `visitorsOf` - the parties of towns within `TRIP_REACH_PX` (18) staying in it, in by the exit
+  facing the road they came, lodged at one of its taverns, out by it when they leave. The LivingTown reads both off
+  the host's book (`tripsOf`) and plans a day again once its ways are known.
+- **The armed walk.** `ResidentWalker.arm(look)` wears the class's eight-way MobileUnit on its archive by the
+  resident's sex (`travellerSprites.js classLookOf`), its art loaded into the people's own texture table; out of it at
+  home. NPCS ADVENTURING BEYOND TOWNS DRESS OUT IN ARMOR BEFORE LEAVING: the gear stay, then the class sprite walking
+  out of the gate.
+- **On the road** (`livingRoads.js`): every second the parties within `ROADS_VIEW_PX` (6) of the player's pixel
+  (`partiesNear`, the book's memo of every trip made); each frame each party placed (`partyPlaces`) - BY DAY in file,
+  `FILE_GAP_N` (1.8 m) apart along the way, `FILE_SIDE_N` to either side, facing the way; BY NIGHT in a ring
+  `CAMP_RING_N` (2.25 m) about the camp, facing in. In play the members within `ROADS_PLAY_M` (360 m) stand, whole;
+  under the Overworld within the bands' far edge, faded and grown, and each party wears a `wayfarer` mark (a caravan's
+  `wayfarer caravan`) with its kind and where it is bound - the travellers' filter group, a square in the road's dust.
+- **Their bodies** (`travellerSprites.js`): the armed in their class's sprite, the rest in their own outfit (the
+  walker's billboard); each a talk target in the street's shape, freed as it leaves the list and all at `clear()` -
+  indoors (the mode frame) and outside the open world.
+- **Talk and regard on the road.** The talk ray and the hover take the road's people beside the town's
+  (`_talkPersons`); the watch's conversion and the trample keep to the town's. A word is noted, an enemy refuses, and a
+  hand caught in a traveller's purse costs their regard - and calls no watch (`livingTalk.caught`; on the road there is
+  no town). A party talks among itself in rounds (the road's words walking, the fire's at night - lines.js
+  `ROAD_TALKS`, `CAMP_TALKS`) and has a word for the player passing within `ROAD_GREET_M` (4 m) by regard
+  (`ROAD_GREETINGS`).
+
 ## The four hosts
 
-- `scenes/world.js` - WIRED (LW2): the streaming world's towns.
+- `scenes/world.js` - WIRED (LW2 the towns, LW3 the roads and the Overworld).
 - `scenes/exterior.js` - FLAGGED: the fixed-city page keeps DFU's pool (its own doors and summaries are read at other
-  seams; its town is not yet a LivingTown).
+  seams; its town is not yet a LivingTown) and has no roads (one location, no map around it).
 - `scenes/worldModes.js` - FLAGGED: indoors the street pool answers nobody (AUDIT 62 F14) and a building's people are
   its static NPCs; a resident whose day has them in the tavern is not yet stood inside it.
 - `scenes/dungeonContext.js` - no town population (LW6 brings the divers).

@@ -137,7 +137,7 @@ export function rayPersonDistance(camPos, fwd, feet) {
   return t / fl * Math.hypot(fwd[0], fwd[1], fwd[2]);
 }
 
-export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, regionIndex, onCrime = null, topics = null, palette = null, rolls = Math.random, talkEngine = null, onBuildingList = null, otherOverlayActive = null, otherHudCovered = null, questBuildingSource = null, livingTalk = null }) {   // LW2: `livingTalk` the living world's two doors - { refuses(person) -> text|null, talked(person) } (bible/06-Systems/Living-World.md)   // AUDIT ENH-NOTICE3 C2: `otherHudCovered` is the mode host's previousWindow-chain answer (modes.hudCovered), for the toasts   // AUDIT 63 F49: PlayerGPS.DiscoverBuilding's quest name-override seam ({ currentMapID, isBuildingQuestResource }), null in a host with no topic tree
+export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, regionIndex, onCrime = null, topics = null, palette = null, rolls = Math.random, talkEngine = null, onBuildingList = null, otherOverlayActive = null, otherHudCovered = null, questBuildingSource = null, livingTalk = null }) {   // LW2: `livingTalk` the living world's doors - { refuses(person) -> text|null, talked(person), caught(person) } (bible/06-Systems/Living-World.md)   // AUDIT ENH-NOTICE3 C2: `otherHudCovered` is the mode host's previousWindow-chain answer (modes.hudCovered), for the toasts   // AUDIT 63 F49: PlayerGPS.DiscoverBuilding's quest name-override seam ({ currentMapID, isBuildingQuestResource }), null in a host with no topic tree
   // RP1 - THE REGION IS READ LIVE, NOT CAPTURED AT BOOT.
   //
   // This took a plain number, and the world host had no choice but to
@@ -734,8 +734,9 @@ export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, reg
       // failure is the arm that spawns the watch behind it.
       if (r.modal) showOverlay(new ActionTextBox(String(r.message).split('\n')));
       else hud.add(r.message);
-      // G1: the caught pickpocket IS the crime - SpawnCityGuards(true)
-      if (!r.success) onCrime?.();
+      // G1: the caught pickpocket IS the crime - SpawnCityGuards(true). LW3: a resident of the living world remembers the
+      // hand in their purse (their regard of the player); on the road - no town, no watch - that is all that comes of it
+      if (!r.success) { livingTalk?.caught?.(target.person); if (!target.person?.living?.town?.roadside) onCrime?.(); }
       return;
     }
     // Info / Grab / Talk all talk to a mobile NPC (DFU verbatim)

@@ -499,7 +499,7 @@ export class NativeTalkWindow {
   /** SetListboxTopics' tail (:893-905): a freshly filled list SELECTS
    *  its first row - index 1 when row 0 is the NavigationBack
    *  "previous" row, which this port's flattened lists never carry
-   *  (treeCategories drops them, townTalk.js:799) - and SelectIndex
+   *  (treeCategories drops them, townTalk.js:800) - and SelectIndex
    *  (ListBox.cs:761-770) raises OnSelectItem, so the player-says
    *  label is filled before the player clicks anything.
    *
@@ -928,7 +928,7 @@ export class NativeTalkWindow {
   /** Pointer path (phone taps + mouse): virtual-space hit rects.
    *  AUDIT 65 UI-1: the third and fourth slots are the HOST's, not
    *  this window's. Every overlay slot dispatches
-   *  `click(vx, vy, right, middle)` - townTalk.js:1259,
+   *  `click(vx, vy, right, middle)` - townTalk.js:1260,
    *  worldModes.js:11023, dungeonContext.js:8827 - so the clock that
    *  used to sit in the fourth arrived as `e.button === 1`, a boolean,
    *  and `false ?? Date.now()` kept the `false`: every second click in

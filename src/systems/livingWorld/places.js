@@ -17,7 +17,7 @@
 // PURE: the doors, the grid and the types in; plain records out.
 import { NAV_CELL, HALF_CELL } from '../../world/cityNavigation.js';
 import { BUILDING_TYPES } from '../../world/buildingNames.js';
-import { isShop } from './census.js';
+import { hasShopJob } from './census.js';
 
 /** How far out along a door's normal its cell is looked for (m), and the ring searched about it after (cells). */
 export const DOOR_REACH_M = [0.9, 1.6, 2.4, 3.2, 4.0];
@@ -144,7 +144,7 @@ export function townPlaces(nav, doors, buildings) {
   for (const key of [...doorSpots.keys()].sort((a, b) => a - b)) {
     const t = types.get(key);
     if (SOCIAL_TYPES.has(t)) { const s = before(key, SOCIAL_OUT, 'social'); if (s) social.push(s); }
-    else if (isShop(t)) { const s = before(key, MARKET_OUT, 'market'); if (s) market.push(s); }
+    else if (hasShopJob(t)) { const s = before(key, MARKET_OUT, 'market'); if (s) market.push(s); }
     else if (t === BUILDING_TYPES.Ship) { const s = before(key, MARKET_OUT, 'dock'); if (s) dock.push(s); }
   }
   // the square: the most open net cell near the middle (the walkable cells in its window), sampled on a stride

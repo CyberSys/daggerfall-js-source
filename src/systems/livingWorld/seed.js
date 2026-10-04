@@ -19,7 +19,7 @@ export const lwRng = (...parts) => seededRng(lwSeed(...parts));
 export const lwRoll = (...parts) => lwSeed(...parts) / 4294967296;
 
 /** An integer in [lo, hi] off `rng`. @param {() => number} rng @param {number} lo @param {number} hi */
-export const rangeInt = (rng, lo, hi) => lo + Math.floor(rng() * (hi - lo + 1));
+export const rollInt = (rng, lo, hi) => lo + Math.floor(rng() * (hi - lo + 1));
 /** One entry of `list` off `rng`. @template T @param {() => number} rng @param {readonly T[]} list @returns {T} */
 export const pickOf = (rng, list) => list[Math.floor(rng() * list.length) % list.length];
 /**

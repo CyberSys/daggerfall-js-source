@@ -5,13 +5,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { synthTown } from './lwTown.mjs';
-import { LivingTown, LIVING_RANGE, CATCH_UP, GREET_RANGE, REFUSAL, LINE_HEAD_M, SNAP_M, WALK_FAST, DOOR_POP_MIN, ARRIVAL_JUMP_MIN, ARRIVAL_STEP_M } from '../src/systems/livingWorld/livingTown.js';
+import { LivingTown, LIVING_RANGE, CATCH_UP, GREET_RANGE, LIVING_REFUSAL, LINE_HEAD_M, SNAP_M, WALK_FAST, DOOR_POP_MIN, ARRIVAL_JUMP_MIN, ARRIVAL_STEP_M } from '../src/systems/livingWorld/livingTown.js';
 import { ResidentWalker } from '../src/characters/residentWalker.js';
 import { MobilePerson, PERSON_IDLE_RECORD, PERSON_GUARD_IDLE_RECORD, MOVE_RECORDS, MOVE_FLIPS, PERSON_MOVE_SPEED } from '../src/characters/mobilePerson.js';
 import { mobileOrientation } from '../src/characters/mobileUnit.js';
 import { POP_VISIBLE_RANGE, maxPopulationFor } from '../src/systems/townPopulation.js';
 import { createRelations } from '../src/systems/livingWorld/relations.js';
-import { GREETINGS, firstNameOf } from '../src/systems/livingWorld/lines.js';
+import { LIVING_GREETINGS, firstNameOf } from '../src/systems/livingWorld/lines.js';
 import { circleLine, lineMinutes } from '../src/systems/livingWorld/meetups.js';
 import { DAY_MIN, isOutdoor } from '../src/systems/livingWorld/dayPlan.js';
 import { CLASSIC_MINUTES_PER_SECOND } from '../src/systems/worldTick.js';
@@ -192,7 +192,7 @@ test('LW2 coming onto the street: on ARRIVAL (the first frame, a jump of the clo
   assert.equal(run(held, 3).length, 0, 'the transformed lycanthrope: nobody comes out');
 });
 
-test('LW2 what the street says: a circle\'s line is its own (circleLine at this minute - every reader hears it) over the speaker alone; a word to the player passing close is by their regard - a friend calls them by name, an enemy\'s is cold - and an enemy will not talk (REFUSAL); a word exchanged is noted once a day (mutants: the speaker, the regard\'s pool, the refusal, the note)', () => {
+test('LW2 what the street says: a circle\'s line is its own (circleLine at this minute - every reader hears it) over the speaker alone; a word to the player passing close is by their regard - a friend calls them by name, an enemy\'s is cold - and an enemy will not talk (LIVING_REFUSAL); a word exchanged is noted once a day (mutants: the speaker, the regard\'s pool, the refusal, the note)', () => {
   const relations = createRelations();
   const t = makeTown({ minute: 100 * DAY_MIN + 18 * 60, relations });
   run(t, 20);
@@ -224,12 +224,12 @@ test('LW2 what the street says: a circle\'s line is its own (circleLine at this 
     t.town._greeted.clear();
     t.town._greet(p.living.res, p, 1, false);
     const said = t.town._greetings.find((g) => g.person === p);
-    assert.ok(said && GREETINGS.friend.some((g) => g.replace('{player}', 'Mac') === said.text), 'a friend\'s word');
+    assert.ok(said && LIVING_GREETINGS.friend.some((g) => g.replace('{player}', 'Mac') === said.text), 'a friend\'s word');
     relations.note(id, 'struck', day); relations.note(id, 'struck', day); relations.note(id, 'struck', day);
     t.town._greeted.clear();
     t.town._greet(p.living.res, p, 1, false);
-    assert.ok(GREETINGS.enemy.includes(t.town._greetings.find((g) => g.person === p).text), 'an enemy\'s');
-    assert.equal(t.town.refuses(p), REFUSAL.replace('{a}', firstNameOf(p.nameNPC)));
+    assert.ok(LIVING_GREETINGS.enemy.includes(t.town._greetings.find((g) => g.person === p).text), 'an enemy\'s');
+    assert.equal(t.town.refuses(p), LIVING_REFUSAL.replace('{a}', firstNameOf(p.nameNPC)));
     t.town._greeted.clear();
     t.town._greet(p.living.res, p, GREET_RANGE + 0.5, false);
   }
@@ -270,7 +270,7 @@ test('LW2 the streaming host: where the row is on, the population block stands a
   const lines = w.slice(w.indexOf('function navalCrewLines('), w.indexOf('function livingLinePoints('));
   assert.match(lines, /livingLinePoints\(points, w, h, rect, proj, view, eye\);/);
   assert.ok(lines.indexOf('livingLinePoints(') < lines.indexOf('drawCrewLines('), 'merged before the one draw');
-  assert.match(w, /livingTalk: \{ refuses: \(person\) => person\?\.living\?\.town\?\.refuses\(person\) \?\? null, talked: \(person\) => person\?\.living\?\.town\?\.talked\(person\) \},/);
+  assert.match(w, /livingTalk: \{ refuses: \(person\) => person\?\.living\?\.town\?\.refuses\(person\) \?\? null, talked: \(person\) => person\?\.living\?\.town\?\.talked\(person\), caught: \(person\) => person\?\.living\?\.town\?\.caught\?\.\(person\) \},/);
   const tt = rd('src/scenes/townTalk.js');
   const act = tt.slice(tt.indexOf('function activate(target, dist)'));
   assert.ok(act.indexOf('livingTalk?.refuses?.(target.person)') > 0 && act.indexOf('livingTalk?.refuses?.(target.person)') < act.indexOf('const eng0 = engine();'), 'the refusal before the conversation');

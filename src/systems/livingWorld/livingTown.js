@@ -25,14 +25,19 @@
 //  - WHAT THEY SAY (`speech()`): a circle's line at this minute (pure: every reader hears it), and a word to the player
 //    passing close - by name from a friend, a cold one from an enemy (relations.js).
 //  - A RESIDENT TAKEN off the street - converted to the watch, trampled - is gone for the rest of the day.
+//  - LW3, THE ROADS IN TOWN (`o.tripsOf`): a traveller of this town on a trip has its away window (geared at home, out
+//    to the exit facing the road, home again - dayPlan.js schedule), and walks it ARMED in their class's sprite
+//    (`o.armOf`, ResidentWalker.arm); a party of another town staying here is a VISITOR - in by the exit facing the road
+//    it came, lodged at a tavern, out by the same exit when it leaves.
 import { POP_VISIBLE_RANGE, POP_RECYCLE_DISTANCE, maxPopulationFor } from '../townPopulation.js';
 import { PERSON_MOVE_SPEED } from '../../characters/mobilePerson.js';
-import { townPlaces } from './places.js';
+import { townPlaces, exitToward } from './places.js';
 import { townCensus } from './census.js';
 import { dayPlan, entryAt, isOutdoor, DAY_START_MIN, DAY_MIN } from './dayPlan.js';
+import { BUILDING_TYPES } from '../../world/buildingNames.js';
 import { createPathBook, pointAlong } from './townPaths.js';
 import { spotCircles, circleLine, circleStands, aloneStand, ROUND_S, lineMinutes } from './meetups.js';
-import { GREETINGS, fillLine, firstNameOf } from './lines.js';
+import { LIVING_GREETINGS, fillLine, firstNameOf } from './lines.js';
 import { lwSeed, textSeed } from './seed.js';
 
 /** The census read this often (real seconds). */
@@ -65,7 +70,7 @@ export const GREET_S = 3.4;
 /** A resident's line stands this high over their feet (m) - a townsperson's billboard and a little. */
 export const LINE_HEAD_M = 2.1;
 /** What an enemy says to the talk ray instead of talking ({a} their first name). */
-export const REFUSAL = '{a} turns away from you.';
+export const LIVING_REFUSAL = '{a} turns away from you.';
 
 /**
  * @typedef {import('./census.js').Resident} Resident
@@ -85,8 +90,11 @@ export class LivingTown {
    *   suppressSpawns?: () => boolean,
    *   relations?: () => (ReturnType<typeof import('./relations.js').createRelations> | null),
    *   playerName?: () => string, weather?: () => (string|null), townName?: string, regionName?: string,
-   *   awayOf?: (res: Resident, day: number) => import('./dayPlan.js').Away[],
-   * }} o - `clock` the sky's minute (worldTick.js skyMinutes); `rate` the clock's minutes a real second now (a
+   *   tripsOf?: (day: number) => ({ away: Map<string, { t0: number, t1: number, yaw: number, armed: boolean }[]>, visitors: { res: Resident, inT: number, outT: number, yaw: number }[] } | undefined),
+   *   armOf?: (res: Resident) => ({ mobileType: number, basics: any, archive: number, frameCount: (record: number) => number, sex?: 'male'|'female' } | null),
+   * }} o - `tripsOf(day)` the roads' word on the town for a day (trips.js through the host's book: who of it is away
+   *   when, who of elsewhere stays here), undefined while its ways are still being asked; `armOf(res)` a resident's
+   *   class sprite once its art is loaded, else null - `clock` the sky's minute (worldTick.js skyMinutes); `rate` the clock's minutes a real second now (a
    *   journey's scale in it); `mpm` the walking pace in the clock's metres a minute (LW0 decision 3)
    */
   constructor(nav, o) {
@@ -97,7 +105,7 @@ export class LivingTown {
     this.maxPopulation = maxPopulationFor(o.town.blocks);
     /** @type {Row[]} */
     this.pool = [];
-    /** @type {Map<string, { day: number, plan: Entry[] }>} */
+    /** @type {Map<string, { day: number, plan: Entry[], roads?: boolean }>} */
     this._plans = new Map();
     this._paths = createPathBook(nav);
     this._timer = Infinity;
@@ -127,14 +135,50 @@ export class LivingTown {
   /** The living day `t` falls in. @param {number} t */
   dayOf(t) { return Math.floor((t - DAY_START_MIN) / DAY_MIN); }
 
-  /** A resident's day. @param {Resident} res @param {number} day */
+  /** A resident's day - a traveller's bent round its trips, a visitor's round its stay. @param {Resident} res @param {number} day */
   planOf(res, day) {
     let e = this._plans.get(res.id);
     if (!e || e.day !== day) {
-      e = { day, plan: dayPlan(res, this.places, day, { mpm: this.o.mpm, away: this.o.awayOf?.(res, day) ?? [] }) };
+      const roads = this._roadsOf(day);
+      const visit = roads?.visitorOf.get(res.id) ?? null;
+      let plan;
+      if (visit) {
+        const exit = exitToward(this.places, visit.yaw);
+        const D0 = day * DAY_MIN + DAY_START_MIN;
+        const away = [{ t0: D0 - DAY_MIN, t1: visit.inT, exit, armed: false }, { t0: visit.outT, t1: D0 + 2 * DAY_MIN, exit, armed: false }];
+        plan = dayPlan(res, this.places, day, { mpm: this.o.mpm, visitor: true, home: this._lodging(res), away });
+      } else {
+        const away = (roads?.away.get(res.id) ?? []).map((w) => ({ t0: w.t0, t1: w.t1, exit: exitToward(this.places, w.yaw), armed: w.armed }));
+        plan = dayPlan(res, this.places, day, { mpm: this.o.mpm, away });
+      }
+      e = { day, plan, roads: !!roads };
       this._plans.set(res.id, e);
     }
     return e.plan;
+  }
+
+  /** The roads' word for a day, kept (undefined while its ways are being asked - the day is planned without them and
+   *  planned again once they are known). */
+  _roadsOf(day) {
+    if (!this.o.tripsOf) return null;
+    if (this._roads?.day === day) return this._roads;
+    const got = this.o.tripsOf(day);
+    if (!got) return null;
+    this._roads = { day, away: got.away, visitorOf: new Map(got.visitors.map((v) => [v.res.id, v])), visitors: got.visitors.map((v) => v.res) };
+    for (const [id, e] of this._plans) if (e.day === day && !e.roads) this._plans.delete(id);   // planned before the roads were known: again
+    return this._roads;
+  }
+
+  /** A visitor's lodging: one of the town's taverns, by their id (none: the square). */
+  _lodging(res) {
+    const taverns = [...this.places.doors.entries()].filter(([k]) => this.places.types.get(k) === BUILDING_TYPES.Tavern).map(([, s]) => s);
+    return taverns.length ? taverns[lwSeed(textSeed(res.id), 0x6c6f6467) % taverns.length] : (this.places.square ?? null);   // 'lodg'
+  }
+
+  /** Everyone the town reads today: its people, and its visitors. @param {number} day */
+  peopleOf(day) {
+    const v = this._roadsOf(day)?.visitors;
+    return v?.length ? this.residents.concat(v) : this.residents;
   }
 
   /** The entry a resident is in at minute `t` (with the one before and the one after), or null. @param {Resident} res @param {number} t */
@@ -238,7 +282,7 @@ export class LivingTown {
     /** @type {Map<string, any>} */
     const spotOf = new Map();
     const wanted = [];
-    for (const res of this.residents) {
+    for (const res of this.peopleOf(day)) {
       if (this._taken.get(res.id) === day) continue;
       const at = this.entryOf(res, t);
       if (!at) continue;
@@ -313,6 +357,9 @@ export class LivingTown {
       else if (lag > 0) lag = Math.max(0, lag - dt * rate * CATCH_UP);
       const w = this.where(res, this._now - lag, true);
       if (!w) { this._free(row); continue; }   // indoors: in through the door, out through the gate
+      // LW3: walking to or from the road, in their gear
+      const armed = !!w.e.armed && res.cls != null;
+      if (armed !== !!p.armed && typeof p.arm === 'function') { if (!armed) p.arm(null); else { const look = this.o.armOf?.(res) ?? null; if (look) p.arm(look); } }
       if (w.e.kind !== 'walk') lag = 0;   // standing at a spot owes nothing
       if (lag > 0) this._lag.set(res.id, lag); else this._lag.delete(res.id);
       if (w.pending) { if (!row.visible) continue; }
@@ -352,11 +399,11 @@ export class LivingTown {
     const rel = this.o.relations?.() ?? null;
     const day = this.dayOf(this._now);
     const standing = rel ? rel.standing(res.id, day) : 'neutral';
-    const pool = standing === 'friend' ? GREETINGS.friend : standing === 'enemy' || standing === 'hostile' ? GREETINGS.enemy
-      : rel?.known(res.id) ? GREETINGS.known : GREETINGS.stranger;
+    const pool = standing === 'friend' ? LIVING_GREETINGS.friend : standing === 'enemy' || standing === 'hostile' ? LIVING_GREETINGS.enemy
+      : rel?.known(res.id) ? LIVING_GREETINGS.known : LIVING_GREETINGS.stranger;
     this._greeted.set(res.id, this._now);
     // a stranger says something only now and then (and always when the player stops before them)
-    if (pool === GREETINGS.stranger && !stopped && (lwSeed(textSeed(res.id), Math.floor(this._now)) % 4) !== 0) return;
+    if (pool === LIVING_GREETINGS.stranger && !stopped && (lwSeed(textSeed(res.id), Math.floor(this._now)) % 4) !== 0) return;
     const text = fillLine(pool[lwSeed(textSeed(res.id), Math.floor(this._now / 7)) % pool.length], { player: this.o.playerName?.() ?? '' });
     this._greetings = this._greetings.filter((g) => g.person !== person && g.until > this._realNow);
     this._greetings.push({ person, text, until: this._realNow + GREET_S });
@@ -410,12 +457,20 @@ export class LivingTown {
     return id;
   }
 
+  /** LW3: a hand caught in a body's resident's purse - a crime they saw, noted in their regard. */
+  caught(person) {
+    const id = person?.living?.id;
+    if (!id) return null;
+    this.o.relations?.()?.note(id, 'crime', this.dayOf(this._now));
+    return id;
+  }
+
   /** What a body's resident says instead of talking, when they count the player an enemy - else null. */
   refuses(person) {
     const id = person?.living?.id;
     const rel = this.o.relations?.();
     if (!id || !rel) return null;
     const s = rel.standing(id, this.dayOf(this._now));
-    return s === 'enemy' || s === 'hostile' ? fillLine(REFUSAL, { a: firstNameOf(person.nameNPC) }) : null;
+    return s === 'enemy' || s === 'hostile' ? fillLine(LIVING_REFUSAL, { a: firstNameOf(person.nameNPC) }) : null;
   }
 }
