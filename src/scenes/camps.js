@@ -36,6 +36,7 @@ import {
   TENT_MODEL, FIRE_FLAT, FIRE_LIGHT_RANGE, CAMP_REACH, CAMP_KIND, CAMP_TEXT, CAMPS_PER_OWNER,
   placeCampItem, packCamp, stokeFire, fireLit, campExpired, tentPos, nearestFire, campInfoText, campMenu, campSpot, campDecision,
   cookables, cookFood, hasSkillet, campWire, mergeOwnerCamps, BY_FIRE_REACH, FIRE_MINUTES, spendCampNight,
+  strikeCamp,   // FIELD BUGS 2026-10-04b CAMP-CAP: a placing at the cap strikes the oldest
 } from '../systems/survival/camp.js';
 import { isCampfireKit, CAMPFIRE_USES } from '../systems/survival/items.js';   // REST2: the Campfire is online's for everyone
 import { isBedroll, isEmberJar, isFirewood, spendCharge, REST_ITEM_TEXT, FIREWOOD_NIGHTS, BEDROLL_CHANNEL_SECONDS } from '../systems/restItems.js';   // REST6: the Bedroll, the Ember Jar, Firewood
@@ -214,9 +215,35 @@ export function createCamps({
     });
     if (r.text) say(r.text);
     if (!r.ok) return false;
+    const struck = strikeOldest(r.strike);   // FIELD BUGS 2026-10-04b CAMP-CAP: at the cap my oldest goes, before this one stands
     stand(r.camp);
+    if (struck) say(struck);
     onChanged?.();
     return true;
+  }
+  /**
+   * FIELD BUGS 2026-10-04b CAMP-CAP (Discord, 2026-10-04, several players: "Placing 5 or so tents around the world and
+   * leaving them behind means I can no longer place any new tents or campfires at all", "I'm completely locked out of
+   * camping anywhere"). THE CAP STRIKES THE OLDEST; IT NEVER REFUSES. This pool holds every camp of mine wherever it
+   * stands - the streaming sweep spares them (AUDIT SURV B), the save carries them all and a load stands them all -
+   * and no camp burns away (REST2), so four left anywhere refused every placing after them with "You have enough camps
+   * standing already.", and only a walk back to one undid it. Now the first `n` of mine go: the oldest, as this pool
+   * holds them in the order they were placed (a placing appends; a load and a teleport stand the save's rows in the
+   * order the pool wrote them). Each is packed where it stands, as the menu's Pack packs it (camp.js strikeCamp), its
+   * gear into the pack - and so it leaves every store at once: this pool now; the next save, which holds the pack it
+   * went into (no save holds both); and the room, told by the placing's one onChanged AFTER the strike (a cell's full
+   * foes frame, a dungeon's act, which its host's memory follows). A copy anywhere else - a peer's view, a room's
+   * memory not yet told - is never this pool's own, so no door mints the gear twice. Answers the one line, or null.
+   */
+  function strikeOldest(n) {
+    let line = null;
+    for (const c of camps.filter(mine).slice(0, n | 0)) {
+      const r = strikeCamp(c.rec);
+      if (r.item && entity) (entity.items ??= []).push(r.item);   // CAMP-CAP: home as act's Pack hands it
+      drop(c);
+      line = r.text;
+    }
+    return line;
   }
 
   // ---- REST6: FIREWOOD AND THE BEDROLL -------------------------------------------------------------------------------
