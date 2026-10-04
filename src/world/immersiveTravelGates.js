@@ -22,6 +22,10 @@ import { registerWorldDataLayer } from '../formats/worldDataReplacement.js';
 /** The four gate blocks the mod edits, and Beautiful Cities' composites on them: `WALLAA08.RMB.json`,
  *  `WALLAA08.FARMAA00.RMB.json` - the gate is the name's first part. */
 export const IT_GATE_FILE = /^(WALLAA(?:08|09|10|11))(?:\.[A-Z0-9]+)?\.RMB\.json$/;
+/** OW-HUBS (FIELD BUGS 2026-10-04e): whether a town stands a carriage at its gate - one of its exterior blocks is a
+ *  gate the mod edits (`IT_GATE_FILE`, read off the block's own name: 'WALLAA08.RMB', or a composite on it). Pure; the
+ *  mod's switch is the caller's (systems/immersiveTravel.js immersiveTravelLoaded). */
+export const hasCarriageGate = (loc) => (loc?.exterior?.exteriorData?.blockNames ?? []).some((n) => IT_GATE_FILE.test(`${String(n ?? '').toUpperCase()}.json`));
 /** The two arrays the mod appends to. */
 const ARRAYS = Object.freeze(['Misc3dObjectRecords', 'MiscFlatObjectRecords']);
 

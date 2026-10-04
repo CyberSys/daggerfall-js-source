@@ -68,7 +68,7 @@ test('TV5 host wiring: the far places are rebuilt on a pixel (or a reach) change
   assert.ok(((i, j) => i >= 0 && j >= 0 && i < j)(w.indexOf('let tvFar = { at: null, near: -1, list: [] };'), w.indexOf('tvFar = { at: null, near: -1, list: [] };   // TV5: nor the far places')), 'BOOT-TDZ: declared above the load that clears it');
   assert.match(w, /if \(tvFar\.at && tvFar\.at\.x === at\.x && tvFar\.at\.y === at\.y && tvFar\.near === near && tvFar\.dg === dg\) return tvFar\.list;/);
   assert.match(w, /farPlaces\(\{ at, near, settlements: \(_tvSettlements \?\?= settlementPixels\(locationIndex\)\), summaryOf: tvPlaceSummary \}\)/);
-  assert.match(w, /marks\.push\(\{ key: f\.key, at: tvSceneKept\(f, f\.x, f\.z, TV_PLACE_LIFT\), label: f\.summary\.name, sub: farDistanceText\(km\), kind: 'far', pick: true, edge: true \}\);/);
+  assert.match(w, /marks\.push\(\{ key: f\.key, at: tvSceneKept\(f, f\.x, f\.z, TV_PLACE_LIFT\), label: f\.summary\.name, sub: farDistanceText\(km\), kind: 'far', pick: true, edge: true, hub: carriageTown\(f\.summary\.mapId\), tip: seatTipAt\(f\.summary\.mapId\) \}\);/);   // PIN MOVED (FIELD BUGS 2026-10-04e OW-HUBS, SEAT-TIP)
   assert.match(w, /const farEnd = endKey \? `far:\$\{tvTrip\.plan\.summary\.mapId\}` : null;/, 'the journey\'s own end is the flag\'s, not a plate at the edge');
   assert.match(w, /for \(const f of travelViewFarPlaces\(\)\) \{\n\s*if \(f\.key === farEnd\) continue;/);
   assert.match(w, /const plate = tvPlates\.list\.find\(\(p\) => p\.key === key\) \?\? tvFar\.list\.find\(\(p\) => p\.key === key\)( \?\? tvDng\.list\.find\(\(p\) => p\.key === key && p\.summary\))?;/);   // TV6: and a found dungeon's

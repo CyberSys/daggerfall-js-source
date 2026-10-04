@@ -483,13 +483,16 @@ suites updated where the law moved); mutants `tools/mutants/arenafix.json` (43, 
 4. **The undercroft is the fighters' hall** (`world/arenaUndercroft.js`, `dungeonContext.js`, `worldModes.js`). Its stair
    names it ("To The Arena Undercroft"); its record's name is "The Arena Undercroft" (the header keeps Kamer's for the
    record's identity). No random foe stands at its 343 markers (it had stood a HumanStronghold's table) and no rest is
-   broken there. Out from the stair by distance: the Pit Master (357:3) at the training pit, its straw dummy (211:20) and a
+   broken there [NARROWED at FIELD BUGS 2026-10-04e UNDERCROFT-DEEP: so within the hall's reach; the deep cellars past it
+   stand the keep's own foes again, below]. Out from the stair by distance: the Pit Master (357:3) at the training pit, its straw dummy (211:20) and a
    brazier (210:19); the Keeper of the Hall (183:12) at the Hall of Champions, its cups (200:1, 200:5) and arms (207:2, 8,
    12) beside her and a brazier; nine people at rest (the pit fighters 357:10/11 and 357:7, 334:11 at his lute; the
    armourer at his anvil 334:14, the cook 184:16, 334:7, 334:17, 334:18), every one lit; then four chained beasts (a
    Grizzly Bear, a Sabertooth Tiger, a Giant Scorpion, a bear - real bodies, passive, each its own always-held bout tag:
    they target nobody, nobody them; struck, held at the yield floor and the keepers' warning said); the deep cellars
-   quiet. The Pit Master's choice opens the PRACTICE BOUT: the bout law over a pit stage (`arenaPitStage` - the pit's
+   quiet [SUPERSEDED at FIELD BUGS 2026-10-04e UNDERCROFT-DEEP, `01-Overview/Field-Bugs-2026-10-04e.md`: a whole RDB
+   block from the stair and from every place the hall took, the keep's own foes stand again; no rest within that reach
+   is broken]. The Pit Master's choice opens the PRACTICE BOUT: the bout law over a pit stage (`arenaPitStage` - the pit's
    centre, a 6 m ring, the fighters along its passage), a sparring fighter of the player's tier (`practiceBout`), no purse,
    no ladder step, no crowd, no music, his own call and his word after. The Keeper reads the Hall (`hallOfChampions`):
    this save's Grand Champion, each tier whose champion fell (its number and name, the title it gave), or "No name is cut
@@ -1007,3 +1010,13 @@ bookmaker's "wager" is a "bet" on every press and line. `ui/arenaWindow.js`, `ui
 `arena3_window`, `arena5_plaques`, `arena_fix`, `audit1003b_client`); no test added or removed. Mutant records whose
 text moved re-aimed by content (`audit1003_ui.json` AUDIT-1003-U10-lapsed-unsaid, `audit1003b.json`
 AUDIT1003b-U9-DRAW-NO-RESULT; both dead).
+
+## FIELD BUGS 2026-10-04e - the first tournament's report
+
+Draugr, after the first tournament: arrows spent on the sand were never handed back (ARENA-ARROWS - the quiver is counted
+as a bout begins and what the bout loosed is handed back with the healers, `systems/arenaQuiver.js`, `systems/
+shotTally.js` - never an arrow dropped there); the Curse of Daggerfall's ghosts came for fighters at the gate
+(CURSE-OFF-SAND - its waves are kept off the grounds and the arena's two levels at CreateFoe's spawn event, so a rest
+there is never broken, `systems/arenaGround.js`); a two-against-one's pair seemed to fight each other (ARENA-TEAMS - an area spell's blast passes
+a bout teammate by, and a Grand Melee's HUD says "each alone"); the undercroft held no enemies (UNDERCROFT-DEEP, above).
+The record: `01-Overview/Field-Bugs-2026-10-04e.md`.

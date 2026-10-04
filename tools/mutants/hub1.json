@@ -248,8 +248,9 @@
   {
     "name": "HUB1-box-title-dropped",
     "file": "src/ui/heldMap.js",
-    "old": "const hubRows = [...(hub ? [hubTitle(hub)] : []), ...(seat ? [seatInfoLine(seat)] : [])];",
-    "new": "const hubRows = [...(seat ? [seatInfoLine(seat)] : [])];",
+    "old": "const hubRows = [...(hub ? [hubTitle(hub)] : []), ...(seat ? [seatInfoLine(seat, seat.holder?.guild ?? null)] : [])];",
+    "new": "const hubRows = [...(seat ? [seatInfoLine(seat, seat.holder?.guild ?? null)] : [])];",
+    "note": "re-aimed BY CONTENT (FIELD BUGS 2026-10-04e SEAT-TIP): the seat's line names its holder",
     "tests": [
       "test/heldmap.test.js"
     ]

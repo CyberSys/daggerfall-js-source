@@ -400,6 +400,7 @@ export function mwViewNewGame(inside = false) {
 export function mwViewRebase(delta) {
   eotbCamera.onPositionUpdate(delta);
   eotbWagon.rebase(delta);
+  eotbBody.rebase(delta);   // HORSE-FACE: the sprite's own feet too - an origin shift read as a placing
 }
 
 // ═══ EOTB-IL: THE CART's three doors ═════════════════════════════════

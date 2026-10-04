@@ -19,7 +19,8 @@ function markers(raw, drawn, hidden = new Set()) {
   return new Function('online', '_peerMapPoses', '_hiddenPeers', `
     const marks = [], near = new Set(), sharing = new Map(), _veils = new Map();
     const onlineToScene = p => [p.x, p.y, p.z];
-    const social = { isPartyPeer: () => true };
+    const social = { isPartyPeer: () => true, isFriendPeer: () => false };
+    const travellerKin = () => null, myGt = null;   // OW-KIN (FIELD BUGS 2026-10-04e): who each is to me - none here
     const player = { pos: [0, 0, 0] }, NAME_RANGE = 60, TV_PEER_HEAD_M = 2;
     const peerRiders = { heightOf: () => 0 }, peerBodies = peerRiders, peerWalkers = peerRiders;
     const isShipMark = () => true, tvBadgeOf = () => null;

@@ -1301,3 +1301,12 @@ Pins: `test/fb0929d_mapkey.test.js` (8; the last measures the player's own FMAP_
 the synthetic bay, at the near and the far band. `tools/heldMapProbe.mjs` was not extended: it fails six of its own
 checks on the base as well (the stage, the sprite and thumb keys, the open sea, the hover cursor), and its I/H checks
 still look for the box ENH-NOTICE3 moved onto the notice panel - its own repair, not this slice's.
+
+## OW-WHO, OW-KIN, OW-HUBS, SEAT-TIP on the travel map (FIELD BUGS 2026-10-04e)
+
+The region's travellers are filtered by the Overworld's own Players switches (the key gains a Players row while any are
+in the book) and drawn in their kin's colour (the legend names a friend's and a guild-mate's while one is drawn); a
+carriage town wears a wheel left of its mark, clear of its hub circle and seat ring, at every band, and names keep off
+it; a seat answers its hover with the EVENT-TIP card (who holds it, this week's battle - a seat's lines bounded at 160,
+not 80), and the I box names a held seat's holder - it read "unheld" whoever held it. The record:
+`01-Overview/Field-Bugs-2026-10-04e.md`.

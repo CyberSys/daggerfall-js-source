@@ -656,6 +656,11 @@ third was a thing the port never said out loud.
   The wait is the ride-out's own sentence, deliberately, so the two read
   alike.
 
+> **WILD-ROAD (FIELD BUGS 2026-10-04e)**: Encounters on the road (a World switch, on) passes a wanderer far beneath the
+> traveller by, and the rest sometimes come as a patrol. The road is a journey under way (the window up and its autopilot
+> steering) or the Overworld - never a rest. (Its HUNT-ROAD, a switch holding TO-FIELD3's hunt on the road, went with
+> HUNT-OUT's removal of the hunt, at the merge of main.) The record: `01-Overview/Field-Bugs-2026-10-04e.md`.
+
 > **TO-FIELD3 (Mac, 2026-09-18) REVERSED THE TWO GAMEPLAY CHANGES BELOW.**
 > "Remove the changes the past session did to the traveling system... the
 > two gameplay changes - journeys no longer sit as resting (needs charge
@@ -805,7 +810,7 @@ which `InitLocationRects` keeps refreshing the rects MID-journey
 (`:606-612`, `autopilot == null || destinationName != null`;
 `travelOptions.js:695-698`). A town's ring reaches into its neighbour
 pixels; the crossing fired `OnMapPixelChanged`, the host's
-`locationTileRect` answered null for the neighbour (world.js:13343 -
+`locationTileRect` answered null for the neighbour (world.js:13356 -
 null both for a pixel not yet built and for one with no location),
 `SetLocationRects` nulled both rects (`:602-604`), and the walk's own
 `OnArrival` (`circumnavigateLocation`, `:753-797`) read
