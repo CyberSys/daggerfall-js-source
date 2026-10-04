@@ -2,12 +2,12 @@
   {
     "name": "HOME1-claim-a-guest-owns",
     "file": "server-account/src/homes.js",
-    "old": "  if (accountKind(player) !== 'linked') return { error: 'homes-need-account' };\n  if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey)",
-    "new": "  if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey)",
+    "old": "  if (accountKind(player) !== 'linked') return { error: 'homes-need-account' };\n  if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey) || !homeRegionOk(region) || !homePriceOk(price))",
+    "new": "  if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey) || !homeRegionOk(region) || !homePriceOk(price))",
     "tests": [
       "test/home1.test.js"
     ],
-    "note": "ARENA4b (PIN MOVED, re-aimed by content): homes.js arenaMoveHome asks the same guest's question first - aimed at the claim's, whose next line reads `buildingKey`."
+    "note": "ARENA4b (PIN MOVED, re-aimed by content): homes.js arenaMoveHome asks the same guest's question first - aimed at the claim's, whose next line reads `buildingKey`. FIELD BUGS 2026-10-04b KNIGHT-HOUSE (PIN MOVED, re-aimed by content): holdDeed asks the same guest's question - aimed at the claim's, whose next line asks the price."
   },
   {
     "name": "HOME1-claim-cap-unread",
@@ -21,20 +21,22 @@
   {
     "name": "HOME1-claim-cap-per-account",
     "file": "server-account/src/homes.js",
-    "old": "WHERE (SELECT COUNT(*) FROM homes WHERE player = ? AND char_id = ?) < ?",
-    "new": "WHERE (SELECT COUNT(*) FROM homes WHERE player = ? AND ? IS NOT NULL) < ?",
+    "old": "WHERE (SELECT COUNT(*) FROM homes WHERE player = ? AND char_id = ? AND deed = 0) < ?",
+    "new": "WHERE (SELECT COUNT(*) FROM homes WHERE player = ? AND ? IS NOT NULL AND deed = 0) < ?",
     "tests": [
       "test/home1.test.js"
-    ]
+    ],
+    "note": "FIELD BUGS 2026-10-04b KNIGHT-HOUSE (PIN MOVED, re-aimed by content): the cap counts the homes bought (`deed = 0`)."
   },
   {
     "name": "HOME1-claim-two-owners",
     "file": "server-account/src/homes.js",
-    "old": "INSERT OR IGNORE INTO homes",
-    "new": "INSERT OR REPLACE INTO homes",
+    "old": "INSERT OR IGNORE INTO homes (map_id, building_key, player, char_id, owner_name, region, entry, price, bought_at, paid, layout)",
+    "new": "INSERT OR REPLACE INTO homes (map_id, building_key, player, char_id, owner_name, region, entry, price, bought_at, paid, layout)",
     "tests": [
       "test/home1.test.js"
-    ]
+    ],
+    "note": "FIELD BUGS 2026-10-04b KNIGHT-HOUSE (PIN MOVED, re-aimed by content): the deed's hold is an INSERT OR IGNORE too - aimed at the claim's, whose column list ends at `layout`."
   },
   {
     "name": "HOME1-claim-repeat-refused",
@@ -57,11 +59,12 @@
   {
     "name": "HOME1-claim-rate-unread",
     "file": "server-account/src/homes.js",
-    "old": "  if (await overRate({ db, nowS }, `home:${player.id}`, HOME_CLAIMS_MAX, HOME_CLAIMS_WINDOW_S)) return { error: 'home-rate' };\n",
-    "new": "",
+    "old": "  if (await overRate({ db, nowS }, `home:${player.id}`, HOME_CLAIMS_MAX, HOME_CLAIMS_WINDOW_S)) return { error: 'home-rate' };\n  return realmClaim(",
+    "new": "  return realmClaim(",
     "tests": [
       "test/home1.test.js"
-    ]
+    ],
+    "note": "FIELD BUGS 2026-10-04b KNIGHT-HOUSE (PIN MOVED, re-aimed by content): holdDeed counts the same hour - aimed at the claim's, whose next line is realmClaim."
   },
   {
     "name": "HOME1-release-anyones",
@@ -274,11 +277,12 @@
   {
     "name": "HOME1-own-by-account",
     "file": "src/systems/onlineHomes.js",
-    "old": "own: row.mine && typeof me === 'string' && row.character === me",
-    "new": "own: row.mine",
+    "old": "const own = row.mine && typeof me === 'string' && row.character === me;",
+    "new": "const own = row.mine;",
     "tests": [
       "test/home1.test.js"
-    ]
+    ],
+    "note": "FIELD BUGS 2026-10-04b KNIGHT-HOUSE (PIN MOVED, re-aimed by content): homeAt names `own` before the deed's question."
   },
   {
     "name": "HOME1-the-claims-character",

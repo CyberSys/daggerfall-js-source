@@ -542,7 +542,7 @@ import { deriveTownSeats, seatAtMapId } from '../systems/townSeats.js';   // SEA
 import { createTownSeatBook, parseSeatCommand, parseSiegeCommand } from '../net/townSeatBook.js';   // SEAT1a: the seats open, confirmed, witnessed   // VOID: a moderator's /siege void
 import { seatArrivalLine, seatHallOf, seatBannerOf, boardTithePct } from '../net/townSeatLaw.js';   // SEAT1a: the seat's arrival line; SEAT-HALL: whose hall a palace is; CROWN-HALL: the throne room's banners; AUDIT SEATS-3 D3: a board's Tithe
 import { hallMay } from '../net/hallLaw.js';   // SEAT-HALL: a palace's keepers are a hall's
-import { createOnlineHomes, moveArenaHomes, homeSceneName } from '../systems/onlineHomes.js';   // HOME1: the account service's homes, one town at a time; ARENA4b: the ones the arena displaced, moved
+import { createOnlineHomes, moveArenaHomes, homeSceneName, holdRealmDeeds, homeClaimLayout, checkpointLanded } from '../systems/onlineHomes.js';   // HOME1: the account service's homes, one town at a time; ARENA4b: the ones the arena displaced, moved; FIELD BUGS 2026-10-04b KNIGHT-HOUSE: a deed the realm gave, held
 import { townBoardRows, townHomeRows } from '../ui/townMapMarks.js';   // TOWN-MARKS: the Notice Boards and the player housing on the town map
 import { setSigilOnline, setSigilRenown } from '../systems/sigil.js';   // SIGIL1: a weapon won online carries a sigil, woken by my Renown
 import { setSetsDueling, setsDueling, drinkWorn, setSetsWearer } from '../systems/sigilSets.js';   // SET2: the duel's word - sets sleep in one; SET4: the drink, whole; SET5: the wearer a tooltip reads
@@ -1231,6 +1231,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   let _pinsDroppedSaid = false;   // AUDIT WD3 B6   // AUDIT WD3 R3: the latest applyLayoutPins - an older one overtaken sets nothing
   let _homeLayoutsAsk = homesApi ? homesApi.layouts().catch(() => null) : null;
   let _arenaHomesAsked = false;   // ARENA4b: the online homes the arena displaced, moved once a boot (moveArenaHomesOnline) - here, above the boot's first landing
+  let _deedsHeldAsked = false;   // FIELD BUGS 2026-10-04b KNIGHT-HOUSE: the deeds the realm gave, held once a boot (holdRealmDeedsOnline) - here, beside it
   let playerSpawned = false, _bootLoaded = false;   // HOTFIX 1003: here, above the boot's first landing - moveArenaHomesOnline reads it when the homes' towns land, which can be before the boot walk reached its old line (a TDZ ReferenceError live)
   // HOME-LOOK (2026-09-30, asked: "The ability to choose the texture for the roof, walls, door, windows, etc"): A PLAYER'S
   // HOME IS DRAWN OUT OF ITS PIXEL'S MERGE, with its OWN texture table - the pixel's climate swaps and its owner's look
@@ -12327,6 +12328,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       _homeLayoutsApplied = true;
       modes?.homeLayoutsLanded?.();   // AUDIT WD3 R7: a home's room the player stands in is furnished now
       void moveArenaHomesOnline();   // ARENA4b: Daggerfall stands in its homes' layout now - a home the arena displaced is picked in it
+      void holdRealmDeedsOnline();   // FIELD BUGS 2026-10-04b KNIGHT-HOUSE: a deed's town stands in the room's layout now - its hold names its building
     }).catch((e) => {
       console.warn('[layout] the homes\' towns:', e?.message ?? e);
       _serverLayoutRecords = null;   // not applied: asked again
@@ -12460,6 +12462,35 @@ export async function bootWorld(canvas, renderer, params, status) {
       console.warn('[arena] the displaced online home could not be moved:', e?.message ?? e);
       return null;
     }
+  }
+  /**
+   * FIELD BUGS 2026-10-04b KNIGHT-HOUSE (the Discord: "Houses earned through Knightly Orders still possibly purchaseable?
+   * ... I don't want to risk my Knight House being bought out from under me"): ONLINE, EVERY DEED THE REALM GAVE THIS
+   * CHARACTER (a Knightly Order's house - systems/onlineHomes.js realmDeedsOf) IS HELD BY THE ACCOUNT SERVICE, so no other
+   * player may claim its building - once a boot, after the homes' towns land (a hold names its building in its town's
+   * layout) and once the world stands with the character loaded (moveArenaHomesOnline's gates); the service reads the deed
+   * off the record the boot loaded. A house given before the hold existed, and one whose hold at the grant was lost, are
+   * held here; a hold made already answers `repeat`.
+   */
+  async function holdRealmDeedsOnline() {
+    if (_deedsHeldAsked || !onlineHomes) return null;
+    _deedsHeldAsked = true;
+    for (let i = 0; !(playerSpawned && modes && _bootLoaded && !_loading) && i < 1200; i++) await new Promise((r) => { setTimeout(r, 250); });   // `modes` is declared far below: read only once the world stands
+    if (!playerSpawned || !_bootLoaded || _loading) { _deedsHeldAsked = false; return null; }   // never the boot's stand-in character - asked again at the next landing
+    try {
+      const held = await holdRealmDeeds(onlineHomes, { houses: playerEntity.houses });
+      for (const d of held) if (!d.r?.ok) console.warn(`[homes] the deed to house ${d.buildingKey} is not held: ${d.r?.error}`);
+      return held;
+    } catch (e) {
+      console.warn('[homes] the deeds could not be held:', e?.message ?? e);
+      return null;
+    }
+  }
+  /** FIELD BUGS 2026-10-04b KNIGHT-HOUSE: THE HOUSE AN ORDER HAS JUST GIVEN, HELD (scenes/worldModes.js holdGrantedHouse) -
+   *  once the checkpoint carrying its deed has landed, since the service reads the deed off the record. */
+  async function holdGrantedDeed({ region, mapId, buildingKey }) {
+    if (!onlineHomes || !checkpointLanded(await onlineCheckpointLanded())) return { ok: false, error: 'offline' };   // no record holds it yet: the next boot holds it
+    return onlineHomes.holdDeed({ region, mapId, buildingKey, layout: homeClaimLayout(mapId) });
   }
   /**
    * WD3: THE SAVE'S TOWNS, IN THE LAYOUTS ITS THINGS WERE MADE IN (systems/layoutPins.js). Called once a save's
@@ -22418,6 +22449,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT WD3 B1: online, a town mod of the room's whose pack did not load here - this client's towns are not the room's
     homeTownsMissing: () => homeLayoutsOnline && worldDataPacksMissing().length > 0,
     hearHomeLayouts,
+    holdRealmDeed: onlineHomes ? (d) => holdGrantedDeed(d) : null,   // FIELD BUGS 2026-10-04b KNIGHT-HOUSE: an order's house, held by the service
     marks: marksBook,   // MARKS1: the Bank of the Empire's Marks, online
     saveSoon: () => saveSoon.changed(),   // PROF-SAVE: a Marks sale's gold in the Bank's account saved soon
     homeDecor,   // DECOR1c: an online home's placed pieces (null offline - the house's and the ship's are the save's)

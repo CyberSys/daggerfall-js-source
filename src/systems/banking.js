@@ -401,7 +401,7 @@ export function sellShip(accounts, regionIndex, player, { removePermanentScene =
  * which is what that expression was reaching for. Recorded in Ledger A.
  */
 export const MAX_HOUSES_FOR_SALE = 20;
-export function housesForSale(buildings, { mapId = 0, month = 0, isActiveQuestBuilding = null, stands = null } = {}) {
+export function housesForSale(buildings, { mapId = 0, month = 0, isActiveQuestBuilding = null, stands = null, owned = null } = {}) {
   const maxForSale = Math.min(Math.floor(buildings.length / 10), MAX_HOUSES_FOR_SALE);
   const forSale = [];
   const candidates = [];
@@ -410,6 +410,10 @@ export function housesForSale(buildings, { mapId = 0, month = 0, isActiveQuestBu
     // House2 (DABOOKBL02 13, DAGENRBL03 4) - and is never sold (priced at 0, entered by nobody). Every house of
     // Daggerfall's own stands on its model, so no classic market changes.
     if (stands && !stands(b)) continue;
+    // FIELD BUGS 2026-10-04b KNIGHT-HOUSE: nor a building that is someone's already - online, a player's home or a deed the
+    // account service holds (another knight's house) - which Daggerfall, with one player, never had to leave out: a
+    // Seneschal handed it on as a knight's house (its hold refused), and the market listed it beside the free ones
+    if (owned?.(b)) continue;
     if (b.buildingType === BUILDING_TYPES.HouseForSale) forSale.push(b);
     else if (isResidence(b.buildingType) && !(isActiveQuestBuilding?.(b) ?? false)) candidates.push(b);
   }

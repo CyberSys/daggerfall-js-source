@@ -1108,6 +1108,10 @@ export function accountHomes({ fetch, storage }) {
     arenaMove: ({ mapId, from, to, character, realm = null }) => post('/v1/homes/arena-move', { mapId, from, to, character, ...(realm ? { realm } : {}) }),
     arenaMoves: (character) => post('/v1/homes/arena-moves', { character }),
     arenaSeen: (mapId, from) => post('/v1/homes/arena-seen', { mapId, from }),
+    // FIELD BUGS 2026-10-04b KNIGHT-HOUSE: the building a deed the realm gave names (a Knightly Order's house), held off the
+    // character's record from anyone else's claim; and that hold given up as the deed sells at the bank
+    deed: ({ mapId, buildingKey, region, character, layout = null }) => post('/v1/homes/deed', { mapId, buildingKey, region, character, layout: layout || null }),
+    releaseDeed: (mapId, buildingKey) => post('/v1/homes/release', { mapId, buildingKey, deed: true }),
   };
 }
 

@@ -186,6 +186,7 @@ import { canAccessService , hasCustomMerchantService, getCustomMerchantService, 
 import {
   receiveArmorDecision, claimArmor, SPYMASTER_GREETING_TEXT_ID,
   receiveHouseDecision, claimHouse, ALREADY_GIVEN_HOUSE,   // H1
+  HOUSE_FLAG_MASK,   // FIELD BUGS 2026-10-04b KNIGHT-HOUSE: the order's gift given back when the service will not hold it
 } from '../systems/knightlyGifts.js';   // G6
 import { mintCondition, setItemFields, itemValueOf } from '../systems/itemTemplates.js';   // G6: the gift's pieces mint like any other item; MAC-N1: with SetItem's name and value
 import { npcServiceKind, freeHealing, freeMagickaRecharge, avoidDeath, AVOID_DEATH_TEXT, DEITY_DESCRIPTIONS } from '../systems/guildServices.js';   // MACRO-4: %gdd
@@ -293,6 +294,7 @@ import {
   HALL_OF_RECORDS_TEXT, HALL_OF_RECORDS_SHUT,   // SEASON1 part three: a seat's Hall of Records
   homeDoorName,   // FIELD BUGS 2026-09-30b HOME-PLAQUE: a nameless house with verbs is a Residence
   homeClaimLayout,   // AUDIT PRE-MERGE 1003 WD1: a hall is bought in its town's layout, as a home is
+  realmDeedAt,   // FIELD BUGS 2026-10-04b KNIGHT-HOUSE: the house the realm gave a knight is theirs, never for sale to them
 } from '../systems/onlineHomes.js';
 import { guildHallPrice, GUILD_HALL_ENTRY_WORDS } from '../net/hallLaw.js';   // GUILD1d: what a hall costs, in its refusal's words; who may walk in
 import { SEAT_HALL_DECOR_CAP, SEAT_HALL_CLEAR_M, SEAT_HALL_TEXT } from '../net/townSeatLaw.js';   // SEAT-HALL: the palace as the holder's hall
@@ -3352,6 +3354,9 @@ export function createWorldModes(host) {
       // the quest machine is using is not for sale (:169).
       isActiveQuestBuilding: (bs) => (questBridge ? questBridge.machine.isActiveQuestBuilding(dir.mapId, bs.buildingKey, bs.buildingType) : false),   // DISC28-I
       stands: (bs) => houseMeshRadius(bs) > 0,   // AUDIT WD3 H2: a house with no model of its own is no house to sell
+      // FIELD BUGS 2026-10-04b KNIGHT-HOUSE: online, never a building the town's answer names - a player's home, or a deed
+      // the service holds for another knight - which the Seneschal handed on (the market is ReceiveHouse's list too)
+      owned: host.onlineHomes ? (bs) => !!host.onlineHomes.homeAt(dir.mapId, bs.buildingKey) : null,
     });
   }
   /**
@@ -3438,6 +3443,34 @@ export function createWorldModes(host) {
       addPermanentScene: (mapId, key) => addPermanentScene(sceneCache(), interiorSceneName(mapId, key)),
       addNote: (text) => questBridge?.notebook?.addNote?.(text),
     };
+  }
+  /**
+   * FIELD BUGS 2026-10-04b KNIGHT-HOUSE (the Discord: "Houses earned through Knightly Orders still possibly purchaseable?
+   * ... I don't want to risk my Knight House being bought out from under me"): ONLINE, THE ORDER'S HOUSE IS HELD BY THE
+   * ACCOUNT SERVICE. ReceiveHouse wrote Daggerfall's deed into the save and nothing else, so every other door read the
+   * building as nobody's and sold it from under its knight. The host holds it once the checkpoint carrying the deed has
+   * landed (scenes/world.js - the service reads the deed off the record). A hold refused because the building is another
+   * player's now, or its town keeps another layout, GIVES THE GIFT BACK to the order - the deed, its name, its scene and
+   * the order's flag undone, so the Seneschal gives another - as a claim no longer paid for is given back (onlineHomes.js
+   * buyOnlineHome); the deed's note stays, as Daggerfall's SellHouse leaves it. Any other refusal keeps the deed, held at
+   * the next boot.
+   */
+  function holdGrantedHouse(region, membership) {
+    const slot = playerEntity.houses[region];
+    const mapId = Number(slot.mapId) >>> 0, key = slot.buildingKey;
+    Promise.resolve(host.holdRealmDeed({ region, mapId, buildingKey: key })).then((r) => {
+      if (r?.ok || (r?.error !== 'home-taken' && r?.error !== 'home-layout')) return;
+      const now = playerEntity.houses?.[region];
+      if (now?.buildingKey !== key || (Number(now.mapId) >>> 0) !== mapId) return;   // the deed moved on meanwhile
+      playerEntity.houses[region] = { regionIndex: region, location: '', mapId: 0, buildingKey: 0 };
+      membership.flags = (membership.flags ?? 0) & ~HOUSE_FLAG_MASK;
+      removePermanentScene(sceneCache(), interiorSceneName(now.mapId, key));
+      const locId = discoveryLocationId?.();
+      if (locId) undiscoverBuilding(locId, key);
+      townTalk?.say?.(accountRefusalText(r.error));
+      if (r.error === 'home-layout') host.hearHomeLayouts?.();
+      host.saveSoon?.();
+    }).catch((e) => console.error(e));
   }
 
   /** DaggerfallInterior.GetSceneName for the interior the player is
@@ -4229,7 +4262,7 @@ export function createWorldModes(host) {
         // ask, and its miss is DFU's own no-op (DaggerfallBankManager
         // .cs:452-462) rather than a sale at a price of zero.
         const owned = ownedHouseSummary();
-        return sellHouse(playerEntity.bankAccounts, playerEntity.houses, region,
+        const sell = () => sellHouse(playerEntity.bankAccounts, playerEntity.houses, region,
           { meshRadius: owned ? houseMeshRadius(owned) : 0, found: owned !== null }, {
             removePermanentScene: (mapId, k) => { decorSold(interiorSceneName(mapId, k), region); removePermanentScene(sceneCache(), interiorSceneName(mapId, k)); },   // DECOR1e: its placed pieces' half first
             // the deed named the building "<player>'s residence"; selling
@@ -4239,6 +4272,17 @@ export function createWorldModes(host) {
               if (locId) undiscoverBuilding(locId, k);
             },
           });
+        // FIELD BUGS 2026-10-04b KNIGHT-HOUSE: online, the house the realm gave is held by the account service - the hold
+        // goes first and the deed sells once the service agrees (HOME1's order: credited only once it is gone), or a
+        // building sold here stayed held from every buyer; a deed it never held (`no-home`) sells as Daggerfall's
+        const slot = playerEntity.houses?.[region];
+        if (host.onlineHomes && owned && realmDeedAt(playerEntity.houses, region, slot?.mapId, owned.buildingKey)) {
+          host.onlineHomes.releaseDeed(slot.mapId, owned.buildingKey)
+            .then((r) => { if (r.ok || r.error === 'no-home') sell(); else townTalk?.say?.(accountRefusalText(r.error)); })
+            .catch((e) => console.error(e));
+          return null;
+        }
+        return sell();
       },
       // AssignShipToPlayer/SellShip add and drop BOTH of the ship's
       // scenes (:494-495, :502-503) - the exterior is keyed by the
@@ -5057,6 +5101,11 @@ export function createWorldModes(host) {
           : (rows?.(decision.textId ?? decision.result) ?? []);
         return { rows: refusal.length ? refusal : [{ text: ALREADY_GIVEN_HOUSE, center: true }] };
       }
+      // FIELD BUGS 2026-10-04b KNIGHT-HOUSE: online the house is held by the account service (holdGrantedHouse), and a
+      // building key names a building only in its town's layout - none is given before the room's layouts of the homes'
+      // towns are heard (buyHomeAt's gates, AUDIT WD3 O1/O2/B1)
+      if (host.homeTownsMissing?.()) return { rows: [{ text: accountRefusalText('home-towns'), center: true }] };
+      if (host.homeLayoutsHeard?.() === false) { host.hearHomeLayouts?.(); return { rows: [{ text: accountRefusalText('home-layout'), center: true }] }; }
       allocateHouseToPlayer(playerEntity.houses, region, {
         buildingKey: decision.house.buildingKey,
         mapId: dir?.mapId ?? 0,
@@ -5068,6 +5117,7 @@ export function createWorldModes(host) {
       });
       claimHouse(membership);
       surfacePlayer();
+      if (host.holdRealmDeed) holdGrantedHouse(region, membership);
       return { rows: rows?.(decision.textId) ?? [{ text: 'I have a house for you.', center: true }] };
     }
     if (destination === 'guildServiceTeleport') {
@@ -6020,6 +6070,9 @@ export function createWorldModes(host) {
   function homeOfferPrice(bd) {
     const homes = host.onlineHomes;
     if (!homes || !homeCandidate(bd) || !homes.known(homeTownOf(bd)) || homeOf(bd)) return 0;
+    // FIELD BUGS 2026-10-04b KNIGHT-HOUSE: nor my own house - the deed the realm gave me (a Knightly Order's), which the
+    // service holds from everyone else and leaves out of my town's answer: the plaque offered "Buy it" at my own door
+    if (realmDeedAt(playerEntity.houses, bd.regionIndex ?? 0, homeTownOf(bd), bd.buildingKey)) return 0;
     if (!homePurchasable(bd, { isActiveQuestBuilding: questSiteHere })) return 0;
     const price = housePrice(houseMeshRadius(bd));
     return homePriceOk(price) ? price : 0;

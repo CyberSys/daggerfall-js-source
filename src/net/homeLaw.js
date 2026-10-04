@@ -51,6 +51,22 @@ export const HOME_SALE_SHARE = 0.85;
 /** What selling a home bought for `price` pays back (systems/onlineHomes.js homeRefund, pinned equal). */
 export const homeSaleRefund = (price) => Math.trunc((Number.isSafeInteger(price) && price > 0 ? price : 0) * HOME_SALE_SHARE);
 
+/**
+ * FIELD BUGS 2026-10-04b KNIGHT-HOUSE (the Discord: "Houses earned through Knightly Orders still possibly purchaseable?
+ * ... I don't want to risk my Knight House being bought out from under me"): THE DEED A SAVE HOLDS TO A BUILDING, THAT
+ * THE REALM GAVE IT - region `region`'s slot of the save's `houses` (systems/banking.js, Daggerfall's one house a region:
+ * a Knightly Order's ReceiveHouse writes it, AllocateHouseToPlayer) naming this town's building - or null. Never a deed
+ * customs carried in (`crossed`, systems/realmCustoms.js): that is an offline house, which stays offline only (HOME1, Mac:
+ * "Stay offline only" - the server's list decides it online). Both ends read it: the door, and the service's hold
+ * (server-account/src/homes.js holdDeed). Map ids compare unsigned (a save keeps the signed one MAPS.BSA reads).
+ */
+export function homeDeedOf(houses, region, mapId, buildingKey) {
+  const slot = Array.isArray(houses) && homeRegionOk(region) ? houses[region] : null;
+  if (!slot || typeof slot !== 'object' || slot.crossed || !homeBuildingKeyOk(buildingKey) || slot.buildingKey !== buildingKey) return null;
+  const id = Number(mapId) >>> 0;
+  return homeMapIdOk(id) && (Number(slot.mapId) >>> 0) === id ? slot : null;
+}
+
 const sameName = (a, b) => typeof a === 'string' && typeof b === 'string' && a.length > 0 && a.toLowerCase() === b.toLowerCase();
 
 /**
