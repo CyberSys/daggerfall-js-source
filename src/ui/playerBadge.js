@@ -92,12 +92,14 @@ export const TITLE_TEXT = Object.freeze({
   champion: 'Champion',
   grandchampion: 'Grand Champion',   // ARENA4 (2026-10-02, Mac: "Being a top rank PvE fighter comes with it's own title")
   arenachampion: 'Arena Champion',   // ARENA4: "Being the #1 pvp arena player comes with it's own temporary title/glyph"
+  aegis: 'Aegis of Oblivion',        // AEGIS (2026-10-03, the owner): Sureme's own
 });
 
 /** WB9g (2026-09-30, Mac: "an animated burning ground aura that circles the ground where your character stands"): AN
  *  AURA'S WORD, as a player reads it - the Broker's offer and the account card's button. */
 export const AURA_TEXT = Object.freeze({
   dagonfire: "Dagon's Fire",
+  oblivionward: 'Oblivion Ward',   // AEGIS: the Aegis of Oblivion's ring of runes, granted with the title
 });
 
 /** SHADOW-FANG (2026-09-26, Mac): "SirMcMobdon gets a brand new
@@ -129,6 +131,19 @@ const PENITENT_LIGHT = Object.freeze([1, 0.953, 0.839, 1]);     // #fff3d6
 const GATEBREAKER_CRIMSON = Object.freeze([0.62, 0.05, 0.07, 1]);  // #9e0d12
 const GATEBREAKER_FIRE = Object.freeze([1, 0.42, 0.08, 1]);        // #ff6b14
 const GATEBREAKER_EMBER = Object.freeze([1, 0.82, 0.32, 1]);       // #ffd152
+
+/** AEGIS (2026-10-03, the owner: "For the account named Sureme ... a title, glyph and new custom aura for this user.
+ *  Title: Aegis of Oblivion. Theme: Purple"). Three violets out of the void into the ward's light - the void's deep
+ *  violet, the ward's own (the Oblivion Ward's glow, render/auraRing.js WARD_RGB), and the light at the aegis's edge.
+ *  Chosen in Chromium over a night sky, a day sky, stone, grass and snow at 13 to 64 px beside the Apostle's and the
+ *  Protector's: the reverse (light into the void) read as a bare name over a night sky and was lost on snow; a paler
+ *  run (#8b3dff to #f0e2ff) lost its light end on snow; this one reads violet on all five. */
+const OBLIVION_VOID = Object.freeze([0.439, 0.188, 0.878, 1]);    // #7030e0
+const OBLIVION_VIOLET = Object.freeze([0.698, 0.302, 1, 1]);      // #b24dff
+const OBLIVION_LILAC = Object.freeze([0.925, 0.863, 1, 1]);       // #ecdcff
+/** The abyss under the aegis - the glyph's tendrils, darker than any stop of the word (Sureme's reference: the black
+ *  splash the pillars and the ring stand out of). */
+const OBLIVION_ABYSS = Object.freeze([0.302, 0.102, 0.580, 1]);   // #4d1a94
 
 /** A title's colour, RGBA 0..1 - the same shape SOC4's PARTY_GREEN is
  *  in, so `nameLayer.cssRgba` turns it into CSS and `drawText` takes it
@@ -168,6 +183,10 @@ export const TITLE_RGBA = Object.freeze({
   // Founder's); the ARENA CHAMPION in the LAUREL's own green - the wreath the season's #1 wears, the glyph's colour too
   grandchampion: Object.freeze([0.804, 0.498, 0.196, 1]),   // #cd7f32
   arenachampion: Object.freeze([0.557, 0.776, 0.247, 1]),   // #8ec63f
+  // AEGIS: the gradient's middle, the ward's violet - the colour a face that cannot draw a gradient uses (the account
+  // card's button, the classic face's tint), and the glyph's. Bluer than the Hierophant's rose, brighter and redder than
+  // the Apostle's periwinkle and the Protector's royal purple
+  aegis: OBLIVION_VIOLET,
 });
 
 /** SHADOW-FANG: A TITLE DRAWN AS A GRADIENT - its stops, RGBA 0..1, left
@@ -179,6 +198,7 @@ export const TITLE_GRADIENT = Object.freeze({
   shadowfang: Object.freeze([SHADOW_BLACK, SHADOW_CRIMSON]),
   penitent: Object.freeze([PENITENT_GOLD, PENITENT_LIGHT, PENITENT_SKY]),
   gatebreaker: Object.freeze([GATEBREAKER_CRIMSON, GATEBREAKER_FIRE, GATEBREAKER_EMBER]),   // WB9g: coal, fire, ember
+  aegis: Object.freeze([OBLIVION_VOID, OBLIVION_VIOLET, OBLIVION_LILAC]),   // AEGIS: out of the void into the ward's light
 });
 
 /** PENITENT: THE EDGE A GRADIENT TITLE WEARS, where it is not the title's
@@ -191,6 +211,7 @@ export const TITLE_GRADIENT = Object.freeze({
 export const TITLE_EDGE = Object.freeze({
   penitent: Object.freeze([0, 0, 0, 1]),
   gatebreaker: Object.freeze([0, 0, 0, 1]),   // WB9g: its ember end is bright - edged in black, as Penitent's
+  aegis: Object.freeze([0, 0, 0, 1]),   // AEGIS: its lilac end is bright - edged in black, as Penitent's and the Gatebreaker's
 });
 
 /** A glyph's colour. The sprout is green because Mac said green; the
@@ -217,6 +238,7 @@ export const GLYPH_RGBA = Object.freeze({
   crownWR: Object.freeze([0.702, 0.149, 0.180, 1]),   // #b3262e
   crownSN: Object.freeze([0.831, 0.627, 0.090, 1]),   // #d4a017
   laurel: TITLE_RGBA.arenachampion,    // ARENA4: the wreath in the Arena Champion's own green - one grant's two halves
+  aegis: TITLE_RGBA.aegis,             // AEGIS: the pillars and the ring in the title's violet - the tendrils are its detail, below
 });
 
 /** SHADOW-FANG: A GLYPH FILLED WITH A GRADIENT - its title's two stops,
@@ -241,6 +263,11 @@ export const GLYPH_EDGE_W = 0.55;
 export const GLYPH_DETAIL = Object.freeze({
   shadowfang: Object.freeze({ path: 'M9.3 4.7L11.8 5.5L9.8 6.2Z', rgba: SHADOW_EYE }),
   penitent: Object.freeze({ path: 'M8 3.2L8.65 3.85L8 4.5L7.35 3.85ZM7.45 4.5H8.55V6.3H7.45ZM5.9 6.3H10.1V7.3H5.9ZM7.25 7.3H8.75L8 14Z', rgba: PENITENT_SKY }),
+  // AEGIS: THE VOID'S TENDRILS under the aegis, in the abyss's violet - Sureme's reference stands its pillars and ring
+  // out of a black splash. One filled mass hung from the ring's foot: five tendrils, the outer two swept out wide and
+  // low, the inner two curling down, the middle one straight down, each tapering to a point. A skirt of straight spikes
+  // read as an upside-down crown and a jellyfish; in the title's lilac it read as a crown again.
+  aegis: Object.freeze({ path: 'M4.4 12.9Q2.2 13.2 0.3 14.6Q2.8 14.3 5 14.3Q4 15 3 15.8Q5.4 15.3 6.6 14.5L8 15.95L9.4 14.5Q10.6 15.3 13 15.8Q12 15 11 14.3Q13.2 14.3 15.7 14.6Q13.8 13.2 11.6 12.9Q8 14 4.4 12.9Z', rgba: OBLIVION_ABYSS }),
 });
 
 /** THE CLASSIC FACE'S STAND-IN: one character, and it must be one the
@@ -262,6 +289,7 @@ export const GLYPH_MARK = Object.freeze({
   crownWR: 'W',
   crownSN: 'S',
   laurel: '@',        // ARENA4: the wreath, a ring round the name's end
+  aegis: 'O',         // AEGIS: the ring the pillars stand through - and Oblivion's initial
 });
 
 /** The printable range the classic font covers. ACC1d-MARK's own bound,
@@ -308,12 +336,17 @@ export const GLYPH_PATH = Object.freeze({
   // ARENA4: THE LAUREL - two branches rising from a tie at the foot and curving up and out, open at the top as a
   // victor's wreath is, three leaves on each and a bud at each tip
   laurel: 'M8 14.5C4.5 13 2.5 10 3 5M8 14.5C11.5 13 13.5 10 13 5M3.2 7L1.6 6M3.6 9.6L1.8 9.4M5 12L3.4 12.6M12.8 7L14.4 6M12.4 9.6L14.2 9.4M11 12L12.6 12.6M3 5L2.4 3.2M13 5L13.6 3.2',
+  // AEGIS: SUREME'S REFERENCE (the Path of Exile sigil they sent), drawn after it and not traced - a tall pillar up the
+  // middle, a short pillar each side, and a wide ring lying across all three below the middle, the side pillars
+  // standing at its two ends: "I O I" with the middle risen. The squared spiral the reference curls at its top right
+  // read as a flag at a name's size and is left out; its black splash is GLYPH_DETAIL's tendrils.
+  aegis: 'M8 0.9V10.9M3 7.2V12.8M13 7.2V12.8M3 10.2A5 2.6 0 1 0 13 10.2A5 2.6 0 1 0 3 10.2',
 });
 
 /** Is this glyph DRAWN as an outline rather than filled? The sprout is
  *  a shape and the brackets are strokes; said here so the layer does
  *  not have to know which is which by name. */
-export const GLYPH_STROKE = Object.freeze({ sprout: true, dev: true, mod: true, dm: true, disciple: true, apostle: true, hierophant: true, shadowfang: false, penitent: true, herald: true, tower: false, crownDF: false, crownWR: false, crownSN: false, laurel: true });   // SEAT1c: the seats' four filled; ARENA4: the laurel's branches stroked
+export const GLYPH_STROKE = Object.freeze({ sprout: true, dev: true, mod: true, dm: true, disciple: true, apostle: true, hierophant: true, shadowfang: false, penitent: true, herald: true, tower: false, crownDF: false, crownWR: false, crownSN: false, laurel: true, aegis: true });   // SEAT1c: the seats' four filled; ARENA4: the laurel's branches stroked; AEGIS: the pillars and the ring stroked
 
 /**
  * The title a peer wears, ready to draw: `{ key, text, rgba }`, or
@@ -424,6 +457,9 @@ export function glyphBadges(peer) {
  * without anybody remembering to write one.
  */
 export const badgeClass = (kind, key) => `${kind}-${key}`;
+/** AEGIS: THE TITLE WHOSE PAINT AN AURA'S BUTTON WEARS on the account card - the aura's own family: the Broker's fire
+ *  the Gatebreaker's, the Oblivion Ward the Aegis of Oblivion's. A pin walks AURA_TEXT and requires an entry. */
+export const AURA_PAINT = Object.freeze({ dagonfire: 'gatebreaker', oblivionward: 'aegis' });
 /** SHADOW-FANG: `titlePaint`'s properties as CSS declarations, the colour
  *  left to the button (its border is drawn in it) - so a gradient title's
  *  word on the card is the SAME paint as over a head, not a second one. */
@@ -438,8 +474,9 @@ export const badgeCss = () => [
   ...TITLES.filter((t) => TITLE_GRADIENT[t]).map((t) => `.card button.acttitle.${badgeClass('tl', t)} .acttitleword { ${wordCss(t)} }`),
   ...GLYPHS.map((g) => `.card .acctglyph.${badgeClass('gl', g)} .acctglyphart { color: ${cssRgba(GLYPH_RGBA[g])}; }`),
   // WB9g: an aura's button wears the Gatebreaker's own fire - the Broker's two pieces are one family of colour - its
-  // word (.actauraword, the aura's name: a title's word rule stays one per gradient title) painted as that title's is
-  ...Object.keys(AURA_TEXT).map((a) => `.card button.acttitle.actaura.aura-${a} { color: ${cssRgba(TITLE_RGBA.gatebreaker)}; }\n.card button.acttitle.actaura.aura-${a} .actauraword { ${wordCss('gatebreaker')} }`),
+  // word (.actauraword, the aura's name: a title's word rule stays one per gradient title) painted as that title's is.
+  // AEGIS: each aura in ITS title's paint (AURA_PAINT) - the Oblivion Ward in the Aegis of Oblivion's violets
+  ...Object.keys(AURA_TEXT).map((a) => `.card button.acttitle.actaura.aura-${a} { color: ${cssRgba(TITLE_RGBA[AURA_PAINT[a]])}; }\n.card button.acttitle.actaura.aura-${a} .actauraword { ${wordCss(AURA_PAINT[a])} }`),
 ].join('\n');
 
 /** The classic face's whole suffix: the marks, run together, or ''.

@@ -62,12 +62,12 @@
   {
     "name": "HERALD-the-glyph-without-the-title",
     "file": "server-account/src/titles.js",
-    "old": "herald: 'herald' });",
-    "new": "herald: 'penitent' });",
+    "old": "herald: 'herald', aegis: 'aegis' });",
+    "new": "herald: 'penitent', aegis: 'aegis' });",
     "tests": [
       "test/herald.test.js"
     ],
-    "note": "A Herald drawn with Penitent's sword."
+    "note": "A Herald drawn with Penitent's sword. AEGIS (re-aimed by content): the line gained Sureme's aegis."
   },
   {
     "name": "HERALD-the-tier-unmapped",

@@ -180,8 +180,8 @@ then pinned and its fix mutated (`tools/mutants/guild2.json`, the `AUDIT-GUILD2-
 | M1-M3 | The vault's town read once at the build; the vault read once a session; another guild's pieces shown with Take after a failed read | Each fixed (GUILD2b) |
 | - | The grant's select rebuilt the whole panel, its focus lost; "Takes out" started at any number; a swatch the law refused left open; touch swatches under 44 pixels; the hall's name after a rename unpinned | Each fixed; the hall's name asserted |
 
-The service's two fixes that move rows (G1, G4) need no migration; the relay re-bundles the heraldry law (world160 -
-world157 when this was written, renumbered past main's DFO integration; no wire change).
+The service's two fixes that move rows (G1, G4) need no migration; the relay re-bundles the heraldry law (world161 -
+world157 when this was written, renumbered past main's DFO integration, then past AEGIS's world160; no wire change).
 
 ## The second audit (2026-10-03, Mac: "Audit again. Just want perfection")
 
