@@ -381,7 +381,7 @@ export function pickActivatable(eye, dir, targets, collider) {
  * `distance` is widened to RAY_DISTANCE so it can WIN the pick
  * therefore carries its real `reach` beside it, and the ladder speaks
  * the refusal when the winner came back out of reach. This is the
- * bulletin board's idiom (scenes/worldModes.js:6217-6230) given a
+ * bulletin board's idiom (scenes/worldModes.js:6218-6231) given a
  * field, not a second pick: one ray, one winner, the gate downstream.
  * Targets that were never widened answer `reach === distance`, which
  * the pre-gate has already enforced, so they can never refuse.
@@ -507,7 +507,7 @@ function nearestActivatableHit(eye, dir, targets, collider) {
         targetKeys ??= new Set(targets.map((t) => t.key));
         if (targetKeys.has(firstHit.key)) continue;
       }
-    } else if (target.surface === true && collider.raycastHit) {
+    } else if (target.surface === true && collider.raycastHit && d <= bestDist) {   // a box entered past the best can lose only further: no cast
       // WHERE-ROBES (FIELD BUGS 2026-10-04b): CASTLE1's law again, for a box merely ENTERED whose model's triangles sit
       // in the collider's SHARED bucket (a building's furniture, filed under the interior's own key, so no key names
       // it). DFU meets furniture only at its mesh (PlayerActivate.cs:314), and the box standing in for it is mostly

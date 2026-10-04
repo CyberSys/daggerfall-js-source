@@ -2166,7 +2166,8 @@ export function createWorldModes(host) {
       if (bd.hidden) return;   // BASE-HIDE
       targets.push({ key: `bed:${i}`, aabb: worldAabb(bd.cpu.positions, bd.matrix), distance: RAY_DISTANCE, reach: DEFAULT_ACTIVATION_DISTANCE, surface: true });   // WHERE-ROBES: the mattress, not the air under the headboard
     });
-    if (shelvesAct(interiorBuilding)) interiorCtx.shelves.forEach((s, i) => {   // WHERE-ROBES: a shelf that does nothing is geometry, not a target
+    // WHERE-ROBES: a shelf that does nothing is geometry, not a target
+    if (shelvesAct(interiorBuilding)) interiorCtx.shelves.forEach((s, i) => {
       if (s.hidden) return;   // BASE-HIDE
       targets.push({ key: `shelf:${i}`, aabb: worldAabb(s.cpu.positions, s.matrix), distance: RAY_DISTANCE, reach: DEFAULT_ACTIVATION_DISTANCE, surface: true });   // WHERE-ROBES: its boards, not its open front; E2; :850-853 for the Library/Guild/Temple bookshelf, :868-873 for a shop's ShopShelves - both 128 units
     });

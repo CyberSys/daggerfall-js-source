@@ -114,7 +114,7 @@
   {
     "name": "ROBES-surface-law-dropped",
     "file": "src/player/activate.js",
-    "old": "} else if (target.surface === true && collider.raycastHit) {",
+    "old": "} else if (target.surface === true && collider.raycastHit && d <= bestDist) {",
     "new": "} else if (false) {",
     "tests": [
       "test/fb1004b_robes.test.js"
