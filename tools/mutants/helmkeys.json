@@ -144,18 +144,9 @@
     ]
   },
   {
-    "name": "HELMKEYS-the-button-the-toggle",
-    "file": "src/ui/enhancedHelm.js",
-    "old": "action: !h.sailsUp ? A.more : h.squareToggle ? A.sail : A.less });",
-    "new": "action: A.sail });",
-    "tests": [
-      "test/csa_together.test.js"
-    ]
-  },
-  {
     "name": "HELMKEYS-the-legend-gone",
     "file": "src/ui/enhancedHelm.js",
-    "old": "  const parts = [h.hasSails ? pair('Sails', A.more, A.less) : '', pair('Steer', 'TurnLeft', 'TurnRight')];",
+    "old": "  const parts = [keys(h.hasSails ? 'Oars & sails' : 'Oars', 'MoveForwards', 'MoveBackwards', A.more, A.less), keys('Steer', 'MoveLeft', 'MoveRight', 'TurnLeft', 'TurnRight')];",
     "new": "  const parts = [];",
     "tests": [
       "test/csa_together.test.js"

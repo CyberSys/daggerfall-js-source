@@ -114,10 +114,10 @@
   {
     "name": "CAMPCAP-the-word-before-the-strike",
     "file": "src/scenes/camps.js",
-    "old": "    const struck = strikeOldest(r.strike);   // FIELD BUGS 2026-10-04d CAMP-CAP: at the cap my oldest goes, before this one stands\n    stand(r.camp);\n    if (struck) say(struck);\n    onChanged?.();\n",
-    "new": "    onChanged?.();\n    const struck = strikeOldest(r.strike);   // FIELD BUGS 2026-10-04d CAMP-CAP: at the cap my oldest goes, before this one stands\n    stand(r.camp);\n    if (struck) say(struck);\n",
+    "old": "    const struck = strikeOldest(r.strike);   // FIELD BUGS 2026-10-04d CAMP-CAP: at the cap my oldest goes, before this one stands\n    // DECK-CAMP: placed on a boat's deck, it is hers - its point and heading in her frame, by her number\n    const on = deck?.at?.(r.camp.pos) ?? null;\n    if (on?.m && on.ref) {\n      const d = validDeck({ ...on.ref, local: intoDeck(on.m, r.camp.pos, [0, 0, 0]), yaw: r.camp.yaw - deckYaw(on.m) });\n      if (d) r.camp.deck = d;\n    }\n    const c = stand(r.camp);\n    if (r.camp.deck && on?.m) { c.hidden = false; c.deckM = on.m; }\n    if (struck) say(struck);\n    onChanged?.();\n",
+    "new": "    onChanged?.();\n    const struck = strikeOldest(r.strike);   // FIELD BUGS 2026-10-04d CAMP-CAP: at the cap my oldest goes, before this one stands\n    // DECK-CAMP: placed on a boat's deck, it is hers - its point and heading in her frame, by her number\n    const on = deck?.at?.(r.camp.pos) ?? null;\n    if (on?.m && on.ref) {\n      const d = validDeck({ ...on.ref, local: intoDeck(on.m, r.camp.pos, [0, 0, 0]), yaw: r.camp.yaw - deckYaw(on.m) });\n      if (d) r.camp.deck = d;\n    }\n    const c = stand(r.camp);\n    if (r.camp.deck && on?.m) { c.hidden = false; c.deckM = on.m; }\n    if (struck) say(struck);\n",
     "tests": ["test/fb1004d_campcap.test.js"],
-    "note": "online: the room told before the strike - the dungeon's act word still carries the struck fire and not the new one"
+    "note": "online: the room told before the strike - the dungeon's act word still carries the struck fire and not the new one THE SECOND MERGE OF MAIN (#598, PIN MOVED): DECK-CAMP stands the camp on a deck between the strike and its word - the room is still told before the strike, around the deck's lines."
   },
   {
     "name": "CAMPCAP-the-strike-unsaid",

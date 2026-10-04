@@ -301,7 +301,7 @@ function helmOver(keys) {
   const has = (a) => held(keys, a);
   const player = { position: [1, 2, 3], frozen: 0 };
   const deps = csaDeps({
-    input: { has, started: () => false, horizontal: () => (has('MoveRight') ? 1 : 0) - (has('MoveLeft') ? 1 : 0), vertical: () => (has('MoveForwards') ? 1 : 0) - (has('MoveBackwards') ? 1 : 0), toggleAutorun: false },
+    input: { has, started: (a) => has(a), horizontal: () => (has('MoveRight') ? 1 : 0) - (has('MoveLeft') ? 1 : 0), vertical: () => (has('MoveForwards') ? 1 : 0) - (has('MoveBackwards') ? 1 : 0), toggleAutorun: false },
     helm: { setPlayerPosition: (p) => { player.position = [...p]; }, setFacing: () => {}, turnPlayer: () => {}, freeze: (s) => { player.frozen = s; }, frozen: () => player.frozen > 0, stopRunning: () => {}, footsteps: () => {}, alignToGround: () => {} },
     player: () => ({ position: [...player.position], rotation: [0, 0, 0, 1] }),
   });

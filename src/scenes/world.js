@@ -191,6 +191,7 @@ import { placeFoeFreely, PLACE_FOE_DEFAULTS } from '../systems/quest/sceneMount.
 import { PLAYED_STEP_MAX_SECONDS } from '../systems/quest/clock.js';   // WORLD7: the quest clocks' played step online
 import { mintQuestFoeWave, placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour, heldSpots, holdSpotWhile, questBoxHoldsFoes, questShareTag, sharedQuestFoe, partnerStandsQuestFoes, questBehaviourFor, adoptsOrphanQuestFoe, isPrivateQuestFoe, KeptKillLedger, creditKeptKills } from './questFoeHost.js';   // B1   // AUDIT 63r F24: SerializableEnemy.cs:206-217's quest-link arm, the one home both hosts use
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag
+import { markFoeReach } from '../systems/foeReach.js';   // WATER-FOES: a foe in the water reaches no one aboard
 import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, foeHostile, quietNights } from '../systems/encounters.js';   // OW6: foeHostile, the one hostility gate   // REST5: a carried night wakes to no ambush
 import { nightDue, setNightListener, nightStamp, nightKindOf, isNightStamp, carriedNightEnd, REST_ACT_TEXT } from '../systems/restAct.js';   // REST5: the party's night   // AUDIT REST-PARTY: and where it was slept   // AUDIT REST II: the mark asked lazily (P5), and what a carried night says (P3)
 import { createNightWatch, carriedNightAction, carriedRestKind } from '../systems/partyRestLaw.js';   // AUDIT REST-PARTY: the party's night, pinned by execution   // AUDIT REST II P1/P2: its watch
@@ -5911,6 +5912,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     advanceMinutes: (n) => { playerTicker.advance(n); runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, true); },   // the cook's minutes pass - online on the character's own clock (LIVED1)   // CAMP-REST: spent through the tick as a skip, never replayed as walking time (no group roll)
     selfId: () => online?.id ?? null, onChanged: () => { _foesFullAt = -Infinity; },   // a change asks for a full frame, which carries the camps
     fieldCook: () => fieldCookNow(),   // PROF9: a Field Cook's own Campfire keeps its fuel
+    deck: { at: (pos) => campDeckAt(pos), resolve: (ref) => campDeckResolve(ref) },   // DECK-CAMP: a camp on a boat's deck rides her
   });
   /** PROF9 (bible/06-Systems/Professions-Arc.md 3.3): whether the player stands as a Field Cook - online, the professions
    *  the account's, Cooking's choice at 50 - so a night at their own Campfire spends no fuel (survival/camp.js spendCampNight). */
@@ -6381,6 +6383,32 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   /** BOAT-MENU: whether I stand on this boat's deck - the ground under me one of its buckets (the wake's own test). */
   const csaStandsOn = (boat) => !!player.grounded && typeof player.groundKey === 'string' && player.groundKey.startsWith(`csaBoat:${csaBoatId(boat)}:`);
+  /** DECK-CAMP (systems/survival/camp.js, scenes/camps.js ride): THE BOAT UNDER A CAMP'S SPOT - her bucket off the
+   *  collider's surface probe, read down from just over the spot (the camp's ground was hers) - as `{ ref, m }`: one of
+   *  mine by her number, or another player's by theirs and hers; none for a sea ship or a boat with no number. */
+  const campDeckAt = (pos) => {
+    const hit = collider?.surfaceHit?.([pos[0], pos[1] + 0.5, pos[2]], [0, -1, 0], 1.5);
+    const boat = typeof hit?.key === 'string' && hit.key.startsWith('csaBoat:') ? _csaBuckets.get(hit.key)?.boat ?? null : null;
+    if (!boat?.MeshObject || !(boat.uid > 0)) return null;
+    if (csaRuntime?.AllBoats?.includes(boat)) return { ref: { mine: true, uid: boat.uid }, m: boat.MeshObject.worldMatrix() };
+    const at = csaPeers.placeOf(boat);
+    return at ? { ref: { peer: at.owner, uid: boat.uid }, m: boat.MeshObject.worldMatrix() } : null;
+  };
+  /** DECK-CAMP: where a camp's boat is now - `{ m }` (her node's world matrix) while she stands to be seen, `{ hidden }`
+   *  while she is out of sight (Come Sail Away hides her past a pixel and indoors) or not known yet (a load's boats still
+   *  standing: its restore pending), `{ gone }` once she is no more - mine packed, laid up or purged (the boats settled),
+   *  another's no longer in her owner's word, or her owner gone from the room. */
+  const campDeckResolve = (ref) => {
+    const standing = (boat) => (boat.GameObject?.activeSelf && boat.MeshObject ? { m: boat.MeshObject.worldMatrix() } : { hidden: true });
+    if (ref?.mine) {
+      const boat = csaRuntime?.AllBoats?.find((b) => b.uid === ref.uid) ?? null;
+      if (boat) return standing(boat);
+      return !csaRuntime || (!_loading && !csaRuntime.pendingRestore) ? { gone: true } : { hidden: true };
+    }
+    const boat = ref?.peer ? csaPeers.boatByUid(ref.peer, ref.uid) : null;
+    if (boat) return standing(boat);
+    return ref?.peer && csaPeers.hasBoat(ref.peer, ref.uid) ? { hidden: true } : { gone: true };
+  };
   const sailingCabins = createSailingCabinAccess({
     available: () => !!csaRuntime && csaOn(),
     boats: () => csaRuntime?.AllBoats ?? [], mode: () => modes?.mode ?? 'exterior', busy: () => worldMoveBusy(),
@@ -6673,7 +6701,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     setting: (key) => { try { return modSetting(COME_SAIL_AWAY_VENDOR, key); } catch { return undefined; } },
     input: {
       has: (action) => held(keys, action) || csaHelmInput.held.has(action) || csaHelmInput.chord.has(action) || csaJourneyHelm.held.has(action) || (!!HELM_RUDDER_ACTIONS[action] && helmTurnKeys() && held(keys, HELM_RUDDER_ACTIONS[action])),   // InputManager.HasAction: the registry's held read (the mod's keys answer only while it is on); CSA-L: and the helm panel's holds; OWS2: and a journey's; HELM-KEYS: at a helm the turn keys are the rudder's
-      started: (action) => (pressed(latch.edge, keys, action) && !(travelView?.active && [CSA_BOAT_ACTIONS.sailUp, CSA_BOAT_ACTIONS.sailDown, CSA_BOAT_ACTIONS.toggleSail].includes(action))) || csaHelmInput.edges.has(action),   // ActionStarted, and GetKeyDown on the mod's registry actions: the frame's down ring; CSA-L: and the helm panel's taps; AUDIT NAV2 F17: the sail keys stand down under the travel view, as the turn keys do (helmTurnKeys) - a journey holds the helm there, and its own press sets her sails
+      started: (action) => (pressed(latch.edge, keys, action) && !(travelView?.active && [CSA_BOAT_ACTIONS.sailUp, CSA_BOAT_ACTIONS.sailDown, CSA_BOAT_ACTIONS.toggleSail, 'MoveForwards', 'MoveBackwards'].includes(action))) || csaHelmInput.edges.has(action),   // ActionStarted, and GetKeyDown on the mod's registry actions: the frame's down ring; CSA-L: and the helm panel's taps; AUDIT NAV2 F17: the sail keys stand down under the travel view, as the turn keys do (helmTurnKeys) - a journey holds the helm there, and its own press sets her sails; HELM-LADDER: W and S climb the same ladder, so they stand down there too
       horizontal: () => (helmTurnKeys() ? Math.max(-1, Math.min(1, _csaAxes.h + (held(keys, 'TurnRight') ? 1 : 0) - (held(keys, 'TurnLeft') ? 1 : 0))) : _csaAxes.h),   // HELM-KEYS: the rudder's swing answers the turn keys too
       vertical: () => _csaAxes.v,
       get toggleAutorun() { return !!player.toggleAutorun || csaJourneyHelm.row; },   // OWS2: a journey's oars pull as the autorun does
@@ -24692,7 +24720,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       for (const c of tvRaid.chase.values()) { const [dx, dz] = rel(c.pos.x, c.pos.z); out.push({ dx, dz, reach: RAIDER_CONTACT_M, chasing: true, mps: RAIDER_CHASE_MPS }); }
     }
     for (const f of exteriorFoes.foes) {
-      if (!foeHostile(f) || !f.ai.feet) continue;
+      if (!foeHostile(f) || !f.ai.feet || f.ai.unreachable) continue;   // WATER-FOES: nor a foe in the water while I am aboard
       if (_tvAttack?.kind === 'camp' && foeCampKey(f) === _tvAttack.id) continue;   // OW-ATTACK: the camp I go to fight, every member
       out.push({ dx: f.ai.feet[0] - fx[0], dz: f.ai.feet[2] - fx[2], reach: f.ai.sightRadius ?? SIGHT_RADIUS });   // CAMP-SIGHT: a camp's sixty metres
     }
@@ -26400,6 +26428,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     try { sigilBroker?.frame(dt); } catch (e) { console.warn('[broker] pool', e?.message ?? e); }   // SET7: the Broker stands where the clock stands her - BROKER-CAGE: in her cage at the faithful's circle
     try { riteHost?.frame(); } catch (e) { console.warn('[rite] host', e?.message ?? e); }   // WB12d: the faithful's circle, before the lights (its braziers light the ground)
     try { if (_mode() === 'exterior' && !_loading) harbourBook.step(now / 1000); } catch (e) { console.warn('[harbours] book', e?.message ?? e); }   // HARBOUR-BOOK: the port near the player sounded, before its quays stand
+    if (_mode() === 'exterior') camps.ride(dt);   // DECK-CAMP: the camps on a boat's deck posed off her - after she moved, before the lights (a fire's) and the world pass
     try { quays?.frame(); } catch (e) { console.warn('[quays] pool', e?.message ?? e); }   // QUAYS: the harbours' quays stood or taken down, before the lights (their lanterns) and the world pass
     // Lanterns on 17:00-08:00, flickering verbatim; pixel-local lights
     // placed under the current compensation, nearest 16 to the camera.
@@ -26931,6 +26960,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       livePersonBatches.push(...exteriorFoes.batches(), ...navalCrew.batches());
       if (playerSpawned) _townWatchFrame(foeDt);   // DISC19-F: the town's answer to what the pools just did
       if (playerSpawned) raidingPartiesFrame(gamePaused() ? 0 : foeDt);   // RAID1: the raids' Update - after the pools moved (a death counts on the frame it falls) and the watch answered, its clocks held by a pause (fix 7)
+      markFoeReach([...cityGuards.guards, ...exteriorFoes.foes], { aboard: playerAfloat() && !(walkMode && playerSpawned && player.isPlayerSwimming), seaY: tvSeaY() });   // WATER-FOES: aboard and dry, a foe in the water reaches no one - no enemy nearby (the pools, the watch and the raids done)
     }
     droppedLoot.tickFlats(dt);   // FA1 slice 3
     livePersonBatches.push(...droppedLoot.batches());   // U8e: the ground piles

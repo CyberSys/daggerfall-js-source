@@ -80,14 +80,19 @@ export function scene(opts = {}) {
   };
   const rt = createComeSailAwayRuntime(deps);
   rt.on('OnUpdateWind', (v) => out.wind.push(v));
+  // HELM-LADDER: a key that goes down is a press that frame (the world's latch edge) - and one held as the helm is taken
+  // is pressed at the helm, so a held W puts her oars to pulling ahead, one rung (test/csa_sailing.test.js's own)
+  let downBefore = new Set();
   const frame = ({ press = [] } = {}) => {
     started.clear();
     for (const a of press) started.add(a);
+    for (const a of held) if (!downBefore.has(a)) started.add(a);
     rt.endOfFrame();
     rt.fixedUpdate();
     rt.update();
     rt.lateUpdate();
     started.clear();
+    downBefore = rt.isSailing() ? new Set(held) : new Set();
     world.time += 0.25;
   };
   const place = (hull = 1, variant = 0, position = [100, 34, 200], direction = [0, 0, 1]) => rt.PlaceBoat(position, direction, hull, variant, terrains[0]);
