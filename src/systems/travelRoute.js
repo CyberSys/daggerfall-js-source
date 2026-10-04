@@ -306,9 +306,9 @@ export function planRoute(from, to, { roads = null, tracks = null, isWater = () 
     if (box && !best && !asked && apart && !sea) { asked = true; if (apart(from, to, { roads, tracks })) return null; }   // THE MERGE: a boat's crossing is none of the land's pieces
     box = key;
     // AUDIT OW5 J3 (the audit before the merge): THE WHOLE MAP'S RUNG IS NEVER CUT SHORT - its box is every cell there is,
-    // so the map itself bounds it; the guard stopped it at 200 000 of the map's 500 000, and a far pick that had to go round
-    // a range with no road to help (Basic Roads off) was told "no way by land" by the very rung AUDIT OW4 J3 added to find it
-    const cap = margin >= Math.max(width, height) ? Infinity : maxExpansions;
+    // so the map itself bounds it. Even a small margin can clip to the full map; capping that search at 200 000
+    // expansions would skip the identical final box and falsely refuse a reachable trip. Use actual bounds.
+    const cap = key === `0,${width - 1},0,${height - 1}` ? Infinity : maxExpansions;
     const r = search(from, to, { roads, tracks, isWater, width, height, margin, maxExpansions: cap, openBlocked, goalExempt, peakAt, sea });
     if (r && (!best || r.cost <= best.cost)) best = r;
     if (best && best.cost <= 2 * (margin + 1) * ROUTE_COST.road) return best;

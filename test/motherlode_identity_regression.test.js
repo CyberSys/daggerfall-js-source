@@ -50,3 +50,32 @@ test('Motherlodes: a Watch action checks account identity even within the frame 
   assert.equal(book.watchFor(300, 120, 0), null, 'do not submit account A\'s receipt while B is signed in');
   assert.equal(book.watch(receipt), false);
 });
+
+for (const failure of ['offline', 'auth', 'throw']) {
+  test(`Motherlodes: cached marker clears across account switch with ${failure} refresh`, async () => {
+    let account = 'account-a', fail = false;
+    const now = 1800000000, day = Math.floor(now / 86400);
+    const lode = { key: `mlode:${day}:0`, x: 300, y: 120, opensAt: now - 1, closesAt: now + 3600, struck: 0 };
+    const changes = [];
+    const book = createMotherlodeBook({
+      character: () => 'char-a', me: () => account, nowS: () => now, nowMs: () => 1000,
+      onChange: l => changes.push(l.key),
+      door: { motherlodes: async () => {
+        if (fail && failure === 'throw') throw new Error('offline');
+        return fail ? { ok: false, error: failure } : { ok: true, data: { day, lodes: [lode], found: lode.key } };
+      } },
+    });
+    await book.read();
+    assert.equal(book.found(), lode.key);
+    fail = true;
+    await book.read();
+    assert.equal(book.found(), lode.key, 'same-account failure retains its known marker');
+    account = 'account-b';
+    assert.equal(book.found(), null, 'clear before any refresh completes');
+    await book.read();
+    assert.equal(book.found(), null);
+    assert.equal(book.standingOn(300, 120).length, 1);
+    assert.equal(book.standingAll().length, 1);
+    assert.equal(changes.length, 2, 'notify host when account eligibility changes');
+  });
+}

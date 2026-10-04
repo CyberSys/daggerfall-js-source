@@ -327,11 +327,12 @@
   {
     "name": "NAVB-B11-the-wheel-never-taken",
     "file": "src/scenes/navalHost.js",
-    "old": "    deps.board?.takeHelm?.(boat);\n  }",
-    "new": "  }",
+    "old": "    deps.board?.takeHelm?.(boat);\n    return true;\n  }",
+    "new": "    return true;\n  }",
     "tests": [
       "test/navaudit_boarding.test.js"
-    ]
+    ],
+    "note": "Repatch 8761: re-aimed at the same fate/return behavior after guarded passenger return; behavioral assertions retained."
   },
   {
     "name": "NAVB-B11-leave-a-plain-close",
@@ -355,11 +356,12 @@
   {
     "name": "NAVB-B11-leave-stays-aboard",
     "file": "src/scenes/navalHost.js",
-    "old": "      leave() { if (boat) returnAboard(boat); },",
+    "old": "      leave() { returnFromPrize(pz, boat); },",
     "new": "      leave() {},",
     "tests": [
       "test/navaudit_boarding.test.js"
-    ]
+    ],
+    "note": "Repatch 8761: re-aimed at the same fate/return behavior after guarded passenger return; behavioral assertions retained."
   },
   {
     "name": "NAVB-B10-a-spot-stacked",

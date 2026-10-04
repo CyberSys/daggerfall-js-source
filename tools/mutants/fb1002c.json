@@ -173,7 +173,7 @@
   {
     "name": "TOLIVE-acceleration-over-limit",
     "file": "src/ui/travelControlUI.js",
-    "old": "    if (this.timeAcceleration <= limit) return;",
+    "old": "    if (this.timeAcceleration === next) return;",
     "new": "    return;",
     "tests": [
       "test/to_live.test.js"
