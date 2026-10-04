@@ -5,7 +5,8 @@ Would love some ideas. I also want to improve the enemies telegraph/wind up atta
 these enemies and breath more depth into it"*; then, on the sixteen ideas offered: *"Let's do everything in a proper
 detailed arc. I want this to be perfect and insanely detailed"*.
 
-**Status: PROPOSED 2026-10-04 - designed whole, every call open with its recommendation (section 31); nothing built.**
+**Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
+(section 30's order); each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -1026,6 +1027,8 @@ Suggested pull requests: TELL1-TELL4 (the fix the field asked for); TELL5-TELL7 
 RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
 
 ## 31. OPEN - Mac's calls (each with the recommendation)
+
+**ANSWERED 2026-10-04: Mac, "Go" - all twenty-one as recommended.**
 
 1. **The poise model.** Recommended: **a meter filled through the wind-up**, sized as a share of the kind's health by
    its weight (3.1). The alternative, a flat number of hits, ignores the weapon.
