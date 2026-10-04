@@ -1507,8 +1507,9 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
   marking nothing; the words (the join, its window and target, a miss, the door's mine-only gate, "Open" and "Stagger"
   on an overreached foe, unmounted nothing); "Perfect" once; the contrast part and the pass's upload (the pref, a
   caller's word); the bleed's glyph, tile and classic texture; the note; the HUD's track and the sheet. Pins moved:
-  `enhancedHud` PX30 (the read carries `poise`), `ft5_enhancedai` (the row's part), `ui3_status` (twelve glyphs).
-  `tools/foeTelegraphProbe.mjs` reads the contrast off a real frame (29 held): the line where the dark keyline was, a
-  white keyline lit in blue as in red, the poise fill dotted, iron's hatch unchanged. Mutant records re-aimed by
-  content: `audit1003_ui` U3 (two - markFoeThreat holds the same guard), `tell4` (the ring shares the word's line).
+  `enhancedHud` PX30 (the read carries `poise`), `ft5_enhancedai` (the row's part), `ui3_status` (twelve glyphs),
+  `foebar1_blade` (the track under both faces). `tools/foeTelegraphProbe.mjs` reads the contrast off a real frame (29
+  held): the line where the dark keyline was, a white keyline lit in blue as in red, the poise fill dotted, iron's hatch
+  unchanged. Mutant records re-aimed by content: `audit1003_ui` U3 (two - markFoeThreat holds the same guard), `tell4`
+  (the ring shares the word's line).
 - Mutants `tools/mutants/tell9.json` (50), all dead.
