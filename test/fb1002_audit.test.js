@@ -10,10 +10,6 @@ import { join } from 'node:path';
 import { PlayerMotor, DIAGONAL_FACTOR } from '../src/player/motor.js';
 import { Collider } from '../src/player/collider.js';
 import { senseGrip, freeClimbSpeed, PARKOUR_CRACK, PARKOUR_CRACK_STEP } from '../src/player/parkour.js';
-import { createHunting } from '../src/scenes/hunting.js';
-import { HuntWindow, HUNT_PHASE } from '../src/ui/huntWindow.js';
-import { newSurvival } from '../src/systems/survival/needs.js';
-import { setPref, _resetForTests } from '../src/systems/uiPrefs.js';
 import { scene } from './csaScene.mjs';
 import { MapsFile } from '../src/formats/mapsFile.js';
 import { BlocksFile } from '../src/formats/blocksFile.js';
@@ -146,50 +142,7 @@ test('AUDIT CRACK-LIP: the slot itself is measured - a 6 or 8 cm slot is a hold,
   assert.ok(PARKOUR_CRACK === 0.03 && PARKOUR_CRACK_STEP === 0.0025);
 });
 
-// ---- the hunt, the boat's loops -------------------------------------------------------------------------------------
-
-const player = () => ({ isPlayer: true, level: 5, health: 30, maxHealth: 40, fatigue: 20 * 64, items: [], survival: newSurvival(1000), stats: { luck: 50 }, career: {} });
-const WILD = { minute: 10 * 60, luck: 50, winter: false, outdoors: true, inLocationRect: false, night: false, enemiesNear: false, resting: false, climateIndex: 232, hasBow: true, skills: { archery: 100, stealth: 100, criticalStrike: 100, climbing: 100 } };
-const seq = (...v) => { let i = 0; return () => v[Math.min(i++, v.length - 1)]; };
-function hunt() {
-  _resetForTests(); setPref('survival', 'hard');
-  const advanced = [], spawned = [], searched = [];
-  const h = createHunting({ entity: player(), env: () => WILD, rolls: seq(0.029, 0.69, 0.5, 0.2, 0.5, 0.95, 0), showOverlay: () => {}, advanceMinutes: (n, o) => advanced.push([n, o?.quiet ?? false]), spawnBeast: (b) => spawned.push(b), enemiesNear: () => false });
-  const w = h.tick();
-  assert.ok(w instanceof HuntWindow);
-  const own = w._onSearched;
-  w._onSearched = () => { searched.push(1); return own(); };
-  return { h, w, advanced, spawned, searched };
-}
-
-test('AUDIT HUNT-FOES: an unanswered ask runs no search - the guard order the fix made (the ask asked for a foe, then the busy page\'s clock) lets nothing but Yes start it (mutants: the busy gate gone)', () => {
-  const s = hunt();
-  s.w.tick(100);
-  assert.equal(s.w.phase, HUNT_PHASE.Ask, 'still asking');
-  assert.equal(s.w.done, false);
-  assert.deepEqual(s.searched, [], 'nothing searched');
-});
-
-test('AUDIT HUNT-FOES: a box taken from under a given result (a death screen, a load) spends its minutes quiet - the clock alone, no encounter rolled over a corpse or the replaced game; a box closed by the player spends them whole (mutants: never quiet; always quiet)', () => {
-  const closed = hunt();
-  closed.w.input('KeyY'); closed.w.tick(100); closed.w.click(0, 0);
-  assert.deepEqual(closed.advanced.map(([, q]) => q), [false], 'closed by the player: the encounter tick with it');
-  const taken = hunt();
-  taken.w.input('KeyY'); taken.w.tick(100); taken.w.dispose();
-  assert.deepEqual(taken.advanced.map(([, q]) => q), [true], 'taken away: quiet');
-  assert.deepEqual(taken.spawned, [], 'and no beast');
-  const world = src('src/scenes/world.js');
-  assert.match(world, /advanceMinutes: \(n, \{ quiet = false \} = \{\}\) => \{ playerTicker\.advance\(n\); if \(!quiet\) runEncounterTick\(/);
-});
-
-test('AUDIT HUNT-FOES by source: a load closes a hunt\'s box before the save is read (it survived the load, and its close charged the loaded game its minutes and stood its beast there); a duel\'s foe is near', () => {
-  const world = src('src/scenes/world.js');
-  const quick = world.slice(world.indexOf('async function worldQuickLoad('));
-  const close = quick.indexOf('if (hunting.window) townTalk.closeOverlay(hunting.window);');
-  assert.ok(close > 0 && close < quick.indexOf('restorePlayer(playerEntity, snap, spellsByIndex)'), 'the quickload closes it first');
-  assert.match(world, /if \(hunting\.window\) townTalk\.closeOverlay\(hunting\.window\);   \/\/ AUDIT HUNT-FOES: as the quickload's\n\s+const extras = restorePlayer\(playerEntity, bundle\.snap, spellsByIndex\);/);
-  assert.match(world, /const huntFoesNear = \(\) => \{\n\s+if \(duelEnemyNear\(\) \|\| areEnemiesNearby\(exteriorFoePool\(\)\)\) return true;/);
-});
+// ---- the boat's loops -----------------------------------------------------------------------------------------------
 
 test('AUDIT HELM-HUSH: a crossfade stopped by a fade lands too - the loop it was bringing up heard whole, the other stopped - where both were left part-way and the wake never asked again (mutants: the crossfade unsettled)', () => {
   const s = scene();

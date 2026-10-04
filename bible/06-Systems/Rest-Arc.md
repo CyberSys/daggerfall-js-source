@@ -363,7 +363,7 @@ The census (every system an online rest moves today; the night model's answer, a
 | 29 | A placed fire's burn-down (`camps.js`, world minutes) | the event clock; a rest at your own tent stokes it | unchanged; cold, not gone (section 3) | unchanged |
 
 **Raises that stay raises** (not rests, untouched by REST): fast travel and the journey's walk, training's own hours,
-TrainPc, the tavern meal and blackout, cooking and hunting at a camp, the exhaustion collapse (an hour: a penalty),
+TrainPc, the tavern meal and blackout, cooking at a camp (and the hunt's search, until HUNT-OUT, 2026-10-04), the exhaustion collapse (an hour: a penalty),
 the vampire's fortnight, the cures, a prison sentence. Cautious travel's full heal stays.
 
 **The dungeon's second rest.** The dungeon host runs its own copy of the rested minute (`dungeonContext.js`

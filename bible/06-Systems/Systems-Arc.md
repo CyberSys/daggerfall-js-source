@@ -3196,7 +3196,7 @@ collapse is a bare `RaiseTime(1 * SecondsPerHour)` (`:2429`) that
 returns; `Update` is not re-entered.
 
 The port's hosts implement that same RaiseTime as
-`playerTicker.advance(60)` (`exterior.js:1132`, `world.js:3428`), fired
+`playerTicker.advance(60)` (`exterior.js:1132`, `world.js:3425`), fired
 from inside `sinks.drainFatigue` - so it re-enters `tickPlayerMinutes`
 from inside that function's own fatigue band. The nested tick wrote the
 marker an hour ahead, the outer frame's own `setWorldMinutes` then
@@ -4597,7 +4597,7 @@ the true clause along with the false ones is in the campaign, because
 over-retiring is the equal and opposite failure.
 
 **And one delegation pointed at a flag nobody had ever written.**
-`world.js:5007` said the dungeon-mode enchant ctx was "FLAGGED there
+`world.js:5004` said the dungeon-mode enchant ctx was "FLAGGED there
 with the rest of its enchant wiring" in `dungeonContext.js`. It was
 not. `setDefaultEnchantCtx` had exactly **one** caller in the tree, so
 the standalone `?dungeon` host ran every arm that needs a host
@@ -5575,7 +5575,7 @@ to that cite and moves under the same content check; citeMerge had
 done this since CS2 and citeShift only reported them, so the two
 regexes are one law now, exported from citeShift (`ANY_CITE`,
 `CONTINUATION`) and imported by citeMerge. (2) A TEST'S ESCAPED
-LITERAL FOLLOWS THE ROW IT PINS: `world\.js:11530` in citedrift.test.js
+LITERAL FOLLOWS THE ROW IT PINS: `world\.js:11491` in citedrift.test.js
 is a quote of a Ledger row's text; the row is STRUCK and its number
 held, and the literal used to move anyway, parting the pin from its
 row at every shift. The CLI plans every doc first, learns which
@@ -8095,7 +8095,8 @@ line.
   the mod's regional tavern menus keyed by climate with the meal, the
   drink and the blackout. 6 tests.
 - SURV6 the hunt (`survival/hunting.js`, `ui/huntWindow.js`,
-  `scenes/hunting.js`): hunting, foraging and the water search as
+  `scenes/hunting.js` - all three DELETED, the hunt RETIRED by HUNT-OUT,
+  2026-10-04; `Climates-Calories.md`): hunting, foraging and the water search as
   REAL-TIME events - the wilderness roll, the mod's Yes/No box, a busy
   page running the search's minutes in real seconds, the finds and the
   harms, "the hunted" standing when the box closes. 6 tests.
@@ -8129,7 +8130,7 @@ hours and a legal rough rest took 480 health a night; the kit never
 reached a chargen character; a dungeon rest paid its night awake), the
 rest gate's handler leak, four camp doors, nine law bugs and a dozen
 surface faults - all fixed, recorded in `06-Systems/Climates-Calories.md`
-"The audit", pinned by `test/auditsurv.test.js` (8) and
+"The audit", pinned by `test/auditsurv.test.js` (8; 7 since HUNT-OUT took the hunt window's) and
 `tools/mutants/auditsurv.json`.
 
 ## CHARID1 - A CHARACTER IS AN ID, NOT A NAME (2026-09-21)

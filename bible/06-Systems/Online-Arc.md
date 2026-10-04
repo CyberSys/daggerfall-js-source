@@ -4928,7 +4928,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:9433` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:9394` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:487`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -13801,7 +13801,8 @@ numbered, is one now:
 - **Main's own red, fixed here:** `test/tv6_dungeons.test.js` pinned travelViewWalkTo's options before TO-ROADS added
   `roads`.
 - **LIVED1 (#442, "your own time") came in last:** a character keeps its own clock online. Foraging's quest time
-  (FORAGE4's wait on the hunt's page) now also passes on that clock, as the hunt's minutes do after its page
+  (FORAGE4's wait on the hunt's page - the wait page alone since HUNT-OUT, 2026-10-04) now also passes on that clock,
+  after the page, as the hunt's minutes did
   (`systems/quest/questActionsExtension.js` RaiseTime: the wait online, the host's raiseTime - the character's time -
   in both lanes); MAC-LVL1's `restSimMinutes`, which LIVED1 retired, left the save's fields beside FORAGE4's
   `foragingWait`; DEATH-PENALTY's screen-loss pair rides the encounter loop's lift beside LIVED1's sky.

@@ -11,7 +11,7 @@
 // composition - env.js survivalFeed (the minute law), scenes/shared.js
 // createRestDeps (the rest, and the encounter asks it stamps on the
 // resting player), env.js survivalGateOn (the gate), the two tavern
-// windows, scenes/hunting.js and systems/useItem.js. A law handed no
+// windows and systems/useItem.js. A law handed no
 // rules (undefined or null) runs HARD, the arc at full strength, so every
 // pin written before the tiers still pins Hard.
 //
@@ -19,14 +19,14 @@
 // the table below is those rules written out:
 //
 //   1. SAME WORLD, DIFFERENT STAKES. The clocks, the thresholds, the felt
-//      temperature, the food and its spoiling, the water, the camps, the
-//      tavern menus and the hunt's events are the world's and identical in
-//      both tiers - so the HUD, the status page and every notice say the
-//      same things about the world, and two players on different tiers
+//      temperature, the food and its spoiling, the water, the camps and the
+//      tavern menus are the world's and identical in both tiers - so the
+//      HUD, the status page and every notice say the same things about
+//      the world, and two players on different tiers
 //      stand in one world online. Only what the body PAYS differs, and that
 //      is all this holds - with the few words that say what a tier did (a
-//      barkeep's or a kitchen's refusal, a loan repaid, a hunt's safe twin,
-//      a Hard morning's Stiff).
+//      barkeep's or a kitchen's refusal, a loan repaid, a Hard morning's
+//      Stiff).
 //   2. STAMINA IS THE ONLY PRICE OF NEGLECT. Casual never takes an
 //      attribute, a point of health, an item's condition, a disease, a coin
 //      or an hour. (The drink's own attribute swing stays: it is a choice
@@ -51,12 +51,10 @@
 //   5. NOTHING REFUSED, NOTHING ROLLED AGAINST YOU, NOTHING WASTED. No rest
 //      gate, and a rest is always a rest (the needs charge nothing while
 //      the player rests, so a rest can always finish); no second encounter
-//      ask, no stiff morning, no sickness roll, no bite, fall or beast from a
-//      hunt (each harmful outcome reads its declared safe twin -
-//      hunting.js HUNT_SAFE_TWIN), no blackout (the barkeep stops pouring)
-//      and no wasted meal (the kitchen will not sell a full stomach a
-//      meal) - both asked before the coin changes hands (tavernMenu.js
-//      tavernOrder).
+//      ask, no stiff morning, no sickness roll, no blackout (the barkeep
+//      stops pouring) and no wasted meal (the kitchen will not sell a full
+//      stomach a meal) - both asked before the coin changes hands
+//      (tavernMenu.js tavernOrder).
 //
 // What Casual keeps as the reason to engage is everything that was never a
 // penalty: a bed or a fire pays sleep three times faster than the rest
@@ -117,7 +115,6 @@ export const SURVIVAL_RULES = deepFreeze({
     health: false,       // dehydration, exposure, and bare skin in the cold or the sun wound
     rust: false,         // wet metal armour loses condition
     sickness: false,     // raw or spoiled food risks a disease
-    huntHarms: false,    // a hunt may bite, poison, sicken, bruise, tire or raise a beast
     /** The window's rest on bare ground (rest.js REST_KIND.Rough): the
      *  share of DFU's hour it pays, the encounter asks a minute, the
      *  stiff hours after. A bed and a camp cost the same in every tier. */
@@ -134,7 +131,6 @@ export const SURVIVAL_RULES = deepFreeze({
     health: true,
     rust: true,
     sickness: true,
-    huntHarms: true,
     roughRest: { recovery: 0.5, encounters: 2, stiffHours: 4 },
     roughSleepFloor: 'tired',
     restGate: true,
