@@ -4786,7 +4786,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7949` read, on one physical line:
+`src/scenes/worldModes.js:8003` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4928,9 +4928,9 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:9373` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:9374` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
-  provenance argument `applySpellToFoe` hands them (`hostMagic.js:475`)
+  provenance argument `applySpellToFoe` hands them (`hostMagic.js:487`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
   Threading it touches four hosts.
 - **A building interior streams no foes at all.** `makeInteriorFoes`
@@ -7821,7 +7821,8 @@ cast engine's own line of sight (`allyInReach`) - within touch reach (ALLY_TOUCH
 reach) for a CasterOnly or ByTouch spell and within ALLY_RANGE_REACH (24 m) for a SingleTargetAtRange one; the
 two area types are never redirected, nor is a free ready (a trap's). Found, the cast leaves as the frame (a
 CasterOnly leaves as a TOUCH, range type 1 - it is one, on the ally), the magicka is spent and the skills tallied
-as for any cast, and the caster reads "You cast Heal on Bran." Not found, or the link refusing, the spell does
+as for any cast, and the caster reads "You cast Heal on Bran." (GIFT-QUIET, 2026-10-04: at most once in ten seconds,
+`03-World/Naval-Combat.md`.) Not found, or the link refusing, the spell does
 what it always did. CastReadySpell's touch gate admits the mate as it admits a foe. The departure is the
 CasterOnly conversion: DFU's spellbook is almost all CasterOnly, and kept 1:1 healing a friend would mean buying a
 ByTouch copy first - so a Heal readied with the crosshair on a party mate ARMS for them instead of firing on the
@@ -8063,8 +8064,9 @@ nothing, and the "Cast Heal on Bran" plaque stood only while the peer menu was o
 **A CASTERONLY GIFT ARMS WHILE A MATE STANDS NEAR** (`systems/allyCast.js` ALLY_ARM_RADIUS, 10 m;
 `scenes/hostMagic.js` allyNear). The ready says DFU's "Press button to fire spell." and where the click will land
 ("Aim at a party member to cast it on them, or anywhere else to cast it on yourself."); the click gives it to the
-mate under the crosshair, or - aimed at no one - to the caster, as CasterOnly always does. With nobody near it still
-fires on the spot, DFU's instant cast; a free ready (a trap's payload) never arms (allyMarksFor's law). The stock
+mate under the crosshair, or - aimed at no one - to the caster, as CasterOnly always does (GIFT-QUIET, 2026-10-04:
+the two lines said again only for an arm unlike the last ready's, or ten seconds on; `03-World/Naval-Combat.md`). With
+nobody near it still fires on the spot, DFU's instant cast; a free ready (a trap's payload) never arms (allyMarksFor's law). The stock
 Shield the players took for "hard-coded self-only" is this: the maker lets Shield onto any target
 (`SELF_TARGET_KEYS` has no 35), and the CasterOnly copy now arms like any other.
 
@@ -9393,10 +9395,12 @@ took: three town homes a character, no upkeep.
   owner when party (the handles the relay signs), and - Daggerfall's own rung - a player whose active quest is set
   in it, so a quest never strands its player. It is shut to everyone else by no pick, no bash and no Open spell, the
   refusal "This is <owner>'s home. The door is locked." A house anyone may buy is its offer (HOME-OFFER below): "This house
-  can be your home. It costs N gold, from your purse and this region's bank account. Buy it?" - the price Daggerfall's
-  bank asks for that house (its model's radius x 1280 - the model the door's own record now carries,
-  `systems/talkTopics.js buildingDataForDoor`, the town directory's for the same building); Yes claims it first and takes the gold only once the claim
-  lands (the purse, letters of credit too, then the region's account, as Daggerfall's PurchaseHouse pays), asking the
+  can be your home. It costs N gold, from your purse and your account at the Bank of the Empire. Buy it?" - HOME-PRICE
+  (2026-10-04, `06-Systems/Economy-Arc.md`): the ground its model stands on at 300 gold a square metre, raised by its
+  town's size, 5,000 to 250,000 (`net/homeLaw.js homeOnlinePrice`; the model the door's own record carries,
+  `systems/talkTopics.js buildingDataForDoor`, and the town's blocks, `townBlocks`), never Daggerfall's radius x 1280,
+  which stays the bank's offline; Yes claims it first and takes the gold only once the claim
+  lands (the purse, letters of credit too, then the Empire's account - EMPIRE-ACCOUNT - as Daggerfall's PurchaseHouse pays), asking the
   purse again after the answer and giving the claim back if it can no longer be paid; No goes on to the door, as
   Daggerfall's Info click does. HOME-OFFER (2026-09-26, Mac: "Enhanced plus cant buy house"): HOME1 asked in Info
   mode alone, which nothing on the enhanced skins says, and the default mode is Grab - so a press on a house for sale
@@ -9404,7 +9408,7 @@ took: three town homes a character, no upkeep.
   Info always asks) - `systems/onlineHomes.js homeDoorPrompt`, `test/homeoffer.test.js`. A house is a candidate when it is Daggerfall's for-sale house or an ordinary
   residence (House1-4) - never a faction's House2 - and is for sale when no active quest is set in it. In Info mode
   my own door is my menu: G go in, W who may enter (Only me, My party, Anyone), S sell it back - at Daggerfall's deed
-  share (85%) of what the SERVICE says was paid, into the region's account, credited only once the service agrees;
+  share (85%) of what the SERVICE says was paid, into the Empire's account, credited only once the service agrees;
   anything left inside is lost with the next clearing of the scene cache, as a sold house's is. The hover names a
   home "Your home" or "<owner>'s home", with "Locked" when it will not open for me and no Lock Level (its lock is a
   word, not a mechanism), and a house for sale "Can be your home: N gold"; the Info click names it the same way.
@@ -10259,7 +10263,8 @@ own module (`src/net/hallLaw.js`), never net/guildLaw.js, which is in the relay'
   (`realm_gold`, AUDIT REALM L1-F3's part) in ONE batch with the row - the treasury's UPDATE guarded by what it holds,
   the guild holding no hall and the buyer still its guildmaster, then the INSERT (a building somebody owns is the
   primary key's refusal, and the batch goes back); a claim asked again finds the building already this guild's hall
-  (`repeat`). The price is the client's word, as a home's claim takes it. **Sold** (`/v1/guilds/hall/sell`): the
+  (`repeat`). The price is the client's word inside the online range (HOME-PRICE: `homePriceOk`, a build asking
+  another `home-update`), as a home's claim takes it. **Sold** (`/v1/guilds/hall/sell`): the
   deed share of what the treasury paid (`homeSaleRefund`) and half of what records paid for its pieces, back into the
   treasury and its realm part, in one batch with the row's DELETE - held to the pieces as they were read (their count
   and their sum), so none is sold unpaid. **Who may walk in** (`/v1/guilds/hall/entry`, an Officer's too).
