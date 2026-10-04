@@ -66,6 +66,12 @@ export const ORDER_TEXT = Object.freeze({
 export const ROLES = Object.freeze(['Bosun', 'Gunner', 'Carpenter', 'Lookout', 'Cook', 'Deckhand']);
 /** SHIP-WATCH: the role whose hand keeps her bow (AUDIT WK-W10: the card's Lookout is her lookout). */
 export const LOOKOUT_ROLE = 'Lookout';
+/** The role of the hand who answers for her (the roster's first, dealt; HOLDINGS: given). */
+export const FIRST_MATE = 'First Mate';
+/** HOLDINGS (bible/03-World/Holdings.md, Mac: "Named crew companions should be able to be assigned to certain roles, and
+ *  be positioned accordingly to their role"): the posts a captain gives her hands - her First Mate and the roles dealt.
+ *  A Bard keeps his calling until given another, and is given it back; one First Mate to a ship. */
+export const CREW_ROLES = Object.freeze([FIRST_MATE, ...ROLES]);
 
 /** The spirits, in words, by the lowest morale each begins at. */
 export const SPIRITS = Object.freeze([
@@ -106,7 +112,7 @@ export const MORALE_LINES = Object.freeze({
 });
 
 /** A hand's role by where he stands in her roster (`i`) and his class. @param {number} i @param {number} mobile @param {number} dealt */
-const roleOf = (i, mobile, dealt) => (i === 0 ? 'First Mate' : mobile === MOBILE.Bard ? 'Bard' : ROLES[dealt % ROLES.length]);
+const roleOf = (i, mobile, dealt) => (i === 0 ? FIRST_MATE : mobile === MOBILE.Bard ? 'Bard' : ROLES[dealt % ROLES.length]);
 
 /**
  * A hand's name: NameHelper.FullName over the waters' bank, on the boat's seed and the hire's number (DFU's own global
@@ -179,6 +185,22 @@ export function createShipCrew({ seed, regionIndex = 17, record = null }) {
     },
     /** A hand's name by where he stands (null past the roster). @param {number} i */
     nameOf: (i) => hands[i]?.name ?? null,
+    /**
+     * HOLDINGS: a hand given a post - one of CREW_ROLES, or a Bard's own calling back. She has one First Mate: the one she
+     * had stands down to Deckhand. Answers `{ ok, text }`.
+     * @param {string} name @param {string} role
+     */
+    assign(name, role) {
+      const h = hands.find((x) => x.name === name);
+      if (!h) return { ok: false, text: 'No such hand aboard her.' };
+      const bard = role === 'Bard' && h.mobile === MOBILE.Bard;
+      if (!/** @type {readonly string[]} */ (CREW_ROLES).includes(role) && !bard) return { ok: false, text: 'No such post aboard her.' };
+      if (role === LOOKOUT_ROLE && h.mobile === MOBILE.Bard) return { ok: false, text: `${h.name} leads her songs - he keeps no lookout.` };   // AUDIT HOLDINGS C3: her bow is never a Bard's (crewLife.js canLook)
+      if (h.role === role) return { ok: true, text: `${h.name} is her ${role} already.` };
+      if (role === FIRST_MATE) for (const o of hands) if (o !== h && o.role === FIRST_MATE) o.role = 'Deckhand';
+      h.role = role;
+      return { ok: true, text: `${h.name} is her ${role} now.` };
+    },
     /** A hand's name and role, as he is called: "Aldric Wayrest, Bosun". @param {number} i */
     calledOf: (i) => (hands[i] ? `${hands[i].name}, ${hands[i].role}` : null),
     /**

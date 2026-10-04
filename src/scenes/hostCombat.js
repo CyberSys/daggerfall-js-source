@@ -8,6 +8,7 @@
 // FormulaHelper.cs, DaggerfallUnityItem.cs, PlayerActivate.cs
 // (MIT, Daggerfall Workshop).
 
+import { plainFoeLootRule, capFoeLoot, PLAIN_FOE_RARITY_WEIGHTS } from '../systems/foeLootCap.js';   // FOE-CAP: a plain foe's cap and ladder
 import { SKILLS, tallySkill, skillValue, SKILL_NAMES } from '../systems/skills.js';
 import { effectiveLevel } from '../systems/mentorMode.js';   // SOFTCAP2: mentor mode - the level the world is built around
 import { vampireAttackVoice } from '../systems/vampirism.js';   // V5: GetCustomRaceGenderAttackSoundData
@@ -28,6 +29,7 @@ import { conditionBasedPricesOn, randomConditionLootItems } from '../systems/rri
 import { isHumanoid } from '../systems/survival/loot.js';   // MOD: the same humanoid test SURV2's corpse food already draws its line with
 import { rollCorpseLoot, lootRarityOn, rarityRank, RARITIES, rarityEligible, applyRarity, lastPass } from '../systems/lootRarity.js';   // RF2: and the port's, after it; LOOT7: a champion's guarantee
 import { championOf } from '../systems/champions.js';   // LOOT7: the champions' traits register at import
+import { isGoldPieces } from '../systems/inventory.js';   // PLAIN-LOOT: a plain foe's gold all of it
 import { liveStat, FATIGUE_DRAIN_SCALE } from '../systems/statMods.js';   // RF2: the player's live luck for the roll   // AUDIT 58: ItemHelper's EquipItem half - a foe's equip table is what DamageEquipment's struck side reads
 import { GLOBAL_SCALE } from '../world/meshReader.js';
 import { swingSoundFor, hitSoundFor, ENEMY_HIT_VOLUME } from '../systems/soundClips.js';
@@ -109,6 +111,15 @@ export const hasBowAttack = (basics) =>
  *  affinity Human - so an Orc or a Knight is cut and a Zombie or a
  *  Daedra Lord is not. */
 const HUMANOID_LOOT_ITEM_SCALE = 0.25;   // MOD: keep a quarter of the item chance (drop 75%)
+/** PLAIN-LOOT (Mac, 2026-10-02: "reduce the loot dropped by non elite enemies by 50%"): a foe that is no elite leaves
+ *  HALF of what it carries - every piece the chain put on its body (the table's, the worn kit's droppable cut, the trio
+ *  and the port's extras) kept on its own coin, after the humanoid cut; its gold all of it, as that cut leaves it.
+ *  A coin per piece and not a scale on the table's chance (AUDIT PLAIN-LOOT): DFU's ladder halves its chance at every
+ *  step and rolls it truncated to whole percent, so a scaled chance compounded down the ladder and a 1-3% one fell to
+ *  0 - the scale had kept 33-50% of the table, and nothing of a level-1 humanoid's. "Elite" is any of the three: an
+ *  ELITE FOE (`eliteFoe`), an Elite Dungeon's foe (`elite`), a LOOT7 champion. */
+const PLAIN_FOE_LOOT_KEEP = 0.5;
+const eliteLooted = (entity) => !!(entity?.eliteFoe || entity?.elite || championOf(entity));
 // ELITE: `lootDropMult` scales every item category's chance (gold untouched, as the humanoid cut);
 // `lootQualityMult` scales the rarity ladder's odds. Both 1 everywhere but an elite dungeon.
 export function spawnEnemyLoot(entity, mobileType, basics, player, { rolls = Math.random, lootDropMult = 1, lootQualityMult = 1, where = null } = {}) {
@@ -116,6 +127,7 @@ export function spawnEnemyLoot(entity, mobileType, basics, player, { rolls = Mat
   entity.items = generateItems(enemyLootTableKey(mobileType, basics?.lootTableKey ?? '-'), { level: effectiveLevel(player), gender: player.gender }, undefined, { itemChanceScale, mobileType });
   const eq = equipEnemy(entity, mobileType, effectiveLevel(player), rolls, { player });   // SOFTCAP2: a mentor's foes carry the GROUP's loot and gear
   addEnemyLootExtras(entity.items, basics, rolls);
+  if (!eliteLooted(entity)) entity.items = entity.items.filter((it) => isGoldPieces(it) || rolls() < PLAIN_FOE_LOOT_KEEP);   // PLAIN-LOOT: half of it, on the host's stream as the kit's cut is
   // RRI2: EnemyEntity.OnLootSpawned (EnemyEntity.cs:399) fires here, after
   // the trio and with the kit already in Items - the mod's
   // RandomConditionEnemyItems (RoleplayRealismItemsMod.cs:222-245) wears
@@ -124,31 +136,13 @@ export function spawnEnemyLoot(entity, mobileType, basics, player, { rolls = Mat
   // (above) does not, and a foe's cuirass is worn either way.
   if (conditionBasedPricesOn()) randomConditionLootItems([...new Set([...entity.items, ...(eq?.worn ?? [])])], rolls);
   enemyLootSpawned.raise({ mobileType, lootTableKey: enemyLootTableKey(mobileType, basics?.lootTableKey ?? '-'), items: entity.items, worn: eq?.worn ?? [], where });   // OH-E: ...and every other subscriber, in the one list (the worn set is Items' too, as above)
-  rollCorpseLoot(entity, basics, { rolls, luck: liveStat(player, 'luck'), qualityMult: lootQualityMult });
-  if (championOf(entity)) ensureChampionLoot(entity, effectiveLevel(player), rolls);   // LOOT7: a champion always carries a Rare or better
+  // FOE-CAP (systems/foeLootCap.js): a plain foe - no title, no boss - rolls the plain ladder (outside an Elite Dungeon)
+  // and carries at most its cap, gold included; the stamp rides the entity so the death's handlers are capped too
+  const plain = plainFoeLootRule(entity, basics);
+  if (plain) entity.lootCap = plain.cap;
+  rollCorpseLoot(entity, basics, { rolls, luck: liveStat(player, 'luck'), qualityMult: lootQualityMult, weights: plain?.plainLadder ? PLAIN_FOE_RARITY_WEIGHTS : null });
+  capFoeLoot(entity);
   return entity.items;
-}
-/** LOOT7 (the Loot arc, bible/06-Systems/Loot-Arc.md section 9): A CHAMPION ALWAYS CARRIES A RARE OR BETTER - when its
- *  own roll found none, its most valuable piece that could be (a plain one, or one the ladder made Magic) is made Rare;
- *  carrying none, a weapon (never ammunition) or a piece of armour at its level is minted onto it and made Rare. Never
- *  its worn kit (LR4's law: the sword it swings stays DFU's). AUDIT LOOT F9: the Rare it makes takes the door's last
- *  pass (LOOT4's chance at a line that does something), which its corpse door ran before it - the last draws of the
- *  spawn. Answers the piece, or null. */
-export function ensureChampionLoot(entity, level, rolls = Math.random) {
-  if (!lootRarityOn() || !entity) return null;
-  const worn = new Set(entity.equip ? equipTableOf(entity).filter(Boolean) : []);
-  const loot = (entity.items ?? []).filter((it) => it && !worn.has(it));
-  if (loot.some((it) => rarityRank(it) >= RARITIES.rare.rank)) return null;
-  let piece = loot.filter((it) => rarityEligible(it) || it.rarity === 'magic').sort((a, b) => (b.value ?? 0) - (a.value ?? 0))[0] ?? null;
-  if (!piece) {
-    if (rolls() < 0.5) { piece = createRandomWeapon(level, rolls); for (let n = 0; n < 32 && isAmmunition(piece); n++) piece = createRandomWeapon(level, rolls); }
-    else piece = createRandomArmor(level, rolls);
-    if (!piece || isAmmunition(piece)) return null;
-    piece.untaken = true; (entity.items ??= []).push(piece);   // LOOT8: a found piece, counted at its take
-  }
-  applyRarity(piece, 'rare', rolls);
-  lastPass([piece], rolls);
-  return piece;
 }
 
 // ---- EnemyEntity.SetEnemyCareer, the equipment chain (EnemyEntity.cs:330-347) ----

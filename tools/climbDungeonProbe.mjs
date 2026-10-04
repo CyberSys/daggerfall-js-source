@@ -43,7 +43,7 @@ export function loadData(arena2) {
   maps.load(new Uint8Array(readFileSync(join(arena2, 'MAPS.BSA'))), new Uint8Array(readFileSync(join(arena2, 'CLIMATE.PAK'))), new Uint8Array(readFileSync(join(arena2, 'POLITIC.PAK'))));
   const cache = new Map();
   const getModel = (id) => { if (!cache.has(id)) cache.set(id, dfMeshToModel(arch.getMesh(arch.getRecordIndex(id)), () => ({ width: 1, height: 1 }))); return cache.get(id); };
-  return { blocks, maps, getModel };
+  return { blocks, maps, getModel, arch };   // AUDIT REST II F6: the archive too - tools/dungeonFireProbe.mjs reads its models as the host does (patchSeams)
 }
 
 /** A dungeon's collider as scenes/dungeonContext.js builds it, and its blocks. */

@@ -650,10 +650,11 @@
   {
     "name": "FEED-harbour-unnamed",
     "file": "src/scenes/world.js",
-    "old": "    return { key: `port:${t.id}`, name: t.name, rect:",
-    "new": "    return { key: `port:${t.id}`, rect:",
+    "old": "    return { key: `port:${t.id}`, name: t.name, rect, ready };",
+    "new": "    return { key: `port:${t.id}`, rect, ready };",
     "tests": [
       "test/sealanes.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   }
 ]

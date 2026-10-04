@@ -81,7 +81,8 @@ ground - `scenes/world.js` `_storesReached`). Away from one the page reads, and 
 to any town to put materials in or take them out." **The town is the client's convention, not the service's law**: the
 service checks no place, and a station's shortfall is put in wherever the station stands (section 6).
 
-The Stores page (`ui/profPages.js`) shows each material's Stores count and, beside it, what is carried; for a
+The Stores page (`ui/profPages.js`; the pause menu's Holdings tab since HOLDINGS, `03-World/Holdings.md`) shows each
+material's Stores count and, beside it, what is carried; for a
 material, **Take out** (into the bag, then the pack) and **Put in** (from the bag, then the pack), and **Put everything
 in** - every counted unit the bag and the pack hold, in one press, whatever the page's filter shows: it says how many
 went in and names each material refused (its Stores full) and goes on past it; the counting-house's silence ends it.

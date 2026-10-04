@@ -427,7 +427,7 @@ export class QuestMachine {
 
   /** TIME3: the clocks a quest reads, one set for every door a live quest is born through - the character's (nowSeconds:
    *  the countdowns, intervals and tombstones), the sky (skySeconds: an hour, a date, a season), the event clock
-   *  (worldSeconds: the journal's dates) and the session's raises (raisedSeconds: charged whole). A host that names
+   *  (worldSeconds: the journal's dates) and the session's raises (raisedSeconds: charged nothing online - QCLOCK-WORLD). A host that names
    *  none of the last three is offline or headless: the one clock, and every gap a lived one. */
   _questClocks() {
     const nowSeconds = () => this.deps.nowSeconds?.() ?? 0;
@@ -1642,7 +1642,7 @@ export class QuestMachine {
    *  faction ("This effectively shuts down several named NPCs during
    *  main quest") - and TalkManager.cs does not contain the word
    *  Listener at all. The port already ships that reader, at
-   *  src/scenes/worldModes.js:3116. A pending marker over shipped work
+   *  src/scenes/worldModes.js:3133. A pending marker over shipped work
    *  is worse than no marker: it sends the next reader looking for
    *  work that is done, in a file that never had it. */
   addFactionListener(factionID, owner) {

@@ -558,8 +558,8 @@
   {
     "name": "AUDIT2-GUILD2-a-rename-said-as-put-in",
     "file": "src/ui/socialPanel.js",
-    "old": ", rename: 'renamed the guild for' });",
-    "new": " });",
+    "old": ", rename: 'renamed the guild for', grant:",
+    "new": ", grant:",
     "tests": [
       "test/guild2_client.test.js"
     ]

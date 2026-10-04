@@ -155,8 +155,10 @@ export function leftWords(d) {
 /** GATHER-SAID: where the Stores are, said with a session's first harvest - the goods are never in the pack.
  *  CLASSIC-PAGES: on either skin, by the Professions key the player has it bound to (`key`, its label; none bound, the
  *  pause menu's page). */
+// AUDIT HOLDINGS C7: the Stores page is on the pause menu's Holdings tab now - the Professions key lands on the Stats
+// tab's Professions page, and the line said it opened the Stores
 export const storesWhereLine = (key, carrying = false) => (carrying ? BAG_WORDS.where   // BAG1: into the bag, then the pack
-  : `Gathered goods go to your Stores, not your pack: ${key ? `${key} opens your Stores page` : 'the pause menu\'s Stores page'}.`);
+  : `Gathered goods go to your Stores, not your pack: the pause menu's Holdings > Stores${key ? ` (${key} opens your Professions)` : ''}.`);
 /** GATHER-SAID: an act that ended before its end - let go, walked off, a window over it, the dungeon left - nothing asked. */
 export const ACT_STOPPED_LINE = 'The gathering stopped before its end - nothing was taken.';
 /** A harvest the service did not answer, kept and asked again (net/profBook.js PROF_QUEUE_MS: ten minutes). */

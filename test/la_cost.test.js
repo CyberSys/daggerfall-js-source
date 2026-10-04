@@ -21,7 +21,7 @@ import {
 import { BAYER_GLSL } from '../src/render/orderedDither.js';
 import { billboardKey, keyId, sortByKey } from '../src/render/billboardKey.js';
 import { AIR_CONTACT_GLSL, AIR_CONTACT_RANGE_FRACTION } from '../src/render/airPass.js';
-import { SHADOW_GLSL } from '../src/render/shadowPass.js';
+import { SHADOW_GLSL, SHADOW_POINT_CASTERS } from '../src/render/shadowPass.js';
 import { perspective, lookAt, mirrorProjectionX } from '../src/world/mat4.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -550,7 +550,7 @@ const litBindings = (lights, colours, casters, extra = {}) => ({
   uPointColors: [...colours, ...Array.from({ length: 48 - colours.length }, () => [0, 0, 0])], uCasterOf: [...casters, ...Array(48 - casters.length).fill(-1)],
   uClusterOn: 0, uCamPos: [0.3, 1.7, 6], uStubContact: 0.15, uELExposure: 1.4, uELScatter: 0, uIndirect: [0, 0, 0, 0], uIndirectColor: [0, 0, 0],
   uFogColor: [0.2, 0.22, 0.25], uFogMode: 1, uFogDensity: 0, uFogRange: [4, 40], uDwFog: Array.from({ length: 5 }, () => [0, 0, 0, 0]),
-  uPointShadowParams: Array.from({ length: 8 }, () => [0, 0, 0, 0]), uShadowIndex: Array(8).fill(-1), gl_FragCoord: [10.5, 20.5, 0.5, 1],
+  uPointShadowParams: Array.from({ length: SHADOW_POINT_CASTERS }, () => [0, 0, 0, 0]), uShadowIndex: Array(SHADOW_POINT_CASTERS).fill(-1), gl_FragCoord: [10.5, 20.5, 0.5, 1],   // FLICKER-FIX: sized by the casters, not a literal
   texture: (name) => (name === 'uAdapt' ? [0.55, 0.55, 0.55, 1] : [1, 1, 1, 1]), texelFetch: () => [0, 0, 0, 0], ...extra,
 });
 

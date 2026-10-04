@@ -361,93 +361,41 @@
     ]
   },
   {
-    "name": "LOOT7-door-no-guarantee",
-    "file": "src/scenes/hostCombat.js",
-    "old": "  if (championOf(entity)) ensureChampionLoot(entity, effectiveLevel(player), rolls);",
-    "new": "  void championOf;",
+    "name": "CHAMP-LOOT-door-plain-source",
+    "file": "src/systems/lootRarity.js",
+    "old": "rollLootRarity(loot, champ ? championSource(source, qualityMult) : {",
+    "new": "rollLootRarity(loot, false ? championSource(source, qualityMult) : {",
     "tests": [
       "test/loot7_champions.test.js"
     ]
   },
   {
-    "name": "LOOT7-guarantee-takes-the-worn-kit",
-    "file": "src/scenes/hostCombat.js",
-    "old": "  const loot = (entity.items ?? []).filter((it) => it && !worn.has(it));\n  if (loot.some((it) => rarityRank(it) >= RARITIES.rare.rank)) return null;",
-    "new": "  const loot = (entity.items ?? []).filter((it) => it);\n  if (loot.some((it) => rarityRank(it) >= RARITIES.rare.rank)) return null;",
+    "name": "CHAMP-LOOT-magic-and-rare-whole",
+    "file": "src/systems/lootRarity.js",
+    "old": "  ladder: CHAMPION_SOURCE.ladder,",
+    "new": "  ladder: 1,",
     "tests": [
-      "test/loot7_champions.test.js"
-    ]
-  },
-  {
-    "name": "LOOT7-guarantee-twice",
-    "file": "src/scenes/hostCombat.js",
-    "old": "  if (loot.some((it) => rarityRank(it) >= RARITIES.rare.rank)) return null;\n  let piece",
-    "new": "  let piece",
-    "tests": [
-      "test/loot7_champions.test.js"
-    ]
-  },
-  {
-    "name": "LOOT7-guarantee-never-a-magic-piece",
-    "file": "src/scenes/hostCombat.js",
-    "old": "loot.filter((it) => rarityEligible(it) || it.rarity === 'magic')",
-    "new": "loot.filter((it) => rarityEligible(it))",
-    "tests": [
-      "test/loot7_champions.test.js"
-    ]
-  },
-  {
-    "name": "LOOT7-guarantee-the-first-not-the-dearest",
-    "file": "src/scenes/hostCombat.js",
-    "old": ".sort((a, b) => (b.value ?? 0) - (a.value ?? 0))[0] ?? null;",
-    "new": "[0] ?? null;",
-    "tests": [
-      "test/loot7_champions.test.js"
-    ]
-  },
-  {
-    "name": "LOOT7-guarantee-mints-ammunition",
-    "file": "src/scenes/hostCombat.js",
-    "old": "piece = createRandomWeapon(level, rolls); for (let n = 0; n < 32 && isAmmunition(piece); n++) piece = createRandomWeapon(level, rolls); }",
-    "new": "piece = createRandomWeapon(level, rolls); }",
-    "tests": [
-      "test/loot7_champions.test.js"
-    ]
-  },
-  {
-    "name": "LOOT7-guarantee-always-armour",
-    "file": "src/scenes/hostCombat.js",
-    "old": "    if (rolls() < 0.5) { piece = createRandomWeapon",
-    "new": "    if (rolls() < 0) { piece = createRandomWeapon",
-    "tests": [
-      "test/loot7_champions.test.js"
-    ]
-  },
-  {
-    "name": "LOOT7-guarantee-off",
-    "file": "src/scenes/hostCombat.js",
-    "old": "  if (!lootRarityOn() || !entity) return null;\n  const worn",
-    "new": "  if (!entity) return null;\n  const worn",
-    "tests": [
-      "test/loot7_champions.test.js"
+      "test/search1_searchables.test.js"
     ]
   },
   {
     "name": "LOOT7-source-no-tiers",
     "file": "src/systems/lootRarity.js",
-    "old": "tier: source.tier + (champ ? CHAMPION_SOURCE.tier : 0),",
-    "new": "tier: source.tier,",
+    "old": "  legendaryTier: source.tier + CHAMPION_SOURCE.tier,",
+    "new": "  legendaryTier: source.tier,",
     "tests": [
-      "test/loot7_champions.test.js"
+      "test/loot7_champions.test.js",
+      "test/search1_searchables.test.js"
     ]
   },
   {
     "name": "LOOT7-source-no-quality",
     "file": "src/systems/lootRarity.js",
-    "old": "qualityMult: qualityMult * (champ ? CHAMPION_SOURCE.quality : 1) }",
-    "new": "qualityMult }",
+    "old": "  legendaryQuality: qualityMult * CHAMPION_SOURCE.quality,",
+    "new": "  legendaryQuality: qualityMult,",
     "tests": [
-      "test/loot7_champions.test.js"
+      "test/loot7_champions.test.js",
+      "test/search1_searchables.test.js"
     ]
   }
 ]

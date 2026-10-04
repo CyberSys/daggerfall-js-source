@@ -721,7 +721,7 @@ Ignoring') - permanent by parity, recorded in the coverage pin.
   faction-listener slot (addFactionListener first-claim-wins /
   removeFactionListener at dispose; PlayerActivate.StaticNPCClick
   reads the map - :1534, the only consumer in the DFU tree, and
-  wired at src/scenes/worldModes.js:681). activeFactionPersons walks NON-COMPLETE quests only -
+  wired at src/scenes/worldModes.js:685). activeFactionPersons walks NON-COMPLETE quests only -
   completed quests must not lock an NPC out (QuestMachine.cs:1085).
   The non-individual parse throw carries the TEMPLATE-SetComplete
   quirk; its sibling's does not.
@@ -1458,7 +1458,7 @@ spamming the same questor does not re-pulse the task. DFU makes you go
 click someone else and come back.
 
 The port carries `lastNPCClicked` as an NPCData-shaped OBJECT LITERAL,
-and both hosts mint a fresh one at every click - worldModes.js:1479's
+and both hosts mint a fresh one at every click - worldModes.js:1486's
 quest-flat arm builds `{ hash, flags, factionID, nameSeed, gender,
 buildingKey, mapID }` inline, and questBridge.clickNpc runs
 `staticNpcData(pn, sceneCtx)`. So `lastClicked === this.clickMemory`
@@ -2907,7 +2907,7 @@ has never allowed. Expanding in place now. (The caller-side
 `PlayerActivate.StaticNPCClick:1534`. `TalkManager.cs` does not
 contain the word `Listener`. Three port comments named TalkManager as
 the reader and marked the wiring `(Q4 wires)` - over a reader the port
-already ships, at `worldModes.js:681`. A pending marker over shipped
+already ships, at `worldModes.js:685`. A pending marker over shipped
 work is worse than no marker at all: it sends the next reader looking
 for work that is done, in a file that never had it. Four sites
 corrected, the bible's copy included.
@@ -5480,7 +5480,7 @@ lesson one host over.
 **What did NOT ship:** PlayerEntity.Update's per-minute *intermittent
 spawn* roll (:486-492) still has no caller on this route. It is not
 this pool's dependency — it is a loop that carries the passive-guard
-spawns and the NPC-guard conversion with it (world.js:8290-8395) — and
+spawns and the NPC-guard conversion with it (world.js:8377-8482) — and
 it is named at the mount so the absence reads as a fact.
 
 **(c) The find-place seam's absence, narrowed to one sentence.**
@@ -5504,12 +5504,12 @@ ready-spell events (`hostMagic.js:97-98`), and those two doors are the
 (`machine.js:935`/`:918`; C# subscribes them in the action's
 constructor). Every `cast X spell do` and `cast X effect do` on this
 whole route could therefore never latch and never fire. The pair the
-other two engine-owning hosts wire (`world.js:8843-8844`,
-`dungeonContext.js:2721-2722`) is wired here now, and with it
+other two engine-owning hosts wire (`world.js:8930-8931`,
+`dungeonContext.js:2837-2838`) is wired here now, and with it
 `CastSpellDo`'s two world reads — `getClassicSpellEffects` and the
-byte-folded `spellHasMatchForClassicEffect` (`world.js:15151-15154`),
+byte-folded `spellHasMatchForClassicEffect` (`world.js:15277-15280`),
 absent which the action self-completes at *parse*
-(`actions.js:2793`/`:2800`) and the task can never arm at all.
+(`actions.js:2792`/`:2799`) and the task can never arm at all.
 
 Pins: 5 in `test/qx1_exterior_host.test.js` (the placement law RUN over
 the real `placeFoeFreely` with a stubbed world — the FOV cone bounded on
@@ -6422,7 +6422,10 @@ reads one, all of them DFU's one clock offline:
 - **`nowSeconds`, the CHARACTER's clock** (LIVED1's own): the Clock resource, CreateFoe's and PlaySound's
   intervals, GUARD-ONLINE's watch, the tombstone's week. A rest, a loiter or a journey spends them, as in DFU: the
   time RAISED since a sample is charged whole (the session's count, `worldTick.js raisedMinutes`), the time lived
-  with the world one played step at most (WORLD7's bound, on the lived part alone). The rest ticks the quests
+  with the world one played step at most (WORLD7's bound, on the lived part alone). [SUPERSEDED BY QCLOCK-WORLD
+  2026-10-02 (`Online-Time-Arc.md` 6.3c) for the Clock and CreateFoe's interval: online the raise is charged
+  nothing, the lived time one step - a rest spends no quest days. PlaySound's interval, GUARD-ONLINE's watch (one
+  quest's hall, kept by waiting there) and the tombstone's week still read the character's clock raw.] The rest ticks the quests
   online too (`restSession.js`; RESTX2's stand-down retired).
 - **`skySeconds`, the SKY**: DailyFrom's window, GivePc's daytime, the season trigger, QAE's "until", the
   date/time macros.

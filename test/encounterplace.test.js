@@ -104,8 +104,8 @@ test('RE1: the dungeon host stands its rest interruption the same way, with its 
   const dc = read('src/scenes/dungeonContext.js');
   assert.equal(/const landed = foeDeps\.floorLanding\(collider, \[x, feet\[1\] \+ 1\.5, z\]\);/.test(dc), false,
     'the eight-point ring is gone');
-  assert.match(dc, /async function _spawnEncounter\(\{ mobileType, minDistance, maxDistance, lineOfSightCheck \}, \{ feet = lastPlayerFeet, yaw = _motorYaw, shared = false \} = \{\}\)/,
-    'the whole band arrives from the roll (REST-SYNC re-aim: by the resting player\'s feet and look - a joiner\'s, when the host stands its ask)');
+  assert.match(dc, /async function _spawnEncounter\(\{ mobileType, minDistance, maxDistance, lineOfSightCheck \}, \{ feet = lastPlayerFeet, yaw = _motorYaw, shared = false, asked = null \} = \{\}\)/,
+    'the whole band arrives from the roll (REST-SYNC re-aim: by the resting player\'s feet and look - a joiner\'s, when the host stands its ask; AUDIT III E1 re-aim: and the spot its placement found)');
   assert.match(dc, /spot = placeFoeFreely\(env, \{ minDistance, maxDistance, lineOfSightCheck \}\);/);
   assert.match(dc, /playerYawRad: yaw,/, 'the host\'s live look yaw, which both dungeon hosts report as cam.yaw (REST-SYNC: the asker\'s, by default this player\'s)');
   assert.match(dc, /isOccupied: entityOccupancy\(\(f\) => f\.ai\?\.feet, \(\) => foes, feet\)/, 'against THIS host\'s pool');
@@ -147,6 +147,7 @@ test('AUDIT OW5b E1: a wanderer PLACED beside the traveller asks the walking jou
       exteriorFoes: { encounterRoom: () => room, spawnFoe: (t) => { order.push(`spawn ${t}`); return Promise.resolve({}); } },
       placeFoeEnv: () => ({}), collider: {}, cam: { yaw: 0 }, fieldOfView: () => 1, entityOccupancy: () => () => false, _placingPool: () => [],
       LOOSE_FOE_PLACE_ATTEMPTS: 2, placeFoeFreely: () => spot, ENEMY_BASICS: {}, journeyMet: () => { order.push('met'); return 'stopped'; },
+      ambushNight: () => false,   // AUDIT REST-PARTY A1: a night running is told of the stand (none here)
     };
     const k = Object.keys(scope);
     const stand = new Function(...k, `${src}\nreturn _standEncounterFoe;`)(...k.map((x) => scope[x]));

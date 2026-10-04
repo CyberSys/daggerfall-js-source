@@ -882,6 +882,42 @@
    "why": "ARENA2: the hour's exhibition, run once an hour"
   },
   {
+   "file": "src/scenes/dungeonContext.js",
+   "has": "setSearchClock(() => worldMinutes());",
+   "clock": "event",
+   "why": "a searchable's five hours (SEARCH1)"
+  },
+  {
+   "file": "src/scenes/dungeonContext.js",
+   "has": "const at = Number.isFinite(stampMs) && sharedClockOn() ? sharedClassicMinutes(stampMs) : worldMinutes();",
+   "clock": "event",
+   "why": "the room's search stamp, as the world minute it was searched at (SEARCH1-PARTY)"
+  },
+  {
+   "file": "src/scenes/dungeonContext.js",
+   "has": "markSearched(searchKey(searchLocationKey(), sb.key), Math.min(at, worldMinutes()));",
+   "clock": "event",
+   "why": "a searchable's five hours, never from ahead of now (SEARCH1-PARTY)"
+  },
+  {
+   "file": "src/scenes/dungeonContext.js",
+   "has": "const now = worldMinutes();",
+   "clock": "event",
+   "why": "a searchable's five hours, at the search (SEARCH1)"
+  },
+  {
+   "file": "src/scenes/world.js",
+   "has": "setSearchClock(() => worldMinutes());",
+   "clock": "event",
+   "why": "a headstone's five hours (SEARCH1)"
+  },
+  {
+   "file": "src/scenes/world.js",
+   "has": "const now = worldMinutes();",
+   "clock": "event",
+   "why": "a headstone's five hours, at the search (SEARCH1)"
+  },
+  {
    "file": "src/scenes/worldModes.js",
    "has": "rosterGrandChampions(playerEntity.arenaLeague, Math.floor(worldMinutes()))",
    "clock": "event",

@@ -73,7 +73,8 @@ import { statusTiles, afflictionRows, statusGlyphSrc, statRoom, statSide, statPl
 import { sigilRuneTileSrc } from './sigilRune.js';   // UI3: a set power's tile is its set's rune
 import { liveVampirism } from '../systems/racialLive.js';   // AUDIT SURV C: no hunger or sleep chip on a vampire
 import { survivalOn } from '../systems/survival/switch.js';
-import { ownMinutes } from '../systems/worldTick.js';   // LIVED1: the needs' strip reads the character's own clock
+import { ownMinutes, sharedClockOn } from '../systems/worldTick.js';   // LIVED1: the needs' strip reads the character's own clock   // REST1: and the Rested tile is online's
+import { nightRealMinutesLeft } from '../systems/restAct.js';   // REST1: the night interval's minutes left
 import { compassScroll, breathShortThreshold, compassMarkerLerp, DETECT_MARKER_RGB } from './hud.js';
 import { PARTY_GREEN_CSS } from '../net/social.js';   // COMPASS-PARTY: the party's one green
 import { maxBreath, maxFatigue, liveStat } from '../systems/statMods.js';   // PX30b/PX30d: DFU's own ceilings
@@ -1152,7 +1153,8 @@ function drawStatus(vitals, opts) {
   const powers = setPowerChips(vitals);   // SET5: the set powers (the host's - setHudSetChips)
   // SURV5: the needs - one a felt need (survival/status.js), none while every need is met, and none with the switch off
   const needs = survivalOn() ? survivalHudChips(vitals, Math.floor(ownMinutes()), { vampire: !!liveVampirism(vitals), endurance: liveStat(vitals, 'endurance') }) : [];   // AUDIT SURV C: the vampire's strip, the page's drunk bands
-  const all = statusTiles({ spells, powers, afflictions: afflictionRows(vitals), needs });
+  const rested = sharedClockOn() ? { minutes: nightRealMinutesLeft(vitals, ownMinutes()) } : null;   // REST1: the night interval, online
+  const all = statusTiles({ spells, powers, afflictions: afflictionRows(vitals), needs, rested });
   // a new window size or HUD scale is a new band at once (AUDIT UI C: a rotation left the old band for half a second)
   const vp = `${globalThis.innerWidth}x${globalThis.innerHeight}x${last.scale ?? 1}`;
   if (last.statVp !== vp) { last.statVp = vp; last.statTick = -1; }
@@ -1404,13 +1406,13 @@ const QUICK_NARROW = '(max-width: 860px)';
 function drawSpellChip(view, tag) {
   const sp = view.spell;
   const lamp = quickslotCycling() === 'spell';
-  const sig = sp ? `${sp.index}|${sp.name}|${sp.spell ? 1 : 0}|${sp.readied ? 1 : 0}|${lamp ? 1 : 0}|${tagKey(tag)}|${last.scale ?? 1}` : `-|${tagKey(tag)}`;
+  const sig = sp ? `${sp.index}|${sp.name}|${sp.spell?.noIcon ? 'n' : ''}${sp.spell?.icon ?? ''}|${sp.spell ? 1 : 0}|${sp.readied ? 1 : 0}|${lamp ? 1 : 0}|${tagKey(tag)}|${last.scale ?? 1}` : `-|${tagKey(tag)}`;
   if (last.qspell === sig) return;
   last.qspell = sig;
   const chip = parts.spellChip;
   // UI2: THE SPELL'S OWN ICON before its name, fitted at the HUD's scale (the chip rides its transform); nothing for an
   // empty slot or a spell the book no longer holds - the name says which it was
-  const pic = sp?.spell ? spellIconPicture(sp.spell.icon, { box: SPELL_CHIP_BOX, dpr: clampDpr(screenDpr() * (last.scale ?? 1)), onReady: () => { last.qspell = null; } }) : null;
+  const pic = sp?.spell && !sp.spell.noIcon ? spellIconPicture(sp.spell.icon, { box: SPELL_CHIP_BOX, dpr: clampDpr(screenDpr() * (last.scale ?? 1)), onReady: () => { last.qspell = null; } }) : null;
   if (pic) { showFitted(chip.icon, pic); chip.icon.style.display = ''; } else { chip.icon.removeAttribute('src'); chip.icon.style.display = 'none'; }
   chip.chip.classList.toggle('on', !!sp);
   // HOTSLOT (2026-09-22): an EMPTY slot is a socket, as the diamond's

@@ -471,7 +471,9 @@ test('CSA-K: the host - another\'s boat is pressed only where none of mine is un
   assert.match(board, /const deck = raycastColliders\(pick\.boat\.GameObject, o, \[0, -1, 0\], 3, \{ triggers: true, geometry: csaColliderMesh \}\);/, 'set down on THEIR deck within 3 m');
   assert.match(board, /if \(csaAboard\.board\(pick\.boat, CSA_ABOARD_GRACE\)\) csaSyncColliders\(\);/);
   const hover = cut(WORLD, 'const csaHoverName = (key) => {', '\n  };\n');
-  assert.match(hover, /if \(peer\) \{ const boat = csaPeers\.boatAt\(peer\[1\], Number\(peer\[2\]\)\); return boat \? \{ title: CSA_HULL_NAMES\[boat\.hull\] \?\? 'Boat', subs: \[ownedLine\(peerName\(peer\[1\]\)\)\] \} : null; \}/);
+  // PIN MOVED (HOLDINGS, bible/03-World/Holdings.md): the plaque names her by her captain's name where she has one (her hull's under
+  // it), else her hull's - and its owner, as ever
+  assert.match(hover, /const hullName = CSA_HULL_NAMES\[boat\.hull\] \?\? 'Boat', named = csaPeers\.nameAt\?\.\(peer\[1\], Number\(peer\[2\]\)\) \?\? '';[^\n]*\n\s*return \{ title: named \|\| hullName, subs: \[\.\.\.\(named \? \[hullName\] : \[\]\), ownedLine\(peerName\(peer\[1\]\)\)\] \};/);
   assert.match(WORLD, /const csaPassengersOn = \(boat\) => \{ const i = csaRuntime\?\.AllBoats\.filter\(\(b\) => b\.GameObject\?\.activeSelf\)\.indexOf\(boat\) \?\? -1; return i < 0 \|\| !online\?\.id \? 0 : csaAboard\.passengersOn\(online\.id, i\); \};/);
   assert.match(WORLD, /passengersAboard: csaPassengersOn,/, 'OWS2: named, the landfall\'s pack reads it too');
 });

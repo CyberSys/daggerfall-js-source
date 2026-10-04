@@ -60,7 +60,7 @@ test('LOOT7-CHECK CORPSE-FIND: a body keeps its unique find - the Thunderlock an
     LR.rollCorpseLoot(body, { level: 12 }, { rolls: lcg(seed), luck: 50 });
     const src = LR.corpseSource({ level: 12 }, 12, 7);
     const list = [createWeapon(113, 1)];
-    LR.rollLootRarity(list, { ...src, tier: src.tier + LR.CHAMPION_SOURCE.tier, qualityMult: LR.CHAMPION_SOURCE.quality }, { rolls: lcg(seed), luck: 50 });
+    LR.rollLootRarity(list, LR.championSource(src), { rolls: lcg(seed), luck: 50 });   // CHAMP-LOOT: the champion's own source, one home
     assert.deepEqual(body.items.map(said), list.map(said), `seed ${seed}: the body is the list`);
     if (body.items.some(isThunderlock)) {
       finds++;

@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs';
 import { setPref, _resetForTests } from '../src/systems/uiPrefs.js';
 import * as CH from '../src/systems/champions.js';
 import * as LR from '../src/systems/lootRarity.js';
-import { spawnEnemyLoot, ensureChampionLoot } from '../src/scenes/hostCombat.js';
+import { spawnEnemyLoot } from '../src/scenes/hostCombat.js';
 import { equipTableOf } from '../src/systems/equip.js';
 import { ENEMY_BASICS } from '../src/characters/enemyBasics.js';
 import { validFoeRecord } from '../src/net/wire.js';
@@ -188,9 +188,9 @@ test('LOOT7: the traits that answer a blow - the Vampiric drinks its blow, the T
   assert.match(src, /registerPlayerStrikeListener\(CHAMPIONS, championStrike\);/);
 });
 
-test('LOOT7: its loot - a Rare or better always, never its worn kit; a stronger source; nothing off', () => {
+test('LOOT7: its loot - its own roll and no Rare forced (CHAMP-LOOT), never its worn kit; its own source; nothing off', () => {
   on();
-  let wornSeen = 0;
+  let wornSeen = 0, rares = 0, bodies = 0;
   for (let seed = 1; seed <= 200; seed++) {
     for (const mobileType of [7, 0, 26]) {   // an orc (a table and a kit), a rat (no table), a Fire Daedra
       const e = { items: [], level: 10, careerIndex: mobileType, isClass: false, stats: { strength: 50, speed: 50 }, skills: 30, health: 50, maxHealth: 50, mobileType };
@@ -198,44 +198,26 @@ test('LOOT7: its loot - a Rare or better always, never its worn kit; a stronger 
       spawnEnemyLoot(e, mobileType, ENEMY_BASICS[mobileType], player, { rolls: lcg(seed) });
       const worn = new Set(e.equip ? equipTableOf(e).filter(Boolean) : []);
       const carried = e.items.filter((it) => !worn.has(it));
-      assert.ok(carried.some((it) => LR.rarityRank(it) >= LR.RARITIES.rare.rank), `seed ${seed}, foe ${mobileType}: a Rare or better on the body`);
+      bodies++; if (carried.some((it) => LR.rarityRank(it) >= LR.RARITIES.rare.rank)) rares++;   // CHAMP-LOOT: a chance, not a promise
       for (const it of worn) assert.equal(it.rarity, undefined, 'its worn kit stays DFU\'s');
       wornSeen += worn.size;
     }
   }
   assert.ok(wornSeen > 100, `worn kit to keep (${wornSeen})`);
-  // the guarantee alone: a Magic piece made Rare, a body with nothing minted one
-  const m = LR.applyRarity(createWeapon(120, 1), 'magic', lcg(2));
-  const e = { items: [m], level: 8 };
-  assert.equal(ensureChampionLoot(e, 8, lcg(3)), m, 'its best piece made Rare');
-  assert.equal(m.rarity, 'rare');
-  const cheap = createWeapon(113, 1), dear = createWeapon(120, 1);
-  cheap.value = 10; dear.value = 500;
-  assert.equal(ensureChampionLoot({ items: [cheap, dear], level: 8 }, 8, lcg(6)), dear, 'its most valuable');
-  let weapons = 0, armour = 0;
-  for (let seed = 1; seed <= 200; seed++) {
-    const bare = { items: [], level: 8 };
-    const minted = ensureChampionLoot(bare, 8, lcg(seed));
-    assert.ok(minted && bare.items.includes(minted) && minted.rarity === 'rare', `seed ${seed}: carrying none, one minted and made Rare`);
-    assert.ok(!isAmmunition(minted), `seed ${seed}: never ammunition`);
-    if (minted.group === 'Weapons') weapons++; else armour++;
-  }
-  assert.ok(weapons > 60 && armour > 60, `a weapon or a piece of armour (${weapons}, ${armour})`);
-  // THE STRONGER SOURCE: the champion's corpse door is the plain door with four tiers more and half again its quality
+  assert.ok(rares < bodies * 0.3, `CHAMP-LOOT: no Rare forced - its own roll's alone (${rares}/${bodies})`);
+  // THE CHAMPION'S SOURCE: the champion's corpse door is the plain door through championSource (CHAMP-LOOT: Magic and Rare at half, its Legendary two tiers and a quarter up)
   for (let seed = 1; seed <= 80; seed++) {
     const a = { items: [createWeapon(113, 1), createWeapon(127, 1)], level: 6, mobileType: 7, champion: 'mighty' };
     const b = [createWeapon(113, 1), createWeapon(127, 1)];
     LR.rollCorpseLoot(a, { level: 6 }, { rolls: lcg(seed), luck: 50 });
     const src = LR.corpseSource({ level: 6 }, 6, 7);
-    LR.rollLootRarity(b, { ...src, tier: src.tier + 4, qualityMult: 1.5 }, { rolls: lcg(seed), luck: 50 });
+    LR.rollLootRarity(b, LR.championSource(src), { rolls: lcg(seed), luck: 50 });
     const said = (list) => list.map((it) => [it.rarity ?? null, it.legendary ?? null, JSON.stringify(it.affixes ?? null)]);
     assert.deepEqual(said(a.items), said(b), `seed ${seed}`);
   }
-  assert.equal(ensureChampionLoot({ items: [LR.applyRarity(createWeapon(120, 1), 'legendary', lcg(1))], level: 8 }, 8, lcg(5)), null, 'a Legendary already: nothing');
-  assert.deepEqual(LR.CHAMPION_SOURCE, { tier: 4, quality: 1.5 });
-  assert.match(strip(read('src/systems/lootRarity.js')), /rollLootRarity\(loot, \{ \.\.\.source, tier: source\.tier \+ \(champ \? CHAMPION_SOURCE\.tier : 0\), qualityMult: qualityMult \* \(champ \? CHAMPION_SOURCE\.quality : 1\) \}/, 'the corpse door reads it');
+  assert.deepEqual(LR.CHAMPION_SOURCE, { tier: 2, quality: 1.25, ladder: 0.5 });   // CHAMP-LOOT: half the elite's
+  assert.match(strip(read('src/systems/lootRarity.js')), /rollLootRarity\(loot, champ \? championSource\(source, qualityMult\) : \{ \.\.\.source, qualityMult, \.\.\.\(weights \? \{ weights \} : \{\}\) \}, \{ rolls, luck \}\);/, 'the corpse door reads it');   // FOE-CAP: a plain foe's ladder rides beside it (a champion is never plain)
   off();
-  assert.equal(ensureChampionLoot({ items: [], level: 8 }, 8, lcg(4)), null, 'off: nothing');
   const dc = strip(read('src/scenes/dungeonContext.js'));
   assert.match(dc, /markDungeonChampions\(enemies, dfLocation\.dungeon\.recordElement\.header\.locationId\);/, 'the layout marked');
   assert.match(dc, /if \(!e\?\.elite \|\| !entity\) return void applyChampion\(entity, e\?\.champion\);[\s\S]{0,400}entity\.elite = true; applyChampion\(entity, e\.champion\);/, 'every build arm stands it, an elite\'s too');

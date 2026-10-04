@@ -647,11 +647,12 @@
   {
     "name": "BAY-A7-lying-ship-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "    if (b) for (const e of sea.values()) if (e.ship.damage.state !== SHIP_STATES.sunk && (e.ship.speed ?? 0) < BERTH_WAY && Math.hypot(b.pos[0] - e.ship.pos[0], b.pos[1] - e.ship.pos[2]) <= BERTH_SNAP_M) return false;",
+    "old": "    if (b) for (const e of sea.values()) if (e.ship !== except && e.ship.damage.state !== SHIP_STATES.sunk && (e.ship.speed ?? 0) < BERTH_WAY && Math.hypot(b.pos[0] - e.ship.pos[0], b.pos[1] - e.ship.pos[2]) <= BERTH_SNAP_M) return false;",
     "new": "    if (false) return false;",
     "tests": [
       "test/auditbay_lanes.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "BAY-A8-region-unsaid",
@@ -674,8 +675,8 @@
   {
     "name": "BAY-A8-region-unread-at-berth",
     "file": "src/scenes/navalHost.js",
-    "old": "        e = launch({ seed, classId: cls.id, region: l.region, pos: [b.pos[0], deps.seaY(), b.pos[1]],",
-    "new": "        e = launch({ seed, classId: cls.id, pos: [b.pos[0], deps.seaY(), b.pos[1]],",
+    "old": "        e = launch({ seed, classId: cls.id, region: l.region, pos: [at[0], deps.seaY(), at[1]],",
+    "new": "        e = launch({ seed, classId: cls.id, pos: [at[0], deps.seaY(), at[1]],",
     "tests": [
       "test/auditbay_lanes.test.js"
     ]
@@ -804,8 +805,8 @@
   {
     "name": "BAY-A18-wire-word-of-spent-alone",
     "file": "src/systems/naval/navalWire.js",
-    "old": "out.t !== undefined || out.f || out.l ? out : null;",
-    "new": "out.t !== undefined || out.f ? out : null;",
+    "old": "out.t !== undefined || out.f || out.w || out.l ? out : null;",
+    "new": "out.t !== undefined || out.f || out.w ? out : null;",
     "tests": [
       "test/auditbay_lanes.test.js"
     ]

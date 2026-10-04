@@ -18,7 +18,7 @@
 // PURE but for the item minters - the hosts call in.
 import { createRandomWeapon, createRandomArmor } from './loot.js';
 import { mintCondition, setItemFields } from './itemTemplates.js';
-import { applyRarity, rarityEligible } from './lootRarity.js';
+import { applyRarity, rarityEligible, rarityChances, championSource, corpseSource } from './lootRarity.js';   // ELITE-RARE: the champion's blue the elite's Rare is read off
 import { goldStack } from './inventory.js';
 import { isAmmunition } from './itemTemplates.js';
 import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';   // ELITE-FLOOR: the watch is never an elite
@@ -41,7 +41,17 @@ export const ELITE_FOE_DUNGEON_MAX = 4;
 /** A normal (not Elite) dungeon holds at most one elite, and only this often (ELITE-RATES: one in five again). */
 export const ELITE_FOE_NORMAL_DUNGEON_CHANCE = 0.2;
 /** The elite's extra drop - better loot than its kind carries. */
-export const ELITE_FOE_LOOT = Object.freeze({ magic: 2, common: 1, rareChance: 0.25, legendaryChance: 0.06, goldPerLevel: [20, 60] });
+export const ELITE_FOE_LOOT = Object.freeze({ magic: 2, common: 1, legendaryChance: 0.06, goldPerLevel: [20, 60] });   // ELITE-RARE: the Rare's chance is eliteRareChance's, by level
+/** ELITE-RARE (2026-10-03, Mac: an elite's Rare "should be half of" a champion's blue): the elite's extra Rare roll, at a
+ *  level - half the chance a champion's body of that level carries a Magic or better, with ELITE_RARE_PIECES eligible
+ *  pieces on it (systems/lootRarity.js championSource: its Magic at half a plain foe's), at Luck 50. It was a flat 25%. */
+export const ELITE_RARE_PIECES = 2;
+export const ELITE_RARE_SHARE = 0.5;
+export function eliteRareChance(level = 1) {
+  const lv = Math.max(1, level | 0);
+  const blue = rarityChances(championSource(corpseSource({ level: lv }, lv, null))).magic / 1000;
+  return ELITE_RARE_SHARE * (1 - (1 - blue) ** ELITE_RARE_PIECES);
+}
 /** The name the HUD's target bar gives one (and, FOE-TITLE, every other surface - systems/foeTitle.js). */
 export const ELITE_FOE_PREFIX = 'Elite ';
 /** ELITE-FLOOR (2026-10-02): an elite is a foe of this level or more - LOOT7's champion floor (systems/champions.js
@@ -164,7 +174,7 @@ export function eliteLoot(level = 1, rolls = Math.random) {
   const out = [];
   for (let i = 0; i < ELITE_FOE_LOOT.magic; i++) { const it = tiered(lv, 'magic', rolls); if (it) out.push(it); }
   for (let i = 0; i < ELITE_FOE_LOOT.common; i++) { const it = tiered(lv, 'common', rolls); if (it) out.push(it); }
-  if (rolls() < ELITE_FOE_LOOT.rareChance) { const it = tiered(lv, 'rare', rolls); if (it) out.push(it); }
+  if (rolls() < eliteRareChance(lv)) { const it = tiered(lv, 'rare', rolls); if (it) out.push(it); }   // ELITE-RARE: half a champion's blue at this level
   if (rolls() < ELITE_FOE_LOOT.legendaryChance) { const it = tiered(lv, 'legendary', rolls); if (it) out.push(it); }
   const [lo, hi] = ELITE_FOE_LOOT.goldPerLevel;
   out.push(goldStack(Math.round(lv * (lo + rolls() * (hi - lo)))));

@@ -401,8 +401,8 @@
   {
     "name": "HCC-summon-indoors",
     "file": "src/systems/horseCart.js",
-    "old": "    if (pee().isPlayerInside() || tm().isOnShip()) { say(HCC_TEXT.summonOutdoorsOnly); return; }",
-    "new": "    if (tm().isOnShip()) { say(HCC_TEXT.summonOutdoorsOnly); return; }",
+    "old": "    if (pee().isPlayerInside() || tm().isOnShip()) return { ok: false, text: HCC_TEXT.summonOutdoorsOnly };",
+    "new": "    if (tm().isOnShip()) return { ok: false, text: HCC_TEXT.summonOutdoorsOnly };",
     "tests": [
       "test/hcc_runtime.test.js"
     ]
