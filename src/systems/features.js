@@ -718,6 +718,22 @@ export const FEATURES = Object.freeze([
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'nearbyQuests', initial: true, online: 'player' }),
   }),
+  // LW2 (2026-10-04, Mac: "NPCs are no longer just random walking entities"): THE LIVING WORLD
+  // (bible/06-Systems/Living-World.md) - a town's people are its residents, each with a name, a home, a trade and a
+  // day (systems/livingWorld/livingTown.js stands them where DFU's wandering pool stood). The player's own online: every
+  // resident is a pure function of the town and the sky's clock, so nothing anyone shares reads the switch; off, and on
+  // the classic skin, DFU's PopulationManager walkers 1:1.
+  Object.freeze({
+    id: 'living-world',
+    group: 'world',
+    title: 'Living world',
+    note: 'Townsfolk are residents with names, homes, trades and days of their own - they open their shops, meet at '
+      + 'the square and the tavern, talk among themselves, sleep at night and remember how you treated them, and '
+      + "everyone online sees the same people. Off, the streets fill with Daggerfall's wandering strangers, gone at dusk.",
+    effect: 'Takes effect when a town next loads.',
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'livingWorld', initial: true, online: 'player' }),
+  }),
   // FT9 (2026-09-14): THE PACKS WITH A SWITCH (Dynamic Skies' is the
   // outdoors row's, FT4). The order is the old Mods pane's.
   //

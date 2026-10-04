@@ -137,7 +137,7 @@ export function rayPersonDistance(camPos, fwd, feet) {
   return t / fl * Math.hypot(fwd[0], fwd[1], fwd[2]);
 }
 
-export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, regionIndex, onCrime = null, topics = null, palette = null, rolls = Math.random, talkEngine = null, onBuildingList = null, otherOverlayActive = null, otherHudCovered = null, questBuildingSource = null }) {   // AUDIT ENH-NOTICE3 C2: `otherHudCovered` is the mode host's previousWindow-chain answer (modes.hudCovered), for the toasts   // AUDIT 63 F49: PlayerGPS.DiscoverBuilding's quest name-override seam ({ currentMapID, isBuildingQuestResource }), null in a host with no topic tree
+export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, regionIndex, onCrime = null, topics = null, palette = null, rolls = Math.random, talkEngine = null, onBuildingList = null, otherOverlayActive = null, otherHudCovered = null, questBuildingSource = null, livingTalk = null }) {   // LW2: `livingTalk` the living world's two doors - { refuses(person) -> text|null, talked(person) } (bible/06-Systems/Living-World.md)   // AUDIT ENH-NOTICE3 C2: `otherHudCovered` is the mode host's previousWindow-chain answer (modes.hudCovered), for the toasts   // AUDIT 63 F49: PlayerGPS.DiscoverBuilding's quest name-override seam ({ currentMapID, isBuildingQuestResource }), null in a host with no topic tree
   // RP1 - THE REGION IS READ LIVE, NOT CAPTURED AT BOOT.
   //
   // This took a plain number, and the world host had no choice but to
@@ -761,6 +761,10 @@ export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, reg
     // is `DaggerfallUI.MessageBox(suppressTalkMessage)`.
     const sup0 = racialSuppressTalk(playerEntity);
     if (sup0) { showOverlay(new ActionTextBox([sup0.text])); return; }
+    // LW2: a resident of the living world who counts the player an enemy has no words for them - said on the HUD's
+    // middle line, as the activation's other refusals are; DFU's walkers have no memory to refuse from
+    const refusal = livingTalk?.refuses?.(target.person) ?? null;
+    if (refusal) { setMidScreenText(refusal); return; }
     const eng0 = engine();
     if (eng0?.session) {
       // T3c: the NPC keeps a stable per-person seed for the
@@ -774,6 +778,7 @@ export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, reg
       // has already said its piece through the session's messageBox
       if (talk?.kind !== 'talk') return;
       _talkNpc = target.person;
+      livingTalk?.talked?.(target.person);   // LW2: a word exchanged - their regard of the player
       // the local mirrors of the tone half TalkToNpc just reset
       toneSession = [0, 0, 0];
       lastToneIndex = -1;

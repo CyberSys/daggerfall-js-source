@@ -58,7 +58,7 @@ import { questTracker } from '../ui/questTracker.js';   // GUIDE5: the quest the
 import { marksOn, questMapMarks } from '../ui/questMarks.js'; import { boatCompassPoints } from '../ui/boatMarks.js';   // GUIDE5: where the quests point, on the held map and the compass; BOAT-MARK: where my boats lie, on the compass
 import { settlementsOf, loadModRoads, basicRoadsPathsPoint, WATER_BYTE } from '../world/roadsProducer.js';   // ROADS 3 / AUDIT ROADS F2 / ROADS 22; WOD2: Basic Roads' getPathsPoint, the question World of Daggerfall's loader asks
 import { modSetting, modSettingsOf, modSettingsGeneration, MOD_SETTINGS, latchModLoaded } from '../systems/modSettings.js';   // ROADS 24; HCC: the mod's eight switches; CSA-D: a mod's title for the load's failure line; AUDIT PRE-MERGE 0928 S4: the next-load mods latched at mount
-import { hasPortFor, setSeatHarbours, PORT_LOCATION_IDS } from '../systems/travelPorts.js';   // AUDIT-RR2 G22: Travel Options' port list for RR's ship gate; SEAT2b part two: a members' Harbour among them (hasPortFor)
+import { hasPortFor, hasPort, setSeatHarbours, PORT_LOCATION_IDS } from '../systems/travelPorts.js';   // AUDIT-RR2 G22: Travel Options' port list for RR's ship gate; SEAT2b part two: a members' Harbour among them (hasPortFor)
 import { WoodsFile, MAP_WIDTH, MAP_HEIGHT } from '../formats/woodsFile.js';
 import { buildTerrainIndices, isOutdoorWaterTile, TERRAIN_TILE_DIM, TERRAIN_SKIRT_DEPTH, surfaceHeightAt, surfaceNormalAt, groundOffPlane, terrainSampleHeightAt, lowestGroundUnder } from '../world/terrainSurface.js';   // GRASS-LIT2: the ground's normal under a blade
 import { waterUniforms, buildWaterIndices, waterSwitchOn } from '../render/waterSurface.js';   // WATER1: the enhanced water surface over the pixel's own grid; WATER-AUDIT: its own index set
@@ -100,7 +100,12 @@ import { makeInteriorPersonHost as makeStaticNpcHost } from './interiorContext.j
 import { createAnimalAmbience } from '../systems/animalAmbience.js';   // A4
 import { CityNavigation } from '../world/cityNavigation.js';   // T2 towns
 import { TownPopulation } from '../systems/townPopulation.js';
-import { GUARD_TEXTURE, MobilePerson, PERSON_TEXTURES } from '../characters/mobilePerson.js';
+import { LivingTown, LINE_HEAD_M as LIVING_HEAD_M } from '../systems/livingWorld/livingTown.js';   // LW2: the living world's streets - residents with days, where DFU's pool stood
+import { livingWorldOn } from '../systems/livingWorld/livingSwitch.js';
+import { createRelations, LIVING_WORLD_VENDOR } from '../systems/livingWorld/relations.js';   // LW2: how the living world regards this character (modData `LivingWorld`)
+import { ResidentWalker } from '../characters/residentWalker.js';
+import { firstNameOf } from '../systems/livingWorld/lines.js';
+import { GUARD_TEXTURE, MobilePerson, PERSON_TEXTURES, PERSON_MOVE_SPEED } from '../characters/mobilePerson.js';
 import { bowDamageArrow, weaponOfMaterial, armorOfMaterial } from '../combat/enemyEquipment.js';   // MAC-N1: the recovered shaft is CreateWeapon's arrow, value and all; OH-E: UpgradeLoot's SetItem + ApplyWeaponMaterial / ApplyArmorSettings
 import { createTownTalk, rayPersonDistance, nearestPerson } from './townTalk.js';   // AUDIT 63 F33 (review): the townsfolk's own pick distance, the enemy arm's rival
 import { createPlayerMagic } from './hostMagic.js';   // M2: spellcasting above ground
@@ -576,7 +581,7 @@ import {
 } from '../systems/realmSaves.js';   // REALM P1.3: an online character is the realm's - joined, loaded and checkpointed through the service
 import { reclaimFromDevice, reclaimLines } from '../systems/realmCustoms.js';   // RESTORE: what customs once kept back, given back at the boot
 import { appStorage } from '../systems/appStorage.js';   // ACC1d: where that session lives - the app's store, not the tab's (a second tab is the same player)
-import { skyClassicMinutes, wallMsForSkyMinutes } from '../net/skyLaw.js';   // TIME1: the sky's own clock, installed beside the event clock
+import { skyClassicMinutes, wallMsForSkyMinutes, skyMinutesPerMsAt } from '../net/skyLaw.js';   // TIME1: the sky's own clock, installed beside the event clock
 import { POSE_STRIKES, isWorldRoom, isCellRoom, cellHaloFor, actFrameFits, sharedClassicMinutes, wallMsForClassicMinutes } from '../net/wire.js';   // WORLD6b-iii(b): the cell seam's halo   // MAC7 #1: the swing's kind on the wire; AUDIT WORLD4 A1: whether an act frame can be said at all
 import { hasDaggerfallArrows } from '../combat/fpArm.js';   // MAC7 #2: the arrow bit on the wire - weaponRig's own read
 import { drawText } from '../ui/text.js';   // ONLINE1: the session's status line
@@ -2034,6 +2039,18 @@ export async function bootWorld(canvas, renderer, params, status) {
   }
   const timeScaleMult = params.has('timescale') && !sharedClockOn() ? Number(params.get('timescale')) / 12 : 1;
   const minuteNow = () => skyMinutes() % 1440;   // TIME1: THE SKY's hour - every isNight, hour and sky read below takes it
+  // LW2 (bible/06-Systems/Living-World.md, LW0 decisions 2-3): THE LIVING WORLD'S CLOCK is the sky's minute, and its
+  // people walk at DFU's 1.3 m/s - so their pace in the sky's minutes is that over the clock's rate: the sky's own online
+  // (twenty-four a real minute, every reader the same), the calendar's twelve offline. A journey speeds the calendar
+  // and the people with it (`livingRate`); online it moves no shared clock.
+  const livingBaseRate = () => (params.has('online') ? skyMinutesPerMsAt(Date.now() + _sharedOffsetMs) * 1000 : CLASSIC_MINUTES_PER_SECOND);
+  const livingRate = () => (params.has('online') ? livingBaseRate() : CLASSIC_MINUTES_PER_SECOND * worldTimeScale());
+  let livingRelations = createRelations();   // LW2: how the living world regards this character - the save's `LivingWorld` record
+  registerModSaveData(LIVING_WORLD_VENDOR, {
+    newSaveData: () => null,
+    getSaveData: () => livingRelations.snapshot(),
+    restoreSaveData: (rec) => { livingRelations = createRelations(rec); },
+  });
 
   // A5b: OUTDOOR MUSIC. AssignPlaylist's City/Wilderness arms - night
   // overrides everything, and by day the weather picks the list
@@ -3940,7 +3957,7 @@ export async function bootWorld(canvas, renderer, params, status) {
             for (const door of staticDoors) {
               doorGeneration += 1;   // WORLD-HOVER: a pixel's doors arriving
               buildingDoors.push({
-                door, pixelKey: key, dfBlock: b.dfBlock,
+                door, pixelKey: key, dfBlock: b.dfBlock, blockX: b.x, blockY: b.y,   // LW2: the block's grid cell, so a door names its building (makeBuildingKey)
                 // A1: the season a door carries INSIDE is the
                 // interior's own constant, never the world's.
                 // DaggerfallInterior.cs:51 declares climateSeason =
@@ -4058,7 +4075,49 @@ export async function bootWorld(canvas, renderer, params, status) {
               [from[0] + locOrigin[0] + t[0], from[1] + t[1], from[2] + locOrigin[2] + t[2]], dir, l);
           },
         };
-        population = new TownPopulation(nav, {
+        // LW2 (2026-10-04, Mac: "NPCs are no longer just random walking entities"): THE LIVING WORLD'S STREETS where
+        // the Features row says (systems/livingWorld/livingSwitch.js) - the town's residents on their days
+        // (systems/livingWorld/livingTown.js), in the pool's own shape and on the same navgrid, bodies and batches; the
+        // town's doors named by their buildings (the block cell each door now carries), its buildings by their summaries.
+        // JAN1 (2026-09-18, Janome: "people walking in the sky lol, just outside the city"): THE TERRAIN'S
+        // FLOOR, not the location's average. The navgrid is the BLOCK rect; the flattened rect is the stamped
+        // tiles plus a clearance (terrainTiles.js setLocationTiles) and is smaller by a band of ~70 units on
+        // every side, and blendLocationTerrain only EASES that band toward the average - so a walker there stood
+        // at the average while the real ground fell away under it, ten metres in the air on the flattest city
+        // pixel. Inside the rect heightAt IS the average, so nothing there moves; the fixed city's host
+        // (exterior.js) already asks its collider. Persons are pixel-local vertically: the pixel's translation
+        // comes off the world height. A pixel not built yet answers the old constant.
+        const personGroundY = (x, z) => {
+          const t = state.pixelTranslation(px, py);
+          const h = heightAt(x + locOrigin[0] + t[0], z + locOrigin[2] + t[2]);
+          return Number.isFinite(h) ? h - t[1] + 2.0 * 0.025 : locOrigin[1];
+        };
+        population = livingWorldOn() ? new LivingTown(nav, {
+          town: {
+            mapId: (dfLocation.mapTableData?.mapId ?? 0) >>> 0, name: dfLocation.name, px, py,
+            type: dfLocation.mapTableData?.locationType, region: dfLocation.regionIndex, people: climate?.people,
+            blocks: loc.width * loc.height, port: hasPort(dfLocation.mapTableData?.mapId),
+          },
+          buildings: buildingSummaries(dfLocation.exterior?.buildings ?? [], loc.blocks, { locationIndex: dfLocation.locationIndex ?? 0, locationName: dfLocation.name })
+            .map((b) => ({ key: b.buildingKey, type: b.buildingType, quality: b.quality, factionId: b.factionId })),
+          doors: buildingDoors.filter((d) => d.pixelKey === key && d.blockX != null).map((d) => {
+            const m = d.door.matrix, c = d.door.centre, n = d.door.normal;
+            return {
+              key: makeBuildingKey(d.blockX, d.blockY, d.recordIndex),
+              x: m[0] * c.x + m[4] * c.y + m[8] * c.z + m[12] - locOrigin[0], z: m[2] * c.x + m[6] * c.y + m[10] * c.z + m[14] - locOrigin[2],
+              nx: m[0] * n.x + m[4] * n.y + m[8] * n.z, nz: m[2] * n.x + m[6] * n.y + m[10] * n.z,
+            };
+          }),
+          makePerson: (archive, guard) => {
+            const person = new ResidentWalker(nav, { archive, guard, frameCount: (rec, a) => personTex.get(a).getFrameCount(rec), collider: personCollider, groundY: personGroundY });
+            personBatches.set(person, renderer.createBillboardBatch(archive, 0, { w: 1, h: 1 }, [[0, 0, 0]]));
+            return person;
+          },
+          clock: skyMinutes, rate: livingRate, mpm: PERSON_MOVE_SPEED / livingBaseRate(),
+          suppressSpawns: () => racialSuppressPopulationSpawns(playerEntity),   // V4: the transformed lycanthrope empties the streets - here they stay in
+          relations: () => livingRelations, playerName: () => playerEntity.name ?? '', weather: () => weather,
+          townName: dfLocation.name, regionName: dfLocation.regionName ?? '',
+        }) : new TownPopulation(nav, {
           suppressSpawns: () => racialSuppressPopulationSpawns(playerEntity),   // V4: the transformed lycanthrope empties the streets
           totalBlocks: loc.width * loc.height,
           // AUDIT 23 (characters-4/5): billboard race = the climate's
@@ -4072,19 +4131,7 @@ export async function bootWorld(canvas, renderer, params, status) {
               // by the person's LIVE archive, never the creation one
               frameCount: (rec, a) => personTex.get(a).getFrameCount(rec),
               collider: personCollider,
-              // JAN1 (2026-09-18, Janome: "people walking in the sky lol, just outside the city"): THE TERRAIN'S
-              // FLOOR, not the location's average. The navgrid is the BLOCK rect; the flattened rect is the stamped
-              // tiles plus a clearance (terrainTiles.js setLocationTiles) and is smaller by a band of ~70 units on
-              // every side, and blendLocationTerrain only EASES that band toward the average - so a walker there stood
-              // at the average while the real ground fell away under it, ten metres in the air on the flattest city
-              // pixel. Inside the rect heightAt IS the average, so nothing there moves; the fixed city's host
-              // (exterior.js) already asks its collider. Persons are pixel-local vertically: the pixel's translation
-              // comes off the world height. A pixel not built yet answers the old constant.
-              groundY: (x, z) => {
-                const t = state.pixelTranslation(px, py);
-                const h = heightAt(x + locOrigin[0] + t[0], z + locOrigin[2] + t[2]);
-                return Number.isFinite(h) ? h - t[1] + 2.0 * 0.025 : locOrigin[1];
-              },
+              groundY: personGroundY,   // JAN1: the terrain's floor (above, one closure for both pools)
             });
             personBatches.set(person, renderer.createBillboardBatch(archive, 0, { w: 1, h: 1 }, [[0, 0, 0]]));
             return person;
@@ -5373,6 +5420,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   const townTalk = createTownTalk({
     talkEngine: () => talkEngineRef,
     renderer, canvas, fetchBytes, playerEntity, palette,
+    // LW2: the living world's two doors - an enemy's refusal, and a word noted in the resident's regard (the body's
+    // own town answers both: systems/livingWorld/livingTown.js)
+    livingTalk: { refuses: (person) => person?.living?.town?.refuses(person) ?? null, talked: (person) => person?.living?.town?.talked(person) },
     // RP1: a GETTER, not startLoc's number - see the note above. It is
     // declared below this call, so the arrow defers the read to call
     // time, which is what makes it live in the first place.
@@ -7980,8 +8030,32 @@ export async function bootWorld(canvas, renderer, params, status) {
         const name = csa.boats.includes(l.key) ? naval?.crewName?.(l.key, l.member.i) : null;
         points.push({ x: at.x, y: at.y, text: l.text, name: name ? name.split(' ')[0] : null, who: key, kind: l.kind, distance: d });   // FIELD BUGS 2026-10-02b: `who`, the speaker - his talk is his own
       }
+      livingLinePoints(points, w, h, rect, proj, view, eye);   // LW2: the living world's residents speak through the one layer
     }
     drawCrewLines(points, { covered, scale: enhancedHudScale(), dt: gamePaused() ? 0 : dt });
+  }
+  /** LW2 (bible/06-Systems/Living-World.md): WHAT THE STREET SAYS - each living town's lines this moment (a circle's
+   *  talk, a word to the player; systems/livingWorld/livingTown.js speech) as points of the crew's own layer, by the
+   *  same projection, range and sight; a resident the player has met speaks under their first name. */
+  function livingLinePoints(points, w, h, rect, proj, view, eye) {
+    for (const p of built.values()) {
+      const pop = p.population;
+      if (typeof pop?.speech !== 'function' || !p.locOrigin) continue;
+      const t = state.pixelTranslation(p.px, p.py);
+      const local = [eye[0] - t[0] - p.locOrigin[0], eye[1] - t[1], eye[2] - t[2] - p.locOrigin[2]];
+      for (const l of pop.speech(local)) {
+        const id = l.person.living?.id;
+        if (!id) continue;
+        const over = [l.person.pos[0] + p.locOrigin[0] + t[0], l.person.pos[1] + t[1] + LIVING_HEAD_M, l.person.pos[2] + p.locOrigin[2] + t[2]];   // the point over their head
+        const d = Math.hypot(over[0] - eye[0], over[1] - eye[1], over[2] - eye[2]);
+        if (d > CREW_SAY_RANGE) continue;
+        const at = projectToScreen(over, w, h, proj, view, rect);
+        if (!at.front || at.x < -80 || at.x > w + 80 || at.y < -40 || at.y > h + 40) continue;
+        const key = `live:${id}`;
+        if (crewSight.blocked(player.collider, eye, key, over)) continue;   // behind a wall, unheard
+        points.push({ x: at.x, y: at.y, text: l.text, name: livingRelations.known(id) ? firstNameOf(l.person.nameNPC) : null, who: key, kind: 'talk', distance: d });
+      }
+    }
   }
   /** WILD-ALERT (2026-10-04, Mac: "Enemies alerted are given an exclamation point"): THE "!" OVER EACH WILDERNESS FOE
    *  ALERTED TO ME (systems/encounters.js foeAlerted) - it stands while a fast traveller's clock is held for it, else

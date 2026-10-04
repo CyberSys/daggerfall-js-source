@@ -1,0 +1,183 @@
+// @ts-check
+// LW1 (2026-10-04, bible/06-Systems/Living-World.md): WHAT THE TOWN SAYS - the words of two or three residents met at
+// a spot (meetups.js), of a traveller to the player, of a caravan at its fire. Original to the port, in the crew's own
+// shape (naval/crewLife.js CREW_TALKS: a script of two or three lines, the first speaker first, then each in turn).
+//
+// A script may carry TOKENS the reader fills from where and when it is said (`fillLine`): {town} and {region} where it
+// is said, {a} and {b} the first names of the first and second speaker, {place} a town of the road (a neighbour, or
+// where the speaker last went), {player} the player's name. A token the reader cannot fill takes its fallback
+// (`TOKEN_FALLBACK`) - never a brace on the screen.
+//
+// WHICH SCRIPT (`pickScript`) is a seeded draw over the pools that fit: the town's own talk always, the speakers'
+// trades, the weather, the evening and the night, the season's holiday - so a smith and a farmer on a wet evening talk
+// of iron, of rain or of the tavern, and every reader of that minute hears the same.
+import { seededRng } from '../wind.js';
+
+const S = (...lines) => Object.freeze(lines);
+
+/** Any two of the town, any hour. */
+export const TOWN_TALKS = Object.freeze([
+  S('Morning, {b}.', 'Is it? I hadn\'t noticed.'),
+  S('Did you hear about the miller\'s daughter?', 'Everyone\'s heard. Twice.', 'Well, I hadn\'t.'),
+  S('Prices are up again.', 'They\'re always up again.', 'Not my wages.'),
+  S('They say the Underking walks again.', 'They\'ve said that since my grandfather\'s day.'),
+  S('Seen the new faces at the tavern?', 'Adventurers. They\'ll be gone by the week\'s end.', 'Or dead.'),
+  S('The roads are bad this season.', 'The roads are bad every season.'),
+  S('How\'s your mother, {b}?', 'Still telling me I married wrong.', 'So, well, then.'),
+  S('Taxes again. The court at {region} must eat gold.', 'And drink it, by the look of the castle.'),
+  S('I hear the Orcs of Orsinium want a kingdom of their own.', 'Let them have it, if it keeps them in the mountains.'),
+  S('Wayrest or Sentinel, which would you pick?', 'Neither. {town} suits me.', 'Liar.'),
+  S('There was a light in the old ruins last night.', 'Brigands.', 'Or worse.'),
+  S('My knee says rain.', 'Your knee said rain yesterday.', 'And was it wrong? Wait.'),
+  S('You owe me three septims.', 'Two. You ate half the pie.'),
+  S('They hanged a thief in {place} last week.', 'Only one? Then they caught the slow one.'),
+  S('Heard the Emperor\'s men passed through {place}.', 'Looking for something, no doubt.', 'They always are.'),
+  S('Do you ever think of leaving {town}?', 'Every morning. Then I have breakfast.'),
+  S('The well water tastes of iron.', 'Better than tasting of what\'s in the river.'),
+  S('Someone\'s been stealing hens on the east side.', 'Foxes.', 'Foxes don\'t leave boot prints.'),
+  S('Did the courier come?', 'Came and went. Nothing for you.', 'There never is.'),
+  S('I saw a wolf at the edge of town.', 'In daylight?', 'Bold as a tax collector.'),
+  S('Fine day.', 'For now.'),
+  S('Mind the cart ruts by the gate.', 'Broke a wheel there myself, last spring.'),
+  S('That adventurer paid in gold. Real gold.', 'Then count your fingers too.'),
+  S('They say there\'s a vampire in {place}.', 'They say a lot in {place}.'),
+  S('Have you been to the temple lately?', 'The gods know where I live.', 'That\'s what worries me.'),
+]);
+
+/** By a speaker's trade (the first speaker's, else the second's). */
+export const JOB_TALKS = Object.freeze({
+  keeper: Object.freeze([
+    S('Business is slow.', 'Lower your prices.', 'Raise my hopes, you mean.'),
+    S('A fellow tried to sell me a "Daedric" dagger.', 'Painted iron?', 'Painted badly.'),
+    S('Stock came in from {place} at last.', 'Half of it broken, I\'ll wager.', 'Only a third.'),
+  ]),
+  smith: Object.freeze([
+    S('Good iron\'s dear this year.', 'The mines in the hills went quiet.', 'Something in them, I hear.'),
+    S('My arm aches from the hammer.', 'That\'s the trade.', 'That\'s the trade, and the trade aches.'),
+    S('An adventurer wanted a sword by dawn.', 'Did you make it?', 'I made him a promise.'),
+  ]),
+  clerk: Object.freeze([
+    S('The Bank had a run on letters of credit.', 'Someone\'s nervous.', 'Everyone\'s nervous.'),
+  ]),
+  scholar: Object.freeze([
+    S('I found a book on the Dwemer today.', 'Any good?', 'Missing the last chapter. Typical.'),
+  ]),
+  priest: Object.freeze([
+    S('Will we see you at prayers, {b}?', 'If my work allows.', 'Then the gods will make it allow.'),
+    S('The offerings were thin this week.', 'So are the people.'),
+  ]),
+  guard: Object.freeze([
+    S('Quiet watch?', 'Too quiet. I don\'t trust it.'),
+    S('Caught a cutpurse by the market.', 'Only one?', 'Only one that ran slow enough.'),
+    S('Keep your eyes on the gate tonight.', 'Something wrong?', 'Something always is.'),
+    S('Captain wants the north wall walked twice.', 'Captain doesn\'t walk it.'),
+  ]),
+  farmer: Object.freeze([
+    S('Field\'s too wet to plough.', 'Last year it was too dry.', 'There\'s no pleasing it.'),
+    S('Lost two sheep to wolves.', 'Only two?', 'Two I could find.'),
+    S('Barley\'s coming in well.', 'Don\'t say it aloud. The gods listen.'),
+  ]),
+  fisher: Object.freeze([
+    S('Nets came up empty.', 'Slaughterfish took them again?', 'Took the nets too.'),
+    S('Saw a ship on fire out past the point.', 'Pirates?', 'Or a careless cook.'),
+  ]),
+  sailor: Object.freeze([
+    S('When do you ship out?', 'When the captain sobers.', 'So never.'),
+    S('Heard of a wreck off the coast. Cargo and all.', 'And the crew?', 'Nobody asks about the crew.'),
+  ]),
+  innkeeper: Object.freeze([
+    S('Full house tonight.', 'Full of what?', 'Trouble, mostly.'),
+    S('Someone broke a bench last night.', 'Adventurers?', 'An adventurer. Over another adventurer.'),
+  ]),
+  server: Object.freeze([
+    S('My feet are on fire.', 'Then stop running from table to table.', 'Tell that to the tables.'),
+  ]),
+  merchant: Object.freeze([
+    S('I\'m taking a load to {place}.', 'Take guards.', 'I take guards. Guards take my profit.'),
+    S('The road to {place} cost me a wheel and two days.', 'And the goods?', 'The goods arrived. My temper didn\'t.'),
+    S('Silk from Sentinel fetches double here.', 'If you live to sell it.'),
+  ]),
+  mercenary: Object.freeze([
+    S('Any work going?', 'A merchant wants blades for the road to {place}.', 'Paying?', 'Barely.'),
+    S('I\'ve guarded worse.', 'You\'ve guarded better?', 'Once. He paid in wine.'),
+  ]),
+  adventurer: Object.freeze([
+    S('There\'s a crypt west of here nobody\'s cleared.', 'Nobody\'s come back from it, you mean.'),
+    S('Found a ring in the last ruin.', 'Magic?', 'It made my finger green. That\'s something.'),
+    S('Next time, you take the first door.', 'I took the first door last time.', 'And you\'re still alive. Lucky door.'),
+    S('Skeletons, three of them, and one with a crown.', 'Did you take the crown?', 'I took my legs out of there.'),
+  ]),
+  beggar: Object.freeze([
+    S('Spare a coin?', 'For you? I\'ve none to spare for me.'),
+  ]),
+  courtier: Object.freeze([
+    S('The court is all whispers this week.', 'About what?', 'If I knew, they wouldn\'t be whispers.'),
+  ]),
+  pilgrim: Object.freeze([
+    S('I walk to the temple at {place} after the harvest.', 'Pray for my knees while you\'re there.'),
+  ]),
+  labourer: Object.freeze([
+    S('Hauled stone since dawn.', 'For the castle?', 'For a man who calls himself a castle.'),
+  ]),
+  homemaker: Object.freeze([
+    S('The baker\'s bread is getting smaller.', 'And his prices bigger.', 'Funny how that works.'),
+  ]),
+});
+
+/** By the weather the reader passes (`weatherWord`). */
+export const WEATHER_TALKS = Object.freeze({
+  rain: Object.freeze([S('Wet again.', 'Good for the crops.', 'Bad for my roof.'), S('This rain will never stop.', 'It will. Then it\'ll snow.')]),
+  thunder: Object.freeze([S('Hear that thunder?', 'Gods are arguing again.')]),
+  snow: Object.freeze([S('Snow already.', 'Fetch the firewood while you can still find it.')]),
+  fog: Object.freeze([S('Can\'t see the end of the street.', 'Then nobody can see you either. Hurry home.')]),
+  sunny: Object.freeze([S('Warm today.', 'Enjoy it. It never lasts.')]),
+});
+
+/** After dusk (the evening), and deep in the night. */
+export const EVENING_TALKS = Object.freeze([
+  S('Long day.', 'They\'re all long.', 'This one longer.'),
+  S('One for the road at the tavern?', 'One. Then two. Then the road forgets us.'),
+  S('Lock your door tonight.', 'I always do.', 'Lock it twice.'),
+]);
+export const NIGHT_TALKS = Object.freeze([
+  S('Shouldn\'t you be abed?', 'Shouldn\'t you?'),
+  S('Did you hear something?', 'Just the wind.', '...I hope.'),
+]);
+
+/** What a resident says to the player in passing, by their regard (relations.js). */
+export const GREETINGS = Object.freeze({
+  friend: Object.freeze(['Well met, {player}!', '{player}! Good to see you.', 'Ho, {player}. Keeping safe?', 'There\'s a friendly face.']),
+  known: Object.freeze(['Good day.', 'Hello again.', 'You again.', 'Mind how you go.']),
+  stranger: Object.freeze(['Good day, stranger.', 'Traveller.', 'Mm.', 'Fine day.']),
+  enemy: Object.freeze(['You.', 'Keep walking.', 'I\'ve nothing to say to you.', 'Get away from me.']),
+});
+
+/** The fallback for a token the reader cannot fill. */
+export const TOKEN_FALLBACK = Object.freeze({ town: 'town', region: 'the court', a: 'friend', b: 'friend', place: 'the next town', player: 'friend' });
+
+/** A line with its tokens filled. @param {string} text @param {Record<string, string|undefined|null>} ctx */
+export function fillLine(text, ctx = {}) {
+  return text.replace(/\{(\w+)\}/g, (_, k) => (ctx[k] ? String(ctx[k]) : TOKEN_FALLBACK[/** @type {keyof typeof TOKEN_FALLBACK} */ (k)] ?? ''));
+}
+
+/** A resident's first name (the walkers' FullName is "First Surname"; a single-part name is all first). @param {string} name */
+export const firstNameOf = (name) => String(name ?? '').split(' ')[0] || '';
+
+/**
+ * A script for two or three speakers: the pools that fit, drawn on `seed`. `jobs` the speakers' trades; `weather` the
+ * reader's weather word; `hour` the hour of the day.
+ * @param {number} seed @param {{ jobs?: readonly string[], weather?: string|null, hour?: number }} [o]
+ * @returns {readonly string[]}
+ */
+export function pickScript(seed, { jobs = [], weather = null, hour = 12 } = {}) {
+  const rng = seededRng(seed);
+  /** @type {(readonly (readonly string[])[])[]} */
+  const pools = [TOWN_TALKS, TOWN_TALKS];
+  for (const j of jobs) { const p = JOB_TALKS[/** @type {keyof typeof JOB_TALKS} */ (j)]; if (p) pools.push(p); }
+  const w = weather ? WEATHER_TALKS[/** @type {keyof typeof WEATHER_TALKS} */ (weather)] : null;
+  if (w) pools.push(w);
+  if (hour >= 18 && hour < 23) pools.push(EVENING_TALKS);
+  if (hour >= 23 || hour < 5) pools.push(NIGHT_TALKS, NIGHT_TALKS);
+  const pool = pools[Math.floor(rng() * pools.length)];
+  return pool[Math.floor(rng() * pool.length)];
+}
