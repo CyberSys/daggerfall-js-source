@@ -403,8 +403,8 @@ export const FEATURES = Object.freeze([
     note: 'Warmer, more natural light: lanterns and torches that glow and fade with distance, light through '
       + 'fog, shadows from the sun and your torch, darker corners, a glow on windows and flames, and rays of '
       + 'sunlight. Off is Daggerfall Unity’s flat lighting.'
-      + ' Steady shadows redraws every shadow every frame so none pop on and off; turn it off for more frame rate.',
-    effect: 'Lighting takes effect when the world next loads; steady shadows at once.',
+      + ' Steady shadows stops shadows popping (off: more frame rate); Calmer eye slows how fast your eyes adjust.',
+    effect: 'Lighting takes effect when the world next loads; steady shadows and calmer eye at once.',
     kinds: Object.freeze(['enhanced']),
     // OL-LIGHT (2026-09-24, Mac: "Can we let people disable it online"): THE PLAYER'S, ONLINE TOO. It was forced on
     // with the rest of the enhanced lane, so a player it did not suit - the interior flicker DISC15 closed, a GPU
@@ -417,8 +417,8 @@ export const FEATURES = Object.freeze([
     // no lo-tier rebuild cap; off = EL8's schedule, cheaper but shadows can pop).
     control: Object.freeze({
       store: 'prefs', key: 'enhancedLighting', initial: true, online: 'player',
-      also: Object.freeze([Object.freeze({ store: 'prefs', key: 'steadyShadows', initial: true, online: 'player' }), Object.freeze({ store: 'prefs', key: 'shadowDebug', initial: false, online: 'player' })]),   // FLICKER-FIX: shadowDebug prints the console log (render/shadowPass.js _debugLog)
-      parts: Object.freeze([Object.freeze({ key: 'enhancedLighting', label: 'Lighting' }), Object.freeze({ key: 'steadyShadows', label: 'Steady shadows' }), Object.freeze({ key: 'shadowDebug', label: 'Shadow debug log' })]),
+      also: Object.freeze([Object.freeze({ store: 'prefs', key: 'steadyShadows', initial: true, online: 'player' }), Object.freeze({ store: 'prefs', key: 'shadowDebug', initial: false, online: 'player' }), Object.freeze({ store: 'prefs', key: 'calmEye', initial: false, online: 'player' })]),   // FLICKER-FIX: shadowDebug prints the console log (render/shadowPass.js _debugLog); STEADY-BALANCE: calmEye, the slow eye on its own chip
+      parts: Object.freeze([Object.freeze({ key: 'enhancedLighting', label: 'Lighting' }), Object.freeze({ key: 'steadyShadows', label: 'Steady shadows' }), Object.freeze({ key: 'calmEye', label: 'Calmer eye' }), Object.freeze({ key: 'shadowDebug', label: 'Shadow debug log' })]),
     }),
   }),
   // IIL1-T (2026-09-27, Mac: "add an alternative light on off option to test the modded lighting"): Improved Interior
@@ -700,6 +700,21 @@ export const FEATURES = Object.freeze([
     effect: 'Takes effect when the world next loads.',
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'realForests', initial: true, online: true }),
+  }),
+  // NEARBY-QUESTS (2026-10-04, Discord: "quests of the game you take from guilds and so on need to be near you on
+  // overworld map"): a remote quest site is drawn near the player, within a reach that grows with level
+  // (systems/quest/questReach.js; systems/quest/place.js reads it as each new quest picks its sites). The player's own
+  // online too: a quest's sites are its taker's, and no wire field or shared roll reads the switch.
+  Object.freeze({
+    id: 'nearby-quests',
+    group: 'world',
+    title: 'Nearby quests',
+    note: 'Quests from guilds, temples, nobles and townsfolk send you to towns and dungeons near where you took them, a '
+      + 'day or two away at first and farther as you level, until by level fifteen or so anywhere in the region will do. '
+      + 'Off picks anywhere in the region from the start, as Daggerfall does.',
+    effect: 'Takes effect on the next quest you take; quests you already have keep their places.',
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'nearbyQuests', initial: true, online: 'player' }),
   }),
   // FT9 (2026-09-14): THE PACKS WITH A SWITCH (Dynamic Skies' is the
   // outdoors row's, FT4). The order is the old Mods pane's.

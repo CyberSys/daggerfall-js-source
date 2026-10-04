@@ -727,7 +727,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // can filter the LIVE list by the revealed set - no duplicate
       // geometry (Automap.cs duplicates the whole level instead).
       drawList.push({ mesh: gpu, matrix, key: `${bi}:${p.position}`, aabb, ...(climateFree ? { texRemap: NO_CLIMATE_REMAP } : {}) });   // AUDIT PRE-MERGE 1003 W4: drawn by its own (empty) table
-      { const sk = p.action ? null : searchableKind(p.modelIdNum); if (sk) searchables.push({ kind: sk, aabb, key: `${bi}:${p.position}`, lock: 0, items: [] }); }   // SEARCH1: `items` its find - the room's container once searched (srch:<i>)   // SEARCH1: a model with an action is the action's
+      { const sk = p.action ? null : searchableKind(p.modelIdNum); if (sk) searchables.push({ kind: sk, aabb, key: `${bi}:${p.position}`, lock: 0, items: [], records: !!(b.layout.castleBlock && isShopShelfModel(p.modelIdNum)) }); }   // AUDIT WHERE-ROBES P1: `records` - the shelf a crown's Hall of Records is too   // SEARCH1: `items` its find - the room's container once searched (srch:<i>)   // SEARCH1: a model with an action is the action's
       // PERF5: the remap for this model is in the map (ensureRemap above); the entry stays in drawList for the automap
       if (cpu.normals && cpu.uvs) { staticBuilder.add(cpu, matrix, climateFree ? ownTexKey : resolveTexKey); drawList[drawList.length - 1]._batched = true; }   // AUDIT PRE-MERGE 1003 W4
       automapEntries.push(amapRow(`${bi}:${p.position}`, aabb, !!p.action, cpu, matrix));
@@ -3346,7 +3346,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1126 against :1156; worldModes.js:8555 against :8575).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1126 against :1156; worldModes.js:8565 against :8585).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -4260,7 +4260,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
               // playerArrowHitFoe is the one copy world.js:27448,
-              // exterior.js:5597 and worldModes.js:9279 already ran;
+              // exterior.js:5597 and worldModes.js:9289 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -7610,7 +7610,14 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     });
     // SEARCH1: the searchable models, at HALF a door's reach (SEARCH_REACH) - the ray's distance, the reach carried
     // beside it (MC-2's law: too far speaks the refusal rather than falling through)
-    searchables.forEach((sb, i) => targets.push({ key: `search:${i}`, aabb: sb.aabb, distance: RAY_DISTANCE, reach: SEARCH_REACH }));
+    // WHERE-ROBES (FIELD BUGS 2026-10-04c): struck at its mesh ('dungeon' bucket), so a quest item on a shelf or a chest's lid is reached (activate.js)
+    // AUDIT WHERE-ROBES P1: A CASTLE'S SHELF IS ITS HALL OF RECORDS while the seats are open (AUDIT-SEATS, Seats-Arc 9.2: "A
+    // Hall of Records book in every seat's palace and the three castles") - the host's `records:` target on the same box.
+    // The two had raced as equal boxes and the search, listed first, took every press (the Hall unreachable); struck at
+    // its mesh against the Hall's box, the winner turned on rounding ray by ray. The search stands down while the Hall
+    // claims the shelf, and stands again when it does not.
+    const recordsHere = !!opts.castleRecordsHere?.();
+    searchables.forEach((sb, i) => { if (!(sb.records && recordsHere)) targets.push({ key: `search:${i}`, aabb: sb.aabb, distance: RAY_DISTANCE, reach: SEARCH_REACH, surface: true }); });
     targets.push(...droppedLoot.lootTargets());   // U26: the player's own drops
     targets.push(...droppedTorches.targets());   // HT1: the dropped torches, at the mod's 3.2
     targets.push(...camps.targets());   // SURV3: the fires, at the same 3.2
@@ -8304,7 +8311,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // through the overlay as 'back' (ends a running rest)": that route
     // was never real. ROAD-B B5 built the real one. With a window up,
     // overlayAction turns any single character into `char:<k>`, so
-    // KeyR arrives as 'char:r', and ui/restWindow.js:353-355 runs A8's
+    // KeyR arrives as 'char:r', and ui/restWindow.js:362-364 runs A8's
     // normalizeCode inverse to turn it back into 'KeyR' - DFU's
     // toggleClosedBinding - so a second Rest press ends a running rest
     // or closes the selection page (:302-315), which is

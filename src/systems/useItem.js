@@ -355,7 +355,7 @@ export function useItem(item, collection, {
   // the arc off it was Hard's roll (the law's default for no rules), so a meal carried over from a session with
   // the arc on could give a disease in the classic game - the one tier that promises no survival cost at all.
   // Off eats as Casual does: fed, never sickened.
-  if (isSurvivalItem(item)) out = useSurvivalItem(item, collection, { entity, now: nowMinute, rolls, currentDay: Math.trunc(nowMinute / 1440), inflict: inflictDisease, rules: survivalRules() ?? SURVIVAL_RULES.casual });
+  if (isSurvivalItem(item)) out = useSurvivalItem(item, collection, { entity, now: nowMinute, rolls, currentDay: Math.trunc(nowMinute / 1440), inflict: inflictDisease, rules: survivalRules() ?? SURVIVAL_RULES.casual, offMeal: survivalRules() == null });   // ENDLESS PROVISIONS: Off, a meal is never refused for hunger - it gives stamina
   // B1: the book arm hands the ITEM to the window's openBook hook
   // (DaggerfallInventoryWindow pushes the reader; a failed open shows
   // the ruined-book box - failText - which the WINDOW shows on the

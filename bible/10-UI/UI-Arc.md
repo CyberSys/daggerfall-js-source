@@ -947,7 +947,7 @@ still push CLASSIC canvas windows as children under the DOM, and so
 does the pack's USE arm.
 
     THE SPELLBOOK       FIVE construction sites across FOUR hosts:
-                        worldModes.js:2569 (the factory) and :1904 (a
+                        worldModes.js:2578 (the factory) and :1904 (a
                         HAND-ROLLED second one, 342 lines below it in
                         the same file),
                         dungeonContext.js:1384, world.js:5049,
@@ -957,7 +957,7 @@ does the pack's USE arm.
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:13832, dungeonContext.js:8990. A seam
+    / NOTEBOOK          world.js:13832, dungeonContext.js:8997. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -992,7 +992,7 @@ None of these blocks anything; all are real.
                         makes it worth fixing: the overworld is the
                         first map a thumb could actually drive.
 
-    THE SPLIT POPUP     systems/itemTransfer.js:288. TransferItem
+    THE SPLIT POPUP     systems/itemTransfer.js:316. TransferItem
                         opens a numeric field DEFAULTED to maxAmount
                         when a stack will not fit whole (:1515);
                         BOTH skins take exactly what fits and never
@@ -8711,7 +8711,7 @@ same answer: `ui/spellbookDoor.js`, with each host handing it only
 what that host knows.
 
 THE "HAND-ROLLED DUPLICATE" WAS NOT ONE. The board recorded
-worldModes.js:3506 as a second book built by hand 342 lines below the
+worldModes.js:3515 as a second book built by hand 342 lines below the
 factory. Read closely it is the SPELL MERCHANT'S SHOP - buyMode, with
 `offered`, the building's quality, the shop name, the haggling skills
 and the classic clock. A different question with different deps, and
@@ -9421,7 +9421,7 @@ and firing THAT twice is a second PopToHUD.
 
 ### Why only two of the four hosts crashed
 
-`worldModes.js:8641` and `dungeonContext.js:2123` answer the same
+`worldModes.js:8651` and `dungeonContext.js:2123` answer the same
 `onClose` by nulling their slot and never disposing - nothing to
 re-enter. Only the two hosts that come through `townTalk.closeOverlay`
 dispose. **The four-hosts rule caught this one by accident**: the two
@@ -14340,7 +14340,7 @@ items off your character."*
 
 It did not, and the whole of the reason is one line. INV1 hung the
 gesture on the pack's rows - `itemRow`'s `if (from === 'local')
-dragFrom(row, item)` (`ui/enhancedInventory.js:2402`) - and made the
+dragFrom(row, item)` (`ui/enhancedInventory.js:2409`) - and made the
 body a drop TARGET, with `equippedList` saying so in its own comment:
 *"the body is the equip target - `dragFrom`'s pointerup finds it by hit
 test, so the map needs no handler of its own"*. True for the direction
@@ -14837,7 +14837,7 @@ exactly as the classic did; the enhanced HUD has no arrow counter (AUDIT
 28 W2a's classic-arm feature) - not a font matter. AND THE CANVAS NATIVE
 WINDOWS, which the first record did not name: under the enhanced skin the
 death screen (`ui/deathScreen.js:183-185`), the rest window's rows
-(`ui/restWindow.js:925`), the save window (`ui/saveWindow.js`, eight
+(`ui/restWindow.js:956`), the save window (`ui/saveWindow.js`, eight
 `shadowText` sites), the travel popup (`ui/travelPopUp.js:820`), the quest
 journal (`ui/questJournal.js:628-629`), every MessageBox row
 (`ui/messageBox.js:501, 434`) and every ActionTextBox (`ui/actionText.js:45,
@@ -17864,7 +17864,7 @@ draws, and it is a DEPARTURE recorded as one (Ledger A).
 
 DFU's own precedent for taking with no window is real and narrow: a
 body holding nothing but arrows is taken whole and no window opens
-(PlayerActivate.cs:948-952). This generalises that one case to any row
+(PlayerActivate.cs:949-954). This generalises that one case to any row
 the player has picked out, which is exactly the size of the departure.
 
 **Where the parts live.** The HIGHLIGHT's law is `systems/worldHover.js

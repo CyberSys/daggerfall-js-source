@@ -21,12 +21,15 @@ import {
   isWaterskin, waterIn, waterskinName, drinkFrom, refillSkins, DRINK_RELIEF, WATERSKIN_CAPACITY_KG, FOOD_STAGE,
 } from './food.js';
 import { survivalOf, NEED } from './needs.js';
+import { maxFatigue } from '../statMods.js';   // ENDLESS PROVISIONS: the Off meal gives stamina back
 
 /** The torch's icon stands in for the campfire's bundle until it has
  *  art of its own (a torch is UselessItems2 247, a world-textured item). */
 const TORCH = ITEM_TEMPLATES[247];
 export const CAMPFIRE_USES = 8;   // REST2: eight nights of fuel, a night its owner sleeps at it spending one (camp.js spendCampNight)
 export const CAMPING_USES = 50;
+/** ENDLESS PROVISIONS: a full meal's worth of satiety - the Off meal gives back satiety / this of the stamina pool. */
+export const OFF_MEAL_FULL_MINUTES = 960;
 
 /** The rows, registered at import (so any mint that names an index
  *  finds it). Columns are DFU's ItemTemplates.txt's. */
@@ -147,9 +150,9 @@ export const SURVIVAL_USE_TEXT = Object.freeze({
  * placeables ('pitchCamp', 'placeFire') hands the item to the host,
  * which owns the ground.
  */
-export function useSurvivalItem(item, collection, { entity = null, now = 0, rolls = Math.random, currentDay = 0, onContract = null, inflict = null, rules = undefined } = {}) {
+export function useSurvivalItem(item, collection, { entity = null, now = 0, rolls = Math.random, currentDay = 0, onContract = null, inflict = null, rules = undefined, offMeal = false } = {}) {
   if (!isSurvivalItem(item)) return null;
-  if (isFood(item)) return eatFood(item, collection, { entity, now, rolls, currentDay, onContract, inflict, rules });
+  if (isFood(item)) return eatFood(item, collection, { entity, now, rolls, currentDay, onContract, inflict, rules, offMeal });
   if (isWaterskin(item)) {
     const r = drinkFrom(item);
     if (!r.ok) return { kind: 'empty', text: SURVIVAL_USE_TEXT.emptySkin };
@@ -171,9 +174,30 @@ export function useSurvivalItem(item, collection, { entity = null, now = 0, roll
  * PROF9: its own export, so a food another arc makes (Cooking's dishes, food.js registerFoods) is eaten by THIS law,
  * imported, never typed again (systems/cookItems.js). Answers useItem.js's shape: { kind: 'ate' | 'notEaten', text }.
  */
-export function eatFood(item, collection, { entity = null, now = 0, rolls = Math.random, currentDay = 0, onContract = null, inflict = null, rules = undefined } = {}) {
+export function eatFood(item, collection, { entity = null, now = 0, rolls = Math.random, currentDay = 0, onContract = null, inflict = null, rules = undefined, offMeal = false } = {}) {
   if (!isFood(item)) return null;
   const list = Array.isArray(collection) ? collection : null;
+  if (offMeal) {
+    // ENDLESS PROVISIONS (2026-10-04, Mac: "i can use and find all those without climates and calories"): with Climates
+    // & Calories OFF there is no hunger to ask - the classic body is never hungry, and the sack answered "not hungry
+    // enough" for ever. So an Off meal is always eaten (bar a putrid one), never sickens, and gives back stamina in
+    // proportion to how filling it is (satiety / OFF_MEAL_FULL_MINUTES of the pool: rations 25%, bread 19%, an apple 6%).
+    const name = foodName(item);
+    if (foodStage(item) >= FOOD_STAGE.Putrid) return { kind: 'notEaten', text: SURVIVAL_USE_TEXT.putrid(name) };
+    if (list) {
+      if ((item.stackCount ?? 1) > 1) item.stackCount -= 1;
+      else { const i = list.indexOf(item); if (i >= 0) list.splice(i, 1); }
+    }
+    let gave = 0;
+    if (entity) {
+      const pool = maxFatigue(entity);
+      gave = Math.min(Math.max(0, pool - (entity.fatigue ?? 0)), Math.round(pool * Math.min(1, foodSatiety(item) / OFF_MEAL_FULL_MINUTES)));
+      entity.fatigue = (entity.fatigue ?? 0) + gave;
+    }
+    const rations = item.templateIndex === TEMPLATE.Rations;
+    const text = rations ? (list && !list.includes(item) ? `${SURVIVAL_USE_TEXT.rations} ${SURVIVAL_USE_TEXT.emptySack}` : SURVIVAL_USE_TEXT.rations) : SURVIVAL_USE_TEXT.ate(name);
+    return { kind: 'ate', text: gave > 0 ? `${text} You feel your strength returning.` : text, satiety: foodSatiety(item), sick: null, stamina: gave };
+  }
   const s = entity ? survivalOf(entity, now) : { lastAte: now - 10000, thirst: 0, notes: {} };
   const luck = entity?.stats?.luck ?? 50;
   const r = eatLaw(item, { lastAte: s.lastAte, now, luck, rolls, rules });   // SURV-TIERS: the tier's sickness (Hard's when none)
@@ -265,5 +289,20 @@ export function campfireStock(rolls = Math.random, lo = 2, hi = 4) {   // AUDIT 
   return out.filter(Boolean);
 }
 export const startingCampfire = () => createSurvivalItem(TEMPLATE.Campfire);
+/** ENDLESS PROVISIONS (2026-10-04, Mac: "campfires should be unlimited, rations should be available in stores where it
+ *  makes sense and unlimited as well"; "i can use and find all those without climates and calories"): a General
+ *  Store's and a Pawn Shop's counter shelf always has a Campfire Kit and a full stack of Rations, Climates & Calories
+ *  on or off - this tops a shelf up to one fresh kit and ENDLESS_RATIONS_STACK rations and answers the list. A kit is
+ *  not stackable (its uses are its condition): a FRESH one is the shelf's, a worn one sold back is just a used kit. */
+export const ENDLESS_RATIONS_STACK = 99;
+export function ensureEndlessProvisions(items) {
+  if (!Array.isArray(items)) return items;
+  const fresh = (i) => i?.templateIndex === TEMPLATE.Campfire && isSurvivalItem(i) && (i.currentCondition ?? CAMPFIRE_USES) >= (i.maxCondition ?? CAMPFIRE_USES);
+  if (!items.some(fresh)) items.push(createSurvivalItem(TEMPLATE.Campfire));
+  const rations = items.find((i) => i?.templateIndex === TEMPLATE.Rations && isSurvivalItem(i));
+  if (!rations) items.push(createSurvivalItem(TEMPLATE.Rations, { stackCount: ENDLESS_RATIONS_STACK }));
+  else if ((rations.stackCount ?? 1) < ENDLESS_RATIONS_STACK) rations.stackCount = ENDLESS_RATIONS_STACK;
+  return items;
+}
 
 export { TEMPLATE, FOOD, foodOf, foodSatiety, isFood, isWaterskin, waterIn, NEED };

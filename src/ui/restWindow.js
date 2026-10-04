@@ -165,6 +165,9 @@ export const restArtLoaded = () => !!_art;
  *  hours are the character's OWN - their clock runs through the night
  *  (worldTick.js ownMinutes) while the world's sky stays where it is -
  *  so the line says whose time the counter is spending. */
+/** LOITER-ANYWHERE: what an act's refusal adds - Loiter in its place (3, or the RestLoiter binding). */
+export const LOITER_OFFER_LINE = '3 - Loiter instead';
+
 export function restClockLine(worldMinutes, { loiter = false } = {}) {
   const d = dateFromClassicMinutes(worldMinutes);
   const two = (n) => String(n).padStart(2, '0');
@@ -209,6 +212,7 @@ export class RestWindow {
     this.endLines = null;
     this.notice = null;         // the cannot-loiter refusal lines
     this.refusalLines = null;   // CanRest's own message box
+    this._loiterOffer = false;  // LOITER-ANYWHERE: an act refusal offers Loiter in its place (online only - offline there is no act)
     this.done = false;
     this.isRestWindow = true;   // the scene's tick tag
     this.ignoreAllocatedBed = ignoreAllocatedBed;
@@ -274,10 +278,15 @@ export class RestWindow {
    *  building's own law (CanRest: the rented room, the house, the hall), and then the channel. */
   _openAct() {
     if (this._act.meditate) { this.mode = 'act'; this.state = 'channel'; return; }   // REST6: a candle's kneel - anywhere a rest may begin
+    // LOITER-ANYWHERE (2026-10-04, Discord: "the new rest system ... has no loiter"; "adding loitering without a camp
+    // needed would be a solution"): every refusal of the act offers Loiter in its place - DFU's loiter is never gated
+    // (no bed, no camp, no crime: _restButton never asks CanRest of it), and REST1 had left it no door online
+    this._loiterOffer = true;
     const place = this.deps.restPlace?.();
     if (place?.inTownOutside) { this.refusalLines = [REST_ACT_TEXT.inTown]; this.state = 'refused'; return; }
     if (!this._act.point) { this.refusalLines = [REST_ACT_TEXT.noPoint]; this.state = 'refused'; return; }
     if (!this._canRest(false)) return;
+    this._loiterOffer = false;   // LOITER-ANYWHERE: the act holds - Loiter is still a key away (the channel's RestLoiter)
     this._moveToBed();
     this.mode = 'act';
     this.state = 'channel';
@@ -304,7 +313,7 @@ export class RestWindow {
     const where = this._act?.point?.where;
     const frac = Math.max(0, Math.min(1, this._actT / (this._act?.channelSeconds || 1)));
     const n = Math.round(frac * 20);
-    return [this._act?.meditate ? REST_ACT_TEXT.meditating : where ? REST_ACT_TEXT.channel(where) : REST_ACT_TEXT.channelBed, `[${'#'.repeat(n)}${'.'.repeat(20 - n)}]`, '', 'Esc - stop'];
+    return [this._act?.meditate ? REST_ACT_TEXT.meditating : where ? REST_ACT_TEXT.channel(where) : REST_ACT_TEXT.channelBed, `[${'#'.repeat(n)}${'.'.repeat(20 - n)}]`, '', '3 - loiter instead', 'Esc - stop'];   // LOITER-ANYWHERE
   }
 
   /** OnPop (:271-285) clears both flags. Every exit from this window
@@ -568,11 +577,18 @@ export class RestWindow {
       && (normalizeCode(action, e) === 'Escape' || this._togglePressed(action, e))) {
       this._toggleArmed = true;
     }
+    // LOITER-ANYWHERE: the act's channel and its refusal both take Loiter (3, or the RestLoiter binding) - the hours
+    // prompt, the loiter limit and the loiter session, classic's whole arm; nothing of the act is kept
+    if ((this.state === 'channel' || (this.state === 'refused' && this._loiterOffer)) && (action === 'char:3' || hot('RestLoiter'))) {
+      audio.playOneShot(SOUND.ButtonClick, 1);
+      this._loiter();
+      return;
+    }
     if (this.state === 'channel') return;   // REST1: the channel answers only its release (keyup)
     if (this.state === 'refused') { this._close(); return; }
     // F144: the over-cap box is click-anywhere; dismissing lands on
     // the selection page, NOT back in a prompt - the prompt is gone.
-    if (this.state === 'hoursRefused') { this.notice = null; this.state = 'selection'; return; }
+    if (this.state === 'hoursRefused') { this.notice = null; this._home(); return; }
     if (this.state === 'confirm') {
       // ConfirmIllegalRest*_OnButtonClick (:659-666, :684-691): the box
       // closes either way, and only Yes carries on - No leaves the
@@ -611,7 +627,7 @@ export class RestWindow {
       return;
     }
     // hours entry: digits, backspace, confirm
-    if (action === 'back') { this.state = 'selection'; this.notice = null; return; }
+    if (action === 'back') { this.notice = null; this._home(); return; }
     if (action === 'backspace') { this.value = this.value.slice(0, -1); return; }
     if (action === 'confirm') {
       // int.TryParse then the RANGE arms (:741-757, :763-784). An
@@ -631,7 +647,7 @@ export class RestWindow {
       // unparseable answer (ReturnPlayerInputEvent :298-304 closes
       // first), so an empty Return lands the player on the selection
       // page - the first cut kept the field up.
-      if (this.value === '') { this.state = 'selection'; this.notice = null; this.value = PROMPT_INITIAL; return; }
+      if (this.value === '') { this.notice = null; this.value = PROMPT_INITIAL; this._home(); return; }
       const hours = Number(this.value);
       // AUDIT 26 F144: the refusal is a NEW box over the SELECTION
       // page - the input box has already closed itself before the
@@ -666,6 +682,21 @@ export class RestWindow {
    *  closure and not a second stack lookup. A host that hands none has
    *  no window over this one. */
   _isTop() { return this.deps.topWindow ? this.deps.topWindow() === this : true; }
+
+  /** LOITER-ANYWHERE: from the act (its refusal or its channel) to classic's loiter prompt. */
+  _loiter() {
+    this._loiterOffer = true;
+    this.state = 'hours'; this.mode = 'loiter'; this.value = PROMPT_INITIAL; this.notice = null;
+  }
+
+  /** Where a prompt goes BACK to: classic's selection page offline; online (REST1's act - there is no selection page
+   *  there, and its Rest buttons would start a rest with no fire or bed) the act's refusal again, Loiter still offered,
+   *  or, when the act had held, out. LOITER-ANYWHERE. */
+  _home() {
+    if (!this._act) { this.state = 'selection'; return; }
+    if (this.refusalLines?.length) { this.state = 'refused'; return; }
+    this._close();
+  }
 
   _start(mode, hours) {
     this.mode = mode;
@@ -919,7 +950,7 @@ export class RestWindow {
       } else if (this.state === 'hoursRefused') {
         rows = [...(this.notice ?? [''])];
       } else if (this.state === 'refused') {
-        rows = this.refusalLines ?? [''];
+        rows = [...(this.refusalLines ?? ['']), ...(this._loiterOffer ? ['', LOITER_OFFER_LINE] : [])];   // LOITER-ANYWHERE
       } else {
         rows = this.endLines ?? [''];
       }
@@ -957,7 +988,7 @@ export class RestWindow {
       // OL2: the lines moved into restingLines() so the pin reads them.
       lines = this.restingLines();
     } else if (this.state === 'refused') {
-      lines = this.refusalLines ?? [''];
+      lines = [...(this.refusalLines ?? ['']), ...(this._loiterOffer ? ['', LOITER_OFFER_LINE] : [])];   // LOITER-ANYWHERE
     } else {
       lines = this.endLines ?? [''];
     }

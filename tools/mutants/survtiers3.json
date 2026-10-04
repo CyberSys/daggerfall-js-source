@@ -119,10 +119,10 @@
     ]
   },
   {
-    "name": "SURVTIERS3-off-tends-the-fire",
+    "name": "ENDLESS-off-tends-no-fire-again",
     "file": "src/scenes/camps.js",
-    "old": "    if (!survivalOn() || !entity?.isResting",
-    "new": "    if (!entity?.isResting",
+    "old": "    if (!entity?.isResting || entity.restKind",
+    "new": "    if (!survivalOn() || !entity?.isResting || entity.restKind",
     "tests": [
       "test/survtiers3.test.js"
     ]
