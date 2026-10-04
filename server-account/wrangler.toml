@@ -198,9 +198,9 @@ AEGIS_HANDLES = "Sureme"
 # Primarch, the color will be that light gold color that you guys use in
 # some places in the game menu"; "can the aura be a golden light around the
 # character? like i've seen some rare mobs with it"): Primarch - the title
-# in the menu's own light gold, the primarch glyph (a sword raised between
-# two spread wings) and the Golden Radiance, a column of golden light about
-# the body. The second list that grants an aura (titles.js TIER_AURA);
+# in the menu's own light gold, the primarch glyph (GA00250's own
+# three-barred cross, in the same gold) and the Golden Radiance, a column of
+# golden light about the body. The second list that grants an aura (titles.js TIER_AURA);
 # taking the handle off takes all three on the next token.
 PRIMARCH_HANDLES = "GA00250"
 # PATREON-LINK (2026-10-01, Mac: "With patron and having to manually hand

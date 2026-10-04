@@ -252,7 +252,7 @@ export const GLYPH_RGBA = Object.freeze({
   crownSN: Object.freeze([0.831, 0.627, 0.090, 1]),   // #d4a017
   laurel: TITLE_RGBA.arenachampion,    // ARENA4: the wreath in the Arena Champion's own green - one grant's two halves
   aegis: TITLE_RGBA.aegis,             // AEGIS: the pillars and the ring in the title's violet - the tendrils are its detail, below
-  primarch: TITLE_RGBA.primarch,       // PRIMARCH: the sword and its wings in the title's light gold
+  primarch: TITLE_RGBA.primarch,       // PRIMARCH: the cross in the title's light gold - GA00250: "with the same color of the name"
 });
 
 /** SHADOW-FANG: A GLYPH FILLED WITH A GRADIENT - its title's two stops,
@@ -304,7 +304,7 @@ export const GLYPH_MARK = Object.freeze({
   crownSN: 'S',
   laurel: '@',        // ARENA4: the wreath, a ring round the name's end
   aegis: 'O',         // AEGIS: the ring the pillars stand through - and Oblivion's initial
-  primarch: 'Y',      // PRIMARCH: the two wings spread over the hilt
+  primarch: 't',      // PRIMARCH: a cross with its foot turned, as the reference's footrest
 });
 
 /** The printable range the classic font covers. ACC1d-MARK's own bound,
@@ -356,21 +356,19 @@ export const GLYPH_PATH = Object.freeze({
   // standing at its two ends: "I O I" with the middle risen. The squared spiral the reference curls at its top right
   // read as a flag at a name's size and is left out; its black splash is GLYPH_DETAIL's tendrils.
   aegis: 'M8 0.9V10.9M3 7.2V12.8M13 7.2V12.8M3 10.2A5 2.6 0 1 0 13 10.2A5 2.6 0 1 0 3 10.2',
-  // PRIMARCH (no reference given - the port's own, after the title's demigod-general): A SWORD RAISED BETWEEN TWO SPREAD
-  // WINGS - the blade point up the middle, a guard across it, the grip and a lozenge pommel below; and each side a wing
-  // rising out and up from beside the blade to a tip at the box's top corner, its trailing edge cut into four feathers.
-  // Filled: stroked, the feathers were beads on a line and the wings read as a trident's tines at a name's size; filled
-  // with the feathers only notched, the wings were two blades. Penitent's sword points down inside a lozenge; this one
-  // points up between wings.
-  primarch: 'M8 0.4L9.05 2.2V10H6.95V2.2ZM4.2 10H11.8V11.4H4.2ZM7.3 11.4H8.7V13.6H7.3ZM8 13.2L9.15 14.45L8 15.7L6.85 14.45Z'
-    + 'M6.1 9.5V5.4C5 3.4 2.8 1.6 0.4 0.9C0.8 2.6 1.4 3.6 2.2 4.4L0.9 4.7C1.6 5.8 2.4 6.4 3.3 6.7L2.2 7.2C2.9 8.1 3.8 8.5 4.6 8.6L3.9 9.2C4.6 9.6 5.4 9.6 6.1 9.5Z'
-    + 'M9.9 9.5V5.4C11 3.4 13.2 1.6 15.6 0.9C15.2 2.6 14.6 3.6 13.8 4.4L15.1 4.7C14.4 5.8 13.6 6.4 12.7 6.7L13.8 7.2C13.1 8.1 12.2 8.5 11.4 8.6L12.1 9.2C11.4 9.6 10.6 9.6 9.9 9.5Z',
+  // PRIMARCH: GA00250'S REFERENCE (2026-10-04, after the first push: "i'd like to that be the glyph design if possible.
+  // with the same color of the name"), drawn after it - THE THREE-BARRED CROSS: the shaft the full height up the middle;
+  // a short bar near its head; the long crossbar below it, the glyph's widest; and low down a footrest as wide as the head
+  // bar, slanting down to the right as the reference's does. Its widths and heights the reference's, measured off it; the
+  // shaft and the bars a little thicker (1.6 units against its 1.35) so the footrest's slant still reads at a name's
+  // 13 px. Filled, one colour; every bar wound the shaft's way round, so where they cross it the fill is whole.
+  primarch: 'M7.2 0.4H8.8V15.6H7.2ZM6 1.4H10V2.9H6ZM2.9 3.8H13.1V5.4H2.9ZM6 9.6L10 12.9V14.5L6 11.2Z',
 });
 
 /** Is this glyph DRAWN as an outline rather than filled? The sprout is
  *  a shape and the brackets are strokes; said here so the layer does
  *  not have to know which is which by name. */
-export const GLYPH_STROKE = Object.freeze({ sprout: true, dev: true, mod: true, dm: true, disciple: true, apostle: true, hierophant: true, shadowfang: false, penitent: true, herald: true, tower: false, crownDF: false, crownWR: false, crownSN: false, laurel: true, aegis: true, primarch: false });   // SEAT1c: the seats' four filled; ARENA4: the laurel's branches stroked; AEGIS: the pillars and the ring stroked; PRIMARCH: the sword and its wings filled
+export const GLYPH_STROKE = Object.freeze({ sprout: true, dev: true, mod: true, dm: true, disciple: true, apostle: true, hierophant: true, shadowfang: false, penitent: true, herald: true, tower: false, crownDF: false, crownWR: false, crownSN: false, laurel: true, aegis: true, primarch: false });   // SEAT1c: the seats' four filled; ARENA4: the laurel's branches stroked; AEGIS: the pillars and the ring stroked; PRIMARCH: the cross filled
 
 /**
  * The title a peer wears, ready to draw: `{ key, text, rgba }`, or

@@ -3,8 +3,9 @@
 // GA00250, relayed by the owner ("The details here are for a custom title, glyph, and aura for ga00250"): "the title
 // will be Primarch, the color will be that light gold color that you guys use in some places in the game menu" - over a
 // screenshot of their own name in the pause menu's pixel face, "that color" - and "can the aura be a golden light around
-// the character? like i've seen some rare mobs with it" (the elite foes' glow). No glyph was described: the glyph is the
-// port's own, a sword raised between two spread wings. The handle list grants all three together (TIER_LISTS,
+// the character? like i've seen some rare mobs with it" (the elite foes' glow); and after the first push, a picture of a
+// three-barred cross: "i'd like to that be the glyph design if possible. with the same color of the name". The handle
+// list grants all three together (TIER_LISTS,
 // TIER_GLYPH and TIER_AURA - the second list to grant an aura); the title is the menu's own #d8cfae, one colour as
 // asked; the aura is the third look of the aura pass (render/auraRing.js AURA_LOOK) - its shader RUN here.
 import './modsOff.js';
@@ -105,11 +106,11 @@ test('PRIMARCH vocabulary: the title and the glyph join the closed lists last, t
     const d = Math.hypot(...[0, 1, 2].map((i) => (TITLE_RGBA.primarch[i] - TITLE_RGBA[other][i]) * 255));
     assert.ok(d > 30, `apart from the ${other}'s (${cssRgba(TITLE_RGBA[other])}, ${d.toFixed(0)} apart)`);
   }
-  assert.equal(GLYPH_RGBA.primarch, TITLE_RGBA.primarch, 'the sword and its wings in the title\'s own gold - the two halves of one grant cannot drift');
+  assert.equal(GLYPH_RGBA.primarch, TITLE_RGBA.primarch, 'the cross in the title\'s own gold - "with the same color of the name"; the two halves of one grant cannot drift');
   assert.equal(GLYPH_GRADIENT.primarch, undefined);
   assert.equal(GLYPH_DETAIL.primarch, undefined, 'one shape, one colour');
-  assert.equal(GLYPH_STROKE.primarch, false, 'filled: stroked, the feathers were beads on a line');
-  assert.equal(GLYPH_MARK.primarch, 'Y', 'the wings spread over the hilt');
+  assert.equal(GLYPH_STROKE.primarch, false, 'filled, as the reference is');
+  assert.equal(GLYPH_MARK.primarch, 't', 'a cross with its foot turned');
   const marks = GLYPHS.map((g) => GLYPH_MARK[g]);
   assert.equal(new Set(marks).size, marks.length, 'a classic mark of its own');
   assert.ok(GLYPH_MARK.primarch.charCodeAt(0) >= FONT_GLYPH_MIN && GLYPH_MARK.primarch.charCodeAt(0) <= FONT_GLYPH_MAX, 'inside the font');
@@ -124,50 +125,52 @@ test('PRIMARCH vocabulary: the title and the glyph join the closed lists last, t
   assert.deepEqual(glyphBadges({ glyphs: ['primarch', 'aegis', 'sprout'] }).map((b) => b.key), ['sprout', 'aegis', 'primarch'], 'drawn in the vocabulary\'s order');
 });
 
-/** The glyph's outline: each subpath (M L H V C Z, absolute) as its points - the corners, ends and control points. */
+/** The glyph's outline: each subpath (M L H V Z, absolute) as its corners, in order. */
 const subpathsOf = (d) => d.split(/(?=M)/).map((sub) => {
-  const pts = [], ends = [];
+  const pts = [];
   let x = 0, y = 0;
-  for (const [, cmd, args] of sub.matchAll(/([MLHVCZ])([^MLHVCZ]*)/g)) {
+  for (const [, cmd, args] of sub.matchAll(/([MLHVZ])([^MLHVZ]*)/g)) {
     const n = args.trim() ? args.trim().split(/[\s,]+/).map(Number) : [];
     if (cmd === 'M' || cmd === 'L') [x, y] = n;
     else if (cmd === 'H') [x] = n;
     else if (cmd === 'V') [y] = n;
-    else if (cmd === 'C') { pts.push([n[0], n[1]], [n[2], n[3]]); [x, y] = n.slice(4); } else continue;
-    pts.push([x, y]); ends.push([x, y]);
+    else continue;
+    pts.push([x, y]);
   }
-  return { pts, ends };
+  return pts;
 });
 const span = (pts, i) => [Math.min(...pts.map((p) => p[i])), Math.max(...pts.map((p) => p[i]))];
+/** A closed outline's signed area (the shoelace) - its sign is which way round it is wound. */
+const areaOf = (pts) => pts.reduce((s, [x, y], i) => { const [x2, y2] = pts[(i + 1) % pts.length]; return s + (x * y2 - x2 * y); }, 0) / 2;
 
-test('PRIMARCH the glyph\'s shape: a sword raised point up on the middle - the glyph\'s highest point - its guard across below, a grip and a pommel to the foot; and a wing each side, rising from beside the blade (clear of it) out and up to the box\'s top corner, above the guard, its trailing edge cut into feathers; mirrored about the middle, all inside the box (mutants: the point off the middle, a wing on the blade, the wings low)', () => {
+test('PRIMARCH the glyph\'s shape: GA00250\'s three-barred cross - the shaft the full height up the middle; a short bar at its head; the long crossbar under it, the glyph\'s widest; low down a footrest as wide as the head bar, slanting down to the right as the reference\'s does; each bar across the shaft and centred on it; every outline wound the same way round, so the fill is whole where they cross; inside the box (mutants: the slant turned, the head bar as long as the crossbar, the shaft off the middle, a bar wound the other way)', () => {
   const parts = subpathsOf(GLYPH_PATH.primarch);
-  assert.equal(parts.length, 6, 'the blade, the guard, the grip, the pommel and two wings');
-  const all = parts.flatMap((p) => p.pts);
-  for (const [x, y] of all) assert.ok(x >= 0 && x <= 16 && y >= 0 && y <= 16, `inside the box: ${x},${y}`);
-  const key = ([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`;
-  const set = new Set(all.map(key));
-  for (const [x, y] of all) assert.ok(set.has(key([16 - x, y])), `mirrored about the middle: ${x},${y}`);
-  const [blade, guard, grip, pommel, left, right] = parts;
-  const top = all.reduce((a, b) => (b[1] < a[1] ? b : a));
-  assert.deepEqual(top, [8, Math.min(...blade.pts.map((p) => p[1]))], 'the blade\'s point, on the middle, is the glyph\'s highest point - raised, not lowered as Penitent\'s is');
-  const [bx0, bx1] = span(blade.pts, 0), [by0, by1] = span(blade.pts, 1);
-  assert.ok(bx1 - bx0 <= 2.2 && by1 - by0 > 8, 'a blade: narrow and long');
-  const [gx0, gx1] = span(guard.pts, 0), [gy0, gy1] = span(guard.pts, 1);
-  assert.ok(gx1 - gx0 > 6 && gy1 - gy0 < 2 && gy0 === by1, 'its guard across the blade\'s foot');
-  const [, py1] = span(pommel.pts, 1), [, ry1] = span(grip.pts, 1);
-  assert.ok(span(grip.pts, 1)[0] === gy1 && py1 > 15 && py1 > ry1, 'the grip below the guard, the pommel to the foot');
-  // the wings: clear of the blade, out to the box's side and up to its top corner, above the guard
-  const [lx0, lx1] = span(left.pts, 0), [ly0, ly1] = span(left.pts, 1);
-  assert.ok(lx1 < bx0 - 0.5, `the left wing clear of the blade (${lx1} vs ${bx0})`);
-  assert.ok(span(right.pts, 0)[0] > bx1 + 0.5, 'and the right');
-  assert.ok(lx0 < 1 && ly0 < 1.5, 'reaching out to the box\'s top corner');
-  assert.ok(ly1 < gy0, 'spread above the guard');
-  assert.ok(ly0 > top[1], 'and no higher than the sword\'s point');
-  // the trailing edge cut into feathers: the outline's leftward points (local minima of x round it) - the tip and three
-  const xs = left.ends.map((p) => p[0]);
-  const tips = xs.filter((x, i) => x < xs[(i + xs.length - 1) % xs.length] && x < xs[(i + 1) % xs.length]);
-  assert.ok(tips.length >= 4, `the wing's tip and its feathers (${tips.length} points out)`);
+  assert.equal(parts.length, 4, 'the shaft and three bars');
+  for (const [x, y] of parts.flat()) assert.ok(x >= 0 && x <= 16 && y >= 0 && y <= 16, `inside the box: ${x},${y}`);
+  const [shaft, head, cross, foot] = parts;
+  const [sx0, sx1] = span(shaft, 0), [sy0, sy1] = span(shaft, 1);
+  assert.equal((sx0 + sx1) / 2, 8, 'the shaft on the middle');
+  assert.ok(sy0 < 1 && sy1 > 15 && sx1 - sx0 < 2, 'upright, the full height, narrow');
+  for (const [name, bar] of [['the head bar', head], ['the crossbar', cross]]) {
+    const [x0, x1] = span(bar, 0);
+    assert.ok(Math.abs((x0 + x1) / 2 - 8) < 1e-9, `${name} centred on the shaft`);
+    assert.ok(x0 < sx0 && x1 > sx1, `${name} across it`);
+    assert.ok(bar.length === 4 && new Set(bar.map(([, y]) => y)).size === 2, `${name} level: four corners on two heights`);
+  }
+  const w = (bar) => span(bar, 0)[1] - span(bar, 0)[0];
+  assert.ok(span(head, 1)[1] < span(cross, 1)[0], 'the head bar over the crossbar');
+  assert.ok(w(cross) > 2 * w(head), 'the head bar short, the crossbar long (the reference\'s 10.1 to 4.0)');
+  assert.equal(Math.max(...parts.map(w)), w(cross), 'the crossbar the glyph\'s widest');
+  // the footrest: low down, as wide as the head bar, centred, across the shaft, slanting down to the right
+  const [fx0, fx1] = span(foot, 0);
+  assert.ok(Math.abs((fx0 + fx1) / 2 - 8) < 1e-9 && fx0 < sx0 && fx1 > sx1 && Math.abs(w(foot) - w(head)) < 1e-9, 'the footrest centred across the shaft, the head bar\'s width');
+  assert.ok(span(foot, 1)[0] > 8 && span(foot, 1)[1] < sy1, 'low down the shaft, above its foot');
+  const leftY = foot.filter(([x]) => x === fx0).map(([, y]) => y), rightY = foot.filter(([x]) => x === fx1).map(([, y]) => y);
+  assert.ok(Math.min(...leftY) + 2 < Math.min(...rightY), `slanting down to the right, as the reference's does (left ${leftY}, right ${rightY})`);
+  assert.ok(Math.abs((Math.max(...leftY) - Math.min(...leftY)) - (Math.max(...rightY) - Math.min(...rightY))) < 1e-9, 'a bar of one thickness');
+  // one way round: under the nonzero rule a bar wound against the shaft would cut a hole where it crosses it
+  const signs = new Set(parts.map((p) => Math.sign(areaOf(p))));
+  assert.equal(signs.size, 1, 'every outline wound the same way round');
 });
 
 // ── THE GRANT ───────────────────────────────────────────────────────
@@ -272,7 +275,7 @@ test('PRIMARCH drawn: over a head the word in the menu\'s gold, plain - no gradi
   assert.equal(title.style.backgroundImage, '', 'one colour: no gradient');
   assert.equal(title.style.webkitTextFillColor, '', 'the letters filled in their own colour');
   assert.deepEqual(titlePaint(titleBadge({ title: 'primarch' })).color, '#d8cfae');
-  assert.equal(find(node, 'dfname-glyphs').children.length, 1, 'the sword and its wings beside the name');
+  assert.equal(find(node, 'dfname-glyphs').children.length, 1, 'the cross beside the name');
   const [g] = glyphBadges({ glyphs: ['primarch'] });
   const svg = glyphSvgNode(doc, g, 'x-glyph', 1.6);
   assert.equal(svg.style.color, '#d8cfae');
@@ -297,14 +300,14 @@ const recorder = () => {
   return { runs, drawScreenQuad: () => {}, drawScreenQuadRun: (tex, qs, color) => runs.push({ quads: qs, color }) };
 };
 
-test('PRIMARCH the classic face: the name run carries the wings\' mark, and the word is drawn whole in the gold (mutants: the mark dropped)', () => {
+test('PRIMARCH the classic face: the name run carries the cross\'s mark, and the word is drawn whole in the gold (mutants: the mark dropped)', () => {
   const rp = new RemotePlayers({ renderer: recorder(), deps: null, compose: async () => null });
   rp.sync([{ id: 'peer-0001', name: 'GA00250', title: 'primarch', glyphs: ['primarch'], shown: { x: 0, y: 0, z: -10, yaw: 0 }, look: null }],
     (q) => [q.x, q.y, q.z], { bodyHeight: () => PEER_HEIGHT });
   const r = recorder();
   const drawn = rp.drawNames(r, FONT, mirrorProjectionX(perspective(Math.PI / 3, 16 / 9, 0.2, 6000)), lookAt([0, 1.7, 0], [0, 1.7, -10], [0, 1, 0]), 1600, 900, [0, 1.7, 0], 1, (q) => [q.x, q.y, q.z]);
   assert.equal(drawn, 2, 'the name and the title');
-  assert.equal(r.runs[0].quads.length, 'GA00250Y'.length, 'the name run carries the wings\' mark');
+  assert.equal(r.runs[0].quads.length, 'GA00250t'.length, 'the name run carries the cross\'s mark');
   const word = r.runs.find((run) => run.quads.length === 'Primarch'.length && run.color && cssRgba(run.color) === '#d8cfae');
   assert.ok(word, 'the word drawn whole, in the gold');
 });

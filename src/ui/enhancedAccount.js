@@ -66,7 +66,7 @@ export const GLYPH_LABEL = Object.freeze({
   crownSN: 'The Crown of Sentinel',
   laurel: 'Arena Champion',   // ARENA4: the laurel, while its wearer is the season's #1
   aegis: 'Aegis of Oblivion',   // AEGIS: the pillars through the ring over the void, beside Sureme's name
-  primarch: 'Primarch',   // PRIMARCH: the sword raised between two wings, beside GA00250's name
+  primarch: 'Primarch',   // PRIMARCH: the three-barred cross, beside GA00250's name
 });
 
 /** ACC4: THE TWO FACTS MAC ASKED FOR, as words. Pure, so node pins

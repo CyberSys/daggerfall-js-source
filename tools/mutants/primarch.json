@@ -27,12 +27,12 @@
     "tests": [
       "test/primarch.test.js"
     ],
-    "note": "The sword and wings in the Crowned's gold: the two halves of one grant drift apart."
+    "note": "The cross in the Crowned's gold: GA00250 asked for it in the name's colour, and the two halves of one grant drift apart."
   },
   {
     "name": "PRIMARCH-a-mark-another-glyph-has",
     "file": "src/ui/playerBadge.js",
-    "old": "  primarch: 'Y',      // PRIMARCH:",
+    "old": "  primarch: 't',      // PRIMARCH:",
     "new": "  primarch: 'O',      // PRIMARCH:",
     "tests": [
       "test/primarch.test.js"
@@ -50,34 +50,54 @@
     "note": "Stroked, the filled outline is a tangle of edges."
   },
   {
-    "name": "PRIMARCH-the-point-off-the-middle",
+    "name": "PRIMARCH-the-slant-turned",
     "file": "src/ui/playerBadge.js",
-    "old": "primarch: 'M8 0.4L9.05 2.2V10H6.95V2.2Z",
-    "new": "primarch: 'M8.6 0.4L9.05 2.2V10H6.95V2.2Z",
+    "old": "M6 9.6L10 12.9V14.5L6 11.2Z",
+    "new": "M6 12.9L10 9.6V11.2L6 14.5Z",
     "tests": [
       "test/primarch.test.js"
     ],
-    "note": "The blade's point off the middle: the glyph no longer mirrored, the sword bent."
+    "note": "The footrest slanting down to the LEFT: not the cross GA00250 drew."
   },
   {
-    "name": "PRIMARCH-a-wing-on-the-blade",
+    "name": "PRIMARCH-the-head-bar-long",
     "file": "src/ui/playerBadge.js",
-    "old": "+ 'M6.1 9.5V5.4C5 3.4",
-    "new": "+ 'M6.9 9.5V5.4C5 3.4",
+    "old": "M6 1.4H10V2.9H6Z",
+    "new": "M2.9 1.4H13.1V2.9H2.9Z",
     "tests": [
       "test/primarch.test.js"
     ],
-    "note": "The left wing's root against the blade: at a name's size the two merge into a blot."
+    "note": "The head bar as long as the crossbar: a double cross, not the reference's."
   },
   {
-    "name": "PRIMARCH-the-wings-low",
+    "name": "PRIMARCH-the-shaft-off-the-middle",
     "file": "src/ui/playerBadge.js",
-    "old": "C11 3.4 13.2 1.6 15.6 0.9C15.2",
-    "new": "C11 3.4 13.2 4.6 15.6 3.9C15.2",
+    "old": "primarch: 'M7.2 0.4H8.8V15.6H7.2Z",
+    "new": "primarch: 'M7.6 0.4H9.2V15.6H7.6Z",
     "tests": [
       "test/primarch.test.js"
     ],
-    "note": "The right wing's tip dropped from the top corner: lopsided, and no longer spread up."
+    "note": "The shaft off the middle, the bars no longer centred on it."
+  },
+  {
+    "name": "PRIMARCH-a-bar-wound-the-other-way",
+    "file": "src/ui/playerBadge.js",
+    "old": "M2.9 3.8H13.1V5.4H2.9Z",
+    "new": "M2.9 3.8V5.4H13.1V3.8Z",
+    "tests": [
+      "test/primarch.test.js"
+    ],
+    "note": "The crossbar wound against the shaft: under the nonzero rule a hole where they cross."
+  },
+  {
+    "name": "PRIMARCH-the-footrest-gone",
+    "file": "src/ui/playerBadge.js",
+    "old": "V5.4H2.9ZM6 9.6L10 12.9V14.5L6 11.2Z'",
+    "new": "V5.4H2.9Z'",
+    "tests": [
+      "test/primarch.test.js"
+    ],
+    "note": "A two-barred cross: the reference's slanted footrest gone."
   },
   {
     "name": "PRIMARCH-the-radiances-button-in-violet",

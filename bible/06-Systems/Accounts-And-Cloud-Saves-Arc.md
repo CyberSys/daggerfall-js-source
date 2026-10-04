@@ -4444,7 +4444,8 @@ will be Primarch, the color will be that light gold color that you guys use in s
 screenshot of their name in the pause menu's pixel face ("that color") and a swatch - and "can the aura be a golden
 light around the character? like i've seen some rare mobs with it" (the elite foes' glow, `systems/hitFlash.js`
 ELITE_GLOW_GLSL: the sprite warmed toward gold, an edge of light round the silhouette, embers rising off it). No glyph
-was described.
+was described at first; after the first push GA00250 sent a picture of a three-barred cross: "i'd like to that be the
+glyph design if possible. with the same color of the name".
 
 - **The grant** (`server-account/wrangler.toml`, `server-account/src/titles.js`): `PRIMARCH_HANDLES = "GA00250"`,
   TITLE-N's handle-list law (`TIER_LISTS.primarch`, `TIER_GLYPH.primarch`) and AEGIS's: the second list that grants an
@@ -4462,13 +4463,16 @@ was described.
   night sky, a day sky, stone, grass and snow - in Chromium at 13 to 64 px. It is paler and greyer than the Founder's
   and the Crowned's golds and warmer than the Champion's silver. (The name under it is drawn in `--bone`, #e9e4d9: the
   two are near, which is the colour GA00250 chose.)
-- **The glyph** (the port's own, after the title's demigod-general): a sword raised point up on the middle - the glyph's
-  highest point - a guard across its foot, a grip and a lozenge pommel; and each side a wing rising out and up from
-  beside the blade (clear of it) to a tip at the box's top corner, its trailing edge cut into four feathers. Filled, in
-  the title's gold. Chosen over a stroked winged sword (the feathers read as beads on a line, the wings as a trident's
-  tines at a name's size) and a filled one with the feathers only notched (two blades). Penitent's sword points down
-  inside a lozenge; this one points up between wings. `Y` on the classic face (the wings over the hilt); "Primarch" on
-  the account card.
+- **The glyph** (GA00250's reference, drawn after it): THE THREE-BARRED CROSS - the shaft the full height up the
+  middle, a short bar near its head, the long crossbar under it (the glyph's widest), and low down a footrest as wide as
+  the head bar, slanting down to the right as the reference's does. Its widths and heights are the reference's, measured
+  off it; the shaft and bars are a little thicker (1.6 units against its 1.35) so the footrest's slant still reads at a
+  name's 13 px - chosen in Chromium over the reference's own thickness and a wider-barred one on the five grounds at 13
+  to 64 px. Filled, in "the same color of the name": the Primarch's gold, #d8cfae, the colour GA00250's name wears in
+  the menu they pointed at (the title's, as every grant's glyph is). Every bar is wound the shaft's way round, so the
+  fill is whole where they cross it. `t` on the classic face (a cross with its foot turned); "Primarch" on the account
+  card. (The first push drew the port's own glyph, a sword raised between two feathered wings; GA00250's cross replaced
+  it before merge, and world162's undeployed row was re-hashed in place for its word's comment.)
 - **The Golden Radiance** (`src/render/auraRing.js`, the aura pass WB9g built): the third look of the same program
   (`uAura` 2, AURA_LOOK - its column's radius 0.6 m and height 2.2 m, no symbols). Light ABOUT THE BODY rather than a
   mark at the feet. THE WALL: a column the body's width standing past the crown (the walking body is 1.8 m), lit as a
@@ -4489,7 +4493,7 @@ was described.
   wearer's own eye looking level and looking down. `tools/auraProbe.mjs` now draws all three auras: 33/33 (the ring
   whole and golden, the pool, no seam, no jump at the wrap, the column bright at its edges and faint across, dark beside
   it and over the crown, nothing unkindled, risen to the waist at half kindled, no veil from inside).
-- Pins: `test/primarch.test.js` (11). `tools/mutants/primarch.json` (32, all dead). The vocabulary's exact lists in
+- Pins: `test/primarch.test.js` (11). `tools/mutants/primarch.json` (34, all dead). The vocabulary's exact lists in
   `acc3titles.test.js` and `titlen.test.js` moved, and `aegis.test.js`'s newest-word and one-list pins (PIN MOVED); the
   relay's pins moved to world162 crediting PRIMARCH (`auditbounty1.test.js` holds the credit), the account's to acct75.
   Seven older records re-aimed by content, all dead (`aegis.json` 4, `herald.json`, `penitent.json`,
