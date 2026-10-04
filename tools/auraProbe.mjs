@@ -24,7 +24,10 @@
 // from the front its opening (no trim across its middle) with its embroidery lit either side and its clasp lit; turned
 // with its wearer; no jump at the wrap; nothing before it kindles and drawn to the waist at half; torn when its wearer
 // turns beast - the cloth gone, its shreds floating round them; emblems aloft; and from the wearer's own eye no shadow
-// over the view.
+// over the view. AUDIT: every cloak read is STRICT (a point off the canvas throws, never reads black), compared against
+// the frame with NO aura (not the cloak unkindled), its hood read against the lit floor; and its two sides drawn by
+// its winding are checked as this probe draws (unmirrored, CCW) and as the game does (world/mat4.js
+// mirrorProjectionX, CW). The shots are unmirrored - the wolf faces left in them; in the game it faces right.
 //
 //     node tools/auraProbe.mjs [--shots <dir>]     (writes aura.png / aura_side.png / ward.png / ward_side.png /
 //                                                   radiance.png / radiance_side.png / cloak_back.png /
@@ -60,15 +63,20 @@ const look = (e, c) => { const u = [0, 1, 0]; const z = [e[0] - c[0], e[1] - c[1
 const mul = (a, b) => { const o = new Float32Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) for (let k = 0; k < 4; k++) o[c * 4 + r] += a[k * 4 + r] * b[c * 4 + k]; return o; };
 window.probe = { err, linked: pass ? gl.getProgramParameter(pass.program, gl.LINK_STATUS) : false, ringR: AURA_RING_R, period: AURA_CLOCK_PERIOD, wardR: WARD_RING_R, runeR: WARD_RUNE_R, radR: RADIANCE_R, radH: RADIANCE_H, poolR: RADIANCE_POOL_R, cloakPoolR: CLOAK_POOL_R, cloakSigilY: CLOAK_SIGIL_Y, cloakSigilR: CLOAK_SIGIL_R, cloakH: CLOAK_H, cloakClaspY: CLOAK_CLASP_Y, cloakRipS: CLOAK_RIP_S };
 /** Draw the floor and the aura at the origin from \`eye\` at \`t\` seconds, kindled \`kindle\`; read back \`pts\` (world). */
-window.draw = (eye, t, kindle, pts, aura, at = [0, 0.2, 0], yaw = 0, lit = 1, torn = -1, extra = null) => {   // PRIMARCH: \`at\` - where the eye looks (the first person looks level); SHADOW-CLOAK: the wearer's facing, and the floor lit brighter so a shadow shows
-  const proj = persp(0.9, 640 / 480, 0.05, 100), view = look(eye, at), vp = mul(proj, view);
+window.draw = (eye, t, kindle, pts, aura, at = [0, 0.2, 0], yaw = 0, lit = 1, torn = -1, extra = null, opts = {}) => {   // SHADOW-CLOAK (AUDIT): \`opts\` - strict (a point off the canvas throws, never reads black), mirror (the game's own projection and CW front face), none (the same frame with no aura at all)   // PRIMARCH: \`at\` - where the eye looks (the first person looks level); SHADOW-CLOAK: the wearer's facing, and the floor lit brighter so a shadow shows
+  const proj = persp(0.9, 640 / 480, 0.05, 100), view = look(eye, at);
+  if (opts.mirror) proj[0] = -proj[0];   // world/mat4.js mirrorProjectionX: the frame as the game shows it
+  const vp = mul(proj, view);
   gl.enable(gl.DEPTH_TEST); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   if (lit !== 1) gl.disable(gl.CULL_FACE);   // SHADOW-CLOAK: the lit floor drawn whichever way it faces (the pass leaves culling on behind it)
   gl.useProgram(pr); gl.uniformMatrix4fv(gl.getUniformLocation(pr, 'vp'), false, vp); gl.uniform1f(gl.getUniformLocation(pr, 'lit'), lit); gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLES, 0, 6); gl.bindVertexArray(null);
-  pass.draw([{ at: [0, 0, 0], seed: 0.37, kindle, aura, yaw, torn, ...(extra ?? {}) }], proj, view, new Float32Array(eye), t, null);   // SHADOW-CLOAK: torn, its wearer turned beast; \`extra\` its swing and its pose
+  if (opts.mirror) gl.frontFace(gl.CW);   // the renderer's own front face under the mirror
+  pass.draw(opts.none ? [] : [{ at: [0, 0, 0], seed: 0.37, kindle, aura, yaw, torn, ...(extra ?? {}) }], proj, view, new Float32Array(eye), t, null);
+  gl.frontFace(gl.CCW);   // SHADOW-CLOAK: torn, its wearer turned beast; \`extra\` its swing and its pose
   const px = (w) => {
     const c = [0, 1, 2, 3].map((r) => vp[r] * w[0] + vp[4 + r] * w[1] + vp[8 + r] * w[2] + vp[12 + r]);
     const x = Math.round((c[0] / c[3] * 0.5 + 0.5) * 640), y = Math.round((c[1] / c[3] * 0.5 + 0.5) * 480);
+    if (opts.strict && (!(c[3] > 0) || x < 0 || x > 639 || y < 0 || y > 479)) throw new Error(\`a point off the canvas: \${w} at \${x},\${y}\`);
     const o = new Uint8Array(4); gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, o); return Array.from(o);
   };
   return { error: gl.getError(), drawn: pass.drawn, px: pts.map(px) };
@@ -209,8 +217,8 @@ try {
   check('from inside it, no gold veil over the view', veil.every((v) => v < 4 * 60), veil.join(' '));
   // ── SHADOW-CLOAK: THE HOLO SHADOW CLOAK ──
   // over a floor lit bright enough that a shadow can be seen: 0.08 * 6 is a mid grey
-  const LIT = 6, Q = 13.2, cl = (eye, t, k, pts, at, yaw = 0, torn = -1) => page.evaluate(([e, tt, kk, ps, a, y, l, tr]) => window.draw(e, tt, kk, ps, 'shadowcloak', a ?? undefined, y, l, tr), [eye, t, k, pts, at ?? null, yaw, LIT, torn]);
-  const bare = (eye, pts, at) => page.evaluate(([e, ps, a, l]) => window.draw(e, 13.2, 0, ps, 'shadowcloak', a, 0, l), [eye, pts, at, LIT]);   // the same frame with nothing kindled
+  const LIT = 6, Q = 13.2, cl = (eye, t, k, pts, at, yaw = 0, torn = -1, opts = {}) => page.evaluate(([e, tt, kk, ps, a, y, l, tr, o]) => window.draw(e, tt, kk, ps, 'shadowcloak', a ?? undefined, y, l, tr, null, { strict: true, ...o }), [eye, t, k, pts, at ?? null, yaw, LIT, torn, opts]);
+  const bare = (eye, pts, at) => page.evaluate(([e, ps, a, l]) => window.draw(e, 13.2, 1, ps, 'shadowcloak', a, 0, l, -1, null, { strict: true, none: true }), [eye, pts, at, LIT]);   // the same frame with NO aura at all (AUDIT: not the cloak unkindled - that compared a frame with itself)
   const CP = p.cloakPoolR;
   // from straight above: the pool round the hem darker than the floor past it, and the floor past it untouched
   const poolPts = Array.from({ length: 8 }, (_, i) => { const a = (i / 8 + 1 / 16) * Math.PI * 2; return [Math.cos(a) * 0.62, 0.0, Math.sin(a) * 0.62]; });
@@ -246,7 +254,7 @@ try {
   if (shotsAt) await page.locator('#c').screenshot({ path: join(shotsAt, 'cloak_front.png') });
   const peakOf = (a) => a.reduce((x, y) => Math.max(x, y), 0), rows = [0, 1, 2].map((r) => redOf(cfront.px.slice(r * 401, r * 401 + 401)));
   const leftPeak = peakOf(rows.map((fr) => peakOf(fr.slice(0, 175)))), rightPeak = peakOf(rows.map((fr) => peakOf(fr.slice(226)))), mid = peakOf(rows.map((fr) => peakOf(fr.slice(175, 226))));   // the middle 10 cm
-  check('open at the front - its embroidery either side of its middle, none across it (its lining seen through)', leftPeak > mid + 20 && rightPeak > mid + 20, `edges ${leftPeak} and ${rightPeak}, the middle ${mid}`);
+  check('open at the front - its embroidery either side of its middle, none across it, its lining seen through', leftPeak > mid + 20 && rightPeak > mid + 20 && mid > 40, `edges ${leftPeak} and ${rightPeak}, the middle ${mid}`);
   check('its clasp lit at the throat', lum(cfront.px[K]) > lum(cfront.px[K + 1]) + 60, `${JSON.stringify(cfront.px[K])} the clasp vs ${JSON.stringify(cfront.px[K + 1])} beside`);
   // turned: the same eye and the wearer facing away - the glyph on their back faces the eye now
   const turnedPts = wolf.map((g) => { const q = onBack(g); return [-q[0], q[1], 0.4]; });
@@ -260,8 +268,11 @@ try {
   const ccold = await cl(behind, Q, 0, [[0.12, 0.35, -0.42], [0, 1.2, -0.3], [0.3, 0.0, -0.55]], cAt);
   const cfloor = await bare(behind, [[0.12, 0.35, -0.42], [0, 1.2, -0.3], [0.3, 0.0, -0.55]], cAt);
   check('unkindled, nothing is drawn', ccold.px.every((c, i) => Math.abs(lum(c) - lum(cfloor.px[i])) < 6), JSON.stringify(ccold.px));
-  const chalf = await cl(behind, Q, 0.5, [[0.12, 0.45, -0.42], [0, 1.72, -0.24], [1.4, 0.0, -0.6], [0, 1.72, 2.5]], cAt);
-  check('half kindled, drawn to the waist and not to the hood', lum(chalf.px[0]) < lum(chalf.px[2]) * 0.85 && Math.abs(lum(chalf.px[1]) - lum(chalf.px[3])) < 30, JSON.stringify(chalf.px));
+  // the hood read against the LIT floor (AUDIT: against the black sky a shadow cannot show): from above and behind
+  const high = [0, 3.4, -2.4], hoodPts = [[0, 1.75, -0.12], [0.08, 1.7, -0.14], [-0.08, 1.7, -0.14]];
+  const hoodBare = await bare(high, [[0.12, 0.45, -0.42], ...hoodPts], cAt), hoodWhole = await cl(high, Q, 1, [[0.12, 0.45, -0.42], ...hoodPts], cAt), chalf = await cl(high, Q, 0.5, [[0.12, 0.45, -0.42], ...hoodPts], cAt);
+  const dHood = (f) => Math.max(...hoodPts.map((_, i) => Math.abs(lum(f.px[i + 1]) - lum(hoodBare.px[i + 1]))));
+  check('half kindled, drawn to the waist and not to the hood', lum(chalf.px[0]) < lum(hoodBare.px[0]) * 0.85 && dHood(chalf) < 12 && dHood(hoodWhole) > 60, `waist ${lum(chalf.px[0])} vs ${lum(hoodBare.px[0])}; the hood ${dHood(chalf)} half kindled, ${dHood(hoodWhole)} whole`);
   // the emblems aloft: over the back, from behind, at four moments something there that the bare frame has not
   const overBack = Array.from({ length: 300 }, (_, i) => [-0.9 + (i % 20) * 0.095, 1.2 + Math.floor(i / 20) * 0.075, -0.6]);
   const aloftBare = await bare(behind, overBack, cAt);
@@ -285,17 +296,25 @@ try {
   check('its shreds float round the beast', shredN.every((n) => n >= 6), shredN.join(' '));
   // it swings: from the side, a run's trail carries its hem out behind the wearer over floor it left bare at rest
   const trailPts = Array.from({ length: 12 }, (_, i) => [0, 0.08 + (i % 3) * 0.12, -0.62 - Math.floor(i / 3) * 0.06]);
-  const swingAt = (extra) => page.evaluate(([e, ps, a, l, x]) => window.draw(e, 13.2, 1, ps, 'shadowcloak', a, 0, l, -1, x), [[3.2, 0.9, 0], trailPts, [0, 0.6, 0], LIT, extra]);
+  const swingAt = (extra) => page.evaluate(([e, ps, a, l, x]) => window.draw(e, 13.2, 1, ps, 'shadowcloak', a, 0, l, -1, x, { strict: true }), [[3.2, 0.9, 0], trailPts, [0, 0.6, 0], LIT, extra]);
   const still = await swingAt(null), running = await swingAt({ swing: { x: 0, z: -0.35, lift: 0, twist: 0 } }), trailBare = await bare([3.2, 0.9, 0], trailPts, [0, 0.6, 0]);
   const covered = (f) => f.px.filter((c, i) => lum(c) < lum(trailBare.px[i]) - 40).length;
   check('it swings with its wearer - a run trails its hem out behind them', covered(running) >= covered(still) + 4, `${covered(still)} of ${trailPts.length} behind it covered still, ${covered(running)} running`);
   // the wearer's own eye, looking level and looking down: no shadow over the view, no red over it
   const own = [];
-  for (const [look, pts] of [[[0, 1.6, -3], [[0, 0, -2.5], [1, 0, -2], [-1, 0, -2.2]]], [[0, 0, -0.9], [[0, 0, -0.7], [0.25, 0, -0.75]]]]) {
+  for (const [look, pts] of [[[0, 1.6, -3], [[0, 0, -6], [1, 0, -5], [-1, 0, -7], [0, 1.0, -3]]], [[0, 0, -0.9], [[0, 0, -0.7], [0.25, 0, -0.75]]]]) {   // AUDIT: every point in the frame (strict)
     const on = await cl([0, 1.65, 0], Q, 1, pts, look), off = await bare([0, 1.65, 0], pts, look);
     own.push(...on.px.map((c, i) => Math.abs(lum(c) - lum(off.px[i]))));
   }
-  check('from the wearer\'s own eye, nothing over the view past the ground at the feet', own.slice(0, 3).every((d) => d < 20), own.join(' '));
+  check('from the wearer\'s own eye, nothing over the view past the ground at the feet', own.slice(0, 4).every((d) => d < 20), own.join(' '));
+  // ITS SIDES BY ITS WINDING, as the game draws it too - mirrored (world/mat4.js mirrorProjectionX) and its front face
+  // CW: from behind the back's outside (a dark shadow), from the front its lining (red) through the opening, either way
+  const windPts = [[0, 0.7, -0.5]];
+  for (const mirror of [false, true]) {
+    const backSeen = await cl(behind, Q, 1, windPts, cAt, 0, -1, { mirror }), frontSeen = await cl([0, 0.9, 3.2], Q, 1, windPts.map(([x, y]) => [x, y, -0.5]), [0, 0.9, 0], 0, -1, { mirror });
+    const [b, f] = [backSeen.px[0], frontSeen.px[0]];
+    check(`its two sides by its own winding${mirror ? ', as the game mirrors it' : ''} - its outside dark from behind, its lining red from the front`, lum(b) < 120 && f[0] > 2 * f[1] && f[0] > b[0] + 25, `${JSON.stringify(b)} from behind, ${JSON.stringify(f)} from the front`);
+  }
   check('no page error', errs.length === 0, errs.join('; '));
 } finally {
   await browser.close();

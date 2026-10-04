@@ -207,15 +207,6 @@
     ]
   },
   {
-    "name": "SHADOWCLOAK-the-two-sides-one",
-    "file": "src/render/auraRing.js",
-    "old": "  if (uSide == 1 ? toward <= 0.0 : toward > 0.0) discard;\n",
-    "new": "",
-    "tests": [
-      "test/shadowcloak.test.js"
-    ]
-  },
-  {
     "name": "SHADOWCLOAK-the-lining-not-red",
     "file": "src/render/auraRing.js",
     "old": "col = CLOAK_LINING * (0.35",
@@ -227,7 +218,7 @@
   {
     "name": "SHADOWCLOAK-the-rim-dropped",
     "file": "src/render/auraRing.js",
-    "old": "  float rim = pow(1.0 - abs(toward), 3.0);",
+    "old": "  float rim = pow(max(0.0, 1.0 - abs(toward)), 3.0);",
     "new": "  float rim = 0.0;",
     "tests": [
       "test/shadowcloak.test.js"
@@ -236,7 +227,7 @@
   {
     "name": "SHADOWCLOAK-a-shadow-over-the-wearers-own-view",
     "file": "src/render/auraRing.js",
-    "old": "  float outside = smoothstep(0.55, 1.0, length(uCamPos.xz - uAt.xz));",
+    "old": "  float outside = smoothstep(${g3(CLOAK_INSIDE_M)}, 1.0, length(uCamPos.xz - uAt.xz));",
     "new": "  float outside = 1.0;",
     "tests": [
       "test/shadowcloak.test.js"
@@ -299,7 +290,7 @@
   {
     "name": "SHADOWCLOAK-the-emblem-off-the-back",
     "file": "src/render/auraRing.js",
-    "old": "      col = col * (1.0 - 0.5 * em.a) + em.rgb * (0.6 + 0.4 * toward);",
+    "old": "      col = col * (1.0 - 0.5 * em.a) + em.rgb * (0.6 + 0.4 * lit);",
     "new": "      col = col * (1.0 - 0.5 * em.a);",
     "tests": [
       "test/shadowcloak.test.js"
@@ -326,7 +317,7 @@
   {
     "name": "SHADOWCLOAK-the-mantle-unstitched",
     "file": "src/render/auraRing.js",
-    "old": "    col += CLOAK_CRIMSON * exp(-pow(me - 0.005, 2.0) / 0.00001) * 0.4 * breath;\n",
+    "old": "    col += CLOAK_CRIMSON * exp(-cloakSq(me - 0.005) / 0.00001) * 0.4 * breath;\n",
     "new": "",
     "tests": [
       "test/shadowcloak.test.js"
@@ -441,28 +432,10 @@
     ]
   },
   {
-    "name": "SHADOWCLOAK-the-blend-never-set",
-    "file": "src/render/auraRing.js",
-    "old": "      if (look.shade) gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);\n",
-    "new": "",
-    "tests": [
-      "test/shadowcloak.test.js"
-    ]
-  },
-  {
-    "name": "SHADOWCLOAK-the-blend-never-handed-back",
-    "file": "src/render/auraRing.js",
-    "old": "      if (look.shade) gl.blendFunc(gl.ONE, gl.ONE);\n",
-    "new": "",
-    "tests": [
-      "test/shadowcloak.test.js"
-    ]
-  },
-  {
     "name": "SHADOWCLOAK-the-strip-not-the-cloth",
     "file": "src/render/auraRing.js",
-    "old": "      if (look.mesh === 'cloak') {",
-    "new": "      if (false) {",
+    "old": "        if (look.mesh === 'cloak') this._drawCloak(w, look, torn, camAt);",
+    "new": "        if (false) this._drawCloak(w, look, torn, camAt);",
     "tests": [
       "test/shadowcloak.test.js"
     ]
@@ -477,19 +450,10 @@
     ]
   },
   {
-    "name": "SHADOWCLOAK-one-side-of-the-cloth",
-    "file": "src/render/auraRing.js",
-    "old": "for (const side of [0, 1])",
-    "new": "for (const side of [1])",
-    "tests": [
-      "test/shadowcloak.test.js"
-    ]
-  },
-  {
     "name": "SHADOWCLOAK-the-torn-cloth-still-drawn",
     "file": "src/render/auraRing.js",
-    "old": "if (torn < CLOAK_RIP_S && w.mounted !== true) for",
-    "new": "if (w.mounted !== true) for",
+    "old": "    if (torn < CLOAK_RIP_S && !folded && dx * dx",
+    "new": "    if (!folded && dx * dx",
     "tests": [
       "test/shadowcloak.test.js"
     ]
@@ -497,8 +461,8 @@
   {
     "name": "SHADOWCLOAK-the-shreds-never-drawn",
     "file": "src/render/auraRing.js",
-    "old": "(look.glyphs + (look.shreds && torn >= 0 ? look.shreds : 0)) * 6",
-    "new": "look.glyphs * 6",
+    "old": "gl.drawArrays(gl.TRIANGLES, 0, (look.glyphs + (torn >= 0 ? look.shreds : 0)) * 6);",
+    "new": "gl.drawArrays(gl.TRIANGLES, 0, look.glyphs * 6);",
     "tests": [
       "test/shadowcloak.test.js"
     ]
@@ -614,7 +578,7 @@
   {
     "name": "SHADOWCLOAK-the-trail-dropped",
     "file": "src/render/auraRing.js",
-    "old": "  vec2 trail = uSwing.xy * pow(h, 1.6);",
+    "old": "  vec2 trail = uSwing.xy * pow(h, 1.6) * min(ky, 1.0);",
     "new": "  vec2 trail = vec2(0.0);",
     "tests": [
       "test/shadowcloak.test.js"
@@ -623,8 +587,8 @@
   {
     "name": "SHADOWCLOAK-no-pendulum",
     "file": "src/render/auraRing.js",
-    "old": "  py += hang - sqrt(max(hang * hang - dot(trail, trail), 0.04 * hang * hang)) + uSwing.z * h * h;",
-    "new": "  py += uSwing.z * h * h;",
+    "old": "  py += hang - sqrt(max(hang * hang - dot(trail, trail), 0.0)) + max(uSwing.z, 0.0) * h * h;",
+    "new": "  py += max(uSwing.z, 0.0) * h * h;",
     "tests": [
       "test/shadowcloak.test.js"
     ]
@@ -866,8 +830,8 @@
   {
     "name": "SHADOWCLOAK-a-riders-cape-drawn",
     "file": "src/render/auraRing.js",
-    "old": "if (torn < CLOAK_RIP_S && w.mounted !== true) for",
-    "new": "if (torn < CLOAK_RIP_S) for",
+    "old": "    if (torn < CLOAK_RIP_S && !folded && dx",
+    "new": "    if (torn < CLOAK_RIP_S && dx",
     "tests": [
       "test/shadowcloak.test.js"
     ]
@@ -875,8 +839,8 @@
   {
     "name": "SHADOWCLOAK-a-riders-emblems-drawn",
     "file": "src/render/auraRing.js",
-    "old": "if (look.glyphs && !(look.mesh === 'cloak' && w.mounted === true)) {",
-    "new": "if (look.glyphs) {",
+    "old": "      if (folded) return;\n",
+    "new": "",
     "tests": [
       "test/shadowcloak.test.js"
     ]
@@ -913,6 +877,249 @@
     "file": "src/combat/fpArm.js",
     "old": "      drawnPose = { arm: t.arm, mats: t.arm.mats };",
     "new": "      drawnPose = null;",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-drawn-nearest-first",
+    "file": "src/render/auraRing.js",
+    "old": "        const w = list[i];",
+    "new": "        const w = list[list.length - 1 - i];",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-sides-unculled",
+    "file": "src/render/auraRing.js",
+    "old": "gl.cullFace(side === 0 ? gl.FRONT : gl.BACK);",
+    "new": "gl.cullFace(gl.BACK);",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-sides-not-culled-at-all",
+    "file": "src/render/auraRing.js",
+    "old": "      gl.enable(gl.CULL_FACE);\n      for (const side of [0, 1])",
+    "new": "      for (const side of [0, 1])",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-one-side-of-the-cloth",
+    "file": "src/render/auraRing.js",
+    "old": "for (const side of [0, 1]) { gl.uniform1i(U.uSide, side);",
+    "new": "for (const side of [1]) { gl.uniform1i(U.uSide, side);",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-blend-never-set",
+    "file": "src/render/auraRing.js",
+    "old": "        if (look.shade) gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);\n",
+    "new": "",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-blend-never-handed-back",
+    "file": "src/render/auraRing.js",
+    "old": "        if (look.shade) gl.blendFunc(gl.ONE, gl.ONE);\n",
+    "new": "",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-cards-always-after",
+    "file": "src/render/auraRing.js",
+    "old": "    const front = dx * Math.sin(yaw) + dz * Math.cos(yaw) > 0;",
+    "new": "    const front = false;",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-cloth-in-first-person",
+    "file": "src/render/auraRing.js",
+    "old": " && dx * dx + dz * dz >= CLOAK_INSIDE_M * CLOAK_INSIDE_M) {",
+    "new": ") {",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-emblems-drawn-torn-through",
+    "file": "src/render/auraRing.js",
+    "old": "if (torn >= CLOAK_RIP_S) gl.drawArrays(gl.TRIANGLES, look.glyphs * 6, look.shreds * 6);",
+    "new": "if (torn >= CLOAK_RIP_S) gl.drawArrays(gl.TRIANGLES, 0, (look.glyphs + look.shreds) * 6);",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-no-hand-back-on-a-throw",
+    "file": "src/render/auraRing.js",
+    "old": "    } finally {   // SHADOW-CLOAK (AUDIT): the frame's state handed back whatever a wearer did mid-pass",
+    "new": "    } catch (e) { throw e; } {   // SHADOW-CLOAK (AUDIT): the frame's state handed back whatever a wearer did mid-pass",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-strafe-through-the-legs",
+    "file": "src/render/auraRing.js",
+    "old": "  if (dl < keep) d *= keep / max(dl, 1e-4);\n",
+    "new": "",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-trail-uncapped",
+    "file": "src/render/auraRing.js",
+    "old": "  if (tl > 0.7 * hang) trail *= 0.7 * hang / tl;   // never so far",
+    "new": "  if (false) trail *= 0.7 * hang / tl;   // never so far",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-lift-below-the-feet",
+    "file": "src/render/auraRing.js",
+    "old": "+ max(uSwing.z, 0.0) * h * h;   // a rise never drops it below the feet",
+    "new": "+ uSwing.z * h * h;   // a rise never drops it below the feet",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-knee-push-uncapped",
+    "file": "src/render/auraRing.js",
+    "old": "return min(0.2, max(0.0, kr + 0.07 - r))",
+    "new": "return max(0.0, kr + 0.07 - r)",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-a-square-as-pow",
+    "file": "src/render/auraRing.js",
+    "old": "  float c2 = cloakSq(cos(u * CLOAK_TAU));",
+    "new": "  float c2 = pow(cos(u * CLOAK_TAU), 2.0);",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-ground-past-its-pool",
+    "file": "src/render/auraRing.js",
+    "old": "  if (r > ${g3(CLOAK_POOL_R)}) discard;   // nothing of it past its pool",
+    "new": "  if (r > uGroundR) discard;   // nothing of it past its pool",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-glyph-edges-unrounded",
+    "file": "src/render/auraRing.js",
+    "old": "if (r3(at[0]) !== r3(b[0]) || r3(at[1]) !== r3(b[1]))",
+    "new": "if (at[0] !== b[0] || at[1] !== b[1])",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-a-line-before-a-move",
+    "file": "src/render/auraRing.js",
+    "old": "if (!at) throw new Error(`glyphEdges: a figure must begin with M in ${path}`); if (r3",
+    "new": "if (r3",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-no-billow",
+    "file": "src/render/auraRing.js",
+    "old": "  return w * pow(cloakDrapeOf(y), 1.5) * (0.3 + 0.7 * cloakBackOf(u));",
+    "new": "  return 0.0;",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-a-billow-off-the-clock",
+    "file": "src/render/auraRing.js",
+    "old": "2.0 * th + y * 2.0 + t * CLOAK_TAU ${hzGlsl(CLOAK_HZ.billow)}",
+    "new": "2.0 * th + y * 2.0 + t * CLOAK_TAU * 0.21",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-hem-the-wrong-way-round",
+    "file": "src/render/auraRing.js",
+    "old": "mix(${g3(CLOAK_HEM_Y.edge)}, ${g3(CLOAK_HEM_Y.back)}, cloakBackOf(u))",
+    "new": "mix(${g3(CLOAK_HEM_Y.back)}, ${g3(CLOAK_HEM_Y.edge)}, cloakBackOf(u))",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-no-kindle-embers",
+    "file": "src/render/auraRing.js",
+    "old": "  col += (CLOAK_EMBER * 0.5 + CLOAK_CRIMSON) * exp(-grown * grown / 0.0006) * (1.0 - smoothstep(0.9, 1.0, uKindle));\n",
+    "new": "",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-shreds-without-teeth",
+    "file": "src/render/auraRing.js",
+    "old": " + CLOAK_CRIMSON * teeth * 0.6)",
+    "new": ")",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-first-seen-replays-the-tear",
+    "file": "src/render/auraRing.js",
+    "old": "if (w.beastAt === undefined) w.beastAt = beast ? t - CLOAK_RIP_S : null;",
+    "new": "if (w.beastAt === undefined) w.beastAt = beast ? t : null;",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-fog-thins-only-the-light",
+    "file": "src/render/auraRing.js",
+    "old": "    o = vec4(c.rgb * f, c.a * f);",
+    "new": "    o = vec4(c.rgb * f, c.a);",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-mesh-holed",
+    "file": "src/render/auraRing.js",
+    "old": "out.push(u0, v0, u1, v0, u1, v1, u0, v0, u1, v1, u0, v1);",
+    "new": "out.push(u0, v0, u1, v0, u1, v1, u0, v0, u0, v0, u0, v1);",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-smoke-never-trails",
+    "file": "src/render/auraRing.js",
+    "old": "    if (trail <= 0.002) discard;",
+    "new": "    if (true) discard;",
     "tests": [
       "test/shadowcloak.test.js"
     ]

@@ -1060,7 +1060,7 @@ the scene the picture takes in:
   (`characterSprite.js:125` `landAnchor`). Every point then draws at a place
   that does not depend on the box. The voxel rigs pass no anchor and draw as
   they did.
-- `drawThird` (`fpArm.js:5005`) anchors on the actor's own axis (MW x = y =
+- `drawThird` (`fpArm.js:5038`) anchors on the actor's own axis (MW x = y =
   0, where the root stands at `feet`), at the body's mid-height. That
   height is read off the drawn ranges less `CARRIED_SLOTS` (`fpArm.js:724`:
   the hand's weapon and round, the torch, the held sheet, Weapon Sheathing's
@@ -1075,7 +1075,7 @@ local player's goes through `mwView.mwViewDrawBody` (`mwView.js:395`,
 `worldModes.js:9229` and `:9341` (the dungeon and the interior passes),
 and `dungeon.js:1107`. `dungeonContext.js`, the fourth motor host, builds
 the dungeon for those hosts and draws no body of its own. The other players'
-bodies go through `peerBodies.js:695` (`PeerBodies.draw`, and INVIS-LOOK's `drawVeiled`, by `_drawBodies`). The open world
+bodies go through `peerBodies.js:705` (`PeerBodies.draw`, and INVIS-LOOK's `drawVeiled`, by `_drawBodies`). The open world
 calls it at `world.js:26978`, and the modal passes reach it through
 `host.drawPeerBodies` (`worldModes.js:9230`, `:9342`). The fix therefore
 sits in one place and reaches every host.
