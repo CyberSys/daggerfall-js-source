@@ -181,7 +181,7 @@ test('BAG1 a loaded bag stays: it leaves the pack - dropped, stored, sold - only
   }
 });
 
-test('BAG1 bought: every General Store shelves one online, after the horse and the cart, to a character who carries none - on its first shelf alone (AUDIT2 H8); offline none (mutants: offline; a second bag; a bag a shelf)', () => {
+test('BAG1 bought: every General Store shelves one online, after the horse and the cart - on every shelf, whoever stocks it (BAG-SHELF: a shelf\'s stock is the room\'s); offline none (mutants: offline; the first shelf alone; none to a bag-owner)', () => {
   const where = globalThis.location;
   try {
     const shelf = (e) => stockShopShelf({ buildingType: BUILDING_TYPES.GeneralStore, quality: 10 }, e, { rolls: () => 0.5, torchesFromItems: false });
@@ -191,10 +191,12 @@ test('BAG1 bought: every General Store shelves one online, after the horse and t
     assert.ok(i > 0, 'shelved');
     assert.equal(on[i].group, 'UselessItems2');
     assert.ok(on.slice(0, i).some((it) => it.group === 'Transportation'), 'after the horse and the cart');
-    assert.equal(shelf({ items: [bagItem()], level: 1 }).some((it) => it.templateIndex === BAG_TEMPLATE), false, 'one to a character');
-    // AUDIT2 H8: the first shelf alone - the horse and the cart are every shelf's, as DFU stocks them; the bag is the shop's
+    // BAG-SHELF (FIELD BUGS 2026-10-04, "nobody can find material bags in store"): online a shelf's stock is the room's for
+    // the day, so a bag-owner's open stocks it for everyone - the bag is there whoever stocked it
+    assert.equal(shelf({ items: [bagItem()], level: 1 }).some((it) => it.templateIndex === BAG_TEMPLATE), true, 'stocked by a bag-owner, still shelved');
+    // and on every shelf, as the horse and the cart are - the first shelf is only the first model the building lists
     const second = stockShopShelf({ buildingType: BUILDING_TYPES.GeneralStore, quality: 10 }, { items: [], level: 1 }, { rolls: () => 0.5, torchesFromItems: false, shelfIndex: 1 });
-    assert.deepEqual([second.some((it) => it.templateIndex === BAG_TEMPLATE), second.some((it) => it.group === 'Transportation')], [false, true]);
+    assert.deepEqual([second.some((it) => it.templateIndex === BAG_TEMPLATE), second.some((it) => it.group === 'Transportation')], [true, true]);
     globalThis.location = { search: '' };
     assert.equal(shelf({ items: [], level: 1 }).some((it) => it.templateIndex === BAG_TEMPLATE), false, 'offline nothing gathers into it');
   } finally { globalThis.location = where; }
@@ -615,11 +617,12 @@ test('BAG1 (AUDIT B8/B9): a station\'s put-in with no answer says so; a Court wr
   assert.match(src('src/scenes/world.js'), /const where = madeWhere\(r\.data\.put\)/);
   assert.equal(leftWords({ material: HERB, put: { left: 3, lost: [{ key: HERB, n: 2 }, { key: OAK, n: 1 }] } }), `2 ${materialCountLabel(HERB, 2)} and 1 ${materialCountLabel(OAK, 1)}`);
   assert.equal(leftWords({ material: HERB, put: { left: 2 } }), `2 ${materialCountLabel(HERB, 2)}`, 'a put from before the audit');
-  // the book names what it could not mint: a gem with no room is the gem's, not the harvest's
-  const full = { ...hands(body()), mint: (k, q) => (k === 'gem:ruby' ? { bag: 0, pack: 0, left: q } : { bag: q, pack: 0, left: 0 }) };
+  // the book names what it could not mint: a gem the hands could not make is the gem's, not the harvest's (PACK-OVER: a
+  // harvest is minted through `give`, so a unit is never left for want of room - only for want of a pack form)
+  const full = { ...hands(body()), give: (k, q) => (k === 'gem:ruby' ? { bag: 0, pack: 0, over: 0 } : { bag: q, pack: 0, over: 0 }) };
   const gemDoor = { account: () => 'a', harvest: async () => ({ ok: true, data: { carry: true, material: HERB, qty: 2, gem: 'gem:ruby', carried: { material: HERB, own: 2, bought: 0 } } }) };
   const g = await createProfBook({ door: gemDoor, storage: memStorage(), character: () => 'c', sleep: noWait, carry: full }).harvest({ node: 'n', kind: 'herbs', climate: 231, region: 21, act: {}, at: 1, material: HERB });
-  assert.deepEqual(g.data.put, { bag: 2, pack: 0, left: 1, lost: [{ key: 'gem:ruby', n: 1 }] });
+  assert.deepEqual(g.data.put, { bag: 2, pack: 0, over: 0, left: 1, lost: [{ key: 'gem:ruby', n: 1 }] });
 });
 
 test('BAG1 (AUDIT B6/B7): the wagon\'s are held and taken last; food in the bag rots as the pack\'s does, and a food on its way to putrid is no material (mutants: the wagon unread; the wagon first; the bag a larder with no clock; a rotting haunch counted)', () => {
@@ -1018,7 +1021,7 @@ test('BAG1 done when: a new character gathers into the pack with no bag, buys a 
     const r1 = await gather(patches[0]);
     assert.equal(r1.ok, true, JSON.stringify(r1));
     const k1 = r1.data.material;
-    assert.deepEqual(r1.data.put, { bag: 0, pack: r1.data.qty, left: 0, lost: [] }, 'no bag yet: the pack');
+    assert.deepEqual(r1.data.put, { bag: 0, pack: r1.data.qty, over: 0, left: 0, lost: [] }, 'no bag yet: the pack');
     assert.equal(heldOf(e, k1), r1.data.qty);
     e.items.push(bagItem());   // bought at a General Store
     const r2 = await gather(patches[1]);

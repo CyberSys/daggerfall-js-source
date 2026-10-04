@@ -20,9 +20,11 @@ crafting materials in the inventory itself." And: "This is something I really wa
   Bag", DFU's own Backpack picture (ItemTemplates 89: TEXTURE.205 record 44 - law 6, the picture is DFU's), weightless
   as the Small Cart is (`hasNoEncumbrance`), one to a slot. **Owning one is holding one**, as DFU's HasCart reads the
   cart in the pack.
-- **Bought** at every General Store, online, after the horse and the cart (`systems/shopStock.js`), to a character who
-  carries none - on the shop's first shelf alone (the second audit's H8: the horse and the cart are every shelf's, as DFU
-  stocks them; a bag on each one sold one bag several times over). Its base price is **250**; DFU's shop price is 2 x (cost x (quality - 10) / 100 + cost), so **500 gold**
+- **Bought** at every General Store, online, after the horse and the cart (`systems/shopStock.js`) - on every shelf,
+  whoever stocks it, as the horse and the cart are (BAG-SHELF, section 13: the first shelf alone, left off for a
+  character who carried one, hid it - a shelf's stock is the room's for the day); and it never sells out - a bag bought
+  is back on its shelf, online, and no shop buys one back (ENDLESS-STOCK, section 13); one to a character - a second is
+  refused by the take ladder and the keyed shelf (ONE-BAG, section 13). Its base price is **250**; DFU's shop price is 2 x (cost x (quality - 10) / 100 + cost), so **500 gold**
   at a middling shop and 456 to 550 by the shop's quality (1 to 20), before the region and the haggle - "like 500g".
 - **It holds 300 kg** - two fifths of a wagon's 750 (`BAG_KG_LIMIT`): "quite a lot", never unlimited. A day's Logging
   (60 trees of 2-4 logs at 2 kg) is about 360 kg; the bag holds most of a day in one craft.
@@ -61,15 +63,19 @@ from the Stores page, anywhere (the second audit's H1).
 A carrying client's harvest (`carry: true`) is the bag's and the pack's - never the Stores':
 
 - **The bag first**, as many as its weight allows; **then the pack**, as many as the character's own carry allows;
-  **what has no room is left where it was gathered**, and said, each by its own name ("+3 Red Rose to your bag and pack -
-  1 left where it was gathered: no room"; a gem left is the gem's). No bag: the pack alone - LostMyLeg's "the mats just
-  go into the players inventory".
+  **then the pack past its weight** - every unit the service counted is made, as a withdrawal's is (6), and said ("+4
+  Oak Logs to your pack - your pack is over its weight"; beside the enhanced skin's haul card, "Your pack is over its
+  weight. Put materials in your Stores in any town, or carry them in a Materials Bag."). No bag: the pack alone -
+  LostMyLeg's "the mats just go into the players inventory". (PACK-OVER, section 13: what had no room was left where it
+  was gathered, and a loaded character with no bag gathered goods it never saw.)
 - Every gathering kind names the material its goods are (a herb by its region, a tree's logs, a vein's ore, a foe's
   hide, a haul's fish), so the request says what the bag and the pack hold of it; the Basket's food and a boulder's
   stone are the service's roll, and name none.
 - The first harvest of a session says so once: "Gathered goods go into your Materials Bag, then your pack. Every General
   Store sells the bag." The haul card's tag reads **Carried 41** where it read Stores 41.
-- A node whose goods have nowhere to go says **No room in your bag or pack** where it said Stores full.
+- A node whose goods have nowhere to go says **No room in your bag or pack** where it said Stores full - the act
+  refused before it starts, as the Foraging mod refuses one when fully encumbered; what a started act yields is never
+  weighed again.
 - The service keeps the older door: a client that does not say `carry` still harvests into the Stores, as before.
 - A Motherlode's strike is the same (`motherlodes.js`).
 
@@ -163,7 +169,6 @@ did: a material is listed, given to the guild or sold back from the Stores, so i
 - **A carried harvest is never let go unminted** (the audit's B1): heard under another character it waits kept for its
   own, whose next ask the service answers with the same harvest; past its ten minutes it is asked until it is answered -
   the service answers a landed one whatever its age (its row kept thirty days) - and only a refusal lets it lapse.
-- **A unit left where it was gathered** stays counted until the next act cuts the count to the pack.
 
 ## 8. The threats, and the answers
 
@@ -178,11 +183,13 @@ did: a material is listed, given to the guild or sold back from the Stores, so i
 | A deposit landed and its page gone before the save that took the items out | The take is saved before the ask; a save without its stamp never sent it (7) |
 | A deposit refused after a reload given back twice, or not at all | By the stamp in the save, read and taken off in one turn (7) |
 | A kept harvest's units cut before they are minted | The count as heard is said as held while another carried act waits (5) |
+| A harvest's units counted carried and never made (a full pack) | Every unit minted, past the pack's weight if it must (3, 13) |
 
 ## 9. Pins
 
 `test/bag1_service.test.js` (the service, through the real Worker) and `test/bag1_client.test.js` (the law, the
 save's hands, the window, the shop, the save, the book, a done-when through the real Worker); `tools/mutants/bag1.json`.
+PACK-OVER's: `test/fb1004_packover.test.js`, `tools/mutants/fb1004_packover.json`.
 
 ## 10. The audit (2026-10-03, Mac: "Audit this")
 
@@ -226,7 +233,7 @@ its fix mutated (`tools/mutants/bag1.json`, the `AUDIT2-BAG1-` records).
 | K11 | "+3 Oak Log to your bag" for goods that all went nowhere | "- all left where they were gathered: no room in your bag or pack" (3) |
 | H1/U2 | The classic skin could not reach the bag, and a food rotted in it held the bag loaded for good | Empty your bag into your pack, on the Stores page (2, 4) |
 | H3 | A take's undo wrote onto a stack sold or merged since, or into a bag that had left | The undo by each list's role, read at the undo |
-| H8 | Every shelf of a General Store shelved a bag | The first shelf alone (1) |
+| H8 | Every shelf of a General Store shelved a bag | The first shelf alone (1) - undone by BAG-SHELF (13): nobody found it |
 | H11/H12 | `bagMayLeave` restated inline at five doors; Arcane Essence mintable as an item | One test; only what has a pack form is minted |
 | U1/U14 | Put in offered past the Stores' room; why Take out was shut lived on a title alone; the qty field unlabelled | The room read; the reason drawn; "How many" (4) |
 | U3/U6/U8/U11 | The footer's bag button grew the footer; the haul card counted what the service counted, not what came; the gold field came back over the pack after the bag; "your pack while you have none" | The gold button's rules; what came; the field put away; the words (2, 3) |
@@ -245,3 +252,33 @@ Not changed, and why: the wagon is reached from the inventory anywhere the cart 
 | `scenes/exterior.js` | the inventory's bag pane (`bagItems`) |
 | `scenes/dungeonContext.js` | the same, below ground |
 | `scenes/worldModes.js` | DFU's potion maker reads and spends the bag after the cart; interiors' inventory is world.js's |
+
+## 13. From play - PACK-OVER (FIELD BUGS 2026-10-04)
+
+Mac, the day after: "People are doing gathering without a crafting bag and theyre not seeing the materials in their
+inventory". Section 3 had a harvest's units with no room "left where it was gathered" - counted carried by the service
+and never made, while every other door (a withdrawal, a smelt's carry-out, a refused deposit's return) mints past the
+pack's weight (6, the audit's B5). A DFU pack is carried to its limit, so a character with no bag gathered goods it never
+saw. The book mints a harvest through the hands' `give` now (`net/profBook.js` mintHarvest: bag, pack, then the pack past
+its weight, `put.over`), as the Foraging mod's own AddItem does; the node still refuses an act with no room for one unit
+before it starts. The record: `01-Overview/Field-Bugs-2026-10-04.md`.
+
+**BAG-SHELF** (the same day, Mac: "Also nobody can find material bags in store"). The bag stood on a General Store's
+first shelf alone (the second audit's H8) and was left off a shelf stocked by a character who carried one. The first
+shelf is only the first shelf model the building lists, and online a shelf's stock is the room's for the day - so one
+bag-owner's open hid it from everyone in the building until the next restock. It is on every shelf now, whoever stocks
+it, as the horse and the cart are (`systems/shopStock.js`) - one to a character (ONE-BAG). A shelf stocked earlier the same game day keeps its stock until its restock.
+
+**ENDLESS-STOCK** (the same day, Mac: "I want the gathering bag to be unlimited purchases in stores. It shouldnt run
+out, same with campfires"). A shelf is a container, and a purchase took the bag off it for the day - for the whole
+building, online. A Materials Bag or a Campfire bought is put back on its shelf now, a fresh one for each
+(`systems/shopStock.js` restockEndless, called by the two purchases in `scenes/worldModes.js` - commitTrade's Buy arm
+and the keyed list's doBuy - and nothing else: one stolen from a closed shop's shelf stays gone). Online alone; and online
+no shop buys a bag or a Campfire back (`shopBuysItem`) - bought cheap and sold dear they were gold for nothing, and one
+sold made any shelf endless. Pinned by `test/fb1004_endless.test.js`; `tools/mutants/fb1004_endless.json`.
+
+**ONE-BAG** (the same day, Mac: "Right, you shouldnt be able to hold multiple gathering bags"). A second Materials Bag is
+refused by the take ladder (`systems/itemTransfer.js` planTake: a pickup, quick loot, a container, the wagon, both trade
+windows' Buy basket) and the keyed shelf (`scenes/worldModes.js` doBuy) while another is held in the pack, a trade's
+basket or the wagon: "You already have a Materials Bag." One out of the character's own wagon is never refused, and the
+bag is no decor piece. Pinned by `test/fb1004_onebag.test.js`; the audit's findings in the field-bug record.

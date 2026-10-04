@@ -196,7 +196,10 @@ same item; the name is the template's).
   night its owner sleeps in it, pitching free - one rule for both (OPEN 6).
 - **Start kit.** Every new online character starts with a full Campfire, C&C on or off (`src/systems/startingGear.js`
   `addSurvivalProvisions` grows an online arm; C&C's own 2-of-5 kit becomes this one full).
-- **Shops.** General Store 2-4 always online (today 1-3 with C&C only, `provisionsStock`), Pawn Shop 0-2, a tavern 1;
+- **Shops.** General Store 2-4 always online (today 1-3 with C&C only, `provisionsStock`), Pawn Shop 0-2, a tavern 1 -
+  and online a Campfire bought is back on its shelf, so a shelf that stocks one never sells out, and no shop buys one
+  back (ENDLESS-STOCK, FIELD BUGS 2026-10-04: `shopStock.js` restockEndless, from both purchases - commitTrade's Buy and
+  the keyed list's doBuy - and shopBuysItem);
   the online half-price essentials rate (`src/systems/shopStock.js` / the trade modes' `isPotion` arm) grows a
   Campfire and Firewood arm.
 

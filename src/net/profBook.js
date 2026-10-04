@@ -920,17 +920,23 @@ export function createProfBook({ door, storage = null, character = () => null, n
     return { held: heldNow(h.material, h.rid), heldKey: h.material, seen: seenNow(h.material) };
   }
   /** BAG1: a carried harvest's goods into the bag or the pack - the material, a gem, a second find - each minted by the
-   *  host's hands; `{ bag, pack, left }` summed, for the words (a unit with no room was left where it was gathered: the
-   *  service's count of it falls to the truth at the next act that reads it). AUDIT BAG1 B9: and `lost`, what was left of
-   *  each material by name - a gem or a second find left was said as the harvest's own. */
+   *  host's hands; `{ bag, pack, over, left }` summed, for the words. AUDIT BAG1 B9: and `lost`, what was left of each
+   *  material by name - a gem or a second find left was said as the harvest's own.
+   *  PACK-OVER (FIELD BUGS 2026-10-04, "people are doing gathering without a crafting bag and they're not seeing the
+   *  materials in their inventory"): EVERY UNIT THE SERVICE COUNTED IS MINTED - the bag, the pack, then the pack past its
+   *  weight (`over`: the hands' `give`, giveCarried - B5's law for a withdrawal), as the Foraging mod's own AddItem puts a
+   *  find into a full pack. What found no room was left where it was gathered, counted carried and never made, so a
+   *  character with no bag and a loaded pack gathered goods it never saw. `left` is now only what the hands could not
+   *  make at all (hands with no `give`; a thing with no pack form). */
   function mintHarvest(d) {
-    const out = { bag: 0, pack: 0, left: 0, lost: /** @type {{ key: string, n: number }[]} */ ([]) };
+    const out = { bag: 0, pack: 0, over: 0, left: 0, lost: /** @type {{ key: string, n: number }[]} */ ([]) };
     const add = (k, n) => {
       if (typeof k !== 'string' || !(n > 0)) return;
+      /** @type {{ bag: number, pack: number, over?: number, left?: number }|null} */
       let got = null;
-      try { got = carry?.mint(k, n) ?? null; } catch (e) { console.warn('[prof] a harvest would not mint', e); }
-      const left = got ? got.left : n;
-      if (got) { out.bag += got.bag; out.pack += got.pack; }
+      try { got = (typeof carry?.give === 'function' ? carry.give(k, n) : carry?.mint(k, n)) ?? null; } catch (e) { console.warn('[prof] a harvest would not mint', e); }
+      const left = got ? Math.max(0, n - (got.bag | 0) - (got.pack | 0) - (got.over | 0)) : n;
+      if (got) { out.bag += got.bag | 0; out.pack += got.pack | 0; out.over += got.over | 0; }
       if (left > 0) { out.left += left; out.lost.push({ key: k, n: left }); }
     };
     add(d.material, Number(d.qty) || 0);
