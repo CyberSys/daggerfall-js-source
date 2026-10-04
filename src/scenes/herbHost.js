@@ -23,7 +23,7 @@
 //   Sickle's steady hand draws DFU's Tanto in the hand.
 // ═══════════════════════════════════════════════════════════════════
 import { herbPatches, nodeKey, HERB_TABLES } from '../net/nodeLaw.js';
-import { tierOpen, TIER_RANKS, actBand, PROF_RANK_MAX, herbKey, storesFullIn, GROUND_WHERE, GROUND_WHERE_WORDS } from '../net/professionLaw.js';
+import { tierOpen, TIER_RANKS, actBand, PROF_RANK_MAX, herbKey, storesFullIn, fullWordsIn, GROUND_WHERE, GROUND_WHERE_WORDS } from '../net/professionLaw.js';
 import { natureStandsAt, insideRocks } from '../world/terrainNature.js';
 import { createHerbAct } from '../systems/herbAct.js';
 import { FT } from '../systems/foragingLaw.js';
@@ -82,9 +82,9 @@ export function patchFlats(patch) {
  * herbs, the Basket the food): taken, it says so, never the other harvest's act.
  * @param {{ patch: any, taken: (k: string) => boolean, counting: (k: string) => boolean, basket: boolean, rank: number,
  *   sickle: boolean, basketTool: boolean, storesFull: (key: string) => boolean, herbKeyOf: (t: number) => string,
- *   today: number, cap: number, only?: boolean }} o
+ *   today: number, cap: number, only?: boolean, fullWords?: string }} o
  */
-export function patchPlan({ patch, taken, counting, basket, rank, sickle, basketTool, storesFull, herbKeyOf, today, cap, only = false }) {
+export function patchPlan({ patch, taken, counting, basket, rank, sickle, basketTool, storesFull, herbKeyOf, today, cap, only = false, fullWords = 'Stores full' }) {   // BAG1: `fullWords` the book's
   const herbsLeft = !taken('herbs') && !counting('herbs');
   const foodLeft = !taken('food') && !counting('food');
   let kind = basket ? 'food' : 'herbs';
@@ -104,7 +104,7 @@ export function patchPlan({ patch, taken, counting, basket, rank, sickle, basket
   if (!tierOpen(rank, patch.tier)) return { kind, verb: `Pick ${name}`, rest: `needs Herbalism ${TIER_RANKS[patch.tier - 1]}`, ready: false, both, needsRank: TIER_RANKS[patch.tier - 1] };
   if (patch.tier > 1 && !sickle) return { kind, verb: `Pick ${name}`, rest: 'needs a Sickle', ready: false, both };
   const key = herbKeyOf(patch.herb);
-  if (key && storesFull(key)) return { kind, verb: `Pick ${name}`, rest: `Stores full - ${materialLabel(key)}`, ready: false, both };
+  if (key && storesFull(key)) return { kind, verb: `Pick ${name}`, rest: `${fullWords} - ${materialLabel(key)}`, ready: false, both };
   return { kind, verb: `Pick ${name}`, rest: rankWord, ready: true, both };
 }
 
@@ -123,7 +123,7 @@ export function herbKind({ book }) {
     const plan = patchPlan({
       patch: p, taken: (k) => book.taken(p.key, k), counting: (k) => book.counting(p.key, k), basket, only,
       rank: rank('herbalism'), sickle: !!foragingToolIn(entity, FT.Sickle), basketTool: !!foragingToolIn(entity, FT.Basket),
-      storesFull: (key) => storesFullIn(book, key), herbKeyOf: (h) => herbKey(h, info?.region ?? 0),   // STORES-ROOM: every origin, as the service counts
+      storesFull: (key) => storesFullIn(book, key), fullWords: fullWordsIn(book), herbKeyOf: (h) => herbKey(h, info?.region ?? 0),   // STORES-ROOM: every origin, as the service counts
       today: book.state.today?.herbalism ?? 0, cap: book.state.caps?.harvests ?? 60,
     });
     return { ...plan, harvest: plan.kind, profession: 'herbalism' };
@@ -177,6 +177,9 @@ export function herbKind({ book }) {
         harvest: plan.harvest, tool, profession: 'herbalism', label: plan.harvest === 'food' ? 'click the glint' : kind === 'steady' && !used ? keyLabel('Interact') : '',
         hand: (a) => (a.harvest === 'herbs' && a.tool ? SICKLE_HAND : null),
         heldByUse: !!used && kind === 'steady',   // TOOL-USE: the Sickle's Use holds the steady hand - keep still, no E held
+        // AUDIT BAG1 B4: the material the herbs are, by the region the harvest names (the service's own key) - the Basket's
+        // food is the service's roll, named nowhere
+        ...(plan.harvest === 'herbs' ? { material: (info) => herbKey(p.herb, info?.region ?? 0) } : {}),
       };
     },
     cleanNote: (a) => (a.harvest === 'food' ? ' (every find)' : ' (unbruised)'),

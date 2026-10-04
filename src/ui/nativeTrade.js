@@ -26,6 +26,7 @@
 // The laws are systems/tradeModes.js's; this file is the panel, the
 // hit rects, the staging collections and the confirm box.
 
+import { BAG_WORDS } from '../net/bagLaw.js';   // BAG1
 import { loadImg, nativeMetrics, drawImg, drawImgSub, shadowText } from './nativePanel.js';   // MAC-N2: drawImgSub, the selected tab's INVE01I0 cutout
 import { drawScreenDimBackdrop } from './chargenArt.js';
 import { LIST_SLOTS, CELL_X, CELL_W, SLOT_H, CELL_MARGIN, ARROW_H, DOWN_ARROW_Y, scrollerHit, applyScroll, makeIconDrawer, drawStackLabel,
@@ -524,6 +525,7 @@ export class NativeTradeWindow {
       undamaged: rows(DOES_NOT_NEED_TO_BE_REPAIRED_TEXT_ID),
       notRepairable: [{ text: CANNOT_BE_REPAIRED_TEXT, center: true }],
       identified: [{ text: DOESNT_NEED_IDENTIFY, center: true }],
+      bagLoaded: [{ text: BAG_WORDS.notEmpty, center: true }],   // BAG1: a Materials Bag holding anything
     }[refusal] ?? [];
     this.box = { rows: text.length ? text : [{ text: '...', center: true }], buttons: null };
   }
@@ -570,6 +572,7 @@ export class NativeTradeWindow {
       // are read straight off the entity here, as DFU reads them off
       // the singleton - they are not the window's collections.
       wagonLoaded: (this.hooks.entity?.wagonItems ?? []).length > 0,
+      bagLoaded: (this.hooks.entity?.bagItems ?? []).length > 0,   // BAG1: the Materials Bag holding anything
       usedWagon: (this.hooks.entity?.items ?? []).find(
         (i) => i.group === 'Transportation' && i.templateIndex === SMALL_CART_TEMPLATE) ?? null,
     });

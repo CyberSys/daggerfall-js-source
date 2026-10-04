@@ -126,5 +126,5 @@ test('CLASSIC-PAGES: a Forge, Workbench or Loom works on either skin while the p
   assert.equal(storesWhereLine(''), 'Gathered goods go to your Stores, not your pack: the pause menu\'s Holdings > Stores.', 'the key unbound');
   // the station's press is the pause door's, at the Stores page - which opens on the classic skin now
   assert.match(rd('src/scenes/worldModes.js'), /if \(forgeOffered\(\)\) interiorKeyCtx\.togglePause\(\{ at: 'stores' \}\)/);
-  assert.match(rd('src/scenes/gatherHost.js'), /hud\.toast\(storesWhereLine\(deps\.keyLabel\?\.\('Professions'\) \?\? ''\)\)/, 'the host names the key the player has it on');
+  assert.match(rd('src/scenes/gatherHost.js'), /hud\.toast\(storesWhereLine\(deps\.keyLabel\?\.\('Professions'\) \?\? '', d\.carry === true\)\)/, 'the host names the key the player has it on (BAG1, PIN MOVED: and says the bag when the goods were carried)');
 });

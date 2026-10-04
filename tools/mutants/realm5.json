@@ -203,8 +203,8 @@
   {
     "name": "REALM5-door-drops-seq",
     "file": "src/net/accountClient.js",
-    "old": "...(Number.isSafeInteger(data?.seq) ? { seq: data.seq } : {}), status: res.status };",
-    "new": "status: res.status };",
+    "old": "...(Number.isSafeInteger(data?.seq) ? { seq: data.seq } : {}), ...(Number.isSafeInteger(data?.at)",
+    "new": "...(Number.isSafeInteger(data?.at)",
     "tests": [
       "test/realm5.test.js"
     ]
@@ -221,7 +221,7 @@
   {
     "name": "REALM5-host-hand-to-hand",
     "file": "src/scenes/world.js",
-    "old": "      realm: realmSession ? { act: (o) => realmGoldAct({ session: realmSession, checkpoint: () => onlineCheckpoint(), ...o }) } : null,",
+    "old": "      realm: realmSession ? { act: (o) => realmGoldAct({ session: realmSession, checkpoint: () => onlineCheckpoint(), ...o }), abandon: (why) => realmSession.abandon(why) } : null,",
     "new": "      realm: null,",
     "tests": [
       "test/realm5.test.js"

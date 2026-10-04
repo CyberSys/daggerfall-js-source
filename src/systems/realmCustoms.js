@@ -91,7 +91,7 @@ export function applyCustoms(snap) {
     if (!excess) break;
     a.accountGold -= take(a.accountGold ?? 0);
   }
-  for (const list of lists(snap.wagonItems, snap.items)) takeFrom(list);
+  for (const list of lists(snap.wagonItems, snap.bagItems, snap.items)) takeFrom(list);   // BAG1: the bag's materials too
   if (excess) snap.goldPieces = Math.max(0, (snap.goldPieces ?? 0) - take(snap.goldPieces ?? 0));
   // the records customs emptied leave their lists, in place - a list is held by its container, its pile or its piece
   for (const list of carriedItemLists(snap)) {

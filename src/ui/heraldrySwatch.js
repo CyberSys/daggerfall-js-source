@@ -21,7 +21,7 @@
 // Not a DFU member: Daggerfall Unity has no player guilds. Ledger A
 // (ONLINE).
 // ═══════════════════════════════════════════════════════════════════
-import { heraldryOf, heraldryText } from '../net/heraldryLaw.js';
+import { heraldryOf, heraldryText, heraldryKey } from '../net/heraldryLaw.js';
 import { heraldryIndex, armsNamed } from '../net/heraldryIndex.js';
 import { shieldSvg } from './heraldryArt.js';
 
@@ -44,7 +44,7 @@ const painted = new WeakMap();
  */
 export function paintSwatch(img, heraldry) {
   const h = heraldryOf(heraldry);
-  const key = h ? `${h.field}/${h.border}/${h.device}` : '';
+  const key = h ? heraldryKey(h) : '';   // AUDIT GUILD2 G12: the whole arms - a division or a device's colour changed is a new picture
   if (painted.get(img) === key) return !!h;
   painted.set(img, key);
   if (h) {
