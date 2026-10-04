@@ -147,6 +147,8 @@ import { sheetModel } from './enhancedCharSheet.js';
 import { profPagesShown, PROF_PAGE_SECTIONS, drawProfessionsPage, drawStoresPage, resetProfPages, profActUnderWay, setDownProfAct } from './profPages.js';   // PROF1: the Professions and Stores pages, online
 import { REVENANT_PAGE_SECTIONS, revenantPageShown, drawRevenantsPage } from './revenantPage.js';
 import { COMPANION_PAGE_SECTIONS, companionPageShown, drawCompanionsPage, resetCompanionRoster } from './companionRoster.js';   // COMPANION-ROSTER: the sworn and the slots
+import { STABLE_PAGE_SECTIONS, stablePageShown, drawStablePage, resetHoldingsPages } from './holdingsPages.js';   // HOLDINGS: the horse and the wagon
+import { FLEET_PAGE_SECTIONS, fleetPageShown, drawFleetPage, resetFleetPage } from './fleetPage.js';   // HOLDINGS: the ships
 import { swornBodyOf } from '../systems/revenantCompanions.js';   // COMPANION-ROSTER: a sworn one's live health
 import { enemyDisplayName } from '../characters/enemyBasics.js';   // REVENANT-PAGE: a revenant's kind   // REVENANT-PAGE: the foes that have earned your name
 import { affiliations } from '../systems/affiliations.js';
@@ -309,6 +311,7 @@ let bountyAbandonArmed = null;   // BOUNTY1: the bounty whose Abandon was presse
 let journalCleanArmed = null;   // JOURNAL-CLEAN: 'f:<index>' (Remove) | 'clear' (Clear archive) pressed once - the second press acts
 let questShowHidden = false;    // JOURNAL-CLEAN: the rail's "Show hidden" - whether the hidden quests are drawn, in their own section
 let statsSec = 'character'; // PX6: the Stats page's rail - character | attributes | skills | standing
+let holdSec = 'stable';     // HOLDINGS: the Holdings page's rail - stable | fleet | companions | revenants | stores
 let statsAllSkills = false; // PX6: the Miscellaneous disclosure, the sheet's own gesture
 let sysSec = 'save';        // PX7: the System page's rail - which pane fills the detail
 
@@ -1098,7 +1101,7 @@ function paneOnline(body) {
   // agreeing to are still on the surface they enter through, where a
   // page in the bible cannot reach them.
   const foot = el('div', 'card svonlinefoot');
-  foot.append(el('p', 'meta', 'Everyone plays their own save, and you can see and talk to each other anywhere. Dungeons and buildings are shared: enemies, doors, levers and every chest, shelf or cupboard someone has opened are the same for everyone, and stay that way. In towns and the wilds you share who is around: what one player meets, everyone nearby sees and can fight, and those monsters can hurt you too. ' + skyDayWords() + ' The world\u2019s clock and sky run on real time: resting, travelling, jail time or training don\u2019t move them, so a quest that waits for a time of day waits for the world\u2019s, and a full moon holds a lycanthrope for its night alone. Your character also keeps their own time: it runs while you play, resting, travelling, jail time and training use it, and it stops while you are logged off. Your wounds, spells, hunger, diseases, curses, guild ranks, rented rooms, loans and repairs run on it. Quests online have no time limits: none fails because time ran out, a bounty never lapses, and a quest that would make you wait days (a letter, a meeting) moves on after a minute or two of play. Every enhancement is on for everyone in the shared world, but your UI is your own, with chat, friends, the party and trading in their own panels. Most mods stay your choice online. A few are the room\u2019s: the ones that change the ground, the ones that change monsters and loot, and the rules everyone plays by. The Mods page marks each one.'));   // AUDIT WORLD5 C12: the shared clock, said at the door; OL1: the lane, said at the door
+  foot.append(el('p', 'meta', 'Everyone plays their own save, and you can see and talk to each other anywhere. Dungeons and buildings are shared: enemies, doors, levers and every chest, shelf or cupboard someone has opened are the same for everyone, and stay that way. In towns and the wilds you share who is around: what one player meets, everyone nearby sees and can fight, and those monsters can hurt you too. ' + skyDayWords() + ' The world\u2019s clock and sky run on real time: resting, travelling, jail time or training don\u2019t move them, so a quest that waits for a time of day waits for the world\u2019s, and a full moon holds a lycanthrope for its night alone. Your character also keeps their own time: it runs while you play, resting, travelling, jail time and training use it, and it stops while you are logged off. Your wounds, spells, hunger, diseases, curses, guild ranks, rented rooms, loans and repairs run on it. Quest timers run on the world\u2019s clock while you play: resting, waiting and travelling don\u2019t spend a quest\u2019s days, and time logged off never counts. A quest that only makes you wait - a letter, a meeting, \u201ccome back in a few days\u201d - moves on after a couple of minutes of play. You rest at a fire, a tent or a bed: a night passes at once, at most once every ten minutes of play, and your party within 15 metres sleeps it with you. Every enhancement is on for everyone in the shared world, but your UI is your own, with chat, friends, the party and trading in their own panels. Most mods stay your choice online. A few are the room\u2019s: the ones that change the ground, the ones that change monsters and loot, and the rules everyone plays by. The Mods page marks each one.'));   // AUDIT WORLD5 C12: the shared clock, said at the door; OL1: the lane, said at the door; QCLOCK-WORLD: the quests' clock; REST8: the short wait; REST9: the rest act and the party's night
   foot.append(field('Relay', 'onlineServer', DEFAULT_SERVER, 200));
   body.append(foot);
   body.append(onlineSyncCard());   // UXB1-E: under the rules it copies
@@ -2335,8 +2338,8 @@ function peerSpritesCard() {
     + 'Shield, Spell Absorption, the resistances, Jumping and Water Breathing, nothing else. Off: only your party can.', { home: true }));
   // REST-OPT (2026-09-27, Tabitha: "Allow party members to choose not to rest with their party")
   c.append(prefRow('restWithParty', 'Rest with my party',
-    'On: in a party your rest is the party\u2019s - a vote, and everyone near sleeps together. Off: you rest on your own, '
-    + 'and the party rests without you. A leader who turns it off leaves everyone to rest for themselves.', { home: true }));
+    'On: when a party member within 15 m sleeps a night at a fire, a tent or a bed, you sleep it too, with your own '
+    + 'healing. Off: you rest on your own, and the party rests without you.', { home: true }));   // AUDIT REST: REST5's night, no vote
   // TV3 (2026-09-28, bible/06-Systems/Travel-View.md): being SEEN - the region's travellers see where you are
   c.append(prefRow('showToTravellers', 'Show me to travellers in my region',
     'On: when you are outdoors, players in your region see you on the overworld and the map, and you see them. '
@@ -3491,7 +3494,11 @@ function appendPxFoot(home) {
 }
 
 // ── PX3: THE PAUSE WINDOW ────────────────────────────────────────
-const PAUSE_TABS = Object.freeze([['quests', 'Quests'], ['stats', 'Stats'], ['system', 'System']]);
+// HOLDINGS (2026-10-03, Mac: "Lets add a new tab to the pause menu as the stat page is starting to get bloated"): what the
+// player owns and who follows them moved off the Stats rail onto a tab of their own (pauseHoldings, below).
+const PAUSE_TABS = Object.freeze([['quests', 'Quests'], ['stats', 'Stats'], ['holdings', 'Holdings'], ['system', 'System']]);
+/** HOLDINGS: every tab a landing may name (mountEnhancedMenu's `at`). */
+export const PAUSE_TAB_IDS = Object.freeze(PAUSE_TABS.map(([id]) => id));
 // The token formattings that carry a journal line - questJournal's own
 // counted set (DaggerfallQuestJournalWindow.cs:658-662 via its :322).
 
@@ -3509,9 +3516,52 @@ function pauseWindow() {
   win.append(tabs);
 
   const body = el('div', 'px-body');
-  ({ quests: pauseQuests, stats: pauseStats, system: pauseSystem })[pauseTab](body);
+  ({ quests: pauseQuests, stats: pauseStats, holdings: pauseHoldings, system: pauseSystem })[pauseTab](body);
   win.append(body);
   return win;
+}
+
+// ── HOLDINGS: THE HOLDINGS PAGE ──────────────────────────────────
+// The journal's bones a fourth time (PX6's rail of pages, the chosen
+// one on the right), for what the Stats rail had grown past the
+// character sheet: the horse and the wagon (ui/holdingsPages.js), the
+// ships (ui/fleetPage.js), the sworn companions, the revenants, and
+// the Stores online. A page gone (nothing to show, offline) is never
+// drawn, and the rail falls back to its first.
+function pauseHoldings(body) {
+  const wrap = el('div', 'px-journal');
+  const rail = el('div', 'px-qrail');
+  const secs = holdingsSections();
+  if (!secs.some(([id]) => id === holdSec)) holdSec = secs[0]?.[0] ?? 'stable';
+  for (const [id, label] of secs) {
+    const b = el('button', `px-qrow${id === holdSec ? ' on' : ''}`);
+    b.append(el('span', 'px-c', '◆'), document.createTextNode(label));
+    b.onclick = () => { holdSec = id; render(); };
+    rail.append(b);
+  }
+  wrap.append(rail);
+  const detail = el('div', 'px-qdetail px-sys');   // the system page's dress, as the Stats detail wears it (PLUS4)
+  const kit = { el, divider: pxDivider, meter: pxMeter };
+  // AUDIT HOLDINGS C6: a host with no page to show (the standalone dungeon sets no provider) says so - the Stable drawn
+  // there told a player who owns both that they own no horse and no wagon
+  if (!secs.length) {
+    detail.append(el('div', 'px-qverdict', 'Nothing here to hold'), el('p', null, 'What you own and who follows you is kept in the world - your horse, your wagon, your ships and your companions.'));
+    wrap.append(detail);
+    body.append(wrap);
+    return;
+  }
+  const draw = {
+    stable: (d) => drawStablePage(d, render, kit),
+    // a door the page opens over the world (the shipwright's window, the water's placing click): the pause goes down
+    // first, as the sheet's doors do (PX25/ESC-BOOK), and comes back if the door opened nothing (AUDIT 27h A4)
+    fleet: (d) => drawFleetPage(d, render, { ...kit, door: (fn) => { onAction('handoff'); if (fn() === false) onAction('resume'); } }),
+    companions: (d) => drawCompanionsPage(d, render, { ...kit, kindName: enemyDisplayName, here: swornBodyOf }),   // COMPANION-ROSTER
+    revenants: (d) => drawRevenantsPage(d, render, { ...kit, player: playerEntity, kindName: enemyDisplayName }),   // REVENANT-PAGE
+    stores: (d) => drawStoresPage(d, render, kit),   // PROF1
+  }[holdSec];
+  draw?.(detail);
+  wrap.append(detail);
+  body.append(wrap);
 }
 
 // ── PX7: THE SYSTEM PAGE ─────────────────────────────────────────
@@ -3631,8 +3681,13 @@ function meterRow(label, now, max, tone) {
 }
 
 /** PROF1: the rail's pages - the sheet's six, and online, while the professions are this account's, the Professions
- *  and Stores pages (ui/profPages.js). */
-const statsSections = () => [...STATS_SECTIONS, ...(revenantPageShown(playerEntity) ? REVENANT_PAGE_SECTIONS : []), ...(companionPageShown() ? COMPANION_PAGE_SECTIONS : []), ...(profPagesShown() ? PROF_PAGE_SECTIONS : [])];   // REVENANT-PAGE: after the sheet's own, before the professions'
+ *  page (ui/profPages.js). HOLDINGS: the Stores page, the Revenants and the Companions went to the Holdings rail. */
+const PROF_STATS_SECTIONS = Object.freeze(PROF_PAGE_SECTIONS.filter(([id]) => id === 'professions'));
+const PROF_HOLD_SECTIONS = Object.freeze(PROF_PAGE_SECTIONS.filter(([id]) => id !== 'professions'));
+const statsSections = () => [...STATS_SECTIONS, ...(profPagesShown() ? PROF_STATS_SECTIONS : [])];
+/** HOLDINGS: the Holdings rail's pages - what the player owns (the Stable, the Fleet while ships sail, the Stores
+ *  online) and who follows them (the Companions, the Revenants), each while it has a thing to show. */
+const holdingsSections = () => [...(stablePageShown() ? STABLE_PAGE_SECTIONS : []), ...(fleetPageShown() ? FLEET_PAGE_SECTIONS : []), ...(companionPageShown() ? COMPANION_PAGE_SECTIONS : []), ...(revenantPageShown(playerEntity) ? REVENANT_PAGE_SECTIONS : []), ...(profPagesShown() ? PROF_HOLD_SECTIONS : [])];
 
 function pauseStats(body) {
   const m = sheetModel(playerEntity);
@@ -3659,9 +3714,7 @@ function pauseStats(body) {
   const profKit = { el, divider: pxDivider, meter: pxMeter };
   ({
     character: statsCharacter, attributes: statsAttributes, skills: statsSkills, specials: statsSpecials, standing: statsStanding, effects: statsEffects, master: statsMaster,   // SOFTCAP4: `master` - the Master Skills door's page
-    professions: (d) => drawProfessionsPage(d, render, profKit), stores: (d) => drawStoresPage(d, render, profKit),
-    revenants: (d) => drawRevenantsPage(d, render, { ...profKit, player: playerEntity, kindName: enemyDisplayName }),   // REVENANT-PAGE
-    companions: (d) => drawCompanionsPage(d, render, { ...profKit, kindName: enemyDisplayName, here: swornBodyOf }),   // COMPANION-ROSTER
+    professions: (d) => drawProfessionsPage(d, render, profKit),
   })[statsSec](detail, m);
   // PX25: THE DOORS THE F5 SHEET CARRIED. The classic character sheet
   // has four buttons down its side - Inventory, Spellbook, Logbook,
@@ -4706,7 +4759,7 @@ export function mountEnhancedMenu(host, {
   // which is what keeps the reset the default rather than a thing this
   // has to work around. The tabbed window IS the pause home face, so a
   // landing sets the TAB and leaves the section alone.
-  if (['quests', 'stats', 'system'].includes(at)) pauseTab = at;
+  if (PAUSE_TAB_IDS.includes(at)) pauseTab = at;
   // DISC22-B: ...or a SECTION of the rail - the classic pause window's Controls button lands on Settings (the port's
   // whole settings screen, Controls among its categories), not on the home face a press away from it.
   else if (at && sections.some((l) => idOf(l) === at)) section = at;
@@ -4717,6 +4770,8 @@ export function mountEnhancedMenu(host, {
   statsSec = 'character';
   resetProfPages();   // PROF1: an armed change of specialisation never outlives the visit
   resetCompanionRoster();   // COMPANION-ROSTER: nor an armed Release
+  holdSec = 'stable';   // HOLDINGS: the Holdings rail opens on its first page
+  resetHoldingsPages(); resetFleetPage();   // ...and an act's word, an open name field, an armed press never outlive the visit
   statsAllSkills = false;
   sysSec = 'save';
   category = CATEGORIES[0].id;
@@ -4727,7 +4782,9 @@ export function mountEnhancedMenu(host, {
   discardControlsStaging();   // FIX-F: a second visit never inherits the first one's staged binds
   // PROF2: a landing on a professions page - the Stats tab at it (a home forge's press opens the Stores' forge); the
   // draw falls back to the character's own page when the professions are not the account's
-  if (PROF_PAGE_SECTIONS.some(([id]) => id === at)) { pauseTab = 'stats'; statsSec = at; }
+  // HOLDINGS: the Professions page is the Stats rail's, the Stores page the Holdings rail's
+  if (PROF_STATS_SECTIONS.some(([id]) => id === at)) { pauseTab = 'stats'; statsSec = at; }
+  else if (PROF_HOLD_SECTIONS.some(([id]) => id === at)) { pauseTab = 'holdings'; holdSec = at; }
   _eff = null;
   render();
   keyHandler = onKey;

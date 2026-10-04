@@ -57,7 +57,9 @@ test('DEED-PORT: the nearest harbour by name and the way to it - map y runs sout
   const p = ids[2];
   assert.deepEqual([at(p, 0, 1).way, at(p, 0, -1).way, at(p, -1, 0).way, at(p, 1, 0).way, at(p, 1, 1).way, at(p, -1, -1).way],
     ['north', 'south', 'east', 'west', 'north-west', 'south-east']);
-  assert.match(W, /\n\s*nearestPort: \(\) => csaNearestPort\(\),/, 'Come Sail Away\'s deps carry it');
+  // PIN MOVED (AUDIT HOLDINGS, the mutants' run): the Fleet host's deps carry the same call (HOLDINGS - Send away names
+  // the port), so the pin reads Come Sail Away's own line by its note - either alone no longer stood for both
+  assert.match(W, /\n\s*nearestPort: \(\) => csaNearestPort\(\),   \/\/ DEED-PORT: the refusal names where to go\n/, 'Come Sail Away\'s deps carry it');
 });
 
 /** The runtime over the deed's doors, the rest inert. */

@@ -58,6 +58,8 @@ import { GOLD_PIECE_WEIGHT_KG, isEnchanted } from './inventory.js';
 import { calculateItemRepairCost, repairRefusal } from './repairService.js';
 import { itemValueOf, conditionPercentage } from './itemTemplates.js';
 import { isOnlinePage } from './onlineLane.js';   // SELL-AS-FOUND: online, a sale reads a piece as it was found
+import { isCampfireKit } from './survival/items.js';   // AUDIT REST: the Campfire an essential online
+import { isFirewood } from './restItems.js';
 import { isPotion } from './useItem.js';   // ESSENTIALS-HALF: the potion, by DFU's own IsPotion   // JAN1: the one value read; RRI2: ConditionPercentage, the Sell arm's third argument
 import { HOLIDAYS } from './holidays.js';
 import { GUILDS } from './guilds.js';
@@ -129,7 +131,7 @@ export const IDENTIFY_COST_MULTIPLIER = 25;
  *  no magic in it at all. It was never seen because the Identify
  *  destination was a null and the mode could not be opened; X7 opened
  *  it, so the derivation had to be right first. Both paths run at
- *  worldModes.js:2663 now (commitTrade) - the paid service and the spell. */
+ *  worldModes.js:2656 now (commitTrade) - the paid service and the spell. */
 export const itemIsIdentified = (item) => !isEnchanted(item) || item?.isIdentified === true;
 
 /** FormulaHelper.CalculateItemIdentifyCost (:1935-1955). FREE on the
@@ -215,7 +217,7 @@ export function buyItemPrice(item, { quality = 0, priceAdjustment = 1000, holida
   // (shopStock.js essentialPrice, rounded up - its law against buying to sell back), at every counter's Buy. AUDIT
   // ESSENTIALS F1: never on top of a holiday's own half - the sale cap reads the full price, so a quarter bought on
   // Merchants Festival sold back for half; the two halves do not stack
-  return isPotion(item) && !holiday ? essentialPrice(held, { online }) : held;
+  return (isPotion(item) || isCampfireKit(item) || isFirewood(item)) && !holiday ? essentialPrice(held, { online }) : held;   // AUDIT REST: REST2's Campfire and Firewood arm
 }
 
 /** SELL-AS-FOUND (AUDIT ECON O1, 2026-10-01): ONLINE A COUNTER PAYS FOR A PIECE AS THE WORLD HANDED IT OVER, AT BEST.
@@ -496,10 +498,10 @@ export const DOESNT_NEED_IDENTIFY = 'This does not need to be identified.';
 
 // The three clauses that stood here are all closed:
 //  - the IDENTIFY SPELL arm (:956-996) is live. identifySpellPass
-//    (:161) feeds worldModes.js:2416-2436, which spends the magicka
+//    (:161) feeds worldModes.js:2409-2429, which spends the magicka
 //    ONCE for the whole list whatever the outcome and tells the player
 //    "N of M identified"; the window opens from openIdentifyWindow
-//    (worldModes.js:10280), the entry point the magic arc owed.
+//    (worldModes.js:10287), the entry point the magic arc owed.
 //  - the LETTER OF CREDIT is tender and bankable: minted at systems/
 //    inventory.js:69, summed by creditAmount at systems/court.js:249,
 //    spent letters-before-coins by deductGold at court.js:291, and

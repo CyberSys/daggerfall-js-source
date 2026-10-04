@@ -634,5 +634,5 @@ test('audit18: the three retired flags are DELETED, not rewritten', () => {
   assert.equal(/INTERIM \(loud\): the\n/.test(src), false);
   // the WORLD-state-is-FLAGGED quicksave note, false since collectWorld shipped
   assert.equal(/WORLD state \(foes, piles,/.test(src), false);
-  assert.ok(/world: collectWorld\(\)/.test(src));
+  assert.ok(/world: \{ \.\.\.collectWorld\(\),/.test(src));   // AUDIT REST II H6 (PIN MOVED): the record and the camps outside beside it
 });

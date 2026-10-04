@@ -193,11 +193,12 @@
   {
     "name": "RIBBON-ix-token",
     "file": "server-account/src/index.js",
-    "old": "          au: auraWorn(who.player),   // WB9g: the aura worn, the title's law - absent for none\n          ...(rb ? { rb } : {}),\n",
-    "new": "          au: auraWorn(who.player),   // WB9g: the aura worn, the title's law - absent for none\n",
+    "old": "          au: auraWorn(who.player, env),   // WB9g: the aura worn, the title's law - absent for none; AEGIS: a list's read off the config\n          ...(rb ? { rb } : {}),\n",
+    "new": "          au: auraWorn(who.player, env),   // WB9g: the aura worn, the title's law - absent for none; AEGIS: a list's read off the config\n",
     "tests": [
       "test/season1_ribbon.test.js"
-    ]
+    ],
+    "note": "AEGIS (re-aimed by content): the line now passes the config (`env`), which a list's aura is read off."
   },
   {
     "name": "RIBBON-ix-answer",

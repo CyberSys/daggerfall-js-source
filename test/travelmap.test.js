@@ -319,7 +319,9 @@ test('U41: the world host mounts the art window and keeps performFastTravel\'s o
   // awaited, with its note, above the last needle
   // PIN MOVED (KEEP-PLUNDER, 2026-09-30), 10000 -> 10400: a jump's sea stowed before Come Sail Away's teleport, with its
   // note, above the needles
-  const core = src.slice(k, k + 10400);
+  // PIN MOVED (QUAYS, 2026-10-03), 10400 -> 10600: the harbours' quays come down with the old frame beside the farms,
+  // with their note, above the last needle
+  const core = src.slice(k, k + 10600);
   for (const needle of ['destroyPixel(bx, by)', 'state.init(px, py)', 'awaitedBuild(first.px']) {
     assert.ok(core.includes(needle), `the core carries ${needle}`);
   }

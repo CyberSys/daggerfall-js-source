@@ -257,8 +257,8 @@ test('REVENANT-PAGE: the living strongest first - name, rank, kind and trait, wh
     assert.equal(P.revenantPageShown(player('char-none')), false, 'off and none: no page on the rail');
   } finally { P._setRevenantPageIconForTests(null); delete globalThis.document; }
   const m = read('src/ui/enhancedMenu.js');
-  assert.match(m, /\.\.\.\(revenantPageShown\(playerEntity\) \? REVENANT_PAGE_SECTIONS : \[\]\)/, 'on the Stats rail');
-  assert.match(m, /revenants: \(d\) => drawRevenantsPage\(d, render, \{ \.\.\.profKit, player: playerEntity, kindName: enemyDisplayName \}\)/);
+  assert.match(m, /\.\.\.\(revenantPageShown\(playerEntity\) \? REVENANT_PAGE_SECTIONS : \[\]\)/, 'on the Holdings rail');   // PIN MOVED (HOLDINGS): off the Stats rail onto the Holdings tab's (test/holdings.test.js)
+  assert.match(m, /revenants: \(d\) => drawRevenantsPage\(d, render, \{ \.\.\.kit, player: playerEntity, kindName: enemyDisplayName \}\)/);   // PIN MOVED (HOLDINGS): the Holdings page's kit
 });
 
 test('REVENANT-HARM: a death no blow names goes to the foe whose harm last reached me - a spell, a lingering round, a blow (its poison\'s ticks after); a killing blow outranks the mark; a mark past its time names nobody (mutants: no mark read; the mark outranking the blow; no time limit)', async () => {

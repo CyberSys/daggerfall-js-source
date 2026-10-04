@@ -35,6 +35,7 @@ export const RELAY_GRAPH = graph('server/src/index.js');
  *  Every relay this repo has shipped a law for, and the sha256 of its law that IS it (see `graph` for what the law is).
  *  Append; never edit an existing row - an old row is a historical fact about bytes that have already been deployed. */
 const LAW = {
+  world160: '8719548088c4ebc9dcc8d51311fabcc8e33fc7df63a6859f416db9c8d7a71354',   // AEGIS: the token's vocabulary gains the Aegis of Oblivion's title and glyph and the Oblivion Ward's aura (identityToken.js) - no frame changes shape.
   world159: '025f2195a030a7f1363564a45a8535ec30689546bd6d3f4be1f0bfcc4e14521a',   // Upstream Arena spectator/health fixes with town-layout staff teleport, inventory handover and private boat ownership; earlier worker candidates were unpublished.
   world158: '0221967fd1a04ad298ad3ab91742aa539a8480604c42a2de0c5cd99a83e8ae6f',   // Integrated Arena, staff teleport, stable boat identity and town-layout destinations.
   world157: 'f68acb2e77579a21377c38df85b33c373460e5904d24506c810c1e17c0a552d2',   // Combined inventory handover, staff teleport and boat/cabin rooms; local candidate only.

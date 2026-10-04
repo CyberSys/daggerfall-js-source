@@ -213,7 +213,8 @@ test('VEIN-NEED: the hosts - each ladder hands the press back at its foot, only 
   const s0 = w.indexOf('const nodeTook = useEdge');
   const street = w.slice(s0, w.indexOf('}).catch((e) => console.error(e));', s0));
   const here = street.indexOf('gatherHost?.sayNeed()');
-  for (const arm of ['lockOn.toggle(_lockFoe)', 'plaquePeerAct(cam.pos, useFwd)', 'naval?.activate()', '_enemyArm(RAY_DISTANCE, _rivalDist)', 'townTalk.tryActivate(', '_race.gateWins', 'else if (lootKey)', 'quickLootTake(', 'modes.tryEnter()']) {
+  // PIN MOVED (AUDIT HOLDINGS Q4): the sea's arm is handed whether her own trigger wins the ray (the gangway yields to it)
+  for (const arm of ['lockOn.toggle(_lockFoe)', 'plaquePeerAct(cam.pos, useFwd)', 'naval?.activate({ boatTrigger: !!_race.boatWins })', '_enemyArm(RAY_DISTANCE, _rivalDist)', 'townTalk.tryActivate(', '_race.gateWins', 'else if (lootKey)', 'quickLootTake(', 'modes.tryEnter()']) {
     assert.ok(street.indexOf(arm) >= 0 && street.indexOf(arm) < here, `${arm} has the press before the node's word`);
   }
 });

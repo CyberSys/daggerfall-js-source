@@ -369,8 +369,9 @@ test('AUDIT-39r: the dungeon host runs the missile sweep at its OWN load door', 
   // hands its rebuilds back. DIAL-LOAD widened it again: the second half's first line takes the host's load law when the
   // door brought none. (The merge of the two: both widenings, 5500 + 1000 + 500.)
   // AUDIT DISC28 widened it once more: the load's start raises the host's own OnStartLoad hands (onStartLoad - the
-  // camera's reel reset), with its reason.
-  const body = ctx.slice(at, at + 7100);
+  // camera's reel reset), with its reason. AUDIT REST III A1 widened it again: the save's camps outside, stood after the
+  // second half (outerCampsLoad), with its reason.
+  const body = ctx.slice(at, at + 7400);
   assert.match(body, /magic\.clearMissiles\(\);/, 'which sweeps its own flights');
   assert.ok(body.indexOf('magic.clearMissiles();') < body.indexOf('applyWorld(extras.world)'),
     'ahead of the world restore, as OnStartLoad is');

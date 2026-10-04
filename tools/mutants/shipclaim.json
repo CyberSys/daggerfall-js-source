@@ -236,11 +236,12 @@
   {
     "name": "SC-claim-deed-kept-on-failure",
     "file": "src/scenes/navalHost.js",
-    "old": "    if (!boat) { const list = pack(), i = list.indexOf(deed); if (i >= 0) list.splice(i, 1); return false; }",
+    "old": "    if (!boat) { const list = pack(), i = list.indexOf(deed); if (i >= 0) list.splice(i, 1); deps.board?.forgetDeed?.(deed); return false; }",
     "new": "    if (!boat) return false;",
     "tests": [
       "test/shipclaim.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "SC-pose-not-where-she-lies",
@@ -488,7 +489,7 @@
   {
     "name": "SC-world-pack-gated",
     "file": "src/scenes/world.js",
-    "old": "      packDeed: (item) => { addItem((playerEntity.items ??= []), item); surfacePlayer(); return () => playerEntity.items; },",
+    "old": "      packDeed: (item) => { titleDeed(item, { port: null }); return () => fleetBook(); },",
     "new": "      packDeed: (item) => { navalGiveItems([item], null); return () => playerEntity.items; },",
     "tests": [
       "test/shipclaim.test.js"
