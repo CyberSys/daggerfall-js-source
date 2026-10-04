@@ -544,7 +544,7 @@ import { deriveTownSeats, seatAtMapId } from '../systems/townSeats.js';   // SEA
 import { createTownSeatBook, parseSeatCommand, parseSiegeCommand } from '../net/townSeatBook.js';   // SEAT1a: the seats open, confirmed, witnessed   // VOID: a moderator's /siege void
 import { seatArrivalLine, seatHallOf, seatBannerOf, boardTithePct } from '../net/townSeatLaw.js';   // SEAT1a: the seat's arrival line; SEAT-HALL: whose hall a palace is; CROWN-HALL: the throne room's banners; AUDIT SEATS-3 D3: a board's Tithe
 import { hallMay } from '../net/hallLaw.js';   // SEAT-HALL: a palace's keepers are a hall's
-import { createOnlineHomes, moveArenaHomes, homeSceneName } from '../systems/onlineHomes.js';   // HOME1: the account service's homes, one town at a time; ARENA4b: the ones the arena displaced, moved
+import { createOnlineHomes, moveArenaHomes, homeSceneName, homeTownBlocks } from '../systems/onlineHomes.js';   // HOME1: the account service's homes, one town at a time; ARENA4b: the ones the arena displaced, moved; HOME-PRICE: a town's size
 import { townBoardRows, townHomeRows } from '../ui/townMapMarks.js';   // TOWN-MARKS: the Notice Boards and the player housing on the town map
 import { setSigilOnline, setSigilRenown } from '../systems/sigil.js';   // SIGIL1: a weapon won online carries a sigil, woken by my Renown
 import { setSetsDueling, setsDueling, drinkWorn, setSetsWearer } from '../systems/sigilSets.js';   // SET2: the duel's word - sets sleep in one; SET4: the drink, whole; SET5: the wearer a tooltip reads
@@ -602,7 +602,7 @@ import { createSocialPanel, TRY_AGAIN_TEXT, NO_PARTY_TEXT, LETTERS_SIGNED_OUT_TE
 import { glyphMarks } from '../ui/playerBadge.js';   // PEER-PLAQUE1: a badge's plain-text marks, for the plaque's title
 import { TITLE_TEXT, AURA_TEXT, setSeatTitlePlaces } from '../ui/playerBadge.js';   // WB9g: the Broker's insignia, named in its rows; SEAT1c: the seat titles' places
 import { pickPeerInFront, SOCIAL_REACH, peerRayPick, peerIdOfKey, peerRelationText } from '../player/socialPick.js';   // SOC5: which body the ray struck, and how far "on their body" reaches; PEER-PLAQUE1: and the plaque's half of the same pick
-import { allyCastSpell, allyCastable, strangerCastable, allyReachFor, allyCastTargetLine, allyCastPlaqueLine } from '../systems/allyCast.js';
+import { allyCastSpell, allyCastable, strangerCastable, allyReachFor, allyCastTargetLine, allyCastPlaqueLine, createGiftLineGate } from '../systems/allyCast.js';
 import { composePartyFx } from '../net/partyBuffs.js';   // PARTY-BUFFS: my effects on the party pose   // ALLY-CAST: a beneficial spell at a party mate; SPELL-GIFT: and the stranger's list
 import { checkpointAllowed, checkpointDue, checkpointedTradePack, createSaveSoon } from '../systems/onlineCheckpoint.js';   // REALM P0.5: the character saved as it plays online; PROF-SAVE: and at once after a professions act
 import { createTradeManager, TRADE_RANGE_M, inTradeRange, tradeDistance } from '../net/tradeSession.js';   // TRADE1: the player-to-player trade's state machine (pure)
@@ -9494,7 +9494,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:3067 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:7117
+  // that context through modes.dungeonCtx - so worldModes.js:7155
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -15356,7 +15356,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10812-10876 -
+  // worldModes answers it in BOTH modes (worldModes.js:10850-10914 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -16808,6 +16808,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** AUDIT SPELL-GIFT B7: when each stranger's gift was last said, and how often a stranger's gift is said. */
   const _strangerCastSaid = new Map();
   const STRANGER_CAST_SAY_MS = 3000;
+  /** GIFT-QUIET (systems/allyCast.js): a party mate's gift said on my side at most once a window, line by line - a mate's
+   *  heal again and again said "Bran casts Heal on you." and "You are healed N points." a cast, which the notice stack's
+   *  repeat guard never merged. The heal's own line stays: alone, it merges. */
+  const _mateGiftGate = createGiftLineGate();
   let _partyRestJustStartedAt = -Infinity;   // PARTY-REST21: the last time MY OWN rest actually started (for real or via mirror) - see toggleRest's own doc comment for what this closes
   // PARTY-TRAVEL (2026-09-25): THE PARTY'S JOURNEY - systems/partyTravel.js's session over this host's seams (made beside
   // partyRestFollowTick, once every seam it reads is bound). Declared here, among the party's other state, so a reader
@@ -17566,7 +17570,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       const loud = mate || !(t - (_strangerCastSaid.get(id) ?? -Infinity) < STRANGER_CAST_SAY_MS);
       if (loud && !mate) _strangerCastSaid.set(id, t);
       const who = peerName(id) ?? (mate ? 'A party member' : 'Another player');
-      if (loud) townTalk.say(allyCastTargetLine(who, spell.name));
+      const targetLine = allyCastTargetLine(who, spell.name);
+      if (loud && (!mate || _mateGiftGate(targetLine))) townTalk.say(targetLine);   // GIFT-QUIET: a mate's, once a window
       const before = playerEntity.health;
       magic.applySpellToPlayer(spell, d.level, null, { allyCast: true, strangerCast: !mate });   // AUDIT SPELL-GIFT B6: a stranger's Cure leaves an infection be
       const healed = Math.max(0, Math.trunc(playerEntity.health - before));
@@ -22355,7 +22360,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       return {
         buildings: px?.locBlocks ? locationBuildings(loc.exterior?.buildings ?? [], px.locBlocks, { locationIndex: loc.locationIndex ?? 0 }) : [],
         mapId: loc.mapTableData?.mapId ?? 0,
-        regionIndex: loc.regionIndex ?? 0,
+        regionIndex: loc.regionIndex ?? 0, townBlocks: homeTownBlocks(loc),   // AUDIT HOME-PRICE C1: the town's size prices a deed the bank buys back online
         locationName: loc.name ?? '',
         regionName: maps.getRegionName(loc.regionIndex ?? 0) ?? '',
         // H3: DFLocation.Exterior.ExteriorData.PortTownAndUnknown
@@ -22806,7 +22811,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         position: [m[12] - p.locOrigin[0], m[13] - p.locOrigin[1], m[14] - p.locOrigin[2]],
       }, { locationIndex: dfLoc.locationIndex ?? 0 });
       if (!d) return null;
-      return { ...d, regionIndex: dfLoc.regionIndex, townMapId: (dfLoc.mapTableData?.mapId ?? 0) >>> 0, name: townTalk.directory.find((e) => e.buildingKey === d.buildingKey)?.name ?? '' };   // HOME1: the town the DOOR is in keys its home, not the one under the player
+      return { ...d, regionIndex: dfLoc.regionIndex, townMapId: (dfLoc.mapTableData?.mapId ?? 0) >>> 0, townBlocks: homeTownBlocks(dfLoc), name: townTalk.directory.find((e) => e.buildingKey === d.buildingKey)?.name ?? '' };   // HOME1: the town the DOOR is in keys its home, not the one under the player; HOME-PRICE: and its size prices it
     },
   });
   // AT2: AMBIENT TEXT CLAIMS ITS HOST. The mod is one GameObject made

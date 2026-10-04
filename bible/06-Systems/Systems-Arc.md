@@ -3196,7 +3196,7 @@ collapse is a bare `RaiseTime(1 * SecondsPerHour)` (`:2429`) that
 returns; `Update` is not re-entered.
 
 The port's hosts implement that same RaiseTime as
-`playerTicker.advance(60)` (`exterior.js:1127`, `world.js:3407`), fired
+`playerTicker.advance(60)` (`exterior.js:1128`, `world.js:3407`), fired
 from inside `sinks.drainFatigue` - so it re-enters `tickPlayerMinutes`
 from inside that function's own fatigue band. The nested tick wrote the
 marker an hour ahead, the outer frame's own `setWorldMinutes` then
@@ -5053,7 +5053,7 @@ predicate read prettier.
 by the same sweep and each verified against the tree before deletion:
 the interior detect claim above; "there is nowhere to cash one yet" on
 the letter of credit, which B2 answered with `DepositAll_LOC`
-(`banking.js:742`, the window's own :377-389); "the BANKING arm stays
+(`banking.js:743`, the window's own :377-389); "the BANKING arm stays
 FLAGGED below", written nine lines above the live banking arm; and
 "every other arm is FLAGGED by name in
 `guildServiceFlow.SERVICE_DESTINATION`" after DR2 closed the last of

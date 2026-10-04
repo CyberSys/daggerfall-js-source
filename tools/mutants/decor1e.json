@@ -389,11 +389,12 @@
   {
     "name": "DECOR1e-the-sale-line-the-home-alone",
     "file": "src/systems/onlineHomes.js",
-    "old": "`You sold your home. ${refund + piecesBack + rent} gold",
-    "new": "`You sold your home. ${refund + rent} gold",
+    "old": "`You sold your home. ${gold(refund + piecesBack + rent)} gold",
+    "new": "`You sold your home. ${gold(refund + rent)} gold",
     "tests": [
       "test/decor1e.test.js"
-    ]
+    ],
+    "note": "HOME-PRICE (PIN MOVED, re-aimed by content): the line now says every sum with its thousands (gold())."
   },
   {
     "name": "DECOR1e-a-sold-scene-paying-again",
