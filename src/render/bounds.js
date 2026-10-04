@@ -181,7 +181,7 @@ export function subMeshVisible(planes, r, i) {
  * one answer, and every caller takes it. AUDIT 68 S16-batch-sphere-dup:
  * SHADOW-REACH's shadowReachBatch and SC1's signature and dynamic scans had
  * written the lift out three more times; they take this now.
- * @param {{ bounds?: ArrayLike<number>|null, origin?: ArrayLike<number>|null, size?: { h: number }|null }} b
+ * @param {{ bounds?: ArrayLike<number>|null, origin?: ArrayLike<number>|null, size?: { w?: number, h: number }|null }} b
  * @param {Float64Array|Float32Array|number[]} out
  */
 export function batchSphere(b, out) {
@@ -191,8 +191,34 @@ export function batchSphere(b, out) {
   out[0] = s[0] + (o ? o[0] : 0);
   out[1] = s[1] + (o ? o[1] : 0) + batchLift(b);
   out[2] = s[2] + (o ? o[2] : 0);
-  out[3] = s[3] + (b.size?.h ?? 0) * _flatLean;   // AUDIT DEEP R-7: a leaned flat's top swings out by h sin(lean)
+  out[3] = batchReach(b) + (b.size?.h ?? 0) * _flatLean;   // AUDIT DEEP R-7: a leaned flat's top swings out by h sin(lean)
   return out;
+}
+
+/**
+ * FIELD BUGS 2026-10-04b CULL-SIZE (Discord, "Disappearing Horse? It's there
+ * but it gets culled on its right side"): THE RADIUS REACHES THE QUAD AT THE
+ * SIZE IT IS DRAWN AT. createBillboardBatch adds the half-diagonal of the
+ * size a batch is BORN with, and a producer that writes its size every frame
+ * never re-mints it. Every mobile pool is born at { w: 1, h: 1 } - the street's
+ * foes (the crew's hands and the sworn among them), the watch, the townspeople
+ * of both exterior hosts, a ship's crew, a dungeon's mobiles - so all of them
+ * were culled by a 0.707 sphere: a 2.5 m sprite was dropped with half a metre
+ * of it still on screen, and a tall one lost its head at the top edge. The
+ * cart's horse is born on its still picture (94 px) and drawn on its walk
+ * (95). The radius is now the larger of the stored one and the half-diagonal
+ * of the size the batch has NOW: a batch of one placement is bounded exactly,
+ * and one of many (a pixel's flats, born at the size they keep) keeps what it
+ * was born with - the stored float32 stands unless the size grew past it (the
+ * hair is that float's rounding, so an unchanged batch keeps its sphere bit
+ * for bit).
+ * @param {{ bounds?: ArrayLike<number>|null, size?: { w?: number, h: number }|null }} b  a batch WITH bounds - batchSphere answers null for one without
+ */
+export function batchReach(b) {
+  const r = b.bounds[3], z = b.size;
+  if (!z) return r;
+  const q = (z.w * z.w + z.h * z.h) * 0.25;   // the half-diagonal, squared - a root only when it is the answer
+  return q > r * r * (1 + 1e-6) ? Math.sqrt(q) : r;
 }
 
 /** AUDIT DEEP R-7 (the travel view, bible/06-Systems/Travel-View.md): the flats' LEAN this frame, as sin of its angle

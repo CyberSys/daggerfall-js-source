@@ -189,7 +189,10 @@ test('AUDIT 68 S16-batch-sphere-dup: the batch sphere\'s half-height lift has on
   const { batchSphere } = await import('../src/render/bounds.js');
   assert.equal(typeof batchSphere, 'function');
   const out = new Float64Array(4);
-  assert.deepEqual([...batchSphere({ bounds: [1, 2, 3, 0.5], origin: [10, 20, 30], size: { w: 1, h: 4 } }, out)], [11, 24, 33, 0.5], 'the lift is half the height');
+  // PIN MOVED (FIELD BUGS 2026-10-04b CULL-SIZE): the radius is no longer the stored 0.5 passed through - a 1 x 4 quad
+  // reaches hypot(1, 4) / 2 from its centre, and the sphere now reaches the size the batch is drawn at (bounds.js
+  // batchReach). The lift, this pin's claim, is unchanged.
+  assert.deepEqual([...batchSphere({ bounds: [1, 2, 3, 0.5], origin: [10, 20, 30], size: { w: 1, h: 4 } }, out)], [11, 24, 33, Math.hypot(1, 4) / 2], 'the lift is half the height');
   assert.equal(batchSphere({ origin: [0, 0, 0] }, out), null, 'no bounds, no sphere');
   for (const f of ['src/render/renderer.js', 'src/render/shadowPass.js']) {
     assert.doesNotMatch(rd(f), /\(b\.size\?\.h \?\? 0\) \* 0\.5/, `${f} writes no lift of its own`);
