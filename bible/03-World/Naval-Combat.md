@@ -1347,7 +1347,7 @@ followers and Come Sail Away's crew never leaves the boat; all of this is the po
   further for the second). No foe to fight - or a fight that has drawn him past `FOLLOW_LEASH` - a companion turns and
   walks to the leader (`enemyMotor.js _followTicks`: the pursuit's own turn-then-walk, standing inside `stop`, off
   again past `stop + FOLLOW_SLACK`); the pathing motor routes it round walls on the navmesh (`enhancedMotor.js
-  _followGoal`, the route dropped as he turns between following and fighting). AUDIT CREW CC-B3/B4: he fights only a
+  _followGoal`, the route dropped as he turns between following and fighting). COMPANION-TRAIL (FIELD BUGS 2026-10-04b, `01-Overview/Field-Bugs-2026-10-04b.md`): out of sight of the leader he walks the leader's own trail - the crumbs the layer drops where the player walked (`crewAshore.js drop`), the newest in sight (`enemyMotor.js _trailGoal`) - and the pathing motor asks the trail before the navmesh; he walks on while he turns inside 30 degrees, and hurries past 8 m. AUDIT CREW CC-B3/B4: he fights only a
   foe within the leash of his LEADER that he can pursue; drawn past the leash he is RETURNING - every target dropped,
   the secondary one too - until he is home; a foe never seen, or given up on, leaves him following. Left `CATCH_UP_M`
   behind, or `CATCH_UP_DY` a floor away while the leader stands on one, he is stood behind the player again, his motor

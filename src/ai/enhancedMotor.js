@@ -277,14 +277,19 @@ export class EnhancedEnemyAI extends EnemyAI {
 
   /** CREW-COMPANIONS: a follower walks the navmesh route to its leader - the route's next corner (the pursuit's own
    *  corner walk), the leader's live feet on the last leg, and the straight line when there is no mesh or a detour
-   *  is running. */
+   *  is running. COMPANION-TRAIL (FIELD BUGS 2026-10-04b): the leader in sight, or a crumb of the leader's own trail
+   *  in sight, comes first (enemyMotor.js _trailGoal) - the walked way through a doorway, where the bake's erosion
+   *  trims the threshold - and the route only when the trail has nothing; no route, the nearest crumb. */
   _followGoal(leader, dt) {
+    const trail = this._trailGoal(leader, dt);
+    if (trail) return trail;
     if (this.navBroken || this.avoidObstaclesTimer > 0) return leader;
     const chf = this.nav();
-    if (!chf) { this.path = null; return leader; }
+    if (!chf) { this.path = null; return this._nearestCrumb() ?? leader; }
     try {
       this._repathToward(chf, leader, dt);
-      if (!this.path || this.pathI >= this.path.length - 1) return leader;
+      if (!this.path) return this._nearestCrumb() ?? leader;
+      if (this.pathI >= this.path.length - 1) return leader;
       let wp = this.path[this.pathI];
       while (this.pathI < this.path.length - 1 && Math.hypot(wp[0] - this.feet[0], wp[2] - this.feet[2]) <= WP_REACH) wp = this.path[++this.pathI];
       return this.pathI === this.path.length - 1 ? leader : wp;
