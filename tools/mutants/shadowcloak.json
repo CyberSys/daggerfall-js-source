@@ -1123,5 +1123,14 @@
     "tests": [
       "test/shadowcloak.test.js"
     ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-turn-the-long-way",
+    "file": "src/render/auraRing.js",
+    "old": "m.yr += (wrapAngle(yaw - m.yaw) / dt - m.yr) * a;",
+    "new": "m.yr += ((yaw - m.yaw) / dt - m.yr) * a;",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
   }
 ]

@@ -4727,7 +4727,7 @@ left in it.) SirMcMobdon already holds SHADOW-FANG's title and glyph (black #0d0
   cell outward and unfolded at rest and under the strongest poses; a strafe never through the legs); no `pow` of a
   negative base anywhere the cloak's shader runs; and the swing and the pose from the body (the spring, the rig's
   frame against drawThird's own model, the bones, the placing, the crouch, a peer's bones off its standing body).
-  All of the shader RUN in `test/glsl.mjs`. `tools/mutants/shadowcloak.json` (125, all dead). The vocabulary's
+  All of the shader RUN in `test/glsl.mjs`. `tools/mutants/shadowcloak.json` (126, all dead). The vocabulary's
   newest-word and one-list pins in `aegis.test.js` and `primarch.test.js` moved (PIN MOVED), `shadowfang.test.js`'s
   wardrobe holds the cloak; the relay's pins moved to world166 crediting SHADOW-CLOAK (`auditbounty1.test.js` holds the
   credit), the account's to acct79 (both past SERPENT1's world165 and acct78 at the merge of main). Re-aimed by
@@ -4757,6 +4757,11 @@ left in it.) SirMcMobdon already holds SHADOW-FANG's title and glyph (black #0d0
   - Pins that could not fail (the hosts regex, "the mesh whole", "just below the hem, smoke", four probe checks) made to
     fail; laws with no pin or mutant (the billow, the kindle's embers, the shreds' teeth, the back trailing longest,
     first-seen-already-torn, the fog on the shadow) pinned.
+  - The neighbours' pins, run after: the yaw's step had its own whole-turn wrap (ONCRASH1 C2's one home is
+    `world/mat4.js` wrapAngle - now used, with a pin turning across the half turn and a mutant taking the long way);
+    a `peerBodies.js` comment naming the rig's singleton tripped MWBODY1's "never the instance" (reworded); PRIMARCH's
+    draw pin read the old nearest-first order (now farthest first). The shader's trail cap had no pin a clamped swing
+    could reach: the winding pin now flings it past its reach.
   - Left as they are, said here: the fragment half measures the cloth in its rest-pose metres, so a crouch squashes
     the back's emblem to the crouch's height; an off-screen peer body keeps its last pose (as its skin does); a gear
     rebuild hangs the cape at rest for those frames; the head's turn is carried but unset.

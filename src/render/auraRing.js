@@ -77,6 +77,7 @@
 // Not a DFU member. Ledger A (WB).
 import { FOG_FACTOR_GLSL } from './labGrass.js';
 import { buildProgram } from './glProgram.js';
+import { wrapAngle } from '../world/mat4.js';
 import { GLYPH_PATH, GLYPH_DETAIL } from '../ui/playerBadge.js';   // SHADOW-CLOAK: the wearer's own glyph, its emblem
 
 /** The ring's radius about the feet (m), the ground quad's half-width, the flames' height, and the ground's lift. */
@@ -1083,9 +1084,7 @@ export function auraMotionStep(w, t) {
   else {
     const a = 1 - Math.exp(-dt / S.smooth);
     for (let i = 0; i < 3; i++) m.v[i] += ((at[i] - m.at[i]) / dt - m.v[i]) * a;
-    let dy = yaw - m.yaw;
-    dy -= Math.round(dy / (2 * Math.PI)) * 2 * Math.PI;
-    m.yr += (dy / dt - m.yr) * a;
+    m.yr += (wrapAngle(yaw - m.yaw) / dt - m.yr) * a;   // the short way round (ONCRASH1: the one wrap)
     const fwd = m.v[0] * Math.sin(yaw) + m.v[2] * Math.cos(yaw), right = m.v[0] * Math.cos(yaw) - m.v[2] * Math.sin(yaw);
     const g = m.goal;
     g[0] = clampTo(-right * S.trail, -S.trailMax, S.trailMax); g[1] = clampTo(-fwd * S.trail, -S.trailMax, S.trailMax);

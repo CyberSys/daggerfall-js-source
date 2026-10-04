@@ -330,7 +330,7 @@ export class PeerBodies {
   }
 
   /** SHADOW-CLOAK: a peer's body's named bones where they stand - { feet, yaw, bones }: the feet and the eased yaw the
-   *  body is drawn at and its bones in its own frame (fpArm.thirdBones) - or null without a standing body. A body out
+   *  body is drawn at and its bones in its own frame (the rig's thirdBones) - or null without a standing body. A body out
    *  of view keeps its last pose, as its skin does. */
   bonesOf(id, names) {
     const b = this._bodies.get(id);

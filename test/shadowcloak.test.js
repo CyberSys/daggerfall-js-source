@@ -697,7 +697,7 @@ test('SHADOW-CLOAK the swing and the pose from the body: the swing is a damped s
   assert.ok(Math.abs(stop[300].z) < 0.01, 'and settles');
   assert.ok(Math.min(...fwd.map((s) => s.z)) >= -CLOAK_SWING.trailMax - 0.1, 'never past its reach by more than its swing');
   const turn = run((t) => ({ at: [0, 0, 0], yaw: t * 2 }), 120);
-  assert.ok(turn[120].twist < -0.1, `turning right, it lags (${turn[120].twist.toFixed(3)})`);
+  assert.ok(turn[120].twist < -0.1, `turning right, it lags (${turn[120].twist.toFixed(3)})`); const across = run((t) => ({ at: [0, 0, 0], yaw: ((Math.PI - 0.5 + t * 2 + Math.PI) % (2 * Math.PI)) - Math.PI }), 120); assert.ok(Math.max(...across.map((s) => s.twist)) <= 1e-9 && Math.abs(across[120].twist - turn[120].twist) < 0.02, 'turning right across the half turn its yaw wraps at, the same lag - the short way round, never a whole turn the other way');
   const fall = run((t) => ({ at: [0, -4 * t * t, 0] }), 60);
   assert.ok(fall[60].lift > 0.1, `falling, it lifts (${fall[60].lift.toFixed(3)})`);
   const tele = run((t) => ({ at: [0, 0, t < 1 ? t * 5 : 500] }), 300);

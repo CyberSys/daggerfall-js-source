@@ -443,17 +443,17 @@ test('PRIMARCH the radiance\'s draw: each wearer in its own look - the fire, the
   r.draw([{ at: [1, 0, 1], aura: 'radiance' }, { at: [5, 0, 5], aura: 'oblivionward' }, { at: [9, 0, 9], aura: 'dagonfire' }], I, I, [0, 0, 0], 10);
   assert.equal(r.drawn, 3);
   const per = (name, kind) => calls.filter((c) => c[0] === kind && c[1] === name).map((c) => c[2]);
-  assert.deepEqual(per('uAura', 'uniform1i'), [2, 1, 0], 'the radiance, the ward, the fire');
-  assert.deepEqual(per('uRingR', 'uniform1f'), [RADIANCE_R, WARD_RING_R, AURA_RING_R], 'each at its own radius');
-  assert.deepEqual(per('uFlameH', 'uniform1f'), [RADIANCE_H, WARD_WALL_H, 0.62], 'each wall at its own height');
+  assert.deepEqual(per('uAura', 'uniform1i'), [0, 1, 2], 'farthest first (SHADOW-CLOAK AUDIT): the fire, the ward, the radiance');
+  assert.deepEqual(per('uRingR', 'uniform1f'), [AURA_RING_R, WARD_RING_R, RADIANCE_R], 'each at its own radius');
+  assert.deepEqual(per('uFlameH', 'uniform1f'), [0.62, WARD_WALL_H, RADIANCE_H], 'each wall at its own height');
   const draws = calls.filter((c) => c[0] === 'drawArrays').map((c) => c[3]);
-  assert.deepEqual(draws, [6, AURA_STEPS * 6, 6, AURA_STEPS * 6, WARD_GLYPHS * 6, 6, AURA_STEPS * 6], 'the radiance\'s ground and column, no symbols; the ward\'s three; the fire\'s two');
+  assert.deepEqual(draws, [6, AURA_STEPS * 6, 6, AURA_STEPS * 6, WARD_GLYPHS * 6, 6, AURA_STEPS * 6], 'the fire\'s two; the ward\'s three; the radiance\'s ground and column, no symbols');
   const seen = []; let kind = null;
   for (const c of calls) {
     if (c[0] === 'uniform1i' && c[1] === 'uAura') kind = c[2];
     if (c[0] === 'drawArrays') seen.push(kind);
   }
-  assert.deepEqual(seen, [2, 2, 1, 1, 1, 0, 0], 'each wearer\'s draws in its own look');
+  assert.deepEqual(seen, [0, 0, 1, 1, 1, 2, 2], 'each wearer\'s draws in its own look');
   assert.ok(calls.some((c) => c[0] === 'uniform3f' && c[1] === 'uAt' && c[2] === 1 && c[4] === 1), 'the radiance\'s feet set - the axis its column stands on');
   assert.equal(calls.filter((c) => c[0] === 'useProgram').length, 1, 'the program bound once for the frame');
 });
