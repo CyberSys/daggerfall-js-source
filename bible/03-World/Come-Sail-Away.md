@@ -1306,7 +1306,7 @@ and `BoatTimeScaleReset` - the mod's keypad minus and enter, and, for its
 keypad plus (Eye of the Beholder's AutoPerspective: one key, one action),
 the keypad's star beside it (`10-UI/Controls.md`). IncreaseTimeScale
 (6071-6082) refuses with enemies near - GameManager.AreEnemiesNearby(false,
-false), the port's `areEnemiesNearby` over the mode's foes: "There are
+false), the port's `areEnemiesNearby` over the mode's foes (WATER-FOES, below: never a foe in the water while aboard): "There are
 enemies nearby..." for a second and a half - and else takes one step up
 currentTimeScale's 1, 5, 10, 15, 30, to the fifth; DecreaseTimeScale one
 step down, never below the first; ResetTimeScale (CSA-D's) the step, or a
@@ -2620,6 +2620,29 @@ Pins: `test/galleonholdings.test.js` (4) - every docking hull's head within 0.25
 ship's half a metre over it (the mod's galleon's numbers on hers fail by 2.3 m); hers in her entry port, her bulwark
 either side; the host's plank from the build that stands; the Carpenter on all four hulls with a deck.
 `tools/mutants/galleonholdings.json` (13, all dead). Measured over Come Sail Away's real pool; not seen in a browser.
+
+## A foe in the water reaches no one aboard (WATER-FOES, 2026-10-04 - DEPARTURE)
+
+From the field: "Enemies in the water on a boat shouldn't slow down your ship or prevent you from resting when on
+board." Every "enemies nearby" the port asks is GameManager.AreEnemiesNearby (`systems/encounters.js`
+`areEnemiesNearby`): a hostile foe that sees the player, or stands in the classic spawn band - and outdoors that band has
+no height test (`enemyMotor.js` wouldBeSpawnedInClassic: 102.4 m flat). Deep Waters' foes are the street's
+(`exteriorFoes`), so a slaughterfish or a dreugh anywhere under the sea within it put the helm's time scale back to one
+and refused a step up ("There are enemies nearby...", above), stopped a Travel Options journey, slowed the Overworld's
+travel (OW6's threats), refused the travel view, a camp's placing and every rest aboard - though no foe in the water
+comes up onto a deck (Deep Waters even freezes its swimmers while the player is on a boat). The hull's own sweep never
+met them (`csaSphereCastAll` returns no entity): the "slowdown" was these gates.
+
+So the world host latches each foe's reach every exterior frame, after the foes move and the deck's leash
+(`systems/foeReach.js` `markFoeReach`): ABOARD - `playerAfloat` (a helm, a deck, another player's boat, a sea ship's deck)
+and not swimming - a foe IN THE WATER (an aquatic one, EnemyMotor's `swims`, or one whose controller centre stands under
+the sea's top, `tvSeaY`) is `ai.unreachable`; else none is. `areEnemiesNearby` passes an unreachable foe over, strict
+and resting alike, so the one sweep answers the time scale, rest and its channel, a journey, the travel view, fast
+travel and a camp the same; the Overworld's threats (`travelThreat`'s list) skip it too. A boarder on her deck, a foe on
+the shore, and every foe while the player swims count as before. A departure: the mod asks AreEnemiesNearby(false,
+false) at its helm as ashore (Port-Ledger A, WATER-FOES). THE FOUR HOSTS: `scenes/world.js` latches it; a building
+(`worldModes.js`, a ship's cabin included) has no foe in the water, a dungeon's (`dungeonContext.js`) flooded halls carry
+no boat of the port's rest gate yet - FLAGGED - and the standalone street (`exterior.js`) no sea. `test/waterfoes.test.js`.
 
 ## What was already waiting in the port
 
