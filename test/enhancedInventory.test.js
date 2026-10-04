@@ -773,7 +773,7 @@ test('U58 + AUDIT 26: only the REMOTE list sends the click to the quest system',
   assert.ok(from > 0, 'the row builder is gone');
   const body = src.slice(from, src.indexOf('\nfunction ', from + 20));
   // WHERE-ROBES: through the one home every remote door shares (itemTransfer.js sendQuestItemClick, driven in
-  // test/fb1004b_robes.test.js) - the side guard is still the row's
+  // test/fb1004c_robes.test.js) - the side guard is still the row's
   assert.match(body, /if \(from === 'remote'\) sendQuestItemClick\(item, deps\.getQuest \?\? null\);/,
     'the pane never tells the quest system, or the local list is sending clicks the classic window does not send');
   // and it happens on the CLICK, before the pick - a player who looks

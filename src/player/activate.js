@@ -508,7 +508,7 @@ function nearestActivatableHit(eye, dir, targets, collider) {
         if (targetKeys.has(firstHit.key)) continue;
       }
     } else if (target.surface === true && collider.raycastHit && d <= bestDist) {   // a box entered past the best can lose only further: no cast
-      // WHERE-ROBES (FIELD BUGS 2026-10-04b): CASTLE1's law again, for a box merely ENTERED whose model's triangles sit
+      // WHERE-ROBES (FIELD BUGS 2026-10-04c): CASTLE1's law again, for a box merely ENTERED whose model's triangles sit
       // in the collider's SHARED bucket (a building's furniture, filed under the interior's own key, so no key names
       // it). DFU meets furniture only at its mesh (PlayerActivate.cs:314), and the box standing in for it is mostly
       // air: a shelf's open front, the space over a mattress under its headboard, a dresser's top under its mirror. A

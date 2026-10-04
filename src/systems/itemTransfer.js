@@ -105,7 +105,7 @@ export const REFUSAL = Object.freeze({
  * letters a foe carries). The right click is the same member
  * (RemoteItemListScroller_OnItemRightClick, :2070-2073).
  *
- * WHERE-ROBES (FIELD BUGS 2026-10-04b): ONE HOME, because the port has
+ * WHERE-ROBES (FIELD BUGS 2026-10-04c): ONE HOME, because the port has
  * more doors onto a remote row than DFU's one list - each skin's row,
  * the enhanced skin's menu and its pad's quick act, and quick loot,
  * which takes a row with no window at all. Three of those took the

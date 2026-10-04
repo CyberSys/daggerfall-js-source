@@ -1,4 +1,4 @@
-# FIELD BUGS 2026-10-04b - the Qualifying Examination's robes: the press reaches what stands on furniture, a shelf that does nothing is no target, every door onto a loot row clicks the quest, the robes named where they stand, and a party's resync keeps the pickup
+# FIELD BUGS 2026-10-04c - the Qualifying Examination's robes: the press reaches what stands on furniture, a shelf that does nothing is no target, every door onto a loot row clicks the quest, the robes named where they stand, and a party's resync keeps the pickup
 
 Balcony on Discord, "THE QUALIFYING EXAMINATION - Quest bug", with the beggar's letter and the pack in screenshots:
 *"my letter says for me to steel priests Robes from Hawkton residence and i did it.. i should give me another letter
@@ -80,7 +80,7 @@ share's design to answer, recorded here for it.
 
 ## Pins
 
-`test/fb1004b_robes.test.js` (12): O0A0AL00 on the real QuestMachine, its own robes and note - the click says 1018 and
+`test/fb1004c_robes.test.js` (12): O0A0AL00 on the real QuestMachine, its own robes and note - the click says 1018 and
 gives the note, no click no note; the one home answers nothing for a plain item, a quest gone, a symbol not held or no
 resolver; quick loot's E and P take the robes and the note comes; the enhanced skin's menu Take and pad X, driven on the
 mounted pane over a pile, and the note comes; no inline copy of the send in either skin or quick loot; the robes named
@@ -89,7 +89,7 @@ mattress win in either list order, the box law alone loses them, the mattress is
 past it are not; the three furniture families marked and the shelf gated on openShelf's arms; a resync between the
 pickup and the tick keeps the note coming and the stand down, and makes no click up. `test/quickloot.test.js`'s quest
 corpse take now carries the real resource's click and asserts it; `test/enhancedInventory.test.js`'s two row pins read
-the one home. `tools/mutants/fb1004b_robes.json` (20, all dead); the ten lists aimed at `player/activate.js` re-run
+the one home. `tools/mutants/fb1004c_robes.json` (20, all dead); the ten lists aimed at `player/activate.js` re-run
 beside it (499, all dead).
 
 ## For the player

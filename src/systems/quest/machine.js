@@ -1315,7 +1315,7 @@ export class QuestMachine {
     // player may already hold. The envelope's is a fresh throwaway parse every time, so each resync re-rolled it.
     const itemsBefore = new Map();
     for (const r of quest.resources.values()) if (r.isItem && r.daggerfallUnityItem) itemsBefore.set(r.symbol?.name, r.daggerfallUnityItem);
-    // WHERE-ROBES (FIELD BUGS 2026-10-04b): and an Item's CLICK and PICKUP are this world's too - the player's own act on
+    // WHERE-ROBES (FIELD BUGS 2026-10-04c): and an Item's CLICK and PICKUP are this world's too - the player's own act on
     // the stand or the loot row (QuestResourceBehaviour.DoClick's SetPlayerClicked and IsHidden, the remote list's
     // click). The envelope carried the partner's (false), so a resync landing between a pickup and the next tick took
     // the click back - `clicked item` never fired, O0A0AL00's note never came - and showed the stand again over robes

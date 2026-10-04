@@ -369,7 +369,7 @@ export const TOTEM_TEXT = 'The Totem of Tiber Septim';
 /** The item a quest ITEM stand is named by - `((Item)qrb.TargetResource)
  *  .DaggerfallUnityItem` (.cs:509), the Item resource's own
  *  `daggerfallUnityItem` (quest/item.js). WHERE-ROBES (FIELD BUGS
- *  2026-10-04b): both hosts' namers read `res.daggerfallItem ?? res.item`,
+ *  2026-10-04c): both hosts' namers read `res.daggerfallItem ?? res.item`,
  *  fields no resource has, so every quest item in the world stood
  *  nameless - O0A0AL00's robes a bare pile of cloth beside a wardrobe
  *  that said "Wardrobe" - and only the Totem, named by hand, ever read.

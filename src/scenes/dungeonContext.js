@@ -7610,7 +7610,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     });
     // SEARCH1: the searchable models, at HALF a door's reach (SEARCH_REACH) - the ray's distance, the reach carried
     // beside it (MC-2's law: too far speaks the refusal rather than falling through)
-    // WHERE-ROBES (FIELD BUGS 2026-10-04b): struck at its mesh ('dungeon' bucket), so a quest item on a shelf or a chest's lid is reached (activate.js)
+    // WHERE-ROBES (FIELD BUGS 2026-10-04c): struck at its mesh ('dungeon' bucket), so a quest item on a shelf or a chest's lid is reached (activate.js)
     searchables.forEach((sb, i) => targets.push({ key: `search:${i}`, aabb: sb.aabb, distance: RAY_DISTANCE, reach: SEARCH_REACH, surface: true }));
     targets.push(...droppedLoot.lootTargets());   // U26: the player's own drops
     targets.push(...droppedTorches.targets());   // HT1: the dropped torches, at the mod's 3.2

@@ -105,7 +105,7 @@ function takeSound() {
 }
 function takeThrough(playerEntity, items, item, getQuest, moved = null) {
   if (isMap(item)) return null;
-  // WHERE-ROBES (FIELD BUGS 2026-10-04b): a row taken here IS the remote list's click with no window around it, and that
+  // WHERE-ROBES (FIELD BUGS 2026-10-04c): a row taken here IS the remote list's click with no window around it, and that
   // click's first act is the quest's (DaggerfallInventoryWindow.cs:2027-2037) - before the plan, as DFU sends it before
   // CanCarryAmount. Without it a quest item taken off a body or a pile never reached its `clicked item` trigger.
   sendQuestItemClick(item, getQuest);

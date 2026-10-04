@@ -2399,7 +2399,7 @@ export function createWorldModes(host) {
   function shelfLootSpawned(items, b) {
     return raiseContainerLootSpawned({ containerType: LOOT_CONTAINER_TYPES.ShopShelves, items, buildingType: b?.buildingType, quality: b?.quality, luck: liveStat(playerEntity, 'luck') });
   }
-  /** WHERE-ROBES (FIELD BUGS 2026-10-04b): does a shelf-set model in this building ACT? AddFurnitureAction
+  /** WHERE-ROBES (FIELD BUGS 2026-10-04c): does a shelf-set model in this building ACT? AddFurnitureAction
    *  (DaggerfallInterior.cs:791-819) gives one a component in a shop (ShopShelves), a Library, GuildHall or Temple
    *  (DaggerfallBookshelf) and an owned house (a house container - HC1 births that one a container, never a shelf), and
    *  the port's Hall of Records is a seat palace's (SEASON1); in a plain residence it gets NOTHING and is geometry. The
