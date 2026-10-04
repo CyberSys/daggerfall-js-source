@@ -570,6 +570,9 @@ export class TravelPopUpWindow {
    *  OnPush refusal's OK plays the click and pops the box AND the popup (IL_1bbb-1bdd); a toggle's refusal pops the
    *  box alone (CloseWindow, IL_15d7). */
   _itBoxOk() {
+    // AUDIT IT1 C7: the message box's button plays its click (DaggerfallMessageBox's handler), and OnPush's handler
+    // plays the mod's own besides (IL_1bbb-1bc5, PlayOneShot 360)
+    this._click();
     if (this.top === 'itPush') { this._click(); this.top = null; this._itText = null; this._exitNow(); return; }
     this.top = null; this._itText = null;
   }
@@ -603,7 +606,7 @@ export class TravelPopUpWindow {
     // because only the top window updates in DFU, so with this popup
     // pushed the map's own I handler cannot run. The map window supplies
     // the door (`displayLocationInfo`) and draws the box ABOVE the popup.
-    if (key === 'KeyI' && !this.coordsOnly) { this.deps.displayLocationInfo?.(); return; }
+    if (key === 'KeyI' && !this.coordsOnly && this._to) { this.deps.displayLocationInfo?.(); return; }   // AUDIT IT1 C5: Travel Options' popup's alone - not DFU's, not the mod's
     // A8: the five buttons' Hotkeys, from the table rather than from
     // five literals (DaggerfallTravelPopUp.cs:167/171/176/188/200).
     // The letters do not move - B/E/S/T/N were right - but they are
@@ -713,6 +716,7 @@ export class TravelPopUpWindow {
   /** Update (:229-246) - the countdown, then the trip. */
   tick(dt) {
     if (!this.doFastTravel) return;
+    if (this.top) return;   // AUDIT IT1 C3: under a pushed box the popup is not the top window, and DFU updates that alone
     this.waitTimer += dt;
     if (this.countdownValueTravelTimeDays > 0) {
       if (this.waitTimer > COUNTDOWN_TICK) {

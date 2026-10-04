@@ -1251,7 +1251,7 @@ test('TO1: the wiring - one construction, the fork on the popup\'s word, the pan
   assert.match(w, /\n  travelOptions = travelOptionsOn \? createTravelOptions\(\{/, 'BOOT-TDZ: ASSIGNED where the mod is built - the binding is declared above the stream that reads it');
   assert.match(w, /let travelOptions = null;/, 'BOOT-TDZ: and declared there, null');
   // the fork
-  assert.match(w, /if \(opts\?\.playerControlled && beginAcceleratedTravel\(pick, opts, \{ estimateMinutes: computed\?\.minutes \?\? null \}\)\) return;[^\n]*\n(?:\s*\/\/[^\n]*\n)*(?:\s*if \(opts\?\.playerControlled && tvRoutesJourneys\(\)\) return;\n)?\s*if \(isOnlinePage\(\) && !opts\?\.travelShip && !opts\?\.immersive\) \{ townTalk\.say\(ONLINE_LAND_TRAVEL_REFUSAL\); hudFade\.clearFade\(\); \} else fastTravelTo\(pick, opts, computed\);/,   // PIN MOVED (TO-ROADS): a routed trip's refusal (the Overworld's, or a first-person route's); PIN MOVED (AUDIT TRAVEL-ONLINE T7): online a trip over land never reaches it; PIN MOVED (IT1): but a driver's fare does
+  assert.match(w, /if \(opts\?\.playerControlled && beginAcceleratedTravel\(pick, opts, \{ estimateMinutes: computed\?\.minutes \?\? null \}\)\) return;[^\n]*\n(?:\s*\/\/[^\n]*\n)*(?:\s*if \(opts\?\.playerControlled && tvRoutesJourneys\(\)\) return;\n)?\s*if \(isOnlinePage\(\) && !opts\?\.travelShip\) \{ townTalk\.say\(ONLINE_LAND_TRAVEL_REFUSAL\); hudFade\.clearFade\(\); \} else fastTravelTo\(pick, opts, computed\);/,   // PIN MOVED (TO-ROADS): a routed trip's refusal (the Overworld's, or a first-person route's); PIN MOVED (AUDIT TRAVEL-ONLINE T7): online a trip over land never reaches it
     'the walked trip is tried first (with the popup\'s estimate riding along - AUDIT-TO1 L5) and fast travel is the fallback (AUDIT OW3 J2: never for a walk the Overworld refused)');
   // TO-ONLINE (2026-09-19, Mac: "travel options uses instant travel for the
   // online mod, which shouldn't be the case"): the journey RUNS online. The
@@ -1722,7 +1722,7 @@ test('AUDIT-TO1 G1/G2/G3/I2/I3/I4/I6/J1/K2/H1/H2: the host seams the sweep found
   assert.match(m, /this\.popUp\.enforceShipRestriction\(\);/, 'OnPush\'s guard has a caller');
   assert.equal((m.match(/this\.popUp\.enforceShipRestriction\(\);/g) || []).length, 2, 'at both construction sites');
   // I5: the popup's I, and the box drawn above it
-  assert.match(read('src/ui/travelPopUp.js'), /if \(key === 'KeyI' && !this\.coordsOnly\) \{ this\.deps\.displayLocationInfo\?\.\(\); return; \}/);
+  assert.match(read('src/ui/travelPopUp.js'), /if \(key === 'KeyI' && !this\.coordsOnly && this\._to\) \{ this\.deps\.displayLocationInfo\?\.\(\); return; \}/);   // AUDIT IT1 C5 (PIN MOVED): TravelOptionsPopUp's Update alone polls I
   assert.match(m, /displayLocationInfo: \(\) => this\._displayLocationInfo\(\),/);
   assert.match(m, /this\.popUp\.draw\(renderer, canvas, font\);\s*\n[\s\S]{0,300}?if \(this\.infoBox\) \{\s*\n\s*this\._box = layoutMessageBox\(font, this\.infoBox\.rows, \[\]\);/);
   // C3: the fee on the default skin

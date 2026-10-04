@@ -35,22 +35,25 @@ test('IT1 the four patches: WD1\'s format, each its gate block by name and index
     const a = gateAppends(p);
     assert.equal(a.MiscFlatObjectRecords.filter((f) => f.FactionID === 8642).length, 1, `${name}: one driver`);
     assert.ok(a.Misc3dObjectRecords.some((m) => m.ModelIdNum === 41214), `${name}: the carriage`);
-    // each op inserts at the header's classic count and on (2 models, 1 flat in all four)
+    // each insert at the header's classic count and on (2 models, 1 flat in all four); AUDIT IT1 G1 (PIN MOVED): after
+    // the editor's round trip - 28 building slots removed and the two classic models' three scales
     const at = { Misc3dObjectRecords: 2, MiscFlatObjectRecords: 1 };
-    for (const [, path] of p.ops) assert.equal(path[2], at[path[1]]++, `${name}: ${path.join('.')} in order, past the classic records`);
+    for (const [, path] of p.ops.filter(([k]) => k === 'i')) assert.equal(path[2], at[path[1]]++, `${name}: ${path.join('.')} in order, past the classic records`);
+    assert.equal(p.ops.filter(([k]) => k !== 'i').length, 28 + 6, `${name}: the round trip`);
   }
-  assert.deepEqual(PATCHES.map((p) => p.ops.length), [6, 5, 7, 10]);
+  assert.deepEqual(PATCHES.map((p) => p.ops.filter(([k]) => k === 'i').length), [6, 5, 7, 10]);
 });
 
 test('IT1 the tool\'s header-count edit: records past NumMisc3dObjectRecords / NumMiscFlatObjectRecords become inserts; a file that changed its subrecords or under-runs a count is refused', () => {
-  const mod = { Name: 'WALLAA08.RMB', Index: 5, RmbBlock: { FldHeader: { NumBlockDataRecords: 1, NumMisc3dObjectRecords: 1, NumMiscFlatObjectRecords: 0 }, SubRecords: [{}], Misc3dObjectRecords: [{ m: 0 }, { m: 1 }], MiscFlatObjectRecords: [{ f: 0 }] } };
+  const mod = { Name: 'WALLAA08.RMB', Index: 5, RmbBlock: { FldHeader: { NumBlockDataRecords: 1, NumMisc3dObjectRecords: 1, NumMiscFlatObjectRecords: 0 }, SubRecords: [{}], Misc3dObjectRecords: [{ m: 0 }, { m: 1 }], MiscFlatObjectRecords: [{ f: 0 }] } };   // no BuildingDataList and no scales: no round trip (AUDIT IT1 G1's own pins)
   assert.deepEqual(appendedEdit(mod), [['i', ['RmbBlock', 'Misc3dObjectRecords', 1], { m: 1 }], ['i', ['RmbBlock', 'MiscFlatObjectRecords', 0], { f: 0 }]]);
   const p = appendedPatch(mod);
   assert.equal(p.sha256, sha256Canonical(mod));
   assert.deepEqual(p.base, { kind: 'block', block: 'WALLAA08.RMB', index: 5 });
   assert.throws(() => appendedEdit({ ...mod, RmbBlock: { ...mod.RmbBlock, SubRecords: [{}, {}] } }), /changes its subrecords/);
   assert.throws(() => appendedEdit({ ...mod, RmbBlock: { ...mod.RmbBlock, FldHeader: { ...mod.RmbBlock.FldHeader, NumMisc3dObjectRecords: 5 } } }), /shorter than its header count/);
-  assert.throws(() => gateAppends({ rebuilds: 'X', ops: [['s', ['RmbBlock', 'FldHeader', 'Name'], 'x']] }), /cannot lay/);
+  // AUDIT IT1 G2 (PIN MOVED): an op the layer does not lay is the mod's own file's, passed over - never refused
+  assert.deepEqual(gateAppends({ rebuilds: 'X', ops: [['s', ['RmbBlock', 'FldHeader', 'Name'], 'x']] }), { Misc3dObjectRecords: [], MiscFlatObjectRecords: [] });
 });
 
 test('IT1 the layer: the gate\'s records appended to whatever the door serves under the gate\'s name or a composite on it - never to the mod\'s own file, never with the mod off, never to another name', () => {
@@ -91,7 +94,7 @@ test('IT1 the layer: the gate\'s records appended to whatever the door serves un
 test('IT1 by source: the loader reads the mod\'s patches into the layer it lays - after every patch is on the door', () => {
   const src = readFileSync(join(ROOT, 'src/scenes/modWorldData.js'), 'utf8');
   assert.match(src, /const onServed = vendor === 'immersive-travel' \? \(json\) => \{ itPatches\.push\(patch\); itOwn\.push\(json\); \} : null;/);
-  assert.match(src, /installImmersiveTravelGates\(itPatches, itOwn, \(\) => modSetting\('immersive-travel', 'Enabled'\) === true\);/);
+  assert.match(src, /installImmersiveTravelGates\(itPatches, itOwn, immersiveTravelLoaded\);/);   // AUDIT IT1 G3 (PIN MOVED): the mod loaded for the game
   assert.ok(src.indexOf('installImmersiveTravelGates(itPatches') > src.indexOf('registerWorldDataPatch(patch, '));
 });
 

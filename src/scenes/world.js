@@ -200,7 +200,7 @@ import { skillValue } from '../systems/skills.js';   // SURV6: the hunter's four
 import { refreshMentor, mentorStatusText, effectiveLevel } from '../systems/mentorMode.js';
 import { setMasterSkillsGate, MASTER_SKILLS_DUNGEON_TEXT } from '../systems/masterSkills.js';   // SOFTCAP3
 import { isOnlinePage, ONLINE_LAND_TRAVEL_REFUSAL } from '../systems/onlineLane.js';   // SOFTCAP3: Master Skills is online only; AUDIT TRAVEL-ONLINE T7: the map's floor
-import { readImmersiveTravelSettings, IT_POPUP } from '../systems/immersiveTravel.js';   // IT1: Immersive Travel - a driver's map and its fast travel
+import { readImmersiveTravelSettings, immersiveTravelLoaded, IT_POPUP } from '../systems/immersiveTravel.js';   // IT1: Immersive Travel - a driver's map and its fast travel; AUDIT IT1 W4: the mod loaded for the game
 // SOFTCAP1: mentor mode, the party's overlay
 import { inflictDisease } from '../systems/diseases.js';   // SURV6: a foul pool's water
 import { createHunting, HUNT_PENDING_NEAR_M } from './hunting.js';   // SURV6: hunting, foraging and the water search as real-time events
@@ -13069,7 +13069,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // said, and done. It fell through to the fast travel below: a paid teleport straight past the mountain rule.
       // TO-ROADS: a first-person route's refusal the same - never the straight walk, never the teleport
       if (opts?.playerControlled && tvRoutesJourneys()) return;
-      if (isOnlinePage() && !opts?.travelShip && !opts?.immersive) { townTalk.say(ONLINE_LAND_TRAVEL_REFUSAL); hudFade.clearFade(); } else fastTravelTo(pick, opts, computed);   // AUDIT TRAVEL-ONLINE T7: online a trip over land is never the teleport - the floor under the room's switches (systems/onlineLane.js); IT1: but a driver's fare is (openImmersiveMap)
+      if (isOnlinePage() && !opts?.travelShip) { townTalk.say(ONLINE_LAND_TRAVEL_REFUSAL); hudFade.clearFade(); } else fastTravelTo(pick, opts, computed);   // AUDIT TRAVEL-ONLINE T7: online a trip over land is never the teleport - the floor under the room's switches (systems/onlineLane.js)
     } });
     if (!_travelMap) { townTalk.say('(the travel map art is unavailable)'); return false; }
     if (_travelGoto) { _travelMap.gotoPlace(_travelGoto); _travelGoto = null; }   // GotoPlace (:214-217), consumed on the map's first tick - AUDIT PARTY-UI2 1: this open's, or one a refused open kept
@@ -13086,28 +13086,42 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  `host` and a host without one refuses the service. */
   /** IT1: PLAYERGPS FOR IMMERSIVE TRAVEL - what its laws ask of where the player stands: CurrentMapPixel (the live
    *  pixel), CurrentMapID and CurrentLocationType (the location on it, 0 / None in the wild), CurrentRegionIndex (the
-   *  pixel's politic region). */
+   *  pixel's region - AUDIT IT1 L1: PlayerGPS.cs:165-186's, politic 64 the High Rock sea coast's 31, which the ship
+   *  rule's IsPlayerInTown asks for; the raw politic - 128 never answered it). */
   function itHere() {
     const px = playerTravelPixel();
     return {
       x: px.x, y: px.y,
       mapId: _musicLoc?.mapTableData?.mapId ?? 0,
       locationType: _musicLoc?.mapTableData?.locationType ?? LOCATION_TYPES.None,
-      regionIndex: (maps.getPoliticIndex(px.x, px.y) | 0) - 128,
+      regionIndex: maps.getRegionIndexAt(px.x, px.y),
     };
   }
   /** IT1: the mod's settings while it is on, else null - the player's own map's DisableNormalTravel reads them. */
-  const immersiveSettingsIfOn = () => { const s = readImmersiveTravelSettings(); return s.enabled ? s : null; };
+  const immersiveSettingsIfOn = () => (immersiveTravelLoaded() ? readImmersiveTravelSettings() : null);   // AUDIT IT1 W4: loaded for the game
   /** IT1: CARRIAGETRAVELSERVICE / SHIPTRAVELSERVICE'S PUSH (systems/immersiveTravel.js immersiveTravelService) - the
    *  mod's own map, a driver's (`carriage`) or a captain's (`seafarer`), into the street's slot the merchant popup
    *  stood in. It is pushed past DaggerfallUI's travel-map door: none of that door's refusals but the enemies the
    *  service already asked (the sun, a quest's offer, a party's question) is the mod's. Its trips are DFU's fast
-   *  travel, priced by the mod - online too: the one fast travel the room keeps (onlineLane.js IT1). A party is not
+   *  travel, priced by the mod - online too: fast travel over land (onlineLane.js IT1), never through the travel map's floor. A party is not
    *  asked to ride along (PARTY-TRAVEL's round is the travel map's; a hired carriage is the hirer's). */
   function openImmersiveMap(kind) {
-    if ((modes?.mode ?? 'exterior') !== 'exterior' || !travelMapDoorReady()) return null;
+    // AUDIT IT1 W6: a map that does not open says why, as the travel map's door says its own - the popup had closed
+    // on nothing (a click that landed after the player stepped indoors, the classic art not loaded)
+    if ((modes?.mode ?? 'exterior') !== 'exterior') { townTalk.say(CANNOT_TRAVEL_INDOORS_TEXT); return null; }
+    if (!travelMapDoorReady()) { townTalk.say('(the travel map art is unavailable)'); return null; }
+    if (!immersiveTravelLoaded() || (kind !== IT_POPUP.carriage && kind !== IT_POPUP.seafarer)) return null;
+    // AUDIT IT1 W2: ONLINE, THE SUN. Offline a sun-averse traveller who rides by day lands after dark - fastTravelTo's
+    // arrival clamp (DaggerfallTravelPopUp.cs:350, "regardless of travel type") - so the mod asks nothing. Online the
+    // world's clock skips that clamp and the travel map's door refuses them by day instead (LIVED1); a driver's map,
+    // pushed past that door as the mod pushes it, refuses the same, said the same.
+    if (sharedClockOn()) {
+      const nowMin = Math.floor(skyMinutes());
+      if (careerSunDamage(playerEntity.career) && isDayFromMinutes(nowMin)) { sayWithNightfall(SUNLIGHT_TRAVEL_TEXT); return null; }
+      const ftb = racialFastTravelBlock(playerEntity, nowMin);
+      if (ftb) { sayWithNightfall(ftb.text); if (ftb.hint) townTalk.say(ftb.hint); return null; }
+    }
     const settings = readImmersiveTravelSettings();
-    if (!settings.enabled || (kind !== IT_POPUP.carriage && kind !== IT_POPUP.seafarer)) return null;
     const win = buildTravelMapWindow({
       immersive: { kind, settings },
       travelOptions: () => null,   // the mod's map is DaggerfallTravelMapWindow's, not Travel Options'

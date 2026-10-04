@@ -14,8 +14,9 @@ import { openWorldDataPack, packFileSha256, readPackText } from '../formats/worl
 import { modSetting, latchModLoaded, modLatchedOn } from '../systems/modSettings.js';
 import { configureLayoutPins, vendorsPinnedIn } from '../systems/layoutPins.js';   // WD3: the layout a save's towns were made in
 import { installTownStandIns } from '../world/townStandIns.js';   // WD3: the peer mods' pieces the town packs place, the port's own
-import { installArena } from '../world/arenaCity.js';
-import { installImmersiveTravelGates } from '../world/immersiveTravelGates.js';   // IT1: the carriages, on whichever gate is served   // ARENA1: the Arena of Daggerfall - the port's own block, the city's edit and the colosseum
+import { installArena } from '../world/arenaCity.js';   // ARENA1: the Arena of Daggerfall - the port's own block, the city's edit and the colosseum
+import { installImmersiveTravelGates } from '../world/immersiveTravelGates.js';   // IT1: the carriages, on whichever gate is served
+import { IMMERSIVE_TRAVEL_VENDOR, immersiveTravelLoaded } from '../systems/immersiveTravel.js';   // AUDIT IT1 G3: the mod loaded for the game
 
 // The glob sits INSIDE the loader (Vite rewrites it wherever it stands),
 // so a node test that imports a host reaching this module does not trip
@@ -60,10 +61,14 @@ export async function loadModWorldData() {
       const vendor = vendorOf(path);
       const patch = await load();
       const onServed = vendor === 'immersive-travel' ? (json) => { itPatches.push(patch); itOwn.push(json); } : null;
-      if (await registerWorldDataPatch(patch, () => modSetting(vendor, 'Enabled') === true, { onServed })) n++;
+      // AUDIT IT1 G3: Immersive Travel's gates ask the mod LOADED FOR THE GAME (its Init's latch), not the switch as it
+      // stands - a switch flipped mid-game moved carriages under cached, pinned and unread towns three different ways
+      const isOn = vendor === IMMERSIVE_TRAVEL_VENDOR ? immersiveTravelLoaded : () => modSetting(vendor, 'Enabled') === true;
+      if (await registerWorldDataPatch(patch, isOn, { onServed })) n++;
     }));
-    // IT1: the carriages laid onto whichever gate the door serves - Beautiful Cities' too (world/immersiveTravelGates.js)
-    installImmersiveTravelGates(itPatches, itOwn, () => modSetting('immersive-travel', 'Enabled') === true);
+    // IT1: the carriages laid onto whichever gate the door serves - Beautiful Cities' too (world/immersiveTravelGates.js).
+    // AUDIT IT1 G2: guarded - a world loads whatever the layer's patches say (this sits in every host's load)
+    try { installImmersiveTravelGates(itPatches, itOwn, immersiveTravelLoaded); } catch (e) { console.error(`[worlddata] immersive travel's gate layer: ${e?.message ?? e}`); }
     // WD3: a packed mod is loaded for the game or not at all - its switch is read here, once, and latched, so a switch
     // flipped mid-game moves no town under the player's feet (the Features row: "Takes effect when the game is next started");
     // the layout pins stamp a save's records with what is loaded (systems/layoutPins.js)

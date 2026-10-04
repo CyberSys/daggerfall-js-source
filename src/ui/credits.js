@@ -444,7 +444,7 @@ export const CREDITS = Object.freeze({
       title: 'Immersive Travel',
       version: '1.5',
       author: 'kkgobkk',
-      what: 'Carriages at the city gates (IT1): a carriage, its horses and a driver wait outside the walled cities, and the driver takes you to a town or village for a fare - a daily fee on top of any nights at an inn. Online, the driver\u2019s carriage is the one fast travel. Ported 1:1 off the mod\u2019s compiled assembly.',
+      what: 'Carriages at the city gates (IT1): a carriage, its horses and a driver wait outside the walled cities, and the driver takes you to a town or village for a fare - a daily fee on top of any nights at an inn. Online, the driver\u2019s carriage is the fast travel over land. Ported 1:1 off the mod\u2019s compiled assembly.',
       terms: 'Ported 1:1 from the shipped bundle, read off its compiled assembly; the four gate blocks as the author\u2019s edit over your own game files - see vendor/immersive-travel/README.md for the permission record.',
       contact: 'kkgobkk, through the Nexus page (daggerfallunity mod 986)',
       vendor: Object.freeze(['immersive-travel']),

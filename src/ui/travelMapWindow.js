@@ -125,7 +125,7 @@ import { getDaggerfallDistance, MatchesCutOff } from '../systems/editDistance.js
 import { hasDiscoveredLocationId } from '../systems/discovery.js';
 import { getBool } from '../systems/settings.js';
 import { registerCommand, consoleLog, HELP_COMMAND } from '../systems/consoleCommands.js';   // E3: the console command database
-import { travelMapFilters, travelMapPopUpState, setTravelMapPopUpState, travelMapSaveData, restoreTravelMapSaveData, travelMapMarkedMapId, setTravelMapMarkedMapId } from '../systems/travelMapState.js';
+import { travelMapFilters, freshTravelMapFilters, travelMapPopUpState, setTravelMapPopUpState, travelMapSaveData, restoreTravelMapSaveData, travelMapMarkedMapId, setTravelMapMarkedMapId } from '../systems/travelMapState.js';
 import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
 import { IT_POPUP, IT_TEXT, itMapRefusal, itMapPaths, carriageLocationLarge, seafarerLocationLarge, seafarerDiscovered } from '../systems/immersiveTravel.js';   // IT1: Immersive Travel's CarriageMap and SeafarersMap
@@ -505,7 +505,9 @@ export class TravelMapWindow {
     this.identifyState = false;
     this.identifyChanges = 0;
     this.identifyLastChangeTime = 0;
-    this.filters = travelMapFilters();   // the store, so a filter outlives the window
+    // the store, so a filter outlives the window - AUDIT IT1 C1: but a driver's or a captain's map is a NEW window
+    // (CarriageTravelService IL_05a2, ShipTravelService IL_05e8), its four filters its own and every place shown
+    this.filters = deps.immersive ? freshTravelMapFilters() : travelMapFilters();
     this.lastMousePos = [0, 0];
     this.selectedRegionMapNames = getRegionMapNames(this._getPlayerRegion());
     this.borderEnabled = false;
@@ -644,6 +646,10 @@ export class TravelMapWindow {
   /** checkLocationDiscovered (:1121-1131) - the instance door onto the
    *  module member below, which is where the law lives. */
   checkLocationDiscovered(summary) {
+    // AUDIT IT1 C4: the mod's maps are DFU's window under the mod, never Travel Options' (no ports filter), and the
+    // captain's is SeafarersMap.checkLocationDiscovered (IL_17a0-17ee) - ShowOnlyDocks - for the dots, the hover, the
+    // click and the find alike, as the one virtual all four ask
+    if (this._it) return this._it.kind === IT_POPUP.seafarer ? seafarerDiscovered(summary, checkLocationDiscovered(summary), this._it.settings) : checkLocationDiscovered(summary);
     // TO1 (:828-844): with the PORTS filter on, a place without a
     // harbour is not on the map at all - the mod's override answers
     // false before DFU's own discovery test is even reached.
@@ -870,7 +876,7 @@ export class TravelMapWindow {
     }, {
       politicAt: (x, y) => maps.getPoliticIndex(x, y),
       summaryAt: (x, y) => locationSummaryAt(this.deps.mapDict, x, y),
-      discovered: (summary) => (seafarer ? seafarerDiscovered(summary, this.checkLocationDiscovered(summary), s) : this.checkLocationDiscovered(summary)),
+      discovered: (summary) => this.checkLocationDiscovered(summary),   // AUDIT IT1 C4: the captain's ShowOnlyDocks rides the instance test
       colorIndexOf: (t) => getPixelColorIndex(t, this.filters),
       colors,
       pathsAt: (x, y, type) => {
@@ -1330,8 +1336,11 @@ export class TravelMapWindow {
     // reuses - nothing remembered rides into them, and Travel Options' ports guard is not theirs
     if (itKind) { this.popUp.refresh(); return; }
     // The three toggles DFU's persistent popup would still be
-    // holding (SetTravelMapFromSaveData's half, :1325-1336).
-    Object.assign(this.popUp, travelMapPopUpState());
+    // holding (SetTravelMapFromSaveData's half, :1325-1336). AUDIT IT1 C2: not on the mod's CarriageMap - the
+    // player's own while Travel Options is off - whose CreatePopUpWindow nulls the persistent popup before every
+    // pick (IL_0870-0885), so DFU's base builds a NEW one on its own three (Cautious, By ship, At inns). What it
+    // chooses is still remembered (_rememberPopUpState): GetTravelMapSaveData reads the last popup.
+    if (!this._carriageMap) Object.assign(this.popUp, travelMapPopUpState());
     // AUDIT-TO1 D2: ...and THEN the mod's OnPush guard (TravelOptionsPopUp.cs
     // :53-67), which was ported and never called: with the ports
     // restriction on, a trip that cannot sail does not START on the
@@ -1403,6 +1412,7 @@ export class TravelMapWindow {
    *  `highlight`), so on a classic page the mark is remembered and not
    *  seen, which is what the mod does without its roads integration. */
   _markLocationHandler() {
+    if (this._it) return;   // AUDIT IT1 C1: CarriageMap has no MarkLocationHandler - its markedLocationId stays -1
     if (!(this.regionSelected && this.locationSelected && !this.mouseOverOtherRegion)) return;
     const id = this.locationSummary?.mapID ?? this.locationSummary?.mapId ?? -1;
     this.markedMapId = this.markedMapId === id ? -1 : id;
@@ -1730,6 +1740,9 @@ export class TravelMapWindow {
     // the middle button marks the place under the cursor and does
     // nothing else - it never reaches a sub-window or the bar.
     if (middle) {
+      // AUDIT IT1 C6: only while the map is the top window - under a popup or a box the native panel hears nothing,
+      // and a mark re-aimed `locationSummary` under the popup that would travel off it
+      if (this.popUp || this.telePopUp || this.picker || this.top || this.infoBox) return true;
       this.lastMousePos = [vx, vy];
       if (this.regionSelected) this._updateMouseOverLocation();
       this._markLocationHandler();

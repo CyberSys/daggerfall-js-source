@@ -334,7 +334,8 @@ export const ONLINE_ROOM_MOD_KEYS = Object.freeze({
   // horses and a driver at every city gate (its four gate blocks, laid onto Beautiful Cities' as well), collidable
   // models a player without them would walk through. And DisableNormalTravel is the room's, OFF - the port's shipped
   // default (IT1's recorded departure: the mod ships it on) - so online the travel map's trips stay Travel Options'
-  // walked journeys and a driver's fare is the one fast travel there is; on, the map would refuse every trip to a place.
+  // walked journeys and a driver's fare is fast travel over land (a port's ship passage, TRAVEL-ONLINE item 9, the other
+  // fast travel online - AUDIT IT1 W5); on, the map would refuse every trip to a place.
   // The fares and the driver's rules are the room's too, whole (ONLINE_WHOLE_MODS below).
   'immersive-travel': Object.freeze({
     Enabled: true,
@@ -472,7 +473,7 @@ export const ONLINE_WHOLE_MODS = Object.freeze({
   'roleplay-realism-items': Object.freeze([]),
   'roleplay-realism': Object.freeze(['variantNpcs', 'variantResidents']),   // who stands behind a counter and in a house: looks
   'oblivion-remaster-leveling': Object.freeze(['Enabled']),                 // which leveling a character uses stays its own; the dials are the room's
-  // IT1: a driver's fare is the price of the one fast travel online - a fee of 0, a dungeon on his list or the region
+  // IT1: a driver's fare is the price of fast travel over land online - a fee of 0, a dungeon on his list or the region
   // lock off would be a free or a wider teleport a dial away, so every rule is the room's at the mod's own value. Only
   // the map's looks stay the player's: the dots' sizes, the roads drawn on the page, a captain's map showing docks alone.
   'immersive-travel': Object.freeze(['General.ClearerMapDots', 'General.DrawRoads', 'General.DrawTracks', 'ShipTravel.ShowLargerDocks', 'ShipTravel.ShowOnlyDocks']),

@@ -88,7 +88,7 @@ import { locationSummaryAt } from '../systems/mapDirectory.js';
 import { calculateTravelTime, calculateTripCost, travelDays } from '../systems/travel.js';
 import { guildFastTravel } from '../systems/guildVariants.js';   // TP1: GuildManager.FastTravel
 import {
-  travelMapFilters, travelMapPopUpState, setTravelMapPopUpState, travelMapSaveData,
+  travelMapFilters, freshTravelMapFilters, travelMapPopUpState, freshTravelMapPopUpState, setTravelMapPopUpState, travelMapSaveData,
   travelMapMarkedMapId, setTravelMapMarkedMapId,   // MAP2: the mod's mark outlives the window (AUDIT-TO1 G4)
 } from '../systems/travelMapState.js';
 // AUDIT-TO1 C1/C2/C3: the mod's laws on the DEFAULT skin, as the pure
@@ -167,7 +167,7 @@ import { seatInfoLine } from '../net/townSeatLaw.js';   // SEAT1a: a seat's Char
 // this module to get it). Re-exported here, where MAP-FIELD put it.
 export { appRootFrom, APP_ROOT } from '../systems/appRoot.js';
 import { APP_ROOT } from '../systems/appRoot.js';
-import { IT_POPUP, IT_TEXT, itMapRefusal, itPopUpDefaults, itTogglePress, itTrip, playerPopUpRefusal, seafarerDiscovered } from '../systems/immersiveTravel.js';   // IT1: Immersive Travel's maps and popups, on this sheet
+import { IT_POPUP, IT_TEXT, itMapRefusal, itMapPaths, itPopUpDefaults, itTogglePress, itTrip, playerPopUpRefusal, seafarerDiscovered } from '../systems/immersiveTravel.js';   // IT1: Immersive Travel's maps and popups, on this sheet
 import { retroScreenRect } from '../systems/retroMode.js';   // DISC25-B: DFU's CustomScreenRect, the pillarbox's screen
 
 export const HELD_MAP_URL = new URL('art/held-map.png', APP_ROOT ?? globalThis.document?.baseURI ?? 'https://invalid.invalid/').href;
@@ -527,6 +527,13 @@ export class HeldMapWindow {
     // the knuckles is not a HUD under a window (windowStack.hidesHud).
     this.hidesHud = true;
     this.filters = travelMapFilters();   // the LIVE store object, edited in place (the classic law)
+    // AUDIT IT1 C1: a driver's or a captain's sheet is a NEW CarriageMap (CarriageTravelService IL_05a2) - its own
+    // filters, every place shown, and its roads and tracks the mod's DrawRoads / DrawTracks with Basic Roads (the
+    // .cctor IL_1538-1579), never the player's chips; a chip flipped on it is its own
+    if (deps.immersive) {
+      const [roads, tracks] = itMapPaths(deps.immersive.settings);
+      this.filters = { ...freshTravelMapFilters(), roads: !roads, tracks: !tracks };
+    }
     this._inks = null;     // MAP-KEY: each kind's ink once a palette answers (_markInks)
     this._keySig = '';     // MAP-KEY: what the key last said, so it is rebuilt only when that changes
     this.teleportationTravel = false;    // one-shot, cleared on close
@@ -1174,7 +1181,7 @@ export class HeldMapWindow {
           // says of where a ship may sail from (the Ports filter, the P key,
           // still the mod's: _portsShown)
           ports: true,
-          markedMapId: this.markedMapId,
+          markedMapId: this._it ? -1 : this.markedMapId,   // AUDIT IT1 C1: the mod's maps draw no mark
           markColor: rgbaCss(this._to?.settings?.markLocationColor),
           inks: this._markInks(),   // MAP-KEY: each kind in its classic dot's hue, or the pen with no palette
         });
@@ -2061,6 +2068,7 @@ export class HeldMapWindow {
    *  place under the cursor, or clears the mark when it is already this
    *  one. The ring is inked by paintInk in MarkLocationColor. */
   _markLocationHandler(sx, sy) {
+    if (this._it) return;   // AUDIT IT1 C1: CarriageMap has no MarkLocationHandler
     if (!this._onSheet([sx, sy])) return;   // AUDIT-MAP2: off the paper is off the map
     const m = this._markerAt(sx, sy);
     if (!m) return;
@@ -2259,6 +2267,7 @@ export class HeldMapWindow {
     if (kind === 'travel' && this.teleportationTravel) kind = 'teleport';
     // IT1: the mod asks first - a refused place is its box over the sheet and no panel
     if (kind === 'travel') {
+      this._itRefusal = null;   // AUDIT IT1 H-L1: asked again at every press, as the classic asks at every pick
       const refusal = this._itRefusalHere();
       if (refusal) { this._itRefusal = IT_TEXT[refusal]; this._renderCard(); return; }
     }
@@ -2270,7 +2279,10 @@ export class HeldMapWindow {
       this._panelState = {
         // the three remembered choices open the panel (the classic
         // popup's Object.assign from the store)
-        opts: it ? itPopUpDefaults(it, this._it.settings) : { ...travelMapPopUpState() },
+        // AUDIT IT1 M1: the player's own map while the mod is on and Travel Options off is the mod's CarriageMap,
+        // whose CreatePopUpWindow builds DFU's popup NEW at every pick (IL_0870-0885) - its own three, not the store's
+        opts: it ? itPopUpDefaults(it, this._it.settings)
+          : (d.immersiveSettings?.() && !this._to) ? freshTravelMapPopUpState() : { ...travelMapPopUpState() },
         it,
         // transports are SNAPSHOT at open - a horse bought mid-trip is
         // not a thing (DFU OnPush)
@@ -3195,7 +3207,7 @@ export class HeldMapWindow {
     //   - the ship refusal (_toggleOpt below) is one of
     //     TravelOptionsPopUp.cs:168-180's three message boxes, which the
     //     classic twin still draws as a buttonless parchment
-    //     (ui/travelPopUp.js:740-747, `this.top` with no MB_BUTTONS)
+    //     (ui/travelPopUp.js:744-751, `this.top` with no MB_BUTTONS)
     //   - "not enough gold" (_confirmDiseased below) is
     //     DaggerfallTravelPopUp.cs:394-406, showNotEnoughGoldPopup,
     //     `messageBox.ClickAnywhereToClose = true` over TEXT.RSC 454

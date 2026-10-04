@@ -259,17 +259,6 @@
     "note": "A fee of 0 online would be a free teleport."
   },
   {
-    "name": "IT1-26-no-online-carriage",
-    "file": "src/scenes/world.js",
-    "old": "if (isOnlinePage() && !opts?.travelShip && !opts?.immersive) {",
-    "new": "if (isOnlinePage() && !opts?.travelShip) {",
-    "tests": [
-      "test/it1_immersivetravel.test.js",
-      "test/travelonline.test.js"
-    ],
-    "note": "Online a driver's trip passes the floor."
-  },
-  {
     "name": "IT1-27-shipped-default-on",
     "file": "src/systems/modSettings.js",
     "old": "      'General.DisableNormalTravel': Object.freeze({ default: false,",

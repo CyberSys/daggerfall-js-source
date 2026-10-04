@@ -23,12 +23,18 @@
 //     World-Data-Patches.md: "Record counts in the headers are not kept in
 //     step with the arrays"), so the records past those counts are the
 //     author's: the carriage, its horses, the driver. The patch inserts
-//     them at those indices. It cannot carry an editor round trip's
-//     changes to the classic records (an automap byte, a rotation written
-//     as its equivalent) - those it can only find against the classic
-//     block - so the loader's sha256 check, and test/it1_worlddata.test.js
-//     with ARENA2_PATH set, are what say whether it rebuilds the author's
-//     file; run this tool again with an ARENA2 to replace it with WD1's.
+//     them at those indices. AUDIT IT1 G1: and the two round-trip changes
+//     the editor makes to EVERY block it writes, which the file shows on
+//     its own - BuildingDataList written at NumBlockDataRecords where the
+//     classic block reads 32 slots (formats/blocksFile.js; Warm Ashes'
+//     patches, diffed against a real BSA, remove the same 30 and 29), and a
+//     scale of 1 on each model where the classic record has none
+//     (formats/worldDataJson.js modelJson). Any other round-trip change to
+//     the classic records (an automap byte, a rotation written as its
+//     equivalent) it can only find against the classic block - so the
+//     loader's sha256 check, and test/it1_worlddata.test.js with
+//     ARENA2_PATH set, are what say whether it rebuilds the author's file;
+//     run this tool again with an ARENA2 to replace it with WD1's.
 //
 // The four files are read out of the shipped bundle (formats/unityBundle.js)
 // and parsed as FullSerializer writes them (`\0` is one of its escapes, and
@@ -53,14 +59,28 @@ export const IT_APPENDED_ARRAYS = Object.freeze([
   Object.freeze(['MiscFlatObjectRecords', 'NumMiscFlatObjectRecords']),
 ]);
 
-/** The edit read off the author's file alone: every record past the header's count, inserted where it stands. Throws
- *  when the file's shape says the author did more than append (a subrecord added, an array shorter than its count). */
+/** AUDIT IT1 G1: the slots the classic reader gives every RMB's BuildingDataList (formats/blocksFile.js), whatever the
+ *  block's count - the editor writes NumBlockDataRecords of them. */
+export const CLASSIC_BUILDING_SLOTS = 32;
+/** The three fields the editor writes on every model and the classic record leaves out (worldDataJson.js modelJson). */
+const MODEL_SCALES = Object.freeze(['XScale', 'YScale', 'ZScale']);
+
+/** The edit read off the author's file alone: the editor's round trip (AUDIT IT1 G1) and every record past the header's
+ *  count, inserted where it stands. Throws when the file's shape says the author did more than append (a subrecord
+ *  added, an array shorter than its count). */
 export function appendedEdit(modJson) {
   const rmb = modJson?.RmbBlock;
   const header = rmb?.FldHeader;
   if (!rmb || !header) throw new Error(`immersive travel: ${modJson?.Name} is not an RMB block`);
   if (rmb.SubRecords.length !== header.NumBlockDataRecords) throw new Error(`immersive travel: ${modJson.Name} changes its subrecords - the header-count edit cannot carry it`);
   const ops = [];
+  // AUDIT IT1 G1: the editor's round trip - the building slots past the count go, last first
+  const slots = header.BuildingDataList;
+  if (Array.isArray(slots)) for (let i = CLASSIC_BUILDING_SLOTS - 1; i >= slots.length; i--) ops.push(['r', ['RmbBlock', 'FldHeader', 'BuildingDataList', i]]);
+  // ...and the classic models' scales, which the classic record does not carry
+  for (let i = 0; i < Math.min(header.NumMisc3dObjectRecords ?? 0, rmb.Misc3dObjectRecords?.length ?? 0); i++) {
+    for (const k of MODEL_SCALES) if (k in rmb.Misc3dObjectRecords[i]) ops.push(['s', ['RmbBlock', 'Misc3dObjectRecords', i, k], rmb.Misc3dObjectRecords[i][k]]);
+  }
   for (const [array, count] of IT_APPENDED_ARRAYS) {
     const list = rmb[array];
     const classic = header[count];
@@ -120,7 +140,7 @@ if (isMain(import.meta.url)) {
       how += same ? ' (the header-count edit rebuilds it too)' : ' (the header-count edit does NOT - the editor changed classic records as well)';
     } else {
       patch = appendedPatch(modJson);
-      how = 'the records past the header counts - NOT checked against a BLOCKS.BSA';
+      how = 'the editor\'s round trip and the records past the header counts - NOT checked against a BLOCKS.BSA';
     }
     const out = join(outDir, `${name}.json`);
     const body = formatPatch(patch);

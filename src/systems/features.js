@@ -743,7 +743,7 @@ export const FEATURES = Object.freeze([
   // IT1 (2026-10-04): IMMERSIVE TRAVEL - `world`, the carriages at the city gates. Its gate blocks and its two factions
   // are laid when the game loads (the world-data door latches its blocks, the faction dictionary is built at the load);
   // its fares and its rules are read as a driver's map opens.
-  modFeature('immersive-travel', 'Takes effect when the game next loads; its fares and rules at the next map.', 'world'),
+  modFeature('immersive-travel', 'Takes effect when the game is next started (an in-game Load keeps what it started with); its fares and rules at the next map.', 'world'),
   // WOD1 (2026-09-23): WORLD OF DAGGERFALL - `world`, because it is the
   // wilderness itself. Read at the world's mount, like the roads it
   // consults: the loader's list is built once per world.

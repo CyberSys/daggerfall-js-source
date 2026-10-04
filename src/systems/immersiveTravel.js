@@ -20,7 +20,7 @@
 //
 // A LEAF apart from the settings store: no DOM, no world - the hosts hand in what PlayerGPS and the maps answer.
 
-import { modSetting } from './modSettings.js';
+import { modSetting, latchModLoaded, modLatchedOn } from './modSettings.js';
 import { registerCustomFaction } from '../formats/factionFile.js';
 import { registerMerchantService } from './guildServices.js';
 import { LOCATION_TYPES } from '../formats/mapsFile.js';
@@ -170,9 +170,11 @@ export const carriageLocationLarge = (locationType, settings) =>
 
 /** ImmersiveTravelCalculator.CalculateTripCost (IL_1d44-1e46) - TravelTimeCalculator.CalculateTripCost
  *  (systems/travel.js calculateTripCost) with the carriage's fee: the inn nights as DFU bills them, then
- *  DailyCarriageFee for every whole day of the trip off the ocean, plus one more; a sea leg on the ship toggle pays the
- *  ship (unless the player has one) and her captain for every day at sea plus one. The minutes are the popup's,
- *  which ImmersiveTravelPopUp leaves to DFU's own CalculateTravelTime. Never below zero (IL_1e36). */
+ *  DailyCarriageFee for every whole day of the trip off the ocean, plus one more; the ship toggle pays the ship (unless
+ *  the player has one) and her captain for every day at sea plus one. CARRIED (AUDIT IT1 L5): with NO ocean guard
+ *  (IL_1dfb tests the toggle alone, where DFU asks `pixelsTraveledOnOcean > 0`), so a trip over land on the ship toggle
+ *  pays one sea day - only with DisableShipTravelOutsideDocks off. The minutes are the popup's, which
+ *  ImmersiveTravelPopUp leaves to DFU's own CalculateTravelTime. Never below zero (IL_1e36). */
 export function carriageTripCost(minutes, oceanPixels, { sleepModeInn = false, hasShip = false, travelShip = false, freeTavernRooms = false } = {}, settings) {
   const hours = Math.trunc(((minutes | 0) + 59) / 60);
   const ocean = oceanPixels | 0;
@@ -348,11 +350,16 @@ export function itTrip(kind, settings, { start, end, opts, hasHorse = false, has
 
 // ── Init (IL_0298-0564) ────────────────────────────────────────────────────────────────────────────────────────────
 let _installed = false;
-const itOn = () => modSetting(IMMERSIVE_TRAVEL_VENDOR, 'Enabled') === true;
+/** AUDIT IT1 W4/G3: THE MOD LOADED FOR THE GAME (AUDIT PRE-MERGE 0928 S4) - latched by its Init below, as its factions
+ *  go into the dictionary the load builds once a page; until then, the switch as it stands. The services, the gate
+ *  patch and its layer (scenes/modWorldData.js), the driver's map and the player's map's Disable Normal Travel
+ *  (scenes/world.js) all ask this, so a switch flipped mid-game reaches none of them before the game is next started:
+ *  it had left carriages standing whose drivers only talked, and towns that kept or lost them by the cache. */
+export const immersiveTravelLoaded = () => modLatchedOn(IMMERSIVE_TRAVEL_VENDOR) ?? (modSetting(IMMERSIVE_TRAVEL_VENDOR, 'Enabled') === true);
 /**
- * The mod's Init, once, at the boot every host shares (scenes/shared.js): the two factions while the mod is on (the
- * dictionary is built at the load, so a switch reaches the next one - RR3's law), and the two services gated on the
- * switch. A service's body is `service(door, entity)` (systems/guildServices.js); the door the hosts hand it answers
+ * The mod's Init, once, at the boot every host shares (scenes/shared.js): the mod latched loaded for the game or not
+ * (AUDIT IT1 W4 - the dictionary is built at the load once a page, so a switch reaches the next start), then while it
+ * is loaded the two factions and the two services. A service's body is `service(door, entity)` (systems/guildServices.js); the door the hosts hand it answers
  * `enemiesNearby()` - GameManager.AreEnemiesNearby(false, false) - `messageBox(text)` and `openImmersiveMap(kind)`,
  * the CarriageMap / SeafarersMap push (CarriageTravelService IL_0574-05b3, ShipTravelService IL_05c0-05fe).
  *
@@ -362,9 +369,16 @@ const itOn = () => modSetting(IMMERSIVE_TRAVEL_VENDOR, 'Enabled') === true;
 export function installImmersiveTravel() {
   if (_installed) return false;
   _installed = true;
-  if (itOn()) for (const f of IT_FACTIONS) registerCustomFaction(f.id, f);
-  registerMerchantService(CARRIAGE_DRIVERS_FACTION_ID, (door) => immersiveTravelService(door, IT_POPUP.carriage), IT_SERVICE_LABEL, itOn);
-  registerMerchantService(SAILORS_FACTION_ID, (door) => immersiveTravelService(door, IT_POPUP.seafarer), IT_SERVICE_LABEL, itOn);
+  if (!latchModLoaded(IMMERSIVE_TRAVEL_VENDOR, modSetting(IMMERSIVE_TRAVEL_VENDOR, 'Enabled') === true)) return true;
+  // AUDIT IT1 L3: the services only once BOTH factions went in (IL_047a-04ff - the second asked only after the first);
+  // else Init logs its error and registers neither (IL_0501-050b)
+  const [drivers, sailors] = IT_FACTIONS;
+  if (!(registerCustomFaction(drivers.id, drivers) && registerCustomFaction(sailors.id, sailors))) {
+    console.warn('[ImmersiveTravel] Error: could not register custom factions!');
+    return true;
+  }
+  registerMerchantService(CARRIAGE_DRIVERS_FACTION_ID, (door) => immersiveTravelService(door, IT_POPUP.carriage), IT_SERVICE_LABEL, immersiveTravelLoaded);
+  registerMerchantService(SAILORS_FACTION_ID, (door) => immersiveTravelService(door, IT_POPUP.seafarer), IT_SERVICE_LABEL, immersiveTravelLoaded);
   return true;
 }
 /** CarriageTravelService / ShipTravelService: enemies near say DFU's cannotTravelWithEnemiesNearby and nothing opens;

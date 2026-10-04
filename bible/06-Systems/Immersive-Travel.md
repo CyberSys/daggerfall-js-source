@@ -21,7 +21,7 @@ A carriage, its team or a cart, the horses, a hay bale or a crate and a
 blocks, `WALLAA08` to `WALLAA11`, with the mod's records appended. The driver is
 a person flat in faction **8642, Carriage Drivers**, which the mod registers as a
 Merchant (`sgroup 1`) with a custom merchant service, **Fast Travel**: talk to
-him and the merchant popup's button opens his map. A place picked there is
+the driver and the merchant popup's button opens the driver's map. A place picked there is
 refused by its type (the AllowedDestinations dials; as shipped, cities, hamlets
 and villages), or - with RegionLockedCarriages - by region, or opens the mod's
 popup: Daggerfall's own travel popup with the mod's calculator, a daily carriage
@@ -46,24 +46,30 @@ ships them and named where they stand.
 
 | File | What it is |
 |---|---|
-| `src/systems/immersiveTravel.js` | the mod: Init (the two factions, the two services), the settings, the carriage's laws (IsDestinationValid, BorderingRegionIndex, isCapital, the map's refusals, its calculator), the captain's (HasDock, NearDock, IsPlayerInTown, the refusals, his calculator), the popups' OnPush and their toggle overrides, the trip each popup bills |
+| `src/systems/immersiveTravel.js` | the mod: Init (the two factions, the two services), the settings, the carriage's laws (IsDestinationValid, BorderingRegionIndex, isCapital, the map's refusals, its calculator), the captain's (HasDock, NearDock, IsPlayerInTown, the refusals, the captain's calculator), the popups' OnPush and their toggle overrides, the trip each popup bills |
 | `src/systems/immersiveTravelTables.js` | the three tables the static constructors fill out of field data: 40 capitals, 15 large docks, 382 dock pixels |
 | `src/world/immersiveTravelGates.js` | the gate records as a layer on whichever gate block is served (below) |
 | `tools/immersiveTravelPatches.mjs` | the four gate patches out of the shipped bundle |
 | `src/ui/travelMapWindow.js`, `src/ui/travelPopUp.js` | the classic skin: the CarriageMap's five-texel page, its refusal box, the mod's three popups |
 | `src/ui/heldMap.js` | the enhanced sheet: the same maps and popups as the sheet's card |
-| `src/scenes/world.js` | `openImmersiveMap` (the services' push), PlayerGPS for the laws (`itHere`), the online floor's exception |
+| `src/scenes/world.js` | `openImmersiveMap` (the services' push, and online the sun's refusal), PlayerGPS for the laws (`itHere`) |
 | `src/scenes/worldModes.js` | a street merchant's popup in the street's slot, and the service's door (`enemiesNearby`, `openImmersiveMap`) |
 
 ### The carriage
 
 - **Init** (IL_0298-0564): the two factions (type 15, sgroup 1, ggroup 16,
-  power 100, the rest -1) registered while the mod is on - the dictionary is
-  built at the load, RR3's law - and the two services gated on the switch.
+  power 100, the rest -1), then the two services - and the services only once
+  BOTH factions went in (IL_047a-050b; else the mod logs its error and registers
+  neither, AUDIT IT1 L3). The mod is **loaded for the game** (AUDIT IT1 W4): its
+  switch is latched as Init runs at the start, because the faction dictionary is
+  built at the load once a page, and the services, the gate patch and its layer,
+  the driver's map and Disable Normal Travel all ask that latch - a switch
+  flipped mid-game waits for the next start (an in-game Load keeps it).
 - **The service** (IL_0574-05b3): `AreEnemiesNearby(false, false)` says
   `cannotTravelWithEnemiesNearby`; otherwise it PUSHES the CarriageMap - past
   DaggerfallUI's travel-map door, so none of that door's refusals (the sun, a
-  quest's offer) is asked: a vampire may take a carriage by day, as in DFU.
+  quest's offer) is asked: a vampire may take a carriage by day, as in DFU, and
+  the arrival clamp lands them after dark. Online see departure 11.
 - **IsDestinationValid** (IL_0a58-0b61): each type its own dial. **CARRIED BUG:**
   the three home types read *Dungeons* (IL_0adb), and no branch reads *Homes* -
   Homes on admits nothing, Dungeons on admits the homes.
@@ -82,7 +88,10 @@ ships them and named where they stand.
 - **The calculator** (IL_1d44-1e46): DFU's inn nights, then the fee for every
   whole day off the ocean plus one, and on the ship toggle the ship (unless the
   player owns one) and her captain by the sea day plus one. The time is DFU's
-  own CalculateTravelTime. As shipped: 1 gold a day.
+  own CalculateTravelTime. As shipped: 1 gold a day. **CARRIED:** no ocean guard
+  (IL_1dfb) - DFU pays the ship only for a leg at sea, the mod for any trip on
+  the ship toggle, so a trip over land with the ship on pays a sea day (reachable
+  only with DisableShipTravelOutsideDocks off).
 - **The popup** (ImmersiveTravelPopUp): a NEW popup each time (`newobj`), so its
   defaults are DFU's own with the ship off under DisableShipTravelOutsideDocks -
   never the toggles the map remembers. Its transport handlers refuse whenever the
@@ -95,8 +104,11 @@ ships them and named where they stand.
   Basic Roads loaded, no water, no politic containment (Travel Options has none),
   no middle-click mark, a city or hamlet's dot large and the rest small under
   ClearerMapDots. It is also the player's own map while Travel Options is off
-  (Init IL_03bf-03d2). A driver's or a captain's map is DFU's window under the
-  mod, never Travel Options', so the sheet's ports filter hides nothing on it.
+  (Init IL_03bf-03d2) - whose CreatePopUpWindow builds DFU's popup NEW at every
+  pick (IL_0870-0885), so it opens on Cautious / By ship / At inns, never the
+  remembered three (AUDIT IT1 C2). A driver's or a captain's map is a NEW window
+  (`newobj`, IL_05a2): its own four filters with every place shown, no
+  middle-click mark, and never Travel Options' ports filter (AUDIT IT1 C1).
 
 ### The ship captain
 
@@ -117,7 +129,8 @@ ships them and named where they stand.
   is "Cannot disable ship travel when travelling with a ship captain.", any sleep
   press while camping "There are no inns in the middle of the sea."
 - **The map** (SeafarersMap): ShowLargerDocks sizes a dock's dot large,
-  ShowOnlyDocks shows nothing else.
+  ShowOnlyDocks shows nothing else - not on the dots, the hover, the click or the
+  find, the one checkLocationDiscovered they all ask (AUDIT IT1 C4).
 
 ### Disable Normal Travel
 
@@ -136,9 +149,13 @@ the player's own `BLOCKS.BSA`.
 **BUILT WITHOUT A BLOCKS.BSA.** No ARENA2 in this container. The tool read the
 edit off the files alone: the editor appends the author's records and leaves the
 header's counts at the classic block's (2 models, 1 flat in all four), so the
-records past the counts are the author's - 6, 5, 7 and 10 of them. What it
-cannot carry is an editor round trip's change to a classic record (an automap
-byte, a rotation's equivalent). The loader checks each rebuild against the
+records past the counts are the author's - 6, 5, 7 and 10 of them. And the two
+round-trip changes the editor makes to every block, which the files show on
+their own (AUDIT IT1 G1): BuildingDataList written at its count where the
+classic block reads 32 slots (28 removed - Warm Ashes' patches, diffed against a
+real BSA, remove the same), and a scale of 1 on the two classic models, whose
+records carry none (6 sets). What it cannot carry is any other round-trip change
+to a classic record (an automap byte, a rotation's equivalent). The loader checks each rebuild against the
 author's sha256 and says when it differs, and `test/it1_worlddata.test.js`
 checks all four with `ARENA2_PATH` set. **OWED:** that run, on a machine with
 the ARENA2 - and if it differs, `node tools/immersiveTravelPatches.mjs
@@ -146,31 +163,41 @@ the ARENA2 - and if it differs, `node tools/immersiveTravelPatches.mjs
 
 **THE LAYER - A RECORDED DEPARTURE** (the owner: "Add carriages to either").
 Beautiful Cities ships the same four names, its own redrawn gates, and 52
-wall-and-farm composites on them (`WALLAA08.FARMAA00` and the rest) - at a higher
+composites on them - 24 farm, 24 tavern and 4 road (`WALLAA08.FARMAA00`,
+`WALLAA09.TVRNAS02`, `WALLAA11.ROAD` and the rest) - at a higher
 priority, and online it is the room's. DFU serves one mod's file a name, so there
 the gates would carry no driver. Here the mod's appended records are a layer on
 the world-data door (`registerWorldDataLayer`): laid onto whichever file is
 served under a gate's name or a composite on it, in the block's own coordinates,
 the header's counts left as the editor leaves them (DFU lays out by the arrays).
-The mod's own patch already carries them, so the layer stands aside there.
+The mod's own patch already carries them, so the layer stands aside there. The
+layer lays only a patch's inserts past the classic counts and passes every other
+op over - the round trip above, or what WD1's diff finds against a real BSA - so
+no op can stop a world loading (AUDIT IT1 G1/G2; the install is guarded too).
 **NOT SEEN:** how the carriages sit among Beautiful Cities' own gate furniture.
-The owner's eyes, once.
+AUDIT IT1 G4 measured it: BC's two gate props (models 42520 and 45181) stand 23
+to 49 units - under a metre and a quarter - from the team or the horses at all
+four gates, in every composite on them. Clipping is likely and unproven: the
+owner's eyes, once.
 
 ## Online
 
 The mod is the room's (`systems/onlineLane.js`): its switch for the floor's
 reason (collidable carriages at every gate), and Disable Normal Travel held
 **off** - so the map's trips stay Travel Options' walked journeys (TRAVEL-ONLINE
-whole) and a driver's fare is the one fast travel there is. Every fare and rule
+whole) and a driver's fare is fast travel over land (a port's ship passage the
+other, TRAVEL-ONLINE item 9). Every fare and rule
 is the room's at the mod's value (ONLINE_WHOLE_MODS) - a fee of 0, a dungeon on
 the driver's list or the region lock lifted would be a free or wider teleport a
 dial away; the map's looks stay the player's.
 
-The trip: the map's fork in `scenes/world.js` refuses a trip over land at fast
-travel's door online (AUDIT TRAVEL-ONLINE T7) - **save a driver's**
-(`opts.immersive`). It is `fastTravelTo`, as a ship's passage online: the fare
-paid, the arrival in the world's present, the trip's days on the character's own
-clock (LIVED1).
+The trip: a driver's map has its own `onTravel` (`openImmersiveMap`), which
+calls `fastTravelTo` itself - it never meets the travel map's fork, whose online
+floor (AUDIT TRAVEL-ONLINE T7) stands as TRAVEL-ONLINE wrote it (AUDIT IT1 W3:
+an exception for the mod's kind there was never reached, and would have let the
+player's own popup through). It is `fastTravelTo`, as a ship's passage online:
+the fare paid, the arrival in the world's present, the trip's days on the
+character's own clock (LIVED1).
 
 ## Recorded departures
 
@@ -181,8 +208,11 @@ clock (LIVED1).
    the room holds it off).
 2. **The gate layer** over Beautiful Cities (above).
 3. **The settings are read as a map opens**, where the mod's static constructors
-   read four of them once a session (CarriageMap and SeafarersMap's map dials,
-   the popup's two rules); the fees are read as they bill, as the mod reads them.
+   read nine of them once a session (CarriageMap's four, SeafarersMap's three,
+   the popup's two; Init reads DisableNormalTravel once more), and the fees and
+   AllowedDestinations, which the mod reads live at every bill and every pick, are
+   billed and checked from that same opening's read (AUDIT IT1 L4). Offline the
+   same; online the room's values cannot move under an open map.
 4. **Disable Normal Travel refuses the popup for a PLACE.** In DFU the mod's popup
    takes the place of Travel Options' by load order, and what Travel Options' own
    coordinates popup does then is that mod's code meeting a class it never
@@ -195,7 +225,10 @@ clock (LIVED1).
 7. **The enhanced sheet's card names the ride** ("A carriage ride", "A ship
    captain's passage") - the classic popup is DFU's art and says nothing; the
    sheet is the port's own. The sheet's dots are its own: ClearerMapDots and
-   ShowLargerDocks reach the classic window; ShowOnlyDocks reaches both.
+   ShowLargerDocks reach the classic window; ShowOnlyDocks reaches both. On a
+   driver's sheet the road and track chips start at the mod's DrawRoads /
+   DrawTracks, and a flip of one is that sheet's alone (the mod has no path
+   buttons; AUDIT IT1 C1).
 8. **The refusal boxes wrap** (SS5's `fitBoxRows`) - the mod's lines are wider
    than the screen.
 9. **Not ported:** Hidden Map Locations' arms (the mod is not in the port) and
@@ -204,10 +237,18 @@ clock (LIVED1).
     merchant arm had only ever opened indoors (`interiorOverlay`), and a first
     click before any building was entered loads the popup's art and then lands
     (ASYNC NEVER DROPS).
+11. **Online, a sun-averse traveller is refused a carriage by day** (AUDIT IT1
+    W2). The mod asks nothing, because DFU's arrival clamp lands such a
+    traveller after dark (DaggerfallTravelPopUp.cs:350, "regardless of travel
+    type"); online that clamp is skipped - the world's clock - and the travel
+    map's door refuses them by day instead (LIVED1), so the driver's map refuses
+    the same, with the hour night falls.
 
 ## Pins
 
 `test/it1_immersivetravel.test.js` (13), `test/it1_worlddata.test.js` (5, one
 with `ARENA2_PATH`), `test/it1_heldmap.test.js` (4), `test/it1_classicmap.test.js`
-(2); `tools/mutants/it1.json` (36, all dead). Not seen in a browser: no ARENA2,
+(2); `tools/mutants/it1.json` (35, all dead; AUDIT IT1 W3 retired IT1-26). AUDITED the same day (AUDIT IT1,
+`01-Overview/Audit-IT1.md`): `test/auditit1.test.js` (16) and
+`tools/mutants/auditit1.json` (30, all dead). Not seen in a browser: no ARENA2,
 no GPU in this container.

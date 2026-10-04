@@ -84,9 +84,10 @@ test('IT1 Init: Carriage Drivers (8642) and Sailors (8643) as the IL writes them
     // StaticNPCClick's routing: sgroup 1 is Merchants, so the custom service answers - outdoors too (no building)
     const route = staticNpcRoute({ npcFactionId: 8642, npcFaction: customFactions().get(8642), insideBuilding: false, hasCustomMerchantService });
     assert.deepEqual(route, { kind: 'merchant', service: 'sell' });
-    // the mod off: no service (DFU: the mod never loaded)
+    // AUDIT IT1 W4 (PIN MOVED): the mod is loaded for the game - a switch flipped mid-game waits for the next start
+    // (the dictionary took the factions once); off AT THE START, nothing (auditit1.test.js)
     setModSetting(IMMERSIVE_TRAVEL_VENDOR, 'Enabled', false);
-    assert.equal(hasCustomMerchantService(8642), false);
+    assert.equal(hasCustomMerchantService(8642), true);
     // the service body: enemies near say the line; otherwise the driver's or the captain's map
     setModSetting(IMMERSIVE_TRAVEL_VENDOR, 'Enabled', true);
     const said = [], opened = [];
@@ -310,7 +311,7 @@ test('IT1 the classic popup: a driver\'s is the mod\'s - its defaults, its fare,
   assert.deepEqual([m.done, exited], [true, true]);
 });
 
-test('IT1 online: the mod is the room\'s and Disable Normal Travel is held off - the map stays walked, a driver\'s fare the one fast travel - every fare and rule at the mod\'s value, the map\'s looks the player\'s', () => {
+test('IT1 online: the mod is the room\'s and Disable Normal Travel is held off - the map stays walked, a driver\'s fare fast travel over land - every fare and rule at the mod\'s value, the map\'s looks the player\'s', () => {
   assert.deepEqual({ ...ONLINE_ROOM_MOD_KEYS[IMMERSIVE_TRAVEL_VENDOR] }, { Enabled: true, 'General.DisableNormalTravel': false });
   assert.deepEqual([...ONLINE_WHOLE_MODS[IMMERSIVE_TRAVEL_VENDOR]], ['General.ClearerMapDots', 'General.DrawRoads', 'General.DrawTracks', 'ShipTravel.ShowLargerDocks', 'ShipTravel.ShowOnlyDocks']);
   _resetModSettings();
@@ -331,9 +332,9 @@ test('IT1 online: the mod is the room\'s and Disable Normal Travel is held off -
   } finally { _resetModSettings(); }
 });
 
-test('IT1 by source: the online floor lets a driver\'s trip through to fast travel, the map\'s own trips stay refused there; the driver\'s map opens in the street\'s slot and its door reads PlayerGPS', () => {
+test('IT1 by source: a driver\'s trip goes from its own map to fast travel, never through the travel map\'s online floor (AUDIT IT1 W3), which stands as TRAVEL-ONLINE wrote it; the driver\'s map opens in the street\'s slot and its door reads PlayerGPS', () => {
   const w = read('src/scenes/world.js');
-  assert.match(w, /if \(isOnlinePage\(\) && !opts\?\.travelShip && !opts\?\.immersive\) \{ townTalk\.say\(ONLINE_LAND_TRAVEL_REFUSAL\); hudFade\.clearFade\(\); \} else fastTravelTo\(pick, opts, computed\);/);
+  assert.match(w, /if \(isOnlinePage\(\) && !opts\?\.travelShip\) \{ townTalk\.say\(ONLINE_LAND_TRAVEL_REFUSAL\); hudFade\.clearFade\(\); \} else fastTravelTo\(pick, opts, computed\);/);
   assert.match(w, /function openImmersiveMap\(kind\) \{[\s\S]*?immersive: \{ kind, settings \},[\s\S]*?travelOptions: \(\) => null,[\s\S]*?onTravel: \(pick, opts, computed\) => \{ fastTravelTo\(pick, \{ \.\.\.opts, immersive: opts\?\.immersive \?\? kind \}, computed\); \},[\s\S]*?townTalk\.showOverlay\(win\);/);
   assert.match(w, /openImmersiveMap,\n\s+travelEnemiesNearby: \(\) => duelEnemyNear\(\) \|\| areEnemiesNearby\(\[\.\.\.cityGuards\.guards, \.\.\.exteriorFoes\.foes\]\) \|\| navalHostileNear\(\),/);
   assert.match(w, /immersiveSettings: immersiveSettingsIfOn,\n\s+itHere,/);

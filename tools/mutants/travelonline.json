@@ -57,7 +57,7 @@
   {
     "name": "TRAVEL-ONLINE-6-no-floor",
     "file": "src/scenes/world.js",
-    "old": "      if (isOnlinePage() && !opts?.travelShip && !opts?.immersive) { townTalk.say(ONLINE_LAND_TRAVEL_REFUSAL); hudFade.clearFade(); } else fastTravelTo(pick, opts, computed);",
+    "old": "      if (isOnlinePage() && !opts?.travelShip) { townTalk.say(ONLINE_LAND_TRAVEL_REFUSAL); hudFade.clearFade(); } else fastTravelTo(pick, opts, computed);",
     "new": "      fastTravelTo(pick, opts, computed);",
     "tests": [
       "test/travelonline.test.js"

@@ -25,15 +25,16 @@ export const IT_GATE_FILE = /^(WALLAA(?:08|09|10|11))(?:\.[A-Z0-9]+)?\.RMB\.json
 /** The two arrays the mod appends to. */
 const ARRAYS = Object.freeze(['Misc3dObjectRecords', 'MiscFlatObjectRecords']);
 
-/** A patch's appended records, per array, in the patch's order - its `i` ops into the block's two misc arrays
- *  (tools/immersiveTravelPatches.mjs writes nothing else; an op that is not one is refused, not guessed at). */
-export function gateAppends(patch) {
+/** A patch's appended records, per array, in the patch's order - its `i` ops into the block's two misc arrays at or past
+ *  the classic counts (`counts`, the rebuilt file's header; the editor leaves the classic block's there). AUDIT IT1
+ *  G1/G2: every other op is the mod's own file's - the editor's round trip (tools/immersiveTravelPatches.mjs), or what
+ *  WD1's diff against a real BLOCKS.BSA finds (an automap byte, a classic record re-set or re-inserted) - and is passed
+ *  over, never refused: one op the layer could not lay stopped every world loading. */
+export function gateAppends(patch, counts = null) {
   const out = { Misc3dObjectRecords: [], MiscFlatObjectRecords: [] };
-  for (const op of patch?.ops ?? []) {
-    const [kind, path, value] = op;
-    if (kind !== 'i' || path?.length !== 3 || path[0] !== 'RmbBlock' || !ARRAYS.includes(path[1])) {
-      throw new Error(`immersive travel: ${patch?.rebuilds} carries an op the gate layer cannot lay (${JSON.stringify(op).slice(0, 80)})`);
-    }
+  for (const [kind, path, value] of patch?.ops ?? []) {
+    if (kind !== 'i' || path?.length !== 3 || path[0] !== 'RmbBlock' || !ARRAYS.includes(path[1])) continue;
+    if (counts && !(path[2] >= (counts[path[1]] ?? 0))) continue;
     out[path[1]].push(value);
   }
   return out;
@@ -58,7 +59,11 @@ export function layGateRecords(json, appends) {
  */
 export function installImmersiveTravelGates(patches, own, isOn) {
   const byGate = new Map();
-  for (const p of patches ?? []) byGate.set(String(p.rebuilds ?? '').replace(/\.RMB\.json$/, ''), gateAppends(p));
+  (patches ?? []).forEach((p, i) => {
+    const h = own?.[i]?.RmbBlock?.FldHeader;   // the rebuilt file's header: the classic counts the editor left there
+    const counts = h ? { Misc3dObjectRecords: h.NumMisc3dObjectRecords, MiscFlatObjectRecords: h.NumMiscFlatObjectRecords } : null;
+    byGate.set(String(p.rebuilds ?? '').replace(/\.RMB\.json$/, ''), gateAppends(p, counts));
+  });
   if (!byGate.size) return false;
   const mine = new WeakSet((own ?? []).filter((j) => j && typeof j === 'object'));
   return registerWorldDataLayer({
