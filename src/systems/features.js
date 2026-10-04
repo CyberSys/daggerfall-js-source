@@ -194,7 +194,9 @@ export const MOD_CURATED = Object.freeze({
   // TO1: the mod ships FIFTY-ONE keys across twelve sections, so this
   // one is curated hard. The five are what a player reaches for first:
   // whether a cautious trip is walked, whether a ship needs a port,
-  // what a location does to a journey in progress, how fast it may run,
+  // what a location does to a journey in progress, how fast it may run
+  // (RATE-LAW, 2026-10-04, Mac: "Remove travel options dials" - no longer:
+  // the journey's ground sets its rate, systems/timeScale.js travelRateOf),
   // and (KB1: in Controls now, as FollowPaths) which key follows a road. Everything else - the fourteen dot
   // colours, the junction map's placement, the fare scaling - stays in
   // the mod's own pane.
@@ -215,7 +217,7 @@ export const MOD_CURATED = Object.freeze({
   ]),
   'travel-options': Object.freeze([
     'CautiousTravel.PlayerControlledCautiousTravel', 'StopAtInnsTravel.PlayerControlledInnsTravel', 'ShipTravel.OnlyFromPorts',
-    'GeneralOptions.LocationPause', 'TimeAcceleration.AccelerationLimit',
+    'GeneralOptions.LocationPause',
     'GeneralOptions.AvoidObstacles', 'GeneralOptions.FirstPersonTravel',
     'GeneralOptions.FirstPersonTravelFollowsRoads',
   ]),

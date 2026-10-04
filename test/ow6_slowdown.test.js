@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { THREAT_WARN_S, metresToReach, threatStep, threatCap } from '../src/systems/travelThreat.js';
+import { THREAT_WARN_S, metresToReach, threatStep, threatCap, foePaced } from '../src/systems/travelThreat.js';
 import { createLoadGovernor } from '../src/systems/travelGovernor.js';
 import { TRAVEL_HELD_TEXT, TRAVEL_HELD_WHY } from '../src/ui/enhancedTravelControl.js';
 import { foeHostile, areEnemiesNearby } from '../src/systems/encounters.js';
@@ -98,7 +98,6 @@ const cut = (name) => {
   return m[0];
 };
 const constLine = (name) => { const m = new RegExp(`\\n {2}const ${name} = [^\\n]*\\n`).exec(W); assert.ok(m, `${name} lifted`); return m[0]; };
-const letLine = (name) => { const m = new RegExp(`\\n {2}let ${name} = [^\\n]*\\n`).exec(W); assert.ok(m, `${name} lifted`); return m[0]; };   // ENEMY-PACE: the near-enemies pace foeFloor reads
 
 const governorHost = (over = {}) => {
   const d = {
@@ -108,7 +107,8 @@ const governorHost = (over = {}) => {
     ...over,
   };
   const scope = {
-    travelControlUI: { get isShowing() { return d.journey; }, get timeAcceleration() { return d.spinner ?? 0; }, accelerationLimit: () => 100 }, travelOptions: { state: { get autopilot() { return d.journey ? {} : null; } } },
+    travelControlUI: { get isShowing() { return d.journey; } }, travelOptions: { state: { get autopilot() { return d.journey ? {} : null; } } },
+    travellerOnRoad: () => !!d.onRoad, foePaced,   // RATE-LAW: the keys' travel's ground; ENEMY-PACE's fixed floor
     travelView: { get active() { return d.up; }, get state() { return d.up ? 'up' : 'off'; } }, tvOwnsJourneys: () => d.owns,
     worldTimeScale: () => d.scale, setWorldTimeScale: (n) => { d.scale = n; },
     travelGovernor: createLoadGovernor({ max: 100 }), state: { terrainDistance: 3, localFromWorld: (x, z) => [x, z] },
@@ -137,7 +137,6 @@ const governorHost = (over = {}) => {
     let tvHeld = null, tvHeldWhy = null, tvWalking = 0, _tvWalkYaw = d.walkYaw ?? null;
     const travelAsked = d.asked;
     ${constLine('JOURNEY_SLOW_SAY_MS')}
-    ${letLine('tvFoeRate')}${constLine('foeFloor')}
     let _slowWas = null, _slowSaidAt = -Infinity;
     ${cut('journeyThreats')}${cut('journeyThreatCap')}${cut('journeySlowSaid')}${cut('travelViewGovern')}
     return { govern: travelViewGovern, held: () => [tvHeld, tvHeldWhy] };`.replace(/\b_travelDrive\b/g, 's._travelDrive');
@@ -229,16 +228,19 @@ test('OW6 host run: ON THE CLASSIC SKIN (no view), A FOE STANDING AHEAD HOLDS TH
   assert.deepEqual(none.held(), [null, null]);
 });
 
-test('OW6 x TV-WASD host run: THE KEYS\' TRAVEL SLOWS FOR ENEMIES TOO - held at the spinner\'s x40 under the view, a band ahead along the way the keys last moved holds it (the reason the enemies), one behind holds nothing, and the keys let go let the hold go (mutants: the keys uncapped, their way unread)', () => {
+test('OW6 x TV-WASD host run: THE KEYS\' TRAVEL SLOWS FOR ENEMIES TOO - held under the ground\'s rate (RATE-LAW: x60 off the road, x100 on it) under the view, a band ahead along the way the keys last moved holds it (the reason the enemies), one behind holds nothing, and the keys let go let the hold go (mutants: the keys uncapped, their way unread)', () => {
   const keys = () => new Set([TV_MOVE_ACTIONS[0]]);
   const band = [{ id: 'b1', at: { x: 0, z: 670 } }];
-  const ahead = governorHost({ journey: false, keys: keys(), spinner: 40, driveYaw: null, walkYaw: 0, bands: band });
+  const ahead = governorHost({ journey: false, keys: keys(), driveYaw: null, walkYaw: 0, bands: band });
   ahead.govern(0.033);
-  assert.deepEqual([ahead.d.scale, ...ahead.held()], [35, 35, 'foes'], 'x35 of x40: (670 - 320) / (0.6 x 16) = 36.5, down the ladder');
+  assert.deepEqual([ahead.d.scale, ...ahead.held()], [35, 35, 'foes'], 'x35 of x60: (670 - 320) / (0.6 x 16) = 36.5, down the ladder');
   assert.deepEqual(ahead.d.said, [TRAVEL_VIEW_TEXT.enemiesSlow], 'and said, as a journey\'s is');
-  const behind = governorHost({ journey: false, keys: keys(), spinner: 40, driveYaw: null, walkYaw: Math.PI, bands: band });
+  const behind = governorHost({ journey: false, keys: keys(), driveYaw: null, walkYaw: Math.PI, bands: band });
   behind.govern(0.033);
-  assert.deepEqual([behind.d.scale, ...behind.held()], [40, null, null], 'walking away from it: the keys\' own speed');
+  assert.deepEqual([behind.d.scale, ...behind.held()], [60, null, null], 'walking away from it: the keys\' own speed, the open ground\'s x60');
+  const road = governorHost({ journey: false, keys: keys(), driveYaw: null, walkYaw: Math.PI, bands: band, onRoad: true });
+  road.govern(0.033);
+  assert.deepEqual([road.d.scale, ...road.held()], [100, null, null], 'on a road: the road\'s x100');
   ahead.d.keys.clear();
   ahead.govern(0.033);
   assert.deepEqual([ahead.d.scale, ...ahead.held()], [1, null, null], 'the keys let go: walking pace, nothing held');

@@ -318,7 +318,8 @@ import { groundHit, canvasPoint, classifyPick } from '../player/travelPick.js'; 
 import { planRoute, routeLegs, roadShare, crossesWater, dryLine, SEA_KINDS } from '../systems/travelRoute.js';   // TV2: the way by the roads; OWS2: and over the water
 import { createSeaHelm, seaHelmStep, headingOf as seaHeadingOf, squareOnly as seaSquareOnly, SEA_HELM } from '../systems/seaHelm.js';   // OWS2: the journey's hand on the helm
 import { createLoadGovernor, unbuiltAround } from '../systems/travelGovernor.js';   // TV2: "Cap it to what loads cleanly"
-import { threatCap } from '../systems/travelThreat.js';   // OW6: the journey slows as enemies close
+import { playerOnPathAt, pathsDataPoint } from '../systems/travelPaths.js';   // RATE-LAW: the traveller on a road's lane or off it
+import { threatCap, foePaced } from '../systems/travelThreat.js';   // OW6: the journey slows as enemies close; ENEMY-PACE's floor, fixed (RATE-LAW)
 import { farPlaces, settlementPixels, farDistanceText, PIXEL_KM } from '../systems/travelFarPlaces.js';   // TV5: the far places, held at the view's edge
 import { dungeonRows, spawnedPixels, filedSpawns, nearDungeons, dungeonApproach, pixelBox, lastLegStart, dungeonToFind, dungeonFoundText, NATIVE_PER_M } from '../systems/travelDungeons.js';   // TV6: the dungeons, discovered on approach; AUDIT OW3 D1/D3: off the map rows, and the spawns with them; AUDIT OW4 D4/D6: the far found spawns, the last leg's start
 import { routeGround, joinPoint, routeDrawPoints, TV_MOUNTAIN_CLIMATE } from '../systems/travelRoute.js';   // OW-MOUNTAINS, OW-ROADSIDE; AUDIT OW3 J4: the drawn route's points; AUDIT OW4 J3: the ground read once
@@ -2131,7 +2132,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const tvRaid = { list: [], at: -Infinity, chase: new Map(), spent: new Set(), clock: 0, life: -1, peer: new Map(), spentAt: [] };   // OWS3: Warm Ashes' raiders about the traveller, and the chases (BOOT-TDZ: a load ends them); OW6: a peer's chases heard, and my spent ones said
   const tvSea = { means: null, helm: createSeaHelm(), phase: null, boat: null, probeAt: 0, best: Infinity, bestS: 0, legAt: -1, wasLive: false };   // OWS2: the crossing's state (BOOT-TDZ: above the load that clears it and the Travel Options atSea that reads it)
   let travelView = null;   // TV1: assigned beside the look gate, read by the cursor toggle's guard and the frame (BOOT-TDZ)
-  let travelAsked = 1;   // TV2 (AUDIT TV A2): the rate Travel Options itself last asked the clock for - its spinner, or its own cap (the ring walk's x15, an interrupt's x1) - the one the travel view's governor may hold under, and hands back
+  let travelAsked = 1;   // TV2 (AUDIT TV A2): the rate Travel Options itself last asked the clock for - its ground's (RATE-LAW; it was the spinner), or its own cap (the ring walk's x15, an interrupt's x1) - the one the travel view's governor may hold under, and hands back
   const travellerBook = createTravellerBook();   // TV3: the region's travellers (BOOT-TDZ: read by the map, the view and the chat's links)
   const travellerSent = { room: null, last: null, at: 0 };   // TV3: what my region's room holds of me
   /** AUDIT-TO1 B3: the region the last pixel crossing stood in, for
@@ -13264,8 +13265,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (g === _travelOptionsGen) return;
     _travelOptionsGen = g;
     travelOptionsSettings = readTravelOptionsSettings(modSetting, travelOptionsBoot);
-    if (travelOptions) travelOptions.settings = travelOptionsSettings;
-    travelControlUI?.setAccelerationLimit(travelOptionsSettings.accelerationLimit);   // the panel's limit, the tile's dial
+    if (travelOptions) travelOptions.settings = travelOptionsSettings;   // RATE-LAW: no limit dial to carry to the panel
   }
   const travelOptionsOn = modSetting(TRAVEL_OPTIONS_VENDOR, 'Enabled');
   latchModLoaded(TRAVEL_OPTIONS_VENDOR, travelOptionsOn);   // AUDIT PRE-MERGE 0928 U7: the journey is made now or not at all - its Follow Paths key answers the same (systems/inputActions.js actionLive)
@@ -13298,13 +13298,21 @@ export async function bootWorld(canvas, renderer, params, status) {
   // so it needs the same four reads - one law, two skins.
   if (travelJunctionMap) travelJunctionMap.deps = travelJunctionMap.deps ?? {};
   const travelControlUI = travelOptionsOn ? createTravelControlUI({
-    defaultStartingAccel: travelOptionsSettings.defaultStartingAccel,
-    accelerationLimit: travelOptionsSettings.accelerationLimit,
     onOpenMap: () => toggleTravelMap(),
     onClose: () => travelOptions?.interruptTravel(),         // TravelOptionsMod.cs:378 - CAMP: stop, keep the destination
     onCancel: () => travelOptions?.clearTravelDestination(), // :377 - EXIT: forget it
-    onTimeAccelerationChanged: (n) => { travelAsked = n; setWorldTimeScale(n); },  // :379 -> SetTimeScale; TV2: the ask, recorded for the view's governor
+    // RATE-LAW: :379's OnTimeAccelerationChanged went with the spinner - the journey asks the clock (setTimeScale below)
   }) : null;
+  /** RATE-LAW (2026-10-04, Mac: "Roads now travel at x100 and non roads at x60"): DOES THE TRAVELLER STAND ON A ROAD OR A
+   *  TRACK - inside one of the lanes leaving their map pixel (systems/travelPaths.js playerOnPathAt, Travel Options' own
+   *  geometry), on whichever network the land was painted with (his, or the port's own: the same compass, ROADS 21)?
+   *  The rate law's question for a journey with no route to say it (the mod's straight walks) and for the keys' travel. */
+  function travellerOnRoad() {
+    const net = terrainGen.roads();
+    if (!net) return false;
+    const wc = state.worldCoords(walkMode ? player.pos : cam.pos), mp = playerTravelPixel();
+    return playerOnPathAt(pathsDataPoint(net, mp.x, mp.y), wc.x, wc.z, mp.x, mp.y) !== 0;
+  }
   /** TRAVEL-NAV1 (2026-09-25, Mac: "Improving travel options navigation to
    *  properly route around objects and stopping before running into
    *  buildings"): THE JOURNEY'S STEERING (systems/travelSteer.js), made
@@ -13336,6 +13344,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // is handed over only when it is actually his (`source`, TO1's own
     // field on the network object, terrainGenClient.js).
     roads: () => { const net = terrainGen.roads(); return net?.source === 'basic-roads' ? net : null; },
+    onRoad: () => travellerOnRoad(),   // RATE-LAW: a straight walk's ground - the road's rate while it runs along one
     isWater: (x, y) => x < 0 || y < 0 || x >= 1000 || y >= 500 || woods.getHeightMapValue(x, y) <= WATER_BYTE,   // AUDIT DEEP T2-1: a road journey's resume never aims across the sea
     worldPos: () => { const wc = state.worldCoords(walkMode ? player.pos : cam.pos); return { x: wc.x, z: wc.z }; },
     mapPixel: playerTravelPixel,
@@ -14593,7 +14602,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       (e.clientX - _r.left) * (canvas.width / _r.width),
       (e.clientY - _r.top) * (canvas.height / _r.height),
       e.button, hudCtx, { windowUp: gamePaused(), event: e })) return;   // BUFF-END: the event, for the spell icon's own press
-    // TO1: the travel panel's three buttons and its spinner, in the
+    // TO1: the travel panel's three buttons (RATE-LAW: its spinner is gone), in the
     // same rung and for the same reason the large HUD's panels are
     // here - a HUD-layer control is clicked before the pointer is
     // relocked, or the click becomes a swing. The ENHANCED panel is
@@ -24870,7 +24879,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     return pts;
   }
   // THE CAP (systems/travelGovernor.js): while the view is up and a journey drives, the clock runs no faster than the
-  // grid raises the ground the view can see. The spinner stays the player's; the panel says when it is held.
+  // grid raises the ground the view can see. The ground's rate stays the journey's (RATE-LAW); the panel says when it is held.
   // OW6 (2026-09-29, the player: "If a player is traveling very fast, they should slow if enemies become close"): THE
   // ENEMIES A JOURNEY SLOWS FOR (systems/travelThreat.js) - where each is from the traveller's feet (scene metres), the
   // reach it sees or strikes in, and whether it is already closing. Under the view the Overworld's own: the bands as it
@@ -24930,12 +24939,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   }
   const travelGovernor = createLoadGovernor({ max: MAX_TIME_SCALE });
   // ENEMY-PACE (the player: "a second time multiplier for when you're near an enemy"): the slowest pace the clock runs at
-  // with enemies near - the enemies' cap still eases a journey down toward them, but never under this. The panel's second
-  // stepper sets it, and shows only while the enemies hold the clock
-  let tvFoeRate = 5;
-  const foeLadder = (n, up) => up ? (n >= 5 ? n + 5 : n + 1) : (n > 5 ? n - 5 : Math.max(1, n - 1));
-  const foeFloor = (cap, want) => Math.min(want, Math.max(cap, Math.min(tvFoeRate, travelControlUI?.accelerationLimit() || MAX_TIME_SCALE)));
-  let tvHeld = null;   // the rate the governor holds the clock to, while it holds it under the spinner's
+  // with enemies near - the enemies' cap still eases a journey down toward them, but never under it. RATE-LAW: a fixed
+  // pace now (systems/travelThreat.js JOURNEY_FOE_PACE, `foePaced`) - the panel's second stepper is gone
+  let tvHeld = null;   // the rate the governor holds the clock to, while it holds it under the ground's (RATE-LAW)
   // OW6: and why - 'load' (TV2's ground), 'foes' (an enemy near), 'ground' (the view down: AUDIT OW4 J5's walking pace - AUDIT
   // OW5 G1, the bar saying which; its tvHeldGround is this word now)
   let tvHeldWhy = null;
@@ -24956,7 +24962,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // First-Person Travel's (OW-TOGGLE: the journey the player chose to walk on the ground)
     if (journey && !travelView?.active && tvOwnsJourneys()) {
       if (worldTimeScale() !== 1) setWorldTimeScale(1);
-      tvHeld = travelAsked > 1 ? 1 : null;   // the panel says the clock is held (the spinner stays the player's)
+      tvHeld = travelAsked > 1 ? 1 : null;   // the panel says the clock is held (the ground's rate stays the journey's)
       tvHeldWhy = tvHeld != null ? 'ground' : null;   // AUDIT OW5 G1: and says it as what it is (OW6: the one word for it)
       tvWalking = 0;   // TV-WASD: no keys' travel on the ground
       travelGovernor.reset();
@@ -24969,7 +24975,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       moving: TV_MOVE_ACTIONS.some((a) => held(keys, a)) && (typeof document === 'undefined' || document.hasFocus?.() !== false),
       onFoot: walkMode && playerSpawned && !player.isPlayerSwimming && !csaBoatUnderMe(),
       paused: gamePaused(),
-      accel: travelControlUI?.timeAcceleration ?? 0, limit: travelControlUI?.accelerationLimit() ?? 0,
+      travels: !!travelControlUI, onRoad: !journey && travelView?.state === 'up' && travellerOnRoad(),   // RATE-LAW: the ground's rate, where the spinner's was
     });
     // OW6: THE ENEMIES' CAP, on every fast travel the frame governs (systems/travelThreat.js) - a journey on either skin, and
     // the keys' travel under the view (TV-WASD: travelling very fast too) - the lower of it and the ground's holds
@@ -24978,7 +24984,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // the classic skin's journey on the ground, and First-Person Travel's (OW-TOGGLE): the mod's own ask, under the
       // enemies' cap alone (no view, no ground to watch) - nothing near, it is the ask handed back whole. Never over the
       // helm's own time step: Come Sail Away holds the clock then (AUDIT OW5 G5's law, whose restore asks this rate)
-      const rate = csaHoldsTimeScale() ? null : foeFloor(foes.cap, travelAsked);
+      const rate = csaHoldsTimeScale() ? null : foePaced(foes.cap, travelAsked);
       if (rate != null && worldTimeScale() !== rate) setWorldTimeScale(rate);
       tvHeld = rate != null && rate < travelAsked ? rate : null;
       tvHeldWhy = tvHeld != null ? 'foes' : null;
@@ -25010,9 +25016,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       uc.gen = gen; uc.x = px.x; uc.y = px.y; uc.r = radius;
     }
     const unbuilt = uc.n;
-    const want = journey ? travelAsked : walk;   // AUDIT TV A2: what the mod asked - never the spinner past the mod's own cap; TV-WASD: or the keys' travel
+    const want = journey ? travelAsked : walk;   // AUDIT TV A2: what the mod asked - its ground's rate under its own cap (RATE-LAW); TV-WASD: or the keys' travel
     const load = travelGovernor.step(dt, { unbuilt, requested: want });
-    const foeCap = foeFloor(foes.cap, want);   // ENEMY-PACE: the enemies' cap, never under the player's near-enemy pace
+    const foeCap = foePaced(foes.cap, want);   // ENEMY-PACE: the enemies' cap, never under the near-enemy pace (RATE-LAW: fixed)
     const rate = Math.min(load, foeCap);   // OW6: the ground's cap and the enemies', the lower
     if (worldTimeScale() !== rate) setWorldTimeScale(rate);
     tvHeld = rate < want ? rate : null;
@@ -27838,9 +27844,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           covered: townTalk.hudCovered || (modes?.hudCovered ?? false) || gamePaused(),
           destination: travelControlUI?.destinationName ?? '',
           following: !travelOptions?.destinationName,
-          accel: travelControlUI?.timeAcceleration ?? 1,
-          held: tvHeld,   // TV2: the travel view's cap, while it holds the clock under the spinner
-          foeRate: tvFoeRate,   // ENEMY-PACE
+          accel: travelControlUI?.timeAcceleration ?? 1,   // RATE-LAW: the rate the journey's ground runs at
+          onRoad: !!travelControlUI?.onRoad,   // RATE-LAW: and which ground it is
+          held: tvHeld,   // TV2: the travel view's cap, while it holds the clock under the ground's rate
           heldWhy: tvHeldWhy,   // AUDIT OW5 G1: and why; OW6: the land loading, an enemy near, or the view down (its ground)
           message: travelControlUI?.message ?? '',
           minutesLeft: travelOptions?.minutesLeft ?? null,   // AUDIT-TO1 L5: the popup's estimate, run down on the world clock
@@ -27851,10 +27857,6 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           map: () => toggleTravelMap(),
           camp: () => travelControlUI?.closeWindow(),
           exit: () => travelControlUI?.cancelWindow(),
-          faster: () => travelControlUI?.faster(),
-          slower: () => travelControlUI?.slower(),
-          foeFaster: () => { tvFoeRate = Math.min(travelControlUI?.accelerationLimit() || MAX_TIME_SCALE, foeLadder(tvFoeRate, true)); },   // never past the general spinner's own limit
-          foeSlower: () => { tvFoeRate = foeLadder(tvFoeRate, false); },
         });
       } else hideEnhancedTravelControl();
     } else {

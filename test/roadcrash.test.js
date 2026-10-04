@@ -68,7 +68,7 @@ function rig() {
     locationWorldRect: (s) => { const q = mapPixelWorldOrigin(s.pixel.x, s.pixel.y); return rectOf(q.x + 16000, q.z + 16000, 768, 768); },
     // the terrain's answer: the town's pixel carries it once `tileRect`
     // is set; every other pixel is unbuilt or empty - null, which is
-    // world.js:13384's own answer for both.
+    // world.js:13393's own answer for both.
     locationTileRect: (p) => (p.x === 500 && p.y === 250 ? state.tileRect : null),
   });
   return { to, ui, net, at, state, said, scales, o };
@@ -79,7 +79,7 @@ function rig() {
  *  corner), which is the branch that reads `locationRect.zMax`. */
 function standInTheRing(r) {
   r.state.tileRect = TOWN;
-  r.to.onMapPixelChanged({ x: 500, y: 250 });   // world.js:5785 - the rects for the pixel the player stands in
+  r.to.onMapPixelChanged({ x: 500, y: 250 });   // world.js:5786 - the rects for the pixel the player stands in
   const t = locationRectsOf(r.o.x, r.o.z, TOWN.tileRect, false, false);
   r.state.pos = { x: (t.locationRect.xMin + t.locationRect.xMax) / 2, z: (t.locationRect.zMax + t.locationBorderRect.zMax) / 2 };
   r.state.yaw = 90;
