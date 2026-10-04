@@ -400,6 +400,11 @@ must be assigned there, never re-declared. Mutants
    this floor (AUDIT IT1 W3, `06-Systems/Immersive-Travel.md`). Immersive
    Travel's Disable Normal Travel is the room's and OFF, so every trip over land
    from the map is still walked.
+   **PORTAL1** (2026-10-04, the owner: "with the removal of fast travel, I want to implement a new item available at
+   all shops, this should cost weykar shards"): a Portal Stone, bought for five Welkynd Shards, opens the Mages Guild's
+   teleport map; the place picked is reached through a portal that stands 30 seconds for anyone who walks in - the
+   guild's arrival, free once the stone is spent, online as offline (`06-Systems/Portal-Stone.md`). It never meets
+   this floor: its map's `onTeleport` is its own, as the guild's is.
 10. **A message box over the journey PAUSES it rather than interrupting
     it** (AUDIT-TO1 H1). DFU's `DaggerfallUI.MessageBox` pushes a window,
     so the mod's own help (`:1005-1014`) trips the "any other window"
@@ -656,6 +661,11 @@ third was a thing the port never said out loud.
   The wait is the ride-out's own sentence, deliberately, so the two read
   alike.
 
+> **WILD-ROAD (FIELD BUGS 2026-10-04e)**: Encounters on the road (a World switch, on) passes a wanderer far beneath the
+> traveller by, and the rest sometimes come as a patrol. The road is a journey under way (the window up and its autopilot
+> steering) or the Overworld - never a rest. (Its HUNT-ROAD, a switch holding TO-FIELD3's hunt on the road, went with
+> HUNT-OUT's removal of the hunt, at the merge of main.) The record: `01-Overview/Field-Bugs-2026-10-04e.md`.
+
 > **TO-FIELD3 (Mac, 2026-09-18) REVERSED THE TWO GAMEPLAY CHANGES BELOW.**
 > "Remove the changes the past session did to the traveling system... the
 > two gameplay changes - journeys no longer sit as resting (needs charge
@@ -805,7 +815,7 @@ which `InitLocationRects` keeps refreshing the rects MID-journey
 (`:606-612`, `autopilot == null || destinationName != null`;
 `travelOptions.js:695-698`). A town's ring reaches into its neighbour
 pixels; the crossing fired `OnMapPixelChanged`, the host's
-`locationTileRect` answered null for the neighbour (world.js:13358 -
+`locationTileRect` answered null for the neighbour (world.js:13471 -
 null both for a pixel not yet built and for one with no location),
 `SetLocationRects` nulled both rects (`:602-604`), and the walk's own
 `OnArrival` (`circumnavigateLocation`, `:753-797`) read

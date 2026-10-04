@@ -55,6 +55,7 @@ export const USE_PENDING = Object.freeze({
   spellbook: 'You cannot open your spellbook here.',
   pitchCamp: 'There is nowhere to set that up here.',   // SURV3: a host with no ground for a camp
   placeFire: 'There is nowhere to set that up here.',
+  openPortal: 'A portal can only be opened under the open sky.',   // PORTAL1: a host with no open world (systems/portalStone.js PORTAL_TEXT.notHere)
 });
 
 /** The template indices the predicates name (ItemEnums.cs). */
@@ -444,7 +445,7 @@ export function useItem(item, collection, {
     // ItemCollection.GetItem verbatim now, allowQuestItem: false
     // included (:1791) - the port grew quest items (item.questItem,
     // read at :211) and inventory.getItem already ports that filter
-    // (inventory.js:398), so a quest lantern is invisible to the oil
+    // (inventory.js:399), so a quest lantern is invisible to the oil
     // exactly as it is in DFU and the bottle refuses instead.
     const lantern = getItem(bag ?? [], 'UselessItems2', TEMPLATES.Lantern, { allowQuestItem: false });
     const oil = item.currentCondition ?? 0;

@@ -1043,6 +1043,19 @@ export const FEATURES = Object.freeze([
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'wildernessCamps', initial: true, online: 'player' }),
   }),
+  // WILD-ROAD (FIELD BUGS 2026-10-04e, Discord: "having to completely halt my travel because 1 rat chose today to die
+  // can be quite the interruption"): systems/roadEncounters.js - the port's own. On a journey or the Overworld, a
+  // wanderer far beneath the traveller is passed by and the rest bring company now and then. Off is DFU's wanderer.
+  Object.freeze({
+    id: 'road-encounters',
+    group: 'world',
+    title: 'Encounters on the road',
+    note: 'While you travel, an enemy far below your level is passed by instead of stopping you, and the rest sometimes '
+      + 'come as a patrol. Off stops for every encounter, as Daggerfall does.',
+    effect: 'Takes effect at once.',
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'roadEncounters', initial: true, online: 'player' }),
+  }),
   // DISC19-F (2026-09-24, Discord through Mac: "enhance guard
   // interaction"): THE WATCH DEFENDS THE TOWN (systems/townWatch.js) -
   // the port's own. DFU's combat watch exists only for a crime; this

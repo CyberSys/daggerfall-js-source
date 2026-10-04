@@ -105,7 +105,7 @@ import { checkLocationDiscovered, flipTravelMapFilter, travelMapDotColors } from
 import { readGateMark, gateMarkKey, GATE_RING_CSS, GATE_LEGEND_TEXT } from './gateMapMark.js';   // WB1: the Oblivion Gate's ring, read as the party is (SERPENT1: and the serpent's, by the same reader)
 import { SERPENT_RING_MAP_CSS, SERPENT_LEGEND_TEXT } from './serpentMapMark.js';   // SERPENT1: the sea serpent's ring, in the sea's colours
 import { readBountyMarks, bountyMarksKey, BOUNTY_RING_CSS, BOUNTY_LEGEND_TEXT, BOUNTY_LEGEND_RIM_CSS } from './bountyMapMark.js';   // BOUNTY1: held bounties' black circles, read as the gate's ring is
-import { readRaidMarks, raidMarksKey, placeTip, tipKey, readTip, RAID_MARK_CSS, RAID_LEGEND_TEXT, RAID_HIT_PX } from './eventMapMarks.js';   // EVENT-TIP: the raided towns, and the card a world event answers a hover with
+import { readRaidMarks, raidMarksKey, placeTip, tipKey, readTip, RAID_MARK_CSS, RAID_LEGEND_TEXT, RAID_HIT_PX, SEAT_TIP_TEXT_MAX } from './eventMapMarks.js';   // EVENT-TIP: the raided towns, and the card a world event answers a hover with
 import { readVendorMark, vendorMarkKey, VENDOR_MARK_CSS, VENDOR_RIM_CSS, VENDOR_LEGEND_TEXT } from './vendorMapMark.js';   // HOME-VENDOR: the trader's waypoint
 import { readQuestMarks, questMarksKey, QUEST_MARK_CSS, QUEST_LEGEND_TEXT, QUEST_HIT_PX, QUEST_MARK_LIFT, QUEST_RAID_LIFT, QUEST_FOLLOWED_TEXT } from './questMarks.js';   // GUIDE5: where the quests point
 import {
@@ -161,7 +161,8 @@ import { bindings } from './input.js';
 import { actionsForCode } from '../systems/inputActions.js';   // UXB1-S: every action its key carries, shared or not
 import { smoothstep } from '../systems/mathf.js';   // MAP-FIELD7: the ONE easing, so the sheet travels like everything else in the port
 import { hubMapWord, hubTitle } from '../systems/regionHubs.js';   // HUB1: a region hub's word on the label and its title in the box
-import { seatInfoLine } from '../net/townSeatLaw.js';   // SEAT1a: a seat's Charter in the box
+import { TV_WHO_GROUPS, TV_WHO_TEXT, TV_KIN_COLORS, TV_KIN_LEGEND, travelViewWho, toggleTravelViewWho, cycleTravelViewRenown, playerShown } from '../systems/travelViewFilters.js';   // OW-WHO / OW-KIN: the players' filters and colours, the Overworld's own
+import { seatInfoLine, seatTipOf } from '../net/townSeatLaw.js';   // SEAT1a: a seat's Charter in the box
 
 // ── THE SPRITE (Mac's, public/art/held-map.png) ──────────────────
 // THE SITE ROOT lives in systems/appRoot.js now (AUDIT-THUNDERLOCK
@@ -1212,7 +1213,7 @@ export class HeldMapWindow {
           raids: this._raids,   // EVENT-TIP: the towns under attack
           quests: this._quests,   // GUIDE5: where the quests point
           vendor: this._vendor,   // HOME-VENDOR: the trader's waypoint
-          travellers: this._trav.map((t) => ({ x: t.x, y: t.y, name: t.name, color: TRAVELLER_MARK_CSS, journey: t.journey, ship: t.ship })),   // TV3; OWS1: at sea, a ship
+          travellers: this._trav.filter((t) => playerShown(t)).map((t) => ({ x: t.x, y: t.y, name: t.name, color: TV_KIN_COLORS[t.kin] ?? TRAVELLER_MARK_CSS, journey: t.journey, ship: t.ship })),   // TV3; OWS1: at sea, a ship; OW-WHO: the players' filters; OW-KIN: a friend's and a guild-mate's in theirs
           pulse: env.pulse,
         });
       },
@@ -1459,6 +1460,7 @@ export class HeldMapWindow {
         nameOf: (s) => this._summaryName(s),
         hubAt: (s) => this.deps.hubAt?.(s) ?? null,   // HUB1: online, the region's hub flies its pennant
         seatAt: (s) => this.deps.seatAt?.(s) ?? null,   // SEAT1a: online, while the seats are open, a seat's ring
+        carriageAt: (s) => !!this.deps.carriageAt?.(s),   // OW-HUBS: a carriage at the town's gate - its wheel
       });
     }
     return this._model;
@@ -1757,16 +1759,23 @@ export class HeldMapWindow {
     const leg = this._chrome?.legend;
     if (!leg) return;
     leg.innerHTML = '';
-    if (!this._party.length && !this._gate && !this._serpent && !this._bounties.length && !this._raids.length && !this._trav.length && !this._quests.length && !this._vendor) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
+    const trav = this._trav.filter((t) => playerShown(t));   // OW-WHO: the legend speaks for the players the sheet draws
+    if (!this._party.length && !this._gate && !this._serpent && !this._bounties.length && !this._raids.length && !trav.length && !this._quests.length && !this._vendor) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
     if (this._party.length) {
       const dot = el('span', 'hmlegdot');
       dot.style.background = this._party.some((m) => m.online) ? PARTY_MARK_CSS : PARTY_OFFLINE_CSS;
       leg.append(dot, el('span', 'hmlegtext', PARTY_LEGEND_TEXT));
     }
-    if (this._trav.length) {   // TV3: and the region's travellers, while there are any
+    if (trav.length) {   // TV3: and the region's travellers, while any is drawn
       const dot = el('span', 'hmlegdot');
       dot.style.background = TRAVELLER_MARK_CSS;
       leg.append(dot, el('span', 'hmlegtext', TRAVELLER_LEGEND_TEXT));
+      for (const [kin, word] of Object.entries(TV_KIN_LEGEND)) {   // OW-KIN: and a friend's, a guild-mate's, while any is drawn
+        if (!trav.some((t) => t.kin === kin)) continue;
+        const k = el('span', 'hmlegdot');
+        k.style.background = TV_KIN_COLORS[kin];
+        leg.append(k, el('span', 'hmlegtext', word));
+      }
     }
     if (this._gate) {   // WB1: the ring explains itself too, while there is one
       const dot = el('span', 'hmlegdot');
@@ -1841,7 +1850,9 @@ export class HeldMapWindow {
     const inks = this._markInks();
     const groups = mapKeyGroups();
     const dpr = this._paper.dpr || 1;
-    const sig = [band, inks ? 1 : 0, dpr, ...groups.map((g) => (this.filters[g.filter] ? 1 : 0))].join('|');
+    const who = travelViewWho();
+    const sig = [band, inks ? 1 : 0, dpr, ...groups.map((g) => (this.filters[g.filter] ? 1 : 0)),
+      this._trav.length ? 1 : 0, ...TV_WHO_GROUPS.map((g) => (who[g] ? 1 : 0)), who.renown].join('|');   // OW-WHO: and the players' row
     if (sig === this._keySig) return;
     this._keySig = sig;
     if (typeof box.replaceChildren === 'function') box.replaceChildren(); else box.innerHTML = '';
@@ -1876,6 +1887,37 @@ export class HeldMapWindow {
       row.append(b, kinds);
       box.append(row);
     }
+    // OW-WHO (FIELD BUGS 2026-10-04e, "More filters for players in general ... both in Overworld map and travel map"):
+    // THE PLAYERS' ROW - while the region's travellers are drawn: friends, guild, the rest, and the least Renown, the
+    // Overworld's own switches (systems/travelViewFilters.js - one store, so both maps answer alike)
+    if (this._trav.length) {
+      const row = el('div', 'hmkeyrow');
+      row.append(el('span', 'hmkeywho', TV_WHO_TEXT.title));   // never .hmkeyname: a phone hides those, and the grid would shift
+      const btns = el('div', 'hmkeykinds');
+      const btn = (label, on, title, act) => {
+        const b = el('button', `act hmkeyflt${on ? ' on' : ''}`, label);
+        b.type = 'button'; b.tabIndex = -1;
+        b.onpointerdown = (ev) => ev.preventDefault?.();   // never the focus (the key's own law)
+        b.title = title;
+        b.setAttribute?.('aria-pressed', on ? 'true' : 'false');
+        b.onclick = () => this._toggleWho(act);
+        return b;
+      };
+      for (const g of TV_WHO_GROUPS) btns.append(btn(TV_WHO_TEXT[g], who[g] !== false, TV_WHO_TEXT.tip(TV_WHO_TEXT[g], who[g] !== false), g));
+      btns.append(btn(TV_WHO_TEXT.renown(who.renown), true, TV_WHO_TEXT.renownTip, 'renown'));
+      row.append(btns);
+      box.append(row);
+    }
+  }
+
+  /** OW-WHO: a press on the players' row - the shared switch flipped (or the Renown floor stepped), the sheet drawn
+   *  again. Dead under a box, as the key's own filters are. */
+  _toggleWho(which) {
+    if (this._top || this._info || this._phase !== 'map') return;
+    if (which === 'renown') cycleTravelViewRenown(); else toggleTravelViewWho(which);
+    this._dirty = true;
+    this._renderKey();
+    this._renderLegend();   // the kins it hid leave the legend with their marks
   }
 
   /** MAP-KEY: a press on the key - the classic window's own flip on the LIVE store (flipTravelMapFilter), then the
@@ -2117,7 +2159,7 @@ export class HeldMapWindow {
     // HUB1: what the place is to its region, online - known whether or not its buildings are
     const hub = this.deps.hubAt?.(summary) ?? null;
     const seat = this.deps.seatAt?.(summary) ?? null;   // SEAT1a: and its Charter, a seat's
-    const hubRows = [...(hub ? [hubTitle(hub)] : []), ...(seat ? [seatInfoLine(seat)] : [])];
+    const hubRows = [...(hub ? [hubTitle(hub)] : []), ...(seat ? [seatInfoLine(seat, seat.holder?.guild ?? null)] : [])];   // SEAT-TIP: a held seat names its holder (it read "unheld" whoever held it)
     if (!info) {
       this._info = { title: '', rows: [...hubRows, toFormat(TO_TEXT.MsgNoKnowledge, title)], cells: [] };
     } else {
@@ -3161,7 +3203,10 @@ export class HeldMapWindow {
       const region = REGION_NAMES[m.summary.regionIndex] ?? '';
       // UpdateRegionLabel's own "Region : Location" reading - HUB1: and a hub's word after it, online
       const hub = m.hub ? ` (${hubMapWord(m.hub)})` : '';
-      return { label: (region && name ? `${region} : ${name}` : name) + hub, cursor: 'pointer' };
+      // SEAT-TIP (FIELD BUGS 2026-10-04e): a seat - a town that can be taken - answers with its card: who holds it, and
+      // this week's battle (the mark's seat is the one the poll dressed; the EVENT-TIP card shows it)
+      const tip = m.seat ? readTip(seatTipOf(m.seat), { textMax: SEAT_TIP_TEXT_MAX }) : null;
+      return { label: (region && name ? `${region} : ${name}` : name) + hub, cursor: 'pointer', ...(tip ? { tip } : {}) };
     }
     // EVENT-TIP: the gate's ring holds an area - anywhere in it that is not a place answers with the gate's card
     const g = this._gateAt(sx, sy);

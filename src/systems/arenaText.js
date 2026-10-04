@@ -151,6 +151,8 @@ export const ARENA_TEXT = F({
   }),
   /** The healers: the duel's own heal, said. */
   healed: 'The arena\'s healers see to your wounds.',
+  /** ARENA-ARROWS: what the keepers gather off the sand and hand back (systems/arenaQuiver.js). */
+  ammoBack: (n) => (n === 1 ? 'The keepers hand back the shot you loosed.' : `The keepers hand back the ${n} shots you loosed.`),
   /** What a bout in play will not allow (the duel's law). */
   refuse: F({
     rest: 'You cannot rest during a bout.',
@@ -195,6 +197,8 @@ export const ARENA_TEXT = F({
     villain: 'Villain',
     you: 'You',
     out: F({ yield: 'Yielded', fall: 'Down', ringout: 'Out' }),
+    vs: 'vs',
+    eachAlone: 'each alone',   // ARENA-TEAMS: a Grand Melee's middle word - the right column is no team
   }),
 
   // ── THE LADDER (ARENA2 offline; the Arena window is ARENA3's) ──────────────────────────────────────────
