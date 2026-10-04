@@ -181,8 +181,8 @@
   },
   {
     "name": "WK-P5-gold-a-pile",
-    "file": "src/scenes/world.js",
-    "old": "      if (isGoldPieces(it)) { addGoldPieces(playerEntity, it.stackCount ?? 1); continue; }\n",
+    "file": "src/systems/naval/navalTransfer.js",
+    "old": "    if (isGoldPieces(item)) { addGoldPieces(entity, item.stackCount ?? 1); continue; }\n",
     "new": "",
     "tests": [
       "test/auditwatchkit_world.test.js"
@@ -190,9 +190,9 @@
   },
   {
     "name": "WK-P5-force-dropped",
-    "file": "src/scenes/world.js",
-    "old": "      else if (force) { addItem(playerEntity.items, it); over++; }\n",
-    "new": "",
+    "file": "src/systems/naval/navalTransfer.js",
+    "old": "if (force && (!plan.ok || plan.amount < (item.stackCount ?? 1)))",
+    "new": "if (false)",
     "tests": [
       "test/auditwatchkit_world.test.js"
     ]

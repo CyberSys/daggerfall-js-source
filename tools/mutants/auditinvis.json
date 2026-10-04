@@ -110,7 +110,7 @@
   {
     "name": "AINV-G-hidden-silent",
     "file": "src/scenes/world.js",
-    "old": "remotePlayers.sync(drawable, onlineToScene,",
+    "old": "remotePlayers.sync(visiblePeers, onlineToScene,",
     "new": "remotePlayers.sync(seen, onlineToScene,",
     "tests": [
       "test/invisnet.test.js"

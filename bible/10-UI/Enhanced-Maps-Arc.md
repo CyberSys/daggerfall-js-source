@@ -542,7 +542,7 @@ different spaces**, and EM4's own note argued its way into both.
 
 `autoMapData` is an FLD-header grid, and the port already knows which way
 those run — `buildGroundTilemap` reads `groundTiles[x][15 - y]` for "row
-0 nearest Z=0" (`world/rmbLayout.js:285`). `ExteriorAutomap.cs:1481` is
+0 nearest Z=0" (`world/rmbLayout.js:300`). `ExteriorAutomap.cs:1481` is
 that same law at 64 rows instead of 16, which is what the shipped
 window's "per-block row flip" is.
 
@@ -655,5 +655,5 @@ all.
 Code: `ui/townMapMarks.js` (the rows and the reading), `ui/inkTown.js` (`paintBoardMark`, `paintHomeMark`),
 `ui/townSheet.js`, `ui/townMapDoor.js`, `scenes/world.js` (`townBoardMarks`, `townHomes`). Pins:
 `test/town_marks.test.js` (9). Mutants: `tools/mutants/town_marks.json` (35, all dead); `disc23a.json`'s breathing
-record and `survtiers3.json`'s two cite records re-aimed. Patch notes: `PATCH-NOTES-Town-Map-Marks.md`.
+record and `survtiers3.json`'s two cite records re-aimed.
 

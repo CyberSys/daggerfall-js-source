@@ -39,7 +39,7 @@ function ground(state) {
   return { heightAt, build, collider: new Collider(heightAt) };
 }
 /** The frame's hold, lifted: is the motor held with no re-skin hold and the arrival's latch up or down. */
-const heldWhile = (straightening) => new Function('_seasonHoldKey', '_seasonStraightening', `return ${HELD[1]};`)(null, straightening);
+const heldWhile = (straightening) => new Function('_seasonHoldKey', '_seasonStraightening', '_partyArrivalPending', `return ${HELD[1]};`)(null, straightening, false);
 /** The teleport's RESPAWN-GROUND eye lines, lifted. */
 const standEye = (player, cam) => new Function('walkMode', 'player', 'cam', 'TERRAIN_SIZE', `${EYE}\nreturn cam.pos;`)(true, player, cam, TERRAIN_SIZE);
 /** A closed box's triangles, pixel-local - the dungeon's own entrance model (a keep, a tower, a ruin). */
@@ -112,7 +112,9 @@ test('RESPAWN-HELD the latch: the arrival\'s latch is up from the teleport\'s fi
   const landing = TP.indexOf('if (walkMode) { player.spawn(pos[0], pos[1], pos[2]); playerSpawned = true; }');
   assert.ok(up > 0 && down > up && landing > down, 'up, down, then the landing');
   assert.ok(TP.indexOf('await ') > up, 'the latch is up before the first await');
-  assert.ok(!/\bawait\b/.test(TP.slice(down, landing)), 'nothing awaited between the latch\'s drop and the landing - no frame steps a body the latch let go');
+  assert.ok(!/\bawait\b/.test(TP.slice(down, landing).replace('resolveArrival ? await resolveArrival(pos) : null', 'null')), 'nothing awaited between the latch\'s drop and the landing - no frame steps a body the latch let go');
+  assert.match(TP, /const resolved = resolveArrival \? await resolveArrival\(pos\) : null;/);
+  assert.equal(new Function('_seasonHoldKey', '_seasonStraightening', '_partyArrivalPending', `return ${HELD[1]};`)(null, false, true), true, 'party validation also holds the motor');
   assert.equal(heldWhile(true), true, 'an arrival holds the motor');
   assert.equal(heldWhile(false), false, 'and nothing else here does');
   assert.match(W, /if \(_overlayHeld \|\| _seasonHeld\) player\.holdFrame\(\);/);

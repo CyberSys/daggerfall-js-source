@@ -121,9 +121,10 @@ test('CLASSIC-PAGES: a Forge, Workbench or Loom works on either skin while the p
   setProfessionsPages(null);
   _resetForTests();
   for (const st of ['forge', 'workbench', 'loom']) assert.doesNotMatch(stationColdLine(st), /Enhanced/, `${st}: no skin named`);
-  assert.equal(storesWhereLine('DOWN'), 'Gathered goods go to your Stores, not your pack: DOWN opens your Stores page.');
-  assert.equal(storesWhereLine(''), 'Gathered goods go to your Stores, not your pack: the pause menu\'s Stores page.', 'the key unbound');
+  // PIN MOVED (AUDIT HOLDINGS C7): the Stores page is on the Holdings tab; the key opens the Professions
+  assert.equal(storesWhereLine('DOWN'), 'Gathered goods go to your Stores, not your pack: the pause menu\'s Holdings > Stores (DOWN opens your Professions).');
+  assert.equal(storesWhereLine(''), 'Gathered goods go to your Stores, not your pack: the pause menu\'s Holdings > Stores.', 'the key unbound');
   // the station's press is the pause door's, at the Stores page - which opens on the classic skin now
   assert.match(rd('src/scenes/worldModes.js'), /if \(forgeOffered\(\)\) interiorKeyCtx\.togglePause\(\{ at: 'stores' \}\)/);
-  assert.match(rd('src/scenes/gatherHost.js'), /hud\.toast\(storesWhereLine\(deps\.keyLabel\?\.\('Professions'\) \?\? ''\)\)/, 'the host names the key the player has it on');
+  assert.match(rd('src/scenes/gatherHost.js'), /hud\.toast\(storesWhereLine\(deps\.keyLabel\?\.\('Professions'\) \?\? '', d\.carry === true\)\)/, 'the host names the key the player has it on (BAG1, PIN MOVED: and says the bag when the goods were carried)');
 });

@@ -58,9 +58,12 @@ import { GOLD_PIECE_WEIGHT_KG, isEnchanted } from './inventory.js';
 import { calculateItemRepairCost, repairRefusal } from './repairService.js';
 import { itemValueOf, conditionPercentage } from './itemTemplates.js';
 import { isOnlinePage } from './onlineLane.js';   // SELL-AS-FOUND: online, a sale reads a piece as it was found
+import { isCampfireKit } from './survival/items.js';   // AUDIT REST: the Campfire an essential online
+import { isFirewood } from './restItems.js';
 import { isPotion } from './useItem.js';   // ESSENTIALS-HALF: the potion, by DFU's own IsPotion   // JAN1: the one value read; RRI2: ConditionPercentage, the Sell arm's third argument
 import { HOLIDAYS } from './holidays.js';
 import { GUILDS } from './guilds.js';
+import { isBagItem } from '../net/bagLaw.js';   // BAG1: a loaded Materials Bag is never sold (the cart's rule)
 import {
   cureOfferMessageOffset, TRADE_MESSAGE_BASE_ID, NOT_ENOUGH_GOLD_ID,
 } from './guildServiceActions.js';
@@ -129,7 +132,7 @@ export const IDENTIFY_COST_MULTIPLIER = 25;
  *  no magic in it at all. It was never seen because the Identify
  *  destination was a null and the mode could not be opened; X7 opened
  *  it, so the derivation had to be right first. Both paths run at
- *  worldModes.js:2627 now (commitTrade) - the paid service and the spell. */
+ *  worldModes.js:2670 now (commitTrade) - the paid service and the spell. */
 export const itemIsIdentified = (item) => !isEnchanted(item) || item?.isIdentified === true;
 
 /** FormulaHelper.CalculateItemIdentifyCost (:1935-1955). FREE on the
@@ -215,7 +218,7 @@ export function buyItemPrice(item, { quality = 0, priceAdjustment = 1000, holida
   // (shopStock.js essentialPrice, rounded up - its law against buying to sell back), at every counter's Buy. AUDIT
   // ESSENTIALS F1: never on top of a holiday's own half - the sale cap reads the full price, so a quarter bought on
   // Merchants Festival sold back for half; the two halves do not stack
-  return isPotion(item) && !holiday ? essentialPrice(held, { online }) : held;
+  return (isPotion(item) || isCampfireKit(item) || isFirewood(item)) && !holiday ? essentialPrice(held, { online }) : held;   // AUDIT REST: REST2's Campfire and Firewood arm
 }
 
 /** SELL-AS-FOUND (AUDIT ECON O1, 2026-10-01): ONLINE A COUNTER PAYS FOR A PIECE AS THE WORLD HANDED IT OVER, AT BEST.
@@ -459,11 +462,14 @@ export function localListAccepts(mode, item, { accepts = () => true, enchanted =
  *  owes it TransferItem's own guards on top of this. */
 export function localClickDecision(mode, item, {
   inBasket = () => false, allowMagicRepairs = false, usingIdentifySpell = false,
-  wagonLoaded = false, usedWagon = null,
+  wagonLoaded = false, usedWagon = null, bagLoaded = false,
 } = {}) {
   switch (mode) {
     case 'Sell':
     case 'SellMagic':
+      // BAG1: the Materials Bag is the cart's own case, said - a bag sold with materials in it would strand them in a list
+      // nobody owns (systems/materialsBag.js bagMayLeave)
+      if (isBagItem(item) && bagLoaded) return { kind: 'refuse', refusal: 'bagLoaded' };
       // "Are we trying to sell the non empty wagon?" (:789-794).
       // PlayerEntity.Items.GetItem(Transportation, Small_cart) is the
       // cart the player actually owns, and the click is dropped
@@ -496,14 +502,14 @@ export const DOESNT_NEED_IDENTIFY = 'This does not need to be identified.';
 
 // The three clauses that stood here are all closed:
 //  - the IDENTIFY SPELL arm (:956-996) is live. identifySpellPass
-//    (:161) feeds worldModes.js:2380-2400, which spends the magicka
+//    (:161) feeds worldModes.js:2423-2443, which spends the magicka
 //    ONCE for the whole list whatever the outcome and tells the player
 //    "N of M identified"; the window opens from openIdentifyWindow
-//    (worldModes.js:9928), the entry point the magic arc owed.
+//    (worldModes.js:10311), the entry point the magic arc owed.
 //  - the LETTER OF CREDIT is tender and bankable: minted at systems/
 //    inventory.js:69, summed by creditAmount at systems/court.js:249,
 //    spent letters-before-coins by deductGold at court.js:291, and
-//    moved at systems/banking.js:732 depositAllLetters / :750
+//    moved at systems/banking.js:748 depositAllLetters / :766
 //    withdrawLetter.
 //  - SellMagic's "fencing base price" TODO is DFU's own
 //    (DaggerfallTradeWindow.cs:464 carries it verbatim), so it is

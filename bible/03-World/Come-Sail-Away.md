@@ -35,6 +35,112 @@ lines, one MonoBehaviour).
 | CSA-K | SAILING TOGETHER (the port's own, online - the player's ask, 2026-09-28: "I want people to be able to sail together, to walk on board as it moves"): the way on the wire, another player's boat boarded, stood on, carried by and left, the others seen on the deck | landed: below |
 | CSA-L | THE HELM ON SCREEN (the port's own - "instead of an overuse of keybinds, is there a way we can instead develop enhanced plus UI elements?"): the Enhanced Plus helm panel, a pad's d-pad at the helm | landed: below |
 
+## Cabins on owned sailing ships (SAILING-CABINS, 2026-10-03)
+
+Requested departure: every owned large sailing ship includes its own cabin,
+without buying a bank ship. Reuse the bank ship's interior through the existing
+interior builder; connect entry to the sailing options already present.
+
+| Sailing hull | Cabin layout |
+|---|---|
+| Small Ship (2) | Small bank ship, `SHIPAA00.RMB`, record 0 |
+| Large Galley (3) | Large bank ship, `SHIPAA01.RMB`, record 0 |
+| Carrack (4) | Large bank ship, `SHIPAA01.RMB`, record 0 |
+| Rowboat (0), Large Boat (1) | No enclosed cabin or door on these open hulls |
+
+An owned, placed ship's existing menu gains **Enter cabin** and **Open / close
+door** beside **Open storage**. Enhanced Plus selects the cabin action when aiming
+at its door; classic/touch uses the same existing list picker. The original door
+animation is still reachable. Board the ship and leave the helm before entry.
+The entry rechecks ownership, deck contact, travel and dismount state. No extra
+key binding, bank purchase, deed consumption or helm path is introduced.
+
+The layout is shared; the contents are not. Each boat UID names a permanent
+`SailingCabin [UID=...]` scene in the existing save cache, including its containers,
+placed furniture and loose items. Packing and relaunching keep that UID. Existing
+boat cargo stays in its original hold. Bank ownership is untouched. The synthetic
+building's negative UID distinguishes Recall identities.
+Saved cabin data uses validated native coordinates and a boat-local deck position;
+loading requires that boat in the loaded save, never one from the previous character.
+The interior frame remains axis-aligned, matching the translation-relative decor
+cache even when the boat turns between visits.
+
+**A bank ship's cabin, linked** (`systems/boatCabinOwnership.js`, shipped with the
+cabins in #574 and recorded here 2026-10-04). A player who owns a bank ship keeps
+its furnished room by linking it to ONE sailing ship of its size (a Small Ship to
+the small bank ship; a Large Galley or a Carrack to the large): the bank ship's
+saved scene is moved intact to that ship's `SailingCabin [UID=...]` key, never
+merged over a second furnished room, and the link is never reassigned. It is made
+by itself only when exactly one ship of that size is held; with more, the boat's
+menu offers **Link existing bank cabin**. Once linked, the bank ship's Ship
+transport and its door open that ship's cabin where she lies (`world.js`
+enterLinkedBankCabin, `worldModes.js` enterInteriorCore); a ship not afloat is
+called from the Fleet first. The ships held are counted wherever her title is:
+afloat, her parts in the pack or the wagon, and her title in the Fleet's book
+(CABIN-TITLES, 2026-10-04 - HOLDINGS moved deeds out of the pack into the book,
+and the count still read only the pack, so a ship laid up was no candidate: the
+one ship of her size afloat was taken for the only one and given the bank cabin's
+contents, and a lone ship laid up was not found at all).
+
+**Mac's "The classic style ship is broken. its two ships clipped inside of eachother" and
+"from the ship deed it spawns in a dark void outside the game world and you can move
+around another ship under construction" (2026-10-04)** are the sailing cabin drawing
+her own fleet through its walls - CABIN-HULL below, which fixed it on main the same
+day (#579).
+OPEN FOR MAC: the bank cabin link above is made WITHOUT asking when one sailing ship
+matches (`boatCabinOwnership.js linkBankCabin`, from her menu, Enter cabin and every
+load outdoors): the bank ship's room moves into her cabin, and Transport > Ship and the
+bank ship's door then lead to her cabin, not to "Your Ship". Whether that link should
+be asked first is Mac's call; it is left as it stands. (The sentence this flag first
+answered - "Bank ownership and bank ship scenes stay independent" - is retired, the
+link recorded in its place, by CABIN-TITLES.)
+
+**Return to deck** goes through the same exit transition and resolves the same
+live boat's deck pose. It uses feet height without snapping to the seabed. A missing
+boat refuses the exit without destroying the room. Cabin entry/exit does not take
+the helm, change sails, change cargo or add a second sailing simulation.
+
+The cabin is private to the owning player, but passengers may remain on deck.
+Cabin entry keeps the exterior fleet active and its existing online cell/halo
+connection at the boat anchor. The kept fleet stands outside the room: every
+hull, the owner's and every peer's, stays in the street's collider, and the
+cabin neither draws a boat nor answers a press on one (CABIN-HULL, FIELD BUGS
+2026-10-03b - the room is built at her root, so her decks had crossed it as
+floors, and a press there on her ladder or her helm stood the player on her
+deck in the building's frame, her hull alone in the black). The normal boat stream carries a `cabin: 1` flag;
+full heartbeats continue while indoors. The exterior foes stream supplies an empty
+actor envelope using its existing sequence counter. The owner's indoor position,
+movement, casts and lights are not sent outside. Updated peers hide the below-deck
+owner from rendered actors and interaction/target lists while retaining their
+network presence for boat liveness. The cabin owner receives boat and rider
+updates without spawning exterior enemies in the private room. No relay protocol
+change or second connection is required; older clients retain the fleet but may
+show the owner's stationary exterior avatar until updated.
+
+If a remote owner disconnects, times out, withdraws or teleports a boat while a
+local passenger is aboard, the passenger retains that occupied hull at its last
+pose. Its collider and aboard identity stay until they step off; it is then
+removed. A reconnect at the same berth reuses it. This is a local passenger safety
+copy, never another owned ship, a shared persistent parked-ship registry, or a
+boat the passenger can sail. Different clients need this patch for that safeguard.
+Normal owner packing already refuses occupied boats and retains that rule. Shared
+cabin visits and sailing while the owner is inside remain outside this patch.
+
+Host coverage: `world.js` supplies ownership, menu, boat pose and save data;
+`worldModes.js` builds, caches, restores and exits the cabin through the existing
+interior path. Standalone `exterior.js` has no sailing runtime or world-save
+composer and offers no cabin entry. `dungeonContext.js` has no exterior sailing
+boat and offers no cabin entry. No second interior builder is added.
+
+`test/fb1003b_cabinhull.test.js` pins the fleet out of the room (the street's
+collider, the picks, the press, the draw) and the deck solid under the first step
+back. `test/cabintitles.test.js` pins the bank cabin's count over
+the book, the pack and the boats afloat, and the not-afloat refusal. `test/sailingcabins.test.js` exercises real deed launch/pack/relaunch and runtime
+save data, menu routing, per-boat cache persistence, failures and the shipped host
+entry/exit/restore and network functions, long-running cabin heartbeats, and
+occupied-deck retention on owner loss. Actual ARENA2 rendering, doorway clearance
+and live online passenger behavior still require the in-game checks in `PATCH-NOTES-Sailing-Cabins.md`.
+
 ## The settings (CSA-A)
 
 Ten sections, fifty keys, restated key for key in `systems/modSettings.js`

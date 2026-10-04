@@ -1068,6 +1068,9 @@ keyboard reach (U10's `pressable`, one home for both kinds of row), its price or
 why not or what a press does (Buy, "Need 12 more", Wear, Take off - "Buying..." until the account answers, nothing else
 pressable meanwhile); pressed, the piece's card. The account card (`ui/enhancedAccount.js`) draws an Aura row beside the
 titles, in the Gatebreaker's own fire (`ui/playerBadge.js`: coal-crimson through fire to ember, edged in black).
+AEGIS (2026-10-03) added a second aura that is not sold here: the Oblivion Ward, granted by name with Sureme's Aegis of
+Oblivion title (`06-Systems/Accounts-And-Cloud-Saves-Arc.md`, AEGIS) and drawn by the same pass; each aura's card
+button wears its own title's paint (`ui/playerBadge.js AURA_PAINT`).
 
 THE FIRE (`render/auraRing.js`), two draws a wearer. THE GROUND: one quad under the feet, answered per pixel about the
 wearer - a ring band broken by value-noise fire flowing round it and outward, bright crests chasing about it, ten embers

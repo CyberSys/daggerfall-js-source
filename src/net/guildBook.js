@@ -98,15 +98,28 @@ export class GuildBook {
    * @param {any} [opts.profStores]  PROF6: the guild Stores' host - `{ writs, open, mine, name }`: the writs' book
    *        (net/writBook.js), whether the professions are this account's, the character's own Stores (a Map), a
    *        material's name for a count - or null
-   * @param {{ act: (o: any) => Promise<any> } | null} [opts.realm]  REALM P2.2: a realm character's act on its record
+   * @param {{ act: (o: any) => Promise<any>, abandon?: (why: string) => void } | null} [opts.realm]  REALM P2.2: a realm character's act on its record (AUDIT2 GUILD2 K1: `abandon` the session, where an answer the act needs is lost)
    *        (systems/realmSaves.js realmGoldAct over the playing session), or null for any other character
    * @param {((mapId: number) => void)|null} [opts.onHall]  GUILD1d: a hall's town changed (bought, sold, opened, its
    *        heraldry) - the host reads that town's homes again, so its door and its banners say it now
    * @param {(() => void)|null} [opts.onRank]  AUDIT PROF-541 G1: a look found the character's guild, rank or hall moved
    *        (a keeper made or unmade) - the host reads the town again, so a hall's `keeper` follows
+   * @param {{ items: () => any[], add: (rec: any) => void, changed: () => void, reach?: () => boolean }|null} [opts.pack]
+   *        GUILD2b: the pack a vault's piece leaves and arrives in, and whether the vault is reached here (a town) - the
+   *        host's; null offline
    */
-  constructor({ door, character, wallet, now = () => Date.now(), onOrders = null, marks = null, profStores = null, realm = null, onHall = null, onRank = null }) {
+  constructor({ door, character, wallet, now = () => Date.now(), onOrders = null, marks = null, profStores = null, realm = null, onHall = null, onRank = null, pack = null }) {
     this.door = door;
+    /** GUILD2b: the pack a vault's piece leaves and arrives in - `{ items(), add(rec), changed() }`, the host's; null offline */
+    this.pack = pack;
+    /** @type {any} GUILD2b: the vault as the last read said it (guildVault.js vaultOf), or null not yet read */
+    this.vaultView = null;
+    /** @type {string|null} GUILD2b: the last vault read's refusal, or null */
+    this.vaultError = null;
+    /** AUDIT GUILD2 M3: whose vault `vaultView` is - `character|guild` - so another's is never shown, nor taken from */
+    this.vaultFor = null;
+    /** AUDIT2 GUILD2 K14: the vault reads asked - the last one's answer is shown, never an earlier one heard after it */
+    this._vaultGen = 0;
     this.onHall = onHall;
     this.onRank = onRank;
     /** AUDIT PROF-541 G1: the `id|rank|hall` the last look found - '' (in no guild) before the first, so the first look
@@ -200,7 +213,9 @@ export class GuildBook {
       if (!r?.ok) this._whole(r?.error);
       // GUILD1c: a removal's or a disbanding's word goes to the hub now; the act's own membership rides the look below
       if (r?.ok && typeof r.data?.outOrder === 'string') this._hand({ outOrder: r.data.outOrder });
-      return r?.ok ? { ok: true, data: r.data } : { ok: false, error: r?.error ?? 'server' };
+      // AUDIT2 GUILD2 S2/S7: a refusal's own reason kept - the word the name filter caught (`why`), and when a refused act may
+      // come again (`at`, a rename's fortnight) - so the page can say them
+      return r?.ok ? { ok: true, data: r.data } : { ok: false, error: r?.error ?? 'server', ...(typeof r?.why === 'string' ? { why: r.why } : {}), ...(Number.isSafeInteger(r?.at) ? { at: r.at } : {}) };
     } finally {
       this.busy = false;
       // AUDIT MERGE-PLUS A5: a look already out read the guild BEFORE this act - `refresh` would have handed back that
@@ -302,13 +317,101 @@ export class GuildBook {
   handOver(member) { return this._act((c) => this.door.handOver(c, member)); }
   disband() { return this._act((c) => this.door.disband(c)); }
 
+  // ═══ GUILD2 (bible/11-Multiplayer/Guild-Overhaul.md) - A NEW NAME, AND THE VAULT ═══════════════════════════════════
+
+  /** GUILD2a: A NEW NAME, TAG OR BOTH - the guildmaster's, paid from the treasury on the service (no purse moves). The new
+   *  tag rides the answer's order to the rooms (GUILD1c), as a founding's does. */
+  rename(name, tag) { return this._act((c) => this.door.rename(c, name ?? null, tag ?? null)); }
+
+  /** GUILD2b: THE VAULT READ - every slot's piece, the lines, this member's standing. Not an act: nothing moves. */
+  async readVault() {
+    const c = this.character?.() ?? null;
+    if (!c) return { ok: false, error: 'guild-character' };
+    // AUDIT GUILD2 M3: another character's or another guild's vault is let go before the read - a failed read showed the
+    // last guild's pieces under the new guild's header, each with its Take; and a read that fails shows none
+    const whose = `${c}|${this.guild?.id ?? ''}`;
+    if (this.vaultFor !== whose) { this.vaultView = null; this.vaultError = null; this.vaultFor = whose; }
+    // AUDIT2 GUILD2 K14: the last read ASKED is the one shown - a look's read answered after a take's own read showed the
+    // vault from before the take (the piece back on its shelf, its Take offered)
+    const gen = ++this._vaultGen;
+    const r = await this.door.vault(c);
+    if (gen !== this._vaultGen) return r;   // a later read is out: its answer is the vault
+    if (whose !== `${this.character?.() ?? null}|${this.guild?.id ?? ''}`) return r;   // the character moved under the read
+    if (r?.ok) { this.vaultView = r.data?.vault ?? null; this.vaultError = null; } else { this.vaultView = null; this.vaultError = r?.error ?? 'server'; this._whole(r?.error); }
+    this._changed();
+    return r;
+  }
+  /** AUDIT GUILD2 M3: the vault this book may show - its last read's, while it is the reader's character's and guild's. */
+  vaultNow() { return this.vaultFor === `${this.character?.() ?? null}|${this.guild?.id ?? ''}` ? this.vaultView : null; }
+
+  /**
+   * GUILD2b: A PIECE PUT IN - `item` the pack's own record, `count` of its stack (all of it where absent). A realm
+   * character's alone: the save is checkpointed and held, the piece taken out of the pack at once (the reserve), the
+   * service takes it out of the record and into the vault in one batch; a refusal puts it back (realmSaves.js realmGoldAct).
+   * The pick is the record's place in the save the checkpoint wrote, read before anything moves.
+   */
+  async vaultPut(item, count = null) {
+    if (!this.realm || !this.pack) return { ok: false, error: 'realm-only' };
+    const items = this.pack.items();
+    const pick = items.indexOf(item);
+    const stack = Number.isSafeInteger(item?.stackCount) && item.stackCount >= 1 ? item.stackCount : 1;
+    const n = count == null ? stack : count;
+    if (pick < 0) return { ok: false, error: 'vault-goods' };   // AUDIT2 GUILD2 K15: the pack no longer holds it - never "more than the stack holds"
+    if (!Number.isSafeInteger(n) || n < 1 || n > stack) return { ok: false, error: 'bad-vault-count' };
+    const offer = JSON.parse(JSON.stringify(item));
+    const r = await this._act((character) => this.realm.act({
+      reserve: () => {
+        const list = this.pack.items();
+        const whole = n === (Number.isSafeInteger(item.stackCount) && item.stackCount >= 1 ? item.stackCount : 1);
+        const at = list.indexOf(item);
+        if (whole) { if (at >= 0) list.splice(at, 1); } else item.stackCount -= n;
+        this.pack.changed();
+        return () => { if (whole) { if (!list.includes(item)) list.splice(Math.min(at, list.length), 0, item); } else item.stackCount += n; this.pack.changed(); };
+      },
+      call: (/** @type {any} */ at) => this.door.vaultPut({ character, realm: at, pick, item: offer, count: n }),
+    }));
+    if (r?.ok) await this.readVault().catch(() => {});
+    return r;
+  }
+
+  /** GUILD2b: A PIECE TAKEN OUT - the slot's (as the last read said it: `at` when it was put there, so a slot emptied and
+   *  filled again is never the one taken), or `count` of its stack. The service puts it in the record; the pack takes it on
+   *  the answer. AUDIT2 GUILD2 K1: THE ANSWER IS THE PIECE (realmGoldAct's `needsAnswer`, as a market's collect): a take that
+   *  landed with its answer lost was read as landed with no piece, and the checkpoint after it wrote the record without
+   *  the piece the service had just put in it - gone from the vault and from the record. Lost, the session ends and a join
+   *  reads the record, which holds it. */
+  async vaultTake(slot, count = null) {
+    if (!this.realm || !this.pack) return { ok: false, error: 'realm-only' };
+    const seen = this.vaultNow()?.items?.find((x) => x.slot === slot) ?? null;   // AUDIT GUILD2 M3: never another's view
+    if (!seen) return { ok: false, error: 'guild-vault-empty' };
+    const r = await this._act((character) => this.realm.act({
+      needsAnswer: true,
+      apply: (/** @type {any} */ a) => {
+        const rec = a?.data?.item;
+        let held = false;
+        if (rec && typeof rec === 'object') {
+          try { this.pack.add(rec); this.pack.changed(); held = true; } catch (e) { console.warn('[guild] a vault piece would not go in the pack', e?.message ?? e); }
+        }
+        if (!held) this.realm.abandon?.('unknown');   // the record holds what the pack does not: a join reads it
+      },
+      call: (/** @type {any} */ at) => this.door.vaultTake({ character, realm: at, slot, count, at: seen.at }),
+    }));
+    await this.readVault().catch(() => {});
+    return r;
+  }
+
+  /** GUILD2b: THE GUILDMASTER'S GRANT - a member's standing set to `level` (and a withdrawer's `limit` a day), or `null`:
+   *  revoked, back to its rank's. */
+  vaultGrant(member, level, limit = null) { return this._act((c) => this.door.vaultGrant(c, member, level, limit)); }   // AUDIT2 GUILD2 S6: none named - an officer's ten
+
   // ═══ GUILD1d (Seats-Arc 8) - THE HALL AND THE HERALDRY ═══════════════════════════════════════════════════════════
   // No purse moves: the treasury pays for the hall and takes its sale, the Drake treasury pays for a change of heraldry
   // - each on the service, in the act's own batch - so there is no order to keep here and nothing to give back.
 
-  /** BUY A HALL - the building at its door (the guildmaster's), its `price` the home's own; the treasury pays half again. */
-  async buyHall({ mapId, buildingKey, region, price }) {
-    return this._hallTold(mapId, await this._act((c) => this.door.hallBuy({ character: c, mapId, buildingKey, region, price })));
+  /** BUY A HALL - the building at its door (the guildmaster's), its `price` the home's own; the treasury pays half again.
+   *  AUDIT PRE-MERGE 1003 WD1: `layout`, the layout its town stands in (systems/onlineHomes.js homeClaimLayout). */
+  async buyHall({ mapId, buildingKey, region, price, layout = null }) {
+    return this._hallTold(mapId, await this._act((c) => this.door.hallBuy({ character: c, mapId, buildingKey, region, price, layout })));
   }
   /** SELL THE HALL - the deed share and its pieces' half into the treasury. */
   async sellHall() {

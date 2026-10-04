@@ -105,7 +105,7 @@ let MARK_EPOCH = 0;
  *  origin and result its rays write through (raycastHit does not keep either past its return). */
 const CAP_SPOKES = [0, 0, 1, 0, -1, 0, 0, 1, 0, -1, 1, 1, 1, -1, -1, 1, -1, -1];
 const CAP_ORIGIN = [0, 0, 0];
-const CAP_HIT = { dist: Infinity, key: null, normal: [0, 0, 0] };
+const CAP_HIT = { dist: Infinity, key: null, normal: [0, 0, 0], back: false };
 function rayMarks(bucket) {
   let m = bucket.rayMark;
   if (!m || m.length < bucket.tris.length) {
@@ -644,10 +644,16 @@ export class Collider {
       ];
     };
     const part = bucket.parts++;   // FIELD BUGS 2026-10-02 ROCK-FREE: each call one collider of the bucket's
+    // AUDIT REST III E2: A MIRRORED PLACEMENT'S WINDING, AS THE WORLD PASS WINDS IT - a negative determinant turns every
+    // triangle over, and the static batch swaps each one's last two corners back (staticBatch.js WOD5), so the face the
+    // game draws faces the eye. The answer's normal is turned to face the ray either way; `back` (AUDIT REST II F4) reads
+    // the winding, and read a mirrored floor's top as its back. No dungeon placement mirrors today (getModelMatrix is a
+    // turn); World of Daggerfall's one wall does.
+    const mirrored = !!m && m[0] * (m[5] * m[10] - m[6] * m[9]) - m[4] * (m[1] * m[10] - m[2] * m[9]) + m[8] * (m[1] * m[6] - m[2] * m[5]) < 0;
     for (let i = 0; i < indices.length; i += 3) {
       const a = tx(indices[i]);
-      const b = tx(indices[i + 1]);
-      const c = tx(indices[i + 2]);
+      const b = tx(indices[mirrored ? i + 2 : i + 1]);
+      const c = tx(indices[mirrored ? i + 1 : i + 2]);
       const idx = bucket.tris.length;
       bucket.tris.push([a, b, c]);
       bucket.part[idx] = part;
@@ -846,6 +852,10 @@ export class Collider {
     // faces hit (as above), so the sign follows the approach side.
     let normal = null;
     let nx = 0, ny = 0, nz = 0;
+    // AUDIT REST II F4: `back` - the ray struck the face's BACK, its own winding's normal turned away from the ray's
+    // source (the answer's normal is flipped to face the ray, so it cannot say). A downward ray on a ceiling's top is
+    // one: dungeonFires.js colliderFireProbe reads a floor by it.
+    let back = false;
     if (bestTri) {
       const [a, b, c] = bestTri;
       nx = (b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1]);
@@ -858,15 +868,17 @@ export class Collider {
       }
       const l = Math.hypot(nx, ny, nz) || 1;
       nx /= l; ny /= l; nz /= l;
-      if (nx * dirW[0] + ny * dirW[1] + nz * dirW[2] > 0) { nx = -nx; ny = -ny; nz = -nz; }
+      back = nx * dirW[0] + ny * dirW[1] + nz * dirW[2] > 0;
+      if (back) { nx = -nx; ny = -ny; nz = -nz; }
       if (!out) normal = [nx, ny, nz];
     }
     if (out) {   // TRAVEL-NAV1: the caller's own result, written in place
       out.dist = best; out.key = bestKey;
       out.normal[0] = nx; out.normal[1] = ny; out.normal[2] = nz;
+      out.back = back;
       return out;
     }
-    return { dist: best, key: bestKey, normal };
+    return { dist: best, key: bestKey, normal, back };
   }
 
   /**
@@ -929,6 +941,24 @@ export class Collider {
     const nx = (-minmod((xp - c) / h, (c - xm) / h)) || 0, nz = (-minmod((zp - c) / h, (c - zm) / h)) || 0;
     const l = Math.hypot(nx, 1, nz) || 1;
     return [nx / l, 1 / l, nz / l];
+  }
+
+  /**
+   * BOUNTY-ROCK (FIELD BUGS 2026-10-03): whether a world point stands INSIDE static solid - a World of Daggerfall rock
+   * or mountain, a model standing in the ground. `partsHolding`'s line straight up (ROCK-FREE's: an odd count of
+   * crossings of one part's skin), over every static bucket whose box holds the point. A bucket that turns (a boat's)
+   * holds nothing, as in hullSweepAll. `sphereOverlaps` cannot answer this: deep inside a rock no face is near.
+   */
+  insideSolid(p) {
+    const held = SWEEP_HELD;   // the hull sweep's scratch: insideSolid never runs inside a sweep (PERF-COL1: one scratch set)
+    for (const bucket of this._buckets.values()) {
+      if (bucket.r || !(bucket.min[0] <= bucket.max[0])) continue;   // a mover's; an empty bucket's box is inverted
+      const t = bucket.t();
+      held.clear();
+      partsHolding(bucket, p[0] - t[0], p[1] - t[1], p[2] - t[2], held);
+      if (held.size) return true;
+    }
+    return false;
   }
 
   /**

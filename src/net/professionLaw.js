@@ -117,7 +117,7 @@ export const SPECIALISATIONS = Object.freeze({
   mining: Object.freeze({
     50: pair(spec('prospector', 'Prospector', 'Surface veins within 200 m are marked on the compass; gems come a tenth more often.'),
       spec('deep-delver', 'Deep Delver', 'Dungeon veins yield +50%.')),
-    100: pair(spec('motherlode-sense', 'Motherlode Sense', 'Motherlode warnings come 30 minutes ahead, not 10.', 'PROF2b'),
+    100: pair(spec('motherlode-sense', 'Motherlode Sense', 'Motherlode warnings come 30 minutes ahead, not 10.'),   // PROF2b: its Motherlodes built - chosen as any
       spec('stonebreaker', 'Stonebreaker', 'Quarrying yields Cut Stone directly.')),
   }),
   logging: Object.freeze({
@@ -185,7 +185,7 @@ export const SPECIALISATIONS = Object.freeze({
   }),
   cooking: Object.freeze({
     50: pair(spec('cook', 'Cook', '+1 serving a dish.'),
-      spec('field-cook', 'Field Cook', "A campfire without a Campfire Kit's charge.")),
+      spec('field-cook', 'Field Cook', 'A night at your own Campfire spends no fuel.')),
     100: pair(spec('chef', 'Chef', 'Feasts last +50%.'),
       spec('provisioner', 'Provisioner', 'Rations and dishes never spoil.')),
   }),
@@ -235,9 +235,14 @@ export const NODE_PROFESSIONS = Object.freeze({ herb: 'herbalism', vein: 'mining
  *  with gold the prompt said ready, the act played, the tool wore, and the service said `stores-full`. `book` the
  *  client's (its `store`, its caps; a book that keeps no origins answers by `held`). */
 export function storesFullIn(book, material) {
+  // BAG1: a carrying book's harvest is the bag's or the pack's - full when neither has room for one more, or the service's
+  // carried count of it is at its bound (net/profBook.js carryFull)
+  if (book.carrying?.() === true) return book.carryFull(material);
   const s = book.store?.(material) ?? { own: book.held(material) };
   return (s.own | 0) + (s.bought | 0) + (s.gold | 0) >= (book.state?.caps?.stores ?? STORES_MAX);
 }
+/** BAG1: a node's prompt when the goods have nowhere to go - the Stores (an older book's), or the bag and the pack. */
+export const fullWordsIn = (book) => (book?.carrying?.() === true ? 'No room in your bag or pack' : 'Stores full');
 /** One withdrawal to the pack, at most. */
 export const WITHDRAW_MAX = 200;
 /** Professions writes an account may make an hour (a harvest, a withdrawal, a delivery, a choice each count). */

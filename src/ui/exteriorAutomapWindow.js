@@ -151,7 +151,7 @@ import {
   exteriorRotate, exteriorRotateAroundPlayerPos, exteriorDragPan, getLocationBorderPos,
 } from './automapCamera.js';
 import { rasterizeTopDown, rasterizeDisc } from './meshStamp.js';
-import { drawCompassStrip } from './hud.js';   // ONE HOME for the strip (hud.js:452-453)
+import { drawCompassStrip } from './hud.js';   // ONE HOME for the strip (hud.js:453-454)
 import { drawToolTipBox } from './toolTip.js';
 import { GLOBAL_SCALE } from '../world/meshReader.js';
 import { registerCommand } from '../systems/consoleCommands.js';   // E3: the console command database
@@ -524,7 +524,7 @@ export function stampResidenceQuestNames(summaries, discoveredRows, questSource,
 
 export class ExteriorAutomapWindow {
   /** deps: { locationName, locationId, gridW, gridH,
-   *  blocks [{x,y,autoMap}], playerPos() -> location-local [x,y,z],
+   *  blocks [{x,y,autoMap,landmark?}], playerPos() -> location-local [x,y,z],
    *  locOrigin -> the location's origin inside its map pixel (so the
    *  marker law above can see the TILE frame DFU's modulo needs),
    *  isCustomLocation, playerYaw() -> rad, arrowMesh -> the CPU mesh
@@ -1101,6 +1101,16 @@ export class ExteriorAutomapWindow {
         text, name, scale, buildingKey: b.buildingKey, isResidence: !!b.isResidence,
       });
     }
+    // ARENA-MAP: a block's LANDMARK - a named place that is no building of the list (the Arena, world/arenaCity.js
+    // arenaTownLandmark) - lettered by this same plate law, always: no door discovers it, no record renames it
+    // (_renameAt). The arena's own departure (Ledger A, its ARENA1 row).
+    for (const bl of this.deps.blocks ?? []) {
+      const lm = bl?.landmark;
+      if (!lm?.name) continue;
+      const anchor = nameplateAnchor(bl.x, bl.y, lm.position);
+      const [sx, sy] = toPanelScreen(this.cam, rect, anchor[0] - this.layoutW / 2, anchor[1] - this.layoutH / 2);
+      out.push({ x: sx, y: sy, w: measureText(font.fnt, lm.name) * scale, h: lineH, text: lm.name, name: lm.name, scale, buildingKey: 0, isResidence: false, landmark: true });
+    }
     return out;
   }
 
@@ -1123,7 +1133,7 @@ export class ExteriorAutomapWindow {
    */
   _renameAt(nx, ny) {
     const p = this._hoverPlate;
-    if (!p || p.isResidence) return;
+    if (!p || p.isResidence || p.landmark) return;   // ARENA-MAP: a landmark is no building to rename
     this.deps.rename?.(p.buildingKey, p.text ?? p.name);
   }
 

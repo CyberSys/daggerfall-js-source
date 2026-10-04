@@ -18,6 +18,7 @@
 // at the top says how to free the mouse and offers Lock and Reset.
 import { getPref, setPref } from '../systems/uiPrefs.js';
 import { isEnhanced } from '../systems/uiSkin.js';   // ENHANCED PLUS ONLY: no other UI is customisable
+import { seatHudPlacer } from './hudPlacer.js';   // MOVED-NOTICE: a piece's builder places it at once, through the leaf
 
 
 export const HUD_LOCK_PREF = 'hudLocked';
@@ -107,6 +108,14 @@ function injectStyle(doc) {
 @property --hmy { syntax: '<length>'; inherits: false; initial-value: 0px; }
 @property --hms { syntax: '<number>'; inherits: false; initial-value: 1; }
 ${moved} { translate: var(--hmx, 0px) var(--hmy, 0px); scale: var(--hms, 1); }
+/* MOVED-NOTICE (FIELD BUGS 2026-10-03, SylviaB: "it momentarily spawns in its original location and slides in from the
+   side ... changing it to a fade in/out at the updated location"): a slide is from the EDGE the sheet stands the stack
+   on - moved off it, a notice or a revenant's card fades in and out where it stands (the sheets' own opacity
+   transitions; the node still leaves at NOTICE_SLIDE_MS / REVENANT_SLIDE_MS, past the fade) */
+.notice-stack[data-hm-moved] > .notice, .notice-stack[data-hm-moved] > .notice.notice-in,
+.notice-stack[data-hm-moved] > .notice.notice-out { transform: none; }
+.rvncard-stack[data-hm-moved] > .rvncard, .rvncard-stack[data-hm-moved] > .rvncard.rvncard-in,
+.rvncard-stack[data-hm-moved] > .rvncard.rvncard-out { transform: none; }
 /* OFF (the piece's X): gone in play; greyed while the editor is open, so it can be turned back on */
 [data-hm-off]:not([data-hm-edit]) { visibility: hidden !important; }
 [data-hm-off][data-hm-edit] { opacity: 0.35 !important; filter: grayscale(1) !important; outline-color: #8b8578 !important; }
@@ -215,6 +224,9 @@ function paint(node, o) {
   const p = pieceOf(node.dataset?.hm);
   const t = p?.inside ? insideTransform(node, p, o) : o;   // a piece inside another: the outer one's move undone
   if (t && (t.x || t.y)) { set('--hmx', `${t.x}px`); set('--hmy', `${t.y}px`); } else { del('--hmx'); del('--hmy'); }
+  // MOVED-NOTICE: the player took it from its sheet's place - a stack that slides in from an edge fades where it stands
+  if (o && (o.x || o.y)) { if (!node.hasAttribute('data-hm-moved')) node.setAttribute('data-hm-moved', ''); }
+  else if (node.hasAttribute?.('data-hm-moved')) node.removeAttribute('data-hm-moved');
   if (t && t.s && t.s !== 1) set('--hms', String(t.s)); else del('--hms');
   if (o?.off) { if (!node.hasAttribute('data-hm-off')) node.setAttribute('data-hm-off', ''); }
   else if (node.hasAttribute?.('data-hm-off')) node.removeAttribute('data-hm-off');
@@ -298,7 +310,7 @@ function stripAll(doc) {
   syncGhosts(doc, false);
   for (const n of doc.querySelectorAll?.('[data-hm]') ?? []) {
     paint(n, null);
-    for (const a of ['data-hm-edit', 'data-hm-drag', 'data-hm-dummy', 'data-hm-len', 'data-hm-name']) if (n.hasAttribute?.(a)) n.removeAttribute(a);
+    for (const a of ['data-hm-edit', 'data-hm-drag', 'data-hm-dummy', 'data-hm-len', 'data-hm-name', 'data-hm-moved']) if (n.hasAttribute?.(a)) n.removeAttribute(a);
     n.removeAttribute?.('data-hm');
   }
   syncBanner(doc, false);
@@ -331,6 +343,8 @@ export function sweepHudLayout(doc = docRef) {
   syncBanner(doc, edit);
   syncHandles(doc, edit);
 }
+
+seatHudPlacer(sweepHudLayout);   // MOVED-NOTICE: the notice stack's builder sweeps through ui/hudPlacer.js
 
 // THE HANDLES' LAYER: one corner square per outlined piece (scale) and, where the piece has a length, a bar on its
 // right edge. They live in their own fixed layer over the HUD - nothing is added inside a piece, whose own layout

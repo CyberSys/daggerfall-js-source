@@ -118,7 +118,7 @@ test('WB12d the wire: a rite word is {d, px, py, s, f, c} and nothing more (BROK
   assert.deepEqual(validRiteOut({ k: 'br', d: 700, px: 1, py: 2, at: 5, by: ['', 3, null, {}, ...names] }).by, names.slice(0, RITE_BY_MAX));
   assert.equal(validRiteOut({ k: 'xx', d: 700, px: 1, py: 2, at: 5 }), null);
   assert.equal(RITE_RELAY_MIN, 151);   // world141 on its branch: main's CLIMB5 and CLIMB6, FRIENDS-SYNC, ELITE FOES and the Seats arc took world141-world150 first
-  assert.deepEqual(['world150', 'world151', 'world152', 'world153', 'world154', 'acct62', null].map(relaySupportsRite), [false, true, true, true, true, false, false]);
+  assert.deepEqual(['world150', 'world151', 'world152', 'world153', 'world155', 'acct62', null].map(relaySupportsRite), [false, true, true, true, true, false, false]);
 });
 
 // ═══ THE ACCOUNT SERVICE: THE RITE'S EMBER ═══════════════════════════════════════════════════════

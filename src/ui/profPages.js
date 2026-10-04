@@ -1,9 +1,11 @@
 // @ts-check
 // ═══════════════════════════════════════════════════════════════════
 // PROF1 (2026-09-28, Mac: "actual UI integration for life skills") -
-// THE PROFESSIONS AND STORES PAGES of the character sheet: two pages on
-// the pause window's Stats rail (ui/enhancedMenu.js), beside Character,
-// Attributes and Skills - the sheet's own bones (bible/06-Systems/
+// THE PROFESSIONS AND STORES PAGES of the character sheet: the
+// Professions page on the pause window's Stats rail (ui/enhancedMenu.js),
+// beside Character, Attributes and Skills, and the Stores page on its
+// Holdings rail (HOLDINGS, 2026-10-03, moved it there with the other
+// things the player holds) - the sheet's own bones (bible/06-Systems/
 // Professions-Arc.md 8, 21, 22). Online only, and only while the
 // professions are this account's: the host registers its book here
 // (`setProfessionsPages`), and a page with nothing behind it is never
@@ -45,6 +47,7 @@
 // The pages draw with the menu's own kit (its `el`, divider and meter,
 // handed in), so they are the sheet's pages and not a second window.
 // ═══════════════════════════════════════════════════════════════════
+import { clampCarried, carriedTotal, DEPOSIT_MAX, BAG_WORDS } from '../net/bagLaw.js';   // BAG1: what a character carries
 import {
   PROFESSIONS, SPECIALISATIONS, SPEC_RANKS, RESPEC, xpForRank, rankName, PROF_RANK_MAX, TIER_RANKS, CRAFTS_ABOVE_JOURNEYMAN,
   JOURNEYMAN_RANK, MATERIAL_FAMILIES, HARVESTS_PER_DAY, HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HAULS_PER_DAY, WITHDRAW_MAX, professionName, SMELT_RECIPES, SMELT_MAX, FORGE_FEE,
@@ -126,13 +129,22 @@ import { getPref, setPref } from '../systems/uiPrefs.js';
  * @property {() => Array<{ provenance: string, name: string, points: number, essence: number, recipe?: string }>} [disenchantable]   PROF12: the
  *   pack's crafted pieces an enchanting station may take apart, each its Essence (AUDIT PROF12 E2: and its recipe, the XP's tier)
  * @property {(provenance: string) => Promise<{ ok: boolean, text: string }>} [disenchant]   PROF12: a piece taken apart
+ * @property {(key: string, qty: number) => Promise<{ ok: boolean, text: string, kept?: boolean }>} [deposit]   BAG1: carried units of a
+ *   material - out of the bag and the pack - into the Stores
+ * @property {() => boolean} [inTown]   BAG1: whether the Stores are reached here - in a town, indoors or out
+ * @property {(key: string) => number} [room]   BAG1: how many more units of a material the bag and the pack can take
+ * @property {(key: string) => number} [carriedHeld]   BAG1: how many units of a material the bag and the pack hold
+ * @property {() => ({ has: boolean, kg: number, max: number, count?: number })} [bag]   BAG1: the Materials Bag - held, its load and
+ *   its limit (AUDIT2: and how many pieces its list holds)
+ * @property {() => ({ moved: number, left: number })} [emptyBag]   AUDIT2 BAG1 H1/U2: every piece in the bag into the pack, as much
+ *   as the pack carries - anywhere, on either skin
  */
 let _provider = /** @type {ProfPagesProvider|null} */ (null);
 /** The host's book, or null to take the pages down (offline, a closed switch, the host gone). */
 export function setProfessionsPages(p) { _provider = p ?? null; }
 /** What a locked specialisation's card says it waits for (professionLaw.js `later`). */
 const LATER_WORDS = Object.freeze({
-  PROF2b: 'Comes with the Motherlodes', SEAT2: 'Comes with the sieges', SEAT2b: 'Comes with the fortifications',   // PROF11: the Builder's and the Fortifier's
+  SEAT2: 'Comes with the sieges', SEAT2b: 'Comes with the fortifications',   // PROF11: the Builder's and the Fortifier's
   // PROF7 (Professions-Arc.md 29): what DFU gives these nothing to stand as - for Mac
   trophy: 'Waits on a trophy to stand as', 'two-colour': 'Waits on a second dye Daggerfall\'s cloth can take', wagon: 'Waits on a wagon upgrade to hold',   // AUDIT 32 R11: Daggerfall, never "DFU", where a player reads it
 });
@@ -164,6 +176,42 @@ let _armed = null;
 let _profWord = null;
 /** The Stores page's filter, search, sort, the material chosen and the quantity to withdraw. */
 const _stores = { family: null, query: '', sort: 'tier', picked: null, qty: 1, word: null, busy: false, settledAt: -Infinity };
+/** BAG1: the Stores page's own words for a carrying book. */
+export const BAG_PAGE_WORDS = Object.freeze({
+  noBag: 'You have no Materials Bag: what you gather goes into your pack. Every General Store sells one.',
+  // AUDIT2 BAG1 U11: the pack takes what the bag has no room for too, and a deposit takes from the wagon last
+  takenNote: 'Taken out, a material goes into your Materials Bag, then your pack - and back into the Stores from your bag, pack or wagon, in any town.',
+  allIn: 'Put everything in',
+  /** AUDIT2 BAG1 H1/U2: the bag emptied into the pack - the classic inventory draws no bag, and a food rotted in it held it */
+  emptyBag: 'Empty your bag into your pack',
+  emptied: (moved, left) => `${moved.toLocaleString('en-US')} moved into your pack.${left > 0 ? ` ${left.toLocaleString('en-US')} stay in your bag: your pack can carry no more.` : ''}`,
+  /** AUDIT2 BAG1 U1: a material whose Stores are full, passed over by Put everything in without asking */
+  storesFull: 'Your Stores hold all of it they can.',
+  /** AUDIT BAG1: what went in, and each material that would not with its reason - a refusal partway said only itself, and
+   *  the units that had gone in were never said; `stop` the counting-house's silence, which ends the run */
+  allInDone: (n, refused = [], stop = null) => [
+    `${n.toLocaleString('en-US')} put in the Stores.`,
+    ...refused.map((r) => `${r.name}: ${r.text ?? 'not put in.'}`),
+    ...(stop ? [stop] : []),
+  ].join(' '),
+});
+/** AUDIT2 BAG1 U1: how many more units of a row's material the Stores take - their bound less what they hold, every
+ *  origin (the deposit's own decision, server-account/src/professions.js depositStores). */
+export const storesRoomOf = (book, row) => Math.max(0, (book?.state?.caps?.stores ?? STORES_MAX) - ((row?.own | 0) + (row?.bought | 0) + (row?.gold | 0)));
+/** BAG1: the page's rows for a carrying book - every material the Stores hold or the character carries, each with its
+ *  Stores split (`own`, `bought`, `gold`) and `carried`: what the bag and the pack hold of it that the service counts. */
+export function carryRows(book, carriedHeld) {
+  const out = new Map();
+  for (const [k, s] of book.state.stores) out.set(k, { ...s, carried: 0 });
+  for (const k of book.state.carried?.keys?.() ?? []) {
+    const n = carriedTotal(clampCarried(book.carried(k), carriedHeld?.(k) ?? 0));   // every origin, as far as the pack still holds it
+    if (n <= 0) continue;
+    const row = out.get(k) ?? { material: k, own: 0, bought: 0, carried: 0 };
+    row.carried = n;
+    out.set(k, row);
+  }
+  return out;
+}
 /** PROF2: the forge's counts by recipe, a smelt in flight, and its last word. */
 const _forge = { counts: /** @type {Record<string, number>} */ ({}), busy: false, word: /** @type {string|null} */ (null) };
 /** PROF3: the anvil's family and metal shown, the recipe chosen, the heat being struck, a craft in flight and its word. */
@@ -269,6 +317,9 @@ export const STOCK_STAYS_LINE = 'It stays at the bench: the anvil and the workbe
 export const SIEGE_STAYS_LINE = 'A siege work stays in the Stores: a writ for your guild\'s Siege Camp carries it to the siege, delivered at a Notice Board\'s Work tab.';
 /** AUDIT PROF12 E1: what Arcane Essence says in place of a withdrawal - it never goes to the pack (NO_PACK_FORM). */
 export const ESSENCE_STAYS_LINE = 'Arcane Essence stays in the Stores: it never goes to the pack, and it is sold on the Market tab from here.';
+/** BAG1: what a material with no pack form says where Withdraw would stand - an essence's, a siege work's, the stock's -
+ *  one law for the Stores page and the bag's page beside it. */
+const staysLine = (pick) => (pick.family === 'essences' ? ESSENCE_STAYS_LINE : pick.family === 'siege' ? SIEGE_STAYS_LINE : STOCK_STAYS_LINE);
 /**
  * AUDIT 32 P12: ESCAPE SETS AN ACT DOWN before it closes the window (AUDIT 31's law: Escape closes a form before the
  * window) - the heat, the plane or the stitch under way let go, nothing spent, and said. It closed the pause window, and
@@ -484,8 +535,8 @@ export function storesRows(stores, { family = null, query = '', sort = 'tier' } 
   const q = String(query ?? '').trim().toLowerCase();
   const rows = [...stores.values()].map((s) => {
     const m = material(s.material);
-    return { ...s, name: nameOf(s.material), family: m?.family ?? null, tier: m?.tier ?? 0, value: m?.value ?? 0, total: s.own + s.bought + (s.gold | 0) };   // GOLD-MARKET: what gold bought is held too
-  }).filter((r) => r.total > 0 && (!family || r.family === family) && (!q || r.name.toLowerCase().includes(q)));
+    return { ...s, name: nameOf(s.material), family: m?.family ?? null, tier: m?.tier ?? 0, value: m?.value ?? 0, total: s.own + s.bought + (s.gold | 0), carried: s.carried | 0 };   // GOLD-MARKET: what gold bought is held too; BAG1: what is carried beside it
+  }).filter((r) => r.total + r.carried > 0 && (!family || r.family === family) && (!q || r.name.toLowerCase().includes(q)));
   const byName = (a, b) => a.name.localeCompare(b.name);
   rows.sort(sort === 'name' ? byName : sort === 'count' ? (a, b) => (b.total - a.total) || byName(a, b) : (a, b) => (a.tier - b.tier) || byName(a, b));
   return rows;
@@ -514,7 +565,8 @@ export function drawStoresPage(detail, rerender, kit) {
   // AUDIT 29 C4: a withdrawal kept (its answer lost) is asked again when the Stores are opened - not only at the next read
   // PROF5 (FOUND): a kept craft settles too - `pendingCrafts` had no reader, so a craft whose answer was lost waited for an
   // unrelated withdrawal
-  if ((book.pendingWithdrawals || book.pendingCrafts) && p.settle && Date.now() - _stores.settledAt > 30_000) { _stores.settledAt = Date.now(); p.settle().then(rerender, () => {}); }
+  // BAG1: and a deposit whose answer was lost
+  if ((book.pendingWithdrawals || book.pendingCrafts || book.pendingDeposits) && p.settle && Date.now() - _stores.settledAt > 30_000) { _stores.settledAt = Date.now(); p.settle().then(rerender, () => {}); }
   const head = el('div', 'prof-storehead');
   const search = el('input', 'prof-search');
   search.type = 'search'; search.placeholder = 'Search'; search.value = _stores.query;
@@ -535,6 +587,8 @@ export function drawStoresPage(detail, rerender, kit) {
     fams.append(b);
   }
   detail.append(divider('The Stores'), head, fams);
+  // BAG1: A CARRYING BOOK's page - what is stored and what is carried, side by side; Take out and Put in, in a town
+  if (book.carrying?.() === true) { drawCarryStores(detail, rerender, kit); return; }
   const rows = storesRows(book.state.stores, _stores, p.name);
   const grid = el('div', 'prof-grid');
   if (!rows.length) grid.append(el('p', 'px-note', book.state.stores.size ? 'Nothing in the Stores matches.' : STORES_EMPTY_LINE));
@@ -568,7 +622,7 @@ export function drawStoresPage(detail, rerender, kit) {
     detail.append(bar);
     detail.append(el('p', 'px-note', withdrawable(pick.material)
       ? 'Withdrawn, a material is an item in your pack and never goes back into the Stores. Writs are delivered at a Notice Board\'s Work tab.'
-      : pick.family === 'essences' ? ESSENCE_STAYS_LINE : pick.family === 'siege' ? SIEGE_STAYS_LINE : STOCK_STAYS_LINE));   // SEAT2b part two: a siege work's road
+      : staysLine(pick)));   // SEAT2b part two: a siege work's road
     if ((pick.gold | 0) > 0) detail.append(el('p', 'px-note', GOLD_GOODS_LINE));
   }
   if (_stores.word) detail.append(el('p', 'prof-word', _stores.word));
@@ -581,6 +635,134 @@ export function drawStoresPage(detail, rerender, kit) {
   drawJewellerBench(detail, rerender, kit);   // PROF10
   drawAlchemyStation(detail, rerender, kit);   // PROF12
   drawEnchantingStation(detail, rerender, kit);   // PROF12
+}
+
+/**
+ * BAG1: THE STORES PAGE FOR A CARRYING BOOK (bible/06-Systems/Materials-Bag.md): the bag's load first (or that there is
+ * none, and where one is sold), then every material stored or carried - each card its Stores count and split and what
+ * the bag and the pack hold of it - and, for the one picked, TAKE OUT (the Stores into the bag, then the pack, as many as
+ * fit) and PUT IN (the bag and the pack into the Stores); both only in a town (`inTown`), where the Stores are kept. Put
+ * everything in empties what is carried into the Stores at once. The stations below read both.
+ */
+function drawCarryStores(detail, rerender, kit) {
+  const p = /** @type {ProfPagesProvider} */ (_provider);
+  const { el } = kit;
+  const book = p.book;
+  const town = p.inTown?.() === true;
+  const bag = p.bag?.() ?? { has: false, kg: 0, max: 0 };
+  detail.append(el('p', 'px-note prof-bagline', bag.has ? `Materials Bag: ${bag.kg.toFixed(1)} / ${bag.max} kg` : BAG_PAGE_WORDS.noBag));
+  if (!town) detail.append(el('p', 'px-note', BAG_WORDS.town));
+  // AUDIT2 BAG1 H1/U2: THE BAG EMPTIED INTO THE PACK - anywhere, on either skin: the classic inventory draws no bag, and a
+  // piece no Put in takes (a food that rotted in it) held the bag loaded for good, never to be sold
+  if ((bag.count ?? 0) > 0 && p.emptyBag) {
+    const empty = el('button', 'act', BAG_PAGE_WORDS.emptyBag);
+    empty.type = 'button';
+    empty.disabled = _stores.busy;
+    empty.onclick = () => {
+      if (_stores.busy) return;
+      const r = p.emptyBag?.() ?? { moved: 0, left: 0 };
+      _stores.word = BAG_PAGE_WORDS.emptied(r.moved | 0, r.left | 0);
+      rerender();
+    };
+    detail.append(empty);
+  }
+  const all = carryRows(book, p.carriedHeld);
+  const rows = storesRows(all, _stores, p.name);
+  // AUDIT BAG1: whatever the filter shows - the button puts in everything carried, and a search that hid the carried
+  // materials hid the button with them
+  const carriedAny = [...all.values()].some((r) => r.carried > 0);
+  if (carriedAny) {
+    const allIn = el('button', 'act', _stores.busy ? 'Sending...' : BAG_PAGE_WORDS.allIn);
+    allIn.type = 'button';
+    allIn.disabled = _stores.busy || !town || !p.deposit;
+    if (!town) allIn.title = BAG_WORDS.town;
+    allIn.onclick = async () => {
+      if (_stores.busy || !p.deposit) return;
+      _stores.busy = true; rerender();
+      // AUDIT BAG1: a material refused (its Stores full) is said and passed over - the rest still go in; the counting-house
+      // silent (a deposit kept) ends the run, its goods on their way
+      let moved = 0, stop = null;
+      const refused = [];
+      for (const r of storesRows(carryRows(book, p.carriedHeld), {}, p.name)) {
+        // AUDIT2 BAG1 U1: as many as the Stores have room for - a material whose Stores are full is said, never asked
+        let left = Math.min(r.carried, storesRoomOf(book, r));
+        if (r.carried > 0 && left < 1) { refused.push({ name: r.name, text: BAG_PAGE_WORDS.storesFull }); continue; }
+        while (left > 0) {
+          const q = Math.min(left, DEPOSIT_MAX);
+          const res = await p.deposit(r.material, q);
+          if (!res?.ok) { if (res?.kept) stop = res.text ?? null; else refused.push({ name: r.name, text: res?.text ?? null }); break; }
+          moved += q; left -= q;
+        }
+        if (stop) break;
+      }
+      _stores.busy = false;
+      _stores.word = BAG_PAGE_WORDS.allInDone(moved, refused, stop);
+      rerender();
+    };
+    detail.append(allIn);
+  }
+  const grid = el('div', 'prof-grid');
+  if (!rows.length) grid.append(el('p', 'px-note', all.size ? 'Nothing in the Stores matches.' : STORES_EMPTY_LINE));
+  for (const r of rows) {
+    const card = el('button', `prof-mat${_stores.picked === r.material ? ' on' : ''}`);
+    card.type = 'button';
+    card.append(el('b', null, r.name), el('span', 'prof-count', r.total.toLocaleString('en-US')),
+      el('span', 'prof-split', [r.total ? storesSplit(r) : null, r.carried ? `${r.carried.toLocaleString('en-US')} carried` : null].filter(Boolean).join(' · ')));
+    card.onclick = () => { _stores.picked = r.material; _stores.qty = Math.max(1, Math.min(_stores.qty, Math.max(r.total, r.carried))); _stores.word = null; rerender(); };
+    grid.append(card);
+  }
+  detail.append(grid);
+  const pick = rows.find((r) => r.material === _stores.picked);
+  if (pick) {
+    const bar = el('div', 'prof-matbar');
+    bar.append(el('span', 'prof-matline', `${pick.name} - ${pick.total} stored, ${pick.carried} carried - tier ${pick.tier} - ${pick.value} silver each`));
+    const room = Math.max(0, p.room?.(pick.material) ?? 0);
+    const outMost = Math.min(WITHDRAW_MAX, pick.total, room);
+    const inMost = Math.min(DEPOSIT_MAX, pick.carried, storesRoomOf(book, pick));   // AUDIT2 BAG1 U1: and the Stores' room
+    const most = Math.max(1, outMost, inMost);
+    const qty = el('input', 'prof-qty');
+    qty.type = 'number'; qty.min = '1'; qty.max = String(most); qty.value = String(Math.min(_stores.qty, most));
+    qty.setAttribute('aria-label', 'How many');   // AUDIT2 BAG1 U14: the field said what it counts
+    qty.oninput = () => { _stores.qty = Math.max(1, Math.min(most, Math.floor(Number(qty.value) || 1))); };
+    const run = (fn) => async () => {
+      if (_stores.busy) return;
+      _stores.busy = true; rerender();
+      const res = await fn();
+      _stores.busy = false;
+      _stores.word = res?.text ?? null;
+      rerender();
+    };
+    const take = el('button', 'act primary', _stores.busy ? 'Sending...' : 'Take out');
+    take.type = 'button';
+    take.disabled = _stores.busy || !town || outMost < 1 || !withdrawable(pick.material);
+    take.title = !town ? BAG_WORDS.town : room < 1 ? BAG_WORDS.noRoom : '';
+    take.onclick = run(() => p.withdraw(pick.material, Math.max(1, Math.min(_stores.qty, outMost))));
+    const put = el('button', 'act', _stores.busy ? 'Sending...' : 'Put in');
+    put.type = 'button';
+    put.disabled = _stores.busy || !town || inMost < 1 || !p.deposit;
+    put.title = !town ? BAG_WORDS.town : pick.carried > 0 && inMost < 1 ? BAG_PAGE_WORDS.storesFull : '';
+    put.onclick = run(() => p.deposit?.(pick.material, Math.max(1, Math.min(_stores.qty, inMost))));
+    if (withdrawable(pick.material)) bar.append(qty, take, put);
+    detail.append(bar);
+    // AUDIT2 BAG1 U14: why Take out or Put in is shut, drawn - a title is no word on a touch screen
+    if (town && withdrawable(pick.material)) {
+      const why = [pick.total > 0 && room < 1 ? BAG_WORDS.noRoom : null, pick.carried > 0 && inMost < 1 ? BAG_PAGE_WORDS.storesFull : null].filter(Boolean);
+      if (why.length) detail.append(el('p', 'px-note prof-why', why.join(' ')));
+    }
+    detail.append(el('p', 'px-note', withdrawable(pick.material) ? BAG_PAGE_WORDS.takenNote
+      : staysLine(pick)));
+    if ((pick.gold | 0) > 0) detail.append(el('p', 'px-note', GOLD_GOODS_LINE));
+  }
+  if (_stores.word) detail.append(el('p', 'prof-word', _stores.word));
+  drawForge(detail, rerender, kit);
+  drawAnvil(detail, rerender, kit);
+  drawWorkbench(detail, rerender, kit);
+  drawLoom(detail, rerender, kit);
+  drawMasonBench(detail, rerender, kit);
+  drawCookFire(detail, rerender, kit);
+  drawJewellerBench(detail, rerender, kit);
+  drawAlchemyStation(detail, rerender, kit);
+  drawEnchantingStation(detail, rerender, kit);
 }
 
 /** What the Stores make of a recipe now: the most it can smelt (every input's units over its need), to SMELT_MAX. */

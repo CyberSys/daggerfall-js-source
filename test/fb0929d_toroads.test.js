@@ -45,7 +45,7 @@ const FIRST_PERSON = 'GeneralOptions.FirstPersonTravel';
 /** Run `fn` on a page whose URL is `search` (the read paths read globalThis.location.search; node has none). */
 const onPage = (search, fn) => { const had = globalThis.location; globalThis.location = { search }; try { return fn(); } finally { if (had === undefined) delete globalThis.location; else globalThis.location = had; } };
 
-test('TO-ROADS THE SWITCH: the port\'s own key beside First-Person Travel - OFF (First-Person Travel stays the mod\'s straight journey), a toggle, its own words, on the tile right after the switch it serves; the vendored modsettings.json does not carry it; online it is the player\'s own, as every key of the mod\'s is', () => {
+test('TO-ROADS THE SWITCH: the port\'s own key beside First-Person Travel - OFF (First-Person Travel stays the mod\'s straight journey), a toggle, its own words, on the tile right after the switch it serves; the vendored modsettings.json does not carry it; online it is the player\'s own (the room owns only the mod\'s switch and its two journey dials - TRAVEL-ONLINE)', () => {
   const def = MOD_SETTINGS['travel-options'].keys[KEY];
   assert.ok(def, 'declared on Travel Options\' pane');
   assert.equal(def.default, false, 'OFF - First-Person Travel keeps "the original travel option" (Mac, OW-TOGGLE)');
@@ -61,8 +61,8 @@ test('TO-ROADS THE SWITCH: the port\'s own key beside First-Person Travel - OFF 
   assert.ok(modDials('travel-options').includes(KEY), 'reachable: a dial the drawer draws (TORCH-BIND\'s lesson)');
   _resetModSettings();
   assert.equal(modSetting(TRAVEL_OPTIONS_VENDOR, KEY), false, 'the shipped store: off');
-  assert.ok(ONLINE_PLAYERS_OWN_MODS.includes('travel-options'), 'online: Travel Options is "my own journey" (MODS-ONLINE-2)');
-  assert.equal(onlineForcedModSetting('travel-options', KEY, '?online=1'), undefined, 'the room forces nothing');
+  assert.ok(!ONLINE_PLAYERS_OWN_MODS.includes('travel-options'), 'TRAVEL-ONLINE: the room owns three of Travel Options\' keys');
+  assert.equal(onlineForcedModSetting('travel-options', KEY, '?online=1'), undefined, 'and not this one: the room forces nothing here');
   onPage('?online=1', () => {
     setModSetting(TRAVEL_OPTIONS_VENDOR, KEY, true);
     assert.equal(modSetting(TRAVEL_OPTIONS_VENDOR, KEY), true, 'online, the player\'s own answer');
@@ -232,7 +232,7 @@ test('TO-ROADS REPRODUCED, then fixed (the host\'s own code over the real planne
 
 /** world.js's governor, mounted from its own source (test/ow_toggle.test.js's way): `let tvHeld` through travelViewGovern. */
 function mountGovernor(env) {
-  const from = WORLD.indexOf('  let tvHeld = null;');
+  const from = WORLD.indexOf('  let tvFoeRate = ');   // ENEMY-PACE: the near-enemies pace and its floor ride in front of tvHeld
   const fn = WORLD.indexOf('  function travelViewGovern(dt) {', from);
   const end = WORLD.indexOf('\n  }\n', fn) + 4;
   assert.ok(from >= 0 && fn > from && end > fn, 'the governor\'s source');

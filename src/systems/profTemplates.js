@@ -52,6 +52,7 @@ import { REPAIR_KIT_TEMPLATE, STONE_DECOR, DISHES } from '../net/recipeLaw.js'; 
 import { SURVIVAL_TEMPLATES } from './survival/items.js';   // PROF9: C&C's food rows the dishes stand on
 import { TEMPLATE as CC, FOOD, registerFoods } from './survival/food.js';
 import { isOnlinePage } from './onlineLane.js';
+import { BAG_ROW } from '../net/bagLaw.js';   // BAG1: the Materials Bag (600)
 
 /** The group every new material mints in: DFU's miscellany (UselessItems2), where Foraging's own items sit - not an
  *  ingredient group, so no maker takes one for an ingredient. */
@@ -193,6 +194,12 @@ export const SKINNING_KNIFE_ROW = Object.freeze({
   playerTextureRecord: 0, stackable: false,
 });
 registerCustomTemplates([SKINNING_KNIFE_ROW]);
+
+// ─── BAG1: THE MATERIALS BAG (600 - Professions-Arc 4.8's unused id) ──
+/** The bag's row (net/bagLaw.js BAG_ROW): DFU's Backpack picture, weightless as the Small Cart, one to a slot. Shelved
+ *  by name by every General Store online (systems/shopStock.js), never by the custom-item loop - "available in every
+ *  general store". Registered here, at import, so a save that holds one loads it in any scene. */
+registerCustomTemplates([BAG_ROW]);
 /** The knife's share of GetCustomItemsForGroup: DFU's miscellany, ONLINE ONLY (law 6's exception, for 603 - PROF0 15's
  *  row), so a General Store or a Pawn Shop shelves it by DFU's own custom-item loop, as Foraging's tools. */
 export const knifeCustomItemsForGroup = (group) => (group === PROF_ITEM_GROUP && isOnlinePage() ? [SKINNING_KNIFE.templateIndex] : []);

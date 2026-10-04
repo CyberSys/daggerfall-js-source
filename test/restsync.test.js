@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs';
 import * as acorn from 'acorn';
 import { validFoeRecord, hitPoisonOf, hitSpellOf, FOE_HEALTH_MAX, FOE_LEVEL_MAX, FOES_FRAME_MAX, PARTY_MAX } from '../src/net/wire.js';
 import { ELITE_FOE_MULTIPLIER } from '../src/world/spawnedDungeons.js';
+import { ARENA_PUPPET_OWNER } from '../src/net/arenaLaw.js';   // ARENA4: the kill door's puppet test, the real owner word (no puppet here)
 
 const D = readFileSync(new URL('../src/scenes/dungeonContext.js', import.meta.url), 'utf8');
 const W = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
@@ -60,9 +61,13 @@ function restDoors(over = {}) {
   const spawned = [], asked = [];
   const state = {
     opts: { selfId: () => null, onActions: (d) => { asked.push(d); return true; } },
-    _authority: true, lastPlayerFeet: [1.234, 2, 3.456], _motorYaw: 0.5, _locationKey: 'dungeon:7', _restAskAt: null,
+    _authority: true, lastPlayerFeet: [1.234, 2, 3.456], _motorYaw: 0.5, _locationKey: 'dungeon:7', _restAskAt: null, _restAskSentAt: -Infinity,   // AUDIT III E1: the joiner's own last ask
     _askAt: new Map(), ENEMY_BASICS: { 5: {}, 9: {} }, clock: 1000,
     _spawnEncounter: (hit, o) => { spawned.push([hit, o]); return Promise.resolve(null); },
+    // AUDIT REST II F1 (RE-AIMED): a joiner asks only where the host's own placement finds a spot outside a fire's ward
+    // (encounterSpot), and a night running hears the ask at once (ambushNight) - here a spot stands and no night runs
+    // (a paced window), so these doors keep their own question; test/auditrest2_fires.test.js asks the others
+    encounterSpot: () => ({ x: 9, y: 0, z: 9 }), ambushNight: () => false,
     ...over,
   };
   state.Date = { now: () => state.clock };
@@ -90,9 +95,10 @@ test('REST-SYNC: offline the rest\'s encounter is the player\'s own; the host st
   assert.equal(j.roomEncounterComing(), false, 'nothing asked, nothing coming');
   j.restEncounter(HIT);
   assert.deepEqual(j.spawned, [], 'a joiner stands no foe only it can see');
-  assert.deepEqual(j.asked, [{ k: 'dungeon:7', rs: { t: 5, lo: 4, hi: 20, v: 1, f: [1.23, 2, 3.46], y: 0.5 } }], 'it asks the host, by its own feet and facing');
+  assert.deepEqual(j.asked, [{ k: 'dungeon:7', rs: { t: 5, lo: 4, hi: 20, v: 1, f: [1.23, 2, 3.46], y: 0.5, s: [9, 0, 9] } }], 'it asks the host, by its own feet and facing (AUDIT III E1 re-aim: and the spot its placement found)');
   assert.equal(j.roomEncounterComing(), true, 'the rest breaks at the hour\'s check, as DFU\'s does');
   assert.equal(j.roomEncounterComing(), false, 'once');
+  j.state.clock += K.REST_ASK_GAP_MS + K.REST_ASK_WAIT_MS;   // AUDIT III E1 re-aim: past the host's gap - an ask inside it is none
   j.restEncounter(HIT);
   j.state.clock += K.REST_ASK_WAIT_MS + 1;
   assert.equal(j.roomEncounterComing(), false, 'an ask older than the wait breaks nothing');
@@ -110,7 +116,7 @@ test('REST-SYNC: the host stands a joiner\'s ask by the JOINER\'s feet, shared -
   const ask = { t: 5, lo: 4, hi: 20, v: 1, f: [10, 1, -4], y: 0.25 };
   const h = restDoors({ opts: { selfId: () => 'host', onActions: () => true } });
   assert.equal(h.roomEncounterAsked('peerA', ask), true);
-  assert.deepEqual(h.spawned, [[{ mobileType: 5, minDistance: 4, maxDistance: 20, lineOfSightCheck: true }, { feet: [10, 1, -4], yaw: 0.25, shared: true }]], 'by the asker\'s feet and facing, the room\'s');
+  assert.deepEqual(h.spawned, [[{ mobileType: 5, minDistance: 4, maxDistance: 20, lineOfSightCheck: true }, { feet: [10, 1, -4], yaw: 0.25, shared: true, asked: null }]], 'by the asker\'s feet and facing, the room\'s (AUDIT III E1 re-aim: a client a build behind names no spot)');
   assert.equal(h.roomEncounterAsked('peerA', ask), false, 'one ask a player a gap');
   assert.equal(h.roomEncounterAsked('peerB', { ...ask, v: 0 }), true, 'another player\'s is its own');
   assert.equal(h.spawned[1][0].lineOfSightCheck, false);
@@ -290,7 +296,7 @@ test('REST-SYNC: a joiner\'s blow at the room\'s encounter goes to the host by t
   const sent = [];
   const layout0 = foe(), pup = foe({ _encId: 7 });
   const j = {
-    _authority: false, foes: [layout0, pup], _layoutFoes: 1, lastPlayerFeet: [1, 0, 1], _ecvT: 0,
+    _authority: false, ARENA_PUPPET_OWNER, foes: [layout0, pup], _layoutFoes: 1, lastPlayerFeet: [1, 0, 1], _ecvT: 0,
     opts: { onFoeHit: (h) => sent.push(h) }, renownFoeStruck() {}, takeWholeBlow: () => false, markFoeStruck() {}, markConcealedHit() {},
   };
   const jd = mount(`${consts()}\n${declSrc('isRoomFoe')}\n${fnSrc('damageFoe')}\nreturn { damageFoe };`, j);

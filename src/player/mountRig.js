@@ -42,6 +42,7 @@ import { isShipAvailable } from '../systems/ship.js';   // RR1: TransportManager
 import { NATIVE_SCREEN_HEIGHT } from '../systems/riding.js';   // RR2: the 200-line native screen the sprite scales by
 import { RR_RIDING, rrTerrainAngle, rrTerrainFollow, rrRidingYAdj, rrRidingNeckBand } from '../systems/rrRealism.js';   // RR2: EnhancedRiding's draw laws
 import { setPitchFloorProvider } from './lookFilter.js';   // RR2: PitchMaxLimit while riding
+import { uiCanvas, onUiScreen } from '../ui/uiScreen.js';   // RETRO-UI: the horse in the pillarbox (TransportManager's CustomScreenRect)
 
 /**
  * @param deps {
@@ -106,7 +107,7 @@ export function createMountRig({
   }
   setPitchFloorProvider(() => (enhancedRiding?.() && isRiding(player.transportMode) && !paused() ? _terrainAngle + RR_RIDING.pitchMaxOffset : null));   // AUDIT-RR2 G26: the else arm (`IsGamePaused || !IsRiding`, :122-131) resets PitchMaxLimit every frame
   let art = null;                          // TR2: the four CFA frames of the mount under you
-  const canvasOf = () => (typeof canvas === 'function' ? canvas() : canvas);
+  const canvasOf = () => uiCanvas(typeof canvas === 'function' ? canvas() : canvas);   // RETRO-UI: TransportManager's screenRect is CustomScreenRect (:290-291)
 
   /**
    * THE ONE PLACE THE MODE CHANGES (U53), and HC1's lesson with it
@@ -208,10 +209,13 @@ export function createMountRig({
         // ROAD-D D10: horseOffsetHeight (TransportManager.cs :304-309)
         // - the bar the LAST drawHud drew, lifted out from under the
         // mount. Docking is not asked here; DFU's horse arm never asks.
-        const rect = ridingRect(canvasOf(), art, horseOffsetHeight());
+        const ui = canvasOf();
+        const rect = ridingRect(ui, art, horseOffsetHeight());
         const lift = enhanced ? liftForLook(rect, art, enhanced) : null;   // RR2: EnhancedRiding.OnGUI - the sprite rides the look
-        renderer.drawScreenQuad(art.frames[r.frame], rect);
-        if (lift) drawNeckBand(lift, rect, art, r);   // RR2: and the gap under it is filled
+        onUiScreen(renderer, ui, () => {   // RETRO-UI: drawn in the pillarbox
+          renderer.drawScreenQuad(art.frames[r.frame], rect);
+          if (lift) drawNeckBand(lift, rect, art, r);   // RR2: and the gap under it is filled
+        });
       }
       return r;
     },

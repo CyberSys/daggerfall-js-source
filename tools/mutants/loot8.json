@@ -243,15 +243,6 @@
     ]
   },
   {
-    "name": "LOOT8-champion-piece-unmarked",
-    "file": "src/scenes/hostCombat.js",
-    "old": "    piece.untaken = true; (entity.items ??= []).push(piece);",
-    "new": "    (entity.items ??= []).push(piece);",
-    "tests": [
-      "test/loot8_drought.test.js"
-    ]
-  },
-  {
     "name": "LOOT8-field-undeclared",
     "file": "src/systems/itemFields.js",
     "old": "  untaken: bool(),",

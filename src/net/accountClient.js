@@ -52,11 +52,14 @@ import {
 } from './professionLaw.js';   // PROF1: the bounds its refusals name; PROF7: Hunting's day
 import {
   GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_NAME_MIN, GUILD_NAME_MAX, GUILD_RANK_NAME_MAX, GUILD_MOVE_MAX,
-} from './guildLaw.js';   // GUILD1: the bounds its refusals name
+  GUILD_RENAME_GOLD,
+} from './guildLaw.js';   // GUILD1: the bounds its refusals name; GUILD2a: a new name's price
+import { GUILD_VAULT_SLOTS, GUILD_VAULT_HALL_SLOTS } from './guildVaultLaw.js';   // GUILD2b: the vault's shelf, in its refusal's own sentence
 import { MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX, AUCTION_BID_MAX } from './marketLaw.js';   // PROF5: the bounds its refusals name
-import { GUILD_WRITS_MAX, GUILD_STORES_MAX, COMMISSIONS_MAX, COMMISSIONS_FOR_MAX, WRIT_POSTS_MAX, WRIT_OPS_MAX } from './writLaw.js';   // PROF6: the bounds its refusals name
+import { GUILD_WRITS_MAX, GUILD_STORES_MAX, COMMISSIONS_MAX, COMMISSIONS_FOR_MAX, WRIT_POSTS_MAX, WRIT_OPS_MAX, GUILD_CONTRACTS_MAX, CONTRACT_PAY_MAX, CONTRACT_DEEDS_MAX } from './writLaw.js';   // PROF6: the bounds its refusals name; SILVER-WAYS: a contract's
 import { RENOWN_TRACKS_MAX } from './renown.js';   // RENOWN1: the tracks' bound, in its refusal's own sentence (RENOWN-CHAR: back with the tracks)
 import { HERALDRY_CHANGE_DRAKES } from './heraldryLaw.js';   // GUILD1d: a change's cost, in its refusal's own sentence
+import { ARENA_TEXT } from '../systems/arenaText.js';   // ARENA4b: the arena's refusals, in its own frozen table
 
 /** WHERE THE SERVICE IS. Its own constant beside the relay's
  *  DEFAULT_SERVER (net/online.js), because they are two Workers and
@@ -148,6 +151,10 @@ export const REFUSALS = Object.freeze({
   owned: 'Your account already owns that.',
   short: 'Your account has too few embers for that.',   // WB12a; WB13b: the card says the rule; AUDIT WB12d (A4): a rite's ember counts, and is no breach closed
   guest: 'Insignia need a registered account. Add a username and password first.',
+  // ARENA4, the banners (server-account/src/arena.js arenaTeam)
+  'bad-banner': 'The arena knows only the Red Banner and the Blue. The game may need updating.',
+  joined: 'You already fight under a banner. Quit it at its own recruiter first.',
+  season: 'You quit the other banner this season. You may join it when the next season opens.',
   // PATREON-LINK, a patron's own Patreon (server-account/src/patreon.js). `signature` is the webhook's, met by Patreon
   // and never a player; it has a sentence because every word the service says does.
   'patreon-closed': 'Linking Patreon is not switched on yet.',
@@ -184,6 +191,9 @@ export const REFUSALS = Object.freeze({
   // HOME1, the online homes (server-account/src/homes.js). A player meets these at a front door, beside the price.
   'homes-need-account': 'Owning a home needs a username and a password. Give this account one and you can buy one.',
   'home-taken': 'Somebody else owns this home now.',
+  'home-update': 'This game is out of date. Reload it to buy a home.',   // WD3 (AUDIT WD3 B2): a build from before the town mods
+  'home-towns': 'The towns could not be loaded as the other players here see them. Reload the game to buy a home.',   // WD3 (AUDIT WD3 B1): a town mod's pack did not load
+  'home-layout': 'The town records here are still being read. Try again in a moment.',   // WD3: the town is built again as the room's (scenes/world.js hearHomeLayouts)
   'home-cap': `A character can own at most ${HOME_CAP} homes. Sell one to buy another.`,
   'home-rate': 'You have bought and sold a lot of homes this hour. Try again later.',
   'no-home': 'That home is not yours any more.',
@@ -204,6 +214,10 @@ export const REFUSALS = Object.freeze({
   'bad-room': 'The account service could not read that room.',
   'home-tenants': 'Somebody is renting a room in your home. It cannot be sold or deleted until their days run out.',
   'home-rent-due': 'Rent is waiting to be collected at your home. Collect it first.',
+  // ARENA4b: a home the arena displaced (homes.js arenaMoveHome), and a house of its block an old build would buy
+  'home-arena': ARENA_TEXT.homeMove.arena,
+  'home-unmoved': ARENA_TEXT.homeMove.unmoved,
+  'home-changed': ARENA_TEXT.homeMove.changed,
   // HOME-LOOK: an online home's outside (server-account/src/homes.js setHomeLook)
   'bad-look': 'The account service could not read that look. The game may need updating.',
   // DECOR1: an online home's decor (server-account/src/decor.js)
@@ -328,6 +342,16 @@ export const REFUSALS = Object.freeze({
   'prof-spec-taken': 'A specialisation was chosen there already. Look again.',
   'stores-full': `Your Stores hold ${STORES_MAX.toLocaleString('en-US')} of that already.`,
   'stores-short': 'Your Stores do not hold that many.',
+  // BAG1: what is carried - the service's count of it at its bound, or a pack and bag holding fewer than a deposit asks
+  'carried-full': `You carry ${STORES_MAX.toLocaleString('en-US')} of that already - put some in your Stores first.`,
+  'carried-short': 'You do not carry that many that you gathered or took from your Stores.',
+  'bad-held': 'Your pack could not be counted - try again.',
+  'materials-short': 'You do not have that many - in your Stores, your Materials Bag and your pack together.',
+  'deposit-kept': 'Your materials are on their way into your Stores - the counting-house has not answered yet. Try again in a moment.',   // AUDIT BAG1 B8
+  'deposit-busy': 'Your last put-in is still being counted. Try again in a moment.',   // AUDIT2 BAG1 K12: one deposit at a time
+  'deposit-unsaved': 'Your game could not be saved just now, so nothing went into your Stores. Try again in a moment.',   // AUDIT2 BAG1 H2: the take saved before the ask
+  'deposit-unsent': 'That put-in was never sent - its materials are still with you.',   // AUDIT2 BAG1 K7: a kept deposit whose take the save never saw (askDeposit)
+  'bad-deposit-order': 'That cannot be put in the Stores that way.',
   'node-taken': 'You have already gathered here today.',
   'bad-material': 'The Stores do not keep that.',
   'bad-recipe': 'The forge knows no such work.',   // PROF2
@@ -443,7 +467,20 @@ export const REFUSALS = Object.freeze({
   'guild-stores-short': 'The guild Stores do not hold that many.',
   'guild-stores': 'Empty the guild Stores first.',
   'guild-writs': 'Withdraw the guild\'s writs first.',
-  'guild-writ-escrow': 'A withdrawn writ\'s pay is still waiting to go back to the silver treasury, which is full. Take silver out of the treasury first.',   // AUDIT 31 A15
+  'guild-writ-escrow': 'A withdrawn writ\'s or contract\'s pay is still waiting to go back to the silver treasury, which is full. Take silver out of the treasury first.',   // AUDIT 31 A15; SILVER-WAYS: or a contract's
+  // PROF2b: a Motherlode's strike
+  'motherlode-closed': 'The Motherlode is not standing now - it has not broken ground yet, or it has gone.',
+  'motherlode-watch': 'The Watch did not see you on the Motherlode\'s ground. Stand on it a moment and strike again.',
+  'motherlode-found': 'You have found your Motherlode today. Another breaks ground tomorrow.',
+  'motherlode-full': 'Its twenty miners have struck it. The Motherlode is spent.',
+  // SILVER-WAYS: guild contracts
+  'guild-contracts': 'Withdraw the guild\'s contracts first.',
+  'guild-contracts-max': `A guild may have ${GUILD_CONTRACTS_MAX} contracts posted at once.`,
+  'contract-kind': 'A guild contract pays for towns defended.',
+  'contract-pay': `A contract pays 1 to ${CONTRACT_PAY_MAX} silver a defender.`,
+  'contract-deeds': `A contract pays 1 to ${CONTRACT_DEEDS_MAX} defenders.`,
+  'contract-gone': 'That contract is no longer posted.',
+  'no-contract': 'There is no such contract.',
   // GUILD1d (Seats-Arc 8): the guild hall and the heraldry (server-account/src/halls.js)
   'guild-hall-have': 'Your guild already has a hall. Sell it first to buy another.',
   'guild-hall-none': 'Your guild has no hall.',
@@ -453,7 +490,26 @@ export const REFUSALS = Object.freeze({
   'guild-battle': 'The guild is named in a siege or a Tourney this week. It cannot go until the battle is over.',   // SEAT1c
   'hall-item': 'A guild hall holds furniture from the catalogue alone - your own things stay yours.',
   'hall-yard': 'A palace\'s grounds cannot be furnished - only its Charter Room.',   // GUILD-YARD: a guild hall's yard is its keepers'; a palace's grounds stand none
-  'bad-heraldry': 'Choose two different colours - Ash only as the border - and one device.',
+  'bad-heraldry': 'Choose arms the law allows - a field and a border of different colours (Ash only as the border), one device that stands out from the field, and a divided field\'s second colour unlike the first and the border.',   // AUDIT2 GUILD2 G5: GUILD2c's divisions and device colour
+  // GUILD2a (bible/11-Multiplayer/Guild-Overhaul.md): a new name for a price (server-account/src/guilds.js renameGuild)
+  'guild-rename-same': 'That is already the guild\'s name and tag.',
+  'guild-name-word': 'A guild\'s name and tag may not carry a word the realm keeps out of names.',
+  'guild-rename-soon': 'The guild took a new name too lately. It may take another a fortnight after the last.',
+  'guild-rename-siege': 'The guild is named in a siege or a Tourney this week. It cannot take a new name until the battle is over.',
+  'guild-rename-gold': `A new name costs ${GUILD_RENAME_GOLD.toLocaleString('en-US')} gold from the treasury - gold realm characters put in - and the treasury does not hold that much of it.`,
+  'guild-rename-moved': 'The guild changed while it was being renamed - the treasury moved, or the guild was handed on. Nothing was paid. Look again.',
+  // GUILD2b: the vault (server-account/src/guildVault.js)
+  'guild-vault-rank': 'The guildmaster has not given you that at the guild\'s vault.',
+  'guild-vault-limit': 'You have taken as many pieces from the vault today as the guildmaster allows. Try again tomorrow.',
+  'guild-vault-full': `The guild's vault is full - ${GUILD_VAULT_SLOTS} pieces, and ${GUILD_VAULT_HALL_SLOTS} more with a guild hall.`,
+  'guild-vault-empty': 'That piece is no longer in the vault.',
+  'guild-vault-moved': 'The vault or your pack changed while you were using it. Nothing moved. Look again.',
+  'guild-vault': 'Empty the guild\'s vault first.',
+  'vault-goods': 'That piece cannot go in the vault - your pack no longer holds it, or it is one that stays with its owner (a quest item, a summoned thing, the Materials Bag).',
+  'bad-vault-item': 'The account service could not read that piece.',
+  'bad-vault-count': 'That is more than the stack holds.',
+  'bad-vault-slot': 'The account service could not tell which piece that is.',
+  'bad-vault-grant': 'The account service could not read that grant.',
   'heraldry-same': 'That is already your guild\'s heraldry.',
   'heraldry-moved': 'The guild\'s heraldry changed meanwhile. Look again.',
   'heraldry-drakes': `Changing the heraldry costs ${HERALDRY_CHANGE_DRAKES} silver from the guild's silver treasury, and it holds less.`,
@@ -563,7 +619,7 @@ export async function call({ fetch, base = DEFAULT_ACCOUNT_SERVICE, secret = nul
     // The service says `{ error: '<word>' }`. A proxy, a 502 or an
     // HTML error page says nothing we can read, and `server` is the
     // honest answer for that rather than a guess at which word it meant.
-    return { ok: false, error: typeof data?.error === 'string' ? data.error : 'server', ...(typeof data?.why === 'string' ? { why: data.why } : {}), ...(Number.isSafeInteger(data?.seq) ? { seq: data.seq } : {}), status: res.status };   // AUDIT WB A5: and the rung, where the service names one; REALM P2.2: and a realm record's sequence
+    return { ok: false, error: typeof data?.error === 'string' ? data.error : 'server', ...(typeof data?.why === 'string' ? { why: data.why } : {}), ...(Number.isSafeInteger(data?.seq) ? { seq: data.seq } : {}), ...(Number.isSafeInteger(data?.at) ? { at: data.at } : {}), status: res.status };   // AUDIT WB A5: and the rung, where the service names one; REALM P2.2: and a realm record's sequence; AUDIT2 GUILD2 S7: and when a refused act may come again
   }
   return { ok: true, data, status: res.status };
 }
@@ -977,6 +1033,24 @@ export function accountRaids({ fetch, storage }) {
   };
 }
 
+/**
+ * ARENA4: THE ARENA (server-account/src/arena.js) through the one door - a bout's receipt the relay signed, carried here
+ * by an account it names (`claim`); the boards, counted from the rows (`board` - the season's ratings, the climb, the
+ * banners, the Hall of Champions, and this account's own); a banner joined or quit (`team` - 'red', 'blue' or null).
+ * Every answer is `call`'s shape, waited for ACCOUNT_ACT_WAIT_MS at most; no session is `no-session`, never a throw.
+ * `me()` the signed-in account's id - the receipts this device may offer are its alone (AUDIT WB A9's law).
+ */
+export function accountArena({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
+  const post = waitedPost({ fetch, storage }, waitMs);
+  return {
+    // ARENA4b: and the character that fought it (its `name` for the track) - a won bout's Renown is that character's
+    claim: (receipt, character = null, name = null) => post('/v1/arena/claim', { receipt, ...(character ? { character } : {}), ...(name ? { name } : {}) }),
+    board: () => post('/v1/arena/board', {}),
+    team: (banner) => post('/v1/arena/team', { banner: banner ?? null }),
+    me: () => storedSession(storage)?.id ?? null,
+  };
+}
+
 /** RENOWN1: what one of this account's characters earned online - `{ character, xp, level, credited, rose, order }`. */
 export const reportRenownXp = (io, character, xp, name = null, rid = null, region = null) => call(io, '/v1/renown/xp', { character, xp, name, ...(rid ? { rid } : {}), ...(region != null ? { region } : {}) });   // AUDIT RENOWN1 DATA-4: `rid` the report's own id; SEAT1b: `region` where it was earned
 
@@ -1016,7 +1090,8 @@ export function accountHomes({ fetch, storage }) {
   return {
     town: (mapId, character = null) => post('/v1/homes/town', { mapId, ...(character ? { character } : {}) }),   // HOME-RENT: the playing character's own tenancies
     mine: () => post('/v1/homes/mine', {}),
-    claim: ({ mapId, buildingKey, region, character, price, realm = null }) => post('/v1/homes/claim', { mapId, buildingKey, region, character, price, ...(realm ? { realm } : {}) }),   // REALM P2.2b: a realm character's record pays
+    claim: ({ mapId, buildingKey, region, character, price, realm = null, layout = null }) => post('/v1/homes/claim', { mapId, buildingKey, region, character, price, ...(realm ? { realm } : {}), layout: layout || null }),   // REALM P2.2b: a realm character's record pays; WD3: the layout the town stands in, always said (null: Daggerfall's - AUDIT WD3 B2)
+    layouts: () => post('/v1/homes/layouts', {}),   // WD3: every town holding a home, and the layout it keeps
     release: (mapId, buildingKey, realm = null) => post('/v1/homes/release', { mapId, buildingKey, ...(realm ? { realm } : {}) }),
     entry: (mapId, buildingKey, entry) => post('/v1/homes/entry', { mapId, buildingKey, entry }),
     // HOME-RENT: a home's rooms (server-account/src/rent.js) - read at its door, offered and withdrawn by its owner, rented
@@ -1028,6 +1103,11 @@ export function accountHomes({ fetch, storage }) {
     collectRent: ({ mapId, buildingKey, character, realm = null }) => post('/v1/homes/rooms/collect', { mapId, buildingKey, character, ...(realm ? { realm } : {}) }),
     // HOME-LOOK: how a home looks outside, painted by its owner (null: the town's own)
     look: ({ mapId, buildingKey, character, look = null }) => post('/v1/homes/look', { mapId, buildingKey, character, look }),
+    // ARENA4b: a home the arena displaced, moved to the house this client picked (its record named when the pieces' refund
+    // comes onto it); the moves this character has not read; and one read
+    arenaMove: ({ mapId, from, to, character, realm = null }) => post('/v1/homes/arena-move', { mapId, from, to, character, ...(realm ? { realm } : {}) }),
+    arenaMoves: (character) => post('/v1/homes/arena-moves', { character }),
+    arenaSeen: (mapId, from) => post('/v1/homes/arena-seen', { mapId, from }),
   };
 }
 
@@ -1078,10 +1158,18 @@ export function accountGuilds({ fetch, storage }) {
     disband: (character) => post('/v1/guilds/disband', { character }),
     // GUILD1d (Seats-Arc 8): the hall bought and sold from the treasury, who may walk in, and the heraldry (`rid`: a change
     // after the first burns Drakes, and a change asked twice is one line)
-    hallBuy: ({ character, mapId, buildingKey, region, price }) => post('/v1/guilds/hall/buy', { character, mapId, buildingKey, region, price }),
+    // AUDIT PRE-MERGE 1003 WD1: a hall is a home - the layout its town stands in, always said (null: Daggerfall's), as a claim
+    hallBuy: ({ character, mapId, buildingKey, region, price, layout = null }) => post('/v1/guilds/hall/buy', { character, mapId, buildingKey, region, price, layout: layout || null }),
     hallSell: (character) => post('/v1/guilds/hall/sell', { character }),
     hallEntry: (character, entry) => post('/v1/guilds/hall/entry', { character, entry }),
     heraldry: (character, heraldry, rid = null) => post('/v1/guilds/heraldry', { character, heraldry, ...(rid ? { rid } : {}) }),
+    // GUILD2 (bible/11-Multiplayer/Guild-Overhaul.md): a new name for a price; the vault - read, a piece put in and taken
+    // out on the realm record where it stands (`realm`), the guildmaster's grants
+    rename: (character, name, tag) => post('/v1/guilds/rename', { character, ...(name ? { name } : {}), ...(tag ? { tag } : {}) }),
+    vault: (character) => post('/v1/guilds/vault', { character }),
+    vaultPut: ({ character, realm, pick, item, count }) => post('/v1/guilds/vault/put', { character, realm, pick, item, count }),
+    vaultTake: ({ character, realm, slot, count = null, at = null }) => post('/v1/guilds/vault/take', { character, realm, slot, ...(count == null ? {} : { count }), ...(at == null ? {} : { at }) }),
+    vaultGrant: (character, member, level, limit = null) => post('/v1/guilds/vault/grant', { character, member, level, limit }),   // AUDIT2 GUILD2 S6: none named - the law's ten
   };
 }
 
@@ -1202,7 +1290,10 @@ export function accountProf({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     pixels: (character, pixels, dungeons = []) => post('/v1/prof/pixels', { character, pixels, dungeons }),   // PROF2: the dungeon stood in
     harvest: (req) => post('/v1/prof/harvest', req),
     spec: (character, profession, rank, spec, from, rid) => post('/v1/prof/spec', { character, profession, rank, spec, from, rid }),   // AUDIT 29 A15: `from`, the choice the client saw standing
-    withdraw: (character, material, qty, rid) => post('/v1/stores/withdraw', { character, material, qty, rid }),
+    // BAG1: `carry` - the units counted as carried, into the bag or the pack - with what the client holds of it (`held`)
+    // AUDIT BAG1 B2: and `seen`, the count as the client last heard it - the service cuts to `held` only against its own
+    withdraw: (character, material, qty, rid, carry = null) => post('/v1/stores/withdraw', { character, material, qty, rid, ...(carry ? { carry: true, held: carry.held, ...(carry.seen == null ? {} : { seen: carry.seen }) } : {}) }),
+    deposit: (character, material, qty, held, order, rid, seen = null) => post('/v1/stores/deposit', { character, material, qty, held, order, rid, ...(seen == null ? {} : { seen }) }),   // BAG1: carried units into the Stores
     smelt: (character, recipe, count, rid, clean = false) => post('/v1/prof/smelt', { character, recipe, count, rid, ...(clean === true ? { clean: true } : {}) }),   // PROF2: the forge; PROF11: the mason's bench, `clean` the chisel's report
     craft: (character, recipe, clean, name, rid, heartwood = false, dye = null, seat = null, cracked = false) => post('/v1/prof/craft', { character, recipe, clean, name, rid, heartwood, ...(dye == null ? {} : { dye }), ...(seat == null ? {} : { seat }), ...(cracked === true ? { cracked: true } : {}) }),   // SEAT2b part two: `seat` the held town the station stands in   // PROF3: the anvil - `clean` the act's report, `name` the maker's mark; PROF4: the workbench, `heartwood` for a plank; PROF7: the loom, a garment's `dye`; PROF10: the jeweller's bench, `cracked` a Lapidary's Siege-cracked Gem for the gem
     stock: (character, material, qty, rid) => post('/v1/prof/stock', { character, material, qty, rid }),   // PROF3: the smith's stock
@@ -1210,6 +1301,7 @@ export function accountProf({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     disenchant: (character, provenance, rid, realm = null) => post('/v1/prof/disenchant', { character, provenance, rid, ...(realm ? { realm } : {}) }),   // PROF12: a crafted piece into Arcane Essence; AUDIT PROF-541 B2: a realm character's record where it stands
     writs: (character, region) => post('/v1/writs/list', { character, region }),
     deliver: (character, id, rid) => post('/v1/writs/deliver', { character, id, rid }),
+    motherlodes: (character) => post('/v1/prof/motherlodes', { character }),   // PROF2b: today's three (a strike rides `harvest`)
   };
 }
 
@@ -1255,6 +1347,8 @@ export function accountWrits({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     stores: (character) => post('/v1/stores/guild', { character }),
     deposit: (req) => post('/v1/stores/guild-deposit', req),
     withdrawStores: (req) => post('/v1/stores/guild-withdraw', req),
+    contract: (req) => post('/v1/writs/contract', req),   // SILVER-WAYS: a guild contract posted, and withdrawn
+    withdrawContract: (req) => post('/v1/writs/contract-withdraw', req),
   };
 }
 

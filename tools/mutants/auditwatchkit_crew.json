@@ -20,8 +20,8 @@
   {
     "name": "WK-W1-lookout-talked-off-his-way",
     "file": "src/systems/naval/crewLife.js",
-    "old": "|| o === chanty?.leader || o === lookout || offMain(o)) continue;",
-    "new": "|| o === chanty?.leader || offMain(o)) continue;",
+    "old": "|| o === chanty?.leader || o === lookout || offMain(o) || atPost(o)) continue;",
+    "new": "|| o === chanty?.leader || offMain(o) || atPost(o)) continue;",
     "tests": [
       "test/auditwatchkit_crew.test.js"
     ]
@@ -29,11 +29,12 @@
   {
     "name": "WK-W1-first-man-first",
     "file": "src/systems/naval/crewLife.js",
-    "old": "      if (m.i > 0) return (lookout = m);",
-    "new": "      return (lookout = m);",
+    "old": "      if (m.i === 0) { first = first ?? m; continue; }",
+    "new": "      if (m.i === 0 && false) { first = first ?? m; continue; }",
     "tests": [
       "test/auditwatchkit_crew.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "WK-W3-repair-order-sleeps",

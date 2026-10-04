@@ -313,8 +313,8 @@
   {
     "name": "AUDIT31-svc-reclaim-keeps",
     "file": "server-account/src/guilds.js",
-    "old": "    AND treasury = 0 AND NOT EXISTS (SELECT 1 FROM guild_marks WHERE guild_id = guilds.id AND balance > 0) AND NOT ${guildKeepsSql('guilds.id')}`)",
-    "new": "`)",
+    "old": "    AND treasury = 0 AND NOT EXISTS (SELECT 1 FROM guild_marks WHERE guild_id = guilds.id AND balance > 0) AND NOT ${guildKeepsSql('guilds.id')}`).bind(key, t).run();",
+    "new": "`).bind(key, t).run();",
     "tests": [
       "test/audit31_service.test.js"
     ]
@@ -322,8 +322,8 @@
   {
     "name": "AUDIT31-svc-escrow-word",
     "file": "server-account/src/guilds.js",
-    "old": "return 'guild-writ-escrow';",
-    "new": "return 'guild-writs';",
+    "old": "FROM guild_writs WHERE guild_id = ?1 AND returned = 0 AND escrow > 0').bind(guildId).first()) return 'guild-writ-escrow';",
+    "new": "FROM guild_writs WHERE guild_id = ?1 AND returned = 0 AND escrow > 0').bind(guildId).first()) return 'guild-writs';",
     "tests": [
       "test/audit31_service.test.js"
     ]
@@ -403,7 +403,7 @@
   {
     "name": "AUDIT31-book-writs-unslotted",
     "file": "src/net/profBook.js",
-    "old": "      const wk = `${slot()}|${region}`;",
+    "old": "      const wk = `${owner}|${region}`;",
     "new": "      const wk = `${region}`;",
     "tests": [
       "test/audit31_client.test.js"
@@ -593,8 +593,8 @@
   {
     "name": "AUDIT31-tab-budget-none-silent",
     "file": "src/ui/workTab.js",
-    "old": "            : officer && !(g.budget > 0) ? 'The Guildmaster has set no writ budget for Officers this week.'",
-    "new": "            : false ? 'The Guildmaster has set no writ budget for Officers this week.'",
+    "old": "        || (standing >= GUILD_WRITS_MAX ? `The guild has ${GUILD_WRITS_MAX} writs posted already.`\n          : escrow > (g.marks ?? 0) ? `The guild's treasury holds only ${marksText(g.marks ?? 0)}.`\n            : officer && !(g.budget > 0) ? 'The Guildmaster has set no writ budget for Officers this week.'",
+    "new": "        || (standing >= GUILD_WRITS_MAX ? `The guild has ${GUILD_WRITS_MAX} writs posted already.`\n          : escrow > (g.marks ?? 0) ? `The guild's treasury holds only ${marksText(g.marks ?? 0)}.`\n            : false ? 'The Guildmaster has set no writ budget for Officers this week.'",
     "tests": [
       "test/audit31_tabs.test.js"
     ]
@@ -749,11 +749,12 @@
   {
     "name": "AUDIT31-guild-look-cached",
     "file": "src/ui/socialPanel.js",
-    "old": "  const lookAtGuild = () => { guildUi.storesAsked = false; if (guild?.stale?.()) guild.refresh(); };",
-    "new": "  const lookAtGuild = () => { if (guild?.stale?.()) guild.refresh(); };",
+    "old": "  const lookAtGuild = () => { guildUi.storesAsked = false; guildUi.vaultAsked = false; if (guild?.stale?.()) guild.refresh(); };",
+    "new": "  const lookAtGuild = () => { guildUi.vaultAsked = false; if (guild?.stale?.()) guild.refresh(); };",
     "tests": [
       "test/audit31_client.test.js"
-    ]
+    ],
+    "note": "AUDIT BAG1 + GUILD2 (PIN MOVED): re-aimed by content - the look resets the vault's read too."
   },
   {
     "name": "AUDIT31-guild-switch-unpainted",

@@ -487,7 +487,7 @@ test('TV2 readout: the route line moves to its first point, lines through the re
   // PIN MOVED (AUDIT OW5 G1): the words say WHY - the load, or AUDIT OW4 J5's walk on the ground until the view rises
   assert.equal(TRAVEL_HELD_TEXT(20, 40), 'Held to ×20 of ×40 while the land loads');
   assert.equal(TRAVEL_HELD_TEXT(1, 20, 'ground'), 'Held to ×1 of ×20 until the Overworld rises');
-  assert.match(rd('src/ui/enhancedTravelControl.js'), /const why = held != null \? TRAVEL_HELD_TEXT\(held, accel, state\.heldWhy\) : '';\n\s*if \(parts\.accel && last\.accelTitle !== why\) \{ last\.accelTitle = why; parts\.accel\.title = why; \}/);
+  assert.match(rd('src/ui/enhancedTravelControl.js'), /const why = shown != null \? TRAVEL_HELD_TEXT\(shown, accel, state\.heldWhy\) : '';\n\s*if \(parts\.accel && last\.accelTitle !== why\) \{ last\.accelTitle = why; parts\.accel\.title = why; \}/);
 });
 
 // ── THE WORLD HOST'S WIRING ─────────────────────────────────────────────────────────────────────────────────────────
@@ -528,8 +528,8 @@ test('TV2 host wiring: THE CAP - governed before the frame reads the travel scal
   assert.match(w, /if \(tvHeld != null\) \{ tvHeld = null; if \(journey\) setWorldTimeScale\(travelAsked\); \}\n\s*tvHeldWhy = null; journeySlowSaid\(null\);[^\n]*\n\s*if \(tvWalking\) \{[^\n]*\n\s*travelGovernor\.reset\(\);/, 'the mod\'s own ask back (PIN MOVED, TV-WASD: the keys\' travel let go beside it - test/tv_wasd.test.js)');
   // OW6: the classic skin's journey (and First-Person Travel's) is the mod's own ask under the enemies' cap alone - nothing near,
   // the ask handed back whole, never over the helm's own time step; under the view the lower of the ground's cap and the enemies'
-  assert.match(w, /const rate = csaHoldsTimeScale\(\) \? null : Math\.min\(travelAsked, foes\.cap\);\n\s*if \(rate != null && worldTimeScale\(\) !== rate\) setWorldTimeScale\(rate\);\n\s*tvHeld = rate != null && rate < travelAsked \? rate : null;/, 'the mod\'s own ask back');
-  assert.match(w, /const load = travelGovernor\.step\(dt, \{ unbuilt, requested: want \}\);\n\s*const rate = Math\.min\(load, foes\.cap\);/);
+  assert.match(w, /const rate = csaHoldsTimeScale\(\) \? null : foeFloor\(foes\.cap, travelAsked\);\n\s*if \(rate != null && worldTimeScale\(\) !== rate\) setWorldTimeScale\(rate\);\n\s*tvHeld = rate != null && rate < travelAsked \? rate : null;/, 'the mod\'s own ask back');
+  assert.match(w, /const load = travelGovernor\.step\(dt, \{ unbuilt, requested: want \}\);\n\s*const foeCap = foeFloor\(foes\.cap, want\);[^\n]*\n\s*const rate = Math\.min\(load, foeCap\);/);
   // AUDIT TV A2: the ASK is the mod's - its spinner and its own caps (the ring walk's x15, an interrupt's x1), recorded
   // where the mod sets the clock - so the governor never lifts a journey past Travel Options' own limit
   assert.match(w, /onTimeAccelerationChanged: \(n\) => \{ travelAsked = n; setWorldTimeScale\(n\); \},/);
@@ -540,7 +540,7 @@ test('TV2 host wiring: THE CAP - governed before the frame reads the travel scal
   assert.match(w, /if \(uc\.gen !== gen \|\| uc\.x !== px\.x \|\| uc\.y !== px\.y \|\| uc\.r !== radius\) \{\n\s*uc\.n = unbuiltAround\(px, radius, \(x, y\) => x < 0 \|\| y < 0 \|\| x >= 1000 \|\| y >= 500 \|\| built\.has\(`\$\{x\},\$\{y\}`\)\);/);
   assert.match(w, /held: tvHeld,/, 'the travel panel says the clock is held');
   const panel = rd('src/ui/enhancedTravelControl.js');
-  assert.match(panel, /put\(parts\.accel, 'accel', held != null \? `×\$\{held\} \/ ×\$\{accel\}` : `×\$\{accel\}`\);/);
+  assert.match(panel, /put\(parts\.accel, 'accel', shown != null \? `×\$\{shown\} \/ ×\$\{accel\}` : `×\$\{accel\}`\);/);
   assert.match(rd('src/ui/enhancedPlusStyle.js'), /\.travelpanel-accel\.held \{/);
   assert.match(rd('src/ui/enhancedStyle.js'), /\.travelpanel-accel\.held \{/);
 });
@@ -623,7 +623,7 @@ test('OW-ONLY (Mac: "Remove the ground travel alltogether. Now selecting a locat
   assert.match(w, /const at = tvSceneOf\(o\.x \+ 16384, o\.z \+ 16384, 0\);\n(?:\s*\/\/[^\n]*\n)*\s*if \(tvWater\(pick\.pixel\.x, pick\.pixel\.y\) \|\| at\[1\] <= tvSeaY\(\) \+ TV_SEA_EPS_M\) \{ tvSay\(TRAVEL_VIEW_TEXT\.water\); return false; \}\n\s*return travelViewWalkTo\(at, pick\.pixel, \{ roads: tvMapForcesRoads\(\) \}\);/, 'the map\'s spot: the Overworld\'s walk - AUDIT OW3 J7: never out onto the water, refused in the view\'s own words');
   // PIN MOVED (OW-TOGGLE, AUDIT OW5 T1): First-Person Travel on, the Overworld owns none - read live (test/ow_toggle.test.js mounts it both ways)
   assert.match(w, /function tvOwnsJourneys\(\) \{ return !!travelOptions && !modSetting\(TRAVEL_OPTIONS_VENDOR, 'GeneralOptions\.FirstPersonTravel'\) && isEnhanced\(\) && !!travelView; \}/, 'AUDIT OW3 J2: the Overworld owns the walked trip on the enhanced interface');
-  assert.match(w, /if \(opts\?\.playerControlled && beginAcceleratedTravel\(pick, opts, \{ estimateMinutes: computed\?\.minutes \?\? null \}\)\) return;[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*if \(opts\?\.playerControlled && tvRoutesJourneys\(\)\) return;\n\s*fastTravelTo\(pick, opts, computed\);/, 'AUDIT OW3 J2: a walk the Overworld refused never falls through to a paid teleport');
+  assert.match(w, /if \(opts\?\.playerControlled && beginAcceleratedTravel\(pick, opts, \{ estimateMinutes: computed\?\.minutes \?\? null \}\)\) return;[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*if \(opts\?\.playerControlled && tvRoutesJourneys\(\)\) return;\n\s*if \(isOnlinePage\(\) && !opts\?\.travelShip\) \{ townTalk\.say\(ONLINE_LAND_TRAVEL_REFUSAL\); hudFade\.clearFade\(\); \} else fastTravelTo\(pick, opts, computed\);/, 'AUDIT OW3 J2: a walk the Overworld refused never falls through to a paid teleport');   // PIN MOVED (AUDIT TRAVEL-ONLINE T7): and online a trip over land never reaches it
   assert.match(w, /onTravelToCoords: \(pick, opts\) => \{ if \(!beginAcceleratedTravel\(pick, opts, \{ coords: true \}\) && !tvRoutesJourneys\(\)\) townTalk\.say\('You cannot travel there now\.'\); \},/, 'AUDIT OW3 J2: its refusal said once, in its own words');
   // AUDIT OW3 J1: stopped THROUGH the panel (the mod's Camp) - a bare interrupt left it up, the journey "active"
   // PIN MOVED (OW-TOGGLE): and only the Overworld's journey - a first-person one walks on

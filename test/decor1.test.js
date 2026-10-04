@@ -81,7 +81,7 @@ async function stand() {
 }
 const T0 = 1_800_000_000;
 const HOME = { mapId: 1291010263, buildingKey: 0x10203 };
-const home = (extra = {}) => ({ ...HOME, region: 17, character: 'char-aldric', price: 42000, ...extra });
+const home = (extra = {}) => ({ ...HOME, region: 17, character: 'char-aldric', price: 42000, layout: null, ...extra });
 const piece = (extra = {}) => ({ id: 'p1', model: 41000, flat: null, pos: [1.5, 0, -2.25], rot: [90, 0, 0], scale: 1, light: null, storage: false, paid: 180, ...extra });
 /** AUDIT REALM2 S2: A HOUSE AND A PIECE ARE A REALM CHARACTER'S, paid on its record - rich enough for every piece a pin
  *  places. `owner()` seats one for an account and claims the house on its record; `at(extra)` is a body in its name,
@@ -558,7 +558,7 @@ test('DECOR1c the room\'s host (worldModes.js): one pool on the room\'s own coll
   assert.match(m, /const _decorFlats = \[\.\.\.interiorDecor\.batches\(\), \.\.\.decorTool\.batches\(\)\];[^\n]*\n      if \(_decorFlats\.length\) renderer\.drawBillboards\(_decorFlats, camRight, UP_Y\);/);
   assert.match(m, /targets\.push\(\.\.\.interiorDecor\.targets\(\)\);/);
   assert.match(m, /if \(key\.startsWith\('decor:'\)\) \{ activateDecor\(decorIdOfKey\(key\)\); return true; \}/);
-  assert.match(m, /function decorOwnerHere\(\) \{\n    if \(interiorHome\) return interiorHome\.own;\n    const b = interiorBuilding;\n    if \(!b\) return false;\n    if \(b\.buildingType === BUILDING_TYPES\.Ship\) return ownsShip\(playerEntity\);\n    return isHouseOwned\(playerEntity\.houses \?\? \[\], b\.regionIndex \?\? 0, b\.buildingKey \?\? 0\);\n  \}/);
+  assert.match(m, /function decorOwnerHere\(\) \{\n    if \(privateVisitRoom\) return false;\n    if \(interiorCabin\) return true;\n    if \(interiorHome\) return interiorHome\.own;\n    const b = interiorBuilding;\n    if \(!b\) return false;\n    if \(b\.buildingType === BUILDING_TYPES\.Ship\) return ownsShip\(playerEntity\);\n    return isHouseOwned\(playerEntity\.houses \?\? \[\], b\.regionIndex \?\? 0, b\.buildingKey \?\? 0\);\n  \}/);
   assert.match(m, /if \(!piece\?\.storage\) return;\n(?:    if \(\(interiorHome\?\.hall && interiorHome\.member\) \|\| interiorSeatHall\?\.member\) \{ openHallChest\(\); return; \}[^\n]*\n)?    if \(!decorOwnerHere\(\)\) \{\n      if \(interiorHome\) say\(homeBelongsLine\(interiorHome\)\);\n      return;\n    \}\n    const win = interiorInventory\(\{ loot: \{ items: \(\) => interiorDecor\.itemsOf\(id\), storage: true \} \}\);/);   // SHIP-STORE: the owner's storage, two-way; GUILD1d (re-aimed by content): a hall's member opens the guild's chest first   // PIN MOVED (SEAT-HALL): the palace's hall shares the line
   assert.match(m, /const t = decorNames\.get\(decorKey\(piece\)\) \?\? \(piece\.storage && piece\.model != null \? houseContainerName\(piece\.model\) : null\);/);
   assert.match(w, /const homeDecor = params\.has\('online'\) \? accountDecor\(\{ fetch: \(u, i\) => globalThis\.fetch\(u, i\), storage: appStorage\(\) \}\) : null;/);

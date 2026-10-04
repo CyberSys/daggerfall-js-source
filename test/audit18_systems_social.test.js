@@ -298,11 +298,11 @@ function courtHarness({ legalRep = 0, gold = 1000, rolls, name = 'Mack Cothran' 
 test('audit18 social F2: the verdict, acquittal and banishment boxes expand their macros', (t) => {
   if (!ARENA2) return t.skip('ARENA2_PATH not set');
 
-  // (a) not guilty -> free to go (8062, %pcn). legalRep 0 -> both
-  // FailedRolls succeed -> punishmentType 2; chance = 0 + (30+50)/2
-  // = 40, and a roll of 10 passes.
+  // (a) not guilty -> free to go (8062, %pcn). REP3 draws no
+  // banishment rolls for Pickpocketing; chance = 0 + (30+50)/2
+  // = 40, and the first roll, 10, is the defense and passes.
   srand(12);
-  const free = courtHarness({ rolls: seq(0.99, 0.99, 0.10) });
+  const free = courtHarness({ rolls: seq(0.10) });
   free.flow.startCourtFlow();
   free.press('KeyN');
   free.press('KeyD');
@@ -312,7 +312,7 @@ test('audit18 social F2: the verdict, acquittal and banishment boxes expand thei
   // (b) a FAILED defense -> found guilty (8055, %dip). Seed 5 gives
   // the five penalty coin flips 1,1,0,1,1 -> fine 160, 3 days.
   srand(5);
-  const guilty = courtHarness({ rolls: seq(0.99, 0.99, 0.99, 0.50) });
+  const guilty = courtHarness({ rolls: seq(0.99, 0.50) });
   guilty.flow.startCourtFlow();
   guilty.press('KeyN');
   guilty.press('KeyD');
@@ -329,7 +329,7 @@ test('audit18 social F2: the verdict, acquittal and banishment boxes expand thei
   // port's old both-rolls-always behaviour; with the short-circuit fixed
   // it fed 0.05 to the defense and acquitted the player instead.
   srand(391);
-  const ban = courtHarness({ legalRep: -30, rolls: seq(0.05, 0.99) });
+  const ban = courtHarness({ legalRep: -30, rolls: seq(0.05, 0.99) }); ban.playerEntity.crimeCommitted = ban.playerEntity.chargedCrime = CRIMES.Murder; // REP3: only Murder/Treason can banish
   ban.flow.startCourtFlow();
   ban.press('KeyN');
   ban.press('KeyL');
@@ -474,7 +474,7 @@ test('AUDIT 21 F8: a sentence moves the world clock, and every release costs fou
     // still calls ReleaseFromPrison - so the clock moves by exactly 240.
     setWorldMinutes(0);
     srand(12);
-    const a = courtHarness({ legalRep: 0, gold: 1000, rolls: seq(0.99, 0.99, 0.10) });
+    const a = courtHarness({ legalRep: 0, gold: 1000, rolls: seq(0.10) }); // REP3: no preliminary rolls for Pickpocketing
     a.flow.startCourtFlow();
     a.press('KeyN');
     a.press('KeyD');                 // chance = 0 + (30+50)/2 = 40; roll 10 passes
@@ -486,7 +486,7 @@ test('AUDIT 21 F8: a sentence moves the world clock, and every release costs fou
     // as well - the only thing it does not pay is the reputation credit.
     setWorldMinutes(0);
     srand(12);
-    const b = courtHarness({ legalRep: -30, gold: 1000, rolls: seq(0.05) });
+    const b = courtHarness({ legalRep: -30, gold: 1000, rolls: seq(0.05) }); b.playerEntity.crimeCommitted = b.playerEntity.chargedCrime = CRIMES.Murder; // REP3
     b.flow.startCourtFlow();
     b.press('KeyG');
     assert.equal(worldMinutes(), 240, 'banishment is a release');
@@ -501,8 +501,8 @@ test('AUDIT 21 F8: a sentence moves the world clock, and every release costs fou
     srand(5);
     let repDuringSkip = null;
     const ordered = courtHarness({ legalRep: 0, gold: 0, rolls: seq(0.99, 0.99) });
-    // Pickpocketing's credit is half(2) - 1 = 0, which would make the check
-    // below vacuous. Murder credits half(20) - 1 = 9.
+    // REP2 returns Pickpocketing's full 2 points; Murder returns 10 of 20.
+    // Use Murder so the remaining mark also makes this check non-vacuous.
     ordered.playerEntity.crimeCommitted = CRIMES.Murder;
     const flow2 = createArrestFlow({
       townTalk: ordered.townTalk, playerEntity: ordered.playerEntity, regionIndex: 17,

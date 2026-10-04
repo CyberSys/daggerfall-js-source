@@ -83,8 +83,8 @@
   {
     "name": "STORES-ROOM-the-vein-reads-held",
     "file": "src/scenes/mineHost.js",
-    "old": "storesFull: (key) => storesFullIn(book, key),",
-    "new": "storesFull: (key) => book.held(key) >= (book.state.caps?.stores ?? 5000),",
+    "old": "storesFull: (key) => storesFullIn(book, key), fullWords: fullWordsIn(book),   // STORES-ROOM",
+    "new": "storesFull: (key) => book.held(key) >= (book.state.caps?.stores ?? 5000), fullWords: fullWordsIn(book),   // STORES-ROOM",
     "tests": [
       "test/fb1001_ground.test.js"
     ]
@@ -146,7 +146,7 @@
   {
     "name": "REFUSALS-LEARNED-the-state-never-read-again",
     "file": "src/net/profBook.js",
-    "old": "    if (r?.error === 'prof-cap' || r?.error === 'stores-full') state.reread = true;",
+    "old": "    if (r?.error === 'prof-cap' || r?.error === 'stores-full' || r?.error === 'carried-full') state.reread = true;",
     "new": "",
     "tests": [
       "test/fb1001_ground.test.js"
@@ -183,8 +183,8 @@
   {
     "name": "RATE-KEPT-the-hour-lets-it-go",
     "file": "src/net/profBook.js",
-    "old": "    if (keptAnswer(r) || r?.error === 'prof-rate') {",
-    "new": "    if (keptAnswer(r)) {",
+    "old": "go - the act played and the tool worn for nothing; kept now, and asked again inside its ten minutes\n    if (keptAnswer(r) || r?.error === 'prof-rate') {",
+    "new": "go - the act played and the tool worn for nothing; kept now, and asked again inside its ten minutes\n    if (keptAnswer(r)) {",
     "tests": [
       "test/fb1001_ground.test.js"
     ]

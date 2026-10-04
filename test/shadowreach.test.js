@@ -13,7 +13,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Renderer, WORLD_FRAME } from '../src/render/renderer.js';
 import { EL_LANE } from '../src/render/enhancedLighting.js';
-import { SHADOW_CASCADES, SHADOW_SUN_DEPTH, shadowFarFor, SHADOW_SWAY_STILL, SHADOW_SWAY_EVERY, swayLean } from '../src/render/shadowPass.js';
+import { SHADOW_CASCADES, SHADOW_SUN_DEPTH, shadowFarFor, SHADOW_SWAY_STILL, SHADOW_SWAY_EVERY, swayLean, SHADOW_TUNING } from '../src/render/shadowPass.js';
+SHADOW_TUNING.override = false;   // FLICKER-FIX: these tests pin the old schedule (the sway's own cadence)
 
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const I = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
@@ -209,7 +210,7 @@ test('SHADOW-REACH: the hosts ask at every cull gate, by source - world.js (the 
   assert.match(w, /else if \(renderer\.shadowReachBatch\(b\)\) castBatches\.push\(b\);/, 'a townsman');
   assert.match(w, /renderer\.drawBillboards\(livePersonBatches, camRight, bbUp\);\n\s*if \(castBatches\.length\) renderer\.recordShadowBillboards\(castBatches, camRight, UP_Y\);/, 'recorded after the crowd, on the frame\'s wind');   // TV1: drawn leaned to the travel view (bbUp), recorded upright
   const e = rd('src/scenes/exterior.js');
-  assert.match(e, /if \(cullOn && aabbOutside\(_planes, d\.box\)\) \{[^\n]*\n\s*if \(renderer\.shadowReach\(d\.box\)\) renderer\.recordShadowMesh\(d\.mesh, d\.matrix, texRemap\);/, 'the draw list');
+  assert.match(e, /if \(cullOn && aabbOutside\(_planes, d\.box\)\) \{[^\n]*\n\s*if \(renderer\.shadowReach\(d\.box\)\) renderer\.recordShadowMesh\(d\.mesh, d\.matrix, d\.texRemap \?\? texRemap\);/, 'the draw list');   // ARENA1 re-aim: a climate-free model's own table
   assert.match(e, /if \(renderer\.shadowReach\(w\.box\)\) renderer\.recordShadowMesh\(millParts\.rotor, mountRotor\(w\.matrix, ROTOR_HUB, w\.state\.angle\), texRemap\);/, 'the sails');
   assert.match(e, /if \(renderer\.shadowReach\(b\._box\)\) _castBatches\.push\(b\);/, 'the flat batches');
   assert.match(e, /renderer\.drawBillboards\(_visBatches, camRight, UP_Y\);\n\s*if \(_castBatches\.length\) renderer\.recordShadowBillboards\(_castBatches, camRight, UP_Y\);/);

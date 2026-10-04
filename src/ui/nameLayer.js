@@ -49,7 +49,7 @@ import { titleBadge, glyphBadges, glyphSvgNode, cssRgba, titlePaint, TITLE_PAINT
 import { graphemesOf } from '../systems/graphemes.js';   // EMOTE1's characters, which JOURNAL1's notebook break reads too
 import { renownText } from '../net/renown.js';   // RENOWN1: Renown, left of the name
 import { guildTagText } from '../net/guildLaw.js';   // GUILD1c: the guild's tag, right of the name
-import { ribbonColours, heraldryOf, heraldryColourOf } from '../net/heraldryLaw.js';   // SEASON1 part two: a Season's banner ribbon, under the name; HERALDRY-SHOWN: the tag's frame
+import { ribbonColours, heraldryOf, heraldryColourOf, heraldryKey } from '../net/heraldryLaw.js';   // SEASON1 part two: a Season's banner ribbon, under the name; HERALDRY-SHOWN: the tag's frame
 import { heraldrySwatchSrc } from './heraldrySwatch.js';   // HERALDRY-SHOWN (Seats-Arc 8.1): the guild's shield, in its tag's frame
 
 export const NAME_STYLE_ID = 'dagger-names-style';
@@ -375,7 +375,7 @@ export function createNameLayer({ doc = document, now = () => Date.now(), armsOf
     /** AUDIT NAME1 F3: `viewport` is the world viewport's HEIGHT in CSS px and `hudScale` the player's own HUD
      *  scale (ui/enhancedHud.js enhancedHudScale). Both are taken by VALUE rather than through
      *  `scale(var(--hud-scale))`, because that variable is set on #enhanced-hud and this layer is a body sibling
-     *  of it - the damage numbers' own layer has the same problem and enhancedHud.js:894 solves it the same way,
+     *  of it - the damage numbers' own layer has the same problem and enhancedHud.js:923 solves it the same way,
      *  by writing the number where it is needed. Neither is passed on a probe host, and there the law is exactly
      *  the reference frame's: NAME_BASE_PX * the point's scale. */
     render({ points = [], log = null, covered = false, colorOf = null, viewport = null, hudScale = 1 } = {}) {
@@ -413,7 +413,7 @@ export function createNameLayer({ doc = document, now = () => Date.now(), armsOf
         // HERALDRY-SHOWN (Seats-Arc 8.1): the tag framed in its guild's heraldry where the client knows it - written when
         // it CHANGES, as the ribbon is
         const arms = guildTagText(p.gt) && armsOf ? heraldryOf(armsOf(p.gt)) : null;
-        const armed = arms ? `${arms.field}/${arms.border}/${arms.device}` : '';
+        const armed = arms ? heraldryKey(arms) : '';   // AUDIT GUILD2 G12: the whole arms, never GUILD1d's three alone
         if (tag.armed !== armed) {
           tag.armed = armed;
           setCls(tag.guild, arms ? 'dfname-guild armed' : 'dfname-guild');

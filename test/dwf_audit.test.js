@@ -119,7 +119,7 @@ test('AUDIT DW-F CD-4: behind a pausing window the underwater presentation is no
   assert.match(block, /anySwimming: _dwOutdoor \|\| \(_dwNowPlaying && !player\.waterWalking && !!player\.swimming\),/, 'IsAnySwimming too');
   assert.match(block, /audio\.setListenerLowPass\(_dwNowPlaying && dwPlayer\.swim\.presentationUnderwater\(/, 'UpdateAudioFilter');
   assert.match(block, /if \(_dwNowPlaying && player\.isPlayerSwimming && !player\.waterWalking\) \{ if \(_dwSwimSound\.step\(_dwCentre\)\)/, 'UpdateSwimSfxAndWeather');
-  assert.match(w, /const gamePaused = \(\) => townTalk\.overlayActive \|\| \(modes\?\.overlayHeld \?\? false\);\n\s+_dwOverlayUp = \(\) => gamePaused\(\);/, 'IsPlayingGame over every stack');
+  assert.match(w, /const gamePaused = \(\) => (?:staffTeleportHeld \|\| )?townTalk\.overlayActive \|\| \(modes\?\.overlayHeld \?\? false\);\n\s+_dwOverlayUp = \(\) => gamePaused\(\);/, 'IsPlayingGame over every stack');
 });
 
 test('AUDIT DW-F CD-1/CD-6: the breath drains only while the game runs its FixedUpdate, and the frame runs the mod\'s execution order - the stroke beside the motor, then the after phase, each on the camera the move left (mutants: the breath ungated; the stroke after the after phase; last frame\'s camera)', () => {

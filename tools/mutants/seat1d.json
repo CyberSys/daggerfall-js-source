@@ -696,8 +696,8 @@
  {
   "name": "SEAT1d-levy-kept-whole",
   "file": "server-account/src/professions.js",
-  "old": ".bind(player.id, rid, nonce, character, key2, day, node, kind, profession, kept, STORES_MAX,",
-  "new": ".bind(player.id, rid, nonce, character, key2, day, node, kind, profession, qty, STORES_MAX,",
+  "old": ".bind(player.id, rid, nonce, character, key2, day, node, kind, profession, kept, ROOM,",
+  "new": ".bind(player.id, rid, nonce, character, key2, day, node, kind, profession, qty, ROOM,",
   "tests": [
    "test/seat1d_service.test.js"
   ]

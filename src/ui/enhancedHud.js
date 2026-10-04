@@ -58,6 +58,7 @@
 // build() and read the live options bag from a module variable, so a
 // frame still costs no listener work.
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
+import { retroScreenRect } from '../systems/retroMode.js';   // RETRO-UI: the pillarbox's rect, DFU's CustomScreenRect
 import { stepGhost, chunkFrame, GHOST_HOLD } from './barLoss.js';   // VB2 / FRAME1: a bar's loss (AUDIT NAV1: shared with the sea fight's card)
 import { mountHitNumbers, healNumberFor, showNumber } from './hitNumbers.js';   // HN1; PARTY-BUFFS: the heal a frame shows
 import { maxRoundsRemaining } from './hudActiveSpells.js';
@@ -72,7 +73,8 @@ import { statusTiles, afflictionRows, statusGlyphSrc, statRoom, statSide, statPl
 import { sigilRuneTileSrc } from './sigilRune.js';   // UI3: a set power's tile is its set's rune
 import { liveVampirism } from '../systems/racialLive.js';   // AUDIT SURV C: no hunger or sleep chip on a vampire
 import { survivalOn } from '../systems/survival/switch.js';
-import { ownMinutes } from '../systems/worldTick.js';   // LIVED1: the needs' strip reads the character's own clock
+import { ownMinutes, sharedClockOn } from '../systems/worldTick.js';   // LIVED1: the needs' strip reads the character's own clock   // REST1: and the Rested tile is online's
+import { nightRealMinutesLeft } from '../systems/restAct.js';   // REST1: the night interval's minutes left
 import { compassScroll, breathShortThreshold, compassMarkerLerp, DETECT_MARKER_RGB } from './hud.js';
 import { PARTY_GREEN_CSS } from '../net/social.js';   // COMPASS-PARTY: the party's one green
 import { maxBreath, maxFatigue, liveStat } from '../systems/statMods.js';   // PX30b/PX30d: DFU's own ceilings
@@ -867,11 +869,38 @@ const initialsOf = (name) => String(name ?? '').split(/\s+/).filter(Boolean)
  *   quickSwap()     - and on the off hand while it offers a swap
  *   quickOffHand()  - the off hand's own press in every other state (QS4)
  */
+/** RETRO-UI (FIELD BUGS 2026-10-03): DFU lays its HUD out in CustomScreenRect - under retro mode's pillarbox, the
+ *  picture's rect (ViewportChanger.cs :138-140) - and the enhanced HUD stood over the black bars. Its root is inset to
+ *  the pillars, as the held map's (DISC25-B), and the pieces fixed at the screen's edges apart from it (the notices,
+ *  the quest tracker, the status line, the revenant's cards) read the pillar off `--ui-pillar`. Written on a change. */
+let _pillar = null;
+/** AUDIT PRE-MERGE 1003b M2: the picture's width the quest card and the arena's versus bar both fit in (the bar's half and
+ *  the card's 268 from the edge - AUDIT PRE-MERGE 1003 U4's 1100, which read the WINDOW's width). */
+const ARENA_CARD_ROOM_PX = 1100;
+let _narrow = null;
+function wearUiPillar(doc, root) {
+  const ui = retroScreenRect(globalThis.innerWidth || 0, globalThis.innerHeight || 0);
+  // AUDIT PRE-MERGE 1003b M2: inside the pillarbox the card stands in the picture, so the room is the picture's - at
+  // 1366x768 in 4:3 the card overlapped the bar 36x54 px while the window's 1366 said there was room
+  const narrow = !!ui && ui.w <= ARENA_CARD_ROOM_PX;
+  if (narrow !== _narrow) {
+    _narrow = narrow;
+    if (narrow) doc.documentElement?.setAttribute?.('data-ui-narrow', ''); else doc.documentElement?.removeAttribute?.('data-ui-narrow');
+  }
+  const inset = ui ? `${ui.x}px` : '';
+  if (inset === _pillar) return;
+  _pillar = inset;
+  root.style.left = inset; root.style.right = inset;
+  if (inset) doc.documentElement?.style?.setProperty?.('--ui-pillar', inset);
+  else doc.documentElement?.style?.removeProperty?.('--ui-pillar');
+}
+
 export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
   const { hidden = false } = opts;
   if (typeof document === 'undefined') return;
   if (!host) { parts = build(document); host = parts.root; mountHotbarDock(parts.hotDock); }
   tickHudLayout(document);   // HUD-MOVE: starts once, then a throttled sweep - the player's layout and the lock
+  wearUiPillar(document, host);   // RETRO-UI: inside retro mode's pillarbox, as the held map stands (DISC25-B)
   tickFoeTarget(dt);
   // HB1: the hotbar hears every frame, hidden or not - a hidden HUD is
   // exactly when it may still be up under the pack as a drop target.
@@ -1124,7 +1153,8 @@ function drawStatus(vitals, opts) {
   const powers = setPowerChips(vitals);   // SET5: the set powers (the host's - setHudSetChips)
   // SURV5: the needs - one a felt need (survival/status.js), none while every need is met, and none with the switch off
   const needs = survivalOn() ? survivalHudChips(vitals, Math.floor(ownMinutes()), { vampire: !!liveVampirism(vitals), endurance: liveStat(vitals, 'endurance') }) : [];   // AUDIT SURV C: the vampire's strip, the page's drunk bands
-  const all = statusTiles({ spells, powers, afflictions: afflictionRows(vitals), needs });
+  const rested = sharedClockOn() ? { minutes: nightRealMinutesLeft(vitals, ownMinutes()) } : null;   // REST1: the night interval, online
+  const all = statusTiles({ spells, powers, afflictions: afflictionRows(vitals), needs, rested });
   // a new window size or HUD scale is a new band at once (AUDIT UI C: a rotation left the old band for half a second)
   const vp = `${globalThis.innerWidth}x${globalThis.innerHeight}x${last.scale ?? 1}`;
   if (last.statVp !== vp) { last.statVp = vp; last.statTick = -1; }
@@ -1376,13 +1406,13 @@ const QUICK_NARROW = '(max-width: 860px)';
 function drawSpellChip(view, tag) {
   const sp = view.spell;
   const lamp = quickslotCycling() === 'spell';
-  const sig = sp ? `${sp.index}|${sp.name}|${sp.spell ? 1 : 0}|${sp.readied ? 1 : 0}|${lamp ? 1 : 0}|${tagKey(tag)}|${last.scale ?? 1}` : `-|${tagKey(tag)}`;
+  const sig = sp ? `${sp.index}|${sp.name}|${sp.spell?.noIcon ? 'n' : ''}${sp.spell?.icon ?? ''}|${sp.spell ? 1 : 0}|${sp.readied ? 1 : 0}|${lamp ? 1 : 0}|${tagKey(tag)}|${last.scale ?? 1}` : `-|${tagKey(tag)}`;
   if (last.qspell === sig) return;
   last.qspell = sig;
   const chip = parts.spellChip;
   // UI2: THE SPELL'S OWN ICON before its name, fitted at the HUD's scale (the chip rides its transform); nothing for an
   // empty slot or a spell the book no longer holds - the name says which it was
-  const pic = sp?.spell ? spellIconPicture(sp.spell.icon, { box: SPELL_CHIP_BOX, dpr: clampDpr(screenDpr() * (last.scale ?? 1)), onReady: () => { last.qspell = null; } }) : null;
+  const pic = sp?.spell && !sp.spell.noIcon ? spellIconPicture(sp.spell.icon, { box: SPELL_CHIP_BOX, dpr: clampDpr(screenDpr() * (last.scale ?? 1)), onReady: () => { last.qspell = null; } }) : null;
   if (pic) { showFitted(chip.icon, pic); chip.icon.style.display = ''; } else { chip.icon.removeAttribute('src'); chip.icon.style.display = 'none'; }
   chip.chip.classList.toggle('on', !!sp);
   // HOTSLOT (2026-09-22): an EMPTY slot is a socket, as the diamond's

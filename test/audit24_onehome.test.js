@@ -53,6 +53,15 @@ const HOMONYMS = new Map([
   // CALLS the first one through its guildCanRest dep. Renaming either would put
   // the port's name further from DFU's than the collision costs.
   ['canRest', 'FightersGuild.CanRest (may this member sleep here) vs DaggerfallRestWindow.CanRest (the whole pre-rest gate, which consumes it)'],
+  // The arena merge: three pairs ARENA2-ARENA4 brought, each two things. The beasts: the game's SET of beast mobiles
+  // (systems/arenaFighters.js - who never yields) and the relay's beast BODIES keyed by mobile (net/arenaLaw.js -
+  // its fighters' health and blows, in the relay's import graph, where the game's table cannot go); test/arena4_client
+  // pins the keys equal. The season: a town seat's numbered season from a week and a zero (net/townSeatLaw.js) and
+  // the arena's eight-week season from a day (systems/arenaLeague.js). The state word: a relay bout's, on the wire
+  // (net/arenaBrain.js), and a bounty row's, in its window (ui/bountyWindow.js).
+  ['ARENA_BEASTS', "the game's set of beast mobiles vs the relay's beast bodies by mobile (their keys pinned equal by arena4_client)"],
+  ['seasonOf', "a town seat's season from a week and its zero vs the arena's eight-week season from a day"],
+  ['stateWord', "a relay bout's state on the wire (net/arenaBrain.js) vs a bounty row's state in its window's words (ui/bountyWindow.js)"],
 ]);
 
 test('audit24 wave24: no symbol is DECLARED in two modules without a reason', async () => {
@@ -157,6 +166,8 @@ test('audit24 wave24: the duplicate-declaration count does not grow', () => {
   // pre-rest gate, which consumes the first through its guildCanRest
   // dep). Renaming either would put the port's name further from DFU's
   // than the collision costs; recorded in HOMONYMS above.
+  // 30 at the arena merge, the same deliberate edit: ARENA_BEASTS, seasonOf and stateWord, two things each, recorded in
+  // HOMONYMS above.
   const files = walk('src/');
   const decl = new Map();
   for (const f of files) {
@@ -167,8 +178,8 @@ test('audit24 wave24: the duplicate-declaration count does not grow', () => {
     }
   }
   const dupes = [...decl.entries()].filter(([, v]) => v.size > 1);
-  assert.ok(dupes.length <= 27,
-    `${dupes.length} symbols are declared in more than one module (the ratchet is 27):\n  `
+  assert.ok(dupes.length <= 30,
+    `${dupes.length} symbols are declared in more than one module (the ratchet is 30):\n  `
     + dupes.map(([n, v]) => `${n}  ${[...v].join(' ')}`).join('\n  '));
 });
 
@@ -224,7 +235,7 @@ test('audit24 wave24: GetDisplayName names the NPC from the seed, and the click 
   // the game reached TalkManager as ''
   const wm = readFileSync(new URL('../src/scenes/worldModes.js', import.meta.url), 'utf8');
   assert.match(wm, /const displayName = npcDisplayName\(npcData\);/);   // AUDIT 68 S23-npc-display-name-dup: the one derivation
-  assert.match(wm, /const npcDisplayName = \(npcData\) => \{\s*const dict = townTalk\?\.factionDict \?\? null;\s*return staticNpcName\(npcData, \{ getFaction: \(id\) => dict\?\.get\(id\) \?\? null, nameBank: currentNameBank\(\) \}\);/);
+  assert.match(wm, /const npcDisplayName = \(npcData\) => \{\s*const dict = townTalk\?\.factionDict \?\? null;\s*return questBridge\?\.machine\?\.movedQuestorName\?\.\(npcData\) \?\? staticNpcName\(npcData, \{ getFaction: \(id\) => dict\?\.get\(id\) \?\? null, nameBank: currentNameBank\(\) \}\);/);   // QUESTOR-MOVED: a questor seated again answers to their own name (test/fb1003b_questor.test.js)
   // AUDIT 26 (hosts-modal): and the record handed to TalkToStaticNPC is
   // StaticNPC.Data (TalkManager.cs:752-770 reads .Data.nameSeed,
   // .Data.factionID, .Data.race), not the block-person record - `pn`

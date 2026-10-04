@@ -32,7 +32,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { callInEmpireDebt, SHIP_TYPES, SHIP_INTERIOR_MAP_IDS, LOAN_AMNESTY } from './banking.js';
-import { interiorSceneName } from './sceneCache.js';   // RESTORE: a deed's room, by its own name
+import { interiorSceneName, LOOT_CONTAINER_TYPES } from './sceneCache.js';   // RESTORE: a deed's room, by its own name; AUDIT REST III B4: a shop's shelf told from a chest
 import { BUILDING_KEY_0 } from './talkTopics.js';   // RESTORE: the no-key key a ship's room is filed under
 import { firstRestorable } from './saveSlots.js';   // RESTORE: the offline character a realm one came from, on this device
 import { deductGold } from './court.js';
@@ -41,6 +41,7 @@ import { isGoldPieces } from './inventory.js';
 // AUDIT REALM2 S1: the allowance and the measure live in the law the service reads too (net/realmGoldLaw.js), which holds
 // a customs character's first save to them - re-exported here, their home before it; AUDIT REALM2 T2, T3 and T5's
 // counting with them (every container, a boat's hold, a deed at what the realm's bank pays)
+import { REST_ITEM, REST_ITEMS_ONLINE } from './restItems.js';   // AUDIT REST-PARTY B4: the supplies stay offline while their online sources are shut
 import { liquidWorthOf, stashedItemLists, carriedItemLists, liquidWealthOf, deedsOf, customsAllowance, CUSTOMS_WEALTH_BASE, CUSTOMS_WEALTH_PER_LEVEL, CUSTOMS_HOUSE_PRICE } from '../net/realmGoldLaw.js';
 
 export { stashedItemLists, liquidWealthOf, deedsOf, customsAllowance, CUSTOMS_WEALTH_BASE, CUSTOMS_WEALTH_PER_LEVEL, CUSTOMS_HOUSE_PRICE };
@@ -90,14 +91,55 @@ export function applyCustoms(snap) {
     if (!excess) break;
     a.accountGold -= take(a.accountGold ?? 0);
   }
-  for (const list of lists(snap.wagonItems, snap.items)) takeFrom(list);
+  for (const list of lists(snap.wagonItems, snap.bagItems, snap.items)) takeFrom(list);   // BAG1: the bag's materials too
   if (excess) snap.goldPieces = Math.max(0, (snap.goldPieces ?? 0) - take(snap.goldPieces ?? 0));
   // the records customs emptied leave their lists, in place - a list is held by its container, its pile or its piece
   for (const list of carriedItemLists(snap)) {
     for (let i = list.length - 1; i >= 0; i--) if (emptied.has(list[i])) list.splice(i, 1);
   }
-  return { called: call.called, paid: call.paid, owed: call.owed, wealth, allowance, taken: wealth - liquidWealthOf(snap), crossed };
+  // AUDIT REST-PARTY B4: REST6's supplies (1700-1706) stay behind while every online source of them is shut
+  // (restItems.js REST_ITEMS_ONLINE: the templates ship a release before any shelf, pile or trade carries one, so a
+  // client a build behind never meets one) - customs is a door too, and an offline shelf's Bedroll walked in through it,
+  // usable, droppable and tradeable online. The offline character keeps them: customs runs on the realm's copy.
+  let restKept = 0;
+  if (!REST_ITEMS_ONLINE) {
+    const strip = (/** @type {any[]} */ list) => {
+      let n = 0;
+      for (let i = list.length - 1; i >= 0; i--) if (REST_ITEM_IDS.has(list[i]?.templateIndex)) { list.splice(i, 1); n++; }
+      return n;
+    };
+    const scenes = Array.isArray(snap.sceneCache?.scenes) ? snap.sceneCache.scenes : [];
+    // AUDIT REST III B4: THE LINE IS SAID OF THE CHARACTER'S OWN. Every list a save holds is stripped, as before, but a
+    // shop's shelf in the scene cache, a dungeon's own loot pile and a dead foe's pack were never the character's: one
+    // who had only looked at a General Store's shelf heard "Your rest supplies will stay with your offline character".
+    // (A chest, a dropped pile, the ship's hold: what is in them, the character put there - the port's supplies ride
+    // no house loot.)
+    const foreign = new Set();
+    for (const sc of scenes) for (const c of sc?.lootContainers ?? []) if (c?.containerType === LOOT_CONTAINER_TYPES.ShopShelves && Array.isArray(c.items)) foreign.add(c.items);
+    for (const pile of snap.world?.piles ?? []) if (Array.isArray(pile?.items)) foreign.add(pile.items);
+    for (const foe of snap.world?.foes ?? []) if (foe?.dead && Array.isArray(foe.items)) foreign.add(foe.items);
+    // AUDIT REST II H9: and the repairer's counter (save.js otherItems - restored to the pack's owner on the way in)
+    for (const list of new Set([...carriedItemLists(snap), ...(Array.isArray(snap.otherItems) ? [snap.otherItems] : [])])) {
+      const n = strip(list);
+      if (!foreign.has(list)) restKept += n;
+    }
+    // AUDIT REST III B2: AND WHAT STANDS AS THE OWNER'S OWN DECOR (DECOR2a's decorOwn, by piece id - an item set down in
+    // the offline house or the ship): online, the piece taken down or the house sold hands it back to the pack
+    // (worldModes.js decorReturnStrays, sceneCache.js takeSceneOwn) - the door B4 and H9 shut, open. The item stays
+    // offline, and the piece it stood as goes with it.
+    for (const sc of scenes) {
+      const own = sc?.decorOwn && typeof sc.decorOwn === 'object' ? sc.decorOwn : null;
+      for (const id of own ? Object.keys(own) : []) {
+        if (!REST_ITEM_IDS.has(own[id]?.templateIndex)) continue;
+        delete own[id];
+        if (Array.isArray(sc.decor)) sc.decor = sc.decor.filter((/** @type {any} */ p) => p?.id !== id);
+        restKept++;
+      }
+    }
+  }
+  return { called: call.called, paid: call.paid, owed: call.owed, wealth, allowance, taken: wealth - liquidWealthOf(snap), crossed, restKept };
 }
+const REST_ITEM_IDS = new Set(Object.values(REST_ITEM));
 
 /**
  * LEVEL-ONLINE (2026-09-30, Mac: "Do not allow people to use daggerfall leveling in online. Characters currently using
@@ -181,6 +223,9 @@ export function reclaimCustomsDeeds(realm, offline) {
     const name = interiorSceneName(slot.mapId, slot.buildingKey);
     if (!permanent.has(name) || houses[region]?.buildingKey > 0) continue;
     houses[region] = { ...houses[region], regionIndex: region, location: slot.location ?? '', mapId: slot.mapId, buildingKey: slot.buildingKey, crossed: true };
+    // WD3 (AUDIT WD3 S2): the deed's town layout crosses with it - its key names a building only in that layout
+    delete houses[region].layout;
+    if (typeof slot.layout === 'string' && slot.layout) houses[region].layout = slot.layout;
     piecesBack(name);
     back.houses.push(slot.location ?? '');
   }
@@ -230,7 +275,7 @@ export const CUSTOMS_PROMISE = Object.freeze([
 /** What customs did, in the Online door's words - or, `before` it runs (FIELD 2026-09-29, Dracula/Valentin: "HOW TF WAS
  *  I SUPPOSED TO KNOW YALL WOULD FORCE THE LOANS TO BE PAID"), what it will do: the same report off a copy customs ran
  *  on, told ahead, and the door's promise under it. */
-export function customsLines({ called, owed, wealth, allowance, taken, crossed = [] }, { before = false } = {}) {
+export function customsLines({ called, owed, wealth, allowance, taken, crossed = [], restKept = 0 }, { before = false } = {}) {
   const lines = [];
   if (called > 0) {
     lines.push(before
@@ -246,6 +291,7 @@ export function customsLines({ called, owed, wealth, allowance, taken, crossed =
   const houses = crossed.filter((d) => d === 'house').length;
   const what = [crossed.includes('ship') ? 'your ship' : '', houses > 1 ? `${houses} houses` : houses ? 'your house' : ''].filter(Boolean).join(' and ');
   if (what) lines.push(`${what[0].toUpperCase()}${what.slice(1)} ${before ? 'will come' : 'came'} with you, every piece in ${crossed.length > 1 ? 'them' : 'it'}; the realm's bank does not buy back what comes through customs.`);
+  if (restKept > 0) lines.push(`Your rest supplies ${before ? 'will stay' : 'stayed'} with your offline character - they are not yet sold in the realm.`);   // AUDIT REST-PARTY B4; AUDIT REST II H13: the Tonics, Salts, Draughts and Candles are rest supplies, not camping
   if (!lines.length) lines.push(before ? 'Customs finds nothing to settle.' : 'Customs found nothing to settle.');
   return before ? [...lines, ...CUSTOMS_PROMISE] : lines;
 }

@@ -60,7 +60,7 @@ import {
   paintPlanStatic, paintPlanOverlay, floorStripLayout, floorStripHit, paintFloorStrip, paintFloorStripParty, paintStairs,
 } from './inkAutomap.js';
 import { stripFont, STRIP } from './mapStrip.js';
-import { createDungeonInk, SLICE_ABOVE, rowMesh } from './inkDungeonGL.js';
+import { dungeonInkFor, SLICE_ABOVE, rowMesh } from './inkDungeonGL.js';   // GL-LEAK: the page's one ink
 import { INK_RGB as FLOOR_INK_RGB } from './inkMap.js';
 const NAME_FACE_CSS = "'Cormorant', Georgia, serif";   // EM3-3D: the classic map's way, drawn
 // EM3-3D: the same plan in the round, when the player has the solid map on (ui/mapSkin.js dungeonMap3dOn)
@@ -147,6 +147,7 @@ const _frames = new WeakMap();   // rows -> { bounds, floors, field, links, shee
  *   domTools?: boolean,
  *   portals?: Map<string, {entrance?: {pos: number[]}, exit?: {pos: number[]}}>
  *     | (() => Map<string, {entrance?: {pos: number[]}, exit?: {pos: number[]}}>|null),
+ *   fires?: ReadonlyArray<number[]> | (() => ReadonlyArray<number[]>|null),
  * }} deps
  */
 export function createAutomapSheet(deps = {}) {
@@ -444,8 +445,28 @@ export function createAutomapSheet(deps = {}) {
       const [x, z] = toPlan(p[0], p[2]);
       out.push({ x, z, y: p[1], kind: 'teleporter', name: 'Teleporter', unwalked: true });
     }
+    // REST3: a dungeon's own campfire, once the spot it stands on has been SEEN (TP-SEEN's law) - drawn as a flame
+    for (const p of seenFires()) {
+      if (!mine(p[1])) continue;
+      const [x, z] = toPlan(p[0], p[2]);
+      out.push({ x, z, y: p[1], kind: 'fire', name: 'Campfire' });
+    }
     return out;
   }
+
+  /** REST3: the level's placed campfires (deps.fires, [x, y, z]) whose spot lies in a revealed row. */
+  function seenFires() {
+    const all = typeof deps.fires === 'function' ? deps.fires() : deps.fires;
+    const r = rec();
+    const f = ensureFrame();
+    if (!all?.length || !r?.revealed?.size) return [];
+    const rows = f.rows ?? [];
+    if (_fireMemo && _fireMemo.all === all && _fireMemo.rows === rows && _fireMemo.n === r.revealed.size && _fireMemo.rec === r) return _fireMemo.out;
+    const out = all.filter((p) => rows.some((row) => r.revealed.has(row.key) && row.aabb && aabbContains(row.aabb, p, PORTAL_SEEN_TOL)));
+    _fireMemo = { all, rows, n: r.revealed.size, rec: r, out };
+    return out;
+  }
+  let _fireMemo = null;
 
   /** TP-SEEN: the level's portals (deps.portals, key -> connection) whose entrance lies in a revealed row. */
   function seenPortals() {
@@ -926,10 +947,10 @@ export function createAutomapSheet(deps = {}) {
     // EM3-3D (Mac: "just make it like the classic dungeon 3d map but in this drawn style"): the dungeon's OWN
     // geometry, every revealed model, back faces unseen and sliced over the player's head, as DFU's 3D automap -
     // inked by the GPU. The cell model below stays for a page with no WebGL2 (and for the pins).
-    if (glInk === undefined) glInk = createDungeonInk(ctx?.canvas?.ownerDocument ?? null);
+    if (glInk === undefined || glInk?.lost?.()) glInk = dungeonInkFor(ctx?.canvas?.ownerDocument ?? null);   // GL-LEAK: the page's one ink, not a context per open (a lost one built anew)
     if (glInk && f.bounds) {
       const r = rec();
-      glInk.setMesh(`${r?.revealed?.size ?? 0}|${f.rows.length}`, rowsIn(f.model, r?.revealed ?? null));
+      glInk.setMesh(`${r?.revealed?.size ?? 0}|${f.rows.length}`, rowsIn(f.model, r?.revealed ?? null), solids);   // GL-LEAK: this sheet's rows (the ink is the page's)
       const ox0 = f.origin[0], oz1 = f.origin[1];
       const dpr = env.dpr ?? 1;
       const img = glInk.render({

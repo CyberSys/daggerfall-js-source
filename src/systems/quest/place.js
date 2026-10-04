@@ -28,6 +28,7 @@ import { mergeNamedBuildings, makeBuildingKey, blockBuildingCount } from '../tal
 import { generateBuildingName } from '../../world/buildingNames.js';
 import { surname, firstName, getNameBankOfRegion, GENDERS } from '../../characters/nameHelper.js';
 import { RDB_RESOURCE_TYPES } from '../../formats/blocksFile.js';
+import { stampLayout, layoutStampOfMapId, recordStands } from '../layoutPins.js';   // WD3: a building site keeps its town's layout
 
 export const Scopes = Object.freeze({ None: 'none', Local: 'local', Remote: 'remote', Fixed: 'fixed' });
 
@@ -195,6 +196,78 @@ export class Place extends QuestResource {
     else if (this.scope === Scopes.Remote) this._setupRemoteSite(world, line);
     else this._setupFixedLocation(world);
     this.sitePending = false;
+    this._stampSiteLayout();
+  }
+
+  /** WD3 (a port addition): a BUILDING site names its building by key, and a key names a building only in the layout
+   *  its town stood in - so the site carries that layout, and a load keeps the town in it while the quest runs
+   *  (systems/layoutPins.js). A town or dungeon site holds no building and carries none. */
+  _stampSiteLayout() {
+    const sd = this.siteDetails;
+    if (sd?.siteType === SITE_TYPES.Building && sd.buildingKey > 0) stampLayout(sd, layoutStampOfMapId(sd.mapId));
+  }
+
+  /**
+   * WD3 (AUDIT WD3 S5): A BUILDING SITE IN A TOWN THAT NOW STANDS IN ANOTHER LAYOUT than the site was chosen in (online,
+   * a quest of the player's own from before the town mods; offline, a pack that could not be loaded for the town's
+   * pin) names another building by its key - a stranger's, a shop for a house, or none. It is chosen again in the town
+   * as it stands, by the place's own law (P2/P3, the same exclusions), keeping what was already assigned to it, and
+   * stamped anew. Answers whether it moved. A site no building of its kind stands for now keeps its record.
+   * QUESTOR-MOVED: a questor's hall is not such a site - it moves with its questor (person.js reseatMovedQuestor).
+   */
+  reseatMovedSite(world) {
+    const sd = this.siteDetails;
+    if (this.scope === Scopes.None) return false;   // QUESTOR-MOVED (FIELD BUGS 2026-10-03b): a Place minted where the player stood (ConfigureFromPlayerLocation, `_<person>_home_`) has no P1-P3 law to be chosen again by - its P2 of 0 read as Alchemist, and a questor's hall (the journal's `__qgiver_`) went to the town's apothecary
+    if (sd?.siteType !== SITE_TYPES.Building || !(sd.buildingKey > 0) || recordStands(sd)) return false;
+    const location = this.siteTown(world);
+    if (!location) return false;
+    let found;
+    if (this.p2 === -1 && this.p3 === 0) found = this._collectQuestSitesOfBuildingType(world, location, BT_ALL_VALID, this.p3);
+    else if (this.p2 === -1 && this.p3 === 1) found = this._collectQuestSitesOfBuildingType(world, location, BT_ANY_HOUSE, this.p3);
+    else if (this.p2 === -1 && this.p3 === 2) found = this._collectQuestSitesOfBuildingType(world, location, BT_ANY_SHOP, this.p3);
+    else found = this._collectQuestSitesOfBuildingType(world, location, this.p2, this.p3);
+    if (!found.length && this.p2 >= BT_HOUSE1 && this.p2 <= BT_HOUSE6) found = this._collectQuestSitesOfBuildingType(world, location, BT_ANY_HOUSE, this.p3);
+    if (!found.length) return false;
+    const next = this._carryAssignments(sd, found[this._range(found.length)]);
+    if (!next) return false;   // AUDIT PRE-MERGE 1003 WD2: a building with no marker to carry them to keeps the record
+    this.siteDetails = { ...next, questUID: sd.questUID ?? next.questUID, magicNumberIndex: sd.magicNumberIndex ?? 0 };
+    this._stampSiteLayout();
+    return true;
+  }
+
+  /**
+   * AUDIT PRE-MERGE 1003 WD2: THE ASSIGNMENTS MOVE, NEVER THE MARKERS. A marker's flatPosition is in its own building's
+   * interior frame: the old selectedMarker kept stood the quest's person or thing at the old building's coordinates in
+   * the new one (in a wall, outside its rooms), and the new building's numbered markers dropped what was placed "at
+   * marker N". So the selected marker is one of `next`'s own, of the old one's type (the other where it has none, as
+   * _getSiteMarker falls back), given the old one's targets; each numbered marker's targets go to the same index of the
+   * new list, or onto the selected marker where the new building has no such marker. Answers `next` so assigned, or null
+   * for a building with no marker (_collectQuestSitesOfBuildingType never offers one).
+   */
+  _carryAssignments(sd, next) {
+    const fresh = (list) => (list ?? []).map((m) => ({ ...m, targetResources: null }));
+    const spawn = fresh(next.questSpawnMarkers), item = fresh(next.questItemMarkers);
+    if (!validateQuestMarkers(spawn, item)) return null;
+    let selectedMarker = { ...next.selectedMarker, targetResources: null };
+    const select = (type) => {
+      const own = type === MARKER_TYPES.QuestItem ? item : spawn;
+      const pool = own.length ? own : (own === item ? spawn : item);
+      selectedMarker = { ...pool[this._range(pool.length)], targetResources: [] };
+    };
+    if (sd.selectedMarker?.targetResources) {
+      select(sd.selectedMarker.markerType);
+      for (const s of sd.selectedMarker.targetResources) assignResourceToMarker(s, selectedMarker);
+    }
+    const carry = (from, to, type) => (from ?? []).forEach((m, i) => {
+      for (const s of m?.targetResources ?? []) {
+        if (to[i]) { assignResourceToMarker(s, to[i]); continue; }
+        if (!selectedMarker.targetResources) select(type);
+        assignResourceToMarker(s, selectedMarker);
+      }
+    });
+    carry(sd.questSpawnMarkers, spawn, MARKER_TYPES.QuestSpawn);
+    carry(sd.questItemMarkers, item, MARKER_TYPES.QuestItem);
+    return { ...next, questSpawnMarkers: spawn.length ? spawn : null, questItemMarkers: item.length ? item : null, selectedMarker };
   }
 
   _rolls() { return this.parentQuest?.rolls ?? Math.random; }
@@ -437,6 +510,15 @@ export class Place extends QuestResource {
       || locationType === LT_DUNGEON_RUIN || locationType === LT_GRAVEYARD;
   }
 
+  /** WD3: the town this Place's site names, as the world serves it now (its region's name lookup), or null - where a
+   *  moved site (reseatMovedSite) and a moved questor's hall (person.js reseatMovedQuestor) are chosen again. */
+  siteTown(world) {
+    const sd = this.siteDetails;
+    const index = world?.maps?.getRegion?.(sd?.regionIndex)?.mapNameLookup?.get?.(sd?.locationName);
+    const location = index == null ? null : world.maps.getLocation(sd.regionIndex, index);
+    return location?.exterior?.exteriorData ? location : null;
+  }
+
   /** CollectQuestSitesOfBuildingType (:1131-1250): the full block walk
    *  with the wildcard sets, the owned-house / guild-faction / TG+DB /
    *  already-assigned exclusions, the marker requirement, and the
@@ -446,16 +528,7 @@ export class Place extends QuestResource {
     const activeQuestSites = this.parentQuest?.hooks?.getAllActiveQuestSites?.() ?? [];
     const parentQuestPlaces = [...(this.parentQuest?.resources.values() ?? [])].filter((r) => r.isPlace && r !== this);
 
-    const width = location.exterior.exteriorData.width;
-    const height = location.exterior.exteriorData.height;
-    const blocks = [];
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const blockName = world.maps.getRmbBlockName(location, x, y);
-        const dfBlock = world.getBlock(blockName);
-        blocks.push({ dfBlock, x, y });
-      }
-    }
+    const blocks = townBlockGrid(world, location);
     const merged = mergeNamedBuildings(location.exterior.buildings, blocks.filter((b) => b.dfBlock), { locationIndex: location.locationIndex ?? 0 });   // AUDIT-RR F34: the replacement seed is NameSeed + LocationIndex here too (RMBLayout.cs:669)
 
     for (const b of blocks) {
@@ -737,6 +810,7 @@ export class Place extends QuestResource {
       questSpawnMarkers: null, questItemMarkers: null,
       selectedMarker: { targetResources: null },
     };
+    this._stampSiteLayout();   // WD3
     this.symbol = new QuestSymbol(symbolName);
     this.sitePending = false;
     return true;
@@ -829,6 +903,23 @@ export class Place extends QuestResource {
     this.siteDetails = dataIn.siteDetails ? structuredClone(dataIn.siteDetails) : null;
     this.sitePending = !this.siteDetails;
   }
+}
+
+/** The town's RMB grid as CollectQuestSitesOfBuildingType's block loop walks it: `{ dfBlock, x, y }` for each cell in
+ *  row order, `dfBlock` null where the world holds no block of the name. The one walk - the site collector's and a moved
+ *  questor's (person.js reseatMovedQuestor). */
+export function townBlockGrid(world, location) {
+  const width = location.exterior.exteriorData.width;
+  const height = location.exterior.exteriorData.height;
+  const blocks = [];
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const blockName = world.maps.getRmbBlockName(location, x, y);
+      const dfBlock = world.getBlock(blockName);
+      blocks.push({ dfBlock, x, y });
+    }
+  }
+  return blocks;
 }
 
 /** ValidateQuestMarkers (Place.cs:1462). */

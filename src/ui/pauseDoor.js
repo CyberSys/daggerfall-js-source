@@ -182,7 +182,7 @@ export const profPageAt = (at) => PROF_PAGE_SECTIONS.some(([id]) => id === at);
 
 /**
  * PX26: `hooks.at` names the page the enhanced window opens ON -
- * 'quests', 'stats' or 'system'. The CLASSIC flow takes the same hooks
+ * 'quests', 'stats', 'holdings' or 'system' (or a page of one - PAUSE_TAB_IDS). The CLASSIC flow takes the same hooks
  * and ignores it, because the classic pause has no tabs to land on.
  *
  * CLASSIC-PAGES (2026-09-30, Mac: "Enhanced pages + key"): EXCEPT a

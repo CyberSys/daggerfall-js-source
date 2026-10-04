@@ -60,6 +60,8 @@ import { wearForagingTool } from '../systems/foragingInstall.js';
 import { materialCountLabel } from '../systems/profItems.js';
 import { accountRefusalText } from '../net/accountClient.js';
 import { DEFAULT_ACTIVATION_DISTANCE } from '../player/activate.js';
+import { harvestHauls } from '../ui/haulCards.js';   // HAUL-CARDS: a harvest's goods and XP as one card, on the enhanced skin
+import { BAG_WORDS, goodsWhere } from '../net/bagLaw.js';   // BAG1: where the goods went
 import { nodeMarkCss } from '../ui/nodeMarks.js';   // GATHER-OW: a group's glyph in its profession's compass colour
 
 /** A node answers E within DFU's activation distance, and within this many degrees of the look. */
@@ -134,15 +136,34 @@ export function storesLine(d) {
   if (d.gem) { const g = materialCountLabel(d.gem, 1); goods.push(`${/^[aeiou]/i.test(g) ? 'an' : 'a'} ${g}`); }
   if (d.extra) { const n = Number(d.extraQty) || 1; goods.push(`${n > 1 ? `${n} ` : ''}${materialCountLabel(d.extra, n)}`); }
   const said = goods.length > 1 ? `${goods.slice(0, -1).join(', ')} and ${goods[goods.length - 1]}` : goods[0];
-  return `+${said} to your Stores`;
+  return `+${said} ${goodsWhere(d)}`;
 }
+/** AUDIT BAG1 B4: the material a kind's act names for its goods (`material`: a key, or one of the act's ground - a
+ *  herb's is its region's), or null where the service rolls it (the Basket's food, a boulder's stone). */
+export function actMaterial(a) {
+  const m = typeof a?.material === 'function' ? a.material(a.info) : a?.material;
+  return typeof m === 'string' && m ? m : null;
+}
+/** AUDIT BAG1 B9: what a carried harvest left where it was gathered, each material by its own name ("1 Ruby and 2 Oak
+ *  Logs"); a `put` from before the audit, which names none, as the harvest's own. */
+export function leftWords(d) {
+  const lost = Array.isArray(d?.put?.lost) && d.put.lost.length ? d.put.lost : [{ key: d?.material, n: d?.put?.left | 0 }];
+  const parts = lost.map((l) => `${l.n} ${materialCountLabel(l.key, l.n)}`);
+  return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0];
+}
+
 /** GATHER-SAID: where the Stores are, said with a session's first harvest - the goods are never in the pack.
  *  CLASSIC-PAGES: on either skin, by the Professions key the player has it bound to (`key`, its label; none bound, the
  *  pause menu's page). */
-export const storesWhereLine = (key) => `Gathered goods go to your Stores, not your pack: ${key ? `${key} opens your Stores page` : 'the pause menu\'s Stores page'}.`;
+// AUDIT HOLDINGS C7: the Stores page is on the pause menu's Holdings tab now - the Professions key lands on the Stats
+// tab's Professions page, and the line said it opened the Stores
+export const storesWhereLine = (key, carrying = false) => (carrying ? BAG_WORDS.where   // BAG1: into the bag, then the pack
+  : `Gathered goods go to your Stores, not your pack: the pause menu's Holdings > Stores${key ? ` (${key} opens your Professions)` : ''}.`);
 /** GATHER-SAID: an act that ended before its end - let go, walked off, a window over it, the dungeon left - nothing asked. */
 export const ACT_STOPPED_LINE = 'The gathering stopped before its end - nothing was taken.';
 /** A harvest the service did not answer, kept and asked again (net/profBook.js PROF_QUEUE_MS: ten minutes). */
+/** AUDIT PACK-OVER C: the over-weight line, said at most once in this long (ms). */
+export const OVER_SAID_MS = 10_000;
 export const KEPT_LINE = 'The counting-house is slow to answer. Your gathering is kept and will be counted.';
 /** GATHER-SAID: kept because the account is signed out ('auth', 'no-session') - asked again once there is a session. */
 export const KEPT_SIGNED_OUT_LINE = 'You are signed out. Your gathering is kept for ten minutes, and counted once you sign in.';
@@ -198,7 +219,11 @@ export function aimAt(eyePos, at, view) {
  * @property {() => { n: number, cap: number }} [tally] PROF7: the day's count the chip says, where it is not the
  *   character's harvests against 60 (Hunting's: the account's hides against 30)
  * @property {(data: any) => string} [storesLine] PROF8: the goods' one line in the kind's own words (a haul's species)
- * @property {(data: any, toast: (text: string) => void) => void} [answered] PROF8: a harvest's answer heard - the kind's
+ * @property {(key: string, error: (string|null)) => void} [refused] AUDIT SILVER-WAYS D2: a harvest refused - the node's key
+ *   and the service's word - so a kind learns what the refusal says of its node (REFUSALS-LEARNED)
+ * @property {(data: any) => (string|null)} [haulName] HAUL-CARDS: the kind's own name for a harvest's goods on its card
+ *   (PROF8's species - the material its sub), where the material's is not the word
+ * @property {(data: any, toast: (text: string) => void, o?: { hauled?: boolean }) => void} [answered] PROF8: a harvest's answer heard - the kind's
  *   own after-step (a trophy into the pack, once)
  * @property {(node: any, ctx: { specs: (profession: string) => any }) => ({ w: number, h: number, reach?: number }|null)} [mark]
  *   NODE-MARKS: the node on the compass and in the glow - its footprint about its base (`w` across, `h` up, metres) and
@@ -223,7 +248,7 @@ export function aimAt(eyePos, at, view) {
  *   activeDungeon?: () => boolean, onSettle?: () => void, clear?: (from: number[], to: number[], underground: boolean) => boolean,
  *   plaque?: () => boolean, lit?: (key: string) => any, choose?: (rows: string[], pick: (i: number) => void) => boolean,
  *   step?: (n: number) => boolean, settled?: (pos: number[]) => boolean,
- *   pointer?: (want: 'cursor'|'look') => ((() => void) | null),
+ *   pointer?: (want: 'cursor'|'look') => ((() => void) | null), haul?: (entries: any[]) => boolean,
  * }} deps `active` - the streaming world's exterior, walking, nothing over it (the host's); `activeDungeon` - a dungeon
  *   entered, walking, nothing over it; `nowMs` the shared clock. PROF-MENU: `plaque` - the loot plaque stands (it names
  *   the node, so no prompt does); `lit(key)` - the row the plaque has lit over that key (quickLoot.js plaqueActionFor);
@@ -245,6 +270,7 @@ export function createGatherHost(deps) {
   let act = null;             // { act, node, harvest, tool, profession, label, px, py, info, world, hand }
   let refreshAt = 0, pixelsAt = 0;
   let storesSaid = false;     // GATHER-SAID: storesWhereLine said this session
+  let overSaidAt = -Infinity;   // AUDIT PACK-OVER C: when the over-weight line was last said
   let passedOn = '';          // VEIN-NEED: what the node the last press passed on needs, until the host hands it back
   let passedCast = null;      // CAST-E: the cast the last press passed on - played when the host hands the press back
   let passedCastAt = 0;       // CAST-E: when (the shared clock's ms) - a press the ladder took is never handed back
@@ -551,7 +577,10 @@ export function createGatherHost(deps) {
     const before = rank(a.profession);
     book.harvest({
       node: a.node.key, kind: a.harvest, climate: a.info?.climate ?? null, region: a.info?.region ?? null, act: report,   // PROF7: a body names no ground
-      at: Math.floor(deps.nowMs() / 1000), ...(a.ask ?? {}),
+      at: Math.floor(deps.nowMs() / 1000), ...((typeof a.ask === 'function' ? a.ask() : a.ask) ?? {}),   // AUDIT SILVER-WAYS D5: a kind's ask may be asked at the act's end
+      // AUDIT BAG1 B4: the material the act's goods are, where the kind knows it - the book reads what the bag and the pack
+      // hold of it (`held`); no kind named one, and no carried harvest ever cut the count to the pack
+      ...(actMaterial(a) ? { material: actMaterial(a) } : {}),
     }).then((r) => answered(a, r, before), () => {});
   }
   /** A harvest's answer said: the Stores, the XP, a gem, a rank's rise; a refusal in words; a kept one once. */
@@ -561,10 +590,24 @@ export function createGatherHost(deps) {
       const d = r.data;
       const profession = d.track?.profession ?? a?.profession ?? 'herbalism';
       const k = a ? kindOf(a.node) : kindOfProfession(profession);
-      hud.toast(k?.storesLine ? k.storesLine(d) : storesLine(d), { keep: true });   // GATHER-SAID: the goods in one line, outlasting the rest; PROF4's Resin, PROF7's butchery in it; PROF8's species
-      if (!storesSaid) { storesSaid = true; hud.toast(storesWhereLine(deps.keyLabel?.('Professions') ?? '')); }
       const note = a && k?.actNote ? k.actNote(a.report) : a?.clean ? (k?.cleanNote(a, d) ?? '') : '';   // AUDIT 32 P10
-      hud.toast(`+${d.xp} ${professionName(profession)} XP${note}`);
+      // HAUL-CARDS: on the enhanced skin the goods, their Stores and the XP are ONE card under the crosshair (the loot's
+      // band - ui/pickupFeed.js showHaul); the classic skin, or a face that cannot draw, says the lines as ever
+      // AUDIT HAUL-CARDS A3: only on a live world (walking, nothing over it) - a window open as the answer lands takes
+      // the feed down with the plaque (ui/worldPlaque.js hideWorldPlaque), and the card went before it was seen, its
+      // lines unsaid; there the lines are said as ever
+      const live = deps.active?.() === true || deps.activeDungeon?.() === true;
+      let hauled = false;
+      try { hauled = live && deps.haul?.(harvestHauls(d, { name: k?.haulName?.(d) ?? null, note })) === true; } catch { hauled = false; }
+      if (!hauled) hud.toast(k?.storesLine ? k.storesLine(d) : storesLine(d), { keep: true });   // GATHER-SAID: the goods in one line, outlasting the rest; PROF4's Resin, PROF7's butchery in it; PROF8's species
+      if (!storesSaid) { storesSaid = true; hud.toast(storesWhereLine(deps.keyLabel?.('Professions') ?? '', d.carry === true)); }
+      if (!hauled) hud.toast(`+${d.xp} ${professionName(profession)} XP${note}`);
+      // BAG1: what found no room in the bag or the pack is said even where the card said the goods - the card counts what came
+      // AUDIT BAG1 B9: each by its own name - a gem or a second find left was said as the harvest's material
+      if (hauled && d.carry === true && (d.put?.left ?? 0) > 0) hud.toast(`${leftWords(d)} left where gathered: no room in your bag or pack.`);
+      // PACK-OVER (FIELD BUGS 2026-10-04): goods minted past the pack's weight - the card counts them, the line beside it says the weight
+      // AUDIT PACK-OVER C: once in OVER_SAID_MS - a pump settling five kept harvests said it five times and pushed a rank's rise out
+      if (hauled && d.carry === true && (d.put?.over ?? 0) > 0 && deps.nowMs() - overSaidAt >= OVER_SAID_MS) { overSaidAt = deps.nowMs(); hud.toast(BAG_WORDS.overWeight); }
       const after = d.track?.rank ?? before;
       if (after > before) {
         hud.toast(`${professionName(profession)} ${before} -> ${after}`);
@@ -575,7 +618,7 @@ export function createGatherHost(deps) {
           if (at === 50 || at === 100) hud.toast('A specialisation may be chosen on the Professions page (the pause menu\'s Stats).');
         }
       }
-      try { k?.answered?.(d, (t) => hud.toast(t)); } catch (e) { console.warn('[gather] an answer', e); }   // PROF8: a trophy into the pack
+      try { k?.answered?.(d, (t) => hud.toast(t), { hauled }); } catch (e) { console.warn('[gather] an answer', e); }   // PROF8: a trophy into the pack; HAUL-CARDS: `hauled` - its card said the goods (a Motherlode's silver on it)
       chipProfession = profession;
       chipLeft = CHIP_S;
       if (a && !a.loose && k?.gone(a.node)) {   // PROF7: a body stands nothing of the host's to stand again
@@ -596,11 +639,17 @@ export function createGatherHost(deps) {
     if (r?.error === 'lapsed') { hud.toast(LAPSED_LINE); return; }
     hud.toast(accountRefusalText(r?.error));
     if (a && !a.loose && r?.error === 'node-taken') restandOf(a);
+    // AUDIT SILVER-WAYS D2 (REFUSALS-LEARNED): the refusal handed to the kinds - a Motherlode spent, found or gone is
+    // learned (scenes/mineHost.js), its pixel stood again
+    const key = a?.node?.key ?? nodeKeyOf;
+    if (typeof key === 'string') for (const k of kinds) { try { k.refused?.(key, r?.error ?? null); } catch (e) { console.warn('[gather] a refusal', e); } }
   }
 
   return {
     /** A pixel built: its nodes stood. */
     onBuilt(entry) { if (entry) stand(entry); },
+    /** PROF2b: a pixel's nodes stood again, where it is built - a Motherlode risen on it, gone or spent. */
+    restandAt(px, py) { restandAt(px, py); },
     /** A pixel torn down: its batches went with it (they are in its list); forgotten here. */
     onDestroyed(entry) {
       if (!entry) return;
@@ -793,7 +842,7 @@ export function createGatherHost(deps) {
       if (book.stale() && now >= refreshAt) {
         refreshAt = now + 30_000;
         // PROF5 (FOUND): a kept craft settles too, not only beside a kept withdrawal
-        book.refresh().then((r) => { if (r?.ok) { refreshAt = 0; restandAll(); if (book.pendingWithdrawals || book.pendingCrafts) deps.onSettle?.(); } }, () => {});
+        book.refresh().then((r) => { if (r?.ok) { refreshAt = 0; restandAll(); if (book.pendingWithdrawals || book.pendingCrafts || book.pendingDeposits) deps.onSettle?.(); } }, () => {});   // AUDIT2 BAG1 K3: and a kept deposit, at the next settle
       }
       const d = utcDayOfMs(now);
       if (d !== day) { day = d; restandAll(); }

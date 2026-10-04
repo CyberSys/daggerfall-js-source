@@ -520,7 +520,9 @@ test('PROF7 wiring: the street and the dungeon stamp and list their bodies for H
   // PIN MOVED (PROF11): a work at the mason's bench asks it first
   assert.match(w, /const f = \(alch \? modes\?\.alchemyHere\?\.\(\) : mason \? modes\?\.masonHere\?\.\(\) : loom \? modes\?\.loomHere\?\.\(\) : bench \? modes\?\.workbenchHere\?\.\(\) : modes\?\.forgeHere\?\.\(\)\) \?\? null;/);   // PIN MOVED (PROF12): the alchemy station's transmutations first
   assert.match(w, /const who = counter === 'furnisher' \? 'furnisher' : counter === 'weavers' \? 'Weavers' : counter === 'apothecaries' \? 'Apothecaries' : 'smith';/);   // PIN MOVED (PROF12): the Apothecaries'
-  assert.match(w, /withdrawIntoPack\(playerEntity, key, n, undefined, \{ slowRot: key === 'food:meat' && profBook\?\.track\('hunting'\)\?\.specs\?\.\[100\] === 'butcher', noRot: /);   // PIN MOVED (PROF9): a Provisioner's provisions beside the Butcher's meat
+  // PIN MOVED (BAG1): the rot's options are one function now, the pack's withdrawal's and the bag's mint's alike
+  assert.match(w, /const carryOpts = \(key\) => \(\{ slowRot: key === 'food:meat' && profBook\?\.track\('hunting'\)\?\.specs\?\.\[100\] === 'butcher', noRot: /);   // PIN MOVED (PROF9): a Provisioner's provisions beside the Butcher's meat
+  assert.match(w, /withdrawIntoPack\(playerEntity, key, n, undefined, carryOpts\(key\)\)/);
   assert.match(w, /profBook\.track\('hunting'\)\.specs\?\.\[50\] !== 'tracker' \|\| _mode\(\) !== 'exterior'\) return null;\n\s*return trackerMarks\(exteriorFoes\.foes, enchantFeet\(\)\);/);
   const m = src('src/scenes/worldModes.js');
   assert.match(m, /if \(interiorBuilding\.buildingType === BUILDING_TYPES\.ClothingStore\) return interiorBuilding\.insideOpenShop === false \? null : \{ kind: 'shop', fee: LOOM_FEE \};/);
@@ -528,7 +530,7 @@ test('PROF7 wiring: the street and the dungeon stamp and list their bodies for H
   const g = src('src/scenes/gatherHost.js');
   assert.match(g, /const gone = act\.loose \? !w : !act\.dungeon && !stood\.has\(pixelKey\(act\.px, act\.py\)\);/);
   assert.match(g, /climate: a\.info\?\.climate \?\? null, region: a\.info\?\.region \?\? null, act: report,/);
-  assert.match(g, /at: Math\.floor\(deps\.nowMs\(\) \/ 1000\), \.\.\.\(a\.ask \?\? \{\}\),/);
+  assert.match(g, /at: Math\.floor\(deps\.nowMs\(\) \/ 1000\), \.\.\.\(\(typeof a\.ask === 'function' \? a\.ask\(\) : a\.ask\) \?\? \{\}\),/);   // AUDIT SILVER-WAYS D5 (PIN MOVED): an ask may be asked at the act's end
   const b = src('src/net/profBook.js');
   assert.match(b, /\.\.\.\(h\.foe === undefined \? \{\} : \{ foe: h\.foe \}\),/);
   assert.match(b, /applyStore\(r\.data\?\.extraStore\);/);

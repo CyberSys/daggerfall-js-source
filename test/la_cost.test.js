@@ -21,7 +21,7 @@ import {
 import { BAYER_GLSL } from '../src/render/orderedDither.js';
 import { billboardKey, keyId, sortByKey } from '../src/render/billboardKey.js';
 import { AIR_CONTACT_GLSL, AIR_CONTACT_RANGE_FRACTION } from '../src/render/airPass.js';
-import { SHADOW_GLSL } from '../src/render/shadowPass.js';
+import { SHADOW_GLSL, SHADOW_POINT_CASTERS } from '../src/render/shadowPass.js';
 import { perspective, lookAt, mirrorProjectionX } from '../src/world/mat4.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -233,7 +233,8 @@ test('LA-COST1: THE SECOND CALL IN A FRAME SENDS ONLY ITS OWN - a billboard call
   // ELITE FOES: and a batch's glow (uEliteGlow, one more on the billboards' every call)
   // DISSOLVE (the 2026-10-02 audit): and the burn, set whole (one more - a reset that sends nothing left the last burning
   // flat's share live under every flat after it)
-  assert.deepEqual(counts, ['billboards 102 -> 29', 'decals 85 -> 12', 'a character 86 -> 13']);
+  // ARENA5: and a batch's wash, set white (one more - a washed crowd batch's colour must not ride onto the next frame's flats)
+  assert.deepEqual(counts, ['billboards 103 -> 29', 'decals 85 -> 12', 'a character 86 -> 13']);
   // ...and the next frame sends them all again
   r.beginFrame(PROJ, VIEW, new Float32Array([0.3, 0.8, 0.2]), WORLD_FRAME);
   calls.length = 0; r.drawBillboards(bbs, R, UP);
@@ -370,7 +371,8 @@ test('LA-COST1: THE LAW, READ OFF THE SOURCE - every field the four gated frame 
     '_bbFrameStamp', '_dFrameStamp', '_cFrameStamp', '_tFrameStamp', '_frameStamp', ...AUTOMAP,
     '_bbColumnOn', '_dwCamFwd',   // merged beside DW-F: the column switch's GL-state shadow, and the camera-forward scratch
     '_bbTipOn',   // PROF4: the felled tree's tip, the same kind of GL-state shadow
-    '_bbDissolveOn'];   // DISSOLVE: the burn's switch, the same kind of GL-state shadow
+    '_bbDissolveOn',   // DISSOLVE: the burn's switch, the same kind of GL-state shadow
+    '_bbTintOn'];   // ARENA5: a batch's wash (the arena crowd's half in a banner's colours), the same kind of GL-state shadow
   const { canvas } = stateGl();
   const r = new Renderer(canvas);
   for (const lane of [null, EL_LANE]) {
@@ -548,7 +550,7 @@ const litBindings = (lights, colours, casters, extra = {}) => ({
   uPointColors: [...colours, ...Array.from({ length: 48 - colours.length }, () => [0, 0, 0])], uCasterOf: [...casters, ...Array(48 - casters.length).fill(-1)],
   uClusterOn: 0, uCamPos: [0.3, 1.7, 6], uStubContact: 0.15, uELExposure: 1.4, uELScatter: 0, uIndirect: [0, 0, 0, 0], uIndirectColor: [0, 0, 0],
   uFogColor: [0.2, 0.22, 0.25], uFogMode: 1, uFogDensity: 0, uFogRange: [4, 40], uDwFog: Array.from({ length: 5 }, () => [0, 0, 0, 0]),
-  uPointShadowParams: Array.from({ length: 8 }, () => [0, 0, 0, 0]), uShadowIndex: Array(8).fill(-1), gl_FragCoord: [10.5, 20.5, 0.5, 1],
+  uPointShadowParams: Array.from({ length: SHADOW_POINT_CASTERS }, () => [0, 0, 0, 0]), uShadowIndex: Array(SHADOW_POINT_CASTERS).fill(-1), gl_FragCoord: [10.5, 20.5, 0.5, 1],   // FLICKER-FIX: sized by the casters, not a literal
   texture: (name) => (name === 'uAdapt' ? [0.55, 0.55, 0.55, 1] : [1, 1, 1, 1]), texelFetch: () => [0, 0, 0, 0], ...extra,
 });
 

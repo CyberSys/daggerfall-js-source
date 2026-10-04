@@ -721,7 +721,7 @@ Ignoring') - permanent by parity, recorded in the coverage pin.
   faction-listener slot (addFactionListener first-claim-wins /
   removeFactionListener at dispose; PlayerActivate.StaticNPCClick
   reads the map - :1534, the only consumer in the DFU tree, and
-  wired at src/scenes/worldModes.js:667). activeFactionPersons walks NON-COMPLETE quests only -
+  wired at src/scenes/worldModes.js:686). activeFactionPersons walks NON-COMPLETE quests only -
   completed quests must not lock an NPC out (QuestMachine.cs:1085).
   The non-individual parse throw carries the TEMPLATE-SetComplete
   quirk; its sibling's does not.
@@ -1458,7 +1458,7 @@ spamming the same questor does not re-pulse the task. DFU makes you go
 click someone else and come back.
 
 The port carries `lastNPCClicked` as an NPCData-shaped OBJECT LITERAL,
-and both hosts mint a fresh one at every click - worldModes.js:1462's
+and both hosts mint a fresh one at every click - worldModes.js:1487's
 quest-flat arm builds `{ hash, flags, factionID, nameSeed, gender,
 buildingKey, mapID }` inline, and questBridge.clickNpc runs
 `staticNpcData(pn, sceneCtx)`. So `lastClicked === this.clickMemory`
@@ -2907,7 +2907,7 @@ has never allowed. Expanding in place now. (The caller-side
 `PlayerActivate.StaticNPCClick:1534`. `TalkManager.cs` does not
 contain the word `Listener`. Three port comments named TalkManager as
 the reader and marked the wiring `(Q4 wires)` - over a reader the port
-already ships, at `worldModes.js:667`. A pending marker over shipped
+already ships, at `worldModes.js:686`. A pending marker over shipped
 work is worse than no marker at all: it sends the next reader looking
 for work that is done, in a file that never had it. Four sites
 corrected, the bible's copy included.
@@ -3065,7 +3065,7 @@ That is the ninth catch of *a pin that restates the port instead of the
 source* - except this one restated a misreading of the source, which is
 a worse failure and one only a second reader was ever going to find.
 The port carries `mapNameLookup` already, built first-wins at
-`mapsFile.js:495`, so the fix is to use it. Two names differing only in
+`mapsFile.js:498`, so the fix is to use it. Two names differing only in
 CASE still take the last, because the `ToLower` compare matches both
 while the dictionary keys stay exact-case - so the lookup is
 per-iteration, not hoisted.
@@ -5480,7 +5480,7 @@ lesson one host over.
 **What did NOT ship:** PlayerEntity.Update's per-minute *intermittent
 spawn* roll (:486-492) still has no caller on this route. It is not
 this pool's dependency — it is a loop that carries the passive-guard
-spawns and the NPC-guard conversion with it (world.js:8111-8216) — and
+spawns and the NPC-guard conversion with it (world.js:8383-8488) — and
 it is named at the mount so the absence reads as a fact.
 
 **(c) The find-place seam's absence, narrowed to one sentence.**
@@ -5504,12 +5504,12 @@ ready-spell events (`hostMagic.js:97-98`), and those two doors are the
 (`machine.js:935`/`:918`; C# subscribes them in the action's
 constructor). Every `cast X spell do` and `cast X effect do` on this
 whole route could therefore never latch and never fire. The pair the
-other two engine-owning hosts wire (`world.js:8512-8513`,
-`dungeonContext.js:2672-2673`) is wired here now, and with it
+other two engine-owning hosts wire (`world.js:8936-8937`,
+`dungeonContext.js:2837-2838`) is wired here now, and with it
 `CastSpellDo`'s two world reads — `getClassicSpellEffects` and the
-byte-folded `spellHasMatchForClassicEffect` (`world.js:14424-14427`),
+byte-folded `spellHasMatchForClassicEffect` (`world.js:15283-15286`),
 absent which the action self-completes at *parse*
-(`actions.js:2793`/`:2800`) and the task can never arm at all.
+(`actions.js:2807`/`:2814`) and the task can never arm at all.
 
 Pins: 5 in `test/qx1_exterior_host.test.js` (the placement law RUN over
 the real `placeFoeFreely` with a stubbed world — the FOV cone bounded on
@@ -6422,7 +6422,10 @@ reads one, all of them DFU's one clock offline:
 - **`nowSeconds`, the CHARACTER's clock** (LIVED1's own): the Clock resource, CreateFoe's and PlaySound's
   intervals, GUARD-ONLINE's watch, the tombstone's week. A rest, a loiter or a journey spends them, as in DFU: the
   time RAISED since a sample is charged whole (the session's count, `worldTick.js raisedMinutes`), the time lived
-  with the world one played step at most (WORLD7's bound, on the lived part alone). The rest ticks the quests
+  with the world one played step at most (WORLD7's bound, on the lived part alone). [SUPERSEDED BY QCLOCK-WORLD
+  2026-10-02 (`Online-Time-Arc.md` 6.3c) for the Clock and CreateFoe's interval: online the raise is charged
+  nothing, the lived time one step - a rest spends no quest days. PlaySound's interval, GUARD-ONLINE's watch (one
+  quest's hall, kept by waiting there) and the tombstone's week still read the character's clock raw.] The rest ticks the quests
   online too (`restSession.js`; RESTX2's stand-down retired).
 - **`skySeconds`, the SKY**: DailyFrom's window, GivePc's daytime, the season trigger, QAE's "until", the
   date/time macros.
@@ -6439,3 +6442,28 @@ holder's - AUDIT TIME), and an online save from before TIME3 moves onto the char
 whole seconds, where DFU samples `WorldTime.Now.ToSeconds()` - whole seconds of a clock that keeps its fraction - so
 every tick dropped its fraction: at ten ticks a real second a countdown ran a fifth to a third slow. It samples
 whole seconds now (`clock.js wholeSeconds`). Pins: `test/time3_quests.test.js`; mutants: `tools/mutants/time3.json`.
+
+## TOTEM-CAGE - a quest item rides its acting marker (2026-10-03, Discord, Shortstori: "the Totem of Tiber Septim isnt here")
+
+S0000008 places the Totem at `_daggerfall_ marker 5` (DaggerfallCastle2, the city's dungeon; "hidden in the treasury").
+DFU stands a quest item at its marker's layout point and then PARENTS it to the marker's scene object
+(GameObjectHelper.cs AddQuestItem :1144-1148, "This ensures mobile quest objects parented to action marker translates
+correctly"), because an RDB marker can carry an action of its own (RDBLayout.cs:403-406) - and GetDaggerfallMarker's
+note (:1165-1186) names the case: "raising treasure room cage for totem in Daggerfall castle". The port registered the
+acting marker as a moving flat and never moved the item with it, so the cage rose without the Totem; online the cage's
+pose is the castle room's memory (WORLD3/WORLD34) and never resets, so every player met a raised, empty cage.
+
+The parenting is data now (`sceneMount.js`): `sceneMarkerOf` is GetDaggerfallMarker's unique-or-null law over the laid
+dungeon's 199.11/18 markers by the ID both sides mint (block position + object position: the layout's `loadID`, the
+quest marker's `markerID`); `sceneMarkerMover` answers the ActionSystem mover registered for it (`objectAt`, the
+chain's own key), only when it moves; `rideSceneMarker` hands the stand the mover's live `offset` (its batch's origin
+uniform, now or at the fill); `questStandBox` puts the activation box where the stand is. The dungeon adapter's
+`standItem` rides `dungeonContext.questMarkerMover(marker.markerID)`. A building's quest item never rides: DFU adds
+DaggerfallMarker in RDBLayout alone, a building's quest marker carries MarkerID 0 (Place.cs:1503-1506), and an RMB flat
+has no action. Quest NPCs and foes are never parented in DFU either (AddQuestNPC, AddQuestFoe).
+
+The travel is read WHOLE from the marker's start, which is DFU's outcome on its entry and its load (the layout stands
+the item, the saved action state lands after it); online the room's word can land before a re-mount, and the whole
+travel is the only reading that agrees. The one difference: a quest that hot-places an item onto a marker that already
+moved this visit stands it on the marker, where DFU's reparent leaves it off by the travel.
+`test/fb1003b_totem.test.js`; `tools/mutants/fb1003b_totem.json`. `01-Overview/Field-Bugs-2026-10-03b.md` TOTEM-CAGE.

@@ -330,8 +330,8 @@
   {
     "name": "AUDIT-NAV2-F47-leader-taken-to-talk",
     "file": "src/systems/naval/crewLife.js",
-    "old": "|| o.mate || o === chanty?.leader || o === lookout || offMain(o)) continue;",
-    "new": "|| o.mate || o === lookout || offMain(o)) continue;",
+    "old": "|| o.mate || o === chanty?.leader || o === lookout || offMain(o) || atPost(o)) continue;",
+    "new": "|| o.mate || o === lookout || offMain(o) || atPost(o)) continue;",
     "tests": [
       "test/auditnav2_crew.test.js"
     ]

@@ -121,28 +121,28 @@ test('IS1: restoreInterior - the identity trio, buildingKey disambiguation, the 
   const src = read('src/scenes/worldModes.js');
   const at = src.indexOf('async restoreInterior');
   const body = src.slice(at, src.indexOf('tryEnter,', at));
-  assert.match(body, /if \(!d \|\| mode !== 'exterior'\) return false;/,
+  assert.match(body, /if \(\(!d && !cabin\) \|\| mode !== 'exterior'\) return false;/,
     'the re-entry runs from the exterior the load just rebuilt, nowhere else');
   for (const f of ['e.door.blockIndex === d.blockIndex', 'e.door.recordIndex === d.recordIndex', 'e.door.doorIndex === d.doorIndex']) {
     assert.ok(body.includes(f), `the match carries ${f}`);
   }
   assert.match(body, /matches\.length > 1 && d\.buildingKey/,
     'twin blocks in one location disambiguate by buildingKey - DFU keys discovery on it (:1032)');
-  assert.match(body, /\{ building: saved\.building \?\? null, pos \}/,
-    'the core gets the SAVED discovery record, not a recompute');
+  assert.match(body, /\{ building: strictDoor \|\| privateRoom \? buildingDataForDoor\?\.\(entry\) \?\? null : saved\.building \?\? null, pos, privateRoom \}/,
+    'ordinary loads retain the SAVED discovery record; exact staff travel resolves its live door');
   assert.match(body, /return mode === 'interior';/,
     'success is the MODE having changed, not the call having returned');
 });
 
 test('IS1: the load path never caches the dying scene', () => {
   const modes = read('src/scenes/worldModes.js');
-  assert.match(modes, /forceExitToExterior\(\{ cacheScene = true \} = \{\}\)/,
-    'quest teleports keep the Teleport.cs:145-148 caching default');
+  assert.match(modes, /forceExitToExterior\(\{ cacheScene = true, load = false \} = \{\}\)/,
+    'quest teleports keep the Teleport.cs:145-148 caching default');   // AUDIT REST II H1 (PIN MOVED): and a load says so itself
   assert.match(modes, /if \(cacheScene\) cacheInteriorScene\(\);/,
     'the load alone opts out - by then the entity cache is the SAVE’s own');
   const world = read('src/scenes/world.js');
   const body = world.slice(world.indexOf('async function worldQuickLoad'), world.indexOf('function applyPose'));
-  const atExit = body.indexOf('modes?.forceExitToExterior({ cacheScene: false })');
+  const atExit = body.indexOf('modes?.forceExitToExterior({ cacheScene: false, load: true })');   // AUDIT REST II H1 (PIN MOVED): the load says so itself
   const atTeleport = body.indexOf('await _teleportToPixel');
   assert.ok(atExit > -1 && atTeleport > atExit,
     'RespawnPlayer destroys the standing interior FIRST (:453-459), and without serializing it (:464)');
@@ -154,7 +154,7 @@ test("IS1: the load re-enters the building or takes DFU's reposition arm", () =>
   // AUDIT 63 F24: the converters ride in beside the position - the
   // re-entry now lands the interior host's saved ENEMY record too, in
   // natives, exactly as the two outdoor pools do.
-  assert.match(body, /modes\?\.restoreInterior\?\.\(extras\.interior, \[lx, ly, lz\], \{\n\s+fromNative: \(nx, nz\) => state\.localFromWorld\(nx, nz\), yOffset: state\.compensation\[1\],\n\s+\}\)/,
+  assert.match(body, /modes\?\.restoreInterior\?\.\(extras\.interior, \[lx, ly, lz\], \{\n\s+fromNative: \(nx, nz\) => state\.localFromWorld\(nx, nz\), yOffset: state\.compensation\[1\],\n\s+sailingBoat: savedCabinBoat\(extras\.interior\.sailingCabin, extras\.modData\?\.\[COME_SAIL_AWAY_VENDOR\]\),\n\s+\}\)/,
     'the saved position rides into the core - RestorePosition lands it raw');
   assert.ok(body.includes("townTalk.say('Building has no exterior doors. Repositioning player.');"),
     "DFU's own line, verbatim (RestorePositionHelper :619)");

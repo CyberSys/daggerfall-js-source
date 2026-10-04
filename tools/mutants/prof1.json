@@ -410,11 +410,12 @@
   {
     "name": "PROF1-46-a-kept-harvest-never-lapses",
     "file": "src/net/profBook.js",
-    "old": "          if (lapsed) { drop(h.rid, key); onAnswer(h, { ok: false, error: 'lapsed' }); continue; }",
-    "new": "",
+    "old": "          if (lapsed) {",
+    "new": "          if (false) {",
     "tests": [
       "test/prof1_client.test.js"
-    ]
+    ],
+    "note": "AUDIT BAG1 + GUILD2 (PIN MOVED): re-aimed by content - a lapse is a block now (a carried harvest is asked once first, B1)."
   },
   {
     "name": "PROF1-47-a-withdrawal-minted-on-silence",
@@ -428,8 +429,8 @@
   {
     "name": "PROF1-48-a-delivery-forgets-its-id",
     "file": "src/net/profBook.js",
-    "old": "        if (!keptAnswer(r)) ids.delete(`deliver|${slot()}|${writId}`);",
-    "new": "        ids.delete(`deliver|${slot()}|${writId}`);",
+    "old": "        const r = await ask(() => door.deliver(c, writId, m.id));\n        m.promise = null;\n        if (!keptAnswer(r)) ids.delete(key);",
+    "new": "        const r = await ask(() => door.deliver(c, writId, m.id));\n        m.promise = null;\n        ids.delete(key);",
     "tests": [
       "test/prof1_client.test.js"
     ]

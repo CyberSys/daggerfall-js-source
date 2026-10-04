@@ -35,7 +35,7 @@ import { titleBadge, glyphBadges, cssRgba, GLYPH_STROKE, GLYPH_EDGE_W } from './
 import { PIXEL_STACK } from './pixelifyFive.js';   // AUDIT NAMES N1-4: the in-play name face
 import { renownText } from '../net/renown.js';
 import { guildTagText } from '../net/guildLaw.js';
-import { ribbonColours, heraldryOf, heraldryColourOf } from '../net/heraldryLaw.js';   // AUDIT-SEATS: a Season's banner ribbon, under the name here too; AUDIT HERALDRY H4: the tag's frame
+import { ribbonColours, heraldryOf, heraldryColourOf, heraldryKey } from '../net/heraldryLaw.js';   // AUDIT-SEATS: a Season's banner ribbon, under the name here too; AUDIT HERALDRY H4: the tag's frame
 import { drawShield } from './heraldryArt.js';   // AUDIT HERALDRY H4: the guild's shield, in its tag's frame, on the canvas
 import { TV_FILTER_GROUPS, TV_FILTER_TEXT, travelViewFilters, toggleTravelViewFilter, onTravelViewFilters, markShown, countGroups } from '../systems/travelViewFilters.js';   // OW-FILTER
 import { tickHudLayout } from './hudLayout.js';   // HUD-MOVE: the Overworld's block and the travel bar move too
@@ -655,7 +655,7 @@ function badgeParts(b) {
 const badgeKey = (b) => {
   if (!b) return '';
   const h = badgeArms(b);
-  return `${b.title ?? ''}|${(b.glyphs ?? []).join(',')}|${b.lv ?? ''}|${b.gt ?? ''}|${(Array.isArray(b.rb) ? b.rb : []).join('/')}|${h ? `${h.field}/${h.border}/${h.device}` : ''}`;
+  return `${b.title ?? ''}|${(b.glyphs ?? []).join(',')}|${b.lv ?? ''}|${b.gt ?? ''}|${(Array.isArray(b.rb) ? b.rb : []).join('/')}|${h ? heraldryKey(h) : ''}`;   // AUDIT GUILD2 G12: the whole arms
 };
 /** AUDIT HERALDRY H4: the tag's frame as the in-play face's (.dfname-guild.armed) - a dark plate edged in the guild's
  *  border colour, the shield at its left - px (the shield's width a share of the tag's size). */

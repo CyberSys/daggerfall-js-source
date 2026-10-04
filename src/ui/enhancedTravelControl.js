@@ -47,7 +47,7 @@ let last = null;
 export const TRAVEL_HELD_WHY = Object.freeze({ load: 'while the land loads', ground: 'until the Overworld rises', foes: 'with enemies near' });
 export const TRAVEL_HELD_TEXT = (n, of, why = 'load') => `Held to ×${n} of ×${of} ${TRAVEL_HELD_WHY[why] ?? TRAVEL_HELD_WHY.load}`;
 
-/** enhancedHud.js:440 - write only on a change. */
+/** enhancedHud.js:442 - write only on a change. */
 function put(node, key, value) {
   if (!node || last[key] === value) return;
   last[key] = value;
@@ -79,6 +79,14 @@ function build(doc, hooks) {
           <span class="travelpanel-accel">1</span>
           <button type="button" class="travelpanel-step" data-act="faster" aria-label="Faster">+</button>
         </div>
+        <div class="travelpanel-foe" hidden>
+          <span class="travelpanel-label">Near enemies</span>
+          <div class="travelpanel-stepper">
+            <button type="button" class="travelpanel-step" data-act="foeSlower" aria-label="Slower near enemies">&#8722;</button>
+            <span class="travelpanel-accel travelpanel-foeaccel">1</span>
+            <button type="button" class="travelpanel-step" data-act="foeFaster" aria-label="Faster near enemies">+</button>
+          </div>
+        </div>
       </div>
       <div class="travelpanel-acts">
         <button type="button" class="travelpanel-act" data-act="map" title="${T.TipMap}">Map</button>
@@ -109,6 +117,8 @@ function build(doc, hooks) {
     name: root.querySelector('.travelpanel-name'),
     sub: root.querySelector('.travelpanel-sub'),
     accel: root.querySelector('.travelpanel-accel'),
+    foe: root.querySelector('.travelpanel-foe'),
+    foeAccel: root.querySelector('.travelpanel-foeaccel'),
     msg: root.querySelector('.travelpanel-msg'),
     junction: root.querySelector('.travelpanel-junction'),
     bar,
@@ -208,7 +218,6 @@ export function drawEnhancedTravelControl(state = {}, hooks = {}) {
   // so the clamp keeps its one home. An inline style read: no layout.
   const scale = document.querySelector('.hud')?.style?.getPropertyValue('--hud-scale') || '1';
   if (last.scale !== scale) { last.scale = scale; parts.root.style.setProperty('--hud-scale', scale); }
-  cls(parts.root, 'rootClass', `travelpanel${state.following ? ' following' : ''}${junctionOnly ? ' junction-only' : ''}`);
   cls(parts.bar, 'barClass', `travelpanel-bar${state.following ? ' following' : ''}${junctionOnly ? ' hidden' : ''}`);   // OW-DECK: `following` on the bar too - docked, it is outside the root
   put(parts.name, 'name', String(state.destination ?? ''));
   const eta = etaText(state.minutesLeft);
@@ -218,11 +227,22 @@ export function drawEnhancedTravelControl(state = {}, hooks = {}) {
   // runs, then the one asked for; the spinner stays the player's
   const accel = state.accel ?? 1;
   const held = state.held != null && state.held < accel ? state.held : null;
-  put(parts.accel, 'accel', held != null ? `×${held} / ×${accel}` : `×${accel}`);
-  cls(parts.accel, 'accelClass', held != null ? 'travelpanel-accel held' : 'travelpanel-accel');
+  // ENEMY-PACE: an enemy near holds the clock - the general readout keeps saying the player's own setting, and a second
+  // stepper under it (shown only while the enemies hold the clock) sets the pace kept near them
+  const foesHold = held != null && state.heldWhy === 'foes';
+  const shown = held != null && !foesHold ? held : null;
+  put(parts.accel, 'accel', shown != null ? `×${shown} / ×${accel}` : `×${accel}`);
+  cls(parts.accel, 'accelClass', shown != null ? 'travelpanel-accel held' : 'travelpanel-accel');
   // AUDIT DEEP X-6: and says why, under the pointer (the travel view's own words - they were written, and never shown)
-  const why = held != null ? TRAVEL_HELD_TEXT(held, accel, state.heldWhy) : '';
+  const why = shown != null ? TRAVEL_HELD_TEXT(shown, accel, state.heldWhy) : '';
   if (parts.accel && last.accelTitle !== why) { last.accelTitle = why; parts.accel.title = why; }
+  if (parts.foe && last.foeOn !== foesHold) { last.foeOn = foesHold; parts.foe.hidden = !foesHold; }
+  cls(parts.root, 'rootFoe', `travelpanel${state.following ? ' following' : ''}${junctionOnly ? ' junction-only' : ''}${foesHold ? ' foes' : ''}`);
+  if (foesHold) {
+    put(parts.foeAccel, 'foeAccel', `×${state.foeRate ?? held}`);
+    const ft = `Slowest pace with enemies near - the clock is held to ×${held} of ×${accel}`;
+    if (last.foeTitle !== ft) { last.foeTitle = ft; parts.foeAccel.title = ft; }
+  }
   put(parts.msg, 'msg', String(state.message ?? ''));
   cls(parts.msg, 'msgClass', state.message && !junctionOnly ? 'travelpanel-msg show' : 'travelpanel-msg');
   const j = state.junction;

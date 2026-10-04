@@ -263,12 +263,13 @@
   {
     "name": "AUDIT-GALLEON-D10-castle-hand-sought",
     "file": "src/systems/naval/crewLife.js",
-    "old": "|| o === lookout || offMain(o)) continue;   // AUDIT GN-D10: never a hand off her main deck",
-    "new": "|| o === lookout) continue;",
+    "old": "|| o === lookout || offMain(o) || atPost(o)) continue;   // AUDIT GN-D10: never a hand off her main deck",
+    "new": "|| o === lookout || atPost(o)) continue;",
     "tests": [
       "test/auditgalleon_deck.test.js"
     ],
-    "why": "a hand on her castle sought for a talk"
+    "why": "a hand on her castle sought for a talk",
+    "note": "GALLEON'S MERGE of main (PIN MOVED): HOLDINGS' atPost joins the line; the mutant drops offMain alone."
   },
   {
     "name": "AUDIT-GALLEON-D10-flight-walk-idles",

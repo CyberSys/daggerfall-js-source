@@ -847,6 +847,31 @@ per **account** now, at Fight Life's own figure, and the refusal is
 **429 rather than 401**: telling a rate-limited player their credentials
 are wrong sends them to reset a password that was never the problem.
 
+**ACCT-RATE-MEM (2026-10-04, the login outage).** Mac: *"You log in and
+it sends you straight to title screen"*, *"We have 300 people trying to
+log in at once"*. F12 counted the bound with an `acct:` upsert in D1 on
+**every** authenticated request, so every read the game makes - a
+town's yards each minute, a home, a token - was also a write to the one
+database. D1's own query insights on the day: **4,783,193** runs of that
+upsert, the most time of any statement, beside the session and player
+reads every request already makes. Two relay deploys (#578, #558) sent
+every player back through the door at once; D1 answered *"overloaded.
+Requests queued for too long"*, the session read failed under it, the
+service said 500, the client went back to the title, and its retries
+were more of the same load.
+
+The bound is the same - `ACCOUNT_MAX` a window per account, 429 `rate` -
+counted in the isolate's memory (`accounts.js overAccountRate`), so an
+authenticated read writes nothing. **Per isolate**: a caller spread over
+several isolates meets the ceiling in each, a looser cap by that factor,
+which an abuse ceiling can afford and a write on every read could not.
+The window only moves forward (AUDIT RENOWN1, as `overRate`); past
+`ACCOUNT_RATE_KEYS` accounts the closed windows go, and if every one is
+open all of them do - a count forgotten frees a caller early and never
+refuses one. The open doors' `login:` and `ip:` keys stay in D1: they
+are few, and must hold across isolates. Pinned by
+`test/acctratemem.test.js`.
+
 ### F13 — the session secret rode in a URL
 
 `/v1/account` read `?secret=`. The code excused it: *"it is read-only,
@@ -3834,6 +3859,31 @@ owner out. So the way back is the operator's, and it is the player's own recover
   recovery with the code typed without dashes, a new code, the operator's copy dead, every earlier device signed out,
   and the same account with its Founder. `tools/mutants/recoverop.json` has 7 mutants, all dead.
 
+## GUILD-GRANT — gold into a guild's treasury, awarded by the operator (2026-10-03)
+
+Mac: "Can we award the empire of tamriel guild 1.6mil gold". No route mints gold into a treasury, and on purpose: every
+gold piece in one was carried in by a member (GUILD1), and only what realm characters carried in (`realm_gold`, AUDIT
+REALM L1-F3) buys a hall or comes back out (HALL-GOLD). So an award is the operator's, written by hand, like RECOVER-OP.
+
+1. **The dry run.** Actions, then "Guild gold grant" (`.github/workflows/guild-grant.yml`), then Run workflow with the
+   guild's name, the gold (digits only: `1600000`) and apply OFF, the default. The run's summary names the guild the
+   name found - its tag, its members, its treasury and the part of it that buys a hall - and both as the award would
+   leave them. Nothing is written.
+2. **The award.** Read the summary; run again with apply on. One statement (`tools/grantGuildGold.mjs`) adds the gold
+   to the treasury AND to `realm_gold`, so it buys a hall and comes back out to a realm character like any other, and
+   the ledger's trigger (0046) writes the line in the same statement: the Guild tab reads "The developers awarded the
+   guild 1,600,000" (`GUILD_LEDGER_WORDS.grant`).
+
+- The guild is found by its name key (`guildNameKey`: case, spaces and punctuation aside), the key the service holds
+  unique. The tool takes only a name a guild could be founded with and a whole award from 1 to the treasury's cap
+  (`GUILD_TREASURY_MAX`); the award is not held to one move's cap (`GUILD_MOVE_MAX`), which is a player's. An award that
+  would take the treasury past its cap, or a name that finds no guild, fails the run and writes nothing.
+- The inputs reach the scripts as environment, never pasted into a `run:` line, and the run shares the deploy's queue,
+  so it never runs beside a migration. It creates, migrates and deploys nothing.
+- Pins: `test/guildgrant.test.js` (4). One drives the service end to end: the dry run, the award, the ledger's line, a
+  realm character's withdrawal of it. Another runs the workflow's own steps in bash over D1's answer.
+  `tools/mutants/guildgrant.json` has 11 mutants, all dead.
+
 
 ## RAID4 — the towns defended (2026-09-28, acct17)
 
@@ -4345,3 +4395,69 @@ players can also equip/unequip their glyphs".
 - **The card**: each glyph on the account card is a button now - full strength while shown, faded while hidden.
   Others see the change from the next hello, as a title. A relay before world143 shows every glyph.
 - Pins: `test/glyphwear.test.js`; `test/titlen.test.js` (MOD2's list).
+
+## AEGIS — Sureme's own: the Aegis of Oblivion, its glyph and the Oblivion Ward (2026-10-03, world160, acct73)
+
+The owner: "For the account named Sureme ... We are going to develop a title, glyph and new custom aura for this user.
+Title: Aegis of Oblivion. Theme: Purple. The references posted are for the glyph design and the aura design." Sureme's
+three references, all from Path of Exile: a sigil for the glyph ("this symble is from path of exile, i play that game
+alot" - a tall pillar and two short ones through a ring, over a black splash), and two ground marks for the aura ("i
+want one that is a full circle" - a whole violet circle with four small marks; "but with some stuff like this one" -
+broken arcs of violet runic script: beads on the line, curled ends, combs and a cross).
+
+- **The grant** (`server-account/wrangler.toml`, `server-account/src/titles.js`): `AEGIS_HANDLES = "Sureme"`, TITLE-N's
+  handle-list law (`TIER_LISTS.aegis`, `TIER_GLYPH.aegis`), and the FIRST list that grants an aura too:
+  `TIER_AURA = { aegis: 'oblivionward' }`. Until now an aura was only ever BOUGHT (WB9g's insignia, a sale recorded on
+  the row); this one is DERIVED, as a glyph is - held while the handle is listed and gone from the next token once it
+  is not, nothing written to the row. So `aurasHeld`, `auraWorn` and `auraRefusal` take the config (`env`) as
+  `titlesHeld` does, and every caller passes it: the wardrobe (`wardrobeOf`), the aura door (`accounts.js equipAura`)
+  and the mint's `au` (`index.js`). A list's aura is offered before any the Broker sold. A caller without the config
+  reads the Broker's alone, exactly as before. Never a guest's. No staff command rides it.
+- **The vocabulary** (`src/net/identityToken.js`, in the relay bundle): `aegis` joins TITLES and GLYPHS last, and
+  `oblivionward` joins AURAS after `dagonfire`. A relay before it refuses a token carrying any of the three
+  (`claimsValid`), so the relay is **world160** and the account service **acct73**; the account deploy waits for the
+  relay's `/health` to serve world160 (SHADOW-FANG's AUDIT B1). No frame changes shape.
+- **The title** (`src/ui/playerBadge.js`): "Aegis of Oblivion" in a gradient out of the void into the ward's light -
+  #7030e0, #b24dff, #ecdcff, every stop a violet - edged in black (`TITLE_EDGE`), its middle stop the colour a face
+  without gradients uses (the card's button, the classic face) and the glyph's. Chosen over a night sky, a day sky,
+  stone, grass and snow at 13 to 64 px beside the Apostle's periwinkle and the Protector's royal purple: the reverse
+  (light into the void) read as a bare name over a night sky and was lost on snow; a paler run lost its light end on
+  snow; a near-black start edged in violet was lost on the night sky. This one reads violet on all five.
+- **The glyph**: the reference drawn after it, not traced - a pillar risen up the middle, a short pillar each side, and a
+  wide ring lying across all three below the middle with the side pillars at its two ends ("I O I", the middle risen),
+  stroked in the title's violet; and the reference's black splash as `GLYPH_DETAIL` - five tendrils hung from the ring's
+  foot, mirrored, the outer two swept out past the pillars, filled in the abyss's violet (#4d1a94, darker than any stop
+  of the word). The reference's squared spiral read as a flag at a name's size and is left out; a skirt of straight
+  spikes read as an upside-down crown, and the tendrils in the title's lilac as a crown again. `O` on the classic face
+  (the ring, and Oblivion's initial); "Aegis of Oblivion" on the account card.
+- **The Oblivion Ward** (`src/render/auraRing.js`, the aura pass WB9g built): the same program draws both auras, the
+  aura picked per wearer (`uAura`, AURA_LOOK - its kind, its ring's radius 0.95 m against the fire's 0.85, its wall's
+  height 0.42 m). THE GROUND: the ring WHOLE - one line of light, lilac-white at its heart and violet round it,
+  breathing, two scribes of brighter light running round it - with a bezel of 48 fine ticks outside it turning the other
+  way; within it a ring of twelve runes in the second reference's script (`WARD_SCRIPT`: each a baseline along the ring
+  with a bead or a serif at each end, beads on the line, a comb or a chevron outward, a cross inward - no two alike),
+  turning slowly against the ring and lit one after another as if being written; four claws hung inward from the ring
+  at the diagonals (the first reference's marks), clear of the runes as they turn beneath; the abyss's violet mist
+  turning inside, gone under the feet. THE WALL: a veil of light to the shins in streaks that climb, and fourteen motes
+  rising off the ring. As it kindles it is drawn round from behind the wearer.
+- **The floating symbols** (the owner, after the first push: "Can you add like symbols that float and dissipate"): a
+  third draw, the ward's alone (`AURA_LOOK.glyphs` - the fire has none). Nine cards, each a rune of the ward's script
+  stood on end, lift off the ring and float up to the chest (WARD_GLYPH_RISE, 1.3 m), slowing toward the top, swaying,
+  drifting outward and tilting a little, always turned round the vertical to face the eye. As each climbs its strokes
+  blur and break into dust from the noise's low places up, and it fades in as it lifts off and out as it goes; then it
+  lifts again from a new place round the ring with a new rune. A flight lasts 3, 4 or 5 s (each dividing the clock, and
+  which flight it is wraps with it, so the wrap is whole); the nine are staggered, so some are always rising and some
+  always going. The flight is the vertex half's (`wardFlight`), the light the fragment half's (`wardSymbol`). Every rate is a whole number of cycles
+  over the clock, written as a division by its whole period, never a rounded decimal. THE FOUR HOSTS, untouched:
+  `scenes/world.js` owns the pass and gathers each wearer with their `aura` (auraFrame), drawing it on the street;
+  `scenes/worldModes.js` calls the same hook (`host.drawVeiledPeerBodies`) in a building and hands it to the dungeon as
+  `lateWorldDraw`, which `scenes/dungeonContext.js` calls; `scenes/exterior.js` (the fixed city) draws no peers and no
+  aura, as before WB9g - FLAGGED, unchanged.
+- **Seen**: the title and glyph in Chromium on the real name layer's sheet over the five grounds (13 to 64 px) beside
+  the Apostle, the Protector, Shadow Fang and Penitent; the ward in a real WebGL2 from above, from a third-person camera
+  and from low, at kindle 0, 0.5 and 1, and the symbols at several moments of their flights. `tools/auraProbe.mjs` now
+  draws both auras: 22/22 (the fire's 11 unchanged; the symbols lit over the ward to the chest, nothing over the fire).
+- Pins: `test/aegis.test.js` (12). `tools/mutants/aegis.json` (38, all dead). The vocabulary's exact lists in
+  `acc3titles.test.js` moved; the relay's pins moved to world160 crediting AEGIS (`auditbounty1.test.js` holds the
+  credit) and the account's to acct73. Seven older records re-aimed by content (`herald.json`, `penitent.json`,
+  `shadowfang.json`, `ribbon.json`, `wb9g.json` 3) and the version records in `soc1.json` and `gatekeys.json`.

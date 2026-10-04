@@ -203,8 +203,8 @@
   {
     "name": "AUDIT-GUILD1d-R5-heraldry-a-deposit",
     "file": "server-account/src/guilds.js",
-    "old": ": l.kind === 'heraldry' ? 'heraldry' : 'deposit', amount: l.amount })),",
-    "new": ": 'deposit', amount: l.amount })),",
+    "old": "'guild-withdraw': 'withdraw', heraldry: 'heraldry', 'guild-deed': 'deed',",
+    "new": "'guild-withdraw': 'withdraw', 'guild-deed': 'deed',",
     "tests": [
       "test/auditguild1d.test.js"
     ]
@@ -366,8 +366,8 @@
   {
     "name": "AUDIT-GUILD1d-R11-repaint-under-the-keyboard",
     "file": "src/ui/socialPanel.js",
-    "old": "sel.addEventListener('change', () => { onPick(sel.value); drawDraft(heraldryOf(d.heraldry) ?? v.heraldry); paintLiveBtns(); });",
-    "new": "sel.addEventListener('change', () => { onPick(sel.value); ui++; if (open) repaint(); });",
+    "old": "const pick = (key, apply) => () => { apply(); draw(key); paintLiveBtns(); };",
+    "new": "const pick = (key, apply) => () => { apply(); ui++; if (open) repaint(); };",
     "tests": [
       "test/auditguild1d.test.js"
     ]

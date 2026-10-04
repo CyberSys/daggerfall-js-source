@@ -54,7 +54,7 @@ The next one would have been the full moon. This page replaces the pattern with 
 |---|---|---|---|
 | **The sky** (new) | TimeScale 24: a day every real hour (SKY-SLOW; designed at 48) | nobody; a function of wall time | what the world looks like, and every "what time of day, what date, which moon" |
 | **The event clock** (WORLD5's shared clock, unchanged) | TimeScale 12: a day every 2 real hours | nobody; a function of wall time | what the world schedules, stocks, prices and meters for everyone; the relay's every read |
-| **Your clock** (LIVED1's, unchanged) | TimeScale 12 while you play | you: a rest, a loiter, a journey, a sentence | your body, magic, needs, contracts and standing; and, new, your quests' countdowns |
+| **Your clock** (LIVED1's, unchanged) | TimeScale 12 while you play | you: a rest, a loiter, a journey, a sentence | your body, magic, needs, contracts and standing; and, new, your quests' countdowns (QCLOCK-WORLD: online only as it moves with the world - a raise charges them nothing) |
 
 LIVED1's "world's clock" becomes two: the sky, which is new, and the event clock, which is the clock
 LIVED1 already calls the world's. In code `worldMinutes()` keeps its meaning (the event clock online, the
@@ -251,7 +251,8 @@ Nothing in this table changes. It is listed so the census has its other half.
 Unchanged: everything `Lived-Time.md` lists under "Reads the character's clock", and the camp encounter
 window (`campEncounters.js`: 180 game minutes, which is the "15 real minutes" Mac asked for only because
 your clock keeps TimeScale 12). Added by TIME3: a quest's countdowns, its spawn and sound intervals and
-its tombstones (6.3).
+its tombstones (6.3). [QCLOCK-WORLD (6.3c): online the countdowns and the spawn interval charge only the time
+lived with the world - the event clock's movement while you play - and never a raise.]
 
 ### 5.4 Real time
 
@@ -310,7 +311,8 @@ by `ONLINE_MINUTES_PER_MS` today, which stays the event clock's rate, and would 
 
 - **A quest's countdowns run on the character's clock:** the Clock resource ("you have N days", "come
   back in N days"), the spawn intervals (`CreateFoe`) and the tombstones. A rest or a loiter spends quest
-  days as in DFU, and so does a journey. A three-day wait is a 72-hour rest: about half a minute.
+  days as in DFU, and so does a journey. A three-day wait is a 72-hour rest: about half a minute. [SUPERSEDED BY
+  6.3c: online a raise spends no quest days.]
 - **WORLD7's played step stays as the bound on the lived part of a frame,** so a hidden tab is still
   forgiven; a raise is charged whole.
 - **A quest's hour and date reads use the sky:** `DailyFrom`, and any date a script tests. A `daily from`
@@ -360,6 +362,84 @@ The machine gets two clocks where DFU has one: `nowSeconds` becomes the characte
   fired and its edge kept (AUDIT TIME; the edge in the second round, or the next tick re-fired the task and
   restarted its waves), and a wave's interval and count stay this holder's.
 
+### 6.3c Quest timers on the world's clock (QCLOCK-WORLD, 2026-10-02) [SUPERSEDES 6.3b, and 6.3a's raise charged whole] [its DELAYS SUPERSEDED BY 6.3d]
+
+Mac: "Before we merge. I want to go back to the quest timer tied to the online world clock instead of the changes we
+just made". Asked which: TIME3's (a rest spends a quest's days) or the shared world clock's, played time only -
+"Shared world clock". So TIMEFREE's quest half is reverted whole (deadlines run out again, delays wait their days,
+bounties lapse, letters wait for morning, the curse quests and the crime-guild letters keep their waits; WEAR-ONE
+stays), and online a quest's countdowns are WORLD7's again:
+
+- **The time lived with the world is charged, one played step at most; a raise is charged nothing**
+  (`quest/clock.js chargeSeconds`: the character's clock still, so 6.3a's seams stand - the session's raises,
+  `raisedSeconds`, are what the charge takes OUT of the gap now, not what it adds whole). A rest, a loiter, a journey,
+  a sentence, training spend no quest days; the hours played do, at the event clock's TimeScale 12 (a quest day is two
+  real hours of play). Time logged off is never counted; a hidden tab is still one step.
+- **CreateFoe's interval keeps the same law** (`quest/actions.js`): the raise is forgiven whole with the lived part past
+  a step.
+- **Offline nothing changes**: the one clock's raw gap, DFU's own - a rest spends a quest's days.
+- What 6.3a built stays: the hour, date and season on the sky; the journal's dates on the event clock; a party copy on
+  its holder's clock (a member's play spends their copy, a rest spends neither); the save's move onto the character's
+  clock. QFAIL-FREE (a failed quest online costs its faction nothing) stays.
+
+Pins: `test/time3_quests.test.js` (the Clock, the wave, the party's copies and the rest re-aimed - a rest spends
+nothing, the same mechanics driven by lived play), `test/world7.test.js`, `test/world5.test.js`,
+`test/auditworld78.test.js` (the charge's source); `ui/enhancedMenu.js` says it at the door. `tools/mutants/time3.json`
+re-aimed (61, all dead): TIME3's law back - the raise charged whole - is a mutant now.
+
+### 6.3d Quest waits on the short wait (REST8, 2026-10-03) [SUPERSEDES 6.3c's delays on played time; 6.3b's DELAY HALF RESTORED]
+
+`Rest-Arc.md` section 8, OPEN 12 (Mac's call: option A). QCLOCK-WORLD's audit measured the waits a rest can no longer
+skip online (121 of them: median 0.3 h of play, p90 24.3 h, the main quest's letters 20-26 h each), and under REST a
+night is a raise, which 6.3c charges nothing. So 6.3b's reading comes back for its delays, and its freeze does not:
+
+- **The reading is 6.3b's, as AUDIT TIMEFREE left it** (`quest/clock.js` `clockIsDeadline`, `isDeadline`, the hand
+  table `ONLINE_DEADLINES` - its closings table, `ONLINE_CLOSINGS`, RETIRED by AUDIT REST II, below - the "at once"
+  clocks, the run-time half and `startedAfterSuccess`): 262 deadlines, 137 delays over the 399 vendored clocks - and
+  REST8 R1's correction: T3 reads `end quest` by what the end ALONE sets off, and now the reward that clears it the same
+  way, so K0C00Y02's gold ("you only have =2mondung_ days") and S0000502's Direnni tower ("will wait inside for
+  =towertime_ days"), which ended unpaid two minutes in under 6.3b's reading, are deadlines: 264 and 135 as REST8 built
+  it, the main quest's deadlines 31. AUDIT REST-PARTY D2's two by hand made it 266 and 133 (D1's artifact hunt was a
+  deadline already - its entry is for the run-time half), AUDIT REST II's three 269 and 130, and AUDIT REST III's two
+  (K0C00Y07's ransom and B0B71Y03's daughter, dead clocks read by their text) 271 and 128, the main quest's deadlines
+  32, listed and pinned.
+- **Online a delay lands on the short wait** (`Clock.waitsShort`): its remainder is cut once to `ONLINE_DELAY_SECONDS`
+  (24 minutes of the character's clock) and then charged as 6.3c charges any clock - the lived step, never a raise -
+  so it lands after about two real minutes of play, and a night spends none of it. Its `=x_` count reads "a few"; the
+  journal walk (`scenes/questBridge.js questLog`) skips it, so no surface counts a letter down.
+- **Online a deadline is 6.3c's, untouched**: played world time, DFU's end (armed at nothing, it fires at once, as
+  offline - 6.3b's T7 guard went with the freeze); its count, "Time remains", the rail and the herald's urgency stand.
+- **The crime-guild letter** is due 24 of the character's minutes after the tally (`crimeGuilds.js`
+  `CRIME_GUILD_LETTER_ONLINE_MINUTES`); **the curse quests** roll every 24 of them while their arm has nothing running
+  (`racialQuests.js` `ONLINE_RACIAL_INTERVAL_MINUTES`, `racialArmIdle`; `worldTick.js runCalendarArms`), not every 38 and
+  84 days.
+- **Kept as 6.3c has them:** a taken bounty lapses and shows its time (AUDIT REST II Q3: one held through 6.3b's
+  never-lapse runs from the first online tick after the update, once - below); a letter waits for town and the sky's morning;
+  `daily from` windows on the sky; spawn intervals, QAE RaiseTime and TrainPc's hours as pacing.
+- **The edge**: a deadline read as a delay fires its end two minutes in, as under 6.3b; a delay read as a deadline only
+  waits its played days now (6.3b froze it). The pins guard the first: `test/rest8_questwaits.test.js` (6.3b's file,
+  re-aimed - every vendored clock ticked past the short wait online: all 128 delays land, not one of the 271 deadlines
+  is cut; 264 and 135 as REST8 built it, then AUDIT REST-PARTY D2's two, AUDIT REST II's three and AUDIT REST III's two) and `test/rest8_audit_timefree.test.js` (AUDIT TIMEFREE's, and R1's). Campaigns `tools/mutants/rest8.json`
+  (22) and `tools/mutants/rest8_audit_timefree.json` (14), all dead.
+- **AUDIT REST II (2026-10-03) - THE RULE, decided:** a clock the quest's own text presents to the player as a TIME
+  LIMIT - a window to act, to return, to fetch something before it is lost - is a deadline, kept at its days of played
+  time online; a clock that only makes the player WAIT is a delay. The reading is the script's guess at it and
+  `ONLINE_DEADLINES` corrects it where the guess is wrong. Q1: R0C11Y03's `_2ndparton_`, AUDIT TIMEFREE's one hand
+  closing, is the time to come back for the reward after the heart is delivered ("if you're not back in =2ndparton_
+  days, %g may forget you even left") - cut to the short wait, the quest failed (-30, unpaid) two minutes after a
+  correct delivery. The reading calls it a deadline; `ONLINE_CLOSINGS` is retired with it (a closing misread as a
+  deadline now only waits its played days - no freeze to stand open for ever - and no other clock needed it). Q2:
+  S0000011's `_S.01_` ("Time is of the essence. I'm sure Gortwog will not wait long." - its end the Necromancers' theft
+  of the chapter) and O0B00Y12's `_S.01_` ("It needs to be in ___contact1_ as soon as possible" - its end the contact
+  gone and the smugglers' assassins sent) are deadlines by hand; the whole corpus was swept once for the shape (a delay
+  whose end moves, hides, kills, sends or closes something) and every verdict is pinned - C0B00Y01's contact and
+  priest, the Ripper's and the Slayer's victims, the letters and the arrivals stay delays (their text names no limit,
+  or names another clock's). Q3: a bounty held through 6.3b's never-lapse carried a `takenAt` days behind the world's
+  clock and lapsed, kills and all, on the first tick after the update - the ledger saves a version (`bountyBoard.js`
+  `BOUNTY_LEDGER_VERSION`), and an older ledger's held rows run from now once, online (`restampNeverLapsed`; offline
+  untouched). Pins `test/auditrest2_quests.test.js`; campaign `tools/mutants/auditrest2_quests.json` (18, all dead).
+- Offline: none of it. DFU's clock, whole.
+
 ### 6.4 Weather keeps its pace
 
 The six zones roll and evolve on the event clock's days and hours, as today: a roll every two real
@@ -374,7 +454,7 @@ temple's cure days and Heart's Day keep their share of the year, in shorter, mor
 year number climbs about 49 a real year. TIME1 reads every date reader its census finds for one that
 counts years, before the years run faster.
 
-### 6.3b Quests are not time (TIMEFREE, 2026-10-02) [SUPERSEDES 6.3a's countdowns online]
+### 6.3b Quests are not time (TIMEFREE, 2026-10-02) [SUPERSEDES 6.3a's countdowns online] [SUPERSEDED BY 6.3c - REVERTED] [its DELAY HALF RESTORED BY 6.3d - the reading, the short wait, the curse arms and the crime-guild letters; the freeze, the walk's blackout, the any-hour letters and the bounties' never-lapse stay reverted]
 
 Mac: "we recently adjusted quest timing for online and im really getting tired of it ... Is there a way we can overhaul
 online quests to not use time and edit anything questwise to make since that depends on time?" Asked what a waiting step
@@ -393,8 +473,8 @@ does online: "Short real wait"; asked whether the bounties, the curse quests and
   (T1), as is, at run time, a task-started deadline once the quest is a success, unless it was started after the
   success (a new limit - T5). Penalties the reading cannot see are deadlines by hand (`ONLINE_DEADLINES`: the cure
   quests' hunters, U0C00Y00's escape, M0B11Y18's mark leaving, Brisienna's month - T6), and one closing after a
-  failure is a delay by hand (`ONLINE_CLOSINGS`: R0C11Y03). Of the 399 vendored clocks, 262 are deadlines and 137
-  delays; the main quest's 30 deadlines are listed and pinned (`test/timefree.test.js`, `test/audit_timefree.test.js`).
+  failure is a delay by hand (`ONLINE_CLOSINGS`: R0C11Y03 - a misreading, retired by AUDIT REST II, 6.3d). Of the 399 vendored clocks, 262 are deadlines and 137
+  delays; the main quest's 30 deadlines are listed and pinned (`test/timefree.test.js`, `test/audit_timefree.test.js` - DELETED by 6.3c).
 - **Online a deadline never runs out**: charged nothing, its sample still moving, so a quest taken offline resumes it
   where it stood. QFAIL-FREE stays as the net under anything else that ends a quest unfinished.
 - **Online a delay lands on the short wait**: its remainder is cut once to `ONLINE_DELAY_SECONDS` (24 minutes of the
@@ -422,7 +502,8 @@ does online: "Short real wait"; asked whether the bounties, the curse quests and
   sentence as it is true when the pane opens - before the switch, "a day in the world is two hours of real time
   until" the switch in the player's own time - and the sentences after it add that a full moon holds a
   lycanthrope for its night alone and that quest timers run on the character's own time, so a rest spends a
-  quest's days as in Daggerfall.]
+  quest's days as in Daggerfall. QCLOCK-WORLD (6.3c): that quest timers run on the world's clock while you
+  play, and resting, waiting and travelling don't spend a quest's days.]
 - **The vampire's nightfall words:** the sky's rate (6.2).
 - **A character's deadlines** ("7 days of your time (14h of play)"): unchanged. They are on the
   character's clock, whose rate does not change.
@@ -434,8 +515,8 @@ does online: "Short real wait"; asked whether the bounties, the curse quests and
   the old functions retire with the next relay deploy that happens anyway. `World-Bosses.md`'s game-time
   column retires with them. The gate panel already shows real local times.
 - **The patch notes,** in the pull request's description: "A day online is now 30 minutes. Nights, full
-  moons and quest hours come round four times as often." [TIME4, as built: `PATCH-NOTES-A-Faster-Sky.md`, the
-  root's file the release composes its notes from, as every patch's.]
+  moons and quest hours come round four times as often." [TIME4, as built; since REL6 the notes live in the pull request's
+  description, never as a file in the tree.]
 
 ## 8. The law in code
 
@@ -565,17 +646,20 @@ terms; 9 is new and not built.
   `test/fixtures/time1_census.json`), the weather's season, the nightfall words, the gates' and raids' local
   times, `tools/skyCutover.mjs`. TIME2: the full moon's night online. TIME3: quests on the character's clock and
   the sky (6.3a). TIME4: the Online pane's sentence, this page, `Lived-Time.md`, `Online-Arc.md`, `Quest-Arc.md`,
-  `World-Bosses.md`, `Clock-Arc.md`, the Port Ledger's departures, the patch notes
-  (`PATCH-NOTES-A-Faster-Sky.md`). The mutant campaigns are `tools/mutants/time1.json`-`time3.json`, all dead.
+  `World-Bosses.md`, `Clock-Arc.md`, the Port Ledger's departures, the patch notes. The mutant campaigns are `tools/mutants/time1.json`-`time3.json`, all dead.
 - 2026-10-02: TIMEFREE (6.3b) - online quests are not time: deadlines never run out, delays land on the short wait,
   no countdowns, bounties never lapse, the curse quests and crime-guild letters on the short wait.
-  `test/timefree.test.js`, `tools/mutants/timefree.json` (10, all dead), `PATCH-NOTES-Time-Free-Quests.md`.
+  `test/timefree.test.js`, `tools/mutants/timefree.json` (10, all dead). [DELETED by 6.3c]
 - 2026-10-02: AUDIT TIMEFREE (`01-Overview/Audit-Timefree.md`): every vendored clock read by hand, the main quest's
   whole; nineteen misread clocks corrected (T1-T6) - among them Brisienna's close, the main quest's endings and
-  letter43, quests that never closed after their reward. `test/audit_timefree.test.js`,
-  `tools/mutants/audit_timefree.json` (14, all dead).
+  letter43, quests that never closed after their reward. `test/audit_timefree.test.js`, [DELETED by 6.3c]
+  `tools/mutants/audit_timefree.json` (14, all dead). [DELETED by 6.3c]
 - 2026-10-02: AUDIT TIMEFREE II: the real machine ticked online and offline (Brisienna, K'avar's letter, a deadline
   across the switch); main merged in; the patch notes' words corrected.
+- 2026-10-02: QCLOCK-WORLD (6.3c): TIMEFREE's quest half reverted before the merge, and online a quest's countdowns
+  charge the time played with the world's clock and never a raise - a rest, a wait or a journey spends no quest days.
+  `test/time3_quests.test.js` re-aimed, `tools/mutants/time3.json` (61, all dead); its patch notes ride the Rest arc's
+  pull request (REL6), "Patch notes: Quest timers on the world's clock".
 - 2026-10-02: AUDIT TIME, four lenses (the sky and the moon; the quests; the hosts, saves and wire; the words and
   the tests). Fixed: the coven's daily re-roll was stamped and saved on the sky - its key is the event clock's day
   now, the prince's day the sky's (`daedraSummoning.js rerollDay`); `tools/skyCutover.mjs` could not move the
@@ -602,3 +686,16 @@ terms; 9 is new and not built.
 - 2026-10-02: SKY-SLOW. The 48 sky zoomed by; the not-yet-live row was replaced with TimeScale 24 (a day every real
   hour, midnight on the hour UTC) at the aligned instant 2026-10-03T17:07:30Z. The Online pane's sentence, the patch
   notes and the pins (`test/time1_sky.test.js`, `test/time2_moon.test.js`, `test/time4_words.test.js`) moved with it.
+- 2026-10-03: REST8 (6.3d, `Rest-Arc.md` section 8, OPEN 12 option A): 6.3b's delay half restored on 6.3c's clock -
+  the reading and its two tables whole, a delay cut once to the short wait, a deadline on played time; the crime-guild
+  letters and the curse arms on the short wait; R1: K0C00Y02's gold and S0000502's tower read as the deadlines they
+  are. `test/rest8_questwaits.test.js`, `test/rest8_audit_timefree.test.js`, `tools/mutants/rest8.json` (22) and
+  `tools/mutants/rest8_audit_timefree.json` (14), all dead.
+- 2026-10-03: AUDIT REST II, the quest clocks (6.3d): THE RULE decided - a time limit the text sets is a deadline;
+  R0C11Y03's return a deadline and `ONLINE_CLOSINGS` retired; S0000011's chapter and O0B00Y12's drop deadlines by hand;
+  269 and 130, the main quest's 32; the bounties held through 6.3b's never-lapse re-stamped once online.
+  `test/auditrest2_quests.test.js`, `tools/mutants/auditrest2_quests.json` (18, all dead).
+- 2026-10-03: AUDIT REST III, the quest clocks (6.3d): K0C00Y07's ransom and B0B71Y03's daughter - dead clocks whose
+  text sets a limit, read "a few days" online - deadlines by hand, 271 and 128; a held bounty's day moves with the lane
+  (Bring online lapsed a ledger of this build's bounties on the first tick). `test/auditrest3.test.js`,
+  `tools/mutants/auditrest3.json`.

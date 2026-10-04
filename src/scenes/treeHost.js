@@ -27,7 +27,7 @@
 // ═══════════════════════════════════════════════════════════════════
 import { trees, nodeKey, WOOD_TABLES } from '../net/nodeLaw.js';
 import { FELLED } from '../ai/cover.js';   // AUDIT TACT B1: a felled tree is no cover
-import { tierOpen, TIER_RANKS, woodAxeBand, chopsFor, storesFullIn, GROUND_WHERE, GROUND_WHERE_WORDS } from '../net/professionLaw.js';
+import { tierOpen, TIER_RANKS, woodAxeBand, chopsFor, storesFullIn, fullWordsIn, GROUND_WHERE, GROUND_WHERE_WORDS } from '../net/professionLaw.js';
 import { createChopAct } from '../systems/chopAct.js';
 import { FT } from '../systems/foragingLaw.js';
 import { foragingActRefusal, foragingToolIn, actChecksRefusal } from '../systems/foragingInstall.js';
@@ -122,7 +122,7 @@ export function sinkFelled(forest, sunk, renderer) {
 }
 
 /** A tree's plan: what E does at it, or what it needs (a rank short: the rank, `needsRank` - VEIN-NEED). */
-export function treePlan({ node, taken, counting, rank, axe, storesFull, today, cap, lumberjack = false }) {
+export function treePlan({ node, taken, counting, rank, axe, storesFull, today, cap, lumberjack = false, fullWords = 'Stores full' }) {   // BAG1: `fullWords` the book's
   const name = materialLabel(node.material).replace(/ Log$/, '');
   const verb = `Chop ${name}`;
   const rankWord = `Logging ${rank} - ${chopsFor(node.tier, lumberjack)} chops`;   // AUDIT 30 A8: a Lumberjack's two fewer, as the act counts them
@@ -130,7 +130,7 @@ export function treePlan({ node, taken, counting, rank, axe, storesFull, today, 
   if (!tierOpen(rank, node.tier)) return { harvest: 'logs', verb, rest: `needs Logging ${TIER_RANKS[node.tier - 1]}`, ready: false, needsRank: TIER_RANKS[node.tier - 1] };
   if (!axe) return { harvest: 'logs', verb, rest: 'needs a Wood-Axe', ready: false };
   if (today >= cap) return { harvest: 'logs', verb, rest: `Logging done for today (${cap})`, ready: false };
-  if (storesFull(node.material)) return { harvest: 'logs', verb, rest: `Stores full - ${materialLabel(node.material)}`, ready: false };
+  if (storesFull(node.material)) return { harvest: 'logs', verb, rest: `${fullWords} - ${materialLabel(node.material)}`, ready: false };
   return { harvest: 'logs', verb, rest: rankWord, ready: true };
 }
 
@@ -184,7 +184,7 @@ export function treeKind({ book, renderer = null, flatBatchAabb = null, getTextu
       const plan = treePlan({
         node: n, taken: book.taken(n.key, 'logs'), counting: book.counting(n.key, 'logs'), rank: rank('logging'),
         lumberjack: specs?.('logging')?.[50] === 'lumberjack',
-        axe: !!foragingToolIn(entity, FT.WoodAxe), storesFull: (key) => storesFullIn(book, key),   // STORES-ROOM: every origin, as the service counts
+        axe: !!foragingToolIn(entity, FT.WoodAxe), storesFull: (key) => storesFullIn(book, key), fullWords: fullWordsIn(book),   // STORES-ROOM: every origin, as the service counts
         today: book.state.today?.logging ?? 0, cap: book.state.caps?.harvests ?? 60,
       });
       return { ...plan, profession: 'logging' };
@@ -199,6 +199,7 @@ export function treeKind({ book, renderer = null, flatBatchAabb = null, getTextu
           gentle: getPref('gentleActs') === true,
         }),
         harvest: plan.harvest, tool: foragingToolIn(entity, FT.WoodAxe), profession: 'logging', label: '',
+        material: n.material,   // AUDIT BAG1 B4: the logs the tree is, for the held count
         hand: (a) => (a.tool ? { ...AXE_HAND, ...axeHandFrame(a.act.swing) } : null),
       };
     },

@@ -1393,7 +1393,7 @@ test('FIELD-GUN18: the orb is scaled off the archive’s own size, at BOTH lanes
 
 test('FIELD-GUN18: the pool’s scale really scales - it was multiplying an OBJECT by a number', () => {
   // THE BUG THIS ASK WALKED INTO. `billboardSize` answers a {w, h}
-  // RECORD (rmbFlats.js:166; billboardXml's override keeps the shape),
+  // RECORD (rmbFlats.js:174; billboardXml's override keeps the shape),
   // and the branch that applied `scale` read:
   //
   //     Array.isArray(size) ? size.map(v => v * scale) : size * scale
@@ -1499,7 +1499,7 @@ test('FIELD-GUN19: the shot leaves the barrel through the WORLD STRIP, not the c
   // for this one reader; a draw that forgot it would leave every shot
   // high again with nothing else to show for it.
   const rig = readFileSync('src/combat/weaponRig.js', 'utf8');
-  assert.match(rig, /_tlDrawn = \{[^}]*viewport: renderer\.worldViewportRect \?\? null[^}]*\}/,
+  assert.match(rig, /_tlDrawn = \{ rect: \{ \.\.\.rect, x: rx, y: ry \},[^}]*viewport: renderer\.worldViewportRect \?\? null[^}]*\}/,   // RETRO-UI: the rect measured back on the real canvas
     'drawThunderlock parks the strip the world was drawn into');
   const renderer = readFileSync('src/render/renderer.js', 'utf8');
   assert.match(renderer, /get worldViewportRect\(\)/, 'the renderer exposes the frame\'s strip');

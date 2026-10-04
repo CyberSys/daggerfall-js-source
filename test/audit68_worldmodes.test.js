@@ -171,9 +171,9 @@ test('AUDIT 68 X3-transition-build-race: every door build is re-validated before
   assert.match(interior, /if \(!live\(\)\) \{ abandonContext\(ctx\); return false; \}/, 'the building build checks it is still wanted');
   const dungeon = slice(WM, 'const ctx = await buildDungeonContext(', 'dungeonCtx = ctx;');
   assert.match(dungeon, /if \(!live\(\)\) \{ abandonContext\(ctx\); return false; \}/, 'and so does the dungeon build');
-  assert.match(WM, /async function enterInteriorCore\(hit, entries, restore = null\) \{\s*return gatedTransition\(/);
+  assert.match(WM, /async function enterInteriorCore\(hit, entries, restore = null\) \{\s*const link = host\.linkedBankCabin\?\.\(\);\n\s*if \(!hit\.sailingCabin && !restore && link && SHIP_INTERIOR_MAP_IDS\[link\.type\] === questSceneCtx\?\.\(\)\?\.mapId\) return host\.enterLinkedBankCabin\?\.\(\) \?\? false;\n\s*return gatedTransition\(/);
   assert.match(WM, /async function tryEnterDungeon\(hit, entries, \{ preferEnterMarker = false, fromLoad = false \} = \{\}\) \{\s*return gatedTransition\(/);   // MAP-KEEP: and the load's arm rides it
-  assert.match(slice(WM, 'forceExitToExterior({ cacheScene = true } = {}) {', 'const wasInside'), /transitionGate\.abort\(\);/, 'the forced exit abandons a pending build');
+  assert.match(slice(WM, 'forceExitToExterior({ cacheScene = true, load = false } = {}) {', 'const wasInside'), /transitionGate\.abort\(\);/, 'the forced exit abandons a pending build');
   const w = rd('src/scenes/world.js');
   assert.match(slice(w, 'async function _teleportToPixel(', 'refreshSeason('), /modes\?\.abortTransition\?\.\(\);/, 'every teleport, travel, recall and load landing moves the world');
   const load = slice(w, 'async function worldQuickLoad(', 'const extras = restorePlayer(');
@@ -190,7 +190,7 @@ test('AUDIT 68 S23-dungeon-commit-before-await: nothing fallible is awaited betw
 });
 
 test('AUDIT 68 X3-ba-forceexit-rain: the forced exit raises the exterior transition both real doors raise', () => {
-  const force = slice(WM, 'forceExitToExterior({ cacheScene = true } = {}) {', 'get interiorCollider()');
+  const force = slice(WM, 'forceExitToExterior({ cacheScene = true, load = false } = {}) {', 'get interiorCollider()');
   const tail = force.slice(force.indexOf('AUDIT 63r F30'));
   assert.match(tail, /if \(wasInside\) \{\s*immersiveFootsteps\.onTransitionExterior\(\);\s*betterAmbience\.onTransition\(null\);\s*\}/,
     'a Recall, a quest teleport or a load out of a building left the indoor rain loop playing in the street');
@@ -230,4 +230,21 @@ test('AUDIT 68 S23-dungeon-npc-behaviours-not-destroyed: the dungeon exit destro
   assert.match(WM, /function teardownDungeonQuestFlats\(\) \{\s*teardownStands\(dungeonQuestFlats, dungeonCtx\?\.people\);/);
   assert.match(WM, /function teardownQuestFlats\(\) \{\s*teardownStands\(questFlats, interiorCtx\?\.people\);/);
   assert.match(slice(WM, 'function teardownStands(', 'function teardownDungeonQuestFlats('), /destroyPeopleBehaviours\(people\);/);
+});
+
+test('WD3 (AUDIT WD3 G3): an inside save finds its building by its KEY when the block\'s index moved - a block a world-data mod adds is numbered in the order a session first reads it, so the saved index can name nothing (or another added block) next session', async () => {
+  const { entry, saved } = tavernDoor();
+  const run = async (key) => {
+    const said = [];
+    const modes = await buildModes({
+      doorTargets: () => [entry],
+      buildingDataForDoor: () => ({ buildingKey: key }),
+      pipeline: { getGpuMesh: async () => { throw new Error('fetch failed'); }, cpuModels: new Map(), getTexture: async () => null, uploadRecord: () => {}, uploadRecordFrame: () => {}, arch: null, palette: null, getMachineryParts: () => {} },
+    });
+    const err = console.error; console.error = (...a) => said.push(a.join(' '));
+    try { await modes.restoreInterior({ ...saved, door: { ...saved.door, blockIndex: saved.door.blockIndex + 36 } }, [0, 0, 0]); } finally { console.error = err; }
+    return said.some((l) => l.includes('restoreInterior failed'));   // the entry was reached (its build then failed, as above)
+  };
+  assert.equal(await run(7), true, 'the saved building, by its key, though its block\'s index moved');
+  assert.equal(await run(8), false, 'another building at the same record and door is not it');
 });

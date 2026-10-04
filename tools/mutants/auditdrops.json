@@ -29,7 +29,7 @@
   {
     "name": "AD-A1-action-types-not-compared",
     "file": "src/systems/questShare.js",
-    "old": "    for (let j = 0; j < acts.length; j++) if (!acts[j] || acts[j].type !== r.actions[j].type) return 'action';",
+    "old": "    for (let j = 0; j < acts.length; j++) if (!sharedActionMatches(r.actions[j], acts[j])) return 'action';",
     "new": "",
     "tests": [
       "test/auditdrops.test.js"

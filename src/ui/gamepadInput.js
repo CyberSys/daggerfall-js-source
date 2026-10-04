@@ -61,6 +61,7 @@ import {
   LOOT_DPAD, HELM_DPAD, plusDpadByCode, NEXT_MODE, plusStickSens, scaleStick, plusBindCapturing, lootPrompts, quickActApi, cycleTab, spatialStep, scrollAt, domTargetAt, domPointer, domHoverChange, interactiveAt, markHover, showPrompts, windowPrompts, activeTabStrip,
 } from './plusPad.js';
 import { GAUNTLET_POINT, GAUNTLET_PRESS } from './plusCursor.js';
+import { dfuCursorUrl } from './cursor.js';   // CLASSIC-CURSOR: the pad's arrow is DFU's controllerCursorImage, the mouse's own
 import { overlayOpen } from './enhancedOverlays.js';   // PADPLUS2: the enhanced doors' registry - a DOM window is up
 import { getInt, getBool } from '../systems/settings.js';
 import { quickLootSelection, quickLootWheel } from '../systems/quickLoot.js';   // PADPLUS6: the loot plaque's list, on the d-pad   // PADPLUS2: the swing mode decides the stroke
@@ -106,7 +107,10 @@ const MOUSE_CODE_OF_UI = Object.freeze({ LeftClick: 'Mouse0', RightClick: 'Mouse
 const DOM_BUTTON_OF_UI = Object.freeze({ LeftClick: 0, MiddleClick: 1, RightClick: 2 });
 /** controllerCursorWidth / Height (:138-139). */
 export const CURSOR_SIZE = 32;
-const CURSOR_SVG = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M4 2 L4 26 L10 20 L15 30 L19 28 L14 18 L22 18 Z" fill="#fff" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/></svg>');
+/** CLASSIC-CURSOR (FIELD BUGS 2026-10-03): `controllerCursorImage` (InputManager :40, drawn at :569) is DFU's default
+ *  cursor's own texture - Cursor2.png, the mouse's arrow (ui/cursor.js) - in the 32x32 rect above. A white SVG arrow
+ *  of the port's own stood in for it. */
+const CURSOR_ART = dfuCursorUrl();
 
 function defaultMakeEvent(type, init) {
   const Ctor = type.startsWith('pointer') && typeof globalThis.PointerEvent === 'function' ? globalThis.PointerEvent : globalThis.MouseEvent;
@@ -164,6 +168,7 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
   let swinging = false;
   let lastMouse = null;          // Input.mousePosition, the port's last real mouse point (client px)
   let cursor = null;             // controllerCursorPosition, client px
+  const capturedHeld = new Set(); // A captured press cannot become a UI gesture before release.
   const cursorHeld = {};         // the UI click actions down at the cursor
   let cursorEl = null;
   // PADPLUS1: the Plus layer's own state - the run latch, the crossbar's held buttons, the menu buttons' last frame,
@@ -200,7 +205,7 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
     if (typeof document === 'undefined' || !document.body) return;
     if (on && !cursorEl) {
       cursorEl = document.createElement('div');
-      cursorEl.style.cssText = `position:fixed;left:0;top:0;width:${CURSOR_SIZE}px;height:${CURSOR_SIZE}px;pointer-events:none;z-index:6;background:url("${CURSOR_SVG}") no-repeat;display:none`;
+      cursorEl.style.cssText = `position:fixed;left:0;top:0;width:${CURSOR_SIZE}px;height:${CURSOR_SIZE}px;pointer-events:none;z-index:6;background:url("${CURSOR_ART}") no-repeat;image-rendering:pixelated;display:none`;
       document.body.appendChild(cursorEl);
     }
     if (!cursorEl) return;
@@ -212,7 +217,7 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
       cursorEl.style.zIndex = plusNow ? '2147483001' : '6';
       cursorEl.style.width = plusNow ? '31px' : `${CURSOR_SIZE}px`;
       cursorEl.style.height = plusNow ? '32px' : `${CURSOR_SIZE}px`;
-      cursorEl.style.backgroundImage = `url("${plusNow ? GAUNTLET_POINT : CURSOR_SVG}")`;
+      cursorEl.style.backgroundImage = `url("${plusNow ? GAUNTLET_POINT : CURSOR_ART}")`;
     }
     if (plusNow) {
       const pressed = Object.values(cursorHeld).some(Boolean);
@@ -497,6 +502,7 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
       analog = null;
       if (swinging) { swinging = false; hooks.attack?.(0, 0, false); }
       if (usingController) { usingController = false; setControllerLook(false); }
+      capturedHeld.clear();
       setPadFamily(null);   // QS3: a glyph for a pad nobody is holding is a lie
       cursorRelease(); cursorShow(false);
       P.runLatch = false; P.xbHeld.clear(); P.xbPrev.clear(); P.menuPrev.clear();
@@ -511,7 +517,8 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
     unityButtons(pad, buttons);
     const b = bindings();
     if (plus && !P.layout) { P.layout = true; try { ensurePlusPadLayout(b); } catch (e) { console.warn('[gamepad] Plus layout:', e?.message ?? e); } }
-    const padDown = (code) => padDownIn(axes, code) && !(plus && P.stale.has(code));   // PADPLUS3: a stale button is up
+    for (const code of capturedHeld) if (!padDownIn(axes, code)) capturedHeld.delete(code);
+    const padDown = (code) => padDownIn(axes, code) && !capturedHeld.has(code) && !(plus && P.stale.has(code));   // PADPLUS3: a stale button is up
     const wanted = new Set(buttons);
     // axis keys: all thirty-two, polled (GetAxisKey) - GetAnyKeyDown
     // walks every one of them (KeyCodeList :1573-1587), which is how
@@ -604,17 +611,18 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
     // the Options press in a window. `swallowed` are buttons it took: no key, no click for them this frame.
     const swallowed = plus ? plusFrame({ b, wanted, overlay, dt, padDown, moving: !!analog, axes, s }) : null;
     // PADPLUS10: while the bindings window waits for a button, a press is only its own code - no Back, no click
-    const binding = plus && plusBindCapturing();
+    const binding = !!capturing();
+    if (binding) for (const code of wanted) if (padDownIn(axes, code)) capturedHeld.add(code);
     const uiDown = (code) => !binding && padDown(code) && !swallowed?.has(code);
     // the UI buttons as the mouse's (GetMouseButton :1050-1063) and Back as Escape (:1065-1068)
     for (const [ui, mouse] of Object.entries(MOUSE_CODE_OF_UI)) {
       const code = getJoystickUIBinding(b, ui);
-      if (code && uiDown(code) && !freed) wanted.add(mouse);   // PADMOUSE: freed, the click lands AT the pointer (below), not as a world key
+      if (code && uiDown(code) && !pointerMode) wanted.add(mouse);   // PADMOUSE: freed, the click lands AT the pointer (below), not as a world key
     }
     const back = getJoystickUIBinding(b, 'Back');
-    if (back && uiDown(back) && overlay) { const c = codeOf(b, 'Escape'); if (c) wanted.add(c); }
-    // PADMOUSE: in the pad's mouse mode a click button is only a click - not its game action as well
-    if (freed) for (const ui of Object.keys(DOM_BUTTON_OF_UI)) { const c = getJoystickUIBinding(b, ui); if (c) wanted.delete(c); }
+    if (back && uiDown(back) && overlay) { wanted.delete(back); const c = codeOf(b, 'Escape'); if (c) wanted.add(c); }
+    // UI pointer mode owns clicks: avoid raw pad and Mouse aliases advancing a dialog before the pointer event.
+    if (pointerMode && !binding) for (const ui of Object.keys(DOM_BUTTON_OF_UI)) { const c = getJoystickUIBinding(b, ui); if (c) wanted.delete(c); }
     // edges: presses first, then the releases of what is no longer wanted
     for (const code of wanted) press(code);
     releaseAll(wanted);
@@ -673,6 +681,6 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
     usingController: () => usingController,
     cursor: () => (cursor ? [cursor[0], cursor[1]] : null),
     held: () => new Set(held),
-    dispose() { padHideMouse(false); showPrompts(null); markHover(null); if (P.xbSet !== null) crossbarApi()?.setActive?.(null); cursorRelease(); cursorShow(false); cursorEl?.remove?.(); cursorEl = null; releaseAll(); setControllerLook(false); setPadFamily(null); window.removeEventListener('mousemove', onMouseMove); window.removeEventListener('keydown', onKeyDown, true); globalThis.document?.removeEventListener?.('pointerlockchange', onLockChange); },
+    dispose() { capturedHeld.clear(); padHideMouse(false); showPrompts(null); markHover(null); if (P.xbSet !== null) crossbarApi()?.setActive?.(null); cursorRelease(); cursorShow(false); cursorEl?.remove?.(); cursorEl = null; releaseAll(); setControllerLook(false); setPadFamily(null); window.removeEventListener('mousemove', onMouseMove); window.removeEventListener('keydown', onKeyDown, true); globalThis.document?.removeEventListener?.('pointerlockchange', onLockChange); },
   };
 }

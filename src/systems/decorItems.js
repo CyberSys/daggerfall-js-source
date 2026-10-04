@@ -35,6 +35,7 @@ import { itemLongName } from './itemInfo.js';
 import { getMagicItemTemplates, ITEM_GROUP_NAME_BY_CLASS } from './loot.js';
 import { TEMPLATES, isMap } from './useItem.js';
 import { isSummoned } from './inventory.js';
+import { isBagItem } from '../net/bagLaw.js';   // AUDIT ONE-BAG 2: the Materials Bag stands as no piece
 import { decorFlatLight } from './decorCatalogue.js';
 import { itemDyeColor, itemDyeTarget } from './itemDye.js';
 import { decorItemOf, decorIsMount, DECOR_ARCHIVE_MAX, DECOR_RECORD_MAX, DECOR_ARTIFACT_UNKNOWN } from '../net/decorLaw.js';
@@ -91,6 +92,9 @@ export function decorDescriptorOf(item) {
 export function decorStandOf(item) {
   if (!item || item.questItem || item.equipSlot != null || isSummoned(item) || isMap(item)) return null;
   if (DECOR_OWN_NEVER_GROUPS.has(item.group) || DECOR_OWN_KEPT_BACK.has(item.templateIndex)) return null;
+  // AUDIT ONE-BAG 2: the Materials Bag is never set out - a piece leaves the pack with no transfer ladder (a loaded bag's list
+  // stranded) and comes back with none (a second bag, held beside one bought meanwhile)
+  if (isBagItem(item)) return null;
   const flat = decorItemFlat(item);
   const descriptor = flat ? decorDescriptorOf(item) : null;
   if (!flat || !descriptor) return null;

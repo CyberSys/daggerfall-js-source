@@ -49,8 +49,8 @@
 // systems/court.js:249 (ItemCollection.GetCreditAmount, ItemCollection
 // .cs:108-118), spent letters-before-coins with the shortfall returned
 // by deductGold at court.js:291 (DeductGoldAmount, PlayerEntity.cs
-// :1324-1354), banked at systems/banking.js:728/:746, and described by
-// the 1007 text at systems/itemInfo.js:105. Nothing was ever owed at
+// :1324-1354), banked at systems/banking.js:744/:762, and described by
+// the 1007 text at systems/itemInfo.js:106. Nothing was ever owed at
 // THIS surface anyway - DaggerfallInventoryWindow.cs has no
 // letter-of-credit arm at all.
 
@@ -113,6 +113,7 @@ import { firstHotkey } from '../systems/dialogShortcuts.js';   // A8: the Dagger
 import { expandRowValues } from '../systems/quest/questMacros.js';   // MACROS1: a used item's record through its own context (%map)
 import { magicPowersLines } from '../systems/itemPowers.js';   // MACRO-3: %mpw
 import { itemIsIdentified } from '../systems/tradeModes.js';   // MACRO-3: MagicPowers' identified arm
+import { bagMayLeave } from '../systems/materialsBag.js';   // AUDIT2 BAG1 H11: a loaded bag stays - the one test
 
 export const INV_RECTS = Object.freeze({
   tabWeapons: [0, 0, 92, 10],        // weaponsAndArmorRect
@@ -936,6 +937,7 @@ export class NativeInventoryWindow {
         getQuest: this.hooks.getQuest ?? null,
         groundRefusal: groundRefusalOf(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne }),   // HOUSE-DROP: a floor that refuses a drop
         capacity: storeCapacityOf(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne }),   // COMPANION-WEIGHT: a companion's pack takes what fits
+        bagLoaded: !bagMayLeave(this.hooks.entity),   // BAG1: a loaded Materials Bag never leaves the pack (AUDIT2 H11: the one test)
       });
       if (!plan.ok) { this._refuse(plan.refusal); return; }
       // AUDIT 26 F156: the map interception (:1471-1478) - the reveal

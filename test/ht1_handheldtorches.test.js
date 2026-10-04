@@ -827,7 +827,7 @@ test('HT1: the rig runs the component beside the widget - one per rig, the pool 
   assert.match(rig, /const _torchesOn = handheldOn\(\);\s*(?:\/\/[^\n]*\n\s*)*if \(!_torchesOn && _handheldWasOn\) handheld\.dispose\(\);[^\n]*\n\s*_handheldWasOn = _torchesOn;[\s\S]{0,3000}?if \(widgetOn\(\) \|\| _torchesOn \|\| shieldOn\(\) \|\| thunderlockHeld\(\)\) \{/);
   // AUDIT-EOTB2: the torch hand's third-person gate asks the sprite body too (Eye Of The Beholder's ToggleBillboard hides the FPV hand)
   assert.match(rig, /if \(_torchesOn\) \{\s*bindTorches\(\);\s*const tctx = \{\s*renderer, canvas: c, entity, machine: playerWeapon\.machine, sheathed: playerWeapon\.sheathed, usingRightHand: playerWeapon\.usingRightHand,\s*castPlaying: fpsSpellCasting\.isPlayingAnim, spellArmed: spellArmed\(\), thirdPerson: fpArm\.thirdActive\(\) \|\| eotbHidesWeapon\(\),[^\n]*\n\s*climbing: !!cam\?\.climbing, swimming: !!mv\.swimming, transformedLycanthrope: !!entity && isTransformedLycanthrope\(entity\),/);
-  assert.match(rig, /look, swingHeld: _held, cursorActive: cursorActive\(\), camera: camThunk, collider: \(\) => collider\?\.\(\) \?\? null,\s*actionDown: \(action\) => !!actionDown\?\.\(action\), sheathWeapons: \(\) => \{ if \(!playerWeapon\.sheathed\) playerWeapon\.toggleSheath\(\); \},\s*\};\s*handheld\.update\(dt, tctx\);\s*handheld\.lateUpdate\(dt, tctx\);/);
+  assert.match(rig, /look: lookAxes, swingHeld: _held, cursorActive: cursorActive\(\), camera: camThunk, collider: \(\) => collider\?\.\(\) \?\? null,\s*actionDown: \(action\) => !!actionDown\?\.\(action\), sheathWeapons: \(\) => \{ if \(!playerWeapon\.sheathed\) playerWeapon\.toggleSheath\(\); \},\s*\};\s*handheld\.update\(dt, tctx\);\s*handheld\.lateUpdate\(dt, tctx\);/);
   // MAC-I: every sprite in this seam takes the frame's TINT now (FPSWeapon.Tint, off the room's light);
   // the ORDER and the returns are what this pin holds, and neither moved.
   // SW1: the shield draws between the arms' return and the torch hand -
@@ -903,7 +903,7 @@ test('HT1: the five hosts - each owns a pool, feeds the rig its raw keys and the
   assert.match(dc, /delete w\.droppedLoot;\s*delete w\.droppedTorches;/, 'the shared world carries nothing of the player\'s own');
   assert.match(dc, /waterLevel: \(\) => \(_fpFeet \? blockWaterLevelAt\(/, 'the dungeon\'s water plane for the douse');
   assert.match(dc, /droppedTorches\.destroyAll\(\);\s*weaponRig\.dispose\?\.\(\);/, 'AUDIT 66 F5/F8: the pool and the rig\'s component leave with the dungeon, beside the foes\' batches and the wall torches\' loops');
-  assert.match(dj, /\.\.\.ctx\.torchLights\(\)\)/); assert.match(dj, /\.\.\.ctx\.torchBatches\(\)\]/); assert.match(dj, /key\.startsWith\('droppedTorch:'\) \|\| key\.startsWith\('camp:'\) \|\| key\.startsWith\('hearth:'\)\)\) \{/);   // AUDIT-WH2 L2-F1/F2: the fires joined this ladder - ?dungeon stood and NAMED camp:/hearth: and answered neither
+  assert.match(dj, /\.\.\.ctx\.torchLights\(\)\)/); assert.match(dj, /\.\.\.ctx\.torchBatches\(\)\]/); assert.match(dj, /key\.startsWith\('droppedTorch:'\) \|\| key\.startsWith\('camp:'\) \|\| key\.startsWith\('hearth:'\)(?: \|\| key\.startsWith\('search:'\))?\)\) \{/);   // AUDIT-WH2 L2-F1/F2: the fires joined this ladder (SEARCH1: and the searchables after them) - ?dungeon stood and NAMED camp:/hearth: and answered neither
   assert.match(dj, /actionDown: \(action\) => held\(keys, action\)/);
 });
 

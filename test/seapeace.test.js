@@ -30,7 +30,7 @@ const world = (o = {}) => ({ now: 0, dt: 0.1, seaY: 0, wind: [0, 0, WIND_RATED],
 const shipOf = (classId, o = {}) => createSeaShip({ id: o.id ?? classId, seed: o.seed ?? 1, classId, pos: o.pos ?? [0, 0, 0], yaw: o.yaw ?? 0, temper: o.temper ?? null });
 const contactOf = (s, o = {}) => ({ id: s.id, kind: 'ship', faction: s.cls.faction, pos: s.pos, vel: [0, 0, 0], speed: 0, yaw: s.yaw, hull: s.hull, ship: s, ...o });
 const me = (o = {}) => ({ id: 'me', kind: 'player', pos: [0, 0, 0], vel: [0, 0, 0], speed: 0, ...o });
-const powerOfHull = (hull, o = {}) => fightingPower({ hull, hullHp: [60, 150, 420, 520, 560][hull], ...o });
+const powerOfHull = (hull, o = {}) => fightingPower({ hull, hullHp: hullBuild(hull).hullHp, ...o });   // PIN MOVED (TOUGHER-SHIPS): her build's hull
 
 // ── the sea's guns are for those aboard ────────────────────────────────────────────────────────────────────────────
 
@@ -154,9 +154,9 @@ test('SEA-PEACE the host sizes me up: my boat\'s power off her build and her hur
   const big = await sea({ hull: HULL.SmallShip });
   big.boat.crewed = false;
   const c = big.host._contacts().find((x) => x.kind === 'player');
-  assert.deepEqual(c.power, fightingPower({ hull: HULL.SmallShip, hullHp: 420, crew: 24, crewed: false }), 'a boat without her crew loads single-handed');
+  assert.deepEqual(c.power, fightingPower({ hull: HULL.SmallShip, hullHp: hullBuild(HULL.SmallShip).hullHp, crew: 24, crewed: false }), 'a boat without her crew loads single-handed');
   big.boat.crewed = true;
-  assert.deepEqual(big.host._contacts().find((x) => x.kind === 'player').power, fightingPower({ hull: HULL.SmallShip, hullHp: 420, crew: 24 }));
+  assert.deepEqual(big.host._contacts().find((x) => x.kind === 'player').power, fightingPower({ hull: HULL.SmallShip, hullHp: hullBuild(HULL.SmallShip).hullHp, crew: 24 }));
   const w = big.host._sea.get(big.host.spawnShip('pirateBrig', { range: 300, temper: 'wary' }));
   big.run(4);
   assert.equal(w.ship.mode, 'cruise', 'a stronger ship: she sails on');

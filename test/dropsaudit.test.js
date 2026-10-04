@@ -73,7 +73,11 @@ test('F1 F3 F4: the loss nodes in the HUD tracks and the system dress on the Sta
   assert.match(hud, /const ghost = el\('i', 'hud-ghost'\);/);
   assert.match(hud, /track\.append\(ghost, \.\.\.chunks\); armChunks\(chunks\);/);
   assert.match(hud, /foeTrack\.append\(foeGhost, \.\.\.foeChunks\); armChunks\(foeChunks\);/);
-  assert.match(rd('src/ui/enhancedMenu.js'), /const detail = el\('div', 'px-qdetail px-sys'\);/);
+  // PIN MOVED (HOLDINGS): the Holdings page wears the same dress - the pin reads the STATS page's own detail, by its F3 mark
+  // (a match anywhere in the menu was satisfied by the Holdings page's and let the Stats page's go undressed)
+  assert.match(rd('src/ui/enhancedMenu.js'), /const detail = el\('div', 'px-qdetail px-sys'\);   \/\/ DROPS-AUDIT F3/);
+  const stats = rd('src/ui/enhancedMenu.js').slice(rd('src/ui/enhancedMenu.js').indexOf('function pauseStats(body)'));
+  assert.match(stats.slice(0, stats.indexOf('\n}\n')), /const detail = el\('div', 'px-qdetail px-sys'\);/, 'inside pauseStats');
   assert.match(ENHANCED_CSS, /color: var\(--dim\); background: transparent; border: 1px solid var\(--iron\);\n\}\n\.hmpick\.on \{ color: var\(--brass\); border-color: var\(--brass\); background: #12161b; \}/);
   assert.match(ENHANCED_CSS, /\.trade-shell \.packcol \{ padding: 0 2px 18px; overflow-y: auto; min-height: 0; \}/);
   assert.doesNotMatch(ENHANCED_CSS, /\.trade-shell \.remotehead \{/);

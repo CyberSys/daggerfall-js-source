@@ -33,7 +33,10 @@ import { useItem } from '../src/systems/useItem.js';
 import { isFood, foodOf, FOOD, TEMPLATE, rotFoodDay } from '../src/systems/survival/food.js';
 import { SURVIVAL_TEMPLATES } from '../src/systems/survival/items.js';
 import { survivalOf } from '../src/systems/survival/needs.js';
-import { placeCampItem, CAMP_KIND } from '../src/systems/survival/camp.js';
+import { spendCampNight, fieldCookKeeps, CAMP_KIND } from '../src/systems/survival/camp.js';
+import { createCamps } from '../src/scenes/camps.js';
+import { setSharedClock } from '../src/systems/worldTick.js';
+import { CAMPFIRE_USES } from '../src/systems/survival/items.js';
 import { createSurvivalItem } from '../src/systems/survival/items.js';
 import { fatigueLossMultiplierFor } from '../src/scenes/shared.js';
 import { ITEM_FIELDS } from '../src/systems/itemFields.js';
@@ -424,20 +427,28 @@ test('PROF9 items: what eating does - a dish eaten again renews its effect, neve
   setPref('survival', 'casual');
 });
 
-test('PROF9 items: a Field Cook lights a Campfire Kit\'s fire without its charge (3.3) - C&C\'s placing, its `keep`; a tent is no campfire', () => {
-  const kitItem = createSurvivalItem(TEMPLATE.Campfire);
-  const list = [kitItem];
-  const uses = kitItem.currentCondition;
-  const at = { feet: [0, 0, 0], yaw: 0, probe: () => 1, place: {} };
-  const kept = placeCampItem(kitItem, list, { ...at, keep: true });
-  assert.deepEqual([kept.ok, kept.camp.kind, kitItem.currentCondition, list.length], [true, CAMP_KIND.Fire, uses, 1]);
-  const spent = placeCampItem(kitItem, list, { ...at });
-  assert.deepEqual([spent.ok, kitItem.currentCondition], [true, uses - 1]);
-  const tent = createSurvivalItem(TEMPLATE.CampingEquipment);
-  const tl = [tent];
-  const tu = tent.currentCondition;
-  placeCampItem(tent, tl, { ...at, keep: true });
-  assert.equal(tent.currentCondition, tu - 1, 'a Field Cook\'s is a campfire\'s');
+test('PROF9 items: a Field Cook\'s night at their own Campfire spends no fuel (3.3 under REST2 - the kit\'s lit charge became a night\'s fuel): a Campfire\'s alone - an Ember Jar\'s night, a tent\'s wear and an old save\'s kit fire spend as ever; on the pool the same, and anyone else\'s night spends one (mutants: the perk unread; a tent or an old save\'s kit fire kept - AUDIT REST III F12: a jar\'s keep is recorded equivalent, the game never writes a jar with fuel)', () => {
+  const night = (rec, fc) => { const r = spendCampNight(rec, 0, fc); return [r.spent, !!r.kept, rec.wear]; };
+  assert.deepEqual(night({ kind: CAMP_KIND.Fire, fuel: true, wear: 8, litUntil: 99 }, true), [false, true, 8], 'a Field Cook\'s own Campfire: every night of fuel kept');
+  assert.deepEqual(night({ kind: CAMP_KIND.Fire, fuel: true, wear: 8, litUntil: 99 }, false), [true, false, 7], 'anyone else\'s: one night spent');
+  assert.deepEqual(night({ kind: CAMP_KIND.Fire, jar: true, wear: 1, litUntil: 99 }, true), [true, false, 0], 'an Ember Jar\'s one night is spent (its record carries no fuel - placeCampItem\'s)');   // AUDIT REST II (L8-5): the shape the game writes
+  assert.deepEqual(night({ kind: CAMP_KIND.Tent, wear: 5, litUntil: 99 }, true), [true, false, 4], 'a tent wears as ever');
+  assert.deepEqual(night({ kind: CAMP_KIND.Fire, wear: 3, litUntil: 99 }, true), [true, false, 2], 'an old save\'s kit fire has no fuel of its own to keep');
+  assert.deepEqual([fieldCookKeeps({ kind: CAMP_KIND.Fire, fuel: true }), fieldCookKeeps(null)], [true, false]);
+  // the pool: online, a Campfire placed whole, a night slept beside it
+  setSharedClock(() => 1000);
+  try {
+    const flat = (o, d, m) => (d[1] < 0 && m >= o[1] ? o[1] : null);
+    const pool = (fieldCook) => createCamps({ entity: { items: [] }, camera: () => ({ feet: [0, 1, 0], yaw: 0 }), collider: () => ({ raycast: flat }), place: () => ({}), fieldCook });
+    for (const [fc, wear] of [[() => true, CAMPFIRE_USES], [() => false, CAMPFIRE_USES - 1], [null, CAMPFIRE_USES - 1]]) {
+      const p = pool(fc);
+      const kit = createSurvivalItem(TEMPLATE.Campfire);
+      assert.equal(p.placeItem(kit, [kit]), true);
+      assert.equal(p.camps[0].rec.wear, CAMPFIRE_USES, 'placing spends nothing, for anyone (REST2)');
+      assert.equal(p.spendNightNear([0, 1, 0]), true, 'the night was slept at my own fire');
+      assert.equal(p.camps[0].rec.wear, wear, fc?.() ? 'a Field Cook: none spent' : 'no Field Cook: one night spent');
+    }
+  } finally { setSharedClock(null); }
 });
 
 // ─── THE WIRING ──────────────────────────────────────────────────────
@@ -448,9 +459,9 @@ test('PROF9 wiring: the fire is any lit one (the street\'s camps and braziers, a
   assert.match(w, /const cookFireHere = \(\) => \(_mode\(\) === 'exterior'\n\s+\? \(camps\.fireNear\(walkMode && playerSpawned \? player\.pos : cam\.pos\) \? COOK_FIRE : null\)\n\s+: modes\?\.cookFireHere\?\.\(\) \?\? null\);/);
   assert.match(w, /fire: \(\) => cookFireHere\(\),\n\s+panBand: \(\) => panBand\(\{ intelligence: liveStat\(playerEntity, 'intelligence'\), personality: liveStat\(playerEntity, 'personality'\) \}\),\n\s+skillet: \(\) => hasSkillet\(playerEntity\?\.items\),/);
   assert.match(w, /noRot: profBook\?\.track\('cooking'\)\?\.specs\?\.\[100\] === 'provisioner' \}\);/);
-  assert.match(w, /fieldCook: \(\) => fieldCookNow\(\),   \/\/ PROF9: a Field Cook's kit keeps its charge\n/);
+  assert.match(w, /fieldCook: \(\) => fieldCookNow\(\),   \/\/ PROF9: a Field Cook's own Campfire keeps its fuel\n/);
   assert.match(w, /const fieldCookNow = \(\) => profBook\?\.state\?\.open === true && profBook\.track\('cooking'\)\?\.specs\?\.\[50\] === 'field-cook';/);
-  assert.match(w, /fieldCook: \(\) => fieldCookNow\(\),   \/\/ PROF9: a Field Cook's kit keeps its charge underground too/);
+  assert.match(w, /fieldCook: \(\) => fieldCookNow\(\),   \/\/ PROF9: a Field Cook's own Campfire keeps its fuel underground too/);
   assert.match(w, /setFeastShare\(\(spell\) => \{\n\s+if \(!online \|\| online\.status !== 'open' \|\| !social\?\.party\) return \[\];\n(?:\s+\/\/[^\n]*\n)*\s+return shareFeastWith\(peersNear\(\), \{ isMate: \(id\) => social\.isPartyPeer\(id\), send: \(id\) => online\.sendCast\?\.\(allyCastFrame\(spell, DISH_LEVEL, id\)\),/);   // PIN MOVED (AUDIT PROF-541 K5, R2-H1): the mates in sight, by cookItems.js shareFeastWith
   const m = src('src/scenes/worldModes.js');
   assert.match(m, /cookFireHere\(\) \{\n\s+if \(mode === 'interior'\) return interiorCamps\.fireNear\(player\.pos\) \? COOK_FIRE : null;\n\s+if \(mode === 'dungeon'\) return dungeonCtx\?\.cookFire\?\.\(\) === true \? COOK_FIRE : null;\n\s+return null;/);
@@ -459,7 +470,7 @@ test('PROF9 wiring: the fire is any lit one (the street\'s camps and braziers, a
   assert.match(d, /cookFire: \(\) => !!\(_fpFeet && camps\.fireNear\(_fpFeet\)\),/);
   assert.match(d, /fieldCook: \(\) => opts\.fieldCook\?\.\(\) === true,/);
   const c = src('src/scenes/camps.js');
-  assert.match(c, /keep: fieldCook\?\.\(\) === true,/);
+  assert.match(c, /const r = spendCampNight\(best\.rec, now\(\), fieldCook\?\.\(\) === true\);\n\s+if \(r\.kept\) return true;/);
   // C&C's own cooking: the camp's and the brazier's own list, the mod's law, no profession in it
   assert.match(c, /const r = cookFood\(raw\[i\], items, \{ skillet: hasSkillet\(items\) \}\);/);
   assert.doesNotMatch(c, /profBook|recipeLaw|professionLaw/);
@@ -606,7 +617,7 @@ test('AUDIT PROF-541 K7: the fire\'s XP line says what the service pays - the to
 
 test('AUDIT PROF-541 K8: a Brew pressed while another craft holds the one-craft latch (profBook.js prof-busy) says the hands are busy, not that a brew is in the cauldron', () => {
   const w = src('src/scenes/world.js');
-  assert.match(w, /r\?\.error === 'prof-busy' \? 'Your hands are busy with another craft\.' : accountRefusalText\(r\?\.error\)/);
+  assert.match(w, /r\?\.error === 'prof-busy' \? 'Your hands are busy with another craft\.' : `\$\{accountRefusalText\(r\?\.error\)\}\$\{movedFirstText\(r\)\}`/);   // PIN MOVED (AUDIT2 BAG1 K8): and what went into the Stores first
   assert.doesNotMatch(w, /Your last brew is still in the cauldron/);
 });
 

@@ -5,7 +5,7 @@
 //
 //   /tp <place>          to a town, dungeon or other named place, anywhere in the Iliac Bay (its best match)
 //   /tp <x> <y>          to a map pixel (x 0-999, y 0-499 - the travel map's own grid)
-//   /tp @<player>        to the map pixel another player stands in (the region's travellers, and my party anywhere)
+//   /tp @<player>        to another online player's exact live position, through the authenticated hub
 //   /god [on|off]        no damage reaches me
 //   /fly [on|off]        levitation, without the spell
 //   /heal                health, fatigue and magicka full
@@ -13,8 +13,8 @@
 //   /staff               this list
 //
 // WHO MAY: a player whose OWN glyphs say `dev`, `dm` or `shadowfang` - the Developer's, the Dungeon Master's and Shadow
-// Fang's (identityToken.js TITLES/GLYPHS). Every command here acts on the typer alone, so the client's own word is
-// enough; a command that reached another player would be the RELAY's question (RED1's law), and none is here.
+// Fang's (identityToken.js TITLES/GLYPHS). Commands move/change only the typer.
+// The exact-player lookup additionally requires the relay's verified staff claim.
 // Anyone else gets `unknown` - the chat's own refusal - so the commands are not advertised to them.
 //
 // Not a DFU member: DFU's GodMode / teleport console verbs are Wenzil console commands (Ledger A: the console window is
@@ -36,7 +36,7 @@ export const STAFF_HELP_LINES = Object.freeze([
   'Staff commands:',
   '/tp <place> - to a named place anywhere',
   '/tp <x> <y> - to a map pixel (x 0-999, y 0-499)',
-  '/tp @<player> - to where another player stands',
+  '/tp @<player> - to their exact live position',
   '/god [on|off] - take no damage',
   '/fly [on|off] - levitate',
   '/heal - health, fatigue and magicka full',

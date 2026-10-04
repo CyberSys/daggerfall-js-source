@@ -31,7 +31,7 @@ const check = (name, ok, detail = '') => {
 
 // ── 1 + 2: no data folder anywhere ───────────────────────────────
 delete process.env.ARENA2_PATH;
-const bare = await createServer({ server: { port: 5230, strictPort: true }, logLevel: 'error' });
+const bare = await createServer({ server: { host: '127.0.0.1', port: 5230, strictPort: true }, logLevel: 'error' });
 await bare.listen();
 const BASE = 'http://127.0.0.1:5230';
 
@@ -46,10 +46,15 @@ async function landing(label, ctxOpts) {
 
   const tokens = await page.locator('style#enhanced-tokens').textContent();
   check(`${label}: the skin's token block is on the page`, /--brass:\s*#c08a3e/.test(tokens ?? ''));
-  // U63: the gem on the rule is the brass one, drawn the pixel face's
-  // way (a box-shadow cross), so the colour is read off its background.
-  const gem = await page.locator('.rule .gem').first().evaluate((el) => getComputedStyle(el).backgroundColor);
-  check(`${label}: a computed colour on the page IS brass`, gem === 'rgb(192, 138, 62)', gem);
+  // BR2: the gem has a ruby core with four brass tips. Check both
+  // computed colours so a stale all-brass gem cannot pass.
+  const gem = await page.locator('.rule .gem').first().evaluate((el) => {
+    const style = getComputedStyle(el);
+    return { core: style.backgroundColor, tips: style.boxShadow };
+  });
+  check(`${label}: the gem's computed core IS ruby`, gem.core === 'rgb(185, 19, 9)', gem.core);
+  check(`${label}: the gem retains four brass tips`,
+    (gem.tips.match(/rgb\(192, 138, 62\)/g) ?? []).length === 4, gem.tips);
   const face = await page.locator('h1.wordmark').evaluate((el) => getComputedStyle(el).fontFamily);
   check(`${label}: the wordmark is the MENU's face`, /Jacquard 12/.test(face), face);
   check(`${label}: ...and it loaded`, await page.evaluate(() => document.fonts.check("40px 'Jacquard 12'")));
@@ -108,7 +113,14 @@ check('desktop: the foot carries build, tests, lines and Source',
 // second is Install, which lands on the downloads), land on the PIXEL HOME
 // with no data, no picker.
 await desk.page.locator('a.plaque', { hasText: 'Play' }).click();
-await desk.page.waitForSelector('.px-menu button', { timeout: 15000 });
+// The current front door presents the cinematic before the menu. Use
+// its real Skip intro control, retaining the no-data boot assertions.
+// A cold dev server must transform the game's imports before it mounts.
+const skipIntro = desk.page.getByRole('button', { name: 'Skip intro', exact: true });
+await skipIntro.waitFor({ state: 'visible', timeout: 90000 });
+check('desktop: Play opens the cinematic before the menu', await skipIntro.isVisible());
+await skipIntro.click();
+await desk.page.waitForSelector('.px-menu button', { timeout: 30000 });
 check('desktop: Play opens /play/', new URL(desk.page.url()).pathname.endsWith('/play/'), desk.page.url());
 // The CORE entries, not an exact count - the menu gains and loses
 // rows as arcs land (a hardcoded 5 rotted the moment Test Room and
@@ -143,7 +155,7 @@ await bare.close();
 const fake = mkdtempSync(join(tmpdir(), 'fake-arena2-'));
 writeFileSync(join(fake, 'ART_PAL.COL'), 'not a palette');
 process.env.ARENA2_PATH = fake;
-const data = await createServer({ server: { port: 5231, strictPort: true }, logLevel: 'error' });
+const data = await createServer({ server: { host: '127.0.0.1', port: 5231, strictPort: true }, logLevel: 'error' });
 await data.listen();
 try {
   for (const path of ['/arena2/ART_PAL.COL', '/play/arena2/ART_PAL.COL', '/play/arena2/art_pal.col']) {

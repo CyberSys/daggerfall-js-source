@@ -716,20 +716,72 @@ export function createHorseCartRuntime(deps) {
     if (target === TRANSPORT.Foot) { say(HCC_TEXT.doNotOwnHorseOrWagon); return; }
     tryUseTransport(target);
   }
-  function handleSummonTransport() {
-    if (pee().isPlayerInside() || tm().isOnShip()) { say(HCC_TEXT.summonOutdoorsOnly); return; }
+  function handleSummonTransport() { say(summonTransport().text); }
+  /** HandleSummonTransport's body, its line ANSWERED rather than said (HOLDINGS: the Stable page says it under its row,
+   *  the hotkey on the HUD) - `{ ok, text }`, `ok` when something was summoned. */
+  function summonTransport() {
+    if (pee().isPlayerInside() || tm().isOnShip()) return { ok: false, text: HCC_TEXT.summonOutdoorsOnly };
     const hasHorse = tm().hasHorse(), hasCart = tm().hasCart();
-    if (!hasHorse && !hasCart) { say(HCC_TEXT.doNotOwnHorseOrWagon); return; }
-    if (!physicalPersistenceEnabled) { say(HCC_TEXT.alreadyWithYou); return; }
+    if (!hasHorse && !hasCart) return { ok: false, text: HCC_TEXT.doNotOwnHorseOrWagon };
+    if (!physicalPersistenceEnabled) return { ok: false, text: HCC_TEXT.alreadyWithYou };
     const mode = tm().get();
-    if (mode === TRANSPORT.Cart || (mode === TRANSPORT.Horse && !hasCart)) { say(HCC_TEXT.alreadyWithYou); return; }
+    if (mode === TRANSPORT.Cart || (mode === TRANSPORT.Horse && !hasCart)) return { ok: false, text: HCC_TEXT.alreadyWithYou };
     const fwd = horizontalForward(deps.player.forward());
     if (hasCart) {
       const [wx, wz] = toWorld(vsub(playerPosition(), vscale(fwd, WAGON_FOLLOW_DISTANCE)));
       const hm = hasHorse ? (mode === TRANSPORT.Horse ? HORSE_MODE.WithPlayer : HORSE_MODE.HitchedToWagon) : HORSE_MODE.None;
       commitDeployment(wx, wz, fwd, hm); destroyStationaryHorsePresentation();
     } else { deployHorseBehindPlayer(); destroyStationaryHorsePresentation(); }
-    say(hasCart && hasHorse ? HCC_TEXT.summonedBoth : hasCart ? HCC_TEXT.summonedWagon : HCC_TEXT.summonedHorse);
+    return { ok: true, text: hasCart && hasHorse ? HCC_TEXT.summonedBoth : hasCart ? HCC_TEXT.summonedWagon : HCC_TEXT.summonedHorse };
+  }
+  /** Whether the horse or the wagon stands in the world - parked, waiting, or following. */
+  const transportOut = () => wagonState.Mode === WAGON_MODE.Deployed || wagonState.Mode === WAGON_MODE.FollowingPlayer
+    || wagonState.HorseMode === HORSE_MODE.LooseStationary || wagonState.HorseMode === HORSE_MODE.FollowingPlayer;
+  /**
+   * HOLDINGS (the port's own, no IL twin - bible/03-World/Holdings.md): SEND AWAY, the summon's other half. Whatever of
+   * the pair stands in the world - a parked wagon, a horse waiting or following - leaves it, and the pair is "with the
+   * player" again in the mod's own sense: the record the persistence switch's turning on makes
+   * (resolvePersistenceEnabledState for a player on foot - the wagon WithPlayer, the horse WithPlayer), mounted from the
+   * transport window or summoned back to the player's side. Refused indoors and aboard (as the summon is), while riding
+   * or driving (the pair is the player's seat), with the persistence off (nothing stands in the world) and with nothing
+   * out. Answers `{ ok, text }`.
+   */
+  function sendTransportAway() {
+    if (pee().isPlayerInside() || tm().isOnShip()) return { ok: false, text: HCC_TEXT.sendAwayOutdoorsOnly };
+    const hasHorse = tm().hasHorse(), hasCart = tm().hasCart();
+    if (!hasHorse && !hasCart) return { ok: false, text: HCC_TEXT.doNotOwnHorseOrWagon };
+    if (!physicalPersistenceEnabled) return { ok: false, text: HCC_TEXT.notInTheWorld };
+    if (tm().get() !== TRANSPORT.Foot) return { ok: false, text: HCC_TEXT.sendAwayDismount };
+    if (!transportOut()) return { ok: false, text: HCC_TEXT.alreadyAway };
+    const r = resolvePersistenceEnabledState(TRANSPORT.Foot, hasCart, hasHorse);
+    resetWagonState(r.WagonMode);
+    zeroHorse(r.HorseMode);
+    clearPendingInteriorState(); hasMovingWorldPose = false; followingTransitionSuspended = false;
+    clearMovingPresentation(); destroyAllStationaryPresentations(); horseFollower.resetTransient();
+    changed();
+    return { ok: true, text: hasCart && hasHorse ? HCC_TEXT.sentBoth : hasCart ? HCC_TEXT.sentWagon : HCC_TEXT.sentHorse };
+  }
+  /** HOLDINGS: the horse renamed from the Stable page - the name prompt's own law (resolveHorseNameInput: an empty or
+   *  unprintable name keeps the old one). Answers the name it has now, or null with no horse. */
+  function renameHorse(input) {
+    if (!tm().hasHorse()) return null;
+    wagonState.HorseName = resolveHorseNameInput(horseName(), input);
+    changed();
+    return horseName();
+  }
+  /** HOLDINGS: the pair as the Stable page reads it - owned, where each is (its mode, and how far a parked or waiting
+   *  one stands from the player, in the scene's metres, while its pixel is the one built), and the wagon's load. */
+  function stableView() {
+    const at = (wx, wz) => { const s = tryGetRelevantSavedWorldScene(wx, wz); return s ? Math.round(horizontalDistance(playerPosition(), s)) : null; };
+    const st = wagonState;
+    return {
+      persistence: physicalPersistenceEnabled, transport: tm().get(), hasHorse: tm().hasHorse(), hasCart: tm().hasCart(),
+      horseName: horseName(), wagonMode: st.Mode, horseMode: st.HorseMode,
+      wagonAt: st.Mode === WAGON_MODE.Deployed ? at(st.WorldX, st.WorldZ) : null,
+      horseAt: st.HorseMode === HORSE_MODE.LooseStationary ? at(st.HorseWorldX, st.HorseWorldZ) : null,
+      out: transportOut(), inside: !!pee().isPlayerInside(), onShip: !!tm().isOnShip(),
+      kg: deps.entity?.wagonWeight?.() ?? 0, limit: deps.entity?.wagonKgLimit?.() ?? 0,
+    };
   }
 
   // ── the interior transitions [IL_98f0-IL_9d26, IL_a18c-IL_a6c0]
@@ -1264,6 +1316,7 @@ export function createHorseCartRuntime(deps) {
     canUseTransport, tryUseTransport, canMountHorseFromTransportWindow, canUseCartFromTransportWindow,
     handleHorseTransportButton: () => { tryUseTransport(TRANSPORT.Horse); }, handleCartTransportButton: () => { tryUseTransport(TRANSPORT.Cart); },
     handleQuickMountOrDismount, handleSummonTransport,
+    summonTransport, sendTransportAway, renameHorse, stableView,   // HOLDINGS: the Stable page's four
     canAccessWagonStorage, canAccessWagonInventory, canAccessWagonFromDungeonExit, consumeWagonSelectionRequest,
     handleDeployedWagonActivation, handleFollowingWagonActivation, handleStationaryHorseActivation, openHorseNamePrompt, actionRows,
     ownsStationaryHorseActivator,

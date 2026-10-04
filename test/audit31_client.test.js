@@ -291,7 +291,7 @@ test('AUDIT 31 H2, R1, U8: the Guild tab reads the guild Stores at each look, pe
   const doc = { ...document, createElement: (t) => Object.assign(document.createElement(t), { dataset: {} }) };
   doc.head.dataset ??= {}; doc.body.dataset ??= {};
   const panel = createSocialPanel({ social: new SocialState({ acct: 'acct-a' }), guild: book, doc, win: { addEventListener() {}, removeEventListener() {} }, overlay: () => false, touch: false });
-  panel.openGuild();
+  panel.openGuild('stores');   // GUILD2 (PIN MOVED): the guild Stores are the Guild tab's Stores page
   await ticks(6); panel.render(); await ticks(6); panel.render();
   assert.match(panel.root.textContent, /The guild Stores cannot be read now/);
   const btn = (label) => byClass(panel.root, 'dfsocial-btn').find((b) => b.textContent.startsWith(label));

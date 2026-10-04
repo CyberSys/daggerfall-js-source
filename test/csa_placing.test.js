@@ -647,8 +647,9 @@ test('CSA-C: LateUpdate\'s placing arm (4957) - held by its pause gate and while
   assert.deepEqual([s.rt.AllBoats[0].hull, s.rt.AllBoats[0].variant], [1, 4]);
   assert.deepEqual(s.out.log.slice(0, 2), ['COME SAIL AWAY - ITEM HULL IS 1', 'COME SAIL AWAY - ITEM VARIANT IS 4']);
   assert.equal(s.rt.placing, false);
-  // sailing holds the arm: LateUpdate's `if (IsSailing) ... else if (placing ...)`
-  s.rt.StartPlacing(parts, []);
+  // sailing holds the arm: LateUpdate's `if (IsSailing) ... else if (placing ...)` - PIN MOVED (AUDIT HOLDINGS F1): a
+  // second boat's parts, the first's being refused while she stands (never a second boat of one number)
+  s.rt.StartPlacing({ ...parts, UID: 4 }, []);
   s.setTime(20);
   s.rt.state.CurrentBoat = s.rt.AllBoats[0];
   assert.equal(s.rt.isSailing(), true);

@@ -373,8 +373,9 @@ test('CSA-K: the host - another\'s boat stands in MY collider beside my boats, a
   const sync = cut(WORLD, 'function csaSyncColliders() {', '\n  }\n');
   // THE MERGE with NAV-H (2026-09-28): MY boats are csaColliderBoats() - mine, and the sea's ships near enough to board
   // and to ram (test/nav_h_host.test.js pins its body) - and every peer's boat joins them on the street, aboard it or not
-  // (FIELD BUGS 2026-10-01b: test/fb1001b_peerboats.test.js runs it)
-  assert.match(sync, /const peers = \(modes\?\.mode \?\? 'exterior'\) === 'exterior' \? csa\.peerBoats : \[\];[^\n]*\n\s+for \(const boat of peers\.length \? \[\.\.\.csaColliderBoats\(\), \.\.\.peers\] : csaColliderBoats\(\)\) \{/);
+  // (FIELD BUGS 2026-10-01b: test/fb1001b_peerboats.test.js runs it) - and below deck in a ship's cabin, where the street's
+  // collider keeps the whole fleet (CABIN-HULL, FIELD BUGS 2026-10-03b: test/fb1003b_cabinhull.test.js runs it)
+  assert.match(sync, /const peers = \(modes\?\.mode \?\? 'exterior'\) === 'exterior' \|\| modes\?\.sailingCabin \? csa\.peerBoats : \[\];[^\n]*\n\s+for \(const boat of peers\.length \? \[\.\.\.csaColliderBoats\(\), \.\.\.peers\] : csaColliderBoats\(\)\) \{/);
   const upd = cut(WORLD, 'function csaUpdate(dt) {', '\n  }\n');
   assert.match(upd, /csaSyncColliders\(\);\n\s+csaPeersFrame\(dt\);[^\n]*\n\s+if \(_csaMovedPlayer\) cam\.pos = player\.eyeAt\(\);/, 'after the colliders, before the eye');
   const peersFrame = cut(WORLD, 'function csaPeersFrame(dt) {', '\n  }\n');
@@ -471,7 +472,9 @@ test('CSA-K: the host - another\'s boat is pressed only where none of mine is un
   assert.match(board, /const deck = raycastColliders\(pick\.boat\.GameObject, o, \[0, -1, 0\], 3, \{ triggers: true, geometry: csaColliderMesh \}\);/, 'set down on THEIR deck within 3 m');
   assert.match(board, /if \(csaAboard\.board\(pick\.boat, CSA_ABOARD_GRACE\)\) csaSyncColliders\(\);/);
   const hover = cut(WORLD, 'const csaHoverName = (key) => {', '\n  };\n');
-  assert.match(hover, /if \(peer\) \{ const boat = csaPeers\.boatAt\(peer\[1\], Number\(peer\[2\]\)\); return boat \? \{ title: CSA_HULL_NAMES\[boat\.hull\] \?\? 'Boat', subs: \[ownedLine\(peerName\(peer\[1\]\)\)\] \} : null; \}/);
+  // PIN MOVED (HOLDINGS, bible/03-World/Holdings.md): the plaque names her by her captain's name where she has one (her hull's under
+  // it), else her hull's - and its owner, as ever
+  assert.match(hover, /const hullName = CSA_HULL_NAMES\[boat\.hull\] \?\? 'Boat', named = csaPeers\.nameAt\?\.\(peer\[1\], Number\(peer\[2\]\)\) \?\? '';[^\n]*\n\s*return \{ title: named \|\| hullName, subs: \[\.\.\.\(named \? \[hullName\] : \[\]\), ownedLine\(peerName\(peer\[1\]\)\)\] \};/);
   assert.match(WORLD, /const csaPassengersOn = \(boat\) => \{ const i = csaRuntime\?\.AllBoats\.filter\(\(b\) => b\.GameObject\?\.activeSelf\)\.indexOf\(boat\) \?\? -1; return i < 0 \|\| !online\?\.id \? 0 : csaAboard\.passengersOn\(online\.id, i\); \};/);
   assert.match(WORLD, /passengersAboard: csaPassengersOn,/, 'OWS2: named, the landfall\'s pack reads it too');
 });

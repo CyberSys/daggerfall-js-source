@@ -287,7 +287,7 @@ test('AUDIT 29: the hosts by source - the seams the audit moved', () => {
   assert.match(d, /const PROF_VEIN_ONLY = Object\.freeze\(\{ only: Object\.freeze\(\['dungeon'\]\) \}\);/);
   assert.match(d, /collider\.raycastHit\(from, dir, PROF_VEIN_WALL_M, PROF_VEIN_ONLY\)/);
   assert.match(d, /if \(!Number\.isFinite\(down\)\) continue;/);
-  assert.match(d, /isGateArena\(dfLocation\) \|\| !Number\.isSafeInteger/);
+  assert.match(d, /isGateArena\(dfLocation\) \|\| isArenaFloor\(dfLocation\) \|\| !Number\.isSafeInteger/);   // ARENA2: nor the arena's floor
   // C8: nature's rect - a WoD site's too
   assert.match(src('src/scenes/herbHost.js'), /locationRect: entry\.locationRect \?\? entry\.wodSite \?\? null/);
   assert.match(src('src/scenes/mineHost.js'), /locationRect: entry\.locationRect \?\? entry\.wodSite \?\? null/);
@@ -296,8 +296,8 @@ test('AUDIT 29: the hosts by source - the seams the audit moved', () => {
   // B3 + B4: the fee on the first answer; the kept withdrawals settled on every good read and on the Stores page
   assert.match(w, /if \(f\.fee > 0\) \{ deductGold\(playerEntity, f\.fee\); saveSoon\.changed\(\); \}/);   // PROF-SAVE: and the save soon
   assert.doesNotMatch(w, /!r\.data\?\.repeat\) \{? ?deductGold/);
-  assert.match(g, /if \(r\?\.ok\) \{ refreshAt = 0; restandAll\(\); if \(book\.pendingWithdrawals \|\| book\.pendingCrafts\) deps\.onSettle\?\.\(\); \}/);
-  assert.match(src('src/ui/profPages.js'), /if \(\(book\.pendingWithdrawals \|\| book\.pendingCrafts\) && p\.settle && Date\.now\(\) - _stores\.settledAt > 30_000\)/);   // PROF5 (FOUND): a kept craft settles too
+  assert.match(g, /if \(r\?\.ok\) \{ refreshAt = 0; restandAll\(\); if \(book\.pendingWithdrawals \|\| book\.pendingCrafts \|\| book\.pendingDeposits\) deps\.onSettle\?\.\(\); \}/);   // PIN MOVED (AUDIT2 BAG1 K3): and a kept deposit
+  assert.match(src('src/ui/profPages.js'), /if \(\(book\.pendingWithdrawals \|\| book\.pendingCrafts \|\| book\.pendingDeposits\) && p\.settle && Date\.now\(\) - _stores\.settledAt > 30_000\)/);   // PROF5 (FOUND): a kept craft settles too; BAG1 (PIN MOVED): and a kept deposit
   // D4: a smith's open for trade
   assert.match(m, /return interiorBuilding\.insideOpenShop === false \? null : \{ kind: 'shop', fee: FORGE_FEE \};/);
 });

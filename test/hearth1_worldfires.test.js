@@ -141,8 +141,11 @@ test('HEARTH1: a world fire is nobody’s - it opens the cooking list and nothin
   // Info and Talk name it; every other mode cooks. It cannot be rested
   // at as an ACT (the rest window reads byFire and already sees it),
   // stoked, or packed - there is no record to pack.
-  assert.match(c, /if \(mode === 'info' \|\| mode === 'dialogue'\) \{ say\(CAMP_TEXT\.seeHearth\); return true; \}\s*\n\s*openCook\(null\);/,
-    'named, or cooked on');
+  // REST2 (bible/06-Systems/Rest-Arc.md): AND, ONLINE, RESTED AT. A rest online is an act at a fire (systems/restAct.js),
+  // so a brazier's rows are Rest and Cook - the plaque's lit one, or their list without a plaque; offline it cooks, as
+  // HEARTH1 had it. [SUPERSEDES "cannot be rested at as an ACT", for the online lane.]
+  assert.match(c, /if \(mode === 'info' \|\| mode === 'dialogue'\) \{ say\(CAMP_TEXT\.seeHearth\); return true; \}[\s\S]{0,400}?if \(lit === 'rest'\) \{ openRest\?\.\(null\); return true; \}\s*\n\s*if \(lit === 'cook' \|\| !sharedClockOn\(\)\) \{ openCook\(null\); return true; \}/,
+    'named, or cooked on - REST2: or, online, rested at');
   assert.ok(CAMP_TEXT.seeHearth && CAMP_TEXT.seeHearth !== CAMP_TEXT.seeFire, 'and it says it is not your campfire');
   // openCook takes a NULL camp for it, and skips the burn-down test a
   // camp needs - a brazier does not go out.
@@ -154,7 +157,7 @@ test('HEARTH1: a world fire is nobody’s - it opens the cooking list and nothin
   assert.match(c, /const own = \(\) => camps\.filter\(mine\)\.map\(\(c\) => c\.rec\);/, 'the pack and the wire read the pool’s records alone');
   // a host that passes no door has no world fires, which is every
   // caller's behaviour before this shipped
-  assert.match(c, /const worldFires = \(\) => \(survivalOn\(\) && hearths \? hearths\(\) : null\);/, 'and a host that passes no door has no world fires - as every caller did before this shipped');
+  assert.match(c, /const worldFires = \(\) => \(usable\(\) && hearths \? hearths\(\) : null\);/, 'and a host that passes no door has no world fires - as every caller did before this shipped (REST2: usable - the arc, or online)');
 });
 
 test('HEARTH1: the pool really does answer byFire and cook off a bare hearth list', async () => {
@@ -231,7 +234,8 @@ test('AUDIT HEARTH1 F1: the world\u2019s fires are behind the mod\u2019s own swi
     assert.equal(pool.byFire([0, 0, 0]), false, 'with the mod OFF, there is no such law to answer');
     assert.deepEqual(pool.targets(), [], '...and nothing to activate');
   } finally { setPref(SURVIVAL_PREF, before); }
-  assert.match(read('src/scenes/camps.js'), /const worldFires = \(\) => \(survivalOn\(\) && hearths \? hearths\(\) : null\);/, 'one gate, at the one door');
+  assert.match(read('src/scenes/camps.js'), /const worldFires = \(\) => \(usable\(\) && hearths \? hearths\(\) : null\);/, 'one gate, at the one door');   // REST2: the arc, or online (where a fire is the rest's)
+  assert.match(read('src/scenes/camps.js'), /const usable = \(\) => survivalOn\(\) \|\| sharedClockOn\(\);/, 'REST2: the gate is the arc, or the shared clock');
 });
 
 test('AUDIT HEARTH1 F2: byFire takes the FIRST fire in reach, because it runs every frame', () => {
@@ -273,7 +277,7 @@ test('AUDIT HEARTH1 F3: the three hosts measure a hearth\u2019s height different
   assert.match(read('src/world/cityLights.js'), /foot: -obj\.yPos \* GLOBAL_SCALE, w: size\.w, h: size\.h,/, '...and the flat standing on -yPos');
   assert.match(read('src/world/interiorLights.js'), /y: f\.y \+ h \/ 2 \+ offset,/, 'the interior: the centre, plus a per-record offset');
   assert.match(read('src/world/interiorLights.js'), /foot: f\.y, w, h,/, '...and the flat standing on its y');
-  assert.match(read('src/scenes/dungeonContext.js'), /const based = centers\.map\(\(\[x, y, z\]\) => \[x, y - size\.h \/ 2, z\]\);/, 'a dungeon flat\u2019s stored y is its CENTRE - its own batch shifts down to find the base');
+  assert.match(read('src/scenes/dungeonContext.js'), /const based = centers\.map\(\(p\) => Object\.assign\(\[p\[0\], p\[1\] - size\.h \/ 2, p\[2\]\], \{ noCover: !!p\.noCover \}\)\);/, 'a dungeon flat\u2019s stored y is its CENTRE - its own batch shifts down to find the base');
   assert.match(read('src/scenes/dungeonContext.js'), /foot: size \? f\.y - size\.h \/ 2 : undefined/, '...and the hearth takes the same half-height down');
   assert.match(read('src/systems/survival/hearth.js'), /AUDIT HEARTH1 F3 - WHERE A HEARTH IS, VERTICALLY/, 'and the law says so');
 });

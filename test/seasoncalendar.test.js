@@ -126,7 +126,7 @@ test('A1: an interior is summer-skinned whatever the date outside', () => {
   assert.equal(INTERIOR_SEASON, SEASON.Summer);
   for (const host of HOSTS) {
     const text = read(host);
-    assert.match(text, /climateBase, season: INTERIOR_SEASON/,
+    assert.match(text, /climateBase(?:: townClimateBase)?, season: INTERIOR_SEASON/,   // AUDIT WD3 G5: the world host's town climate
       `${host}: the static door hands the interior its own constant season`);
     assert.doesNotMatch(text, /climateBase, season,/,
       `${host}: the world season is crossing the threshold again`);
@@ -320,7 +320,7 @@ test('ROAD-Ar R0: the streaming host arms the hold before the teardown and relea
     'the release must wait for the pixel and re-anchor the motor, the fall kept (and never wedge)');
   // RESPAWN-HELD (FIELD BUGS 2026-09-30b, PIN MOVED): the same hold, and an arrival's build holds it too
   // (fb0930b_respawnheld.test.js runs it).
-  assert.match(world, /const _seasonHeld = _seasonHoldKey !== null \|\| _seasonStraightening;/);
+  assert.match(world, /const _seasonHeld = _partyArrivalPending \|\| _seasonHoldKey !== null \|\| _seasonStraightening;/);
   assert.match(world, /if \(!_overlayHeld && !_seasonHeld\) player\.update\(dt,/,
     'the motor must not integrate gravity while the ground is being rebuilt');
   assert.match(world, /if \(!_seasonHeld\) applyFallLanding\(playerEntity, player\.landedFallDistance,/,
@@ -346,7 +346,7 @@ test('ROAD-Ar R1: fast travel hands the teleport core the minute it is about to 
   // straightening exists for. The reference-faithful half of the fix
   // is to pass the arrival minute rather than to move RaiseTime.
   const world = read('src/scenes/world.js');
-  assert.match(world, /async function _teleportToPixel\(px, py, localPos = null, \{ grounded = false, arriveMinutes = null, reposition = REPOSITION\.None, travelStart = null, modEvent = null \} = \{\}\)/,
+  assert.match(world, /async function _teleportToPixel\(px, py, localPos = null, \{ grounded = false, arriveMinutes = null, reposition = REPOSITION\.None, travelStart = null, modEvent = null, resolveArrival = null \} = \{\}\)/,
     'the core takes the arrival clock');
   assert.match(world, /refreshSeason\(arriveMinutes \?\? skyMinutes\(\)\);/,
     'and straightens from it, falling back to the live clock for every other caller');   // TIME1: the live SKY
@@ -360,7 +360,7 @@ test('ROAD-Ar R1: fast travel hands the teleport core the minute it is about to 
   // AUDIT 64 F18 threaded DirectionFromStartMarker through this same
   // call (DaggerfallTravelPopUp.cs:334), so the literal grew - the
   // ORDER is still what this pin is about.
-  const teleport = fn.indexOf('await _teleportToPixel(pick.pixel.x, pick.pixel.y, null,\n        { arriveMinutes: sharedClockOn() ? skyMinutes() : worldMinutes() + computed.minutes,');   // WORLD5: the trip takes no world time under the shared clock; TIME1: online the arrival's season is the sky's now
+  const teleport = fn.indexOf('await _teleportToPixel(pick.pixel.x, pick.pixel.y, null,\n          { arriveMinutes: sharedClockOn() ? skyMinutes() : worldMinutes() + computed.minutes,');   // WORLD5: the trip takes no world time under the shared clock; TIME1: online the arrival's season is the sky's now
   const raise = fn.indexOf('playerTicker.advance(computed.minutes)');
   assert.ok(teleport > 0, 'the arrival minute rides the teleport');
   assert.ok(raise > teleport, 'and RaiseTime still comes after it (:333 then :344)');

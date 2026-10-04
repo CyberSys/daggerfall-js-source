@@ -38,8 +38,8 @@
   {
     "name": "SET2-the-core-not-handed-the-word",
     "file": "src/combat/formulas.js",
-    "old": "playerReflexes, notes, unaware })",
-    "new": "playerReflexes, notes })",
+    "old": "playerReflexes, notes, onStruck: (part) => (struckPart = part), unaware })",
+    "new": "playerReflexes, notes, onStruck: (part) => (struckPart = part) })",
     "tests": [
       "test/set2_seams.test.js"
     ]

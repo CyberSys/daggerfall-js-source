@@ -104,7 +104,7 @@ const state = { c1: null, c2: null, swap: null };
  *  INDEX - a SPELLS.STD record number, or the negative one a made spell
  *  mints (systems/spellMaker.js:234-252) - and that index is already
  *  this port's name for "which spell": it is what the save writes
- *  (systems/save.js:358), what a restore reads back, and what
+ *  (systems/save.js:386), what a restore reads back, and what
  *  `setReadiedByIndex` resolves a readied spell by. So the slot keeps
  *  the same key the rest of the port keeps, and a book that changed
  *  under it (a spell sold, a made spell deleted) leaves a GHOST that
@@ -195,13 +195,15 @@ const packOf = (entity) => (Array.isArray(entity?.items) ? entity.items : []);
  *  the kind (what a use consumes) and the count of every one. Null
  *  when the slot is unassigned; a GHOST (item null, count 0) when the
  *  kind is assigned and the pack holds none. */
+/** AUDIT REST-PARTY B7: a record that carries charges (a condition with a maximum) and has none left. */
+const spentCharges = (it) => (it.maxCondition ?? 0) > 0 && (it.currentCondition ?? 0) <= 0;
 export function resolveConsumable(entity, slot) {
   const e = state[slot];
   if (!e) return null;
   let item = null; let count = 0;
   for (const it of packOf(entity)) {
     if (quickslotKey(it) !== e.key) continue;
-    if (!item) item = it;
+    if (!item || (spentCharges(item) && !spentCharges(it))) item = it;   // AUDIT REST-PARTY B7: a charged kind (a Campfire, a Bedroll) answers with one that has charges left - an empty Campfire stays in the pack by design, and pressed first it was the one handed to the ground and refused
     count += Math.max(0, it.stackCount ?? 1);
   }
   // AUDIT CONTRIB H2: the LIT one of the kind first - using a light is lighting that record, and pressing the kind
@@ -875,7 +877,7 @@ export function quickslotSaveData() {
   const out = {};
   for (const s of QUICKSLOTS) out[s] = state[s] ? { key: state[s].key, name: state[s].name } : null;
   // QS6: the spell slot rides the same block, keyed the way save.js
-  // already keys a spell - by index (systems/save.js:358).
+  // already keys a spell - by index (systems/save.js:386).
   out.spell = spellState ? { index: spellState.index, name: spellState.name } : null;
   // HB1: and the hotbar, on the same block - ten entries, each an item
   // kind or a spell index, exactly as the slots above key them.
@@ -1083,7 +1085,8 @@ export function hotbarView(entity, { readiedIndex = null, size = HOTBAR_CAPACITY
       const spell = book.find((sp) => sp?.index === e.index) ?? null;
       return { slot: i, type: 'spell', name: spell?.name || e.name, index: e.index, spell,
         element: spell?.element ?? null, rangeType: spell?.rangeType ?? null,
-        icon: iconOf(spell).icon ?? e.icon ?? null,   // UI2: the book's icon, else the one it was slotted with
+        icon: spell?.noIcon ? null : iconOf(spell).icon ?? e.icon ?? null,   // UI2: the book's icon, else the one it was slotted with (NO-ICON: none)
+        noIcon: !!spell?.noIcon,
         ghost: !spell, active: readiedIndex != null && readiedIndex === e.index };
     }
     const b = byKey.get(e.key);

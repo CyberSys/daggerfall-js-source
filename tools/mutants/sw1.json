@@ -70,8 +70,8 @@
   {
     "name": "SW1b-4-the-look-reaches-the-shield-by-a-name-it-does-not-carry",
     "file": "src/combat/weaponRig.js",
-    "old": "          look: { x: look?.[0] ?? 0, y: look?.[1] ?? 0, cursorActive: cursorActive(), swingAction: _held },",
-    "new": "          look: { x: look?.x ?? 0, y: look?.y ?? 0, cursorActive: cursorActive(), swingAction: _held },",
+    "old": "          look: { x: lookAxes[0], y: lookAxes[1], cursorActive: cursorActive(), swingAction: _held },",
+    "new": "          look: { x: lookAxes?.x ?? 0, y: lookAxes?.y ?? 0, cursorActive: cursorActive(), swingAction: _held },",
     "tests": [
       "test/sw1_shield_widget.test.js"
     ]

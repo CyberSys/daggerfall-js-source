@@ -29,6 +29,7 @@ import { createWeapon } from '../src/combat/enemyEquipment.js';
 import { ENEMY_BASICS, enemyDisplayName } from '../src/characters/enemyBasics.js';
 import { makeEnemyEntity } from '../src/characters/enemyEntity.js';
 import { calculateAttackDamage } from '../src/combat/formulas.js';
+import { ARENA_PUPPET_OWNER } from '../src/net/arenaLaw.js';   // ARENA4: the kill door's puppet test, the real owner word (no puppet here)
 import { playerEntity } from '../src/characters/playerEntity.js';
 import { registerPresenter, _resetNotifyForTests } from '../src/systems/notify.js';
 import { mobileEntityName, liveEntityName } from '../src/systems/worldTooltips.js';
@@ -59,7 +60,7 @@ test('LOOT7-CHECK CORPSE-FIND: a body keeps its unique find - the Thunderlock an
     LR.rollCorpseLoot(body, { level: 12 }, { rolls: lcg(seed), luck: 50 });
     const src = LR.corpseSource({ level: 12 }, 12, 7);
     const list = [createWeapon(113, 1)];
-    LR.rollLootRarity(list, { ...src, tier: src.tier + LR.CHAMPION_SOURCE.tier, qualityMult: LR.CHAMPION_SOURCE.quality }, { rolls: lcg(seed), luck: 50 });
+    LR.rollLootRarity(list, LR.championSource(src), { rolls: lcg(seed), luck: 50 });   // CHAMP-LOOT: the champion's own source, one home
     assert.deepEqual(body.items.map(said), list.map(said), `seed ${seed}: the body is the list`);
     if (body.items.some(isThunderlock)) {
       finds++;
@@ -213,7 +214,7 @@ const foeRec = (mobileType = 0, entity = {}) => ({
 function killDoor() {
   const hud = [];
   const state = {
-    foes: [], _authority: true, opts: {}, lastPlayerFeet: [0, 0, 0], _ecvT: 0, foeDeps: null, playerEntity: { isPlayer: true, items: [] }, audio: {},
+    foes: [], _authority: true, ARENA_PUPPET_OWNER, opts: {}, lastPlayerFeet: [0, 0, 0], _ecvT: 0, foeDeps: null, playerEntity: { isPlayer: true, items: [] }, audio: {},
     renownFoeStruck: () => {}, renownFoeDied: () => {}, reportPlayerKill: () => {}, takeWholeBlow: () => false, markFoeStruck: () => {}, markConcealedHit: () => {},
     handleAttackFromPlayer: () => {}, damageShieldPool: (e, n) => n, noteFighter: () => {}, PARTY_ME: 'me', _sharedFoe: () => false, partyFoeLoses: (f, n) => n, fightN: () => 1,
     peerSoulTrapOf: () => null, attemptSoulTrap: () => ({ allowDeath: true }), isAzurasStarEquipped: () => false, fillEmptyTrap: () => false,

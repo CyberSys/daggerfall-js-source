@@ -42,7 +42,9 @@ test('NATURE-GROUND: inside the flattened rect a flat keeps the plane EXACTLY - 
 test('NATURE-GROUND by source: the pixel build lifts the block\'s nature flats by the ground\'s offset, and nothing else it stands', () => {
   const w = src('src/scenes/world.js');
   assert.match(w, /const fx = locLocal\[0\] \+ b\.originX \+ flat\.x, fz = locLocal\[2\] \+ b\.originZ \+ flat\.z;/);
-  assert.match(w, /const lift = flat\.archive === natureArchive \? groundOffPlane\(samples, avg, fx, fz\) : 0;/, 'the nature archive alone - a lamp, a sign, an animal may stand on a model');
-  assert.match(w, /addFlat\(flat\.archive, flat\.record, fx, locLocal\[1\] \+ flat\.y \+ lift, fz\);/);
+  assert.match(w, /const lift = flat\.archive === natureArchive \? groundOffPlane\(samples, avg, fx, fz\) : 0;/, 'the climate\'s nature archive alone - a lamp, a sign, an animal may stand on a model');
+  // TREES-SEATED (test/fb1003b_trees.test.js): a block whose hills the port draws as its stand-ins seats its whole nature RANGE
+  // on the higher of that ground and the mounds; every other block keeps the plane and this lift, as before
+  assert.match(w, /addFlat\(flat\.archive, flat\.record, fx, locLocal\[1\] \+ \(hillSeat && isNatureArchive\(flat\.archive\) \? seatNatureFlat\(hillSeat, flat\.x, flat\.z, NATURE_FLATS_Y \+ groundOffPlane\(samples, avg, fx, fz\)\) : flat\.y \+ lift\), fz\);/);
   assert.match(w, /const blockFlats = collectBlockFlats\(b\.dfBlock, natureArchive\);/, 'the archive the scenery and the nature flats were swapped to');
 });

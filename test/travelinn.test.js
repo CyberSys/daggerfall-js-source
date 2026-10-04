@@ -24,8 +24,10 @@
 // countdown reads 0 and the fare reads 0 whichever way the toggle is
 // set - so on the instant path the player's choice really is ignored,
 // exactly as reported. The window says so in both skins
-// (ONLINE_TRAVEL_LINE), and what is left live online is the one thing
-// the toggle still decides: whether the trip is WALKED or instant.
+// (ONLINE_TRAVEL_LINE). Offline the toggle still decides whether the trip
+// is WALKED or instant; online (TRAVEL-ONLINE, 2026-10-03) the room holds
+// Travel Options' Inns dial, so a trip over land is walked either way and
+// the toggle decides the road's nights alone.
 //
 // This pin exists so that stays true by execution. If a later slice
 // makes the online trip spend time, the offline rows here will not
@@ -41,6 +43,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { TravelPopUpWindow, isPlayerControlledTravel, ONLINE_TRAVEL_LINE } from '../src/ui/travelPopUp.js';
+import { ONLINE_ROOM_MOD_KEYS } from '../src/systems/onlineLane.js';   // TRAVEL-ONLINE: the room's Travel Options dials
 
 const popup = (online) => new TravelPopUpWindow({ x: 60, y: 60 }, {
   getPlayerPixel: () => ({ x: 40, y: 40 }),
@@ -88,12 +91,16 @@ test('TRAVEL-INN (LIVED1): online the toggle is live again - the days pass on th
   assert.equal(camp.cost, 0, 'and camping out is still free, online as offline');
   // the player is TOLD whose days they are, in both skins
   assert.match(ONLINE_TRAVEL_LINE, /the days pass on your own clock/);
-  // ...and the toggle still forks the journey
+  // ...and offline the toggle still forks the journey (the mod's rule, with its Inns dial off)...
   const settings = { cautiousTravel: true, stopAtInnsTravel: false };
   assert.equal(isPlayerControlledTravel(settings, { speedCautious: true, sleepModeInn: true, travelShip: false }), false,
     'Inns, with the mod not owning inn trips, is vanilla fast travel');
   assert.equal(isPlayerControlledTravel(settings, { speedCautious: true, sleepModeInn: false, travelShip: false }), true,
     'Camp out is the walked trip - the choice still forks the journey');
+  // ...while online the room holds the dials (TRAVEL-ONLINE), so the walk is the trip by inns and by camp alike
+  const room = ONLINE_ROOM_MOD_KEYS['travel-options'];
+  const online = { cautiousTravel: room['CautiousTravel.PlayerControlledCautiousTravel'], stopAtInnsTravel: room['StopAtInnsTravel.PlayerControlledInnsTravel'] };
+  for (const sleepModeInn of [true, false]) assert.equal(isPlayerControlledTravel(online, { speedCautious: true, sleepModeInn, travelShip: false }), true, `online, ${sleepModeInn ? 'Inns' : 'Camp out'}: walked`);
 });
 
 test('TRAVEL-INN: the offline rows are the guard - they must not move when the online law changes', () => {

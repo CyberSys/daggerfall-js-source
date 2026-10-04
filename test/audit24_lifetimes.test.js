@@ -65,7 +65,7 @@ test('audit24 lifetimes: an encounter foe frees its billboard batch on BOTH ends
   // the documentation being cut to fit the bound. V3 moved it again:
   // the Azura's Star kill-capture sits in the same gap, after the trap
   // (a filled Star must count) and before the release.
-  assert.match(dmg, /health <= 0[\s\S]{0,2900}releaseFoeBatch\(f\)/, 'death releases too');   // REVENANT-FATE: the yield arm sits in the gap (a revenant beaten kneels, its batch kept for its fate)   // CREW-COMPANIONS: the knock-out arm heads the gap (a companion never dies, so never releases here)   // SET2: the kill told as mine widened the gap by one line   // AUDIT WORLD6b B2: the peer arm's note sits in the same gap (a proximity bound, not a law)   // STRIKE-SHARED: and a peer's trap's
+  assert.match(dmg, /health <= 0[\s\S]{0,3400}releaseFoeBatch\(f\)/, 'death releases too');   // REVENANT-FATE: the yield arm sits in the gap (a revenant beaten kneels, its batch kept for its fate)   // ARENA2: the foe yield floor heads the gap (a bout fighter never dies, so never releases here)   // CREW-COMPANIONS: the knock-out arm heads the gap (a companion never dies, so never releases here)   // SET2: the kill told as mine widened the gap by one line   // AUDIT WORLD6b B2: the peer arm's note sits in the same gap (a proximity bound, not a law)   // STRIKE-SHARED: and a peer's trap's
   // and the intercept must sit ahead of the release, not after it
   assert.ok(dmg.indexOf('attemptSoulTrap') < dmg.indexOf('releaseFoeBatch(f)'),
     'a trap that refuses the death must not have freed the batch first');
@@ -90,7 +90,7 @@ test('audit24 lifetimes: a city guard frees its batch on both death paths, and t
   // per-frame walk over `guards` paid for them. DFU destroys the
   // walk-away watch outright (EnemyEntity.cs:184-191) and keeps only
   // the killed body. So the key is the guard's own id now, and the
-  // prune is the encounter pool's (exteriorFoes.js:1450).
+  // prune is the encounter pool's (exteriorFoes.js:1462).
   // AUDIT-WH H2 moved the spelling, not the law: the id function is
   // one const now, read by the corpse lens AND by the live-foe
   // producer the plaque races, so a guard and the body it becomes
@@ -132,7 +132,7 @@ test('audit24 lifetimes: the sky panorama cache is BOUNDED', () => {
 
 test('audit24 lifetimes: forceExitToExterior tears the quest stands down like the real door', () => {
   const src = read('src/scenes/worldModes.js');
-  const force = bodyOf(src, 'forceExitToExterior({ cacheScene = true } = {}) {');   // IS1 grew the load-path opt-out
+  const force = bodyOf(src, 'forceExitToExterior({ cacheScene = true, load = false } = {}) {');   // IS1 grew the load-path opt-out
   assert.match(force, /teardownQuestFlats\(\);[\s\S]{0,120}interiorCtx\.destroy\(\)/,
     'the stands leave the context BEFORE destroy - otherwise the next teardown double-frees them');
   assert.match(force, /questBridge\?\.onExteriorTransition\(\)/,
@@ -211,7 +211,7 @@ test('audit24: the three quest settings are LIVE reads, not hardcoded falses', a
   // could flip a switch that reached nothing: adult quests were
   // filtered out whatever ChildGuard said (questLists.js:203), the
   // guild list-box arm was unreachable (offerFlow.js:156), and the
-  // journal's clocks never counted down (clock.js:366). The settings
+  // journal's clocks never counted down (clock.js:457). The settings
   // tier map's own both-ways gate now covers them; this pins the
   // BEHAVIOUR the tier map cannot see.
   const { setValue, _resetForTests } = await import('../src/systems/settings.js');
@@ -265,7 +265,7 @@ test('AUDIT 39: a third race - two cold callers for one model id must not each b
   assert.match(fn, /if \(!meshPromises\.has\(key\)\) \{\s*\n\s*meshPromises\.set\(key, build\(\)/,
     'and a flying one answers with the SAME promise, set before any await');
   assert.match(fn, /\.finally\(\(\) => meshPromises\.delete\(key\)\)/, 'a settled build leaves the map');
-  assert.match(fn, /const getGpuMesh = \(modelIdNum\) => cachedMesh\(modelIdNum, \(\) => buildGpuMesh\(modelIdNum\)\);/, 'getGpuMesh is that door');
+  assert.match(fn, /const getGpuMesh = \(modelIdNum, breathe = null\) => cachedMesh\(modelIdNum, \(\) => buildGpuMesh\(modelIdNum, breathe\)\);/, 'getGpuMesh is that door');   // AUDIT PRE-MERGE 1003 W6: and hands the build its caller's breather
   // the build itself is the only createMesh, and it is unreachable
   // except through the door above
   assert.equal((pipeline.match(/buildGpuMesh\(/g) ?? []).length, 2, 'one definition, one caller');

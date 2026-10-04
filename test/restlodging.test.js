@@ -993,9 +993,10 @@ test('S40: the OnEncounter abort reaches the rest window in EVERY slot', () => {
   assert.match(arm, /dungeonCtx\?\.abortRestForEnemySpawn\?\.\(\)/);
   assert.match(arm, /interiorOverlay\?\.isRestWindow/);
   assert.match(arm, /host\.abortRestForEnemySpawn\?\.\(\)/, 'and the OUTER host slot');
-  for (const f of ['src/scenes/world.js', 'src/scenes/exterior.js']) {
-    assert.match(src(f), /abortRestForEnemySpawn: \(\) => \{\n\s+if \(townTalk\.overlay\?\.isRestWindow\)/, f);
-  }
+  // AUDIT REST II (PIN MOVED): world.js's route tells the act's night first (restAct.js ambushNight - a carried night has
+  // no window, a quest box over the window holds the slot), then the window as before; test/auditrest2_party.test.js P3
+  assert.match(src('src/scenes/world.js'), /abortRestForEnemySpawn: \(\) => \{\n\s+ambushNight\(\);[^\n]*\n\s+if \(townTalk\.overlay\?\.isRestWindow\)/, 'src/scenes/world.js');
+  assert.match(src('src/scenes/exterior.js'), /abortRestForEnemySpawn: \(\) => \{\n\s+if \(townTalk\.overlay\?\.isRestWindow\)/, 'src/scenes/exterior.js');
   // The latch itself: it is a LATCH, answered on the next tick.
   const s2 = new RestSession('timed', 5, {
     advanceMinutes() {}, tickVitals: () => false, fullyHealed: () => false,

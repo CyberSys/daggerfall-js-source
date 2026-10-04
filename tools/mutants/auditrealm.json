@@ -29,8 +29,8 @@
   {
     "name": "AUDIT-REALM-F2-no-stash-counted",
     "file": "src/net/realmGoldLaw.js",
-    "old": "export const carriedItemLists = (/** @type {any} */ snap) => [...stashedItemLists(snap), ...lists(snap?.wagonItems), ...lists(snap?.items)];",
-    "new": "export const carriedItemLists = (/** @type {any} */ snap) => [...lists(snap?.wagonItems), ...lists(snap?.items)];",
+    "old": "export const carriedItemLists = (/** @type {any} */ snap) => [...stashedItemLists(snap), ...lists(snap?.wagonItems), ...lists(snap?.bagItems), ...lists(snap?.items)];",
+    "new": "export const carriedItemLists = (/** @type {any} */ snap) => [...lists(snap?.wagonItems), ...lists(snap?.bagItems), ...lists(snap?.items)];",
     "tests": [
       "test/auditrealm.test.js"
     ]
@@ -38,8 +38,8 @@
   {
     "name": "AUDIT-REALM-F2-the-wagon-uncounted",
     "file": "src/net/realmGoldLaw.js",
-    "old": "export const carriedItemLists = (/** @type {any} */ snap) => [...stashedItemLists(snap), ...lists(snap?.wagonItems), ...lists(snap?.items)];",
-    "new": "export const carriedItemLists = (/** @type {any} */ snap) => [...stashedItemLists(snap), ...lists(snap?.items)];",
+    "old": "export const carriedItemLists = (/** @type {any} */ snap) => [...stashedItemLists(snap), ...lists(snap?.wagonItems), ...lists(snap?.bagItems), ...lists(snap?.items)];",
+    "new": "export const carriedItemLists = (/** @type {any} */ snap) => [...stashedItemLists(snap), ...lists(snap?.bagItems), ...lists(snap?.items)];",
     "tests": [
       "test/auditrealm.test.js"
     ]
@@ -92,8 +92,8 @@
   {
     "name": "AUDIT-REALM-F2-the-stashes-after-the-purse",
     "file": "src/systems/realmCustoms.js",
-    "old": "  for (const list of lists(snap.wagonItems, snap.items)) takeFrom(list);",
-    "new": "  for (const list of [...stashedItemLists(snap).reverse(), ...lists(snap.wagonItems, snap.items)].reverse()) takeFrom(list);",
+    "old": "  for (const list of lists(snap.wagonItems, snap.bagItems, snap.items)) takeFrom(list);",
+    "new": "  for (const list of [...stashedItemLists(snap).reverse(), ...lists(snap.wagonItems, snap.bagItems, snap.items)].reverse()) takeFrom(list);",
     "tests": [
       "test/auditrealm.test.js"
     ]
