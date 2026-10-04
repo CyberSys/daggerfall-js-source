@@ -447,6 +447,9 @@ After the kill the bar holds a moment and fades.
 
 ## 11. Versions and deploy order
 
+- **SERPENT2's relay: `world166`** (section 14). The `serpent` frame's `site` word, said to the hub alone, and
+  `net/serpentHerald.js` in the bundle. A relay before it closes the socket on the kind, so a client says it only to a
+  relay that welcomed it with 166 or later (`serpentSiteOk`). Nothing else in the order moves: the service is untouched.
 - **The relay: `world165`** (world162 on its branch, renumbered past main's PRIMARCH (world162) and SUNBABY1 (world163), then past PARTY-LEAD (world164), at the merges). The `serpent` frame (`net/wire.js` `validSerpentIn`, `validSerpentOut`,
   `SERPENT_RELAY_MIN`). `serpentLaw.js`, `serpentBrain.js`, `serpentBody.js` and `serpentReceipt.js` join the bundle.
   A relay before it closes the socket on the frame, so a client sends one only to a relay that welcomed it with 165
@@ -483,6 +486,55 @@ After the kill the bar holds a moment and fades.
   newcomer, the slain and the lone ship kept, the ram's reach, the still fight unwritten, the targets once a frame).
 - Mutants: `tools/mutants/serpent1.json` (43), `tools/mutants/serpent1_audit.json` (149 - eleven re-aimed by AUDIT
   SERPENT 2, six retired with the code or law it changed) and `tools/mutants/serpent1_audit2.json` (14), all dead.
+- SERPENT2's: `test/serpent2_herald.test.js` (13 - the herald's law, the `site` word, the hub with Discord stubbed, the
+  client's word, the Timers rows) and `tools/mutants/serpent2.json` (49), all dead.
+
+## 14. The herald and the timers (SERPENT2, 2026-10-04)
+
+The owner, once SERPENT1 was live: *"So this also shows in the pause menu timer?"* - it did not - and then *"This needs
+to happen, the discord integration needs to happen"*. Both are the gate's own features, given to the serpent.
+
+**The Timers window** (`systems/eventTimers.js`, `ui/enhancedTimers.js`). The serpent has its own kind, `serpent`, after
+the gate's, marked in its ring's colour (`SERPENT_RING_MAP_CSS`). Its row follows its day:
+
+| Phase | Row | Counts to |
+|---|---|---|
+| quiet | *Sethrakul rises* - "The harbour bells ring 15 minutes before" | the rising |
+| omen | *Sethrakul rises*, off its port - "The harbour bells are ringing - its waters are ringed on your map" | the rising |
+| rising, hunt | *Sethrakul hunts* (live), off its port - "A storm closes its waters when this runs out - sail out to join" | the storm |
+| late | *Sethrakul's waters are closed* (live), off its port - "It dives when this runs out" | the dive |
+
+Once it is under way, *Next sea serpent rises* stands beside it. A kill ends its row early (the host hands the kill
+of this machine's own site). The port is named from the bells on, as the chat names it (the omen's `site.near`).
+
+**The herald** (`net/serpentHerald.js`, the hub's `_serpentHeraldBeat` in `server/src/index.js`). DISCORD-GATES' law
+at sea (`World-Bosses.md`, the herald), posted to the gate's channel through the gate's webhook
+(`GATE_DISCORD_WEBHOOK`, a Worker secret). Two posts:
+
+- **The bells**, at their instant - fifteen real minutes before it rises - or late while it has not risen yet, never
+  after and never twice. They ping `SERPENT_DISCORD_ROLE` when the operator names one (a var in
+  `server/wrangler.toml`, empty by default), else the gate's role; that role is the only mention Discord may make.
+  *"**Bells ring in the harbours: a great serpent is sighted off Sentinel.** Sethrakul, the Old Coil, rises in 15
+  minutes (15:17). A storm closes over its waters at 15:32 - no ship can join after. One ship alone cannot bring it
+  down: sail out together."* The times are Discord's stamps, drawn in each reader's own clock.
+- **The kill**, once a serpent day while it is news (until fifteen minutes after its last dive). It names its port,
+  its top dealers and how many more fought, and pings nobody.
+
+**Where it lies, and which kill.** The relay holds no map, so the site is the players' word, as the gate's is. Each
+online game finds the site of the serpent the clock is about from its quiet on (`serpentOmen.ahead`) and says it to
+the hub once a socket and day: a `serpent` `site` word with its day, its native point to the whole unit and the port
+it lies off (`net/online.js` `sendSerpentSite`). The hub keeps the accounts' vote by the gate's law (`foldGateSite`:
+one word an account a day). A site is named once two accounts agree (`GATE_SITE_AGREE`), and the most accounts win.
+
+A cell keeps a fight for every site named to it, a forged one too (AUDIT SERPENT S1). So the channel hears the kill
+**at the agreed site alone**, read off the hub's own kept kills (one a site). A forged site's fight never reaches
+it, however it ends. Until a site is agreed, the bells say "on the packet lanes" and a kill waits, looked at again
+every `HERALD_RETRY_MS`. A post Discord does not take is posted again `HERALD_RETRY_MS` on; one it refuses for good
+(a 4xx but 429) is given up, as the gate's is.
+
+The bells arm the hub's alarm from the first hello (`_serpentHeraldArm`). The alarm's beat runs the gate's herald,
+then the serpent's. Each keeps its own state (`herald`, `sherald`) and its own site record (`gatesite`,
+`serpentsite`). With no webhook nothing is posted and nothing of the herald's is kept.
 
 See also: `World-Bosses.md` (the gate, whose law this follows at sea), `03-World/Naval-Combat.md` (the guns, the
 hull and the seams it reaches).

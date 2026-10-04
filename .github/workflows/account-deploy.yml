@@ -682,12 +682,17 @@ jobs:
           # that had taken (the route answered minutes later). So a call below that 404s is asked again, for up to
           # half a minute - an old instance wrote nothing for a path it does not know - and one that still 404s
           # after that is a route that did not deploy. `post <out> <url> <json>` prints the status.
+          # DEPLOY-FLAKE (2026-10-04, the owner: "A test failed on deploy"): A 5xx IS ASKED AGAIN TOO. PR #592's run
+          # took its migration and its Worker, then read renown/xp -> 500 once, a few seconds after the gate's own probe
+          # above had read 500 and then 400 on its second try - the platform's first moments after a migration, not
+          # the route. A 5xx comes from a batch that failed whole and wrote nothing, so the call is safe to send again.
+          # One that still fails after half a minute is a route that is broken.
           post() {
             local out=$1 url=$2 data=$3 got=404
             for i in $(seq 1 7); do
               got=$(curl -sS --max-time 15 -o "$out" -w '%{http_code}' -X POST "$url" -H 'content-type: application/json' -d "$data")
-              if [ "$got" != "404" ]; then break; fi
-              echo "  $url -> 404 (attempt $i, an old instance?)" >&2
+              if [ "$got" != "404" ] && [ "${got#5}" = "$got" ]; then break; fi
+              echo "  $url -> $got (attempt $i, an old instance or the platform's first moments?)" >&2
               sleep 5
             done
             echo "$got"

@@ -54,10 +54,11 @@ export const heraldRole = (raw) => { const s = String(raw ?? '').trim(); return 
  *  keeps Discord's markdown, links and mentions out of it), or '' for none. */
 export const heraldName = (n) => String(n ?? '').replace(/[^A-Za-z0-9 '-]/g, '').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX).trim();
 
-/** A relay-clock instant as Discord draws it in each reader's own time: `R` "in 15 minutes", `t` "14:32". */
-const stamp = (ms, style) => `<t:${Math.floor(ms / 1000)}:${style}>`;
+/** A relay-clock instant as Discord draws it in each reader's own time: `R` "in 15 minutes", `t` "14:32" (SERPENT2: the
+ *  serpent's herald's too). */
+export const heraldStamp = (ms, style) => `<t:${Math.floor(ms / 1000)}:${style}>`;
 /** "Ann", "Ann and Bran", "Ann, Bran and Cid". */
-const listOf = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0] ?? '');
+export const heraldList = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0] ?? '');
 
 /**
  * THE OMEN'S POST: where the sky burns, when the gate opens and seals, and who holds it - the role pinged first. WB8c:
@@ -70,9 +71,9 @@ export function omenPost({ day, place = null, role = null }) {
   const where = place ? `near ${place}` : 'over the wilds';
   const map = place ? '' : ' It is marked on your map.';
   // WB13b: two sentences for the two times, and the marks in the chat's own sentence (net/gateLaw.js marksLine)
-  const marks = ` ${boss.name} comes **${aspect.epithet}** tonight${trials.length ? `, ${listOf(trials.map((x) => x.name))}` : ''}.`;
+  const marks = ` ${boss.name} comes **${aspect.epithet}** tonight${trials.length ? `, ${heraldList(trials.map((x) => x.name))}` : ''}.`;
   return {
-    content: `${ping}**The sky burns ${where}.** Dagon's faithful open a breach ${stamp(t.openAt, 'R')} (${stamp(t.openAt, 't')}). The Covenant seals it at ${stamp(t.sealAt, 't')}.${map} ${RITE_OMEN_LINE}${marks}`,   // WB12d: the rite - AUDIT WB12d (D3): the chat's own sentences, right after the breach they say is near
+    content: `${ping}**The sky burns ${where}.** Dagon's faithful open a breach ${heraldStamp(t.openAt, 'R')} (${heraldStamp(t.openAt, 't')}). The Covenant seals it at ${heraldStamp(t.sealAt, 't')}.${map} ${RITE_OMEN_LINE}${marks}`,   // WB12d: the rite - AUDIT WB12d (D3): the chat's own sentences, right after the breach they say is near
     allowed_mentions: role ? { roles: [role] } : { parse: [] },
   };
 }
@@ -85,7 +86,7 @@ export function fellPost({ day, place = null, top = [], n = 0 }) {
   const boss = gateBossOf(day);
   const names = (Array.isArray(top) ? top : []).slice(0, GATE_TOP_MAX).map(heraldName).filter(Boolean);
   const others = Number.isSafeInteger(n) ? Math.max(0, n - names.length) : 0;
-  const by = names.length ? `, struck down by ${listOf([...names, ...(others ? [`${others} other${others === 1 ? '' : 's'}`] : [])])}` : '';   // WB13b: the chat's kill line's sentence
+  const by = names.length ? `, struck down by ${heraldList([...names, ...(others ? [`${others} other${others === 1 ? '' : 's'}`] : [])])}` : '';   // WB13b: the chat's kill line's sentence
   return {
     content: `**${boss.name} has fallen** at Dagon's Breach ${place ? `near ${place}` : 'in the wilds'}${by}. The breach collapses.`,
     allowed_mentions: { parse: [] },
@@ -101,7 +102,7 @@ export function fellPost({ day, place = null, top = [], n = 0 }) {
 export function ritePost({ place = null, by = [], n = 0 }) {
   const names = (Array.isArray(by) ? by : []).slice(0, GATE_TOP_MAX).map(heraldName).filter(Boolean);
   const others = Number.isSafeInteger(n) ? Math.max(0, n - names.length) : 0;
-  const who = names.length ? `, by ${listOf([...names, ...(others ? [`${others} other${others === 1 ? '' : 's'}`] : [])])}` : '';
+  const who = names.length ? `, by ${heraldList([...names, ...(others ? [`${others} other${others === 1 ? '' : 's'}`] : [])])}` : '';
   return {
     content: `**The faithful's rite is broken** ${place ? `near ${place}` : 'in the wilds'}${who}.`,
     allowed_mentions: { parse: [] },
