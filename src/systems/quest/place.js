@@ -29,6 +29,7 @@ import { generateBuildingName } from '../../world/buildingNames.js';
 import { surname, firstName, getNameBankOfRegion, GENDERS } from '../../characters/nameHelper.js';
 import { RDB_RESOURCE_TYPES } from '../../formats/blocksFile.js';
 import { stampLayout, layoutStampOfMapId, recordStands } from '../layoutPins.js';   // WD3: a building site keeps its town's layout
+import { curatedMarkerSpot, curateSiteMarkers } from './markerCuration.js';   // FIELD BUGS 2026-10-04b QUEST-MARKERS: the town packs' unreachable markers, on the floor
 
 export const Scopes = Object.freeze({ None: 'none', Local: 'local', Remote: 'remote', Fixed: 'fixed' });
 
@@ -258,6 +259,21 @@ export class Place extends QuestResource {
     const { unseated: _was, ...record } = held;
     this.siteDetails = record;
     return true;
+  }
+
+  /** FIELD BUGS 2026-10-04b QUEST-MARKERS: a building site enumerated before the curation (a save's, a party member's
+   *  copy) holds the markers it was given - one, maybe, where no player reaches it, what was assigned to it standing
+   *  there. The load's mend moves each one the curation moves (markerCuration.js), what it holds with it - in the
+   *  building the site's key names as its town stands, only where the site stands in that layout. Answers how many. */
+  mendCuratedMarkers(world) {
+    const sd = this.siteDetails;
+    if (sd?.siteType !== SITE_TYPES.Building || !(sd.buildingKey > 0) || !recordStands(sd)) return 0;
+    const location = this.siteTown(world);
+    if (!location) return 0;
+    const key = sd.buildingKey;
+    const name = world.maps?.getRmbBlockName?.(location, (key >> 16) & 0xff, (key >> 8) & 0xff);
+    const dfBlock = name ? world.getBlock?.(name) : null;
+    return dfBlock ? curateSiteMarkers(sd, dfBlock, key & 0xff) : 0;
   }
 
   /**
@@ -702,7 +718,9 @@ export class Place extends QuestResource {
     const recordData = blockData.rmbBlock.subRecords[recordIndex];
     for (const obj of recordData?.interior?.blockFlatObjectRecords ?? []) {
       if (obj.textureArchive !== EDITOR_FLAT_ARCHIVE) continue;
-      const position = { x: obj.xPos * GLOBAL_SCALE, y: -obj.yPos * GLOBAL_SCALE, z: obj.zPos * GLOBAL_SCALE };
+      // FIELD BUGS 2026-10-04b QUEST-MARKERS: a town pack's marker no player can reach stands at its measured floor spot
+      const [x, y, z] = curatedMarkerSpot(blockData, recordIndex, obj.textureRecord, obj.xPos, obj.yPos, obj.zPos) ?? [obj.xPos, obj.yPos, obj.zPos];
+      const position = { x: x * GLOBAL_SCALE, y: -y * GLOBAL_SCALE, z: z * GLOBAL_SCALE };
       if (obj.textureRecord === SPAWN_MARKER_RECORD) spawn.push(this._createQuestMarker(MARKER_TYPES.QuestSpawn, position));
       else if (obj.textureRecord === ITEM_MARKER_RECORD) item.push(this._createQuestMarker(MARKER_TYPES.QuestItem, position));
     }

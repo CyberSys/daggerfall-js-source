@@ -362,7 +362,7 @@ import { PotionMakerWindow, preloadPotionArt, potionArtLoaded } from '../ui/poti
 import { ItemMakerWindow, preloadItemMakerArt, itemMakerArtLoaded, ITEM_RECTS, rowLayout as itemMakerRowLayout } from '../ui/itemMakerWindow.js';
 import { createPotion, getMagicItemTemplates, LOOT_NEWER_TEXT } from '../systems/loot.js';   // M2: ItemBuilder.CreatePotion, one minter; G4: the MAGIC.DEF registry
 import { SITE_TYPES } from '../systems/quest/place.js';
-import { placeFoeFreely, questStandBox, rideSceneMarker } from '../systems/quest/sceneMount.js';   // B1: CreateFoe's raycast ring, finally called; TOTEM-CAGE: a stand's box where it IS
+import { placeFoeFreely, questStandBox, rideSceneMarker, markerScenePosition, siteMarkerSpots, standSpot, MARKER_FLOOR_REACH } from '../systems/quest/sceneMount.js';   // B1: CreateFoe's raycast ring, finally called; TOTEM-CAGE: a stand's box where it IS; QUEST-MARKERS: the building's backstop
 import { placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour as reviveQuestBehaviourFromSave, heldSpots, holdSpotWhile } from './questFoeHost.js';   // B1 (PlaceFoeFreely reads the fieldOfView import below)   // AUDIT 63 F24: SerializableEnemy.cs:206-217 re-adds the component on restore
 import { standLooseFoe } from './hostEnchant.js';   // ROAD-G G1: SoulBound's break release / the Sanguine Rose, inside a building
 import { ENEMY_BASICS, enemyDisplayName } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag // WORLD-HOVER H2: GetLocalizedEnemyName - Entity.Name for a live one (.cs:310)
@@ -1732,14 +1732,14 @@ export function createWorldModes(host) {
    *  the loot piles. */
   const QUEST_ITEM_MARKER_SHIFT = 0.5;
 
-  function standQuestFlatIn(list, getCtx, toScene, inDungeon, archive, record, position, behaviour, staticNpcFactionId = null, hashPosition = null, isItem = false) {
+  function standQuestFlatIn(list, getCtx, toScene, inDungeon, archive, record, position, behaviour, staticNpcFactionId = null, hashPosition = null, isItem = false, fallback = null) {
     const ctx = getCtx();   // capture: an async fill must not cross scenes
     if (!ctx) return null;
     // flatPosition is already scene units with -y (the Place marker
     // law); the interior parents it exactly as its own flats are, the
     // dungeon's marker position IS scene space (dungeonX/Z * RDBSide
     // + flatPosition, markerScenePosition's law).
-    const [x, y, z] = toScene(ctx, position);
+    let [x, y, z] = toScene(ctx, position);
     // AUDIT 24 (wave 22): `hashPosition` is marker.flatPosition, which
     // is what GameObjectHelper.cs:1062 hands SetLayoutData - NOT the
     // target position it stood the billboard at. The two are the same
@@ -1759,6 +1759,14 @@ export function createWorldModes(host) {
       uploadRecord(drawArchive, drawRecord);
       const size = billboardSize(t, drawRecord);
       stand.width = size.w; stand.height = size.h;
+      // FIELD BUGS 2026-10-04b QUEST-MARKERS: a building's marker with no floor within reach under it stands its person
+      // or thing at the site's nearest marker with one, else the room's nearest enter marker (sceneMount.js standSpot) -
+      // the floor asked as each law below asks it: the person's ray from its centre, the item's from just over it
+      if (fallback) {
+        const lift = isItem ? 0.2 : size.h / 2 + 0.2;
+        [x, y, z] = standSpot([x, y, z], fallback(ctx), (p) => Number.isFinite(ctx.collider?.raycast?.([p[0], p[1] + lift, p[2]], [0, -1, 0], MARKER_FLOOR_REACH)));
+        stand.x = x; stand.z = z;
+      }
       // AUDIT 26 F068: an ITEM and an NPC are stood by DIFFERENT laws.
       // The old comment here said AddQuestNPC and AddQuestItem "both
       // call" the align; only AddQuestNPC does (:1040).
@@ -1911,6 +1919,16 @@ export function createWorldModes(host) {
       console.log('[quest] clicked a stand no active quest claims (DFU would fall through to the world here)');
     }
   };
+  /** FIELD BUGS 2026-10-04b QUEST-MARKERS: the building backstop's spots in the room's frame - the site's other markers,
+   *  nearest the marker first (sceneMount.js siteMarkerSpots), then the room's enter markers, nearest first. */
+  const interiorStandSpots = (quest, marker) => (ctx) => {
+    if (!marker?.flatPosition) return [];
+    const own = markerScenePosition(marker);
+    const [ox, oy, oz] = ctx.parentPt(own.x, own.y, own.z);
+    const d2 = (p) => (p[0] - ox) ** 2 + (p[1] - oy) ** 2 + (p[2] - oz) ** 2;
+    const others = siteMarkerSpots(quest?.getPlace?.(marker.placeSymbol)?.siteDetails, marker).map((p) => ctx.parentPt(p.x, p.y, p.z));
+    return [...others, ...[...(ctx.enterMarkers ?? [])].sort((a, b) => d2(a) - d2(b))];
+  };
   const questAdapter = {
     // PlayerGPS.CurrentMapID through the host's scene-context closure.
     currentMapId: () => questSceneCtx?.()?.mapId ?? 0,
@@ -1924,9 +1942,9 @@ export function createWorldModes(host) {
     // exactly that restore. Hard-coded false, the re-entry walk stood
     // every marker foe WHOLE beside the ones the save brought back.
     loadInProgress: () => _enemyRestoreInProgress,
-    standNPC: ({ marker, person, flatData, position, behaviour }) =>
-      standQuestFlat(flatData.archive, flatData.record, position, behaviour, person?.factionId ?? null, marker?.flatPosition ?? null),
-    standItem: ({ item, position, behaviour }) => {
+    standNPC: ({ quest, marker, person, flatData, position, behaviour }) =>
+      standQuestFlat(flatData.archive, flatData.record, position, behaviour, person?.factionId ?? null, marker?.flatPosition ?? null, false, interiorStandSpots(quest, marker)),
+    standItem: ({ quest, item, marker, position, behaviour }) => {
       // AddQuestItem draws the item's WORLD texture (the ground sprite).
       const t = templateByIndex(item.daggerfallUnityItem?.templateIndex);
       if (!t) return null;
@@ -1934,10 +1952,10 @@ export function createWorldModes(host) {
       // TOTEM-CAGE: and never parented here. AddQuestItem's GetDaggerfallMarker (:1144-1148) finds no scene marker in
       // a building - DaggerfallMarker is RDBLayout's alone (RDBLayout.cs:359-366), a building's quest marker carries
       // MarkerID 0 (Place.cs:1503-1506) and an RMB flat carries no action - so a building's quest item stands still.
-      return standQuestFlat(t.worldTextureArchive, t.worldTextureRecord, position, behaviour, null, null, true);
+      return standQuestFlat(t.worldTextureArchive, t.worldTextureRecord, position, behaviour, null, null, true, interiorStandSpots(quest, marker));
     },
     // IF: the marker-time stand, the dungeon adapter's twin.
-    standFoe: ({ foe, gender, position, behaviour }) => {
+    standFoe: ({ quest, marker, foe, gender, position, behaviour }) => {
       if (!interiorCtx || !interiorFoes) return null;
       interiorFoeStands.push(behaviour);
       // ROGUE-IMP (2026-09-26, Triage: "Rogue imp unable to kill hes in the floorboards"): a building's marker is its
@@ -1945,7 +1963,12 @@ export function createWorldModes(host) {
       // dungeon's RDB marker is the centre, and spawnFoe's flyer drop - half the idle sprite - is that convention's). The
       // marker is handed over as FEET, a walker's hair above the floor: a flyer hangs ON the palace floor, where DFU's
       // controller recovery leaves it, never half a sprite under the boards; a walker stands where it always did.
-      interiorFoes.spawnFoe(foe.foeType, interiorCtx.parentPt(position.x, position.y + INTERIOR_MARKER_FEET_LIFT, position.z), {
+      // QUEST-MARKERS (FIELD BUGS 2026-10-04b): a marker with no floor within reach under it stands its foe at the site's
+      // nearest marker with one, else the room's nearest enter marker - never falling through the room
+      const lifted = interiorStandSpots(quest, marker)(interiorCtx).map((p) => [p[0], p[1] + INTERIOR_MARKER_FEET_LIFT, p[2]]);
+      const feet = standSpot(interiorCtx.parentPt(position.x, position.y + INTERIOR_MARKER_FEET_LIFT, position.z), lifted,
+        (p) => Number.isFinite(interiorCtx.collider?.raycast?.([p[0], p[1] + 0.2, p[2]], [0, -1, 0], MARKER_FLOOR_REACH)));
+      interiorFoes.spawnFoe(foe.foeType, feet, {
         gender, questBehaviour: behaviour, feetGiven: true,
         questMarker: true,   // QUEST-PARTY phase 3: every copy of the quest stands it here - it stands once for the party
       }).catch((e) => console.error('[quest] interior marker foe failed:', e?.message ?? e));
