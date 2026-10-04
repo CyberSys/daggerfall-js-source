@@ -29,7 +29,7 @@ import { sharedCartographySpell } from '../systems/partyMap.js';   // PARTY-MAP
 import { isOnlinePage } from '../systems/onlineLane.js';   // RESURRECT1: the shelf's online arm
 import { bloodDecalDeps } from '../combat/bloodSwitch.js';   // BLOOD1a
 import { createBloodMarks } from '../combat/bloodMarks.js';   // BLOOD1a
-import { doorWorldAabb, doorWorldPosition, doorWorldNormal, interiorLanding, exteriorLanding, dungeonEntranceLanding, climbLadder, floorLanding, repositionFeetY } from '../player/enterExit.js';
+import { doorWorldAabb, doorWorldPosition, doorWorldNormal, interiorLanding, exteriorLanding, dungeonEntranceLanding, climbLadder, floorLanding, repositionFeetY, standsOnFloor, interiorVoidRescue, standFromVoid, NOTHING_OF_VALUE_TEXT, INTERIOR_VOID_TEXT } from '../player/enterExit.js';   // FIELD BUGS 2026-10-04b VOID-ENTRY: the floor a landing stands on, the failsafe, and their two lines
 import { WORLD_FRAME } from '../render/renderer.js';   // AUDIT-EL F5
 import { STREAMING_TERRAIN_SCALE, DEFAULT_TERRAIN_SCALE } from '../world/terrainSampler.js';   // TERRAIN-SCALE1: the interior cache's frame and the ground its legacy heights stood on
 import { climbRigInput } from '../player/climbPose.js';   // CLIMB6: the body's limbs on the climb
@@ -7012,12 +7012,12 @@ export function createWorldModes(host) {
           // building ever enters that dictionary (systems/automap.js).
           dungeonEntranceDiscovered: !!getDungeonAutomap(
             automapDungeonKey(hit.dfLocation?.regionIndex ?? -1, hit.dfLocation?.name ?? ''))?.entranceDiscovered,
-        }).catch((e) => { buildingHold.release(); throw e; });   // PLACE-LRU: a build that throws hands no context back to release it
+        }).catch((e) => { buildingHold.release(); if (live()) say(NOTHING_OF_VALUE_TEXT); throw e; });   // PLACE-LRU: a build that throws hands no context back to release it; FIELD BUGS 2026-10-04b VOID-ENTRY: TransitionInterior's catch (PlayerEnterExit.cs:719-730) - a room that will not lay out says DFU's old chestnut; the player stays in the street (the hosts log the throw)
       if (!live()) { abandonContext(ctx); return false; }   // AUDIT 68 X3-transition-build-race: the world moved under the build (a load, a teleport) - nothing is published
       const siblings = entries.filter((e) =>
         e.dfBlock === hit.dfBlock && e.recordIndex === hit.recordIndex);
-      const landing = interiorLanding(
-        doorWorldPosition(hit.door), ctx.enterMarkers, ctx.doors);
+      const landing = interiorLanding(   // FIELD BUGS 2026-10-04b VOID-ENTRY: only a spot with a floor under it (enterExit.js) - the town mods' rooms keep the building's own exterior model, whose door faces OUT, and nearest the enter marker DFU's landing stood over nothing; a room with nowhere to stand is refused, its line DFU's for a room it cannot lay out
+        doorWorldPosition(hit.door), ctx.enterMarkers, ctx.doors, (p) => standsOnFloor(ctx.collider, p)) ?? void say(NOTHING_OF_VALUE_TEXT);
       // NT1 (F054): the context is fully built - GPU billboard batches,
       // voxelfolk meshes - and `interiorCtx` is not yet assigned, so a
       // throw here used to leak the whole build on EVERY E-press at
@@ -7106,7 +7106,7 @@ export function createWorldModes(host) {
       // the playlist is identical. `musicContext()` below reports this
       // host's half of that context.
       player.collider = ctx.collider;
-      const floored = floorLanding(ctx.collider, landing);   // verbatim FixStanding: instant snap, no gravity drop-in
+      const floored = floorLanding(ctx.collider, landing); ctx.voidRescue = interiorVoidRescue(ctx.collider, floored);   // verbatim FixStanding: instant snap, no gravity drop-in   // FIELD BUGS 2026-10-04b VOID-ENTRY: the failsafe's record (frame()) - where the door stood the player and where the void begins under the room, living and dying with the context
       // IS1: a restore lands the SAVED position raw over the door
       // landing (RestorePosition: transform.position = saved, the
       // interior arm) - the landing above still ran, because a
@@ -9156,7 +9156,7 @@ export function createWorldModes(host) {
     // just above: tearing the interior down from INSIDE a click/command
     // dispatch that is itself running off interiorCtx would pull the
     // rug out from under its own caller.
-    if (pendingInteriorExit) { pendingInteriorExit = false; exitInteriorNow(); return true; }
+    if (pendingInteriorExit) { pendingInteriorExit = false; exitInteriorNow(); return true; } else if (standFromVoid(interiorCtx.voidRescue, player)) { cam.pos = [...player.eye]; say(INTERIOR_VOID_TEXT); }   // FIELD BUGS 2026-10-04b VOID-ENTRY: THE FAILSAFE (enterExit.js standFromVoid) - a body below everything the building stands on fell for good, in the black ("Complete darkness and possibly stuck"); it stands again where the door landed it, and is told
     // AUDIT 23 (C12: cross-6 = wts-3) - PlayerAmbientLight.cs:75-80: a
     // night interior takes the darker purple-tinted ambient.
     renderer.setLighting(new Float32Array(isNight(skyMinutes() % 1440) ? INTERIOR_NIGHT_AMBIENT : INTERIOR_AMBIENT), 0);   // TIME1: the sky's night

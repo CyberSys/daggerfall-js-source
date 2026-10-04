@@ -109,7 +109,12 @@ function tavern() {
     door: { blockIndex: door.blockIndex, recordIndex: door.recordIndex, doorIndex: door.doorIndex, buildingKey: 7 },
     building: { buildingKey: 7, buildingType: BUILDING_TYPES.Tavern, regionIndex: 0, quality: 10, factionId: 0, nameSeed: 1 },
   };
-  return { entry, saved };
+  // FIELD BUGS 2026-10-04b VOID-ENTRY: its one model is its floor - the law lands a player only where a floor stands, and
+  // refuses a room with none (this record's model was not in the stub's ARCH3D: a room of nothing)
+  const floor = { modelIdNum: 42, positions: new Float32Array([-5, 0, -5, 5, 0, -5, 5, 0, 5, -5, 0, 5]), indices: new Uint32Array([0, 1, 2, 0, 2, 3]), subMeshes: [], doors: [] };
+  const cpuModels = new Map();
+  const pipeline = { getGpuMesh: async (id) => (id === 42 ? (cpuModels.set(42, floor), { id }) : null), cpuModels, getTexture: async () => null, uploadRecord: () => {}, uploadRecordFrame: () => {}, arch: null, palette: null, getMachineryParts: () => {} };
+  return { entry, saved, pipeline };
 }
 
 // ── dungeonContext's own statements, mounted ─────────────────────────────────────────────────────────────────────
@@ -164,8 +169,8 @@ test('FB1001b: a BUILDING - the mode machine world.js\'s street and exterior.js 
   const prev = setPassiveSpecialsHost(null);
   try {
     const v = await vampire();
-    const { entry, saved } = tavern();
-    const modes = await buildModes({ doorTargets: () => [entry] });
+    const { entry, saved, pipeline } = tavern();
+    const modes = await buildModes({ doorTargets: () => [entry], pipeline });
     assert.equal(modes.mode, 'exterior');
     assert.deepEqual(liveMinute(v, at(12)), seven(-VAMPIRE_STAT_MOD), 'the street at noon (the mode machine\'s own answer)');
     assert.equal(await quietly(() => modes.restoreInterior(saved, [0, 0, 0])), true, 'the tavern stands and the player is in it');
