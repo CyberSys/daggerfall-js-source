@@ -356,7 +356,7 @@ import { PotionMakerWindow, preloadPotionArt, potionArtLoaded } from '../ui/poti
 import { ItemMakerWindow, preloadItemMakerArt, itemMakerArtLoaded, ITEM_RECTS, rowLayout as itemMakerRowLayout } from '../ui/itemMakerWindow.js';
 import { createPotion, getMagicItemTemplates, LOOT_NEWER_TEXT } from '../systems/loot.js';   // M2: ItemBuilder.CreatePotion, one minter; G4: the MAGIC.DEF registry
 import { SITE_TYPES } from '../systems/quest/place.js';
-import { placeFoeFreely } from '../systems/quest/sceneMount.js';   // B1: CreateFoe's raycast ring, finally called
+import { placeFoeFreely, questStandBox, rideSceneMarker } from '../systems/quest/sceneMount.js';   // B1: CreateFoe's raycast ring, finally called; TOTEM-CAGE: a stand's box where it IS
 import { placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour as reviveQuestBehaviourFromSave, heldSpots, holdSpotWhile } from './questFoeHost.js';   // B1 (PlaceFoeFreely reads the fieldOfView import below)   // AUDIT 63 F24: SerializableEnemy.cs:206-217 re-adds the component on restore
 import { standLooseFoe } from './hostEnchant.js';   // ROAD-G G1: SoulBound's break release / the Sanguine Rose, inside a building
 import { ENEMY_BASICS, enemyDisplayName } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag // WORLD-HOVER H2: GetLocalizedEnemyName - Entity.Name for a live one (.cs:310)
@@ -1738,7 +1738,7 @@ export function createWorldModes(host) {
     // whole RDB block once the dungeon mount lands, which would have
     // given the NPC a different hash - and therefore a different
     // nameSeed fallback and a different generated NAME - than DFU.
-    const stand = { ctx, archive, record, x, y, z, marker: hashPosition ?? position, width: 0, height: 0, batch: null, active: true, dead: false, behaviour };
+    const stand = { ctx, archive, record, x, y, z, marker: hashPosition ?? position, width: 0, height: 0, batch: null, active: true, dead: false, behaviour, off: null };   // TOTEM-CAGE: `off` the travel of the scene marker it rides (host.follow)
     // NUDE-FLATS: a person's picture is the clothed stand-in while Show
     // Nudity is off - Azura summoned, or a questor who kept a nude
     // figure's billboard indices from the click. The stand keeps the born
@@ -1785,6 +1785,7 @@ export function createWorldModes(host) {
       }
       stand.y = by;
       stand.batch = renderer.createBillboardBatch(drawArchive, drawRecord, size, [[x, by, z]]);
+      rideSceneMarker(stand, stand.off);   // TOTEM-CAGE: a follow that came before the fill draws from the batch's first frame
       if (stand.active) ctx.billboardBatches.push(stand.batch);
     })().catch((e) => console.error('[quest] stand fill failed:', e));
     const unhook = () => {
@@ -1811,6 +1812,9 @@ export function createWorldModes(host) {
         const i = list.indexOf(stand);
         if (i >= 0) list.splice(i, 1);
       },
+      /** TOTEM-CAGE: AddQuestItem's parenting (GameObjectHelper.cs:1144-1148) - the stand rides `offset`, its scene
+       *  marker's live travel (systems/quest/sceneMount.js sceneMarkerMover / rideSceneMarker). */
+      follow: (offset) => rideSceneMarker(stand, offset),
     };
     list.push(stand);
     return stand.host;
@@ -1831,7 +1835,7 @@ export function createWorldModes(host) {
       const isPerson = s.behaviour?.targetResource?.isPerson === true;
       out.push({
         key: `questflat:${i}`,
-        aabb: { min: [s.x - s.width / 2, s.y, s.z - s.width / 2], max: [s.x + s.width / 2, s.y + s.height, s.z + s.width / 2] },
+        aabb: questStandBox(s),   // TOTEM-CAGE: where the stand IS - a stand riding an acting marker is clicked where it rode to
         distance: isPerson ? STATIC_NPC_ACTIVATION_DISTANCE : DEFAULT_ACTIVATION_DISTANCE,
       });
     });
@@ -1918,6 +1922,9 @@ export function createWorldModes(host) {
       const t = templateByIndex(item.daggerfallUnityItem?.templateIndex);
       if (!t) return null;
       // F068: an item is placed, not aligned - no ray.
+      // TOTEM-CAGE: and never parented here. AddQuestItem's GetDaggerfallMarker (:1144-1148) finds no scene marker in
+      // a building - DaggerfallMarker is RDBLayout's alone (RDBLayout.cs:359-366), a building's quest marker carries
+      // MarkerID 0 (Place.cs:1503-1506) and an RMB flat carries no action - so a building's quest item stands still.
       return standQuestFlat(t.worldTextureArchive, t.worldTextureRecord, position, behaviour, null, null, true);
     },
     // IF: the marker-time stand, the dungeon adapter's twin.
@@ -2035,11 +2042,17 @@ export function createWorldModes(host) {
     loadInProgress: () => _enemyRestoreInProgress,   // AUDIT 63 F24: GameObjectHelper.cs:1073-1076, the dungeon adapter's twin
     standNPC: ({ marker, person, flatData, position, behaviour }) =>
       standDungeonQuestFlat(flatData.archive, flatData.record, position, behaviour, person?.factionId ?? null, marker?.flatPosition ?? null),
-    standItem: ({ item, position, behaviour }) => {
+    standItem: ({ item, marker, position, behaviour }) => {
       const t = templateByIndex(item.daggerfallUnityItem?.templateIndex);
       if (!t) return null;
       // F068: an item is placed, not aligned - no ray.
-      return standDungeonQuestFlat(t.worldTextureArchive, t.worldTextureRecord, position, behaviour, null, null, true);
+      const host = standDungeonQuestFlat(t.worldTextureArchive, t.worldTextureRecord, position, behaviour, null, null, true);
+      // TOTEM-CAGE (FIELD BUGS 2026-10-03b): "Parent to scene marker (if any) - This ensures mobile quest objects parented
+      // to action marker translates correctly" (GameObjectHelper.cs:1144-1148). An acting marker moves (the Totem's, in
+      // Castle Daggerfall's treasury cage); the item rides it - the cage this player raised, a peer's raise heard live,
+      // the raise the castle room remembers.
+      host?.follow(dungeonCtx?.questMarkerMover?.(marker?.markerID)?.offset);
+      return host;
     },
     standFoe: ({ foe, gender, position, behaviour }) => {
       if (!dungeonCtx) return null;
@@ -7910,7 +7923,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:8301), so the OUTER host's one rides in.
+          // (dungeonContext.js:8302), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:847 -> the
@@ -11920,7 +11933,7 @@ export function createWorldModes(host) {
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
      *  HARD2c: this used to spell them out, and named `world.js:10912`
-     *  and `dungeonContext.js:8313` for its two sibling copies - lines
+     *  and `dungeonContext.js:8314` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {
