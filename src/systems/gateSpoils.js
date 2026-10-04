@@ -33,7 +33,7 @@ import { createRandomWeapon, createRandomArmor, ITEM_GROUPS } from './loot.js';
 import { setItemFields, isAmmunition, mintCondition, registerCustomTemplates, templateByIndex } from './itemTemplates.js';
 import { applyRarity, rarityChances, lastPass } from './lootRarity.js';
 import { rollRegalia } from './aetheric.js';   // SET6: Ruhn's Regalia - the spoils' last roll
-import { stacksWith } from './inventory.js';   // SS1: the fold of a pack saved before the stone stacked
+import { stacksWith, addItem } from './inventory.js';   // SS1: the fold of a pack saved before the stone stacked; PORTAL-GIFT: the gift joins the pack's stack
 import { wearableItem } from './equip.js';   // RARITY-WEAR: a spoils piece is one a slot takes
 
 /** Gold a level of the player's, before the seed's variation (0.8 to 1.2 of it). */
@@ -97,7 +97,9 @@ export function welkyndShards(n = 1) {
  *  but NOT a gem's group: every Gems piece is a crystal a slot takes (equipTable.js getEquipSlot), so a stone in it was
  *  worn from the hotbar and the pack. It is miscellany (UselessItems2), as the rest supplies are (restItems.js). */
 export const PORTAL_STONE_TEMPLATE = 572;
-export const PORTAL_STONE = Object.freeze({ name: 'Portal Stone', value: 5 * WELKYND_SHARD.value });
+/** What a stone costs at the counter, in Welkynd Shards (a Magic piece salvages into 1, a Rare 3, a Legendary 8). */
+export const PORTAL_STONE_SHARDS = 5;
+export const PORTAL_STONE = Object.freeze({ name: 'Portal Stone', value: PORTAL_STONE_SHARDS * WELKYND_SHARD.value });
 export const PORTAL_STONE_TEMPLATES = Object.freeze([{
   index: PORTAL_STONE_TEMPLATE,
   name: PORTAL_STONE.name,
@@ -111,6 +113,29 @@ export const PORTAL_STONE_TEMPLATES = Object.freeze([{
 }]);
 registerCustomTemplates(PORTAL_STONE_TEMPLATES);
 export const isPortalStone = (item) => item?.templateIndex === PORTAL_STONE_TEMPLATE;
+/** PORTAL-GIFT (2026-10-04, the owner: "every current player should recieve x10 of these. They should stack"): EVERY
+ *  CHARACTER THAT ALREADY EXISTS IS GIVEN PORTAL_GIFT_STONES STONES, ONCE - LOAN-AMNESTY's shape (banking.js
+ *  forgiveLoans). A character's `portalGift` says which gift it has had: a save written before the gift carries no mark
+ *  (0), and every save written after carries the mark (save.js snapshotPlayer), so a character made after the gift is
+ *  born past it, and a character given it is never given it again. Given as the save is restored (save.js
+ *  restorePlayer - every load, offline and online, the realm's boot among them), onto the pack's own unlocked stack of
+ *  stones (addItem: they stack), and said once the world stands (takePortalGiftNotice, world.js). Client only, as the
+ *  amnesty is: a bound piece the realm's service never weighs (realmGoldLaw.js counts gold alone). Answers how many
+ *  stones it gave (0: none - the mark already stood). */
+export const PORTAL_GIFT = 1;
+export const PORTAL_GIFT_STONES = 10;
+let _giftNotice = 0;
+export function givePortalGift(entity) {
+  if (!entity || typeof entity !== 'object') return 0;
+  if ((Number.isSafeInteger(entity.portalGift) ? entity.portalGift : 0) >= PORTAL_GIFT) return 0;
+  entity.portalGift = PORTAL_GIFT;
+  if (!Array.isArray(entity.items)) entity.items = [];
+  addItem(entity.items, portalStones(PORTAL_GIFT_STONES));
+  _giftNotice += PORTAL_GIFT_STONES;
+  return PORTAL_GIFT_STONES;
+}
+/** The stones given since the last ask (0: none), and the notice cleared - the host says it once. */
+export const takePortalGiftNotice = () => { const n = _giftNotice; _giftNotice = 0; return n; };
 /** `n` Portal Stones (at least one), one stack. */
 export function portalStones(n = 1) {
   const count = Math.max(1, Math.trunc(Number(n) || 1));

@@ -621,7 +621,9 @@ ask), the guild's fourth row (classic click and key, no hook no row, the Plus fa
 card's Salvage; `tools/mutants/loot9.json` (52, all dead).
 
 **PORTAL1 (2026-10-04)**: the shard's second coin - a Portal Stone at every shop's counter for five of them
-(`06-Systems/Portal-Stone.md`), spent through the same purse (`shardsHeld`, `spendShards`: unlocked stacks only).
+(`06-Systems/Portal-Stone.md`), spent through the same purse (`shardsHeld`, `spendShards`). AUDIT PORTAL1 I1: the purse
+now spends a shard unlocked AND UNWORN - a shard is a gem, a crystal a slot takes, and a worn one spent left a ghost on
+the doll (the Reforge's since LOOT9).
 
 ### LOOT10 - the codex, and the imprint (2026-10-01)
 

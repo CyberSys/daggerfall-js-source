@@ -24,8 +24,10 @@
 //   (:78) and the panel sits at ((320-130)/2, (200-51)/2).
 // - the four buttons are panel-CHILD rects (:24-27): repair
 //   (5,5,120,7), talk (5,14,120,7), sell (5,23,120,7), exit
-//   (44,33,43,15). Every word is painted in the art - this window
-//   draws no text of its own.
+//   (44,33,43,15). Every word is painted in the art - the window's
+//   own four draw no text. (PORTAL1: the Portal Stone's row under the
+//   art is the port's own, and draws its label - merchantServiceWindow.js
+//   drawPortalRow.)
 // - `ParentPanel.BackgroundColor = Color.clear` (:62): the room stays
 //   visible behind the panel.
 // - all four handlers are `PlayOneShot(ButtonClick); CloseWindow();`
@@ -84,6 +86,7 @@ const inRect = ([rx, ry, rw, rh], x, y) => x >= rx + REPAIR_PANEL_X && y >= ry +
  *   onTalk()    TalkManager.TalkToStaticNPC(merchantNPC) (:147)
  *   onSell()    WindowModes.Sell (:169)
  *   onClose()
+ *   portal?: { label, onBuy() }   PORTAL1: the Portal Stone's row (merchantServiceWindow.js portalRowRect)
  */
 export class MerchantRepairWindow {
   constructor(hooks) {

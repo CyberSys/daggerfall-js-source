@@ -19,8 +19,8 @@
 //   = (95, 79). The same law the guild sibling documents.
 // - the three buttons are panel-CHILD rects (:22-24): talk (5,5,120,7),
 //   service (5,14,120,7), exit (44,24,43,15).
-// - the service label is the one piece of text the window draws
-//   (:70-73): Position (0,1) INSIDE the service button,
+// - the service label is the one piece of text DFU's window draws
+//   (:70-73; PORTAL1's row under the art is the port's own): Position (0,1) INSIDE the service button,
 //   HorizontalAlignment.Center, ShadowPosition = Vector2.zero - no
 //   shadow, unlike every other label in the port's native windows.
 // - `ParentPanel.BackgroundColor = Color.clear` (:39) and
@@ -34,6 +34,7 @@
 // `hooks.label` and runs the service from its own `onService`.
 
 import { loadImg, drawImg, nativeMetrics, drawRect, shadowText, DEFAULT_TEXT_COLOR } from './nativePanel.js';
+import { REFORGE_ROW_BG } from './guildServiceWindow.js';   // PORTAL1: the port-drawn rows' one parchment dark
 import { drawScreenDimBackdrop } from './chargenArt.js';
 import { drawText, measureText } from './text.js';
 import { audio } from '../systems/audio.js';   // F141: the ButtonClick roster
@@ -61,11 +62,10 @@ const SERVICE_LABEL_OFFSET_Y = 1;
  *  Panel-relative, at the panel's foot. */
 export const portalRowRect = (panelH) => Object.freeze([5, panelH + 2, 120, 10]);
 export const PORTAL_ROW_KEY = 'KeyP';
-const PORTAL_ROW_BG = Object.freeze([0.16, 0.11, 0.06, 0.92]);
 /** The row, drawn under a panel at (px, py) of height ph. */
 export function drawPortalRow(renderer, m, font, px, py, ph, label) {
   const [rx, ry, rw, rh] = portalRowRect(ph);
-  drawRect(renderer, m, px + rx, py + ry, rw, rh, PORTAL_ROW_BG);
+  drawRect(renderer, m, px + rx, py + ry, rw, rh, REFORGE_ROW_BG);
   shadowText(renderer, font, label, m, px + rx, py + ry + 2, { align: 'center', w: rw });
 }
 
@@ -88,7 +88,7 @@ const inRect = ([rx, ry, rw, rh], x, y) => x >= rx + MERCHANT_PANEL_X && y >= ry
 export class MerchantServiceWindow {
   /**
    * @param {{service:'Sell'|'Banking', onTalk:Function, onService:Function,
-   *          onClose?:Function}} hooks
+   *          onClose?:Function, label?:string, portal?:{label:string, onBuy:Function}}} hooks   PORTAL1: `portal` the Portal Stone's row
    */
   constructor(hooks) {
     this.hooks = hooks;

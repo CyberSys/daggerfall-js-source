@@ -947,8 +947,8 @@
   {
     "name": "SURVTIERS-the-note-grows-a-third-sentence",
     "file": "src/systems/features.js",
-    "old": "comes back once you\u2019ve seen to them; on Hard",
-    "new": "comes back once you\u2019ve seen to them. On Hard",
+    "old": "comes back once you’ve seen to them; on Hard",
+    "new": "comes back once you’ve seen to them. On Hard",
     "tests": [
       "test/survtiers.test.js"
     ]

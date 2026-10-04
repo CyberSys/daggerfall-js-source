@@ -2261,7 +2261,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       seen.add(r.i);
       // Only the nominated heir receives the inventory. A rejected list must never become an empty reward.
       if (heirIsMe(r) && r.it !== undefined) {
-        const items = validLootList(r.it);
+        const items = unbound(validLootList(r.it));   // AUDIT PORTAL1 I4: SS3's law - a list a peer hands over lands without a bound piece (a forged Portal Stone is a free portal)
         if (!items) continue;
         r.it = items;
         // A retried handover must not replace a living adopted foe or resurrect a dead one with fresh loot.
