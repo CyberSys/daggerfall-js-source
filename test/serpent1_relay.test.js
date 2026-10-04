@@ -85,7 +85,7 @@ test('SERPENT1 receipt: minted by the relay, verified by its public half - the d
 // ═══ THE WIRE ════════════════════════════════════════════════════════════════════════════════════
 
 test('SERPENT1 wire: the client says five things - `in` with its day, law, level, hull and site, `hit` with a damage and where it struck, `wr` its ship wrecked or afloat, the coiled ship\'s `held` and `esc` - projected field by field after a hello alone; the first relay that holds a serpent is SERPENT_RELAY_MIN (mutants: an extra field carried; a hull past the table; a damage past the wire\'s bound; a wreck word not 0 or 1)', () => {
-  assert.deepEqual(SERPENT_KINDS, ['in', 'hit', 'held', 'esc', 'wr']);
+  assert.deepEqual(SERPENT_KINDS, ['in', 'hit', 'held', 'esc', 'wr', 'site'], 'PIN MOVED (SERPENT2): and `site`, to the hub alone (test/serpent2_herald.test.js) - the cell takes these five');
   const IN = { k: 'in', d: 363, bv: 1, lv: 20, hl: 4, sx: 205.5 * PIXEL_UNITS, sz: 285.5 * PIXEL_UNITS };
   assert.deepEqual(validSerpentIn({ ...IN, extra: 1 }), IN);
   assert.equal(validSerpentIn({ ...IN, hl: 5 }), null);
