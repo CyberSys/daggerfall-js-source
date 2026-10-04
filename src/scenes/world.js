@@ -528,7 +528,7 @@ import { Collider } from '../player/collider.js';
 import { createDataPipeline } from './dataPipeline.js';
 import { createWorldModes } from './worldModes.js';
 import { setAmbientTextHost, tickAmbientText } from '../systems/ambientText.js';   // AT2: Ambient Text's one component - this host claims it and feeds it the frame
-import { OnlineSession, roomKeyFor, DEFAULT_SERVER, WORLD_PUBLISH_MS, FOES_MS, FOES_FULL_MS, FOES_STALE_MS } from '../net/online.js';   // ONLINE1: the session; WORLD1: the room's memory
+import { OnlineSession, roomKeyFor, DEFAULT_SERVER, WORLD_PUBLISH_MS, WORLD_REPUBLISH_MS, FOES_MS, FOES_FULL_MS, FOES_STALE_MS } from '../net/online.js';   // ONLINE1: the session; WORLD1: the room's memory
 import { createSeatLock, SEAT_NOTICE, SEAT_MID_TEXT, PLAY_HERE_LABEL } from '../net/oneSeat.js';   // ONE-SEAT: one tab of a player online - the browser's arm, beside the hub's
 import { readAccount, buyInsignia, equipTitle, equipAura, adoptIdentity as adoptSessionIdentity } from '../net/accountClient.js';   // WB9g: the Broker's insignia - the account's wardrobe, its sale and its wearing, and my own screen's word of it
 import { ownAura } from '../systems/ownGlyphs.js';   // WB9g: the aura at my own feet - the service's last word, kept on the stored session
@@ -16916,14 +16916,23 @@ export async function bootWorld(canvas, renderer, params, status) {
   // AUDIT WORLD: into the dungeon's own room alone (B8: during the room hold the socket still sits in the cell's
   // room, which discards it); a forced publish is a FAREWELL - the relay admits one per socket inside its floor
   // (B5); a refusal is said once and not retried at frame rate (B9)
+  // SCALE2b (Scale-Arc "Rooms that never sleep"): A MEMORY THAT DID NOT CHANGE IS NOT SAID AGAIN. Every publish went
+  // out whatever it held - a lone player in a quiet dungeon wrote the room's whole memory to its storage every fifteen
+  // seconds and kept the object awake for it. The same memory is skipped now, the room's copy being that memory; it
+  // goes again at once on a change, on a farewell, after a welcome or a host change (the room's copy may not be mine),
+  // and every WORLD_REPUBLISH_MS whatever (a publish the relay's floor dropped still read as sent here).
+  let _worldSaid = null, _worldSaidAt = -Infinity, _worldSaidKey = null;
   const worldPublish = (now, force = false) => {
     if (!online || !online.isHost() || online.status !== 'open' || !isWorldRoom(online.room)) return false;
     if (!force && now - _worldPublishedAt < WORLD_PUBLISH_MS) return false;
     const shared = modes?.placeSharedWorld?.();   // WORLD6a: the standing PLACE's - a dungeon's or a building's
     if (!shared) return false;
     _worldPublishedAt = now;
+    const said = JSON.stringify(shared), key = `${online.room}|${online.welcomes}|${online.host ?? ''}`;
+    if (!force && said === _worldSaid && key === _worldSaidKey && now - _worldSaidAt < WORLD_REPUBLISH_MS) return false;   // SCALE2b: the room holds it already
     const ok = online.sendWorld(shared, { final: force });
     if (!ok) console.warn('[online] the room\'s memory did not go');
+    else { _worldSaid = said; _worldSaidAt = now; _worldSaidKey = key; }
     return ok;
   };
   // WORLD2: ONE SIMULATION PER ROOM. While I host a world room the dungeon's layout foes are mine to step and I
@@ -16972,6 +16981,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     // WORLD6b: in a CELL everyone streams their own foes; in a world room the host alone
     const cell = isCellRoom(online.room);
     if (!cell && (!online.isHost() || !isWorldRoom(online.room))) return false;
+    // SCALE2b (Scale-Arc "Rooms that never sleep"): NOBODY TO HEAR, NOTHING SAID. A full frame went every FOES_FULL_MS
+    // to a room with nobody else in it, and the relay fanned it to no one - but the frame woke the object, so a room
+    // with one player never slept. Alone, the stream is quiet and its next frame is owed FULL, so the first one after
+    // a joiner's arrival (their join makes them a member here, FOES_MS before the next tick) carries every foe - well
+    // inside their FOES_STALE_MS of patience. Nothing is spent: an unbuilt frame commits no delta.
+    if (online.othersHere === 0) { _foesFullAt = -Infinity; return false; }
     if (now - _foesSentAt < FOES_MS) return false;
     _foesSentAt = now;   // AUDIT WORLD2 B11: the clock re-arms whether or not anything changed - a quiet room asked every frame
     const full = now - _foesFullAt >= FOES_FULL_MS;
@@ -16994,6 +17009,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!online || online.status !== 'open' || !online.ownOk || !isWorldRoom(online.room)) return false;
     const m = modes?.mode ?? 'exterior';
     if (m !== 'interior' && m !== 'dungeon') return false;
+    if (online.othersHere === 0) { _ownFullAt = -Infinity; return false; }   // SCALE2b: nobody to hear - the foes stream's law
     if (now - _ownSentAt < FOES_MS) return false;
     _ownSentAt = now;
     const full = now - _ownFullAt >= FOES_FULL_MS;
@@ -20923,7 +20939,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const _partyMapSender = createPartyMapSender();
   const partyMapFrame = (nowMs) => {
     const k = (modes?.mode ?? 'exterior') === 'dungeon' ? liveDungeonAutomapKey() : null;
-    const f = _partyMapSender.next({ active: hasSharedCartography(playerEntity), inDungeon: !!k, partied: !!social?.party,
+    const f = _partyMapSender.next({ active: hasSharedCartography(playerEntity), inDungeon: !!k, partied: !!social?.party?.members?.some((m) => m.online && m.acct !== social.acct),   // SCALE2b: a party with a mate ONLINE - the map and its minute's resync go to nobody otherwise
       key: k, rec: k ? getDungeonAutomap(k) : null, nowMs });
     if (f && socialLink()?.shareAutomap(f.k, f.r)) _partyMapSender.commit(f, nowMs);
   };
@@ -21724,7 +21740,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       peerBodies.destroy(); remotePlayers.sync([], onlineToScene); peerRiders?.destroy(); peerWalkers?.destroy(); peerCandlesFrame([], dt); return;   // PEERLIGHT2: and no candle hangs over the dead; AUDIT RIDE: and no rider stands frozen over it either
     }   // AUDIT WORLD B6: the dungeon's and the building's death screens stand in the mode's slot   // AUDIT MWBODY B7: and no body stands frozen over the death screen
     _rezSeen = null;   // AUDIT CONTRIB A6: alive - the next death takes its own snapshot of what the party's poses say
-    if (checkpointDue(now, _checkpointAt)) onlineCheckpoint();   // REALM P0.5: every two real minutes, alive and in the seat (the first such frame persists the join's call-in)
+    if (checkpointDue(now, _checkpointAt)) { if (realmSession?.idle) realmSession.idle(() => onlineCheckpoint()); else onlineCheckpoint(); }   // SCALE2b: the periodic one may be answered by the save the service holds (realmSaves.js idle)   // REALM P0.5: every two real minutes, alive and in the seat (the first such frame persists the join's call-in)
     const mode = modes?.mode ?? 'exterior';   // audit24_wave37: guarded on the OBJECT above its own declaration (the frame runs after it)
     const cabin = modes?.sailingCabin;
     const overworld = mode === 'exterior';

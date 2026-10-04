@@ -1070,7 +1070,9 @@ pressable meanwhile); pressed, the piece's card. The account card (`ui/enhancedA
 titles, in the Gatebreaker's own fire (`ui/playerBadge.js`: coal-crimson through fire to ember, edged in black).
 AEGIS (2026-10-03) added a second aura that is not sold here: the Oblivion Ward, granted by name with Sureme's Aegis of
 Oblivion title (`06-Systems/Accounts-And-Cloud-Saves-Arc.md`, AEGIS) and drawn by the same pass; each aura's card
-button wears its own title's paint (`ui/playerBadge.js AURA_PAINT`).
+button wears its own title's paint (`ui/playerBadge.js AURA_PAINT`). PRIMARCH (2026-10-04) added a third, not sold here
+either: the Golden Radiance, granted by name with GA00250's Primarch title (the same arc, PRIMARCH), its button in the
+Primarch's gold.
 
 THE FIRE (`render/auraRing.js`), two draws a wearer. THE GROUND: one quad under the feet, answered per pixel about the
 wearer - a ring band broken by value-noise fire flowing round it and outward, bright crests chasing about it, ten embers
