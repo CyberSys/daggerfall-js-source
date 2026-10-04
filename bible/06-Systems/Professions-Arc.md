@@ -3329,7 +3329,8 @@ warning - and left four things open. DECIDED here (the record's, at Mac's instru
 ## 39. BAG1 - the Materials Bag, as built (BUILT 2026-10-03)
 
 Its own page: `Materials-Bag.md`. A bag bought at every General Store online (about 500 gold), carried as the wagon is
-(300 kg, materials only); every harvest into it, then the pack, the rest left where it was gathered; the Stores kept in
+(300 kg, materials only); every harvest into it, then the pack, the rest into the pack past its weight (PACK-OVER,
+FIELD BUGS 2026-10-04: it had been left where it was gathered, counted and never made); the Stores kept in
 town, put in and taken out there; law 3 restated over the service's carried count (section 1); a station's shortfall
 put in from what is carried before it spends.
 

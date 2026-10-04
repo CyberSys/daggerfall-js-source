@@ -61,15 +61,19 @@ from the Stores page, anywhere (the second audit's H1).
 A carrying client's harvest (`carry: true`) is the bag's and the pack's - never the Stores':
 
 - **The bag first**, as many as its weight allows; **then the pack**, as many as the character's own carry allows;
-  **what has no room is left where it was gathered**, and said, each by its own name ("+3 Red Rose to your bag and pack -
-  1 left where it was gathered: no room"; a gem left is the gem's). No bag: the pack alone - LostMyLeg's "the mats just
-  go into the players inventory".
+  **then the pack past its weight** - every unit the service counted is made, as a withdrawal's is (6), and said ("+4
+  Oak Logs to your pack - your pack is over its weight"; beside the enhanced skin's haul card, "Your pack is over its
+  weight. Put materials in your Stores in any town, or carry them in a Materials Bag."). No bag: the pack alone -
+  LostMyLeg's "the mats just go into the players inventory". (PACK-OVER, section 13: what had no room was left where it
+  was gathered, and a loaded character with no bag gathered goods it never saw.)
 - Every gathering kind names the material its goods are (a herb by its region, a tree's logs, a vein's ore, a foe's
   hide, a haul's fish), so the request says what the bag and the pack hold of it; the Basket's food and a boulder's
   stone are the service's roll, and name none.
 - The first harvest of a session says so once: "Gathered goods go into your Materials Bag, then your pack. Every General
   Store sells the bag." The haul card's tag reads **Carried 41** where it read Stores 41.
-- A node whose goods have nowhere to go says **No room in your bag or pack** where it said Stores full.
+- A node whose goods have nowhere to go says **No room in your bag or pack** where it said Stores full - the act
+  refused before it starts, as the Foraging mod refuses one when fully encumbered; what a started act yields is never
+  weighed again.
 - The service keeps the older door: a client that does not say `carry` still harvests into the Stores, as before.
 - A Motherlode's strike is the same (`motherlodes.js`).
 
@@ -163,7 +167,6 @@ did: a material is listed, given to the guild or sold back from the Stores, so i
 - **A carried harvest is never let go unminted** (the audit's B1): heard under another character it waits kept for its
   own, whose next ask the service answers with the same harvest; past its ten minutes it is asked until it is answered -
   the service answers a landed one whatever its age (its row kept thirty days) - and only a refusal lets it lapse.
-- **A unit left where it was gathered** stays counted until the next act cuts the count to the pack.
 
 ## 8. The threats, and the answers
 
@@ -178,11 +181,13 @@ did: a material is listed, given to the guild or sold back from the Stores, so i
 | A deposit landed and its page gone before the save that took the items out | The take is saved before the ask; a save without its stamp never sent it (7) |
 | A deposit refused after a reload given back twice, or not at all | By the stamp in the save, read and taken off in one turn (7) |
 | A kept harvest's units cut before they are minted | The count as heard is said as held while another carried act waits (5) |
+| A harvest's units counted carried and never made (a full pack) | Every unit minted, past the pack's weight if it must (3, 13) |
 
 ## 9. Pins
 
 `test/bag1_service.test.js` (the service, through the real Worker) and `test/bag1_client.test.js` (the law, the
 save's hands, the window, the shop, the save, the book, a done-when through the real Worker); `tools/mutants/bag1.json`.
+PACK-OVER's: `test/fb1004_packover.test.js`, `tools/mutants/fb1004_packover.json`.
 
 ## 10. The audit (2026-10-03, Mac: "Audit this")
 
@@ -245,3 +250,13 @@ Not changed, and why: the wagon is reached from the inventory anywhere the cart 
 | `scenes/exterior.js` | the inventory's bag pane (`bagItems`) |
 | `scenes/dungeonContext.js` | the same, below ground |
 | `scenes/worldModes.js` | DFU's potion maker reads and spends the bag after the cart; interiors' inventory is world.js's |
+
+## 13. From play - PACK-OVER (FIELD BUGS 2026-10-04)
+
+Mac, the day after: "People are doing gathering without a crafting bag and theyre not seeing the materials in their
+inventory". Section 3 had a harvest's units with no room "left where it was gathered" - counted carried by the service
+and never made, while every other door (a withdrawal, a smelt's carry-out, a refused deposit's return) mints past the
+pack's weight (6, the audit's B5). A DFU pack is carried to its limit, so a character with no bag gathered goods it never
+saw. The book mints a harvest through the hands' `give` now (`net/profBook.js` mintHarvest: bag, pack, then the pack past
+its weight, `put.over`), as the Foraging mod's own AddItem does; the node still refuses an act with no room for one unit
+before it starts. The record: `01-Overview/Field-Bugs-2026-10-04.md`.

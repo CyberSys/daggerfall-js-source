@@ -602,6 +602,8 @@ export function createGatherHost(deps) {
       // BAG1: what found no room in the bag or the pack is said even where the card said the goods - the card counts what came
       // AUDIT BAG1 B9: each by its own name - a gem or a second find left was said as the harvest's material
       if (hauled && d.carry === true && (d.put?.left ?? 0) > 0) hud.toast(`${leftWords(d)} left where gathered: no room in your bag or pack.`);
+      // PACK-OVER (FIELD BUGS 2026-10-04): goods minted past the pack's weight - the card counts them, the line beside it says the weight
+      if (hauled && d.carry === true && (d.put?.over ?? 0) > 0) hud.toast(BAG_WORDS.overWeight);
       const after = d.track?.rank ?? before;
       if (after > before) {
         hud.toast(`${professionName(profession)} ${before} -> ${after}`);

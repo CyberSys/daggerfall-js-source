@@ -20,7 +20,9 @@
 //
 // A harvest lands in the MATERIALS BAG when the character owns one and
 // it has room, else in the PACK - as the very item a withdrawal from
-// the Stores always minted (systems/profItems.js). The Stores stay: a
+// the Stores always minted (systems/profItems.js) - and past the pack's
+// weight before a unit is lost (PACK-OVER, FIELD BUGS 2026-10-04: every
+// unit the service counts is made, as a withdrawal's is). The Stores stay: a
 // character's storage, reached in a town (bible: the Stores page), and
 // the market's, the writs' and the guild Stores' one door, as before.
 //
@@ -126,12 +128,15 @@ export const carriedUsable = (c, held) => carriedSpendable(clampCarried(c, held)
  *  and what found no room said beside them. */
 export function goodsWhere(d) {
   if (d?.carry !== true) return 'to your Stores';
-  const p = d.put ?? { bag: 0, pack: 0, left: 0 };
+  // PACK-OVER (FIELD BUGS 2026-10-04): what went into the pack past its weight (`over`) is the pack's, and said so
+  const put = d.put ?? { bag: 0, pack: 0, left: 0 };
+  const p = { ...put, pack: (put.pack | 0) + (put.over | 0) };
   const left = `left where ${p.left === 1 ? 'it was' : 'they were'} gathered`;
   // AUDIT2 BAG1 K11: none of it carried - said as such, never "to your bag" of goods that went nowhere
   if (!(p.bag > 0) && !(p.pack > 0) && p.left > 0) return `- all ${left}: no room in your bag or pack`;
   const to = p.bag > 0 && p.pack > 0 ? 'to your bag and pack' : p.pack > 0 ? 'to your pack' : 'to your bag';
-  return p.left > 0 ? `${to} - ${p.left} ${left}: no room` : to;
+  const said = (put.over | 0) > 0 ? `${to} - your pack is over its weight` : to;
+  return p.left > 0 ? `${said} - ${p.left} ${left}: no room` : said;
 }
 
 /** AUDIT2 BAG1 K10: why a station's work stayed in the Stores (net/profBook.js carryOut's `why`) - a refusal's own words
@@ -183,6 +188,9 @@ export const BAG_WORDS = Object.freeze({
   reward: 'Choose your reward first - your Materials Bag opens after.',
   /** a node's prompt when neither the bag nor the pack has room for one more unit */
   noRoom: 'No room in your bag or pack',
+  /** PACK-OVER (FIELD BUGS 2026-10-04): a harvest's goods minted into the pack past its weight - said beside the haul card,
+   *  which counts the goods and not the weight (scenes/gatherHost.js) */
+  overWeight: 'Your pack is over its weight. Put materials in your Stores in any town, or carry them in a Materials Bag.',
   /** the Stores page, away from a town */
   town: 'Your Stores are kept in town. Go to any town to put materials in or take them out.',
 });

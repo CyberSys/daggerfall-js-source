@@ -615,11 +615,12 @@ test('BAG1 (AUDIT B8/B9): a station\'s put-in with no answer says so; a Court wr
   assert.match(src('src/scenes/world.js'), /const where = madeWhere\(r\.data\.put\)/);
   assert.equal(leftWords({ material: HERB, put: { left: 3, lost: [{ key: HERB, n: 2 }, { key: OAK, n: 1 }] } }), `2 ${materialCountLabel(HERB, 2)} and 1 ${materialCountLabel(OAK, 1)}`);
   assert.equal(leftWords({ material: HERB, put: { left: 2 } }), `2 ${materialCountLabel(HERB, 2)}`, 'a put from before the audit');
-  // the book names what it could not mint: a gem with no room is the gem's, not the harvest's
-  const full = { ...hands(body()), mint: (k, q) => (k === 'gem:ruby' ? { bag: 0, pack: 0, left: q } : { bag: q, pack: 0, left: 0 }) };
+  // the book names what it could not mint: a gem the hands could not make is the gem's, not the harvest's (PACK-OVER: a
+  // harvest is minted through `give`, so a unit is never left for want of room - only for want of a pack form)
+  const full = { ...hands(body()), give: (k, q) => (k === 'gem:ruby' ? { bag: 0, pack: 0, over: 0 } : { bag: q, pack: 0, over: 0 }) };
   const gemDoor = { account: () => 'a', harvest: async () => ({ ok: true, data: { carry: true, material: HERB, qty: 2, gem: 'gem:ruby', carried: { material: HERB, own: 2, bought: 0 } } }) };
   const g = await createProfBook({ door: gemDoor, storage: memStorage(), character: () => 'c', sleep: noWait, carry: full }).harvest({ node: 'n', kind: 'herbs', climate: 231, region: 21, act: {}, at: 1, material: HERB });
-  assert.deepEqual(g.data.put, { bag: 2, pack: 0, left: 1, lost: [{ key: 'gem:ruby', n: 1 }] });
+  assert.deepEqual(g.data.put, { bag: 2, pack: 0, over: 0, left: 1, lost: [{ key: 'gem:ruby', n: 1 }] });
 });
 
 test('BAG1 (AUDIT B6/B7): the wagon\'s are held and taken last; food in the bag rots as the pack\'s does, and a food on its way to putrid is no material (mutants: the wagon unread; the wagon first; the bag a larder with no clock; a rotting haunch counted)', () => {
@@ -1018,7 +1019,7 @@ test('BAG1 done when: a new character gathers into the pack with no bag, buys a 
     const r1 = await gather(patches[0]);
     assert.equal(r1.ok, true, JSON.stringify(r1));
     const k1 = r1.data.material;
-    assert.deepEqual(r1.data.put, { bag: 0, pack: r1.data.qty, left: 0, lost: [] }, 'no bag yet: the pack');
+    assert.deepEqual(r1.data.put, { bag: 0, pack: r1.data.qty, over: 0, left: 0, lost: [] }, 'no bag yet: the pack');
     assert.equal(heldOf(e, k1), r1.data.qty);
     e.items.push(bagItem());   // bought at a General Store
     const r2 = await gather(patches[1]);
