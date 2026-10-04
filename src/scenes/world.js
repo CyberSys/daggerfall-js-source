@@ -192,7 +192,7 @@ import { mintQuestFoeWave, placeFoeEnv, entityOccupancy, questFoeGender, reviveQ
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag
 import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, foeHostile } from '../systems/encounters.js';   // OW6: foeHostile, the one hostility gate   // CAMP-ROLL: REST5's quietNights moved with the carried night's sequence (scenes/shared.js restCampNight)
 import { nightDue, setNightListener, nightStamp, nightKindOf, isNightStamp, carriedNightEnd, REST_ACT_TEXT, campStamp, campMarkOf } from '../systems/restAct.js';   // REST5: the party's night   // AUDIT REST-PARTY: and where it was slept   // AUDIT REST II: the mark asked lazily (P5), and what a carried night says (P3)
-import { createNightWatch, carriedNightAction, createCampWatch, campClear } from '../systems/partyRestLaw.js';   // AUDIT REST-PARTY: the party's night, pinned by execution   // AUDIT REST II P1/P2: its watch   // CAMP-ROLL: the camp's one roll
+import { createNightWatch, carriedNightAction, createCampWatch, campPasses } from '../systems/partyRestLaw.js';   // AUDIT REST-PARTY: the party's night, pinned by execution   // AUDIT REST II P1/P2: its watch   // CAMP-ROLL: the camp's one roll
 import { ambushNight } from '../systems/restAct.js';   // AUDIT REST-PARTY A1: a resting encounter stood breaks the night that rolled it
 import { createStandingWatch, installLegalNotices } from './standingHost.js';   // REP1: the watch's stop; REP5: the law's notices
 import { SPAWNER_ARMS } from '../systems/encounters.js';   // SURV6: the hunt's beast stands on the wilderness arm
@@ -9482,7 +9482,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:3067 mounts the same one, gated on
+  // and dungeonContext.js:3070 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:7117
@@ -9644,19 +9644,15 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  arguments - which is exactly how DFU's call sites differ. */
   const _standEncounterFoe = (hit, feet) => {
     if ((exteriorFoes.encounterRoom?.() ?? Infinity) <= 0) return null;   // AUDIT OW5b E1: the pool full, spawnFoe's own cap stands nobody - and no journey is stopped for a foe that never comes
-    const occupied = entityOccupancy((f) => f.ai?.feet ?? f.feet, _placingPool, feet);   // AUDIT PSCALE1 COUNT-3: and the spots a stand in flight already holds
-    // CAMP-ROLL: a rest's ambush is the camp's, so its band (minDistance) is kept from every camp mate's feet as DFU keeps
-    // it from mine - where the ground allows; where it does not, DFU's own placement, so the camp's odds are DFU's odds
-    const mates = campFeet();
+    const base = placeFoeEnv({
+      collider,
+      playerFeet: [feet[0], feet[1] + 0.9, feet[2]],
+      playerYawRad: cam.yaw,
+      fovDegrees: fieldOfView() * 180 / Math.PI,
+      isOccupied: entityOccupancy((f) => f.ai?.feet ?? f.feet, _placingPool, feet),   // AUDIT PSCALE1 COUNT-3: and the spots a stand in flight already holds
+    });
     let spot = null;
-    for (const clear of mates.length ? [true, false] : [false]) {
-      const env = placeFoeEnv({
-        collider,
-        playerFeet: [feet[0], feet[1] + 0.9, feet[2]],
-        playerYawRad: cam.yaw,
-        fovDegrees: fieldOfView() * 180 / Math.PI,
-        isOccupied: clear ? (p, r) => occupied(p, r) || !campClear(p, mates, hit.minDistance) : occupied,
-      });
+    for (const env of campPasses(base, campFeet(), hit.minDistance)) {
       for (let i = 0; i < LOOSE_FOE_PLACE_ATTEMPTS && !spot; i++) {
         spot = placeFoeFreely(env, {
           minDistance: hit.minDistance, maxDistance: hit.maxDistance,
@@ -12224,7 +12220,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:8419), so exterior mode and a
+    // composer, dungeonContext.js:8422), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -15356,7 +15352,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10812-10876 -
+  // worldModes answers it in BOTH modes (worldModes.js:10813-10877 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -19362,7 +19358,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const socialActText = (k, who) => (k === 'friend.request' ? `Friend request sent to ${who}`
     : k === 'party.invite' ? `Party invite sent to ${who}`
       : k === 'friend.remove' ? `${who} is no longer your friend` : 'Sent');
-  /** PARTY-REST1: RestWindow's own `mode` string ('loiter'|'timed'|'full', restWindow.js:664) to the wire's small
+  /** PARTY-REST1: RestWindow's own `mode` string ('loiter'|'timed'|'full', restWindow.js:674) to the wire's small
    *  numbers (net/wire.js validPartyPose: 0/1/2) - the one place the three hosts' restState getters (worldModes.js,
    *  dungeonContext.js) and this host's own outdoor overlay converge, so the mapping is written once. */
   const partyRestModeCode = (mode) => (mode === 'timed' ? 1 : mode === 'full' ? 2 : 0);

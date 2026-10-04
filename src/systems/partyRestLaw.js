@@ -331,6 +331,15 @@ export function createCampWatch({ kindOf, campOf, waitMs = CAMP_WAIT_MS, freshMs
   };
 }
 
+/** CAMP-ROLL: THE PLACEMENT'S PASSES for an ambush a resting roller stands - first `env` (placeFoeEnv's) with its
+ *  open-space test refusing any spot inside `min` metres of a camp mate's `feet`, then `env` itself, DFU's own, so a
+ *  ground too tight for the camp's band still stands the foe and the camp's odds stay DFU's. No mates, the one pass.
+ *  (PlaceFoeFreely asks overlapSphere of its final test point alone.) */
+export function campPasses(env, feet, min) {
+  if (!feet?.length) return [env];
+  return [{ ...env, overlapSphere: (p, r) => !!env.overlapSphere?.(p, r) || !campClear(p, feet, min) }, env];
+}
+
 /** CAMP-ROLL: whether a spawn spot `p` ({x, z}) stands at least `min` metres (on the ground plane) from every camp
  *  mate's feet (`[x, y, z]` each) - the band the roller's ambush keeps from its roller, kept from every sleeper it
  *  stands for. */

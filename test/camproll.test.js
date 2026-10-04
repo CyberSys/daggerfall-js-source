@@ -7,7 +7,7 @@
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createCampWatch, campClear, CAMP_WAIT_MS, CAMP_OPEN_FRESH_MS } from '../src/systems/partyRestLaw.js';
+import { createCampWatch, campClear, campPasses, CAMP_WAIT_MS, CAMP_OPEN_FRESH_MS } from '../src/systems/partyRestLaw.js';
 import {
   CAMP_MARKS, PARTY_NIGHT_MARKS, campStamp, campMarkOf, nightStamp, nightKindOf, isNightStamp, campNightStep, carriedNightEnd,
   REST_ACT_TEXT, REST_CHANNEL_SECONDS,
@@ -300,9 +300,37 @@ test('CAMP-ROLL by source: both windows open the camp and take the one step; the
   assert.match(w, /settle: \(\) => \{ if \(social && campMarkOf\(_partyRestJustStartedAt\) === 'open'\) campStampNow\('done'\); \},/, 'a night heard is never overwritten');
   assert.match(w, /if \(!act \|\| \(act === 'busy' && _campWatch\.isOpen\(\)\)\) continue;/, 'my window takes that night: no "too busy"');
   const stand = w.slice(w.indexOf('const _standEncounterFoe = (hit, feet) => {'), w.indexOf('journeyMet();   // AUDIT OW5b E1'));
-  assert.match(stand, /for \(const clear of mates\.length \? \[true, false\] : \[false\]\) \{/, 'the camp\'s band first, DFU\'s placement after');
-  assert.match(stand, /isOccupied: clear \? \(p, r\) => occupied\(p, r\) \|\| !campClear\(p, mates, hit\.minDistance\) : occupied,/);
+  assert.match(stand, /for \(const env of campPasses\(base, campFeet\(\), hit\.minDistance\)\) \{/, 'the camp\'s band first, DFU\'s placement after');
   assert.match(w, /const campFeet = \(\) => \(playerEntity\.isResting \? /, 'only a rest\'s roll');
+});
+
+test('CAMP-ROLL the placement\'s passes: no camp, DFU\'s one; a camp, its band first (a spot DFU\'s test refuses still refused), then DFU\'s own - and the stander places through them in that order', () => {
+  const env = { overlapSphere: (p) => p.x === 99, raycast: () => null };
+  assert.deepEqual(campPasses(env, [], 10), [env]);
+  const [camp, dfu] = campPasses(env, [[0, 0, 0]], 10);
+  assert.equal(dfu, env, 'the last pass is DFU\'s own env');
+  assert.equal(camp.raycast, env.raycast, 'the camp\'s pass is DFU\'s in everything else');
+  assert.equal(camp.overlapSphere({ x: 5, z: 0 }, 0.65), true, 'inside a mate\'s band');
+  assert.equal(camp.overlapSphere({ x: 30, z: 0 }, 0.65), false);
+  assert.equal(camp.overlapSphere({ x: 99, z: 0 }, 0.65), true, 'DFU\'s own refusal kept');
+  // the stander itself (test/encounterplace.test.js's run): a camp's first pass refuses its spot, DFU's stands it
+  const w = rd('src/scenes/world.js');
+  const at = w.indexOf('  const _standEncounterFoe = (hit, feet) => {');
+  const src = w.slice(at, w.indexOf('\n  };\n', at) + 5);
+  const seen = [];
+  const scope = {
+    exteriorFoes: { encounterRoom: () => 8, spawnFoe: () => Promise.resolve({}) },
+    placeFoeEnv: () => ({ overlapSphere: () => false }), collider: {}, cam: { yaw: 0 }, fieldOfView: () => 1, entityOccupancy: () => () => false, _placingPool: () => [],
+    LOOSE_FOE_PLACE_ATTEMPTS: 2, ENEMY_BASICS: {}, journeyMet: () => {}, ambushNight: () => false,
+    placeFoeFreely: (e) => { const p = { x: 4, y: 0, z: 0 }; seen.push(e); return e.overlapSphere(p, 0.65) ? null : p; },
+    campFeet: () => [[0, 0, 0]], campPasses,
+  };
+  const k = Object.keys(scope);
+  const stand = new Function(...k, `${src}\nreturn _standEncounterFoe;`)(...k.map((x) => scope[x]));
+  assert.ok(stand({ mobileType: 7, minDistance: 10, maxDistance: 20, lineOfSightCheck: true }, [0, 0, 0]) instanceof Promise, 'stood, by DFU\'s pass');
+  assert.equal(seen.length, 3, 'the camp\'s two tries, then DFU\'s first');
+  assert.equal(seen[0], seen[1]);
+  assert.notEqual(seen[0], seen[2]);
 });
 
 test('CAMP-ROLL the band kept from the camp: a spot inside any mate\'s band is refused, one clear of all stands', () => {

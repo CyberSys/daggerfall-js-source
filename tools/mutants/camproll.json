@@ -218,8 +218,8 @@
  {
   "name": "CAMP-ROLL-the-ambush-on-a-sleeper",
   "file": "src/scenes/world.js",
-  "old": "    for (const clear of mates.length ? [true, false] : [false]) {",
-  "new": "    for (const clear of [false]) {",
+  "old": "    for (const env of campPasses(base, campFeet(), hit.minDistance)) {",
+  "new": "    for (const env of [base]) {",
   "tests": [
    "test/camproll.test.js"
   ]
@@ -256,6 +256,33 @@
   "file": "src/ui/enhancedRest.js",
   "old": "    deps.camp?.open?.(!!act.night);",
   "new": "",
+  "tests": [
+   "test/camproll.test.js"
+  ]
+ },
+ {
+  "name": "CAMP-ROLL-no-dfu-fallback",
+  "file": "src/systems/partyRestLaw.js",
+  "old": "  return [{ ...env, overlapSphere: (p, r) => !!env.overlapSphere?.(p, r) || !campClear(p, feet, min) }, env];",
+  "new": "  return [{ ...env, overlapSphere: (p, r) => !!env.overlapSphere?.(p, r) || !campClear(p, feet, min) }];",
+  "tests": [
+   "test/camproll.test.js"
+  ]
+ },
+ {
+  "name": "CAMP-ROLL-the-camp-pass-forgets-dfu-s-test",
+  "file": "src/systems/partyRestLaw.js",
+  "old": "overlapSphere: (p, r) => !!env.overlapSphere?.(p, r) || !campClear(p, feet, min) }",
+  "new": "overlapSphere: (p) => !campClear(p, feet, min) }",
+  "tests": [
+   "test/camproll.test.js"
+  ]
+ },
+ {
+  "name": "CAMP-ROLL-the-stander-stops-at-the-camp-pass",
+  "file": "src/scenes/world.js",
+  "old": "      if (spot) break;\n    }\n    if (!spot) return null;\n    ambushNight();",
+  "new": "      break;\n    }\n    if (!spot) return null;\n    ambushNight();",
   "tests": [
    "test/camproll.test.js"
   ]
