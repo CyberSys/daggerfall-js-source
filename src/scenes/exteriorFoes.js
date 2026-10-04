@@ -21,7 +21,7 @@ import { damageShieldPool, playerBlowCameToNothing } from '../characters/playerE
 import { lycanthropeAttackVoice } from '../systems/lycanthropy.js';   // V4: the beast's attack voice
 import { copyEffectEntry } from '../systems/save.js';   // AUDIT 26 F216: the caster-stripping effect copy, one home
 import { EnemyAI, isBackFacing, withinYaw, MELEE_DISTANCE, foeFrameDt } from '../characters/enemyMotor.js';   // AUDIT WORLD6b-iii(a) B4: the puppet's cast is read against the owner's own bands
-import { spaceFoes } from '../characters/foeSpacing.js';   // FOE-SPACING: the pack keeps apart
+import { spaceFoes, freeLodgedFeet } from '../characters/foeSpacing.js';   // FOE-SPACING: the pack keeps apart; FIELD BUGS 2026-10-04b CRATE-FREE: and no foe stands in a crate
 import { blowConnects, blowScaled } from '../ai/foeBlows.js';   // TACT4
 import { runTargetMachine, boutGate, isPlayerTarget, isLocalPlayerTarget, isPeerTarget, resetAllyTeamOnPlayerAttack, PLAYER_TARGET, PEER_CAST_TARGET, targetAimPoint, enemyArrowOrigin, enemyTransformPoint, arrowAimDirection, wireRecipient, bumpAtkCount, staticTeamOf } from '../characters/enemyTargets.js';   // AUDIT WATCH1: the wire's spellings, one home   // WORLD6b-ii: the local player told from a peer, the peer told from a foe   // MT-ii   // ROAD-H H1/H1b: the ONE arrow loose point and the crouch dip
 import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_HEIGHT } from '../player/motor.js';   // CH3: the shared fall formula
@@ -433,11 +433,9 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // CreateFoe.cs:341-359; CreateEnemy skips the ground align for
       // Flying, GameObjectHelper.cs:1227) - the motor keeps FEET.
       const idleH = idleSpriteHeight(tex);
-      // REVIEW 2026-09-05: a DELTA on the live pending array (offsetAll may
-      // have recentred it during the awaits), taking the walker's +0.1
-      // lift back with it; `feetGiven` is the restore's word that `pos`
-      // already IS feet (SerializableEnemy restores the position it
-      // wrote - no FinalizeFoe, no drop).
+      // REVIEW 2026-09-05: a DELTA on the live pending array (offsetAll may have recentred it during the awaits), taking
+      // the walker's +0.1 lift back with it; `feetGiven` is the restore's word that `pos` already IS feet (SerializableEnemy
+      // restores the position it wrote - no FinalizeFoe, no drop).
       if (transformY) {
         // DW-E4: the transform SET STRAIGHT after CreateEnemy (UnderwaterEnemySpawner.ConfigureSpawnedEnemy) - the
         // caller answers where, given the capsule the sprite sizes (AlignFloorEnemyController reads its height)
@@ -450,6 +448,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         const centreY = behaviour === 'Flying' ? pos[1] : alignControllerToGround(pos[1], groundAlign.hitDist, enemyControllerHeight(idleH, behaviour));
         pending.feet[1] += centreY - idleH / 2 - pos[1];
       } else if (behaviour === 'Flying' && !feetGiven) pending.feet[1] -= idleH / 2 + 0.1;
+      // FIELD BUGS 2026-10-04b CRATE-FREE: a stand inside a model - a building's quest marker in a house's crate, a save that kept a foe in one - is set beside it on its floor (characters/foeSpacing.js); a puppet is its owner's
+      if (!puppet) freeLodgedFeet(collider, pending.feet, { height: enemyControllerHeight(idleH, behaviour), airborne: behaviour === 'Flying' });
       const ai = new EnemyAI(collider, pending.feet, yaw ?? rolls() * Math.PI * 2, {
         liveSpeed: () => liveStat(entity, 'speed'),   // AUDIT 39: EnemyMotor.cs:432 re-reads LiveSpeed per FixedUpdate
         seesThroughInvisibility: basics.seesThroughInvisibility ?? false,

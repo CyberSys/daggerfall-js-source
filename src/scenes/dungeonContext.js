@@ -102,7 +102,7 @@ import { setMidScreenText, midScreenText } from '../ui/midScreenText.js';   // A
 // their bytes; this one module is ~16 KB of source.
 import { EnhancedEnemyAI, makeNavWorld } from '../ai/enhancedMotor.js';
 import { foeFrameDt } from '../characters/enemyMotor.js';   // FOE-CATCHUP: the one cap every pool hands its foes
-import { spaceFoes, spacingSkips, clearDoorways, actionDoorSpots } from '../characters/foeSpacing.js';   // FOE-SPACING: the pack keeps apart; AUDIT TACT C7: and the doorways clear
+import { spaceFoes, spacingSkips, clearDoorways, actionDoorSpots, freeLodgedFeet, clearPast } from '../characters/foeSpacing.js';   // FOE-SPACING: the pack keeps apart; AUDIT TACT C7: and the doorways clear; FIELD BUGS 2026-10-04b CRATE-FREE: and no foe stands in a crate
 import { isStaleChunk, STALE_CHUNK_IN_PLAY_TEXT, STALE_CHUNK_IN_PLAY_SECONDS } from '../systems/staleChunk.js';   // DISC19-D: a chunk gone mid-session is said, not swallowed
 import { hudRenderEnabled } from '../ui/hudShortcuts.js';   // AUDIT 64 F37: the Draw override covers popupText too
 import { FntFile } from '../formats/fntFile.js';
@@ -1332,8 +1332,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       const archive = e.gender === 'female' ? basics.femaleTexture : basics.maleTexture;
       const t = await getTexture(archive);
       const idleH = idleSpriteHeight(t);   // INCIDENT 2026-09-04: SetupDemoEnemy.cs:104 - the capsule reads the idle sprite
-      // E3a: the real entity - career from CLASS{ID-128}.CFG, level =
-      // player level, HP/skills/LiveSpeed verbatim (SetEnemyCareer)
+      if (!puppet) freeLodgedFeet(collider, pos, { height: enemyControllerHeight(idleH, basics.behaviour ?? 'General') });   // FIELD BUGS 2026-10-04b CRATE-FREE: a marker or a spot inside a crate's model stands the foe beside it, never in it (characters/foeSpacing.js)
+      // E3a: the real entity - career from CLASS{ID-128}.CFG, level = player level, HP/skills/LiveSpeed verbatim (SetEnemyCareer)
       const careerIndex = e.mobileType - 128;
       const cf = new D.ClassFile();
       cf.load(await D.fetchBytes(`CLASS${String(careerIndex).padStart(2, '0')}.CFG`));
@@ -1420,7 +1420,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // DISC28-H: a flyer hangs on its marker, never with its feet under the floor below it; a streamed puppet's position
       // is the owner's feet already, and re-hanging it built the flyer half a sprite low. AUDIT DISC28 MO-4: both through
       // the anchor's one door (enemyAnchor.js flyerStandFeet), whose floor read is pinned on the real collider
-      const pos = behaviour === 'Flying' ? flyerStandFeet(collider, [e.x, e.y, e.z], idleH, feetGiven) : D.floorLanding(collider, [e.x, e.y + 0.2, e.z]);
+      const pos = behaviour === 'Flying' ? flyerStandFeet(collider, [e.x, e.y, e.z], idleH, feetGiven) : D.floorLanding(collider, [e.x, e.y + 0.2, e.z]); if (!puppet) freeLodgedFeet(collider, pos, { height: enemyControllerHeight(idleH, behaviour), airborne: behaviour === 'Flying' });   // FIELD BUGS 2026-10-04b CRATE-FREE: the class arm's law, for a monster - a flyer freed at its own height
       const yawDeg = ((e.mobileType * 73 + Math.round(e.x + e.z)) % 8) * 45;   // deterministic facing (Ledger A rule)
       const career = await D.loadMonsterCareer(e.mobileType, D.fetchBytes);
       const entity = D.makeEnemyEntity(e.mobileType, basics, career, e.level ?? effectiveLevel(D.playerEntity));   // SOFTCAP1: a mentor's dungeon is built at the group's level; ARENA2: a bout fighter at its tier's
@@ -5656,7 +5656,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // every idle bat's feet AT its marker; the rebuilt spawn stands
     // correctly and the old feet would put it back into the ceiling.
     if (!keepRebuiltSpawn(sf, f.ai.feet, f.idleH, f.mobile?.basics?.behaviour ?? 'General', f.marker ?? null)) { f.ai.feet[0] = sf.feet[0]; f.ai.feet[1] = sf.feet[1]; f.ai.feet[2] = sf.feet[2]; }
-    f.ai.yaw = sf.yaw;
+    f.ai.yaw = sf.yaw; if (!sf.dead) freeLodgedFeet(collider, f.ai.feet, { height: f.ai.height, airborne: !!f.ai.flies });   // FIELD BUGS 2026-10-04b CRATE-FREE: a save, or the room's memory, holding a foe inside a crate - it walks out on the load
     // CH4: the senses/resource halves restore when the save carries
     // them (:182-183 motor.IsHostile / senses.HasEncounteredPlayer,
     // :178 SetMagicka); saves from before CH4 leave the live state.
@@ -7462,11 +7462,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const c = [(sb.aabb.min[0] + sb.aabb.max[0]) / 2, sb.aabb.min[1], (sb.aabb.min[2] + sb.aabb.max[2]) / 2];
     const feet = lastPlayerFeet ?? c;
     const out = [];
+    // FIELD BUGS 2026-10-04b CRATE-FREE: past the skin the line starts in - from inside an object over 0.9 m (a crate, a shelf, a sarcophagus) or a door's slab, that skin met from behind refused every spot, and every foe stood at the unchecked last resort below: in the crate searched, or the next one
     const clearFrom = (from, to) => {
       const dx = to[0] - from[0], dz = to[2] - from[2], d = Math.hypot(dx, dz);
       if (d < 1e-3) return true;
-      const hit = collider.raycast([from[0], from[1] + 0.9, from[2]], [dx / d, 0, dz / d], d + 0.35);
-      return !Number.isFinite(hit) || hit > d + 0.3;
+      return clearPast(collider, [from[0], from[1] + 0.9, from[2]], [dx / d, 0, dz / d], d + 0.3);
     };
     const fits = (spot) => {
       const up = collider.raycast([spot[0], spot[1] + 0.2, spot[2]], [0, 1, 0], 1.7);
