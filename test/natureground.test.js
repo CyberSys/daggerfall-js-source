@@ -46,5 +46,5 @@ test('NATURE-GROUND by source: the pixel build lifts the block\'s nature flats b
   // TREES-SEATED (test/fb1003b_trees.test.js): a block whose hills the port draws as its stand-ins seats its whole nature RANGE
   // on the higher of that ground and the mounds; every other block keeps the plane and this lift, as before
   assert.match(w, /addFlat\(flat\.archive, flat\.record, fx, locLocal\[1\] \+ \(hillSeat && isNatureArchive\(flat\.archive\) \? seatNatureFlat\(hillSeat, flat\.x, flat\.z, NATURE_FLATS_Y \+ groundOffPlane\(samples, avg, fx, fz\)\) : flat\.y \+ lift\), fz\);/);
-  assert.match(w, /const blockFlats = collectBlockFlats\(b\.dfBlock, natureArchive\);/, 'the archive the scenery and the nature flats were swapped to');
+  assert.match(w, /const blockFlats = collectBlockFlats\(b\.dfBlock, natureArchive, \{ climateIndex: maps\.getClimateIndex\(px, py\), solid: blockSolids\(/, 'the archive the scenery and the nature flats were swapped to (FIELD BUGS 2026-10-04b CROPS: a field\'s batch handed the climate and the block\'s solids too)');
 });

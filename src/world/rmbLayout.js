@@ -23,7 +23,9 @@ import { WINDMILL_INTERIOR } from './windmillInterior.js';   // WM2g: and the in
 import { GLOBAL_SCALE } from './meshReader.js';
 import { trs, multiply } from './mat4.js';
 
-const PROPS_OFFSET_Y = -4;
+/** RMBLayout.propsOffsetY (:37): a misc model stands this far (RMB units) under its record - a prefab standing in for
+ *  one too, the crop fields' batches among them (world/rmbFlats.js, FIELD BUGS 2026-10-04b CROPS). */
+export const PROPS_OFFSET_Y = -4;
 export const GROUND_OFFSET = -1;
 export const GROUND_TILE_SIZE = 256;   // RMBTileSide mirror - value-pinned, no mesh consumer yet (AUDIT 23 wa-5)
 export const GROUND_TILE_DIM = 16;

@@ -292,15 +292,14 @@ test('WD3 stand-ins, the crop fields: the four prefabs a grid of the climate\'s 
   for (const winter of [505, 507, 509, 511]) assert.deepEqual(cropRecordsFor(winter), [511, [22]], `${winter}: snowed stubble`);
   const spec = TOWN_CROP_FIELDS[53211];
   const field = sowField(spec, 504, 50, -0.3, 60, 0);
-  assert.equal(field.length, 22 * 22, 'u and v from -42.5 to 41.5 in fours');
+  assert.equal(field.length, 22 * 22, 'u and v from -42 to 42 in fours (C#\'s int halves: FIELD BUGS 2026-10-04b CROPS)');
   assert.ok(field.every((f) => f.archive === 301 && [19, 21].includes(f.record) && f.y === -0.3));
   assert.ok(field.every((f) => Math.abs(f.x - 50) <= 42.5 + 0.5 + 1e-9 && Math.abs(f.z - 60) <= 42.5 + 0.5 + 1e-9), 'within the range and its nudge');
   assert.deepEqual(sowField(spec, 504, 50, -0.3, 60, 0), field, 'the same every visit');
   assert.notDeepEqual(sowField(spec, 504, 54, -0.3, 60, 0).map((f) => f.x - 4), field.map((f) => f.x), 'another spot, other nudges');
-  // a field turned a quarter: the same plants, the grid turned about its spot
-  const turned = sowField(spec, 504, 50, -0.3, 60, Math.PI / 2);
-  assert.equal(turned.length, field.length);
-  for (let i = 0; i < field.length; i++) assert.ok(near(Math.hypot(turned[i].x - 50, turned[i].z - 60), Math.hypot(field[i].x - 50, field[i].z - 60), 1e-9), 'distances kept');
+  // FIELD BUGS 2026-10-04b CROPS: the grid is laid in the world's axes round the batch (`transform.position + position`) -
+  // a field takes no turn (test/fb1004b_crops.test.js: a turned record sows the same plants)
+  assert.equal(sowField.length, 5, 'a spot and its climate; no turn');
   assert.equal(sowField(TOWN_CROP_FIELDS[53214], 511, 0, 0, 0).every((f) => f.archive === 511 && f.record === 22), true);
   assert.equal(sowField(TOWN_CROP_FIELDS[53214], 511, 0, 0, 0).length, 9 * 9);
   assert.equal(sowField({ ...spec, firstRecordOnly: true }, 504, 0, 0, 0).every((f) => f.record === 21), true);
