@@ -1298,7 +1298,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         if (f._pupSpare && !f._pupSpareGate) { f._pupSpareGate = true; portals.open(f.ai.feet, { quiet: true }); }   // its portal, seen here too
         f._castPending = false;
         if (edge) playEnemyClip(audio, f.sounds.attack(), f.ai.feet, acuteHearingMultiplier(playerEntity));
-        tickEnemySound(f.sounds, f.ai.feet, playerFeet, dt, { audio, collider, hearing: acuteHearingMultiplier(playerEntity) });
+        tickEnemySound(f.sounds, f.ai.feet, playerFeet, dt, { audio, collider, hearing: acuteHearingMultiplier(playerEntity), companion: f.companion != null });
         // WORLD6b-ii: a puppet lands no blow of its own (WORLD2) - unless the blow is at ME, and a shaft at anyone flies.
         // AUDIT WORLD6b-iii(a) A3: at ME by the SWING's own recipient (b), latched at its edge - not the hunt's live word
         const _blowMine = f._pupBlowAt != null && recipientIsMe(f, f._pupBlowAt);
@@ -1451,7 +1451,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // AUDIT 24 (wave 41): EnemySounds.FixedUpdate - the attract
       // cadence this pool never had. The counter steps every frame and
       // the sound fires only inside the 16m radius.
-      tickEnemySound(f.sounds, f.ai.feet, playerFeet, dt, { audio, collider, hearing: acuteHearingMultiplier(playerEntity) });
+      tickEnemySound(f.sounds, f.ai.feet, playerFeet, dt, { audio, collider, hearing: acuteHearingMultiplier(playerEntity), companion: f.companion != null });
       const seq = f.attack.swingSeq;   // AUDIT 68 S04-strike-edge-cut: EnemyAttack's own start count, not an Idle->strike state edge
       const strikeEdge = seq !== f._swingSeq;
       f._swingSeq = seq;

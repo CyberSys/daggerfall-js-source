@@ -175,13 +175,14 @@ test('E6: the world host reads that busy state as PlaySound.cs:110-116 does', ()
   const w = readFileSync('src/scenes/world.js', 'utf8');
   assert.match(w, /const questAudioSource = new QuestAudioSource\(audio\);/,
     'one source, minted beside the quest bridge');
-  assert.match(w, /playSound: \(id\) => \{\n\s+if \(questAudioSource\.isPlaying\(\)\) return false;\n\s+questAudioSource\.playOneShotId\(id\);\n\s+return true;\n\s+\},/,
+  // QUIET-VENGEANCE: the body is the source's one method now (QuestAudioSource.playQuestSound, pinned below).
+  assert.match(w, /playSound: \(id\) => questAudioSource\.playQuestSound\(id\),/,
     'busy skips without stamping; idle plays and stamps, through the ID door');
   // ...and its twin in the other host that owns a quest machine. The
   // dungeon and interior hosts have no source of their own - they are
   // handed world.js's / exterior.js's bridge (opts.questBridge).
   const x = readFileSync('src/scenes/exterior.js', 'utf8');
-  assert.match(x, /playSound: \(id\) => \{\n\s+if \(_questAudioSource\.isPlaying\(\)\) return false;\n\s+_questAudioSource\.playOneShotId\(id\);\n\s+return true;\n\s+\},/,
+  assert.match(x, /playSound: \(id\) => _questAudioSource\.playQuestSound\(id\),/,
     'the fixed-city host plays the same id the same way');
   assert.equal((w + x).includes('questAudioSource.playOneShot(id)'), false,
     'neither host may spend a table id as a record index');
