@@ -30,6 +30,7 @@
 
 import { rand } from '../formats/dfRandom.js';
 import { tacticsNow } from '../ai/tacticsClock.js';   // AUDIT TACT: a landing's swing is on the foes' own time
+import { TELL } from '../ai/tells.js';   // TELL6d: one shot in three aimed
 import {
   createWeaponMachine, machineAttack, machineStep,
   MELEE_NUM_FRAMES, CLASSIC_UPDATE_INTERVAL,
@@ -175,6 +176,14 @@ export class EnemyAttack {
       // TELL2 (bible/12-Enhanced-AI/Feud-Arc.md section 4.1): THE WIND-UP IS THE SWING, HELD. It begins with the wind-up
       // (the sprite holds before its strike - characters/mobileUnit.js `hold`); a broken wind-up drops it; the landing
       // below releases it and the brain sees its blow then. Never set with the switch off.
+      // TELL6d: an aimed shot's landing - the bow drawn now, its arrow loosed by the sprite along the locked line
+      if (ai._blowShot && !ai._blowShot.fired) {
+        ai._blowShot.fired = true;
+        if (oneShot) { this.machine.state = 'Idle'; this.machine.acc = 0; }
+        const strike = STRIKES[Math.floor(this.rolls() * STRIKES.length)];
+        if (machineAttack(this.machine, strike)) { this.firedRanged = true; this.swingSeq++; this._held = false; ai._tacShot = (ai._tacShot ?? 0) + 1; }
+        continue;
+      }
       if (ai._blowWind) {
         ai._blowWind = false;
         if (oneShot) { this.machine.state = 'Idle'; this.machine.acc = 0; }
@@ -210,6 +219,7 @@ export class EnemyAttack {
         // ...and the 1/32 roll itself sits behind `if (!isPlayingOneShot)`
         // (:587), so a swing in flight DOES hold the bow roll.
         if (!oneShot && withinYaw(ai.yaw, dx, dz, ATTACK_YAW_DEG) && ai._tacShoot !== false && this.rolls() < BOW_SHOT_CHANCE) {   // TACT2: no ranged token, no shot (unset with the switch off)
+          if (ai._aimReady === true && this.rolls() < TELL.AIMED_SHARE) { ai._wantAimed = true; continue; }   // TELL6d: this shot aimed - the brain winds it up (never set with the switch off)
           const strike = STRIKES[Math.floor(this.rolls() * STRIKES.length)];
           if (machineAttack(this.machine, strike)) { this.firedRanged = true; this.swingSeq++; this._held = false; ai._tacShot = (ai._tacShot ?? 0) + 1; }   // AUDIT TACT A2: a shot spends the ranged token
         }

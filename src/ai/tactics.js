@@ -33,11 +33,11 @@
 import { getPref } from '../systems/uiPrefs.js';
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { MOBILE_TYPES } from '../characters/mobileTypes.js';
-import { throwsBlows, blowShapesOf, blowFamily, makeBlow, fitBlowToGround, inBlow, setLiveBlow, windupNear, offsetBlows, BLOW, BLOW_CHANCE, BLOW_COLOR, IRON_COLOR } from './foeBlows.js';   // TACT4; TELL3: iron; TELL5: the family, the shapes' lengths
+import { throwsBlows, blowShapesOf, blowFamily, makeBlow, fitBlowToGround, inBlow, setLiveBlow, windupNear, offsetBlows, BLOW, BLOW_CHANCE, BLOW_COLOR, IRON_COLOR, BLOW_VERDICT_LIFE } from './foeBlows.js';   // TACT4; TELL3: iron; TELL5: the family, the shapes' lengths
 import { coverDistance } from './cover.js';   // TELL6: a charge's lane must be free of cover
 import { GRAVITY } from '../player/motor.js';   // TELL6c: a leap's hop on the motor's own gravity
 import { tacticsNow, setTacticsClock, tickTactics } from './tacticsClock.js';   // AUDIT TACT D10/A3
-import { TELL, poiseOf, staggerSeconds, glintStrength, blowGuard, punishSeconds, windupSeconds, feints, chains, chainShape, trackYaw, blowCooldown } from './tells.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL3: a blow's guard; TELL4: the punish window; TELL5: patterns; TELL7: the cooldowns
+import { TELL, poiseOf, staggerSeconds, glintStrength, blowGuard, punishSeconds, windupSeconds, feints, chains, chainShape, trackYaw, blowCooldown, wholeSet } from './tells.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL3: a blow's guard; TELL4: the punish window; TELL5: patterns; TELL7: the cooldowns
 import { registerBlowTakenMod } from '../systems/blowTaken.js';   // TELL1: a staggered foe takes more - the leaf the formulas read
 
 export const tacticsSwitchOn = () => getPref('enhancedAI') === true;
@@ -300,6 +300,8 @@ export function tacticsStep(ai, dx, dz) {
   const fighting = (ai.inSight || away) && ai.detected && Number.isFinite(dist) && dist <= (shooter(ai) ? TACT.SHOOT_RANGE : TACT.ENGAGE_RANGE) && !ai.follow;
   const key = fighting ? targetKey(ai) : null;
   ai._tacStrike = undefined; ai._tacShoot = undefined;
+  ai._aimReady = false;   // TELL6d: asked afresh each turn (the ranged branch)
+  if (ai._blowShot && now - ai._blowShot.at > BLOW_VERDICT_LIFE) ai._blowShot = null;   // a shot never loosed goes stale, as a verdict does
   // TELL1: staggered - the motor holds it (it cannot act, so the brain is rarely asked); spent, the beat after a blow
   if (s.state === 'staggered') {
     if (now < s.until) { ai._tacStrike = false; ai._tacShoot = false; ai.moving = false; return true; }
@@ -403,6 +405,14 @@ export function tacticsStep(ai, dx, dz) {
     if (s.kiting) { s.kiting = false; s.kiteReady = now + TACT.KITE_COOLDOWN; s.faceUntil = now + TACT.FACE_BACK; }
     ai._tacBlocked = false;
     if (!ai.inSight && now < s.faceUntil) { face(); ai.moving = false; return true; }   // FEEDBACK: out past the edge, it turns back to shoot
+    // TELL6d (8.1): an archer of the whole set aims one shot in three - the attack component asks as its shot comes
+    // (`_wantAimed`), and the brain winds it up instead: its line on the ground, locked; its landing looses it
+    const ent = ai.vitals?.();
+    ai._aimReady = has && key === LOCAL && !!_me && ai.canAct !== false && now >= (s.blowReady ?? 0) && aimsShots(ai, ent) && !windupNear(_me.feet, now, ai);
+    if (ai._wantAimed) {
+      ai._wantAimed = false;
+      if (ai._aimReady) { beginWindup(ai, s, ent, 'aimed', dx, dz, now); return windupTurn(ai, s, now, skipped); }
+    }
     // FEEDBACK: no ring for a shooter - with a token the classic stand-off and shot, without one the stand-off alone
     // (it holds its fire), never circling the target
     return false;
@@ -458,15 +468,17 @@ function beginWindup(ai, s, ent, shape, dx, dz, now, chain = 0) {
   const b = fitBlowToGround(makeBlow(shape, ai.feet, Math.atan2(dx, dz), now, guard === 'iron' ? IRON_COLOR : BLOW_COLOR, guard, windup), ai.collider);   // AUDIT TACT D8: on the ground it marks
   b.chain = chain; b.trackedAt = now;
   if (shape === 'leap') { b.ahead = Math.min(BLOW.leap.range, Math.hypot(dx, dz)); b.jumpAt = b.land - BLOW.leap.arc; fitBlowToGround(b, ai.collider); }   // TELL6c: its point - my feet now, locked
+  if (shape === 'aimed') b.ahead = Math.hypot(dx, dz);   // TELL6d: its line to me, locked
   const n = (s.windups ?? 0) + 1;
   s.windups = n;
-  if (chain === 0 && feints(blowFamily(ent.mobileType), ent, n - (s.lastFeint ?? -Infinity)) && Math.random() < TELL.FEINT_CHANCE) {
+  if (chain === 0 && shape !== 'aimed' && feints(blowFamily(ent.mobileType), ent, n - (s.lastFeint ?? -Infinity)) && Math.random() < TELL.FEINT_CHANCE) {
     b.feint = true; b.cutAt = b.start + TELL.FEINT_AT * (b.land - b.start); s.lastFeint = n;
   }
   s.blow = b;
   setLiveBlow(ai, b);
   s.state = 'windup';
-  ai._blowHold = true; ai._blowWind = true;   // TELL2: the swing begins now and stands at its raised arm until the landing
+  const swings = shape !== 'aimed';   // TELL6d: a shot draws no held swing - its landing looses it (ai._blowShot)
+  ai._blowHold = swings; ai._blowWind = swings;   // TELL2: the swing begins now and stands at its raised arm until the landing
 }
 /** TACT4: the wind-up's turn - broken by a knock or a paralysis (a step the motor did not let the brain decide), else
  *  stood, its aim locked, until the landing: where my feet stand decides it, and the swing comes now. */
@@ -498,6 +510,12 @@ function windupTurn(ai, s, now, skipped) {
   // TELL4 (6.2): my feet, sampled once - the first turn inside TELL_LATE of the landing
   if (atMe && s.blow.lateIn == null && now >= s.blow.land - TELL.TELL_LATE && now < s.blow.land) s.blow.lateIn = inBlow(s.blow, _me.feet[0], _me.feet[2]);
   if (b0.kind === 'leap' && now >= b0.jumpAt && now < b0.land) return leapStep(ai, b0);   // TELL6c: the jump
+  if (now >= s.blow.land && b0.kind === 'aimed') {   // TELL6d: loosed along its line - the arrow's flight decides; no verdict, no window
+    ai._blowLandedAt = now;
+    if (atMe) ai._blowShot = { yaw: b0.yaw, at: now, fired: false };   // the attack component draws, the sprite looses
+    s.blowReady = cooled; s.state = 'wait'; s.blow = null;
+    return false;
+  }
   if (now >= s.blow.land) {
     if (b0.kind === 'leap') { ai._tacDir = null; ai.moving = false; }   // TELL6c: landed at its point
     // AUDIT TACT A4/D6: only ever at ME - a wind-up whose foe has turned on another lands on no one here
@@ -548,6 +566,13 @@ export function blowPool(ai, ent, dist, near, dx, dz) {
   const all = throwsBlows(ent) ? blowShapesOf(ent.mobileType, ent) : [];
   return near ? all.filter((k) => !GAP_CLOSERS.includes(k)) : all.filter((k) => gapCloses(ai, k, dist, dx, dz, ent));
 }
+/** TELL6d: does this foe aim its shots - a class archer (a bow) of the whole set (section 9: an ordinary archer of the
+ *  tier keeps DFU's plain shot, as TACT4 left it)? */
+export function aimsShots(ai, ent) {
+  return !!ent && wholeSet(ent) && !!ai?.hasBowAttack && ent.mobileType >= 128;
+}
+// TELL6d: an aimed shot that strikes weighs x BLOW.aimed.mult - the arrow says so at contact (formulas' blowInfo)
+registerBlowTakenMod('tell-aimed', (attacker, target, weapon, info) => (info?.aimed ? BLOW.aimed.mult : 1));
 /** The shapes begun out of reach. */
 export const GAP_CLOSERS = Object.freeze(['charge', 'leap']);
 /** May `kind` be begun from `dist` out along (dx, dz)? The charge: 5-12 m, its lane free of the collider and of cover

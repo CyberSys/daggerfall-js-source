@@ -6,7 +6,7 @@ these enemies and breath more depth into it"*; then, on the sixteen ideas offere
 detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
-(section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL5, TELL7 and TELL6a-c built; each
+(section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL5, TELL7 and TELL6a-d built; each
 slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
@@ -1391,3 +1391,36 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
   `tell6b_charge` (the leap joins the gap-closers). Mutant records re-aimed by content: `audittact` D8, `tell6a`
   (three), `tell6b` (four).
 - Mutants `tools/mutants/tell6c.json` (20), all dead.
+
+### TELL6d - BUILT 2026-10-04 (the Enhanced AI switch on, every host): the aimed shot
+
+- **Who** - a class archer (a bow) of the whole set (`aimsShots`): an elite, a champion, a revenant. Section 8.1 says
+  "a tier archer"; section 9's table gives an ordinary archer of the tier "-" and the whole set "the aimed shot", and
+  TELL7's law (an ordinary foe keeps what TACT4 gave it) agrees - read so.
+- **The shape** - `BLOW.aimed` (0.6 s, a line 0.5 m wide from the archer to its target, x1.4, half again as fast);
+  `inBlow` and the ground's mirror run its line to its target and no further (`ahead` its length, locked at its start);
+  drawn on the lane's branch in a quad its own length. It never tracks, never feints, never chains, opens no window
+  (the arrow's flight decides - stepping off the line is the dodge).
+- **One shot in three** - the attack component's bow roll, when it comes and the brain said the archer may aim this
+  turn (`_aimReady`: its ranged token, its cooldown, no wind-up near me), is aimed one time in `TELL.AIMED_SHARE`
+  (`_wantAimed`, drawn on its own `rolls` - never with the switch off); the brain winds it up instead of the shot. No
+  held swing (a shot draws none). At its landing `ai._blowShot` (its locked yaw): the attack component draws the bow
+  (the ranged token spent as a shot), and the sprite's loose takes it once (`hostCombat.takeAimedShot`) - the arrow's
+  heading the line's, its pitch DFU's aim at the live target (`aimedDirection`), its record `{ aimed, speedScale }`
+  (`aimedArrowMeta`). A shot never loosed goes stale as a verdict does.
+- **In flight and where it strikes** - `combat/arrowFlight.js` and the dungeon's missiles step at `speedScale`; the
+  four hosts' arrow hits pass `blowInfo: aimedBlowInfo(m)` to `calculateAttackDamage`, whose tail hands it to the
+  `blowTaken` registry; the fold `tell-aimed` weighs it x1.4. The exterior pool's and the dungeon's loose arms, and the
+  street hosts' `onArrow` (`world.js`, `exterior.js`, `worldModes.js`), carry it. The ear: no LAND (a shot strikes
+  nothing).
+- `tools/foeTelegraphProbe.mjs` gains the line (to its target, thin, stopping there: 25 held).
+- Pins `test/tell6d_aimed.test.js` (5): the numbers, the line and its mirror; the loose (its bearing and pitch, the
+  shot taken once and never before its draw, its flight half again as fast, its weight end to end through the
+  formulas); ON THE MOTOR an elite archer's shot wound up instead of loosed - its line to me locked, no held swing, its
+  glint, its draw at the landing, no window - and an ordinary archer's never; the pools, the hosts and the ear wired.
+  Mutant records re-aimed by content: `audittact` A2, `tell2` (two), `tell4`, `tell5` (two), `tell6a` (two), `tell6c`
+  (two). Cites re-resolved (`tools/citeShift.mjs`), two by hand (`chargenSession.js`, `Port-Ledger.md`). Pins moved:
+  `exteriorfoes` and `roadh_tail` (three: the shaft's word, `fireArrow`'s eighth argument, the hosts' `onArrow`). The
+  hosts name `aimedBlowInfo` only for an aimed arrow (`m.aimed ? ... : null`) - `auditpscale1` lifts the dungeon's
+  arrow hit into a bare function, which must not meet a name it never needs.
+- Mutants `tools/mutants/tell6d.json` (33), all dead.

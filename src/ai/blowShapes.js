@@ -16,6 +16,9 @@ export const BLOW = Object.freeze({
   // TELL6 (8.1): the leap - a disc at the target's feet, locked at its start, 3-9 m off; the wind-up a crouch, its last
   // `arc` seconds the jump to the point
   leap: Object.freeze({ windup: 1.0, r: 1.8, mult: 1.6, from: 3, range: 9, arc: 0.35 }),
+  // TELL6 (8.1): the aimed shot - a line from the archer to its target, locked at its start; the arrow leaves along it
+  // half again as fast (`speed`) and x`mult` its damage. The arrow's own flight decides: stepping off the line dodges it
+  aimed: Object.freeze({ windup: 0.6, halfW: 0.25, mult: 1.4, speed: 1.3 }),
 });
 
 // TELL2 (bible/12-Enhanced-AI/Feud-Arc.md section 4): the numbers the ground's pass reads beside the brain - their one

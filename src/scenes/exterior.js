@@ -176,7 +176,7 @@ import { rrRidingOn, rrRidingSetting } from '../systems/rrRealism.js';   // RR2:
 import { createRrRidingContacts } from '../systems/rrRidingHost.js';   // AUDIT-RR F15: the trample and the charge on this host too
 import { LETHAL_HIT } from '../combat/bloodDecals.js';   // the trample's splash hands its blow over - a civilian, from the player, gone in one contact
 import { setRrHostSeams } from '../systems/rrInstall.js';   // AUDIT-RR F15: what CanRun and the axis limits read off this scene
-import { enemyHeavyPainVoice } from './hostCombat.js';   // AUDIT-RR F18
+import { enemyHeavyPainVoice, aimedBlowInfo } from './hostCombat.js';   // AUDIT-RR F18; TELL6d: an aimed shot's weight
 import { RIDING_VOLUME_SCALE } from '../systems/riding.js';
 import { setLastLocationKeyTo } from '../systems/worldDataVariants.js';   // AUDIT-RR F32   // MAC-K3: this host had NO transport surface at all - see the note at the build
 import { preloadTransportArt } from '../ui/transportWindow.js';   // MAC-K3: MOVE00I0 + MOVE01I0, the picker's art
@@ -1801,8 +1801,8 @@ export async function bootExterior(canvas, renderer, params, status) {
     // C13/X2-slice: the shoot frame looses a REAL arrow through this
     // host's own flight, ringing ArrowShoot from the archer. The watch
     // carries no bow arm; an encounter foe does.
-    onArrow: (from, dir, f, aimFoe = null) => {   // ROAD-H tail (review): aimFoe - the foe the archer selected, null for the player
-      arrows.fire(from, dir, { enemy: true, shooterFoe: f, weapon: f.entity.weapon, aimFoe });
+    onArrow: (from, dir, f, aimFoe = null, extra = null) => {   // ROAD-H tail (review): aimFoe - the foe the archer selected, null for the player; TELL6d: extra - an aimed shot's word
+      arrows.fire(from, dir, { enemy: true, shooterFoe: f, weapon: f.entity.weapon, aimFoe, ...(extra ?? {}) });
       audio.play3d(SOUND.ArrowShoot, from, 1, { maxDistance: 16 });
     },
     // X3-slice: casters - the S16 lists assign once the SPELLS.STD map
@@ -2593,7 +2593,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // instance indoors, in every shop entered from it - `cast X spell do`
     // and `cast X effect do` could never latch and never fire. The other
     // two engine-owning hosts wire the identical pair (world.js:8939-8940,
-    // dungeonContext.js:2842-2843); `questBridge` is assigned below this
+    // dungeonContext.js:2843-2844); `questBridge` is assigned below this
     // mount, so the chain is optional both ways.
     onNewReadySpell: (sp) => questBridge?.machine?.notifyNewReadySpell?.(sp),
     onCastReadySpell: (sp) => questBridge?.machine?.notifyCastReadySpell?.(sp),
@@ -2851,7 +2851,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // (chronicleDoor.js:110 `if (!questJournalArtLoaded()) return null`),
     // so a readiness test placed AHEAD of the preload that satisfies it
     // made the classic skin answer null for ever - the warm behind the
-    // gate could never run. dungeonContext.js:1940-1945 is the shape:
+    // gate could never run. dungeonContext.js:1941-1946 is the shape:
     // warm, then let the door refuse.
     preloadQuestJournalArt({ renderer, fetchBytes, palette });
     return createChronicleWindow({
@@ -5575,6 +5575,7 @@ export async function bootExterior(canvas, renderer, params, status) {
         tallySkill(playerEntity, SKILLS.Dodging, 1);
         const dmg = shooter && !shooter.dead ? calculateAttackDamage(shooter.entity, playerEntity, {
           weapon: m.weapon,
+          blowInfo: m.aimed ? aimedBlowInfo(m) : null,   // TELL6d: an aimed shot's x1.4
           onInflictPoison: (att, tgt, pt) => inflictPoison(playerEntity, pt, false, { currentMinute: Math.floor(playerTicker.ownMinutes) }),
           say: (l) => townTalk.say(l),
         }) : 0;

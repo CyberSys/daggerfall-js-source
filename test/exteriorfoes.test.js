@@ -93,7 +93,8 @@ test('exteriorfoes: the world host - the cadence loop, the travel reset, the fac
   // ROAD-H tail (review): ...and the shaft carries `aimFoe`, the foe the
   // archer selected (null for the player) - the flight's damage gate
   // (DaggerfallMissile.cs:669) reads it at contact.
-  assert.ok(s.includes("arrows.fire(from, dir, { enemy: true, shooterFoe: f, weapon: f.entity.weapon, aimFoe })"),
+  // PIN MOVED (TELL6d, bible/12-Enhanced-AI/Feud-Arc.md 8.1): an aimed shot's word rides the same shaft
+  assert.ok(s.includes("arrows.fire(from, dir, { enemy: true, shooterFoe: f, weapon: f.entity.weapon, aimFoe, ...(extra ?? {}) })"),
     'the shoot frame looses a real hunting arrow');
   assert.ok(s.includes('audio.play3d(SOUND.ArrowShoot, from'), 'the loose rings from the archer');
   const imp = s.indexOf('onPlayerHit: (m) =>');

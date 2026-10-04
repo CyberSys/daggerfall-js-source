@@ -93,6 +93,8 @@ export const TELL = Object.freeze({
   // TELL7: the cooldowns by tier (seconds between one foe's blows)
   COOLDOWN: Object.freeze({ ordinary: Object.freeze([8, 15]), champion: Object.freeze([7, 13]), elite: Object.freeze([6, 11]) }),
   COOLDOWN_RANK: 0.08,          // a revenant's, less this a rank
+  // TELL6d: the aimed shot
+  AIMED_SHARE: 1 / 3,           // an archer of the whole set's shots aimed, one in this
 });
 
 /** The weight class of a foe of `weight` classic units. */

@@ -41,8 +41,8 @@
   {
     "name": "ATACT-A2-shot-uncounted",
     "file": "src/characters/enemyAttack.js",
-    "old": "this.swingSeq++; this._held = false; ai._tacShot = (ai._tacShot ?? 0) + 1; }",
-    "new": "this.swingSeq++; this._held = false; }",
+    "old": "if (machineAttack(this.machine, strike)) { this.firedRanged = true; this.swingSeq++; this._held = false; ai._tacShot = (ai._tacShot ?? 0) + 1; }   // AUDIT TACT A2",
+    "new": "if (machineAttack(this.machine, strike)) { this.firedRanged = true; this.swingSeq++; this._held = false; }   // AUDIT TACT A2",
     "tests": [
       "test/audittact.test.js"
     ]

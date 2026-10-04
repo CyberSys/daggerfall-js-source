@@ -12,12 +12,12 @@ import { BLOW, TELL_NOW } from '../ai/blowShapes.js';   // the leaf - the brain 
 import { TELEGRAPH_STYLE_GLSL } from './telegraphStyle.js';   // TELL2: the boss's readable line, at a foe's scale (a leaf)
 
 /** The shapes as the shader's `uKind` says them. */
-export const BLOW_KIND = Object.freeze({ lunge: 0, sweep: 1, slam: 2, ring: 3, charge: 0, leap: 2 });   // TELL6: the charge's lane is the lunge's branch, the leap's disc the slam's - each its own numbers
+export const BLOW_KIND = Object.freeze({ lunge: 0, sweep: 1, slam: 2, ring: 3, charge: 0, leap: 2, aimed: 0 });   // TELL6: the charge's lane and the aimed line are the lunge's branch, the leap's disc the slam's - each its own numbers
 /** TELL6: a shape's reach from the foe's feet (its farthest point). */
-const REACH = Object.freeze({ lunge: BLOW.lunge.len, sweep: BLOW.sweep.r, slam: BLOW.slam.ahead + BLOW.slam.r, ring: BLOW.ring.rOut, charge: BLOW.charge.len, leap: BLOW.leap.range + BLOW.leap.r });
+const REACH = Object.freeze({ lunge: BLOW.lunge.len, sweep: BLOW.sweep.r, slam: BLOW.slam.ahead + BLOW.slam.r, ring: BLOW.ring.rOut, charge: BLOW.charge.len, leap: BLOW.leap.range + BLOW.leap.r, aimed: 0 });
 /** TELL6: a blow's quad half-extent - its own shape and the line's glow past its outline (TELL2 draws 0.5 m out), so a
  *  long shape does not enlarge every quad. A leap's by its own point (`ahead`). */
-export const quadHalf = (kind, ahead = null) => (kind === 'leap' && Number.isFinite(ahead) ? ahead + BLOW.leap.r : REACH[kind] ?? BLOW_QUAD_HALF) + 0.6;
+export const quadHalf = (kind, ahead = null) => (Number.isFinite(ahead) && (kind === 'leap' || kind === 'aimed') ? ahead + (kind === 'leap' ? BLOW.leap.r : 0) : REACH[kind] ?? BLOW_QUAD_HALF) + 0.6;   // the aimed line: its own length
 /** The quad's half-extent about the foe's feet - every shape fits (TELL6: the charge's lane is the longest). */
 export const BLOW_QUAD_HALF = Math.max(...Object.values(REACH)) + 0.3;
 export const BLOW_LIFT = 0.06;
@@ -47,6 +47,10 @@ export function blowField(kind, across, along, ahead = 0) {
     const P = BLOW.ring, d = Math.hypot(across, along);
     const inside = d >= P.rIn && d <= P.rOut;
     return { inside, edge: Math.max(0, (d - P.rIn) / (P.rOut - P.rIn)), rim: inside && (d - P.rIn < OUTLINE || P.rOut - d < OUTLINE) };
+  }
+  if (kind === 'aimed') {   // TELL6: the lunge's lane, its own length and width
+    const W = BLOW.aimed.halfW, inside = along >= -0.3 && along <= ahead && Math.abs(across) <= W;
+    return { inside, edge: Math.max(0, (along + 0.3) / (ahead + 0.3)), rim: inside && (ahead - along < OUTLINE || W - Math.abs(across) < OUTLINE) };
   }
   if (kind === 'leap') {   // TELL6: the slam's disc, at its own point
     const r = BLOW.leap.r, d = Math.hypot(across, along - ahead);
@@ -186,6 +190,7 @@ export class FoeTelegraphPass {
       else if (b.kind === 'sweep') gl.uniform4f(U.uP, P.r, P.halfArc, 0, 0);
       else if (b.kind === 'ring') gl.uniform4f(U.uP, P.rIn, P.rOut, 0, 0);
       else if (b.kind === 'leap') gl.uniform4f(U.uP, P.r, b.ahead ?? 0, 0, 0);
+      else if (b.kind === 'aimed') gl.uniform4f(U.uP, b.ahead ?? 0, P.halfW, 0, 0);
       else gl.uniform4f(U.uP, P.r, P.ahead, 0, 0);
       gl.uniform1f(U.uT, phase.t);
       gl.uniform1f(U.uFlash, phase.flash);

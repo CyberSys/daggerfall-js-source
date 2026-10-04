@@ -54,6 +54,7 @@ test('TELL1: the table is the arc\'s section 27 (mutants: any number moved)', ()
     CHAIN_CHANCE: 0.35, CHAIN_WINDUP: 0.5, CHAIN_FLOOR: 0.45, CHAIN_GAP: 0.15,
     CHAIN_NEXT: { sweep: 'lunge', lunge: 'sweep', slam: 'sweep', ring: 'slam' },
     COOLDOWN: { ordinary: [8, 15], champion: [7, 13], elite: [6, 11] }, COOLDOWN_RANK: 0.08,
+    AIMED_SHARE: 1 / 3,
   });
 });
 

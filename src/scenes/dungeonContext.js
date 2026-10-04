@@ -124,6 +124,7 @@ import {
   spawnEnemyLoot,                  // RF2: SetEnemyCareer's whole loot chain, one seam
   windupDoor,                      // TELL1: the poise door (bible/12-Enhanced-AI/Feud-Arc.md section 3)
   tellCues,                        // TELL2: a telegraphed blow's three cues
+  takeAimedShot, aimedDirection, aimedArrowMeta, aimedBlowInfo,   // TELL6d: the aimed shot's loose and its weight
 } from './hostCombat.js';   // AUDIT 18: the laws every host must share
 import { TELL } from '../ai/tells.js';   // TELL1: the breaking blow's shove
 import { createCharacter } from '../systems/chargen.js';
@@ -303,7 +304,7 @@ const q3 = (v) => Math.round(v * 1000) / 1000; const GENDER_BIT = ['male', 'fema
 const HIT_POS_MAX = 1e6;
 // AUDIT FOES FOE5: the most damage one peer's blow may claim. The host TRUSTS the number (it never recomputes - the
 // striker's own calc is the game's), so without a bound any joiner could one-shot every foe in the room and empty it
-// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2713); the dungeon
+// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2714); the dungeon
 // had none. Past anything a legal swing, shaft or blast can roll.
 const HIT_DMG_MAX = 10000;
 /** REST-SYNC: a joiner's ask is answered - or given up on - inside this long: its rest breaks once, at the next hour. */
@@ -3293,7 +3294,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // along flight (DFU ShootBow / WeaponManager verbatim shape). On a
   // landed enemy arrow, ONE recoverable Arrow joins the TARGET'S
   // items (BowDamage's classic charm). Crouch pass-over pends.
-  function fireArrow(from, dir, weapon, fromPlayer, shooterFoe = null, aimFoe = null, muzzle = null) {   // FIELD-GUN17: muzzle - a camera-space barrel offset from the host, or null for the bow-hand arm   // ROAD-H tail: aimFoe - BowDamage's non-player arm (EnemyAttack.cs:141-143), the foe this shaft was loosed AT
+  function fireArrow(from, dir, weapon, fromPlayer, shooterFoe = null, aimFoe = null, muzzle = null, extra = null) {   // TELL6d: extra - an aimed shot's word ({ aimed, speedScale })   // FIELD-GUN17: muzzle - a camera-space barrel offset from the host, or null for the bow-hand arm   // ROAD-H tail: aimFoe - BowDamage's non-player arm (EnemyAttack.cs:141-143), the foe this shaft was loosed AT
     // FIELD-GUN14 (Mac: "The projectile that shoots out should be an
     // orb, not an arrow"). The FOURTH HOST's own copy of the fork
     // combat/arrowFlight.js takes - and here it is one field, because
@@ -3309,7 +3310,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const pos = fromPlayer
       ? playerShotOrigin(from, dir, muzzle)   // AUDIT FIELD-GUN-MW F2: the one fork, so a world muzzle lands here too
       : [...from];
-    missiles.push({ arrow: true, flatArchive: orbArchiveFor(weapon), weapon, fromPlayer, shooterFoe, aimFoe, pos, dir: [...dir], age: 0, batch: null, draw: null });   // ROAD-H H1c: a PLAYER shaft leaves the BOW HAND - GetAimPosition (DaggerfallMissile.cs:540-550) offsets the camera position 0.11 DOWN the camera's own up and 0.15 to the hand (the other way under FPSWeapon.FlipHorizontal), and it runs INSIDE the missile in DFU (:471), so it runs here rather than at each host's loose; an ENEMY shaft arrives with its own origin already applied (enemyTargets.enemyArrowOrigin)
+    missiles.push({ arrow: true, flatArchive: orbArchiveFor(weapon), weapon, fromPlayer, shooterFoe, aimFoe, pos, dir: [...dir], age: 0, batch: null, draw: null, ...(extra ?? {}) });   // ROAD-H H1c: a PLAYER shaft leaves the BOW HAND - GetAimPosition (DaggerfallMissile.cs:540-550) offsets the camera position 0.11 DOWN the camera's own up and 0.15 to the hand (the other way under FPSWeapon.FlipHorizontal), and it runs INSIDE the missile in DFU (:471), so it runs here rather than at each host's loose; an ENEMY shaft arrives with its own origin already applied (enemyTargets.enemyArrowOrigin)
   }
   // S16: the enemy cast - "enemies always cast ready spell instantly
   // once queued" (EntityEffectManager.Update): spend the S10 cost
@@ -4180,7 +4181,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       }
       m.age += dt;
       if (m.age > MISSILE_LIFESPAN_S) { retireMissile(m); continue; }
-      const step = MISSILE_SPEED * dt;
+      const step = MISSILE_SPEED * (m.speedScale ?? 1) * dt;   // TELL6d: an aimed shot flies half again as fast
       const { unit: _unit, reach } = missileReach(m.dir, step);   // ROAD-H tail: DaggerfallMissile.cs:333/:337-339's reach along the normalised direction
       // TACT1: cover stops a bolt, and an area spell bursts on it; AUDIT TACT B5: by touch, the bodies before it tested first
       const _len = Math.hypot(m.dir[0], m.dir[1], m.dir[2]) || 1;
@@ -4264,8 +4265,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:27196,
-              // exterior.js:5599 and worldModes.js:9225 already ran;
+              // playerArrowHitFoe is the one copy world.js:27197,
+              // exterior.js:5600 and worldModes.js:9226 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -4363,6 +4364,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
             tallySkill(playerEntity, SKILLS.Dodging, 1);
             const dmg = foeDeps && shooter ? _weighHit(shooter, foeDeps.calculateAttackDamage(shooter.entity, playerEntity, {
               weapon: m.weapon,   // AUDIT 18: target group derived from the entity (isPlayer -> Humanoid)
+              blowInfo: m.aimed ? aimedBlowInfo(m) : null,   // TELL6d: an aimed shot's x1.4
               onInflictPoison: (att, tgt, pt) => inflictPoison(playerEntity, pt, false, { currentMinute: Math.floor(classicMinutesRef.value) }),   // S19b: poisoned arrows
               say: (l) => hudText.add(l),   // C-slice
             })) : 0;   // PSCALE1: an arrow as a blow is - weighed once, so the flash and the cry below read what I took (AUDIT PSCALE1 DOORS-3)
@@ -5145,7 +5147,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const i = data.i | 0, dmg = Number(data.dmg);
     const xs = data.xs === 1;   // REST-SYNC: a shared encounter, by the room's number - not a layout index
     const f = xs ? (_sharedById.get(i) ?? null) : foes[i];
-    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2713). The number is a peer's
+    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2714). The number is a peer's
     // word and the host trusts it without recomputing, so an unbounded one let any joiner one-shot every foe in the
     // room - and, through the kill door, empty it. 10000 is past anything a legal swing, shaft or blast can roll.
     if (!f || (!xs && i >= _layoutFoes) || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
@@ -5724,7 +5726,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // InstantiatePrefab's a fresh GameObject per saved record, so
     // EnemyEntity's `PickpocketByPlayerAttempted` default is the loaded
     // truth for every enemy. The re-minting pools match that by
-    // construction (exteriorFoes.js:2066's restoreWorld goes through
+    // construction (exteriorFoes.js:2067's restoreWorld goes through
     // spawnFoe), but this host patches the LIVE foes in place, so a
     // same-dungeon reload kept a raised latch and a failed pickpocket
     // could never be retried - falsifying the law
@@ -7139,8 +7141,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
             else {
             const _atPlayer = foeDeps.isPlayerTarget(_at) && !_at.isPeer;   // ROAD-H tail: BowDamage's two-arm split (EnemyAttack.cs:139-143) - the shaft flies at the SELECTED target, as the exterior pool's has since MT-ii
             const aim = foeDeps.targetAimPoint(_at, _pf, playerHeight);   // AUDIT 62 F21 (review): the target's TRANSFORM - the player at its LIVE height (PlayerHeightChanger.cs:477-478), a foe at feet + centreOffset - the same aim point the spell arm takes (DaggerfallMissile.cs:571-581)
-            const dir = foeDeps.arrowAimDirection(foeDeps.enemyTransformPoint(f.ai), aim, { targetIsPlayer: _atPlayer, playerCrouching: !!_senses.playerCrouching });   // ROAD-H H1b: the DIRECTION is measured from the BARE transform (:581), not from that offset origin - DFU's two functions do not share an origin - and a shot at a CROUCHING player dips 0.05 after the normalise (:583-585)
-            fireArrow(from, dir, f.entity.weapon, false, f, _atPlayer ? null : _at);   // the missile REMEMBERS its foe target so the impact fork runs BowDamage's non-player arm (a peer: no arm, the shaft pays nothing)
+            const shot = f._pupTarget == null ? takeAimedShot(f.ai) : null;   // TELL6d: an aimed shot leaves along its locked line
+            const dir = aimedDirection(foeDeps.arrowAimDirection(foeDeps.enemyTransformPoint(f.ai), aim, { targetIsPlayer: _atPlayer, playerCrouching: !!_senses.playerCrouching }), shot);   // ROAD-H H1b: the DIRECTION is measured from the BARE transform (:581), not from that offset origin - DFU's two functions do not share an origin - and a shot at a CROUCHING player dips 0.05 after the normalise (:583-585)
+            fireArrow(from, dir, f.entity.weapon, false, f, _atPlayer ? null : _at, null, aimedArrowMeta(shot));   // the missile REMEMBERS its foe target so the impact fork runs BowDamage's non-player arm (a peer: no arm, the shaft pays nothing)
             audio.play3d(SOUND.ArrowShoot, from, 1, { maxDistance: 16 });   // C2-slice (combat-9): the loose rings from the archer (EnemyAttack Update)
             }
           }

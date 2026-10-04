@@ -46,6 +46,7 @@ window.draw = (kind, when, fog = null, slope = null, nearFloor = 0, guard = 'poi
   const at = when === 'land' ? blow.land + 0.02 : 10 + (blow.land - 10) * share;   // the landing's flash, or that far through the wind-up
   if (slope) blow.slope = slope;
   if (kind === 'leap') blow.ahead = 3;   // TELL6: its point, 3 m out
+  if (kind === 'aimed') blow.ahead = 6;   // TELL6: its line, 6 m to its target
   const n = pass.draw([{ blow, phase: blowPhase(blow, at), nearFloor }], proj, view, fog);
   // read the ground at a world point
   const px = (x, z) => { const v = [x, 0, z, 1]; const c = [0,0,0,0]; for (let r = 0; r < 4; r++) c[r] = vp[r]*v[0] + vp[4+r]*v[1] + vp[8+r]*v[2] + vp[12+r]*v[3];
@@ -114,6 +115,9 @@ try {
   // TELL6: the leap - a disc at its point, its foe's own feet dark
   const leapL = await page.evaluate(() => window.draw('leap', 'land'));
   check('TELL6: the leap lights a disc at its point, nothing at its foe\'s feet', leapL.n === 1 && leapL.err === 0 && leapL.probes.ahead > GROUND + 60 && leapL.probes.far > GROUND + 60 && Math.abs(leapL.probes.feet - GROUND) < 6 && Math.abs(leapL.probes.out - GROUND) < 6, JSON.stringify(leapL.probes));
+  // TELL6: the aimed shot - a thin line to its target, no further
+  const aimedL = await page.evaluate(() => window.draw('aimed', 'land'));
+  check('TELL6: the aimed line runs to its target, thin, and stops there', aimedL.n === 1 && aimedL.err === 0 && aimedL.probes.far > GROUND + 60 && Math.abs(aimedL.probes.lane7 - GROUND) < 30 && Math.abs(aimedL.probes.laneWide - GROUND) < 6, JSON.stringify(aimedL.probes));
   // TELL3: an iron blow is never told by colour alone - a second line a quarter-metre inside, a hatch across its fill
   const poiseW = await page.evaluate(() => window.draw('lunge', 'wind'));
   const ironW = await page.evaluate(() => window.draw('lunge', 'wind', null, null, 0, 'iron'));

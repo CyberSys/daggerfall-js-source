@@ -39,7 +39,8 @@ import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';
 import { ATTRACT_RADIUS, ignoreHumanSounds } from '../characters/enemySounds.js';   // AUDIT 24 (wave 41); TELL2: a person's wind-up is a swing, not a voice
 import { enemyDisplayName, ENEMY_BASICS } from '../characters/enemyBasics.js';   // AUDIT 24 (wave 42); TELL1: the bark a breaking blow wrings out
 import { windupHolds, windupStruck, tacticsNow, overreachOpen } from '../ai/tactics.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL2: the cues' clock; TELL4: the punish window
-import { blowK, blowWeight, behind, TELL } from '../ai/tells.js';   // TELL1: a blow's weight on the poise meter; TELL2: the cues' numbers
+import { blowK, blowWeight, behind, TELL } from '../ai/tells.js';
+import { BLOW } from '../ai/blowShapes.js';   // TELL6d: the aimed shot's speed   // TELL1: a blow's weight on the poise meter; TELL2: the cues' numbers
 import { comprehendLanguagesChance } from '../systems/effects.js';   // X11: the pacification bonus DFU reads inside its own formula
 
 // ---- DaggerfallUnityItem.GetWeaponSkillUsed / GetWeaponSkillIDAsShort ----
@@ -723,7 +724,7 @@ export function tellCues(f, audio, hearing = 1, now = tacticsNow()) {
     // landed (the brain stamped its landing at or after this blow's), or broken - only a landing strikes; its strike may
     // already be this frame's (the sprite stepped past the release before this call)
     const landed = ai._blowLandedAt != null && ai._blowLandedAt >= c.blow.land - 1e-6;
-    c.land = (landed && (ai._blowHold === false || ai._blowHold === 'spent'))   // TELL4: a miss strikes too, then stands spent
+    c.land = (landed && c.blow.kind !== 'aimed' && (ai._blowHold === false || ai._blowHold === 'spent'))   // TELL4: a miss strikes too, then stands spent; TELL6d: a shot strikes nothing - its arrow flies
       || c.blow.cut != null;   // TELL5: a cut feint's plain blow sounds at its strike
     // TELL4 (6.2): a perfect dodge - the bright parry ring, at the landing
     if (landed && ai._perfectAt != null && ai._perfectAt >= c.blow.land - 1e-6) play(SOUND.Parry6, TELL.PERFECT_PITCH);
@@ -735,6 +736,29 @@ export function tellCues(f, audio, hearing = 1, now = tacticsNow()) {
   }
   return played;
 }
+
+// ---- TELL6d: THE AIMED SHOT'S LOOSE (bible/12-Enhanced-AI/Feud-Arc.md section 8.1) ----
+/** The aimed shot the brain landed on this archer, taken by the loose that spends it (null: a plain shot). */
+export function takeAimedShot(ai) {
+  const shot = ai?._blowShot;
+  if (!shot?.fired) return null;
+  ai._blowShot = null;
+  return shot;
+}
+/** An arrow's `dir` (DFU's aim at the target's live transform, its dip and all) turned onto the shot's locked bearing -
+ *  its pitch kept, its heading the line the ground showed. A plain shot's unchanged. */
+export function aimedDirection(dir, shot) {
+  if (!shot || !Number.isFinite(shot.yaw)) return dir;
+  const h = Math.hypot(dir[0], dir[2]);
+  return [Math.sin(shot.yaw) * h, dir[1], Math.cos(shot.yaw) * h];
+}
+/** The arrow's own word for an aimed shot: half again as fast (BLOW.aimed.speed), and its damage weighed at contact. */
+export function aimedArrowMeta(shot) {
+  return shot ? { aimed: true, speedScale: BLOW.aimed.speed } : null;
+}
+/** The formulas' `blowInfo` for an arrow that struck the player (`m` its record). */
+export function aimedBlowInfo(m) { return m?.aimed ? AIMED_INFO : null; }
+const AIMED_INFO = Object.freeze({ aimed: true });
 
 // ---- GameManager.MakeEnemiesHostile (ROAD-B, hostility model) ----
 /**

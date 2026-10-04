@@ -560,7 +560,7 @@ export function damageEquipment(attacker, target, damage, weapon, struckBodyPart
   }
 }
 
-export function calculateAttackDamage(attacker, target, { weapon = null, damageMod = 0, toHitMod = 0, backstabChance = 0, weaponAnimTime = 0, rolls = Math.random, dfRand = rand, onMonsterHit = null, onInflictPoison = null, say = null, enchantCtx = null, playerReflexes = null, unaware = false } = {}) {
+export function calculateAttackDamage(attacker, target, { weapon = null, damageMod = 0, toHitMod = 0, backstabChance = 0, weaponAnimTime = 0, rolls = Math.random, dfRand = rand, onMonsterHit = null, onInflictPoison = null, say = null, enchantCtx = null, playerReflexes = null, unaware = false, blowInfo = null } = {}) {
   if (!attacker || !target) return 0;
   // SOFTCAP1: THE FOE THIS BLOW WAS TRADED WITH, remembered on the player
   // for the tallies that follow it (hit or miss - a swing at a tough foe is
@@ -741,7 +741,7 @@ export function calculateAttackDamage(attacker, target, { weapon = null, damageM
   }
   // TELL1 (bible/12-Enhanced-AI/Feud-Arc.md 3.2): what the TARGET takes - a staggered foe a quarter more - after either
   // core and every scale of the striker's, before the reports below, so they say what landed (systems/blowTaken.js)
-  damage = blowTaken(damage, attacker, target, weapon, { kind: weapon && weaponSkillUsed(weapon.templateIndex) === SKILLS.Archery ? 'arrow' : 'melee' });
+  damage = blowTaken(damage, attacker, target, weapon, { kind: weapon && weaponSkillUsed(weapon.templateIndex) === SKILLS.Archery ? 'arrow' : 'melee', ...(blowInfo ?? {}) });   // TELL6d: what the blow was (an aimed shot's)
   // AUDIT 24 (wave 31) - A LANDED HIT ENDS THE ATTACKER'S NORMAL-POWER
   // CONCEALMENT, and it was unported at every door.
   //
