@@ -58,24 +58,42 @@ key binding, bank purchase, deed consumption or helm path is introduced.
 The layout is shared; the contents are not. Each boat UID names a permanent
 `SailingCabin [UID=...]` scene in the existing save cache, including its containers,
 placed furniture and loose items. Packing and relaunching keep that UID. Existing
-boat cargo stays in its original hold. Bank ownership and bank ship scenes stay
-independent. The synthetic building's negative UID distinguishes Recall identities.
+boat cargo stays in its original hold. Bank ownership is untouched. The synthetic
+building's negative UID distinguishes Recall identities.
 Saved cabin data uses validated native coordinates and a boat-local deck position;
 loading requires that boat in the loaded save, never one from the previous character.
 The interior frame remains axis-aligned, matching the translation-relative decor
 cache even when the boat turns between visits.
+
+**A bank ship's cabin, linked** (`systems/boatCabinOwnership.js`, shipped with the
+cabins in #574 and recorded here 2026-10-04). A player who owns a bank ship keeps
+its furnished room by linking it to ONE sailing ship of its size (a Small Ship to
+the small bank ship; a Large Galley or a Carrack to the large): the bank ship's
+saved scene is moved intact to that ship's `SailingCabin [UID=...]` key, never
+merged over a second furnished room, and the link is never reassigned. It is made
+by itself only when exactly one ship of that size is held; with more, the boat's
+menu offers **Link existing bank cabin**. Once linked, the bank ship's Ship
+transport and its door open that ship's cabin where she lies (`world.js`
+enterLinkedBankCabin, `worldModes.js` enterInteriorCore); a ship not afloat is
+called from the Fleet first. The ships held are counted wherever her title is:
+afloat, her parts in the pack or the wagon, and her title in the Fleet's book
+(CABIN-TITLES, 2026-10-04 - HOLDINGS moved deeds out of the pack into the book,
+and the count still read only the pack, so a ship laid up was no candidate: the
+one ship of her size afloat was taken for the only one and given the bank cabin's
+contents, and a lone ship laid up was not found at all).
 
 **Mac's "The classic style ship is broken. its two ships clipped inside of eachother" and
 "from the ship deed it spawns in a dark void outside the game world and you can move
 around another ship under construction" (2026-10-04)** are the sailing cabin drawing
 her own fleet through its walls - CABIN-HULL below, which fixed it on main the same
 day (#579).
-OPEN FOR MAC: "Bank ownership and bank ship scenes stay independent" (above) is not
-what the code does - `boatCabinOwnership.js linkBankCabin` links the bank ship to the
-one matching sailing ship WITHOUT asking (from her menu, Enter cabin and every load
-outdoors), moves the bank ship's room into her cabin, and Transport > Ship and the bank
-ship's door then lead to her cabin, not to "Your Ship". Whether that link should be
-asked first is Mac's call; it is left as it stands.
+OPEN FOR MAC: the bank cabin link above is made WITHOUT asking when one sailing ship
+matches (`boatCabinOwnership.js linkBankCabin`, from her menu, Enter cabin and every
+load outdoors): the bank ship's room moves into her cabin, and Transport > Ship and the
+bank ship's door then lead to her cabin, not to "Your Ship". Whether that link should
+be asked first is Mac's call; it is left as it stands. (The sentence this flag first
+answered - "Bank ownership and bank ship scenes stay independent" - is retired, the
+link recorded in its place, by CABIN-TITLES.)
 
 **Return to deck** goes through the same exit transition and resolves the same
 live boat's deck pose. It uses feet height without snapping to the seabed. A missing
@@ -116,7 +134,8 @@ boat and offers no cabin entry. No second interior builder is added.
 
 `test/fb1003b_cabinhull.test.js` pins the fleet out of the room (the street's
 collider, the picks, the press, the draw) and the deck solid under the first step
-back. `test/sailingcabins.test.js` exercises real deed launch/pack/relaunch and runtime
+back. `test/cabintitles.test.js` pins the bank cabin's count over
+the book, the pack and the boats afloat, and the not-afloat refusal. `test/sailingcabins.test.js` exercises real deed launch/pack/relaunch and runtime
 save data, menu routing, per-boat cache persistence, failures and the shipped host
 entry/exit/restore and network functions, long-running cabin heartbeats, and
 occupied-deck retention on owner loss. Actual ARENA2 rendering, doorway clearance
