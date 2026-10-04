@@ -25,6 +25,8 @@
     "file": "src/systems/foragingInstall.js",
     "old": "return how(_host.keyLabel?.('Interact') || 'E', _host.keyLabel?.('ActChoice') || 'the act choice key');",
     "new": "return how(_host.keyLabel?.('Interact') || 'E', 'the act choice key');",
+    "equivalent": true,
+    "why": "AUDIT (2026-10-04): PROF-MENU retired the act choice key from every tool line - PROFESSION_TOOL_HOW's lines all take the Interact key alone (the Basket names the list's Search), so the second argument is read by none and the key's label cannot reach the player. Kept as the seam a line naming the key again would read.",
     "tests": ["test/fb0930b_toolsaid.test.js"]
   },
   {
@@ -306,5 +308,23 @@
     "old": "Tools used from your pack gather nothing.';",
     "new": "Tools used from your pack gather into the pack, not here.';",
     "tests": ["test/fb0930b_toolsaid.test.js"]
+  },
+  {
+    "name": "AUDIT-carry-page-says-the-stores",
+    "file": "src/ui/profPages.js",
+    "old": "all.size ? 'Nothing in the Stores matches.' : STORES_EMPTY_CARRY_LINE));",
+    "new": "all.size ? 'Nothing in the Stores matches.' : STORES_EMPTY_LINE));",
+    "tests": [
+      "test/fb0930b_toolsaid.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-hunting-act-choice-again",
+    "file": "src/ui/profPages.js",
+    "old": "The body\\'s list also lets you search it.'));",
+    "new": "The act choice key searches the body instead.'));",
+    "tests": [
+      "test/fb0930b_toolsaid.test.js"
+    ]
   }
 ]

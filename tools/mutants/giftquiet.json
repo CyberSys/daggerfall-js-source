@@ -1,27 +1,63 @@
 [
   {
     "name": "GQ-said-every-time",
-    "file": "src/scenes/hostMagic.js",
-    "old": "    if (last !== undefined && _giftClock - last < GIFT_LINE_QUIET_S) return;\n",
+    "file": "src/systems/allyCast.js",
+    "old": "    if (!fresh && last !== undefined && t - last < windowMs) return false;\n",
     "new": "",
     "tests": [
       "test/giftquiet.test.js"
     ]
   },
   {
-    "name": "GQ-clock-still",
-    "file": "src/scenes/hostMagic.js",
-    "old": "    if (Number.isFinite(dt) && dt > 0) _giftClock += dt;",
-    "new": "    void dt;",
+    "name": "GQ-asking-refreshes",
+    "file": "src/systems/allyCast.js",
+    "old": "    if (!fresh && last !== undefined && t - last < windowMs) return false;\n    said.set(key, t);\n",
+    "new": "    said.set(key, t);\n    if (!fresh && last !== undefined && t - last < windowMs) return false;\n",
     "tests": [
       "test/giftquiet.test.js"
     ]
   },
   {
-    "name": "GQ-asking-not-refreshing",
+    "name": "GQ-window-edge",
+    "file": "src/systems/allyCast.js",
+    "old": "t - last < windowMs) return false;",
+    "new": "t - last <= windowMs) return false;",
+    "tests": [
+      "test/giftquiet.test.js"
+    ]
+  },
+  {
+    "name": "GQ-fresh-ignored",
+    "file": "src/systems/allyCast.js",
+    "old": "    if (!fresh && last !== undefined",
+    "new": "    if (last !== undefined",
+    "tests": [
+      "test/giftquiet.test.js"
+    ]
+  },
+  {
+    "name": "GQ-window-changed",
+    "file": "src/systems/allyCast.js",
+    "old": "export const GIFT_LINE_QUIET_S = 10;",
+    "new": "export const GIFT_LINE_QUIET_S = 5;",
+    "tests": [
+      "test/giftquiet.test.js"
+    ]
+  },
+  {
+    "name": "GQ-arm-kept",
     "file": "src/scenes/hostMagic.js",
-    "old": "    _giftSaid.set(line, _giftClock);\n    if (last !== undefined && _giftClock - last < GIFT_LINE_QUIET_S) return;\n",
-    "new": "    if (last !== undefined && _giftClock - last < GIFT_LINE_QUIET_S) return;\n    _giftSaid.set(line, _giftClock);\n",
+    "old": "    const prevArm = _lastArm; _lastArm = null;",
+    "new": "    const prevArm = _lastArm;",
+    "tests": [
+      "test/giftquiet.test.js"
+    ]
+  },
+  {
+    "name": "GQ-arm-never-fresh",
+    "file": "src/scenes/hostMagic.js",
+    "old": "for (const l of lines) sayGift(l, prev !== kind); }",
+    "new": "for (const l of lines) sayGift(l); }",
     "tests": [
       "test/giftquiet.test.js"
     ]
@@ -29,8 +65,35 @@
   {
     "name": "GQ-near-companion-plain",
     "file": "src/scenes/hostMagic.js",
-    "old": "{ sayGift(PRESS_BUTTON_TO_FIRE_SPELL); sayGift(COMPANION_ARMED_LINE); return true; }",
+    "old": "{ sayArm('mine-near', prevArm, PRESS_BUTTON_TO_FIRE_SPELL, COMPANION_ARMED_LINE); return true; }",
     "new": "{ say(PRESS_BUTTON_TO_FIRE_SPELL); say(COMPANION_ARMED_LINE); return true; }",
+    "tests": [
+      "test/giftquiet.test.js"
+    ]
+  },
+  {
+    "name": "GQ-near-mate-plain",
+    "file": "src/scenes/hostMagic.js",
+    "old": "{ sayArm('mate-near', prevArm, PRESS_BUTTON_TO_FIRE_SPELL, ALLY_ARMED_LINE); return true; }",
+    "new": "{ say(PRESS_BUTTON_TO_FIRE_SPELL); say(ALLY_ARMED_LINE); return true; }",
+    "tests": [
+      "test/giftquiet.test.js"
+    ]
+  },
+  {
+    "name": "GQ-aim-mate-plain",
+    "file": "src/scenes/hostMagic.js",
+    "old": "{ sayArm('mate-aim', prevArm, PRESS_BUTTON_TO_FIRE_SPELL); return true; }",
+    "new": "{ say(PRESS_BUTTON_TO_FIRE_SPELL); return true; }",
+    "tests": [
+      "test/giftquiet.test.js"
+    ]
+  },
+  {
+    "name": "GQ-aim-companion-plain",
+    "file": "src/scenes/hostMagic.js",
+    "old": "{ sayArm('mine-aim', prevArm, PRESS_BUTTON_TO_FIRE_SPELL); return true; }",
+    "new": "{ say(PRESS_BUTTON_TO_FIRE_SPELL); return true; }",
     "tests": [
       "test/giftquiet.test.js"
     ]
@@ -40,6 +103,51 @@
     "file": "src/scenes/hostMagic.js",
     "old": "    if (!quiet) sayGift(allyCastCasterLine(sp.name, mark.name));",
     "new": "    if (!quiet) say(allyCastCasterLine(sp.name, mark.name));",
+    "tests": [
+      "test/giftquiet.test.js"
+    ]
+  },
+  {
+    "name": "GQ-companions-blast-plain",
+    "file": "src/scenes/hostMagic.js",
+    "old": "if (giveToCompanion(t, sp, { quiet: true })) names.push(t.name);\n    const line = allyCastCasterLineMany(sp.name, names);\n    if (line) sayGift(line);",
+    "new": "if (giveToCompanion(t, sp, { quiet: true })) names.push(t.name);\n    const line = allyCastCasterLineMany(sp.name, names);\n    if (line) say(line);",
+    "tests": [
+      "test/giftquiet.test.js"
+    ]
+  },
+  {
+    "name": "GQ-ally-touch-plain",
+    "file": "src/scenes/hostMagic.js",
+    "old": "    if (sent && !quiet) sayGift(allyCastCasterLine(sp.name, mark.name));",
+    "new": "    if (sent && !quiet) say(allyCastCasterLine(sp.name, mark.name));",
+    "tests": [
+      "test/giftquiet.test.js"
+    ]
+  },
+  {
+    "name": "GQ-allies-blast-plain",
+    "file": "src/scenes/hostMagic.js",
+    "old": "if (giveToAlly(t, sp, { quiet: true })) names.push(t.name);\n    const line = allyCastCasterLineMany(sp.name, names);\n    if (line) sayGift(line);",
+    "new": "if (giveToAlly(t, sp, { quiet: true })) names.push(t.name);\n    const line = allyCastCasterLineMany(sp.name, names);\n    if (line) say(line);",
+    "tests": [
+      "test/giftquiet.test.js"
+    ]
+  },
+  {
+    "name": "GQ-ally-release-plain",
+    "file": "src/scenes/hostMagic.js",
+    "old": "      sayGift(allyCastCasterLine(sp.name, ally.name));",
+    "new": "      say(allyCastCasterLine(sp.name, ally.name));",
+    "tests": [
+      "test/giftquiet.test.js"
+    ]
+  },
+  {
+    "name": "GQ-receiver-mate-ungated",
+    "file": "src/scenes/world.js",
+    "old": "if (loud && (!mate || _mateGiftGate(targetLine))) townTalk.say(targetLine);",
+    "new": "if (loud) townTalk.say(targetLine);",
     "tests": [
       "test/giftquiet.test.js"
     ]

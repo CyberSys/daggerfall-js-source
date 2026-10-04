@@ -4930,7 +4930,7 @@ arrival, that is not rare. The blow is dropped instead.
   in it.
 - **A foe's blast on a puppet is credited to ME.** `world.js:9373` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
-  provenance argument `applySpellToFoe` hands them (`hostMagic.js:488`)
+  provenance argument `applySpellToFoe` hands them (`hostMagic.js:487`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
   Threading it touches four hosts.
 - **A building interior streams no foes at all.** `makeInteriorFoes`
@@ -7821,7 +7821,8 @@ cast engine's own line of sight (`allyInReach`) - within touch reach (ALLY_TOUCH
 reach) for a CasterOnly or ByTouch spell and within ALLY_RANGE_REACH (24 m) for a SingleTargetAtRange one; the
 two area types are never redirected, nor is a free ready (a trap's). Found, the cast leaves as the frame (a
 CasterOnly leaves as a TOUCH, range type 1 - it is one, on the ally), the magicka is spent and the skills tallied
-as for any cast, and the caster reads "You cast Heal on Bran." Not found, or the link refusing, the spell does
+as for any cast, and the caster reads "You cast Heal on Bran." (GIFT-QUIET, 2026-10-04: at most once in ten seconds,
+`03-World/Naval-Combat.md`.) Not found, or the link refusing, the spell does
 what it always did. CastReadySpell's touch gate admits the mate as it admits a foe. The departure is the
 CasterOnly conversion: DFU's spellbook is almost all CasterOnly, and kept 1:1 healing a friend would mean buying a
 ByTouch copy first - so a Heal readied with the crosshair on a party mate ARMS for them instead of firing on the
@@ -8063,8 +8064,9 @@ nothing, and the "Cast Heal on Bran" plaque stood only while the peer menu was o
 **A CASTERONLY GIFT ARMS WHILE A MATE STANDS NEAR** (`systems/allyCast.js` ALLY_ARM_RADIUS, 10 m;
 `scenes/hostMagic.js` allyNear). The ready says DFU's "Press button to fire spell." and where the click will land
 ("Aim at a party member to cast it on them, or anywhere else to cast it on yourself."); the click gives it to the
-mate under the crosshair, or - aimed at no one - to the caster, as CasterOnly always does. With nobody near it still
-fires on the spot, DFU's instant cast; a free ready (a trap's payload) never arms (allyMarksFor's law). The stock
+mate under the crosshair, or - aimed at no one - to the caster, as CasterOnly always does (GIFT-QUIET, 2026-10-04:
+the two lines said again only for an arm unlike the last ready's, or ten seconds on; `03-World/Naval-Combat.md`). With
+nobody near it still fires on the spot, DFU's instant cast; a free ready (a trap's payload) never arms (allyMarksFor's law). The stock
 Shield the players took for "hard-coded self-only" is this: the maker lets Shield onto any target
 (`SELF_TARGET_KEYS` has no 35), and the CasterOnly copy now arms like any other.
 

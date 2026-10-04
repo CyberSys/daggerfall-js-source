@@ -164,8 +164,8 @@
   {
     "name": "WK-M9-his-near-first",
     "file": "src/scenes/hostMagic.js",
-    "old": "      if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { sayGift(PRESS_BUTTON_TO_FIRE_SPELL); return true; }\n",
-    "new": "      if (companionNear(lastAim?.eye ?? null, sp)) { sayGift(PRESS_BUTTON_TO_FIRE_SPELL); sayGift(COMPANION_ARMED_LINE); return true; }\n      if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { sayGift(PRESS_BUTTON_TO_FIRE_SPELL); return true; }\n",
+    "old": "      if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { sayArm('mate-aim', prevArm, PRESS_BUTTON_TO_FIRE_SPELL); return true; }\n",
+    "new": "      if (companionNear(lastAim?.eye ?? null, sp)) { sayArm('mine-near', prevArm, PRESS_BUTTON_TO_FIRE_SPELL, COMPANION_ARMED_LINE); return true; }\n      if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { sayArm('mate-aim', prevArm, PRESS_BUTTON_TO_FIRE_SPELL); return true; }\n",
     "tests": [
       "test/auditwatchkit_magic.test.js"
     ]
@@ -173,8 +173,8 @@
   {
     "name": "WK-M9-near-lines-swapped",
     "file": "src/scenes/hostMagic.js",
-    "old": "      if (!free && allyCastable(sp) && allyNear(lastAim?.eye ?? null, sp)) { sayGift(PRESS_BUTTON_TO_FIRE_SPELL); sayGift(ALLY_ARMED_LINE); return true; }\n      if (companionNear(lastAim?.eye ?? null, sp)) { sayGift(PRESS_BUTTON_TO_FIRE_SPELL); sayGift(COMPANION_ARMED_LINE); return true; }",
-    "new": "      if (companionNear(lastAim?.eye ?? null, sp)) { sayGift(PRESS_BUTTON_TO_FIRE_SPELL); sayGift(COMPANION_ARMED_LINE); return true; }\n      if (!free && allyCastable(sp) && allyNear(lastAim?.eye ?? null, sp)) { sayGift(PRESS_BUTTON_TO_FIRE_SPELL); sayGift(ALLY_ARMED_LINE); return true; }",
+    "old": "      if (!free && allyCastable(sp) && allyNear(lastAim?.eye ?? null, sp)) { sayArm('mate-near', prevArm, PRESS_BUTTON_TO_FIRE_SPELL, ALLY_ARMED_LINE); return true; }\n      if (companionNear(lastAim?.eye ?? null, sp)) { sayArm('mine-near', prevArm, PRESS_BUTTON_TO_FIRE_SPELL, COMPANION_ARMED_LINE); return true; }",
+    "new": "      if (companionNear(lastAim?.eye ?? null, sp)) { sayArm('mine-near', prevArm, PRESS_BUTTON_TO_FIRE_SPELL, COMPANION_ARMED_LINE); return true; }\n      if (!free && allyCastable(sp) && allyNear(lastAim?.eye ?? null, sp)) { sayArm('mate-near', prevArm, PRESS_BUTTON_TO_FIRE_SPELL, ALLY_ARMED_LINE); return true; }",
     "tests": [
       "test/auditwatchkit_magic.test.js"
     ]
@@ -182,8 +182,8 @@
   {
     "name": "WK-M9-mate-near-before-his-crosshair",
     "file": "src/scenes/hostMagic.js",
-    "old": "      if (companionInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { sayGift(PRESS_BUTTON_TO_FIRE_SPELL); return true; }\n",
-    "new": "      if (!free && allyCastable(sp) && allyNear(lastAim?.eye ?? null, sp)) { sayGift(PRESS_BUTTON_TO_FIRE_SPELL); sayGift(ALLY_ARMED_LINE); return true; }\n      if (companionInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { sayGift(PRESS_BUTTON_TO_FIRE_SPELL); return true; }\n",
+    "old": "      if (companionInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { sayArm('mine-aim', prevArm, PRESS_BUTTON_TO_FIRE_SPELL); return true; }\n",
+    "new": "      if (!free && allyCastable(sp) && allyNear(lastAim?.eye ?? null, sp)) { sayArm('mate-near', prevArm, PRESS_BUTTON_TO_FIRE_SPELL, ALLY_ARMED_LINE); return true; }\n      if (companionInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { sayArm('mine-aim', prevArm, PRESS_BUTTON_TO_FIRE_SPELL); return true; }\n",
     "tests": [
       "test/auditwatchkit_magic.test.js"
     ]

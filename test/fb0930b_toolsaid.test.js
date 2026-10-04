@@ -32,7 +32,7 @@ import { registerPresenter } from '../src/systems/notify.js';
 import { setModSetting, _resetModSettings } from '../src/systems/modSettings.js';
 import { CLIMATES, LOCATION_TYPES } from '../src/formats/mapsFile.js';
 import { FATIGUE_MULTIPLIER } from '../src/systems/statMods.js';
-import { GATHER_HOW, STORES_EMPTY_LINE } from '../src/ui/profPages.js';
+import { GATHER_HOW, STORES_EMPTY_LINE, STORES_EMPTY_CARRY_LINE } from '../src/ui/profPages.js';
 import { createGatherHost, aimAt, ACT_STOPPED_LINE } from '../src/scenes/gatherHost.js';
 import { herbKind, SICKLE_HAND } from '../src/scenes/herbHost.js';
 import { mineKind, PICK_HAND } from '../src/scenes/mineHost.js';
@@ -465,6 +465,14 @@ test('TOOL-USE: the Professions page says a tool\'s Use at the node is the key\'
   const src = readFileSync(new URL('../src/ui/profPages.js', import.meta.url), 'utf8');
   assert.match(src, /if \(GATHER_HOW\[_sel\]\) pane\.append\(el\('p', 'px-note', GATHER_HOW\[_sel\]\)\);/);
   assert.match(src, /: STORES_EMPTY_LINE\)\);/);
+  // AUDIT (2026-10-04): PROF-MENU retired the act choice key's search - the patch's and the body's lists carry it now; and
+  // BAG1's page says where a carrying book's goods go (the bag or the pack), not the Stores
+  assert.doesNotMatch(GATHER_HOW.herbalism, /act choice key/);
+  assert.match(GATHER_HOW.herbalism, /the patch's list also lets you search it for food/);
+  assert.doesNotMatch(src, /act choice key searches/);
+  assert.match(src, /The body\\'s list also lets you search it\.'\)\);/);
+  assert.match(STORES_EMPTY_CARRY_LINE, /goes into your Materials Bag or pack - put it in here in any town\.$/);
+  assert.match(src, /all\.size \? 'Nothing in the Stores matches\.' : STORES_EMPTY_CARRY_LINE\)\);/);
 });
 
 // ─── PROF-MENU (2026-10-01, Mac: "They should use the same menu the loot menu uses and not an interaction button") ───

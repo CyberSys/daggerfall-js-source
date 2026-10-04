@@ -2,7 +2,7 @@
   {
     "name": "SPELL-GIFT-no-arm-near-a-mate",
     "file": "src/scenes/hostMagic.js",
-    "old": "      if (!free && allyCastable(sp) && allyNear(lastAim?.eye ?? null, sp)) { sayGift(PRESS_BUTTON_TO_FIRE_SPELL); sayGift(ALLY_ARMED_LINE); return true; }",
+    "old": "      if (!free && allyCastable(sp) && allyNear(lastAim?.eye ?? null, sp)) { sayArm('mate-near', prevArm, PRESS_BUTTON_TO_FIRE_SPELL, ALLY_ARMED_LINE); return true; }",
     "new": "",
     "tests": [
       "test/spellgift.test.js"
@@ -31,8 +31,8 @@
   {
     "name": "SPELL-GIFT-armed-line-unsaid",
     "file": "src/scenes/hostMagic.js",
-    "old": "sayGift(PRESS_BUTTON_TO_FIRE_SPELL); sayGift(ALLY_ARMED_LINE); return true; }",
-    "new": "sayGift(PRESS_BUTTON_TO_FIRE_SPELL); return true; }",
+    "old": "sayArm('mate-near', prevArm, PRESS_BUTTON_TO_FIRE_SPELL, ALLY_ARMED_LINE); return true; }",
+    "new": "sayArm('mate-near', prevArm, PRESS_BUTTON_TO_FIRE_SPELL); return true; }",
     "tests": [
       "test/spellgift.test.js"
     ]

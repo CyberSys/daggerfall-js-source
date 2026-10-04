@@ -387,17 +387,20 @@ const UNLOCKS = Object.freeze({
  *  and Outfitting. */
 const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry', 'masonry', 'cooking', 'jewelcrafting', 'alchemy', 'enchanting']);   // PROF8: Fishing; PROF11: Masonry; PROF9: Cooking; PROF10: Jewelcrafting; PROF12: Alchemy and Enchanting
 /** PROF8: how a haul is made, as the page says it. */
-export const FISHING_HOW = 'With a Fishing-Net in your pack, stand in water, swim, or stand at sea, at any hour. Hold the use key to wind up and release to cast. When the floats dip, press it again. Then hold to raise the band and release to lower it, keeping the net\'s weight inside. Cast at a rising school for an extra fish.';
+export const FISHING_HOW = 'With a Fishing-Net in your pack, stand in water, swim, or stand at sea, at any hour. Hold the use key to wind up and release to cast. When the floats dip, press it again. Then hold to raise the band and release to lower it, keeping the net\'s weight inside the band to fill the net. Cast at a rising school for an extra fish.';
 /** FIELD BUGS 2026-09-30b (TOOL-SAID): how the other three gathering professions gather, as the page says it - the page
  *  said it for Hunting and Fishing alone, and players used the tools from the pack. TOOL-USE: a tool's Use at the node
  *  (the hotbar's, a quick slot's) is the key's; from the pack it only points the way. */
 export const GATHER_HOW = Object.freeze({
-  herbalism: 'Press the use key at an herb patch in the wilderness. Common herbs need no tool; the rest need a Sickle in your pack. With a Basket, the act choice key searches the patch for food instead. The Sickle or Basket also works from your hotbar or a quick slot. Used from your pack, a tool just tells you where it works.',
+  herbalism: 'Press the use key at an herb patch in the wilderness. Common herbs need no tool; the rest need a Sickle in your pack. With a Basket, the patch\'s list also lets you search it for food. The Sickle or Basket also works from your hotbar or a quick slot. Used from your pack, a tool just tells you where it works.',
   mining: 'Press the use key at an ore vein or a boulder in the wilderness, or a vein in a dungeon. Needs a Pick-Axe in your pack. It also works from your hotbar or a quick slot. Used from your pack, a tool just tells you where it works.',
   logging: 'Press the use key at a tree in the wilderness. Needs a Wood-Axe in your pack. Only some trees in each area can be felled each day. It also works from your hotbar or a quick slot. Used from your pack, a tool just tells you where it works.',
 });
 /** TOOL-SAID: the empty Stores say where their goods come from - a node's act (TOOL-USE: the key's, or the tool's Use
  *  there), never a tool used from the pack. */
+/** AUDIT (2026-10-04): the empty Stores on BAG1's page - a carrying book's harvest goes into the bag or the pack, never
+ *  straight into the Stores, so STORES_EMPTY_LINE (an older book's, below) said where its goods go wrongly there. */
+export const STORES_EMPTY_CARRY_LINE = 'Your Stores are empty. What you gather goes into your Materials Bag or pack - put it in here in any town.';
 export const STORES_EMPTY_LINE = 'Your Stores are empty. What you gather online goes here. Press the use key at an herb patch, tree, ore vein, boulder, a body you killed, or in water with a net - or use the matching tool from your hotbar or a quick slot. Tools used from your pack gather nothing.';   // TOUCH-HOLD: the knife's Use
 /** PROF12: how Alchemy is practised, as the Professions page says it. */
 export const ALCHEMY_HOW = 'Brew at an alchemy station (an Alchemist\'s or your own home) using your Stores. The recipes are Daggerfall\'s twenty potions. Herbs, metals and gems are gathered; the rest are bought from the Apothecaries\' counter. Daggerfall\'s own potion maker still works but gives no Alchemy XP.';
@@ -467,7 +470,7 @@ export function drawProfessionsPage(detail, rerender, kit) {
     const h = book.state.hunt ?? { hides: 0, high: 0 };
     pane.append(el('p', 'prof-today', `Today: ${h.hides} of ${book.state.caps?.hides ?? HIDES_PER_DAY} hides, ${h.high} of ${book.state.caps?.highHides ?? HIGH_HIDES_PER_DAY} of tiers 5-6 - your account's, across your characters`));
     // TOUCH-HOLD: the knife's Use, as the Sickle's - it holds the knife, so the line is drawn with no key held
-    pane.append(el('p', 'px-note', 'Skin a body you killed with a Skinning Knife in your pack: hold the use key at the start of the line and drag the knife along it. Using the knife from your hotbar or a quick slot holds it for you - just follow the line with your view. The act choice key searches the body instead.'));
+    pane.append(el('p', 'px-note', 'Skin a body you killed with a Skinning Knife in your pack: hold the use key at the start of the line and drag the knife along it. Using the knife from your hotbar or a quick slot holds it for you - just follow the line with your view. The body\'s list also lets you search it.'));
   } else if (_sel === 'fishing') {
     // PROF8: Fishing's day is the account's too (PROF0 6) - its hauls, every character's together
     pane.append(el('p', 'prof-today', `Today: ${book.state.hauls ?? 0} of ${book.state.caps?.hauls ?? HAULS_PER_DAY} hauls - your account's, across your characters`));
@@ -702,7 +705,7 @@ function drawCarryStores(detail, rerender, kit) {
     detail.append(allIn);
   }
   const grid = el('div', 'prof-grid');
-  if (!rows.length) grid.append(el('p', 'px-note', all.size ? 'Nothing in the Stores matches.' : STORES_EMPTY_LINE));
+  if (!rows.length) grid.append(el('p', 'px-note', all.size ? 'Nothing in the Stores matches.' : STORES_EMPTY_CARRY_LINE));
   for (const r of rows) {
     const card = el('button', `prof-mat${_stores.picked === r.material ? ' on' : ''}`);
     card.type = 'button';

@@ -87,14 +87,30 @@ export const ALLY_ARM_RADIUS = 10;
 export const ALLY_ARMED_LINE = 'Aim at a party member to cast it on them, or anywhere else to cast it on yourself.';
 /** COMPANION-KIT: ...and the same word with my companion near (scenes/hostMagic.js companionNear). */
 export const COMPANION_ARMED_LINE = 'Aim at your companion to cast it on them, or anywhere else to cast it on yourself.';
-/** GIFT-QUIET (2026-10-04: "sometimes theres notification spam when putting a spell on companion"): how long, in seconds
- *  of the cast engine's own clock, a gift's lines hold back once said - the armed ready's ("Press button to fire
- *  spell." and the line above it) and the caster's ("You cast Heal on Hilda."). Each was a new toast every cast, and
- *  told apart from the line before it, so the notice stack's repeat guard (ui/hudText.js NOTICE-SPAM: the back row
- *  only) never caught them: a heal cast again and again near a companion stacked three plates a cast. A line asked for
- *  again inside the window is not said, and the asking keeps the window open; after a pause of this long it is said
- *  again. */
+/** GIFT-QUIET (2026-10-04: "sometimes theres notification spam when putting a spell on companion"): a gift's lines - the
+ *  armed ready's ("Press button to fire spell." and the line above it), the caster's ("You cast Heal on Hilda.") and a
+ *  party mate's on the receiving end ("Bran casts Heal on you.") - are said at most once in this many seconds of real
+ *  time. Each was a new toast every cast, and told apart from the line before it, so the notice stack's repeat guard
+ *  (ui/hudText.js NOTICE-SPAM: the back row only) never caught them: a heal cast again and again near a companion
+ *  stacked three plates a cast. */
 export const GIFT_LINE_QUIET_S = 10;
+/** GIFT-QUIET: the gate a gift's line is said through - `pass(key, fresh)` answers whether the line keyed `key` is said
+ *  now: when `fresh`, when it was never said, or when it was last SAID GIFT_LINE_QUIET_S or more ago. Asking inside the
+ *  window does not hold it back longer (the 2026-10-04 audit: a window each asking kept open held a player who readied
+ *  again to find out why nothing was said silent for as long as they kept trying). `nowMs` the clock: the real one, so a
+ *  paused game, another scene's engine or a slow frame never stretches the window. */
+export function createGiftLineGate(nowMs = () => performance.now()) {
+  const said = new Map();
+  const windowMs = GIFT_LINE_QUIET_S * 1000;
+  return (key, fresh = false) => {
+    const t = nowMs();
+    const last = said.get(key);
+    if (!fresh && last !== undefined && t - last < windowMs) return false;
+    said.set(key, t);
+    if (said.size > 64) for (const [k, at] of said) if (t - at >= windowMs) said.delete(k);
+    return true;
+  };
+}
 
 /** SPELL-GIFT (Tabitha: "Allow casting of buffs on players outside party ... Many spells should be blacklisted [Spells
  *  that can be considered annoyances like levitate reducing movespeed, etc.]", with her INITIAL PLAYER2PLAYER SPELL

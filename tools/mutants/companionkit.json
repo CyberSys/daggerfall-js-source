@@ -83,8 +83,8 @@
   {
     "name": "CK-near-unarmed",
     "file": "src/scenes/hostMagic.js",
-    "old": "      if (companionNear(lastAim?.eye ?? null, sp)) { sayGift(PRESS_BUTTON_TO_FIRE_SPELL); sayGift(COMPANION_ARMED_LINE); return true; }",
-    "new": "      if (false) { sayGift(PRESS_BUTTON_TO_FIRE_SPELL); sayGift(COMPANION_ARMED_LINE); return true; }",
+    "old": "      if (companionNear(lastAim?.eye ?? null, sp)) { sayArm('mine-near', prevArm, PRESS_BUTTON_TO_FIRE_SPELL, COMPANION_ARMED_LINE); return true; }",
+    "new": "      if (false) { sayArm('mine-near', prevArm, PRESS_BUTTON_TO_FIRE_SPELL, COMPANION_ARMED_LINE); return true; }",
     "tests": [
       "test/companionkit.test.js"
     ]
