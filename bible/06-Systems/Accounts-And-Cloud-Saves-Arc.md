@@ -847,6 +847,31 @@ per **account** now, at Fight Life's own figure, and the refusal is
 **429 rather than 401**: telling a rate-limited player their credentials
 are wrong sends them to reset a password that was never the problem.
 
+**ACCT-RATE-MEM (2026-10-04, the login outage).** Mac: *"You log in and
+it sends you straight to title screen"*, *"We have 300 people trying to
+log in at once"*. F12 counted the bound with an `acct:` upsert in D1 on
+**every** authenticated request, so every read the game makes - a
+town's yards each minute, a home, a token - was also a write to the one
+database. D1's own query insights on the day: **4,783,193** runs of that
+upsert, the most time of any statement, beside the session and player
+reads every request already makes. Two relay deploys (#578, #558) sent
+every player back through the door at once; D1 answered *"overloaded.
+Requests queued for too long"*, the session read failed under it, the
+service said 500, the client went back to the title, and its retries
+were more of the same load.
+
+The bound is the same - `ACCOUNT_MAX` a window per account, 429 `rate` -
+counted in the isolate's memory (`accounts.js overAccountRate`), so an
+authenticated read writes nothing. **Per isolate**: a caller spread over
+several isolates meets the ceiling in each, a looser cap by that factor,
+which an abuse ceiling can afford and a write on every read could not.
+The window only moves forward (AUDIT RENOWN1, as `overRate`); past
+`ACCOUNT_RATE_KEYS` accounts the closed windows go, and if every one is
+open all of them do - a count forgotten frees a caller early and never
+refuses one. The open doors' `login:` and `ip:` keys stay in D1: they
+are few, and must hold across isolates. Pinned by
+`test/acctratemem.test.js`.
+
 ### F13 — the session secret rode in a URL
 
 `/v1/account` read `?secret=`. The code excused it: *"it is read-only,
