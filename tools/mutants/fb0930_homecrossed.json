@@ -29,8 +29,8 @@
   {
     "name": "HOME-CROSSED-the-status-unsaid",
     "file": "server-account/src/index.js",
-    "old": " : r.error === 'home-crossed' || r.error === 'home-tenants' ? 409 : 404, origin);   // HOME-CROSSED",
-    "new": " : r.error === 'home-tenants' ? 409 : 404, origin);   // HOME-CROSSED",
+    "old": " : r.error === 'home-crossed' || r.error === 'home-tenants' || r.error === 'home-vendor-stocked' ? 409 : 404, origin);   // HOME-CROSSED",
+    "new": " : r.error === 'home-tenants' || r.error === 'home-vendor-stocked' ? 409 : 404, origin);   // HOME-CROSSED",
     "tests": [
       "test/fb0930_homecrossed.test.js"
     ]

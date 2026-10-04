@@ -19,7 +19,7 @@ import { normalizeCode } from '../systems/dialogShortcuts.js';   // AUDIT PARTY-
 import { getBinding } from '../systems/inputActions.js';
 import { bindings } from './input.js';   // B5: the live InputManager registry, as restWindow.js reads it
 import { restClockLine } from './restWindow.js';   // AUDIT LIVED1 O (U3): the classic window's clock line, one home for its words
-import { REST_ACT_TEXT, ambushNight, actAtChannelEnd, channelBroken } from '../systems/restAct.js';   // REST1: the act's words   // AUDIT REST-PARTY A2: and the night it runs
+import { REST_ACT_TEXT, ambushNight, actAtChannelEnd, channelBroken, channelHealTick } from '../systems/restAct.js';   // REST1: the act's words   // AUDIT REST-PARTY A2: and the night it runs
 
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -203,6 +203,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
     overlay.mode = 'act';
     overlay.state = 'channel';
     overlay._actHealth = deps.vitals?.()?.health;   // AUDIT REST-PARTY A5: a blow while holding interrupts
+    deps.restChannelOpen?.();   // REST-CHANNEL-HEAL: the bar heals as it fills (restAct.js openChannelHeal)
   }
   /** REST1: the channel held to its end - enemies, or the night, or the short rest. */
   function finishAct() {
@@ -519,7 +520,8 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
   overlay.tick = (dt) => {
     // REST1: the channel counts real seconds and lands at its end
     // AUDIT REST II P8: and ends the moment the hold is broken - restWindow.js's own law, the end check's own lines
-    if (overlay.state === 'channel') { _actT += dt; if (_actT >= act.channelSeconds || channelBroken(act, overlay._pendingEnemySpawn, () => deps.enemiesNearby?.(), overlay._actHealth, deps.vitals?.()?.health, () => deps.restAct?.() ?? null)) finishAct(); else updateChannel(); return; }   // AUDIT REST III C6: and the point, while held
+    // REST-CHANNEL-HEAL: restWindow.js's own order - the break first, then the bar's share paid and the new mark
+    if (overlay.state === 'channel') { _actT += dt; if (channelBroken(act, overlay._pendingEnemySpawn, () => deps.enemiesNearby?.(), overlay._actHealth, deps.vitals?.()?.health, () => deps.restAct?.() ?? null)) finishAct(); else { overlay._actHealth = channelHealTick(act, deps, _actT, overlay._actHealth); if (_actT >= act.channelSeconds) finishAct(); else updateChannel(); } return; }   // AUDIT REST III C6: and the point, while held
     if (overlay.state !== 'resting' || !overlay.session) return;
     const r = overlay.session.tick(dt);
     if (r) { overlay._end(r); return; }

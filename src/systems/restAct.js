@@ -173,6 +173,55 @@ export function topUpRest(entity, kind, rules, { night = true, maxFatigueOf = (e
   if (Number.isFinite(entity.maxMagicka)) entity.magicka = fill(entity.magicka, entity.maxMagicka, frac);
 }
 
+/** REST-CHANNEL-HEAL (2026-10-04, from play: "make it so when you rest on the campfire the loading bar you see also
+ *  heals you so you dont wake up with 1% stamina bar as example when it gets canceled half way through"; "not only
+ *  stamina all other magicka and health aswell"): THE BAR HEALS AS IT FILLS. The channel paid nothing until its end, so
+ *  a hold broken at its fifth second - a foe in reach, the fire gone out, Stop pressed - left the sleeper exactly as
+ *  they sat down. Now health, fatigue and magicka rise with the bar toward what the rest gives at its end - topUpRest's
+ *  yield: full where the tier prices the rest whole, half of what was missing where it does not (Hard's rough ground,
+ *  its short rest's own price) - and whatever the bar has paid is KEPT however the hold ends. The end still lands the
+ *  rest as before (the night, or the short rest), from where the bar left the sleeper.
+ *  `openChannelHeal` reads the plan once, at the channel's open (the tier and the kind the window opened on): per field
+ *  where it starts and where the bar ends it, or null with no body. */
+export function openChannelHeal(entity, kind, rules, { maxFatigueOf = (e) => e.maxFatigue ?? 0 } = {}) {
+  if (!entity) return null;
+  const frac = restPricedWhole(kind, rules) ? 1 : 0.5;
+  const field = (cur, max) => {
+    const from = Number.isFinite(cur) ? cur : 0;
+    return { from, to: Math.min(max, Math.round(from + Math.max(0, max - from) * frac)) };
+  };
+  return {
+    health: field(entity.health, entity.maxHealth ?? 0),
+    fatigue: field(entity.fatigue, maxFatigueOf(entity)),
+    magicka: Number.isFinite(entity.maxMagicka) ? field(entity.magicka, entity.maxMagicka) : null,
+  };
+}
+/** REST-CHANNEL-HEAL: the bar at `frac` (0..1) of its hold - each field raised to its share of the way from the open to
+ *  the end, NEVER lowered (a potion drunk while holding stays drunk), never past the plan's end. Answers the health it
+ *  leaves. A field already at or past its end (a buff over the maximum) is left alone. */
+export function stepChannelHeal(entity, plan, frac) {
+  if (!entity || !plan) return entity?.health;
+  const f = Number.isFinite(frac) ? Math.max(0, Math.min(1, frac)) : 0;
+  for (const key of ['health', 'fatigue', 'magicka']) {
+    const p = plan[key];
+    if (!p || p.to <= p.from) continue;
+    const want = Math.round(p.from + (p.to - p.from) * f);
+    if (!((entity[key] ?? 0) >= want)) entity[key] = want;
+  }
+  return entity.health;
+}
+/** REST-CHANNEL-HEAL: one frame of the channel (both skins - restWindow.js, enhancedRest.js): the bar's share paid
+ *  through the host's bag (createRestDeps restChannelHeal), and the health that leaves the sleeper with, which is the
+ *  hold's NEW MARK for a blow (channelBroken, actAtChannelEnd compare health against it) - a bar that heals would
+ *  otherwise hide any blow smaller than what it had already paid. A candle's kneel heals nothing here (meditate is its
+ *  own), and a bag without the door answers the old mark. Called only while the hold stands: a broken hold pays no
+ *  more, and keeps what it was paid. */
+export function channelHealTick(opened, deps, t, mark) {
+  if (!opened || opened.meditate || typeof deps?.restChannelHeal !== 'function') return mark;
+  const hp = deps.restChannelHeal(Math.max(0, Math.min(1, t / (opened.channelSeconds || 1))));
+  return Number.isFinite(hp) ? hp : mark;
+}
+
 /** REST-SLEEP1 (2026-10-04, from play: "if you have to wait for night to pass you cannot rest again to remove the
  *  tiredness/drowsy debuffs until the time passes"): A SHORT REST SLEEPS. Inside the night interval a rest paid nothing
  *  of the sleep need, and the need has no other payer (the arc's census, row 9) - so a night that left its sleeper

@@ -285,7 +285,7 @@
   {
     "name": "AUDIT29-B2-a-forge-sold-anywhere",
     "file": "src/ui/decorPanel.js",
-    "old": "export const stationsOffered = () => DECOR_STATIONS.filter((k) => !PROF_STATIONS.includes(k) || forgeOffered());",
+    "old": "export const stationsOffered = () => DECOR_STATIONS.filter((k) => !(PROF_STATIONS.includes(k) || k === VENDOR_STATION) || forgeOffered());",
     "new": "export const stationsOffered = () => DECOR_STATIONS.filter(() => true);",
     "tests": [
       "test/audit29_client.test.js"
