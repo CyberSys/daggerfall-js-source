@@ -18,6 +18,27 @@
 // The travel view draws none (the hosts draw it in the walking views alone). Pure where it can be: `auraWearers` (who is
 // drawn, nearest first, at most AURA_DRAW_MAX) and `auraClock` are the pins' doors.
 //
+// AEGIS (2026-10-03, the owner: "For the account named Sureme ... a title, glyph and new custom aura for this user.
+// Title: Aegis of Oblivion. Theme: Purple"; Sureme, sending two Path of Exile ground marks: "i want one that is a full
+// circle", "but with some stuff like this one"): THE OBLIVION WARD, the second aura, drawn by the SAME pass - one program,
+// the aura picked per wearer by `uAura` (AURA_LOOK: its kind, its ring's radius, its wall's height), so a frame with both
+// auras in it is still one program bound once. Not fire but script, in the Aegis of Oblivion's violets:
+//   - THE GROUND: the ward's ring WHOLE (the first reference) - one line of light, lilac-white at its heart and violet
+//     round it, breathing, two scribes of brighter light running round it; a bezel of fine ticks outside it turning
+//     the other way; within it a ring of WARD_RUNES runes in the second reference's script - each a baseline along the
+//     ring with a bead or a serif at each end, beads on the line, a comb or a chevron outward, a cross inward
+//     (WARD_SCRIPT says which) - turning slowly against the ring and lit one after another as if being written;
+//     WARD_SIGILS claws hung inward from the ring at the diagonals (the first reference's four marks); the abyss's
+//     violet mist turning within; drawn round from behind the wearer as it kindles.
+//   - THE WALL: a veil of light no higher than the shins, in streaks that climb, and WARD_MOTES motes rising off the
+//     ring at their own places and paces - so it stands up off the ground seen from the side, as the fire's flames do.
+//   - THE SYMBOLS (the owner, after: "Can you add like symbols that float and dissipate"): WARD_GLYPHS cards, each a rune
+//     of the script stood on end, lifting off the ring and floating up to the chest - swaying, drifting outward, turning
+//     a little, always facing the eye round the vertical - while they blur, break into dust and fade; then each lifts
+//     again somewhere else round the ring, another rune. A third draw, the ward's alone.
+// Every rate whole over the clock, as the fire's (wardRatesWhole); every pattern round the ring a whole number of
+// itself, so no seam behind the wearer.
+//
 // Not a DFU member. Ledger A (WB).
 import { FOG_FACTOR_GLSL } from './labGrass.js';
 import { buildProgram } from './glProgram.js';
@@ -37,6 +58,48 @@ export const AURA_CLOCK_PERIOD = 120;
 export const AURA_TURN_HZ = 1 / 8;
 /** The seconds a wearer's aura takes to kindle when it first stands (or when they first put it on). */
 export const AURA_KINDLE_S = 0.8;
+
+/** AEGIS: THE OBLIVION WARD'S MEASURES - the ring's radius (wider than the fire's, as the first reference's circle stands
+ *  clear of the feet), the rune ring's within it, the wall's height (a veil to the shins), and how many of each round. */
+export const WARD_RING_R = 0.95;
+export const WARD_RUNE_R = 0.78;
+export const WARD_WALL_H = 0.42;
+export const WARD_RUNES = 12;
+export const WARD_SIGILS = 4;
+export const WARD_TICKS = 48;
+export const WARD_MOTES = 14;
+/** AEGIS: THE FLOATING SYMBOLS - how many are aloft at once, the seconds a flight lasts (symbol k's is
+ *  WARD_GLYPH_LIFE[k mod 3], each dividing AURA_CLOCK_PERIOD so the flights wrap whole with the clock), how high a flight
+ *  climbs over the ring (m), and a card's width and height (m) before it grows as it fades. */
+export const WARD_GLYPHS = 9;
+export const WARD_GLYPH_LIFE = Object.freeze([3, 4, 5]);
+export const WARD_GLYPH_RISE = 1.3;
+export const WARD_GLYPH_W = 0.16;
+export const WARD_GLYPH_H = 0.26;
+/** The ward's rates (Hz), each a whole number of cycles over AURA_CLOCK_PERIOD: the runes' turn against the ring (a
+ *  turn in 40 s), the bezel's the other way (60 s), the two scribes' run round the ring, the ring's breath, the
+ *  writing's pass round the runes, and the slowest mote's rise (the others two and three times it). */
+export const WARD_HZ = Object.freeze({ runes: 1 / 40, bezel: 1 / 60, scribe: 1 / 8, pulse: 1 / 4, write: 1 / 6, mote: 1 / 4 });
+/** Its flows in lattice cells a second (the mist's turn round the ring, the veil's climb) - whole over the clock too. */
+export const WARD_FLOW = Object.freeze({ mist: 0.5, veil: 0.75 });
+/** Every ward rate whole over the clock. Pure. */
+export const wardRatesWhole = () => [...Object.values(WARD_HZ), ...Object.values(WARD_FLOW)]
+  .every((r) => Number.isInteger(Math.round(r * AURA_CLOCK_PERIOD * 1e6) / 1e6));
+/** THE WARD'S SCRIPT: rune k's ornaments as bits on its baseline - 1 a bead ends it on the left (else a serif), 2 on the
+ *  right, 4 a bead on the line's left half, 8 on its right, 16 a comb outward (else a chevron), 32 a cross inward. The
+ *  second reference's marks, twelve runes no two alike, so the ring reads as writing and not as a pattern. */
+export const WARD_SCRIPT = Object.freeze([25, 38, 51, 12, 19, 40, 61, 18, 33, 15, 52, 10]);
+/** Its light: the ward's violet (the Aegis of Oblivion's own - ui/playerBadge.js OBLIVION_VIOLET), the lilac-white at a
+ *  line's heart (OBLIVION_LILAC), and the abyss's violet in the mist (OBLIVION_ABYSS). RGB 0..1. */
+export const WARD_RGB = Object.freeze({ violet: Object.freeze([0.698, 0.302, 1]), heart: Object.freeze([0.925, 0.863, 1]), abyss: Object.freeze([0.302, 0.102, 0.58]) });
+/** AEGIS: HOW EACH AURA IS DRAWN - its kind in the shader (`uAura`), its ring's radius, its wall's height and how many
+ *  symbols float off it (the third draw - none for the fire). A pin walks AURAS and requires one each. */
+export const AURA_LOOK = Object.freeze({
+  dagonfire: Object.freeze({ kind: 0, ringR: AURA_RING_R, flameH: AURA_FLAME_H, glyphs: 0 }),
+  oblivionward: Object.freeze({ kind: 1, ringR: WARD_RING_R, flameH: WARD_WALL_H, glyphs: WARD_GLYPHS }),   // and its floating symbols
+});
+/** The look a wearer's aura is drawn with - Dagon's Fire for one that names none (the fire was the only aura before). */
+export const auraLookOf = (aura) => (typeof aura === 'string' && Object.hasOwn(AURA_LOOK, aura) ? AURA_LOOK[aura] : AURA_LOOK.dagonfire);
 
 /** The clock, wrapped: whole cycles of every rate over its period, so no stutter at the wrap. Pure. */
 export const auraClock = (seconds) => ((seconds % AURA_CLOCK_PERIOD) + AURA_CLOCK_PERIOD) % AURA_CLOCK_PERIOD;
@@ -93,30 +156,173 @@ export const AURA_FLOW = Object.freeze({ ground: 1.75, rise: 2.4, flicker: 4.8 }
 export const AURA_ROUND = Object.freeze({ ground: 18, flames: 26, flicker: 60 });
 /** The wrap is whole for every flow: its cells over the clock's period are a whole number. Pure. */
 export const auraFlowsWhole = () => Object.values(AURA_FLOW).every((r) => Number.isInteger(Math.round(r * AURA_CLOCK_PERIOD * 1e6) / 1e6));
-export const AURA_VS = HEAD + `layout(location = 0) in vec2 aP;   // the ground: a corner -1..1; the flames: x the step round 0..1, y up 0..1
+const v3 = (c) => `vec3(${c.map((x) => x.toFixed(3)).join(', ')})`;
+/** A rate (Hz) as GLSL writes it EXACTLY - a division by a whole period where it has one, else its own decimal - never a
+ *  rounded one, which drifts off whole by its rounding times the clock and steps the picture at the wrap. */
+const hzGlsl = (hz) => { const per = Math.round(1 / hz); return Math.abs(per * hz - 1) < 1e-12 ? `/ ${per.toFixed(1)}` : `* ${hz}`; };
+/** AEGIS: A FLOATING SYMBOL'S FLIGHT - symbol k at the clock `t`: where it is about the feet (xyz, m) and its age (w,
+ *  0 lifting off the ring .. 1 gone). Each flight lasts its life and the next begins where it ends; which flight it is
+ *  wraps with the clock (the lives divide its period), so the wrap is whole. Each flight lifts off a new place round the
+ *  ring, sways as it climbs, drifts outward, and slows toward its top. */
+const WARD_FLIGHT_GLSL = `
+float wardFlightOf(float k, float t) {
+  float life = ${WARD_GLYPH_LIFE[0].toFixed(1)} + mod(k, 3.0);
+  return mod(floor(t / life + fract(k * 0.618034)), ${AURA_CLOCK_PERIOD.toFixed(1)} / life);
+}
+vec4 wardFlight(float k, float t) {
+  float life = ${WARD_GLYPH_LIFE[0].toFixed(1)} + mod(k, 3.0);
+  float age = fract(t / life + fract(k * 0.618034));
+  float h = fract(sin((k * 17.0 + wardFlightOf(k, t)) * 12.9898 + 4.1) * 43758.5453);
+  float a = h * 6.283185307179586 + 0.35 * sin(age * 3.0 + k);
+  float r = uRingR * (0.9 + 0.3 * age);
+  float y = uLift + 0.06 + (1.0 - (1.0 - age) * (1.0 - age)) * ${WARD_GLYPH_RISE.toFixed(2)};
+  return vec4(cos(a) * r, y, sin(a) * r, age);
+}
+`;
+/** AEGIS: THE OBLIVION WARD'S SCRIPT AND LIGHT - its strokes as distances (m), lit as one inked line is: a lilac-white
+ *  heart, a violet body and a soft violet glow round it. */
+const WARD_GLSL = `
+const vec3 WARD_VIOLET = ${v3(WARD_RGB.violet)};
+const vec3 WARD_HEART = ${v3(WARD_RGB.heart)};
+const vec3 WARD_ABYSS = ${v3(WARD_RGB.abyss)};
+const int WARD_SCRIPT[${WARD_RUNES}] = int[${WARD_RUNES}](${WARD_SCRIPT.join(', ')});
+float segD(vec2 p, vec2 a, vec2 b) { vec2 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0); return length(pa - ba * h); }
+vec3 inked(float d, float w) {
+  float heart = 1.0 - smoothstep(w * 0.35, w * 0.7, d);
+  float body = 1.0 - smoothstep(w * 0.5, w * 1.15, d);
+  float glow = exp(-d * d / (w * w * 9.0));
+  return WARD_HEART * heart * 0.9 + WARD_VIOLET * (body * 0.95 + glow * 0.55);
+}
+// a rune of the script about q (m: along the ring, out from it): its baseline, its two ends, its beads, outward a comb or
+// a chevron, inward a cross - by its bits
+float runeD(vec2 q, int bits) {
+  const float L = 0.13, B = 0.016;
+  vec2 le = vec2(-L, 0.0), re = vec2(L, 0.0);
+  float d = segD(q, le, re);
+  d = min(d, (bits & 1) != 0 ? abs(length(q - le + vec2(B, 0.0)) - B) : segD(q, le - vec2(0.0, 0.03), le + vec2(0.0, 0.03)));
+  d = min(d, (bits & 2) != 0 ? abs(length(q - re - vec2(B, 0.0)) - B) : segD(q, re - vec2(0.0, 0.03), re + vec2(0.0, 0.03)));
+  if ((bits & 4) != 0) d = min(d, abs(length(q - vec2(-0.06, 0.0)) - 0.015));
+  if ((bits & 8) != 0) d = min(d, abs(length(q - vec2(0.06, 0.0)) - 0.015));
+  if ((bits & 16) != 0) { for (int i = -1; i <= 1; i++) d = min(d, segD(q, vec2(float(i) * 0.028, 0.012), vec2(float(i) * 0.028, 0.05))); }
+  else d = min(d, min(segD(q, vec2(-0.026, 0.014), vec2(0.0, 0.046)), segD(q, vec2(0.0, 0.046), vec2(0.026, 0.014))));
+  if ((bits & 32) != 0) d = min(d, min(segD(q, vec2(-0.02, -0.012), vec2(0.02, -0.048)), segD(q, vec2(0.02, -0.012), vec2(-0.02, -0.048))));
+  return d;
+}
+// a claw hung inward from the ring (s: along it, in from it): a stem, and a crescent whose horns curve back to the ring -
+// 0.088 m deep at most, clear of the runes' outward strokes (WARD_RUNE_R + 0.05) as they turn beneath it
+float sigilD(vec2 s) {
+  vec2 c = s - vec2(0.0, 0.05);
+  float horns = c.y > 0.0 ? abs(length(c) - 0.038) : length(vec2(abs(c.x) - 0.038, c.y));
+  return min(segD(s, vec2(0.0), vec2(0.0, 0.05)), horns);
+}
+// how much of the ward is drawn yet: round from behind the wearer (the angle's -x) as it kindles, whole once it has
+float wardDrawn(float share) { return clamp((uKindle * 1.1 - share) / 0.1, 0.0, 1.0); }
+vec3 wardGround(vec2 p) {
+  float r = length(p), a = atan(p.y, p.x);
+  if (r > uGroundR) discard;
+  float R = uRingR;
+  float breath = 0.85 + 0.15 * sin(uTime * TAU ${hzGlsl(WARD_HZ.pulse)});
+  // THE RING, whole: one line of light, two scribes of brighter light running round it, a halo in the stone about it
+  float dr = abs(r - R);
+  float scribe = pow(max(0.0, cos(2.0 * a - uTime * TAU ${hzGlsl(2 * WARD_HZ.scribe)})), 24.0);
+  vec3 col = inked(dr, 0.016) * (breath + 0.8 * scribe) + WARD_VIOLET * exp(-dr * dr / 0.012) * 0.14;
+  // THE BEZEL: ${WARD_TICKS} fine ticks outside it, a longer one every fourth, turning the other way
+  float tu = (a + uTime * TAU ${hzGlsl(WARD_HZ.bezel)}) / TAU * ${WARD_TICKS.toFixed(1)};
+  float ti = floor(tu + 0.5);
+  float rOut = R + 0.07 + (mod(ti, 4.0) < 0.5 ? 0.035 : 0.0);
+  float dTick = length(vec2(abs(tu - ti) * TAU / ${WARD_TICKS.toFixed(1)} * r, max(0.0, max(R + 0.035 - r, r - rOut))));
+  col += inked(dTick, 0.009) * 0.35;
+  // THE RUNES: the script round a ring within it, turning against it, each lit in turn as the writing passes
+  float cu = (a - uTime * TAU ${hzGlsl(WARD_HZ.runes)}) / TAU * ${WARD_RUNES.toFixed(1)};
+  float k = mod(floor(cu), ${WARD_RUNES.toFixed(1)});
+  vec2 q = vec2((fract(cu) - 0.5) * TAU / ${WARD_RUNES.toFixed(1)} * r, r - ${WARD_RUNE_R.toFixed(3)});
+  float written = 0.45 + 0.55 * pow(0.5 + 0.5 * cos(uTime * TAU ${hzGlsl(WARD_HZ.write)} - k / ${WARD_RUNES.toFixed(1)} * TAU), 3.0);
+  col += inked(runeD(q, WARD_SCRIPT[int(k)]), 0.011) * written;
+  // THE CLAWS at the diagonals, hung from the ring
+  float su = a / TAU * ${WARD_SIGILS.toFixed(1)};   // a claw at each cell's middle: the diagonals
+  col += inked(sigilD(vec2((fract(su) - 0.5) * TAU / ${WARD_SIGILS.toFixed(1)} * r, R - r)), 0.012) * (0.6 + 0.4 * breath);
+  // THE ABYSS within: the void's violet mist turning inside the runes, gone under the feet (where the angle's lattice
+  // pinches to a point and would draw it as spokes)
+  float u = fract(a / TAU);
+  float mist = fbmP(vec2(u * 10.0 - uTime * ${WARD_FLOW.mist.toFixed(3)}, r * 3.0), vec2(10.0, 64.0));
+  col += WARD_ABYSS * mist * 0.55 * smoothstep(0.08, 0.38, r) * (1.0 - smoothstep(${(WARD_RUNE_R - 0.15).toFixed(3)}, ${(WARD_RUNE_R + 0.02).toFixed(3)}, r));
+  return col * wardDrawn(fract(a / TAU + 0.5)) * (1.0 - smoothstep(uGroundR - 0.2, uGroundR, r));
+}
+// A FLOATING SYMBOL (uv the card's 0..1, s its age, its rune's place in the script, its number): the script's rune stood
+// on end, its strokes blurring as it climbs and eaten by its dust from the edges of the noise in, faded in as it lifts off
+// and out as it goes
+vec3 wardSymbol(vec2 uv, vec3 s) {
+  float age = s.x;
+  vec2 q = (uv - 0.5) * vec2(${WARD_GLYPH_W.toFixed(2)}, ${WARD_GLYPH_H.toFixed(2)});
+  float d = runeD(vec2(q.y, q.x) / 0.75, WARD_SCRIPT[int(s.y + 0.5)]) * 0.75;
+  float n = vnoiseP(uv * vec2(7.0, 11.0) + s.z * 3.7, vec2(64.0));
+  float whole = smoothstep(age * 1.25 - 0.3, age * 1.25 - 0.1, n);
+  float fade = smoothstep(0.0, 0.1, age) * (1.0 - age * age);
+  float edge = smoothstep(0.0, 0.12, min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y)));
+  return inked(d, 0.009 + 0.012 * age) * whole * fade * edge;
+}
+vec3 wardWall(vec2 q) {
+  float u = q.x, v = q.y;
+  // THE VEIL: streaks of light standing up off the ring and climbing, gone by the shins
+  float n = vnoiseP(vec2(u * 72.0, v * 1.6 - uTime * ${WARD_FLOW.veil.toFixed(3)}), vec2(72.0, ${(WARD_FLOW.veil * AURA_CLOCK_PERIOD).toFixed(1)}));
+  vec3 col = WARD_VIOLET * (n * n * n * pow(1.0 - v, 2.2) * 0.55 + exp(-v * 7.0) * 0.18);
+  // THE MOTES, rising off the ring each at its own place and pace, dimming as they rise
+  float circ = TAU * uRingR;
+  for (int m = 0; m < ${WARD_MOTES}; m++) {
+    float fm = float(m);
+    float h1 = fract(sin(fm * 78.233 + 1.7) * 43758.5453), h2 = fract(sin(fm * 39.425 + 3.1) * 24634.6345);
+    float mv = fract(uTime ${hzGlsl(WARD_HZ.mote)} * (1.0 + mod(fm, 3.0)) + h2);
+    vec2 dm = vec2((fract(u - h1 + 0.5) - 0.5) * circ, (v - mv) * uFlameH);
+    col += (WARD_HEART + WARD_VIOLET) * 0.6 * exp(-dot(dm, dm) / 0.0003) * (1.0 - mv);
+  }
+  return col * wardDrawn(fract(u + 0.5));
+}
+`;
+export const AURA_VS = HEAD + `layout(location = 0) in vec2 aP;   // the ground: a corner -1..1; the flames: x the step round 0..1, y up 0..1; a symbol: x its number * 2 + the corner's u, y its v
 uniform mat4 uVP;
-uniform int uKind;      // 0 the ground, 1 the flames
+uniform int uKind;      // 0 the ground, 1 the flames, 2 the ward's floating symbols (AEGIS)
 uniform vec3 uAt;       // the feet
 uniform float uGroundR, uRingR, uFlameH, uLift;
-out vec2 vP;            // the ground: metres about the feet; the flames: (the angle's share, the height's)
+uniform float uTime;    // AEGIS: a symbol's flight
+uniform vec3 uCamPos;   // AEGIS: the eye a symbol faces
+out vec2 vP;            // the ground: metres about the feet; the flames: (the angle's share, the height's); a symbol: its card's uv
 out vec3 vWorld;
+out vec3 vS;            // AEGIS: a symbol's age, its rune's place in the script and its number
+${WARD_FLIGHT_GLSL}
 void main() {
   vec3 w;
+  vS = vec3(0.0);
   if (uKind == 0) {
     vP = aP * uGroundR;
     w = uAt + vec3(vP.x, uLift, vP.y);
-  } else {
+  } else if (uKind == 1) {
     float a = aP.x * 6.283185307179586;
     vP = aP;
     w = uAt + vec3(cos(a) * uRingR, uLift + aP.y * uFlameH, sin(a) * uRingR);
+  } else {
+    // AEGIS: A FLOATING SYMBOL - its card at its flight's place, upright and turned round the vertical to face the eye,
+    // tilting a little as it climbs and growing as it fades
+    float k = floor(aP.x * 0.5);
+    vP = vec2(aP.x - k * 2.0, aP.y);
+    vec4 f = wardFlight(k, uTime);
+    vec3 c = uAt + f.xyz;
+    vec2 d = uCamPos.xz - c.xz;
+    d = dot(d, d) > 1e-8 ? normalize(d) : vec2(0.0, 1.0);
+    float tilt = 0.22 * sin(f.w * 5.0 + k * 1.7);
+    vec2 o = (vP - 0.5) * vec2(${WARD_GLYPH_W.toFixed(2)}, ${WARD_GLYPH_H.toFixed(2)}) * (1.0 + 0.35 * f.w);
+    o = vec2(o.x * cos(tilt) - o.y * sin(tilt), o.x * sin(tilt) + o.y * cos(tilt));
+    w = c + vec3(d.y, 0.0, -d.x) * o.x + vec3(0.0, o.y, 0.0);
+    vS = vec3(f.w, mod(k * 5.0 + wardFlightOf(k, uTime), ${WARD_RUNES.toFixed(1)}), k);
   }
   vWorld = w;
   gl_Position = uVP * vec4(w, 1.0);
 }`;
 export const AURA_FS = HEAD + `in vec2 vP;
 in vec3 vWorld;
+in vec3 vS;             // AEGIS: a floating symbol's age, rune and number
 uniform int uKind;
-uniform float uTime, uSeed, uKindle, uRingR, uGroundR;
+uniform int uAura;      // AEGIS: 0 Dagon's Fire, 1 the Oblivion Ward (AURA_LOOK)
+uniform float uTime, uSeed, uKindle, uRingR, uGroundR, uFlameH;
 uniform int uFogMode;
 uniform float uFogDensity;
 uniform vec2 uFogRange;
@@ -124,7 +330,9 @@ uniform vec3 uCamPos;
 out vec4 o;
 ${FOG_FACTOR_GLSL}${NOISE_GLSL}
 const float TAU = 6.283185307179586;
+${WARD_GLSL}
 void main() {
+  if (uAura == 1) { vec3 ward = uKind == 0 ? wardGround(vP) : uKind == 1 ? wardWall(vP) : wardSymbol(vP, vS); o = vec4(ward * uKindle * fogFactorAt(vWorld), 1.0); return; }   // AEGIS
   // every rate a whole number of cycles over the clock, in turns a second times TAU - never a rounded radian rate, which
   // drifts off whole by its rounding times the period and steps the picture at the wrap
   float turn = uTime * TAU * ${AURA_TURN_HZ.toFixed(3)};   // the ring's own turn
@@ -187,12 +395,19 @@ export function auraFlameStrip() {
   return new Float32Array(out);
 }
 
+/** AEGIS: the floating symbols' cards - `n` quads, two triangles each, as (number * 2 + the corner's u, its v). Pure. */
+export function auraGlyphCards(n) {
+  const out = [];
+  for (let k = 0; k < n; k++) for (const [u, v] of [[0, 0], [1, 0], [1, 1], [0, 0], [1, 1], [0, 1]]) out.push(k * 2 + u, v);
+  return new Float32Array(out);
+}
+
 export class AuraRingRenderer {
   constructor(gl) {
     this.gl = gl;
     this.program = buildProgram(gl, AURA_VS, AURA_FS, 'aura ring');
     this.u = {};
-    for (const n of ['uVP', 'uKind', 'uAt', 'uGroundR', 'uRingR', 'uFlameH', 'uLift', 'uTime', 'uSeed', 'uKindle', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uFocus']) this.u[n] = gl.getUniformLocation(this.program, n);
+    for (const n of ['uVP', 'uKind', 'uAura', 'uAt', 'uGroundR', 'uRingR', 'uFlameH', 'uLift', 'uTime', 'uSeed', 'uKindle', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uFocus']) this.u[n] = gl.getUniformLocation(this.program, n);
     this.quadVao = gl.createVertexArray();
     gl.bindVertexArray(this.quadVao);
     this.quadBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuf);
@@ -203,6 +418,11 @@ export class AuraRingRenderer {
     this.flameBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, this.flameBuf);
     gl.bufferData(gl.ARRAY_BUFFER, auraFlameStrip(), gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 8, 0);
+    this.glyphVao = gl.createVertexArray();   // AEGIS: the ward's floating symbols
+    gl.bindVertexArray(this.glyphVao);
+    this.glyphBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, this.glyphBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, auraGlyphCards(WARD_GLYPHS), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 8, 0);
     gl.bindVertexArray(null);
     this._vp = new Float32Array(16);
     /** how many auras the last draw burned, for the stats and the tests */
@@ -210,9 +430,10 @@ export class AuraRingRenderer {
   }
 
   /**
-   * Draw the frame's auras - `list` `[{ at: [x, y, z] the wearer's feet in the scene, seed?, kindle? 0..1 }]` (already
-   * picked: auraWearers) - with the frame's camera, its clock (`seconds`) and its fog as the renderer set it
-   * ({ mode, density, range, camPos, focus }). Nothing to draw, nothing touched.
+   * Draw the frame's auras - `list` `[{ at: [x, y, z] the wearer's feet in the scene, aura?, seed?, kindle? 0..1 }]`
+   * (already picked: auraWearers) - with the frame's camera, its clock (`seconds`) and its fog as the renderer set it
+   * ({ mode, density, range, camPos, focus }). Each in its own aura's look (AURA_LOOK - AEGIS). Nothing to draw,
+   * nothing touched.
    */
   draw(list, proj, view, eye, seconds, fog = null) {
     this.drawn = 0;
@@ -222,7 +443,7 @@ export class AuraRingRenderer {
     gl.useProgram(this.program);
     gl.uniformMatrix4fv(U.uVP, false, this._vp);
     gl.uniform1f(U.uTime, auraClock(seconds));
-    gl.uniform1f(U.uGroundR, AURA_GROUND_R); gl.uniform1f(U.uRingR, AURA_RING_R); gl.uniform1f(U.uFlameH, AURA_FLAME_H); gl.uniform1f(U.uLift, AURA_LIFT_M);
+    gl.uniform1f(U.uGroundR, AURA_GROUND_R); gl.uniform1f(U.uLift, AURA_LIFT_M);   // AEGIS: the ring's radius and the wall's height per wearer, below
     gl.uniform1i(U.uFogMode, fog ? fog.mode : 0);
     gl.uniform1f(U.uFogDensity, fog?.density ?? 0);
     gl.uniform2fv(U.uFogRange, fog?.range ?? NO_FOG_RANGE);
@@ -237,12 +458,20 @@ export class AuraRingRenderer {
       gl.uniform3f(U.uAt, w.at[0], w.at[1], w.at[2]);
       gl.uniform1f(U.uSeed, Number.isFinite(w.seed) ? w.seed : 0);
       gl.uniform1f(U.uKindle, Math.max(0, Math.min(1, Number.isFinite(w.kindle) ? w.kindle : 1)));
+      const look = auraLookOf(w.aura);   // AEGIS: the fire or the ward, at its own radius and height
+      gl.uniform1i(U.uAura, look.kind);
+      gl.uniform1f(U.uRingR, look.ringR); gl.uniform1f(U.uFlameH, look.flameH);
       gl.uniform1i(U.uKind, 0);
       gl.bindVertexArray(this.quadVao);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       gl.uniform1i(U.uKind, 1);
       gl.bindVertexArray(this.flameVao);
       gl.drawArrays(gl.TRIANGLES, 0, AURA_STEPS * 6);
+      if (look.glyphs) {   // AEGIS: the ward's floating symbols, a third draw
+        gl.uniform1i(U.uKind, 2);
+        gl.bindVertexArray(this.glyphVao);
+        gl.drawArrays(gl.TRIANGLES, 0, look.glyphs * 6);
+      }
       this.drawn++;
     }
     gl.bindVertexArray(null);
