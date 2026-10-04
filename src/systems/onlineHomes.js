@@ -49,6 +49,7 @@ import { guildTagText, GUILD_MOVE_MAX } from '../net/guildLaw.js';   // GUILD1d:
 import { GUILD_HALL_ENTRIES, GUILD_HALL_ENTRY_WORDS, guildHallPrice } from '../net/hallLaw.js';   // GUILD1d: a guild's hall
 import { heraldryOf } from '../net/heraldryLaw.js';   // GUILD1d: a hall's heraldry, off the town's answer
 import { layoutStampOfMapId, CLASSIC_LAYOUT } from './layoutPins.js';   // WD3: a home is bought in its town's layout
+import { goldSum as gold, EMPIRE_ACCOUNT_WORDS } from './homeWords.js';   // HOME-PRICE: every sum with its thousands; online, the Empire's account (EMPIRE-ACCOUNT)
 
 /** How long a town's answer is believed before a door asks again. */
 export const HOME_TOWN_TTL_MS = 60_000;
@@ -56,12 +57,6 @@ export const HOME_TOWN_TTL_MS = 60_000;
 export const HOME_RETRY_MS = 10_000;
 /** How long a door waits for a town's first answer before it goes on under Daggerfall's own law. */
 export const HOME_ASK_WAIT_MS = 2_500;
-
-/** HOME-PRICE: a sum of gold as every home's line says it - 250,000, never 250000 (HALL-GOLD's spelling, every line's). */
-const gold = (n) => Number(n).toLocaleString('en-US');
-/** HOME-PRICE: where online a home's gold comes from and goes to - EMPIRE-ACCOUNT's one account (systems/banking.js
- *  goldRegion), never the region's: the lines named "this region's bank account", which online is not where it moved. */
-const EMPIRE_ACCOUNT_WORDS = 'your account at the Bank of the Empire';
 
 /** What each entry reads as, to the owner. GUILD1d: and their guild. */
 export const HOME_ENTRY_WORDS = Object.freeze({ private: 'Only me', party: 'My party', public: 'Anyone', guild: 'My guild' });
@@ -276,7 +271,8 @@ export const HOME_OFFER_PASS = 'N - just go in';
 /** The owner's menu at their own door. */
 export const homeOwnerLines = (home) => ['This is your home.', homeEntryLine(home.entry)];
 export const homeEntryLine = (entry) => `Who may enter: ${HOME_ENTRY_WORDS[entry] ?? HOME_ENTRY_WORDS[HOME_ENTRY_DEFAULT]}.`;
-export const homeSaleLines = (refund) => [`Sell your home for ${gold(refund)} gold?`, `The gold goes to ${EMPIRE_ACCOUNT_WORDS}. Anything left inside is lost.`,
+export const homeSaleLines = (refund, rentDue = 0) => [rentDue > 0 ? `Sell your home for ${gold(refund)} gold, and the ${gold(rentDue)} gold of rent you have not collected?` : `Sell your home for ${gold(refund)} gold?`,   // AUDIT HOME-PRICE C3: the held rent the sale pays with it
+  `The gold goes to ${EMPIRE_ACCOUNT_WORDS}. Anything left inside is lost.`,
   'Its placed pieces go too, for half of what they cost; your own things come back to your pack.'];   // DECOR1e; DECOR2a
 /** HOME-CROSSED (FIELD BUGS 2026-09-30): a home customs carried in is never bought back online - the bank's own words for
  *  a crossed deed (RESTORE), and that it stays a home. The door says them and asks no price. */
@@ -344,6 +340,7 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
             mine: h.mine === true, character: typeof h.character === 'string' ? h.character : null,
             crossed: h.crossed === true,   // HOME-CROSSED: mine, carried in through customs - no sale
             refund: Number.isSafeInteger(h.refund) && h.refund >= 0 ? h.refund : null,   // HOME-PRICE: mine, what its sale pays back
+            rentDue: Number.isSafeInteger(h.rentDue) && h.rentDue > 0 ? h.rentDue : 0,   // AUDIT HOME-PRICE C3: and the rent held on it
             // HOME-RENT: rooms free to rent (how many, from what a day), and the playing character's tenancy's end
             rent: Number.isSafeInteger(h.rent?.vacant) && h.rent.vacant > 0 && rentPriceOk(h.rent.from) ? { vacant: h.rent.vacant, from: h.rent.from } : null,
             tenant: Number.isSafeInteger(h.tenant) && h.tenant > 0 ? h.tenant : null,
@@ -419,10 +416,12 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
     const r = await api.claim({ mapId: id, buildingKey, region, character: me, price, ...(realm ? { realm } : {}), layout: layout || null });   // WD3 (AUDIT WD3 B2): always said - null is Daggerfall's own
     if (r?.ok) {
       const had = towns.get(id)?.homes.get(buildingKey);
-      // HOME-PRICE: and what its sale pays back - the deed share of the price the service holds for it (a claim answered as
-      // mine already holds the first one's), until the town is read again
-      const paid = Number.isSafeInteger(r.data?.home?.price) ? r.data.home.price : price;
-      wrote(id, buildingKey, { buildingKey, owner: had?.owner ?? '', entry: r.data?.home?.entry ?? HOME_ENTRY_DEFAULT, mine: true, character: me, refund: homeRefund(paid) });
+      // HOME-PRICE: and what its sale pays back, as the service answers it (AUDIT HOME-PRICE C2: a claim answered as mine
+      // already says the first one's - or that customs carried it in, `crossed`); an older service's answer says neither,
+      // and the price this claim named stands for it until the town is read again
+      const crossed = r.data?.crossed === true;
+      const refund = crossed ? null : Number.isSafeInteger(r.data?.refund) && r.data.refund >= 0 ? r.data.refund : homeRefund(price);
+      wrote(id, buildingKey, { buildingKey, owner: had?.owner ?? '', entry: r.data?.home?.entry ?? HOME_ENTRY_DEFAULT, mine: true, character: me, crossed, refund, rentDue: 0 });
       return { ok: true, repeat: r.data?.repeat === true, ...realmOf(r) };   // REALM P2.2b: the record's new sequence, in data.realm
     }
     if (r?.error === 'home-taken' || r?.error === 'seq') ensure(id, { force: true });   // somebody's now, or mine already: the door should say whose
@@ -492,7 +491,7 @@ export function homeClaimLayout(mapId) {
 
 /**
  * BUY ONE AT ITS DOOR. The claim first - the service's one answer decides whether the building can be mine at all -
- * and the gold only once it is. `afford(price)` asks the purse and the region's bank account together, before the
+ * and the gold only once it is. `afford(price)` asks the purse and the Empire's account together, before the
  * claim and again after it (the purse can change while the answer is out); a claim the player can no longer pay for
  * is given back rather than kept unpaid. `pay(price)` takes it, purse first, as Daggerfall's own purchase does.
  * Answers `{ ok: true }` or `{ ok: false, error }` - `gold` for the purse, else the service's word.

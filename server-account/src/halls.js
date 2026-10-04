@@ -69,8 +69,9 @@ const piecesBackOf = async (db, mapId, buildingKey) => db.prepare(`SELECT COUNT(
 
 /**
  * BUY A HALL - the guildmaster's, for a guild that holds none, at a building nobody owns: the treasury pays the home's
- * price and half again out of what records paid in, in the claim's own batch. `price` is the home's own (Daggerfall's
- * bank's, the client's word as a home's claim takes it - HOME1); the hall costs guildHallPrice of it. A claim sent again
+ * price and half again out of what records paid in, in the claim's own batch. `price` is the home's own online price
+ * (HOME-PRICE: the client's word inside homePriceOk's range, as a home's claim takes it); the hall costs guildHallPrice
+ * of it. A claim sent again
  * after a lost answer finds the building already this guild's hall and is answered as the claim.
  * AUDIT PRE-MERGE 1003 WD1: `layout`, the layout the buyer's town stands in (null: Daggerfall's own) - a hall is a home
  * (a row of `homes`), and a building key names a building only in one layout of its town, so a hall is bought as a

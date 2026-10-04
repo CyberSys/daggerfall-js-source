@@ -131,7 +131,7 @@ test('HOME1 the service: a town\'s homes are any session\'s to read (a guest\'s 
   // the claim
   const c = await buy(aldric, A);
   assert.equal(c.status, 200);
-  assert.deepEqual(c.body, { ok: true, home: { mapId: home().mapId, buildingKey: home().buildingKey, region: 17, character: A.id, entry: 'private', price: 42000, boughtAt: T0 }, realm: { seq: 2 } });
+  assert.deepEqual(c.body, { ok: true, home: { mapId: home().mapId, buildingKey: home().buildingKey, region: 17, character: A.id, entry: 'private', price: 42000, boughtAt: T0 }, refund: homeSaleRefund(42000), realm: { seq: 2 } });   // AUDIT HOME-PRICE C2: the claim says what its sale pays
   assert.deepEqual(await call('POST', '/v1/homes/claim', home({ buildingKey: 9 }), aldric), { status: 400, body: { error: 'realm-only' } }, 'no other id buys a house');
   // one owner a building
   const taken = await buy(mara, M);
@@ -145,7 +145,7 @@ test('HOME1 the service: a town\'s homes are any session\'s to read (a guest\'s 
   const asMara = (await call('POST', '/v1/homes/town', { mapId: home().mapId }, mara)).body.homes;
   assert.deepEqual(asMara, [{ buildingKey: home().buildingKey, owner: 'Aldric', entry: 'private', mine: false }], 'the handle on the door, never a character or a price');
   const asAldric = (await call('POST', '/v1/homes/town', { mapId: home().mapId }, aldric)).body.homes;
-  assert.deepEqual(asAldric, [{ buildingKey: home().buildingKey, owner: 'Aldric', entry: 'private', mine: true, character: A.id, refund: homeSaleRefund(42000) }]);   // HOME-PRICE: my own says what its sale pays back
+  assert.deepEqual(asAldric, [{ buildingKey: home().buildingKey, owner: 'Aldric', entry: 'private', mine: true, character: A.id }]);   // AUDIT HOME-PRICE L3: the sale's sum is told to the character named (test/homeprice.test.js), and this read names none
   // two claims racing for one building: another's lands between this claim's read and its write - the claim's own write
   // lands only on a building nobody holds, so this one is taken and its record pays nothing
   const raw = env.DB._raw;
@@ -474,7 +474,7 @@ test('HOME1 the wiring by source: the home answers at the door BEFORE Daggerfall
   assert.match(src('src/systems/quest/place.js'), /if \(world\.isPlayerHome\?\.\(location\.mapTableData\?\.mapId, buildingKey\)\) continue;/);
 });
 
-test('HOME1 the door knows its house\'s model: the record a door resolves to carries the model its price is measured from - the SAME model the town\'s directory names for that building (the first 3D object of its subrecord) - so a house bought at its door costs what Daggerfall\'s bank asks for it (mutants: the model unread at the door)', () => {
+test('HOME1 the door knows its house\'s model: the record a door resolves to carries the model its price is measured from - the SAME model the town\'s directory names for that building (the first 3D object of its subrecord) - so the bank and the door price one building off one model: the bank Daggerfall\'s radius x 1280 offline, the door its ground online (AUDIT HOME-PRICE D8: test/homeprice.test.js) (mutants: the model unread at the door)', () => {
   const dfBlock = {
     name: 'HOME1TST.RMB', index: 7,
     rmbBlock: {
@@ -497,5 +497,5 @@ test('HOME1 the door knows its house\'s model: the record a door resolves to car
   const listed = locationBuildings([], blocks).find((x) => x.buildingKey === bd.buildingKey);
   assert.equal(listed.modelIdNum, bd.modelIdNum, 'the directory\'s model for the same building - one price, at the bank and at the door');
   assert.equal(buildingDataForDoor([], blocks, { dfBlock, recordIndex: 0, position: [10, 0, 10] }).modelIdNum, 524, 'the FIRST object of the subrecord');
-  assert.equal(housePrice(40), 51200, 'Daggerfall\'s price: the radius x 1280');
+  assert.equal(housePrice(40), 51200, 'the bank\'s price, offline: the radius x 1280');
 });

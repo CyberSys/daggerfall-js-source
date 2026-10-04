@@ -134,11 +134,11 @@ test('REALM P2.2b: a realm character buys a home on its record and sells it back
 
 test('REALM P2.2b: a refusal moves nothing - a purse that cannot pay, a house another holds, a record that moved under the claim', async () => {
   const { env, player, record } = await stand();
-  // HOME-PRICE (PIN MOVED): the purse and the account one gold short of the range's floor and a gold over it, where they
-  // were 1,000 + 500 against 1,501 - a home costs at least HOME_PRICE_MIN now
+  // HOME-PRICE (PIN MOVED): the purse and the account hold the range's floor, a hundred short of the price asked (a home's
+  // price is whole hundreds, AUDIT HOME-PRICE L2), where they were 1,000 + 500 against 1,501
   const A = await player('Aldric', { goldPieces: HOME_PRICE_MIN - 500, items: [], bankAccounts: bank(REGION, 500) });
   const B = await player('Brisienna', { goldPieces: 90_000, items: [] });
-  assert.equal((await A.homes.claim({ mapId: MAP, buildingKey: KEY, region: REGION, character: A.char, price: HOME_PRICE_MIN + 1, realm: A.at(1) })).error, 'realm-gold');
+  assert.equal((await A.homes.claim({ mapId: MAP, buildingKey: KEY, region: REGION, character: A.char, price: HOME_PRICE_MIN + 100, realm: A.at(1) })).error, 'realm-gold');
   assert.equal((await B.homes.claim({ mapId: MAP, buildingKey: KEY, region: 0, character: B.char, price: HOME_PRICE_MIN, realm: B.at(1) })).ok, true);
   assert.equal((await A.homes.claim({ mapId: MAP, buildingKey: KEY, region: REGION, character: A.char, price: HOME_PRICE_MIN, realm: A.at(1) })).error, 'home-taken');
   assert.deepEqual(await record(A), { seq: 1, save: { goldPieces: HOME_PRICE_MIN - 500, items: [], bankAccounts: bank(REGION, 500) } });

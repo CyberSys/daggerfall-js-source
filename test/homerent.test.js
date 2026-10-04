@@ -380,7 +380,7 @@ test('HOME-RENT the decorator\'s rooms view: an online home of two rooms gets "R
   for (let i = 0; i < 3; i++) { r3.frame({ overlayUp: true }); await settle(); }
   btn('Collect rent').fire('click');
   await settle(); await settle();
-  assert.ok(r3.said.includes('You collected 70 gold in rent. It went to this region\'s bank account.'));
+  assert.ok(r3.said.includes('You collected 70 gold in rent. It went to your account at the Bank of the Empire.'));   // AUDIT HOME-PRICE E4 (PIN MOVED): online the rent lands in the Empire's account
   for (let i = 0; i < 3; i++) { r3.frame({ overlayUp: true }); await settle(); }
   rowsNow().find((r) => /Offered at/.test(JSON.stringify(r.children.map((k) => k.children?.map((x) => x.textContent))))).fire('click');
   btn('Stop offering').fire('click');

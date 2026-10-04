@@ -4786,7 +4786,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7959` read, on one physical line:
+`src/scenes/worldModes.js:7977` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -9398,7 +9398,7 @@ took: three town homes a character, no upkeep.
   town's size, 5,000 to 250,000 (`net/homeLaw.js homeOnlinePrice`; the model the door's own record carries,
   `systems/talkTopics.js buildingDataForDoor`, and the town's blocks, `townBlocks`), never Daggerfall's radius x 1280,
   which stays the bank's offline; Yes claims it first and takes the gold only once the claim
-  lands (the purse, letters of credit too, then the region's account, as Daggerfall's PurchaseHouse pays), asking the
+  lands (the purse, letters of credit too, then the Empire's account - EMPIRE-ACCOUNT - as Daggerfall's PurchaseHouse pays), asking the
   purse again after the answer and giving the claim back if it can no longer be paid; No goes on to the door, as
   Daggerfall's Info click does. HOME-OFFER (2026-09-26, Mac: "Enhanced plus cant buy house"): HOME1 asked in Info
   mode alone, which nothing on the enhanced skins says, and the default mode is Grab - so a press on a house for sale
@@ -9406,7 +9406,7 @@ took: three town homes a character, no upkeep.
   Info always asks) - `systems/onlineHomes.js homeDoorPrompt`, `test/homeoffer.test.js`. A house is a candidate when it is Daggerfall's for-sale house or an ordinary
   residence (House1-4) - never a faction's House2 - and is for sale when no active quest is set in it. In Info mode
   my own door is my menu: G go in, W who may enter (Only me, My party, Anyone), S sell it back - at Daggerfall's deed
-  share (85%) of what the SERVICE says was paid, into the region's account, credited only once the service agrees;
+  share (85%) of what the SERVICE says was paid, into the Empire's account, credited only once the service agrees;
   anything left inside is lost with the next clearing of the scene cache, as a sold house's is. The hover names a
   home "Your home" or "<owner>'s home", with "Locked" when it will not open for me and no Lock Level (its lock is a
   word, not a mechanism), and a house for sale "Can be your home: N gold"; the Info click names it the same way.

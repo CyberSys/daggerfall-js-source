@@ -4231,7 +4231,7 @@ export async function bootExterior(canvas, renderer, params, status) {
       // two inputs the world host uses (world.js:22203).
       buildings: locationBuildings(dfLocation.exterior?.buildings ?? [], loc.blocks, { locationIndex: dfLocation.locationIndex ?? 0 }),
       mapId: dfLocation?.mapTableData?.mapId ?? 0,
-      regionIndex: dfLocation.regionIndex ?? 0,
+      regionIndex: dfLocation.regionIndex ?? 0, townBlocks: homeTownBlocks(dfLocation),   // AUDIT HOME-PRICE C1: the town's size
       locationName: dfLocation.name ?? locationName,
       regionName: maps.getRegionName(dfLocation.regionIndex ?? 0) ?? '',
       portTownAndUnknown: dfLocation.exterior?.exteriorData?.portTownAndUnknown ?? 0,

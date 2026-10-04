@@ -272,7 +272,7 @@ test('AUDIT REALM2 S3: every realm act whose batch COMMITS and then throws keeps
   await lost('/v1/guilds/deposit', { character: R.id, gold: 1_000 });
   const save = (await s.load(R.id, P.secret)).save;
   assert.deepEqual([save.goldPieces, save.bankAccounts[17].accountGold], [500_000 - HOME_PRICE_MIN - 40 - GUILD_FOUND_GOLD - 1_000, homeSaleRefund(HOME_PRICE_MIN) + 20],
-    'each landed once: the house, the piece, the founding and the deposit paid, the sale\'s share and the piece\'s half into the region\'s account');
+    'each landed once: the house, the piece, the founding and the deposit paid, the sale\'s share and the piece\'s half into the Empire\'s account');   // AUDIT HOME-PRICE D7: index 17, EMPIRE-ACCOUNT's
   assert.deepEqual(s.rows('SELECT treasury FROM guilds'), [{ treasury: 1_000 }]);
 });
 
