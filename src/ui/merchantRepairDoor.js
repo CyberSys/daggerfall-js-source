@@ -59,6 +59,7 @@ function enhancedMerchantRepairOverlay(hooks) {
           { label: 'Repair item', onClick: () => { close(); hooks.onRepair?.(); } },
           { label: 'Talk', onClick: () => { close(); hooks.onTalk?.(); } },
           { label: 'Sell', onClick: () => { close(); hooks.onSell?.(); } },
+          ...(hooks.portal ? [{ label: hooks.portal.label, onClick: () => { close(); hooks.portal.onBuy?.(); } }] : []),   // PORTAL1: the Portal Stone, for shards
           { label: 'Exit', onClick: close },
         ],
         onExit: close,

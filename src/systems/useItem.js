@@ -55,6 +55,7 @@ export const USE_PENDING = Object.freeze({
   spellbook: 'You cannot open your spellbook here.',
   pitchCamp: 'There is nowhere to set that up here.',   // SURV3: a host with no ground for a camp
   placeFire: 'There is nowhere to set that up here.',
+  openPortal: 'A portal can only be opened under the open sky.',   // PORTAL1: a host with no open world (systems/portalStone.js PORTAL_TEXT.notHere)
 });
 
 /** The template indices the predicates name (ItemEnums.cs). */

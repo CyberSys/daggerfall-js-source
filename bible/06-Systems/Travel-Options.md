@@ -400,6 +400,11 @@ must be assigned there, never re-declared. Mutants
    this floor (AUDIT IT1 W3, `06-Systems/Immersive-Travel.md`). Immersive
    Travel's Disable Normal Travel is the room's and OFF, so every trip over land
    from the map is still walked.
+   **PORTAL1** (2026-10-04, the owner: "with the removal of fast travel, I want to implement a new item available at
+   all shops, this should cost weykar shards"): a Portal Stone, bought for five Welkynd Shards, opens the Mages Guild's
+   teleport map; the place picked is reached through a portal that stands 30 seconds for anyone who walks in - the
+   guild's arrival, free once the stone is spent, online as offline (`06-Systems/Portal-Stone.md`). It never meets
+   this floor: its map's `onTeleport` is its own, as the guild's is.
 10. **A message box over the journey PAUSES it rather than interrupting
     it** (AUDIT-TO1 H1). DFU's `DaggerfallUI.MessageBox` pushes a window,
     so the mod's own help (`:1005-1014`) trips the "any other window"
@@ -810,7 +815,7 @@ which `InitLocationRects` keeps refreshing the rects MID-journey
 (`:606-612`, `autopilot == null || destinationName != null`;
 `travelOptions.js:695-698`). A town's ring reaches into its neighbour
 pixels; the crossing fired `OnMapPixelChanged`, the host's
-`locationTileRect` answered null for the neighbour (world.js:13360 -
+`locationTileRect` answered null for the neighbour (world.js:13456 -
 null both for a pixel not yet built and for one with no location),
 `SetLocationRects` nulled both rects (`:602-604`), and the walk's own
 `OnArrival` (`circumnavigateLocation`, `:753-797`) read

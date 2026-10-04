@@ -77,9 +77,13 @@ export function salvagePiece(item, { items }) {
 }
 
 // ── the purse ───────────────────────────────────────────────────────
-/** The shards a pack may spend: every unlocked stack's count (a locked stack is the player's word to keep it). */
-export const shardsHeld = (items) => (Array.isArray(items) ? items : []).reduce((n, it) => n + (isWelkyndShard(it) && !isLocked(it) ? (it.stackCount ?? 1) : 0), 0);
-/** Spend `n` shards off a pack's unlocked stacks, emptied stacks out of it. Answers whether it could (nothing taken when
+/** A shard the purse may draw on: unlocked (a locked stack is the player's word to keep it) and not WORN - a shard is a
+ *  gem, a crystal a slot takes, and AUDIT PORTAL1 I1 found a worn one spent: the equip table kept a record the pack no
+ *  longer held, a ghost on the doll (save.js's bare-splice law). */
+const spendable = (it) => isWelkyndShard(it) && !isLocked(it) && !isEquipped(it);
+/** The shards a pack may spend: every spendable stack's count. */
+export const shardsHeld = (items) => (Array.isArray(items) ? items : []).reduce((n, it) => n + (spendable(it) ? (it.stackCount ?? 1) : 0), 0);
+/** Spend `n` shards off a pack's spendable stacks, emptied stacks out of it. Answers whether it could (nothing taken when
  *  it could not). */
 export function spendShards(items, n) {
   if (!(n > 0)) return true;
@@ -87,7 +91,7 @@ export function spendShards(items, n) {
   let owed = n;
   for (let i = items.length - 1; i >= 0 && owed > 0; i--) {
     const it = items[i];
-    if (!isWelkyndShard(it) || isLocked(it)) continue;
+    if (!spendable(it)) continue;
     const have = it.stackCount ?? 1;
     if (have <= owed) { items.splice(i, 1); owed -= have; } else { it.stackCount = have - owed; owed = 0; }
   }

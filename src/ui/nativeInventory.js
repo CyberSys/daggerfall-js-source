@@ -792,6 +792,13 @@ export class NativeInventoryWindow {
       else this.boxes = [{ rows: [{ text: USE_PENDING[r.kind], center: true }] }];
       return;
     }
+    // PORTAL1: a Portal Stone opens the host's travel map - the pack closes first (the camp's law, the one overlay slot)
+    // and the host's door says where the portal stands, or why not. A host with no open world keeps the window and says so.
+    if (r.kind === 'openPortal') {
+      if (this.hooks.openPortal) { this._closeSilently(); this.hooks.openPortal(r.item, collection); }
+      else this.boxes = [{ rows: [{ text: USE_PENDING.openPortal, center: true }] }];
+      return;
+    }
     // MEND-AIM: a use that asks WHICH (a repair kit, with more than one piece to mend) pushes DFU's list picker over
     // the pack, the choices in the law's order; a row chosen uses the item again, aimed at it, and a click outside
     // keeps the kit. With no picker art the law's own first choice is taken, as the quick keys take it.
