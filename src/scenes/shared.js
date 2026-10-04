@@ -54,7 +54,7 @@ import { killIfAnyLiveStatZero } from '../systems/statMods.js';   // AUDIT 24 (w
 import { hasSpecialAbility, SPECIAL_ABILITY, healthRecoveryRate, fatigueRecoveryRate, spellPointRecoveryRate, restIgnoresNoRegen } from '../systems/rest.js';
 import { entityImprovedAthleticism } from '../systems/enchantments.js';   // AUDIT 26 F044: the ImprovesTalents fatigue arm   // the rested hour's three rates, one home for every host (V5 + S40, same line from two lanes)
 import { getPreventedRestMessage } from '../systems/restSession.js';
-import { nightDue, nightRealMinutesLeft, stampNight, runRestNight, topUpRest, spendRoomNight, roomNightsLeft, heardNight, REST_CHANNEL_SECONDS, REST_ACT_TEXT, NIGHT_HOURS } from '../systems/restAct.js';   // REST1: the rest act online
+import { nightDue, nightRealMinutesLeft, stampNight, runRestNight, topUpRest, sleepShortRest, spendRoomNight, roomNightsLeft, heardNight, REST_CHANNEL_SECONDS, REST_ACT_TEXT, NIGHT_HOURS } from '../systems/restAct.js';   // REST1: the rest act online
 import { registerPreventRestCondition } from '../systems/restSession.js';   // SURV7: the survival rest gate's seam
 import { survivalFeed, installSurvivalGate } from '../systems/survival/env.js';   // SURV7: the needs' feed and the gate, composed from the entity   // ROAD-B B5: TickRest's per-frame poll (:357-360, :407-410)
 import { createNearbyScan, updateNearbyObjects, detectedMarkers, hasLiveDetector } from '../systems/nearbyObjects.js';   // X4: the Detect scan
@@ -2414,7 +2414,8 @@ export function createRestDeps(entity, opts = {}) {
   // share one law (systems/restAct.js). `restAct` answers the plan the window opens on - null offline, where the
   // window is DFU's own; `restNight` runs the night through THIS bag (the timed rest's own session, its sub-ticks,
   // quest ticks, hourly checks and vitals, in one call), stamps it, tops the yield up and spends a rented room's
-  // night; `restShort` is the rest inside the night interval - the yield's healing, and nothing else.
+  // night; `restShort` is the rest inside the night interval - the yield's healing and the sleep need paid as a night
+  // of its kind pays it (REST-SLEEP1), and nothing else.
   // REST6: a lit Meditation Candle makes the next rest its kneel, online or off (restMeditate); a Bedroll's point names
   // its own longer channel.
   out.restAct = () => {
@@ -2450,6 +2451,7 @@ export function createRestDeps(entity, opts = {}) {
   };
   out.restShort = () => {
     topUpRest(entity, _kind, _rules, { night: false, maxFatigueOf: maxFatigue });
+    sleepShortRest(entity, _kind, _rules, Math.floor(ownMinutes()));   // REST-SLEEP1: and it sleeps - a Tired or Drowsy sleeper is not kept waiting out the interval
     surfacePlayer();
     const left = nightRealMinutesLeft(entity, ownMinutes());
     return { textId: null, text: REST_ACT_TEXT.shortRest, extra: left > 0 ? REST_ACT_TEXT.nextNight(left) : null, enemyBroke: false, died: false };
