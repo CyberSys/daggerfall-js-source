@@ -557,8 +557,8 @@
   {
     "name": "PROF10-no-jeweller-station",
     "file": "src/net/decorLaw.js",
-    "old": "'workbench', 'loom', 'mason', 'jeweller']);",
-    "new": "'workbench', 'loom', 'mason']);",
+    "old": "'workbench', 'loom', 'mason', 'jeweller', 'vendor']);",
+    "new": "'workbench', 'loom', 'mason', 'vendor']);",
     "tests": [
       "test/prof10_law.test.js",
       "test/homestations.test.js"
@@ -567,8 +567,8 @@
   {
     "name": "PROF10-jeweller-licence-cheap",
     "file": "src/net/decorLaw.js",
-    "old": "mason: 50_000, jeweller: 50_000 });",
-    "new": "mason: 50_000, jeweller: 5_000 });",
+    "old": "mason: 50_000, jeweller: 50_000, vendor: 25_000 });",
+    "new": "mason: 50_000, jeweller: 5_000, vendor: 25_000 });",
     "tests": [
       "test/prof10_law.test.js"
     ]
@@ -576,8 +576,8 @@
   {
     "name": "PROF10-jeweller-station-unnamed",
     "file": "src/net/decorLaw.js",
-    "old": "jeweller: 'Jeweller\\'s bench' });",
-    "new": "jeweller: 'Bench' });",
+    "old": "jeweller: 'Jeweller\\'s bench', vendor: 'Hired trader' });",
+    "new": "jeweller: 'Bench', vendor: 'Hired trader' });",
     "tests": [
       "test/prof10_law.test.js"
     ]

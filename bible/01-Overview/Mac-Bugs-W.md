@@ -273,7 +273,7 @@ Outside it is not.
 | `dungeonContext.js:421` | `new Collider(() => -Infinity)` | floor meshes |
 | `interiorContext.js:333` | `new Collider(() => -Infinity)` | floor meshes |
 | `exterior.js:604` | `new Collider(() => GROUND_OFFSET * 0.025)` | **`heightAt`** |
-| `world.js:2448` | `new Collider(heightAt)` | **`heightAt`** |
+| `world.js:2459` | `new Collider(heightAt)` | **`heightAt`** |
 
 `heightAt` is applied to the **capsule**, in `_resolveSphere`, and
 nowhere else. So every drop cast down outdoors met nothing — and

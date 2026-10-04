@@ -4786,7 +4786,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:8080` read, on one physical line:
+`src/scenes/worldModes.js:8090` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4928,7 +4928,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:9422` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:9433` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:487`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -10123,6 +10123,36 @@ Pinned: `test/homedoors.test.js` (14), `test/homerent.test.js` (10), `test/homel
 `test/accountworker.test.js` (the tables), `test/renown_char.test.js` (the migrations after 0035), `test/decor1e.test.js`
 and `test/decor2b.test.js` (the sale's line, the tap under a flight) and the ACCOUNT_VERSION pins (`acct37`).
 
+
+### HOME-VENDOR (2026-10-03, Mac: "add the ability for players that own houses to buy npcs that sell goods for them when someone visits the house ... make the available npcs visible on the board with a tab and item search filter"; asked, "Yes only in the house and you should be able to set a waypoint where the trader is ... Selfplaced npcs should sell stuff waaaaay longer") - a hired trader in a home
+
+- **The law** (`net/vendorLaw.js`, both ends): a trader is a placed piece of a home's decor made the `vendor` station
+  (`net/decorLaw.js` DECOR_STATIONS, "Hired trader", a 25,000 gold licence paid once as every station's). Its STOCK is
+  market listings of pieces from the owner's pack, for gold (MARKET-ANY's route, `market.js` listGood), carried AT the
+  trader: they stand VENDOR_LISTING_S (thirty days, not the market's 72 hours) and are bought at that trader alone. A
+  vendor on the wire is `{ map, id }` - the home's town and the decor id. The directory is searched by EVERY word over
+  the item, the owner and the town (vendorSearch).
+- **The catalogue** (`systems/decorCatalogue.js`): the people Daggerfall stands in its rooms (`blockPeopleRecords`) are
+  catalogue pieces too, kind Vendors (Mac: "People category sounds wrong call it vendors") - placed, one is made the
+  trader.
+- **The service** (`server-account/src/market.js` over `migrations/0080_home_vendors.sql` - `market_listings.vendor_map`,
+  `vendor_id`; routes `/v1/market/vendor`, `/vendors`, `/myvendors`). A listing named at a trader is the owner's
+  character's own trader (`vendor-not-yours`), in the HOME's region whatever the client says; it is filtered out of the
+  goods view, so no regional board shows it. A buy of a trader's piece must name its own stall (`vendor-only`,
+  `vendor-not-here`) and the stall must still stand (`vendor-gone`). A stocked trader is neither removed nor unmade
+  (`decor.js` vendorStocked, `vendor-stocked`) and its house is not sold (`homes.js`, `home-vendor-stocked`). The
+  region's directory says each house's door as the town answer says it (entry, mine, guildmate, tenant); the client
+  keeps only the traders `homeMayEnter` lets the character in on. A guild's hall stands no trader.
+- **The client.** A trader pressed in its home (`scenes/worldModes.js` openHomeVendor -> `scenes/world.js`
+  openHomeVendorWindow) opens its stall in the Notice Board's window (`ui/noticeWindow.js` `traderOnly`,
+  `ui/vendorTab.js`): a visitor buys off the purse; the owner takes a piece back or puts one up from the pack. The
+  board's Vendors tab lists the region's reachable traders, searched, a row setting the WAYPOINT
+  (`systems/vendorWaypoint.js`) - a gold coin on both world maps (`ui/vendorMapMark.js`, apart from the map's one yellow
+  mark, which stays the player's), the house named on the town map, the compass on the town from the street, a mark in
+  the Overworld's travel view; walking into the house clears it. The Vendor page (`ui/vendorPage.js`) on the pause
+  window's Character rail under the Professions (Mac: "add a Vendor tab under professions (not in)") holds my traders,
+  their stock, what they sold and the takings, collected into the account of the region I stand in.
+- **Pinned** in `test/homevendor_service.test.js` and `test/homevendor_ui.test.js`; `tools/mutants/homevendor.json`.
 
 ## GUILD1 (2026-09-25, Mac: "future ownership for online guilds"; asked, founding takes "Gold and Renown", a guild is joined "Per character", its ranks are "Four, renamed by the guildmaster", and the treasury is the "Guildmaster only" to take from) - a guild the players found, and the service keeps
 

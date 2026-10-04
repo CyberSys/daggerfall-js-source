@@ -236,8 +236,8 @@
   {
     "name": "TOWN-MARKS-the-registry-never-read",
     "file": "src/scenes/world.js",
-    "old": "        homeAt: onlineHomes ? (mapId, buildingKey) => onlineHomes.homeAt(mapId, buildingKey) : null,",
-    "new": "        homeAt: null,",
+    "old": "          const h = onlineHomes.homeAt(mapId, buildingKey);",
+    "new": "          const h = null;",
     "tests": [
       "test/town_marks.test.js"
     ]

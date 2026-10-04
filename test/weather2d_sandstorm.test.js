@@ -166,7 +166,8 @@ test('WEATHER2d the hosts: the sand renderer built on the enhanced lane, the san
     assert.match(s, /if \(precipMode && precipMode !== 'sand' && !precip\) precip = new PrecipitationRenderer\(renderer\.gl, precipOpts\);/, `${name}: the rain program is not the sand's`);
     const i = s.indexOf("if (precipShown === 'sand') {");
     assert.ok(i > 0, `${name}: the sand branch`);
-    assert.ok(s.slice(i, i + 600).includes(`sand.draw({ on: true, strength01: fx.intensity, windV: wd.windV, step: wd.step, gust: wd.gust }, proj, view, new Float32Array(${eye}), now / 1000);\n        renderer.markForeignPass();`), `${name}: the front's intensity, the one wind, a foreign pass`);
+    const draw = `sand.draw({ on: true, strength01: fx.intensity, windV: wd.windV, step: wd.step, gust: wd.gust }, proj, view, new Float32Array(${eye}), now / 1000);`;
+    assert.ok(new RegExp(`${draw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n\\s+renderer\\.markForeignPass\\(\\);`).test(s.slice(i, i + 600)), `${name}: the front's intensity, the one wind, a foreign pass`);   // RAIN-OVER-GRASS: the world host's falling weather is one closure, indented once more
     assert.ok(s.slice(i, i + 800).includes('} else if (precipShown && precip) {'), `${name}: the rain's branch after it`);
     assert.ok(s.includes("SAND_LOOK } from '../render/windWisps.js'"), `${name}: imported`);
   }
