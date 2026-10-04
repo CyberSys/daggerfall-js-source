@@ -1,8 +1,9 @@
-# FIELD BUGS 2026-10-04 - a gatherer's goods in the pack, past its weight; the Materials Bag on every shelf, and it and the Campfire never sold out
+# FIELD BUGS 2026-10-04 - a gatherer's goods in the pack, past its weight; the Materials Bag on every shelf, it and the Campfire never sold out, and one bag to a character
 
 Mac, from play the day after BAG1 shipped: *"People are doing gathering without a crafting bag and theyre not seeing
 the materials in their inventory"*, then *"Also nobody can find material bags in store"*, then *"I want the gathering
-bag to be unlimited purchases in stores. It shouldnt run out, same with campfires"*. Each fix below is pinned by
+bag to be unlimited purchases in stores. It shouldnt run out, same with campfires"*, then *"Right, you shouldnt be able to
+hold multiple gathering bags"*. Each fix below is pinned by
 tests that fail on the code before it, and its pins are mutation-checked.
 
 | | Report | What it was | Done |
@@ -10,6 +11,7 @@ tests that fail on the code before it, and its pins are mutation-checked.
 | 1 | "People are doing gathering without a crafting bag and theyre not seeing the materials in their inventory" (Mac) | a carried harvest (BAG1) was minted into the bag, then the pack up to its weight, and the rest was "left where it was gathered" - counted carried by the service and never made. A DFU pack is carried to its limit (every loot take is weighed against it), and with no bag the pack is all there is, so a loaded character gathered goods it never saw | PACK-OVER |
 | 2 | "Also nobody can find material bags in store" (Mac) | the bag stood on a General Store's first shelf alone and was left off a shelf stocked by a character who carried one; the first shelf is just the first model the building lists, and online a shelf's stock is the room's for the day, so one bag-owner's open hid it from everyone | BAG-SHELF |
 | 3 | "I want the gathering bag to be unlimited purchases in stores. It shouldnt run out, same with campfires" (Mac) | a shop shelf is a container: a purchase took its one bag and its two to four Campfires off for the day, and online a shelf is the whole building's | ENDLESS-STOCK |
+| 4 | "Right, you shouldnt be able to hold multiple gathering bags" (Mac) | with a bag on every shelf that never sells out, nothing stopped a character buying one after another - BAG1 had kept a second off the shelf for its stocker alone, and BAG-SHELF rightly undid that | ONE-BAG |
 
 ## PACK-OVER (1)
 
@@ -74,3 +76,19 @@ room. The four hosts: shop shelves are stocked and bought from in `scenes/worldM
 bought and the shelf as stocked, three in one purchase three back, fresh and whole; nothing else restocked; the two
 purchases' calls and no other, by source); `tools/mutants/fb1004_endless.json` (8, all dead). DECOR2b's counter pin
 reads `decorDeliver` straight after the purchase's loop, so the restock stands after it.
+
+## ONE-BAG (4)
+
+`net/bagLaw.js` holdsOtherBag, BAG_WORDS.second; `systems/itemTransfer.js` planTake, REFUSAL.secondBag;
+`scenes/worldModes.js` doBuy, buyItem. BAG1 kept a second bag from a character by not shelving one to a stocker who
+held one - which online hid it from everyone (BAG-SHELF), and which never stopped a purchase. One bag to a character is
+the take's rule now: the take ladder every take runs - a pickup, quick loot, a container, a wagon, a ship's hold, and
+both trade windows' Buy basket (their `bag` is the pack and the basket together) - refuses a Materials Bag while
+another is held in the pack, that basket or the wagon, in "You already have a Materials Bag." The bag being taken is
+never "another", wherever it sits, so the wagon's own bag comes back into a pack with none. The keyed shelf, which runs
+no ladder, refuses it in doBuy before the gold and the row are taken, and says the same words. Nothing else is
+refused for a bag, and a character holding two from before keeps them (no save is rewritten). The four hosts: every
+trade and keyed shelf is `scenes/worldModes.js`'s; the take ladder is the one module every host's windows call.
+Pinned by `test/fb1004_onebag.test.js` (4); `tools/mutants/fb1004_onebag.json` (6, all dead). The 97 line cites into
+worldModes.js that ENDLESS-STOCK and ONE-BAG moved, re-resolved by `tools/citeShift.mjs` (struck ones kept, but the
+one CD4 gates).

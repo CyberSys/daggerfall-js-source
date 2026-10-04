@@ -23,7 +23,8 @@ crafting materials in the inventory itself." And: "This is something I really wa
 - **Bought** at every General Store, online, after the horse and the cart (`systems/shopStock.js`) - on every shelf,
   whoever stocks it, as the horse and the cart are (BAG-SHELF, section 13: the first shelf alone, left off for a
   character who carried one, hid it - a shelf's stock is the room's for the day); and it never sells out - a bag bought
-  is back on its shelf (ENDLESS-STOCK, section 13). Its base price is **250**; DFU's shop price is 2 x (cost x (quality - 10) / 100 + cost), so **500 gold**
+  is back on its shelf (ENDLESS-STOCK, section 13) - one to a character: a second is refused wherever it is taken
+  (ONE-BAG, section 13). Its base price is **250**; DFU's shop price is 2 x (cost x (quality - 10) / 100 + cost), so **500 gold**
   at a middling shop and 456 to 550 by the shop's quality (1 to 20), before the region and the haggle - "like 500g".
 - **It holds 300 kg** - two fifths of a wagon's 750 (`BAG_KG_LIMIT`): "quite a lot", never unlimited. A day's Logging
   (60 trees of 2-4 logs at 2 kg) is about 360 kg; the bag holds most of a day in one craft.
@@ -274,3 +275,8 @@ out, same with campfires"). A shelf is a container, and a purchase took the bag 
 building, online. A Materials Bag or a Campfire bought is put back on its shelf now, a fresh one for each
 (`systems/shopStock.js` restockEndless, called by the two purchases in `scenes/worldModes.js` - commitTrade's Buy arm
 and the keyed list's doBuy - and nothing else: one stolen from a closed shop's shelf stays gone). Pinned by `test/fb1004_endless.test.js`; `tools/mutants/fb1004_endless.json`.
+
+**ONE-BAG** (the same day, Mac: "Right, you shouldnt be able to hold multiple gathering bags"). A second Materials Bag is
+refused wherever one is taken - the take ladder (`systems/itemTransfer.js` planTake: a pickup, quick loot, a container,
+the wagon, both trade windows' Buy basket) and the keyed shelf (`scenes/worldModes.js` doBuy) - while another is held
+in the pack, a trade's basket or the wagon: "You already have a Materials Bag." Pinned by `test/fb1004_onebag.test.js`.

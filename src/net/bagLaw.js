@@ -69,6 +69,9 @@ export const BAG_ROW = Object.freeze({
 export const isBagItem = (item) => item?.templateIndex === BAG_TEMPLATE && item?.group === 'UselessItems2';
 /** Whether a list (the pack) holds one - DFU's HasCart, for the bag: owning one is holding one. */
 export const hasBag = (items) => Array.isArray(items) && items.some(isBagItem);
+/** ONE-BAG (2026-10-04, Mac: "you shouldnt be able to hold multiple gathering bags"): whether any of `lists` - the pack, a
+ *  trade's basket, the wagon - holds a Materials Bag other than `item` (the one being taken, which may sit in one of them). */
+export const holdsOtherBag = (lists, item = null) => (lists ?? []).some((l) => Array.isArray(l) && l.some((x) => x !== item && isBagItem(x)));
 
 /** The bag as a capacity the transfer ladder reads (systems/inventorySession.js storeCapacityOf's shape - the
  *  companion's pack's): its kg and its words ("Your Materials Bag cannot carry any more."). */
@@ -180,8 +183,10 @@ export const BAG_WORDS = Object.freeze({
   // what the bag has no room for too
   where: 'Gathered goods go into your Materials Bag, then your pack. Every General Store sells the bag.',
   /** the bag's own refusals (systems/materialsBag.js bagStoreRefusal, inventorySession.js planBagToggle) - AUDIT BAG1:
-   *  `full` and `second` were never said (the capacity ladder says a full bag; the shop shelves none to a second) */
+   *  `full` was never said (the capacity ladder says a full bag) */
   onlyMaterials: 'Only crafting materials go in the Materials Bag.',
+  /** ONE-BAG: a second bag taken, bought or picked up (systems/itemTransfer.js planTake, scenes/worldModes.js doBuy) */
+  second: 'You already have a Materials Bag.',
   none: 'You have no Materials Bag. Every General Store sells one.',
   notEmpty: 'Empty your Materials Bag first.',
   /** AUDIT BAG1 H1: a reward tray is up - a piece taken from the bag beside it was taken as the reward */
