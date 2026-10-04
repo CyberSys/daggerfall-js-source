@@ -2398,7 +2398,6 @@ ${badgeCss()}
 :root[data-plus-theme="stone"] .px-timerswin .tm-count { color: #ffe3a6; }
 :root[data-plus-theme="stone"] .px-timerswin .tm-row.live .tm-count { color: #c8ffd6; }
 @media (max-width: 560px) {
-  .px-timersword { display: none; }
   .px-win.px-timerswin .px-body { padding: 16px 14px 18px; }
   .px-timerswin .tm-count { font-size: 16px; }
 }
@@ -2456,7 +2455,6 @@ html.plus-pad-prompts-visible .px-over > .px-stage:not(.px-acctstage):not(.px-ti
 @media (max-height: 560px) {
   .px-stage.px-timersstage { padding: 10px 12px; }
   .px-win.px-timerswin { max-height: calc(100dvh - 20px); }
-  .px-timersword { display: none; }
   .px-over .px-stage:not(.px-acctstage):not(.px-timersstage) { padding-top: max(7dvh, 64px); }
 }
 

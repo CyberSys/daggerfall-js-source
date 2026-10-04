@@ -9472,7 +9472,10 @@ red deploy reads as a service that is not there.
   reads the lit verb for ITS door alone (`plaqueActionFor(key)`), against the door as it stands at the press.
 - **The deploy's smoke asks again** (`.github/workflows/account-deploy.yml`, `post`): a call that answers 404 is
   asked again, seven times five seconds apart, before the deploy is failed - an old instance wrote nothing for a
-  path it does not know. Every new route's call goes through it.
+  path it does not know. Every new route's call goes through it. DEPLOY-FLAKE (2026-10-04, the owner: "A test
+  failed on deploy"): a 5xx is asked again too. PR #592's run took its migration and its Worker, then read
+  `renown/xp -> 500` once, seconds after the gate-key probe had read 500 and then 400. A 5xx comes from a batch that
+  failed whole and wrote nothing; one that still fails after half a minute is a broken route.
 
 Pinned: `test/home2.test.js` (4) - the law, the plaque's fold executed, the door by source, the deploy; re-aimed by
 content in `test/home1.test.js` (House5, the Info-only offer) and `test/worldhover.test.js` (the door cache).

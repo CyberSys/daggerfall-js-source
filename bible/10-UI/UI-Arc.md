@@ -18768,7 +18768,9 @@ name).
 ## TIMERS1 - THE HOURGLASS: EVERY SHARED MOMENT, COUNTED DOWN (2026-10-02, Mac: "we need to create a new unique UI element for reset times like the Sunday wars, oblivion gates, town raids, and anything else so the player can keep track of when things are and watch countdowns. Im thinking maybe an enhanced plus button on the pause menu next to the profile icon")
 
 **Where.** An hourglass beside the profile mark on the pause face (`ui/enhancedTimers.js` `timersMark`; `placeBeside`
-measures the mark, whose width is its caption's). Online only: the hosts hand `hooks.timers`, which answers null
+measures the mark, whose width is its caption's). The glass stands alone, with no word beside it (HOURGLASS-ALONE,
+2026-10-04, the owner: *remove the text "timer" from next of the hourglass*); its name is its label's and its
+title's. Online only: the hosts hand `hooks.timers`, which answers null
 offline, and no source means no hourglass. A press opens the timers window in the pause window's own frame
 (`.px-win.px-timerswin`) on its own scrim: a tap outside or Escape closes the window alone and leaves the pause face
 standing (the one back stack, ahead of the resume; the OT1 pin counts four scrims now). The street's pause bag, the

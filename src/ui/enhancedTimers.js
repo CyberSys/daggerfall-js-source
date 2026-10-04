@@ -29,10 +29,7 @@ export function timersMark(doc, { onOpen, open = false }) {
   const glass = doc.createElement('span');
   glass.className = 'px-hourglass';
   glass.setAttribute('aria-hidden', 'true');
-  const word = doc.createElement('span');
-  word.className = 'px-timersword';
-  word.textContent = 'Timers';
-  b.append(glass, word);
+  b.append(glass);   // HOURGLASS-ALONE (2026-10-04, the owner: "remove the text \"timer\" from next of the hourglass"): the glass alone - its name is the label's and the title's
   b.addEventListener('click', () => onOpen());
   return b;
 }
