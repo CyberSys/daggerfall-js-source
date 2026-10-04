@@ -123,6 +123,11 @@ test('IT1 the sheet, a captain\'s map: ship and camping forced, the captain\'s f
     const dx = dock % 1000, dy = (dock - dx) / 1000;
     assert.equal(win._discovered(summaryOf(dx, dy, LOCATION_TYPES.TownVillage)), true);
     assert.equal(win._discovered(summaryOf(1, 1, LOCATION_TYPES.TownVillage)), DOCK_PIXEL_IDS.some((p) => [1001, 1, 1002, 2001, 1000].includes(p)));
+    // the mod's maps are DFU's window under the mod, never Travel Options': its ports filter hides nothing on them
+    const cart = mkWin({ immersive: { kind: IT_POPUP.carriage, settings: settings() } });
+    cart.portsFilter = true;
+    assert.equal(cart._discovered(summaryOf(9, 5, LOCATION_TYPES.TownCity)), true, 'a driver\'s map under the ports filter');
+    cart.dispose();
     assert.equal(win._coordsAllowedHere(), false);
     win._selected = { summary: summaryOf(dx, dy, LOCATION_TYPES.TownVillage), name: 'Port', x: dx + 0.5, y: dy + 0.5 };
     win._openPanel('travel');

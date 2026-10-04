@@ -1979,9 +1979,9 @@ export class HeldMapWindow {
    *  and the journal's click-through all ask this, as the classic
    *  window's override is asked by all three. */
   _discovered(summary) {
+    // IT1: a driver's or a captain's map is the mod's over DFU's window, never Travel Options' (no ports filter); a captain's shows only the places by a dock with ShowOnlyDocks on (SeafarersMap.checkLocationDiscovered)
+    if (this._it) return this._it.kind === IT_POPUP.seafarer ? seafarerDiscovered(summary, checkLocationDiscovered(summary), this._it.settings) : checkLocationDiscovered(summary);
     if (!portsFilterAllows(this.portsFilter, summary?.mapID ?? summary?.mapId)) return false;
-    // IT1: a captain's map shows only the places by a dock with ShowOnlyDocks on (SeafarersMap.checkLocationDiscovered)
-    if (this._it?.kind === IT_POPUP.seafarer) return seafarerDiscovered(summary, checkLocationDiscovered(summary), this._it.settings);
     return checkLocationDiscovered(summary);
   }
 

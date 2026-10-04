@@ -95,7 +95,8 @@ ships them and named where they stand.
   Basic Roads loaded, no water, no politic containment (Travel Options has none),
   no middle-click mark, a city or hamlet's dot large and the rest small under
   ClearerMapDots. It is also the player's own map while Travel Options is off
-  (Init IL_03bf-03d2).
+  (Init IL_03bf-03d2). A driver's or a captain's map is DFU's window under the
+  mod, never Travel Options', so the sheet's ports filter hides nothing on it.
 
 ### The ship captain
 
@@ -208,5 +209,5 @@ clock (LIVED1).
 
 `test/it1_immersivetravel.test.js` (13), `test/it1_worlddata.test.js` (5, one
 with `ARENA2_PATH`), `test/it1_heldmap.test.js` (4), `test/it1_classicmap.test.js`
-(2); `tools/mutants/it1.json` (35, all dead). Not seen in a browser: no ARENA2,
+(2); `tools/mutants/it1.json` (36, all dead). Not seen in a browser: no ARENA2,
 no GPU in this container.

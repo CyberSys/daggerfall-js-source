@@ -13624,6 +13624,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       // the enum's own name is spaced out ("GeneralStore" -> "General
       // Store"). Recorded in bible/06-Systems/Travel-Options.md.
       buildingTypeName: (t) => (Object.keys(TALK_BUILDING_TYPES).find((k) => TALK_BUILDING_TYPES[k] === t) ?? String(t)).replace(/([a-z])([A-Z])/g, '$1 $2'),
+      // IT1: the mod's reads - its DisableNormalTravel over the player's own map, and PlayerGPS for its laws
+      immersiveSettings: immersiveSettingsIfOn,
+      itHere,
       // MAP3: THE MORROWIND HELD POSE. When the Morrowind arm is the
       // thing drawn on screen, the held map hands its sheet to the rig
       // (combat/fpArm.js holdPaper) and lays its ink over the sheet's
@@ -13633,9 +13636,6 @@ export async function bootWorld(canvas, renderer, params, status) {
       // combat/weaponRig.js's, the one every door on every host hands
       // over - it was written here alone, and the M-key sheets had none.
       holder: sheetHolderOf(() => weaponRig),
-      // IT1: the mod's reads - its DisableNormalTravel over the player's own map, and PlayerGPS for its laws
-      immersiveSettings: immersiveSettingsIfOn,
-      itHere,
       ...extra,
       // TV1: the sheet's Overworld door - shown where the view can rise (the open air, the enhanced lane), and taken
       // once the sheet is down (the commit's own moment, AUDIT MAP-FIELD's one home)

@@ -1818,7 +1818,7 @@ test('TV1: the sheet\'s Overworld door - shown only where the host can lift the 
   // the world host hands both reads, and the commit is the one home every hook fires from
   const w = read('src/scenes/world.js');
   assert.match(w, /onTravelView: \(\) => \{ travelView\?\.enter\(\); \},/);
-  assert.match(w, /travelViewAllowed: \(\) => !!travelView && travelViewAllowed\(\)\.ok,/);
+  assert.match(w, /travelViewAllowed: \(\) => !extra\.immersive && !!travelView && travelViewAllowed\(\)\.ok,/);   // IT1 (PIN MOVED): a driver's map has no Overworld door
   assert.match(read('src/ui/heldMap.js'), /else if \(c\?\.kind === 'travelView'\) this\.deps\.onTravelView\?\.\(\);/);
 });
 

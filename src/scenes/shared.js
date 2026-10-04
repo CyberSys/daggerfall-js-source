@@ -1293,9 +1293,9 @@ export function ensureAudio(fetch = fetchBytes) {
   installDetailedShipsArt();   // DS1: archives 1210/1230 on the texture door (their pictures built from your own records at the archive's load) and the six xml scales
   installForaging();   // FORAGE1: the ForagingQuests list (before any quest bridge is built), the six tools' and five foods' UseItem, the seven pictures, Foraging_Tools
   installWarmAshesShips();   // WA1: the WA_Ships quest list (before any quest bridge is built - LoadQuestLists reads it) and the mod's save record
+  installImmersiveTravel();   // IT1: Carriage Drivers (8642) and Sailors (8643), and their Fast Travel - before the faction dictionary is built at the load
   installDiverseWeaponsIcons();   // DW3: before the archives load, so 233/234's preload carries the mod's icons
   installRoleplayRealismItems();
-  installImmersiveTravel();   // IT1: Carriage Drivers (8642) and Sailors (8643), and their Fast Travel - before the faction dictionary is built at the load
   installRoleplayRealism();   // RR1: the formula overrides, the guild classes, the hooks - once, in InitMod's order   // RRI1: the fourteen rows and the twenty patches before anything mints, the 280 sprites on the door
   const textures = storedTextureNames()
     .then((names) => {

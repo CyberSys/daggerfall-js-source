@@ -358,5 +358,14 @@
       "test/it1_classicmap.test.js"
     ],
     "note": "An OK box answers Return and O alone."
+  },
+  {
+    "name": "IT1-36-ports-filter-over-the-mods-map",
+    "file": "src/ui/heldMap.js",
+    "old": "    if (this._it) return this._it.kind === IT_POPUP.seafarer ?",
+    "new": "    if (this._it && !this.portsFilter) return this._it.kind === IT_POPUP.seafarer ?",
+    "tests": [
+      "test/it1_heldmap.test.js"
+    ]
   }
 ]
