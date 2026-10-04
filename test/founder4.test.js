@@ -22,6 +22,9 @@ const FILE = '0078_founder_links.sql';
 const MIGRATIONS = readdirSync(new URL('../server-account/migrations', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
 const sql = (f) => readFileSync(new URL(`../server-account/migrations/${f}`, import.meta.url), 'utf8');
 const BEFORE = MIGRATIONS.slice(0, MIGRATIONS.indexOf(FILE));
+/** SERPENT1 (PIN MOVED at its merge): the migrations after 0078 - the service end to end serves a database that has them
+ *  (its routes read their tables), all but the one under test. */
+const AFTER = MIGRATIONS.slice(MIGRATIONS.indexOf(FILE) + 1);
 
 // ── THE LAW ─────────────────────────────────────────────────────────
 
@@ -147,7 +150,7 @@ test('FOUNDER4 the migration\'s shape: the column added once, the holdings gathe
 function d1Before() {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON');
-  for (const f of BEFORE) db.exec(sql(f));
+  for (const f of [...BEFORE, ...AFTER]) db.exec(sql(f));
   return {
     _raw: db,
     prepare(q) {

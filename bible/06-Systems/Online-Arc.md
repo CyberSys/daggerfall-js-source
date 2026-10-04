@@ -4928,7 +4928,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:9427` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:9442` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:495`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7158,7 +7158,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1143`, `src/net/online.js:2477`):**
+**Now (`src/net/wire.js:1143`, `src/net/online.js:2514`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -14599,3 +14599,29 @@ upload inside a frame with the flip guarded, the uniform, a failed load and a No
 and the GLSL call pin, and SUNBABY1's derivative, outColor and dispose pins moved (marked). tools/mutants/sunbaby3.json
 (10, all dead); sunbaby1.json and sunbaby2.json re-run, 44 all dead. The photograph was rendered in the pass in headless
 Chromium and eyeballed (whole, and half-morphed from the baby).
+
+## SERPENT1 (2026-10-04, Mac: "A new world event that requires players with a ship to meet up and take on a large scale sea serpent in the ocean"; "You make the decisions and online only") - the sea serpent
+
+The design and the record are `11-Multiplayer/Sea-Serpent.md`. What it asks of the online arc:
+
+- **A fight kept by a CELL room.** It has no room of its own: the cell its site stands in keeps it, and a ship near
+  it always holds that cell, as its own room or as a halo (`RANGE_PIXELS`). `net/online.js` `sendSerpent(word, cell)`
+  says a word down the socket of the cell named; `serpentReady(cell)` asks whether that socket's relay holds a serpent
+  (`serpentOk`, from its welcome, carried through a halo's promotion). The cell's alarm is shared: the serpent's beat
+  every 250 ms, the cell's own duties every 5 s and at their own firings.
+- **The `serpent` frame** (relay world165 - world162 on its branch, renumbered past PRIMARCH and SUNBABY1, then past PARTY-LEAD's world164, at the merges; `net/wire.js` `validSerpentIn`, `validSerpentOut`, `serpentGate`,
+  `SERPENT_RELAY_MIN`). In: `in`, `hit`, `held`, `esc`. Out: the fight's sixteen words. The hub's only word is the
+  kill, said to everyone online and to a hello while its day holds.
+- **The receipt** is `l1`, under the relay's one key, and the account service (acct78) counts it once a (day,
+  account).
+- **When:** the relay first, then the service (migration 0081 first), then the client. A client on an older relay sees
+  the omen and no fight. Merging deploys world165 and acct78, which drops connected players once.
+- Pins: `test/serpent1_law.test.js`, `test/serpent1_relay.test.js`, `test/serpent1_client.test.js`. Mutants:
+  `tools/mutants/serpent1.json` (43, all dead). Re-aimed by content: `auditrealm2_client.json` (2), `eventtip.json`,
+  `gatekeys.json`, `gateux.json`, `raid4.json`, `seapeace.json`, `survtiers3.json` (2) and `wb12d.json`.
+- **AUDIT SERPENT 2** (`01-Overview/Audit-Sea-Serpent.md`): every word a fight fans names its site (`sx`/`sz` on every
+  `serpent` frame of a fight; `validSerpentOut` projects it) and the client folds its own site's alone - a forged
+  site's fight heard on a halo socket in the next cell never reads as the client's serpent; a socket about two fights
+  hears both. A refusal no longer mutes the client; the cell's other changes are the brain's and the room's (one
+  timeline rule, the far newcomer, the slain kept, a still fight unwritten). Pins: `test/serpent1_audit2.test.js`;
+  mutants: `tools/mutants/serpent1_audit2.json` (14, all dead).

@@ -2,8 +2,8 @@
   {
     "name": "AUDIT-REALM2-C1-thanks-unheld",
     "file": "src/scenes/world.js",
-    "old": ", ...(raidSpoils?.heldIds?.(who) ?? [])]; } catch { return null; } };",
-    "new": "]; } catch { return null; } };",
+    "old": ", ...(raidSpoils?.heldIds?.(who) ?? []), ...(serpentSpoils",
+    "new": ", ...(serpentSpoils",
     "tests": [
       "test/auditrealm2_client.test.js"
     ]
@@ -11,8 +11,8 @@
   {
     "name": "AUDIT-REALM2-C1-thanks-never-cleared",
     "file": "src/scenes/world.js",
-    "old": " try { raidSpoils?.saved(who, ids); } catch (e) { console.warn('[raid] spoils', e?.message ?? e); } };",
-    "new": " };",
+    "old": " try { raidSpoils?.saved(who, ids); } catch (e) { console.warn('[raid] spoils', e?.message ?? e); } try { serpentSpoils",
+    "new": " try { serpentSpoils",
     "tests": [
       "test/auditrealm2_client.test.js"
     ]
