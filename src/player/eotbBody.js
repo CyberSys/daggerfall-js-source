@@ -232,6 +232,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
   let stateCurrent = 'Idle';
   let stateLast = null;
   let lastOrientation = 0;
+  let forceOrient = false;      // HORSE-FACE: a placing's repaint, owed to the next UpdateOrientation - never an orientation of its own
   let lastMoveDirection = null;
   let currentAngle = 0;
   let orientationTimer = 0;
@@ -525,11 +526,16 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
     return startClip(table, forwardFrames(frameCount(table)), DEATH_TICK, { freeze: true });
   }
 
-  /** ARENA-FIX 14: the facing a placing writes (the object's `faceYaw`, below). */
+  /** ARENA-FIX 14: the facing a placing writes (the object's `faceYaw`, below).
+   *  HORSE-FACE (FIELD BUGS 2026-10-04e, "When on the horse in the overworld, the sprite doesnt face the direction of
+   *  travel"): it asks the next UpdateOrientation for a repaint (`forceOrient`). It wrote -1 into `lastOrientation`
+   *  for that, and every repaint the walk loop queued in the meantime painted -1 - which stateFor wraps to 7, one
+   *  fixed front-three-quarter view whatever the heading. A gallop under the Overworld's time scale passes
+   *  PLACE_JUMP_M in a frame, so it was placed every frame and the walk loop's sixteen repaints a second won. */
   function faceYaw(yaw) {
     if (!Number.isFinite(yaw)) return;
     lastMoveDirection = [Math.sin(yaw), 0, Math.cos(yaw)];
-    lastOrientation = -1;
+    forceOrient = true;
   }
 
   // ── UpdateOrientation ─────────────────────────────────────────────
@@ -557,7 +563,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
     lastMoveDirection = facing;
     currentAngle = signedAngleY(toCamera, facing);
     const o = orientationFor(facing, toCamera);
-    if (o !== lastOrientation || force || !shown) updateBillboardDelayed(frameCurrent, o, stateCurrent);
+    if (o !== lastOrientation || force || forceOrient || !shown) { forceOrient = false; updateBillboardDelayed(frameCurrent, o, stateCurrent); }
     // [IL] TorchOffset (IL_47df-IL_48bd), third person only: Selfie (2)
     // parks PlayerTorch half way from the head to the camera; Billboard
     // (1) puts it 0.45 up the sprite and half a metre along the facing.
@@ -830,6 +836,11 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
     /** HT-WAIST: another body has the frame (mwView's Morrowind lane) - the sprite's lantern, its batch and the
      *  light point it wrote, stand down, so the Morrowind body's hip is lit from its own hook. */
     standDown() { dropLantern(); },
+    /** HORSE-FACE: the floating origin moved the world under the feet - they move with it, so the shift is no placing. */
+    rebase(delta) {
+      if (!delta || !cam.feet) return;
+      cam.feet = [cam.feet[0] + delta[0], cam.feet[1] + delta[1], cam.feet[2] + delta[2]];
+    },
 
     /**
      * EOTB4's gate. The lane may open when the mod is on, the build
@@ -865,8 +876,10 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
       if (Number.isFinite(state.yaw)) { cam.yaw = state.yaw; cam.forward = [Math.sin(state.yaw), 0, Math.cos(state.yaw)]; }
       if (state.cameraForward) cam.forward = state.cameraForward;
       // ARENA-FIX 14: a PLACING (feet carried further in one frame than any walk, fall or ride goes - a door, a warp, a
-      // fighter stood on its mark in the arena's instance) faces the body the way the view was placed facing
-      if (state.feet && was && Math.hypot(state.feet[0] - was[0], state.feet[2] - was[2]) > PLACE_JUMP_M) faceYaw(Math.atan2(cam.forward[0], cam.forward[2]));
+      // fighter stood on its mark in the arena's instance) faces the body the way the view was placed facing.
+      // HORSE-FACE: never while the body is moving under its own input - the Overworld's time scale carries a walk or a
+      // ride further than that in a frame, and the facing is the move's (UpdateOrientation's moveDir)
+      if (state.feet && was && !(last.forward || last.strafe) && Math.hypot(state.feet[0] - was[0], state.feet[2] - was[2]) > PLACE_JUMP_M) faceYaw(Math.atan2(cam.forward[0], cam.forward[2]));
       // the first-person billboard stands ON the camera point (IL_3e48-IL_3e6d):
       // the parent's head, so the orientation reads 0 through the zero vector
       if (FP) cam.pos = [cam.feet[0], cam.feet[1] + FP_HEAD, cam.feet[2]];

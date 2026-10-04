@@ -90,7 +90,7 @@ import { installSmithing } from '../systems/smithItems.js';   // PROF3: the Repa
 import { installCooking, dishStaminaFactor } from '../systems/cookItems.js';   // PROF9: a dish eaten, and the Tart's stamina
 import { installHealingSupply } from '../systems/healingSupply.js';   // POTION-COMMON: Potions of Healing in the loot
 import { installRaidingParties } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties' save slot
-import '../systems/gateSpoils.js';   // WB5: the Sigil Stone's own template (570) registers in every host, so a save carrying one loads it in any of the four
+import '../systems/gateSpoils.js'; import '../systems/portalStone.js';   // WB5: the Sigil Stone's own template (570) registers in every host, so a save carrying one loads it in any of the four; PORTAL1: and the Portal Stone's Use (572)
 import '../systems/sigilBroker.js';   // SET7: the Broker's record (what this character bought today) registers its save slot in every host, so a save made anywhere carries it
 import { installImmersiveTravel } from '../systems/immersiveTravel.js';   // IT1: Immersive Travel's Init - the drivers' and sailors' factions, their Fast Travel services
 import { installRoleplayRealism } from '../systems/rrInstall.js';   // RR1: Roleplay & Realism's InitMod - after Items', as DFU loads them (Items is the one it looks up)   // RRI1: the templates, the patches, the art - the same seam, the same reason   // DW3: its icons, on the replacement door - here and not at worldTick's module scope, where the mod's law sits in an import cycle (a TDZ)
@@ -275,6 +275,7 @@ export function createSkyController(gl, params) {
   // built the first time the event shows (a session that never sees one never compiles it); null after a failed build
   let sunbabyW = 0;
   let sunbabyOn = false;   // ...and whether it is staged now (the clear day below), apart from the weight that fades
+  let sunbabyEvil = 0, sunbabyTodd = 0;   // SUNBABY2: and the face it wears (setSunbabyFace) - the wrath's weight burns the fog and the water's sky
   let sunbabySky;
   const sunbabyPass = () => {
     if (sunbabySky === undefined) {
@@ -284,7 +285,7 @@ export function createSkyController(gl, params) {
   };
   /** EVENT1: a reflected sky ({zenith, horizon}) under the dread - the water mirrors the sky it is under, on either lane;
    *  SUNBABY1: and under the sun baby, its flower sky's blue. */
-  const dreaded = (ws) => sunbabyWaterSky(dreadW > 0 ? { zenith: dreadGrade(ws.zenith, dreadW), horizon: dreadGrade(ws.horizon, dreadW) } : ws, sunbabyW);
+  const dreaded = (ws) => sunbabyWaterSky(dreadW > 0 ? { zenith: dreadGrade(ws.zenith, dreadW), horizon: dreadGrade(ws.horizon, dreadW) } : ws, sunbabyW, sunbabyEvil);   // SUNBABY2: the wrath's sky
   setLightCurve(dynamic ? dynamic.lightCurve : null);
   if (dynamicSky) {
     // the presets' textures land as they decode; a slot shows the
@@ -393,7 +394,7 @@ export function createSkyController(gl, params) {
      *  as before. */
     fogColorFor(fogNow) {
       const own = dynamic?.fogColor ?? outdoorFogColor(fogNow, (enhancedSky ?? dynamicSky ?? sky).clearColor);
-      const c = sunbabyW > 0 ? sunbabyHaze(own, sunbabyW) : own;   // SUNBABY1: the land's haze is the flower sky's horizon
+      const c = sunbabyW > 0 ? sunbabyHaze(own, sunbabyW, sunbabyEvil) : own;   // SUNBABY1: the land's haze is the flower sky's horizon (SUNBABY2: the wrath's, burning)
       return dreadW > 0 ? dreadGrade(c, dreadW) : c;   // EVENT1: the land's haze is the sky's colour under the dread too
     },
     /** EVENT1: the live event's weight this frame, 0..1 (world/dreadSky.js createDread) - every pass that draws the sky
@@ -414,6 +415,14 @@ export function createSkyController(gl, params) {
       sunbabyOn = !!on;
       if (sunbabyW > 0) { const p = sunbabyPass(); if (p) p.weight = sunbabyW; }
       else if (sunbabySky) sunbabySky.weight = 0;
+    },
+    /** SUNBABY2: the face the sun baby wears this frame (world/sunbabySky.js sunbabyPhase) - `evil` the wrath's weight
+     *  and `todd` Todd's, 0..1, the baby the rest: its pass draws the face and the wrath's burning sky, and the fog and
+     *  the water's sky lean to that sky. 0 and 0 are the laughing baby. */
+    setSunbabyFace(evil = 0, todd = 0) {
+      sunbabyEvil = Math.max(0, Math.min(1, Number(evil) || 0));
+      sunbabyTodd = Math.max(0, Math.min(1, Number(todd) || 0));
+      if (sunbabySky) { sunbabySky.evil = sunbabyEvil; sunbabySky.todd = sunbabyTodd; }
     },
     /** DS1: AmbientEffectsPlayer.OnPlayEffect reaches the mod's
      *  LightningFlashListener here (a no-op under any other sky). */

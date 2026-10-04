@@ -4581,7 +4581,7 @@ homes bought (`deed = 0`); `/v1/homes/release` with `deed: true` removes only th
 is never sold as a home. `HOME_MOVE_CARRIED` carries `deed`. `ACCOUNT_VERSION` acct77 in both the Worker and
 `wrangler.toml`; twelve version pins moved. Deploy order: the service (0079, then acct77), then the client.
 
-## SHADOW-CLOAK — SirMcMobdon's own: the Holo Shadow Cloak (2026-10-04, world165, acct78)
+## SHADOW-CLOAK — SirMcMobdon's own: the Holo Shadow Cloak (2026-10-04, world166, acct79)
 
 Mac: "So for SirMcMobdon, I want to build a new unique AURA specifically for his account. A holo shadow cloak with red
 accents. Extremely detailed". SirMcMobdon already holds SHADOW-FANG's title and glyph (black #0d0709 to crimson
@@ -4593,8 +4593,9 @@ accents. Extremely detailed". SirMcMobdon already holds SHADOW-FANG's title and 
   case-folded, never a guest's. Held is not worn: SirMcMobdon wears it from the account card's Aura row (`player.aura`),
   as every aura is.
 - **The vocabulary** (`src/net/identityToken.js`, in the relay bundle): `shadowcloak` joins AURAS last. A relay before it
-  refuses a token carrying it (`claimsValid`), so the relay is **world165** and the account service **acct78**; the
-  account deploy waits on the relay's `/health` to serve world165 (SHADOW-FANG's AUDIT B1). No frame changes shape.
+  refuses a token carrying it (`claimsValid`), so the relay is **world166** and the account service **acct79** (world165 and acct78 on its branch, renumbered
+  past main's SERPENT1 at the merge); the account deploy waits on the relay's `/health` to serve world166 (SHADOW-FANG's
+  AUDIT B1). No frame changes shape.
 - **The face** (`src/ui/playerBadge.js`): "Holo Shadow Cloak" (`AURA_TEXT`), its button on the account card in the
   Shadow Fang's own paint (`AURA_PAINT.shadowcloak = 'shadowfang'`).
 - **The cloak** (`src/render/auraRing.js`, the aura pass WB9g built): the fourth look of the same program (`uAura` 3,
@@ -4691,7 +4692,7 @@ accents. Extremely detailed". SirMcMobdon already holds SHADOW-FANG's title and 
   SEEN: in a real game client on a real body (ARENA2's, the Morrowind rig's or Bloodmoon's wolf) - the probe's body is
   a stand-in.
 - Pins: `test/shadowcloak.test.js` (13) - the vocabulary, the grant, the real service end to end (wardrobe and signed
-  token), the token and relay at world165, the law's measures (the hood's height and place, the cape's, the opening,
+  token), the token and relay at world166, the law's measures (the hood's height and place, the cape's, the opening,
   nothing of the projection left), the emblem as the badge's own path (the edges closed, the shader's inside the
   path's inside), the vertex half (facing, back drape, squash, the hood round the head, folds, the emblems rising and
   their cards' handedness, the burst, the shreds' flights and their wrap), the cloth (the opening and the collar, one
@@ -4701,7 +4702,7 @@ accents. Extremely detailed". SirMcMobdon already holds SHADOW-FANG's title and 
   far side then the near, the shreds' cards only once torn, no cloth once torn through) and the hosts - all of the
   shader RUN in `test/glsl.mjs`. `tools/mutants/shadowcloak.json` (63, all dead). The vocabulary's newest-word and
   one-list pins in `aegis.test.js` and `primarch.test.js` moved (PIN MOVED), `shadowfang.test.js`'s wardrobe holds the
-  cloak; the relay's pins moved to world165 crediting SHADOW-CLOAK (`auditbounty1.test.js` holds the credit), the
-  account's to acct78. Re-aimed by content, all dead: `aegis.json` (3), `primarch.json` (4), and the version records in
+  cloak; the relay's pins moved to world166 crediting SHADOW-CLOAK (`auditbounty1.test.js` holds the credit), the
+  account's to acct79 (both past SERPENT1's world165 and acct78 at the merge of main). Re-aimed by content, all dead: `aegis.json` (3), `primarch.json` (4), and the version records in
   `soc1.json`, `gatekeys.json` and `fb1004d_knight_house.json`. The revision changed nothing on the wire: the relay and
-  the account are still world165 and acct78.
+  the account are world166 and acct79.

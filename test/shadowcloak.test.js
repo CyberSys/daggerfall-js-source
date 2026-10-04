@@ -149,8 +149,8 @@ test('SHADOW-CLOAK the account card: wearing the cloak, the card says its name -
   assert.equal(flow.note, 'Wearing Holo Shadow Cloak.');
 });
 
-test('SHADOW-CLOAK token and relay: a token may carry the cloak and verifies; the relay - world165, the one that knows the word - reads it out of the signature onto their row for everyone near (mutants: the vocabulary\'s aura)', async () => {
-  assert.equal(RELAY_VERSION, 'world165', 'SHADOW-CLOAK moved it on (world165): the vocabulary rides the relay\'s bundle');
+test('SHADOW-CLOAK token and relay: a token may carry the cloak and verifies; the relay - world166, the one that knows the word - reads it out of the signature onto their row for everyone near (mutants: the vocabulary\'s aura)', async () => {
+  assert.equal(RELAY_VERSION, 'world166', 'SHADOW-CLOAK moved it on (world166 - world165 on its branch, renumbered past SERPENT1 at the merge): the vocabulary rides the relay\'s bundle');
   const kp = await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
   const pub = await importPublicKeyB64(Buffer.from(new Uint8Array(await subtle.exportKey('raw', kp.publicKey))).toString('base64url'), { subtle });
   const nowS = 1_760_000_000;

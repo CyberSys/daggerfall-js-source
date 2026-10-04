@@ -17,6 +17,7 @@ import { createExteriorFoes, MAX_ACTIVE_ENCOUNTER_FOES } from '../src/scenes/ext
 import { validFoeRecord, CELL_PUPPETS_MAX, CELL_LOOSE_PUPPETS, PARTY_MAX } from '../src/net/wire.js';
 import { amGroupRollOwner, CAMP_SIZE, GROUP_ROLL_RADIUS } from '../src/systems/campEncounters.js';
 import { SOLITARY_TYPES } from '../src/characters/mobileFactions.js';
+import { trivialOnRoad, roadCompany, wandererCount } from '../src/systems/roadEncounters.js';   // WILD-ROAD (FIELD BUGS 2026-10-04e): the count's one home now
 import { registerFormulaOverride, calculateAttackDamage } from '../src/combat/formulas.js';
 import { ARTIFACTS, SPECIAL_ARTIFACT_HANDLERS, onPlayerStruckByEnemy, registerFoeDoor } from '../src/systems/artifactEffects.js';
 import { ENCHANTMENT_TYPES as T } from '../src/formats/magicDef.js';
@@ -260,6 +261,7 @@ function stands(over = {}) {
     partyNear: () => [], walkMode: true, playerSpawned: true, intermittentEnemySpawn: () => ({ mobileType: over.mobileType ?? 7 }), _lastEncMinutes: 0,
     playerEntity: { isResting: false, level: 1 }, _musicInLocationRect: () => false, maps: { getClimateIndex: () => 0 }, playerTravelPixel: () => ({ x: 0, y: 0 }),
     SOLITARY_TYPES, partyExtraFoes, partySize: () => 1, effectiveLevel: (e) => e?.level ?? 1,   // SOFTCAP2: mentor mode's level, a leaf read
+    getPref: () => undefined, onTheRoad: () => false, trivialOnRoad, roadCompany, wandererCount,   // WILD-ROAD: off the road - DFU's wanderer, the party's count
     _standEncounterFoe: (hit) => out.push(hit.mobileType), playerFeet: [0, 0, 0],
     revenantToReturn: () => null, now: 0,   // REVENANT: none due here (the tick's minute, above this slice)
     sharedClockOn: () => false, worldMinutes: () => 0,   // LIVED1: the spawn roll's sky (the world's clock online)

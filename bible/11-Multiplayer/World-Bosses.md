@@ -2819,3 +2819,11 @@ day."). Main's SEAT1b: a gate claim carries its region and is the war-guild's in
 region and earns no influence, the rite alone being no kill. Main's siege tick runs before the rite's tell in a room's
 alarm. The patch notes ride the pull request (REL6). Merging deploys world151 and acct62, which drops connected players
 once.
+
+## At sea - the sea serpent (SERPENT1, 2026-10-04)
+
+The gate's law at sea: `Sea-Serpent.md`. Sethrakul, the Old Coil, rises every other game day on the event clock, at
+the dawn watch so it never stands beside a gate. It hunts one of the Bay's packet lanes, and its fight is kept by the
+cell room its site stands in. Like the gate it follows Option B, with the claim sets what a fighter brings and deals,
+receipts under the relay's one key (`l1`), the hub's word of the kill, and the account service's one row per (day,
+account). It reuses the gate's boss bar (`ui/gateBossBar.js`, theme `sea`) and its map ring's reader and painter.

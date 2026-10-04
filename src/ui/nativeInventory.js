@@ -44,7 +44,7 @@
 // as the computed remote target, the 750kg gates, the dungeon exit
 // rule); Use mode, the 1016 info text and the IsLightSource equip
 // branch at U25 (AUDIT 23 trimmed that list). The LETTER OF CREDIT
-// went last and whole: minted at systems/inventory.js:69
+// went last and whole: minted at systems/inventory.js:70
 // (DaggerfallTradeWindow.cs:1044-1048), summed by creditAmount at
 // systems/court.js:249 (ItemCollection.GetCreditAmount, ItemCollection
 // .cs:108-118), spent letters-before-coins with the shortfall returned
@@ -790,6 +790,13 @@ export class NativeInventoryWindow {
     if (r.kind === 'pitchCamp' || r.kind === 'placeFire') {
       if (this.hooks.placeCamp) { this._closeSilently(); this.hooks.placeCamp(r.item, collection); }   // AUDIT SURV-TIERS: the list it came from - a wagon's tent left the wagon never, and packed back into the pack
       else this.boxes = [{ rows: [{ text: USE_PENDING[r.kind], center: true }] }];
+      return;
+    }
+    // PORTAL1: a Portal Stone opens the host's travel map - the pack closes first (the camp's law, the one overlay slot)
+    // and the host's door says where the portal stands, or why not. A host with no open world keeps the window and says so.
+    if (r.kind === 'openPortal') {
+      if (this.hooks.openPortal) { this._closeSilently(); this.hooks.openPortal(r.item, collection); }
+      else this.boxes = [{ rows: [{ text: USE_PENDING.openPortal, center: true }] }];
       return;
     }
     // MEND-AIM: a use that asks WHICH (a repair kit, with more than one piece to mend) pushes DFU's list picker over
