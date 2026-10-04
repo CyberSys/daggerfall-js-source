@@ -192,7 +192,7 @@ import { PLAYED_STEP_MAX_SECONDS } from '../systems/quest/clock.js';   // WORLD7
 import { mintQuestFoeWave, placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour, heldSpots, holdSpotWhile, questBoxHoldsFoes, questShareTag, sharedQuestFoe, partnerStandsQuestFoes, questBehaviourFor, adoptsOrphanQuestFoe, isPrivateQuestFoe, KeptKillLedger, creditKeptKills } from './questFoeHost.js';   // B1   // AUDIT 63r F24: SerializableEnemy.cs:206-217's quest-link arm, the one home both hosts use
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag
 import { markFoeReach } from '../systems/foeReach.js';   // WATER-FOES: a foe in the water reaches no one aboard
-import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, foeHostile } from '../systems/encounters.js';   // OW6: foeHostile, the one hostility gate   // CAMP-ROLL: REST5's quietNights moved with the carried night's sequence (scenes/shared.js restCampNight)
+import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, foeHostile, foeAlerted } from '../systems/encounters.js';   // OW6: foeHostile, the one hostility gate   // CAMP-ROLL: REST5's quietNights moved with the carried night's sequence (scenes/shared.js restCampNight)
 import { nightDue, setNightListener, nightStamp, nightKindOf, isNightStamp, carriedNightEnd, REST_ACT_TEXT, campStamp, campMarkOf } from '../systems/restAct.js';   // REST5: the party's night   // AUDIT REST-PARTY: and where it was slept   // AUDIT REST II: the mark asked lazily (P5), and what a carried night says (P3)
 import { createNightWatch, carriedNightAction, createCampWatch, campPasses } from '../systems/partyRestLaw.js';   // AUDIT REST-PARTY: the party's night, pinned by execution   // AUDIT REST II P1/P2: its watch   // CAMP-ROLL: the camp's one roll
 import { ambushNight } from '../systems/restAct.js';   // AUDIT REST-PARTY A1: a resting encounter stood breaks the night that rolled it
@@ -318,6 +318,8 @@ import { groundHit, canvasPoint, classifyPick } from '../player/travelPick.js'; 
 import { planRoute, routeLegs, roadShare, crossesWater, dryLine, SEA_KINDS } from '../systems/travelRoute.js';   // TV2: the way by the roads; OWS2: and over the water
 import { createSeaHelm, seaHelmStep, headingOf as seaHeadingOf, squareOnly as seaSquareOnly, SEA_HELM } from '../systems/seaHelm.js';   // OWS2: the journey's hand on the helm
 import { createLoadGovernor, unbuiltAround } from '../systems/travelGovernor.js';   // TV2: "Cap it to what loads cleanly"
+import { createWildAlert, noticeChance, WILD_MARK, WILD_MARK_S } from '../systems/wildAlert.js';   // WILD-ALERT: the wilderness notices a fast traveller on a stealth check
+import { drawWildMarks, WILD_MARK_RANGE } from '../ui/wildMarks.js';   // WILD-ALERT: the "!" over an alerted foe
 import { playerOnPathAt, pathsDataPoint } from '../systems/travelPaths.js';   // RATE-LAW: the traveller on a road's lane or off it
 import { threatCap, foePaced } from '../systems/travelThreat.js';   // OW6: the journey slows as enemies close; ENEMY-PACE's floor, fixed (RATE-LAW)
 import { farPlaces, settlementPixels, farDistanceText, PIXEL_KM } from '../systems/travelFarPlaces.js';   // TV5: the far places, held at the view's edge
@@ -7981,6 +7983,36 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     drawCrewLines(points, { covered, scale: enhancedHudScale(), dt: gamePaused() ? 0 : dt });
   }
+  /** WILD-ALERT (2026-10-04, Mac: "Enemies alerted are given an exclamation point"): THE "!" OVER EACH WILDERNESS FOE
+   *  ALERTED TO ME (systems/encounters.js foeAlerted) - it stands while a fast traveller's clock is held for it, else
+   *  WILD_MARK_S from the moment it noticed; never in a town (a town's foes keep the town's law), under a window or
+   *  under the Overworld (its marks carry their own "!"). Through the frame's own matrices, as the crew's lines are. */
+  const _wildMarkKeys = new WeakMap();
+  const _wildMarkAt = new WeakMap();
+  let _wildMarkKey = 0;
+  function wildMarksFrame(proj, view, eye) {
+    if (typeof document === 'undefined') return;
+    const covered = townTalk.overlayActive || gamePaused() || !!townTalk.hudHidden || _mode() !== 'exterior' || !!travelView?.active;
+    const points = [];
+    if (!covered) {
+      const w = canvas.clientWidth, h = canvas.clientHeight, rect = worldViewportRect(w, h), t = performance.now() / 1000;
+      for (const f of exteriorFoes.foes) {
+        if (f.dead || !f.ai?.feet || !foeAlerted(f)) { _wildMarkAt.delete(f); continue; }
+        if (!_wildMarkAt.has(f)) _wildMarkAt.set(f, t);
+        if (!_wildGate && t - _wildMarkAt.get(f) > WILD_MARK_S) continue;
+        if (_inAnyLocationRect(f.ai.feet)) continue;
+        const head = [f.ai.feet[0], f.ai.feet[1] + (f.ai.height ?? CAPSULE_HEIGHT) + 0.35, f.ai.feet[2]];
+        const d = Math.hypot(head[0] - eye[0], head[1] - eye[1], head[2] - eye[2]);
+        if (d > WILD_MARK_RANGE) continue;
+        const at = projectToScreen(head, w, h, proj, view, rect);
+        if (!at.front || at.x < -60 || at.x > w + 60 || at.y < -60 || at.y > h + 60) continue;
+        let key = _wildMarkKeys.get(f);
+        if (key == null) { key = `wild:${++_wildMarkKey}`; _wildMarkKeys.set(f, key); }
+        points.push({ key, x: at.x, y: at.y, distance: d });
+      }
+    }
+    drawWildMarks(points, { covered, scale: enhancedHudScale() });
+  }
   /** The helm's readout, under every window and with the HUD - `dt` the frame's (the card's hull bar's loss readout). */
   function navalHud(dt = 0) {
     if (!navalOn()) return;
@@ -9725,11 +9757,15 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!spot) return null;
     ambushNight();   // AUDIT REST-PARTY A1: a night running now (restAct.js runRestNight) breaks at its next sub-tick - spawnFoe stands the foe after its awaits
     const fly = (ENEMY_BASICS[hit.mobileType]?.behaviour ?? 'General') === 'Flying';
+    // WILD-ALERT: a fast traveller is met only if the wanderer NOTICES them - its first stealth check at the spot it was
+    // placed (systems/wildAlert.js; a wanderer's own sight its reach). Unnoticed, it stands unaware and the journey runs on
+    const fast = wildTravelling() && !_inAnyLocationRect([spot.x, spot.y, spot.z]);
+    const noticed = !fast || Math.random() * 100 < noticeChance(Math.hypot(spot.x - feet[0], spot.z - feet[2]), SIGHT_RADIUS, wildStealth());
     const stood = exteriorFoes.spawnFoe(hit.mobileType, [spot.x, fly ? spot.y + 1.5 : spot.y, spot.z], {
       yaw: Math.atan2(feet[0] - spot.x, feet[2] - spot.z),   // LookAt player
       ...(hit.revenant ? revenantSpawnOptions(hit.revenant, effectiveLevel(playerEntity)) : {}),   // REVENANT: a returning one - its record, its gender, a class foe's level
-    }).catch(() => null);
-    journeyMet();   // AUDIT OW5b E1: placed beside the traveller - a walking journey stops now, never once the foe has loaded and sensed
+    }).then((f) => { if (f && fast) { if (noticed) wildFoes.alert(f, performance.now() / 1000); else wildFoes.checked(f); } return f; }).catch(() => null);
+    if (noticed) journeyMet();   // AUDIT OW5b E1: placed beside the traveller - a walking journey stops now, never once the foe has loaded and sensed
     return stood;
   };
   /** AUDIT OW5b E1 (Mac, 2026-09-28: "Need to get pullout of fast travel little sooner for encounters. U run thru them"):
@@ -10178,6 +10214,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // pool importing the other.
     candidates: () => [...cityGuards.guards, ...exteriorFoes.foes].filter((f) => !f.dead && !f.puppet),   // AUDIT WORLD6b B8: a puppet is nobody's target here - it lands no blow and takes none of mine (a foe hunting a peer is 6b-ii's)
     playerEntity,
+    wildUnaware: (f) => wildGated(f),   // WILD-ALERT: a wilderness foe that has not noticed a fast traveller leaves them off its list
   });
   // U32: ONE construction for the world inventory and spellbook - F6
   // and Backspace open them, and so do the character sheet's buttons.
@@ -13364,7 +13401,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       health: playerEntity.health, maxHealth: playerEntity.maxHealth, fatigue: playerEntity.fatigue,
       luck: liveStat(playerEntity, 'luck'), stealth: skillValue(playerEntity, SKILLS.Stealth),
     }),
-    enemiesNearby: () => duelEnemyNear() || areEnemiesNearby([...cityGuards.guards, ...exteriorFoes.foes]) || navalHostileNear(),   // DUEL1: no journey out of a duel either; NAV-H: nor past a hostile ship (OWS2's sea legs stop for her)
+    enemiesNearby: () => duelEnemyNear() || areEnemiesNearby([...cityGuards.guards, ...wildSeen(exteriorFoes.foes)]) || navalHostileNear(),   // DUEL1: no journey out of a duel either; NAV-H: nor past a hostile ship (OWS2's sea legs stop for her); WILD-ALERT: nor for a foe that has not noticed me
     diseaseCount: () => diseaseCount(playerEntity),
     showHealthStatus: () => hudCtx.showStatus?.(),
     say: (line) => townTalk.say(line),
@@ -24226,6 +24263,34 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   // towns, made of Daggerfall's own themed groups; under the Overworld one that sees me CHASES, and one that reaches me
   // (or comes within the stand-off with the view down) stands as exactly those foes. The enhanced interface, outdoors.
   const bandNowMs = () => Date.now() + (online ? _sharedOffsetMs : 0);
+  // WILD-ALERT (2026-10-04, Mac: "Wilderness enemies now approach/non approach based on distance and a stealth check.
+  // Enemies alerted are given an exclamation point and slow down as they do now, non alerted enemies do not slowdown or
+  // bother the player"; systems/wildAlert.js): a band within its sight NOTICES me on a stealth check a classic minute
+  // apart, and only then gives chase; a wilderness foe a fast traveller passes is unaware the same way, and the pools
+  // leave me off its list until it notices (`wildGated`). Unaware, neither comes, holds the clock or stops the journey.
+  const wildBands = createWildAlert();
+  const wildFoes = createWildAlert({ weak: true });
+  let _wildGate = false;   // this frame: a fast traveller (a journey driving, or the Overworld's keys) out of doors
+  const wildStealth = () => skillValue(playerEntity, SKILLS.Stealth);
+  const wildTravelling = () => (!!travelControlUI?.isShowing && !!travelOptions?.state?.autopilot) || tvWalking > 0;
+  /** A foe the gate holds off me: mine (a puppet is its owner's), out in the wilderness (a town's foes keep the town's
+   *  law), and not yet alerted to the fast traveller. */
+  const wildGated = (f) => _wildGate && !f.puppet && !wildFoes.alerted(f) && !!f.ai?.feet && !_inAnyLocationRect(f.ai.feet);
+  /** The foes a fast traveller's stops and the view's danger count: none the gate holds. */
+  const wildSeen = (foes) => (_wildGate ? foes.filter((f) => !wildGated(f)) : foes);
+  /** The gate's frame, before the pools move: each of my hostile wilderness foes in reach checked (systems/wildAlert.js
+   *  step - its sight its reach, my Stealth, the frame on the traveller's clock); one already on me is alerted. */
+  function wildFoesFrame(dt) {
+    _wildGate = wildTravelling() && (modes?.mode ?? 'exterior') === 'exterior' && walkMode && playerSpawned;
+    if (!_wildGate) return;
+    const fx = player.feetAt(), stealth = wildStealth(), sdt = dt * worldTimeScale(), now = performance.now() / 1000;
+    for (const f of exteriorFoes.foes) {
+      if (f.dead || f.puppet || !f.ai?.feet || !foeHostile(f)) continue;
+      if (isLocalPlayerTarget(f.ai.target)) { wildFoes.alert(f, now); continue; }
+      if (_inAnyLocationRect(f.ai.feet)) continue;
+      wildFoes.step(f, { distM: Math.hypot(f.ai.feet[0] - fx[0], f.ai.feet[2] - fx[2]), reachM: f.ai.sightRadius ?? SIGHT_RADIUS, stealth, scaledDt: sdt, now });
+    }
+  }
   const bandNight = (ms) => { const m = ((online ? skyClassicMinutes(ms) : skyMinutes()) % 1440 + 1440) % 1440; return m < 360 || m > 1080; };   // TIME1: the sky's night at the instant given (the life's middle) - a pure function of the relay's ms, the same for every player
   /** The land a band may stand on: a map pixel with no water and no place in it (native units). */
   const bandOk = (x, z) => {
@@ -24246,6 +24311,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   /** AUDIT OW3 T7-9: a life turned over - what is kept of the bands two lives gone goes (a chase's own band stays). */
   function bandPrune(life) {
     for (const m of [_bandMake, _bandPos, _bandPeer]) for (const id of m.keys()) if (bandLifeOf(id) < life - 1 && !_bandChase.has(id)) m.delete(id);
+    wildBands.prune((id) => bandLifeOf(id) >= life - 1 || _bandChase.has(id));   // WILD-ALERT: a band's notice goes with its life
     for (const id of _bandSpent) if (bandLifeOf(id) < life - 1) _bandSpent.delete(id);
     for (let i = _bandSpentAt.length - 1; i >= 0; i--) if (bandLifeOf(_bandSpentAt[i]) < life - 1) _bandSpentAt.splice(i, 1);   // AUDIT OW4 B7: said no more
   }
@@ -24419,17 +24485,29 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         else c.retryAt = now + BAND_STAND_RETRY_MS;
       }
     }
-    // A WANDERER THAT SEES ME, under the view, chases
+    // A WANDERER THAT NOTICES ME, under the view, chases - WILD-ALERT: within its sight, on a stealth check a classic
+    // minute apart (systems/wildAlert.js); one that has not noticed me wanders on
+    const sdt = dt * worldTimeScale(), stealth = wildStealth();
     for (const b of listed) {
       if (_bandSpent.has(b.id) || _bandChase.has(b.id)) continue;
       if (!up || _bandChase.size >= 2 || bandPeerChase(b.id)) continue;   // TV7b: nor a band a peer's chase already holds
       const p = bandPlace(b, ms);
       const d = Math.hypot(p.x - feet.x, p.z - feet.z) / NATIVE_PER_M;
-      if (d > sight) continue;
+      if (!wildBands.step(b.id, { distM: d, reachM: sight, stealth, scaledDt: sdt, now: now / 1000 }).alerted) continue;
       const mk = bandMake(b);
       if (!mk) { _bandSpent.add(b.id); continue; }
       _bandChase.set(b.id, { band: b, pos: { x: p.x, z: p.z }, gainAt: _bandClock, best: d, dist: d, tries: 0, retryAt: 0 });
     }
+  }
+  /** WILD-ALERT: the camps (travelViewCamps' keys) a living member of which is alerted to me (systems/encounters.js
+   *  foeAlerted) - mine by their campId, a peer's by the tag its frames carry. */
+  function wildCampKeys() {
+    const out = new Set();
+    for (const f of exteriorFoes.foes) {
+      if (f.dead || !foeAlerted(f)) continue;
+      if (f.puppet) { if (f._pupCamp) out.add(`${f.puppet}:${f._pupCamp.id}`); } else if (f.campId != null) out.add(`me:${f.campId}`);
+    }
+    return out;
   }
   /** OW6: THE CAMPS STANDING ABOUT (world/campShared.js groupCamps) - my own camp members (their `campId`, their kind)
    *  and my peers' puppets tagged with their owner's camp, living ones alone, grouped one camp a group. */
@@ -24508,12 +24586,13 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       const mk = bandMake(b);
       if (!mk) continue;
       const chasing = _bandChase.has(b.id), p = bandPlace(b, bms);
-      marks.push({ key: `band:${b.id}`, at: tvSceneKept(b, p.x, p.z, 2), label: bandLabel(mk.name, mk.mobileTypes.length), kind: chasing ? 'band chase' : 'band', edge: chasing, pick: true });   // OW6: the band's OWN number, the same for every player (a party it meets brings more - PSCALE1 - where it stands)
+      marks.push({ key: `band:${b.id}`, at: tvSceneKept(b, p.x, p.z, 2), label: chasing ? `${WILD_MARK} ${bandLabel(mk.name, mk.mobileTypes.length)}` : bandLabel(mk.name, mk.mobileTypes.length), kind: chasing ? 'band chase' : 'band', edge: chasing, pick: true });   // OW6: the band's OWN number, the same for every player (a party it meets brings more - PSCALE1 - where it stands); WILD-ALERT: a chase is a band that noticed me - its mark
     }
     // OW6 (2026-09-29, the player: "If a camp is spawned, it should show in the overworld"): THE CAMPS - every group
     // standing about, a camp, a pack or a band stood: mine, and each peer's by the tags their frames carry
     // (world/campShared.js) - one mark where its living members stand, with its kind and its number; gone with its last
-    for (const c of travelViewCamps()) marks.push({ key: `camp:${c.key}`, at: [c.at[0], c.at[1] + 2, c.at[2]], label: c.label, kind: 'camp', pick: true }); for (const g of gatherHost?.overworldGroups(walkMode ? player.pos : cam.pos) ?? []) marks.push(g);   // OW-ATTACK: pressable; GATHER-OW: each profession's group of nodes near me, a glyph (scenes/gatherHost.js overworldGroups)
+    const wildCamps = wildCampKeys();   // WILD-ALERT: a camp a member of which has noticed me wears the mark
+    for (const c of travelViewCamps()) marks.push({ key: `camp:${c.key}`, at: [c.at[0], c.at[1] + 2, c.at[2]], label: wildCamps.has(c.key) ? `${WILD_MARK} ${c.label}` : c.label, kind: 'camp', pick: true }); for (const g of gatherHost?.overworldGroups(walkMode ? player.pos : cam.pos) ?? []) marks.push(g);   // OW-ATTACK: pressable; GATHER-OW: each profession's group of nodes near me, a glyph (scenes/gatherHost.js overworldGroups)
     // BOUNTY-OVERWORLD (the player: "can the bounties also be shown on the overworld map"): EVERY BOUNTY I HOLD - its
     // hunt's pixel (the held map's black circle, scenes/bountyHost.js mapMarks), its foes and its distance, held at the
     // edge off the picture as the journey's end is, so the way to it is always shown
@@ -24892,13 +24971,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const out = [], fx = player.feetAt();
     const rel = (nx, nz) => { const [x, z] = state.localFromWorld(nx, nz); return [x - fx[0], z - fx[2]]; };
     if (up && getPref('wildernessCamps') !== false && !playerEntity.preventEnemySpawns) {
-      const ms = bandNowMs(), sight = bandSight(tvBandSeen.night);
-      for (const b of travelViewBands()) {
-        if (_bandSpent.has(b.id) || _bandChase.has(b.id) || !bandMake(b)) continue;
-        if (_tvAttack?.kind === 'band' && _tvAttack.id === b.id) continue;   // OW-ATTACK: the band I go to fight holds nothing
-        const p = bandPlace(b, ms), [dx, dz] = rel(p.x, p.z);
-        out.push({ dx, dz, reach: sight });
-      }
+      // WILD-ALERT: a band that has not noticed me holds nothing - only a chase, which is a band that has
       for (const c of _bandChase.values()) { if (_tvAttack?.kind === 'band' && _tvAttack.id === c.band.id) continue; const [dx, dz] = rel(c.pos.x, c.pos.z); out.push({ dx, dz, reach: BAND_CONTACT_M, chasing: true, mps: BAND_CHASE_MPS }); }   // OW-ATTACK: nor its chase
     }
     if (up && warmAshesOn() && csaOn() && raidQuarry()) {
@@ -24912,7 +24985,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       for (const c of tvRaid.chase.values()) { const [dx, dz] = rel(c.pos.x, c.pos.z); out.push({ dx, dz, reach: RAIDER_CONTACT_M, chasing: true, mps: RAIDER_CHASE_MPS }); }
     }
     for (const f of exteriorFoes.foes) {
-      if (!foeHostile(f) || !f.ai.feet || f.ai.unreachable) continue;   // WATER-FOES: nor a foe in the water while I am aboard
+      if (!foeAlerted(f) || !f.ai.feet || f.ai.unreachable) continue;   // WATER-FOES: nor a foe in the water while I am aboard; WILD-ALERT: nor one that has not noticed me
       if (_tvAttack?.kind === 'camp' && foeCampKey(f) === _tvAttack.id) continue;   // OW-ATTACK: the camp I go to fight, every member
       out.push({ dx: f.ai.feet[0] - fx[0], dz: f.ai.feet[2] - fx[2], reach: f.ai.sightRadius ?? SIGHT_RADIUS });   // CAMP-SIGHT: a camp's sixty metres
     }
@@ -25046,7 +25119,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     onLower: (why) => { if ((why === 'button' || why === 'escape' || why === 'key') && travelOptions?.isTravelActive && tvOwnsJourneys()) travelOptions.messages.pauseTravel(); },
     windowUp: () => gamePaused() || (modes?.modalWindowUp?.() ?? false),
     overlayUp: () => overlayOpen() || travelViewConfirmOpen(),   // AUDIT DEEP2 A3: an enhanced overlay (the Tab dial) has the keys while it is up; OW-CONFIRM: and the view's own question
-    danger: () => duelEnemyNear() || areEnemiesNearby(exteriorFoePool()),   // the travel map's own refusal, and the Travel Options journey's stop (AUDIT DEEP2 A9/B-4: a live duel too, DUEL1's)
+    danger: () => duelEnemyNear() || areEnemiesNearby(wildSeen(exteriorFoePool())),   // the travel map's own refusal, and the Travel Options journey's stop (AUDIT DEEP2 A9/B-4: a live duel too, DUEL1's); WILD-ALERT: never a foe that has not noticed a fast traveller
     actionsOf: (e) => actionsOf(e, keys),
     movementHeld: () => TV_MOVE_ACTIONS.some((a) => held(keys, a)),
     movementAxes: () => ({ forward: (held(keys, 'MoveForwards') ? 1 : 0) - (held(keys, 'MoveBackwards') ? 1 : 0), strafe: (held(keys, 'MoveRight') ? 1 : 0) - (held(keys, 'MoveLeft') ? 1 : 0) }),   // OW-FACE: the way the keys point
@@ -27138,6 +27211,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     handOverWalkedAway(performance.now());   // OW6: a foe I walk away from goes to the player beside it, never culled from under them
     const _pf = walkMode && playerSpawned ? player.pos : cam.pos;
     if (!townTalk.overlayActive) runEncounterTick(_pf);
+    wildFoesFrame(foeDt);   // WILD-ALERT: who in the wilderness has noticed a fast traveller - before the pools move
     if ((modes?.mode ?? 'exterior') === 'exterior') {
       if (_deckBodies.size) navalCarry();   // DECK-WALK: the bodies on a ship's deck carried by her - after the ships moved, before the foes do
       exteriorFoes.update(foeDt, _pf, cam.pos, _foeSenses());   // WINFOE1: a window no longer zeroes the foes' clock (QUEST-POPUP-PAUSE: offline, a quest box does)
@@ -27722,6 +27796,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       navalTags(proj, view, mwv.eye);   // AUDIT NAV1 (#14): the ships' tags
       navalCrewBars(proj, view, mwv.eye);   // SHIPMATES: the crew's green bars
       navalCrewLines(proj, view, mwv.eye, dt);   // LIVING CREW: the lines over their heads
+      wildMarksFrame(proj, view, mwv.eye);   // WILD-ALERT: the "!" over an alerted foe
       // WORLD-HOVER: the plaque, where this host already draws its HUD.
       // It races EXACTLY what the press races - the same six live picks
       // against the same door/person/board set, settled by the same

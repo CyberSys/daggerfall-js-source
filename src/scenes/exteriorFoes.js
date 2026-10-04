@@ -984,10 +984,14 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         // (which refuses a rest with a seen foe in it) already assumes. A lone wanderer carries no campId and
         // is untouched - it is still the classic rest interruption.
         const campAsleep = f.campId != null && !!senses.playerEntity?.isResting && !isLocalPlayerTarget(ai.target);
+        // WILD-ALERT (2026-10-04, Mac: "Wilderness enemies now approach/non approach based on distance and a stealth
+        // check"): nor a wilderness foe that has not NOTICED a fast traveller (systems/wildAlert.js, the host's stealth
+        // check a classic minute apart) - the same switch, the same "not already on the player" clause
+        const wildUnaware = !!senses.wildUnaware?.(f) && !isLocalPlayerTarget(ai.target);
         // AUDIT BRANCH (WoD) M1: a PLACED foe hunts no peer - it never rides, so no peer holds its puppet, and a blow at
         // a peer lands only through the puppet the peer stands; its site is the peer's own, with its own foes
         const result = runTargetMachine(f, [...senses.candidates(), PLAYER_TARGET, ...(f.placed && !f.site ? [] : _questLike(f) ? questPeerCandidates(f) : peerCandidates()), ...coopCandidates(f)], pf, cdt, {   // QUEST-PARTY: a quest foe hunts only the party it rides to
-          noTargetMode: campAsleep,   // WORLD6b-ii: the peers are MY foes' candidates; AUDIT WORLD6b-ii A5: after ME (a peer never beats me on a tie), A9: a puppet never steps here
+          noTargetMode: campAsleep || wildUnaware,   // WORLD6b-ii: the peers are MY foes' candidates; AUDIT WORLD6b-ii A5: after ME (a peer never beats me on a tie), A9: a puppet never steps here
           playerEntity: senses.playerEntity ?? null,
           playerHeight: senses.playerHeight,   // AUDIT 62 F23: GetTargets measures the player at its LIVE capsule too
         });

@@ -140,16 +140,6 @@
     "note": "The panel says the land is loading while an enemy holds the journey."
   },
   {
-    "name": "OW6-S-spent-band-slows",
-    "file": "src/scenes/world.js",
-    "old": "        if (_bandSpent.has(b.id) || _bandChase.has(b.id) || !bandMake(b)) continue;",
-    "new": "        if (_bandChase.has(b.id) || !bandMake(b)) continue;",
-    "tests": [
-      "test/ow6_slowdown.test.js"
-    ],
-    "note": "A band already fought still slows the journey."
-  },
-  {
     "name": "OW6-S-chase-uncounted",
     "file": "src/scenes/world.js",
     "old": "if (_tvAttack?.kind === 'band' && _tvAttack.id === c.band.id) continue; const [dx, dz] = rel(c.pos.x, c.pos.z); out.push({ dx, dz, reach: BAND_CONTACT_M, chasing: true, mps: BAND_CHASE_MPS });",
@@ -172,7 +162,7 @@
   {
     "name": "OW6-S-friends-too",
     "file": "src/scenes/world.js",
-    "old": "      if (!foeHostile(f) || !f.ai.feet || f.ai.unreachable) continue;",
+    "old": "      if (!foeAlerted(f) || !f.ai.feet || f.ai.unreachable) continue;",
     "new": "      if (!f.ai?.feet || f.ai.unreachable) continue;",
     "tests": [
       "test/ow6_slowdown.test.js"

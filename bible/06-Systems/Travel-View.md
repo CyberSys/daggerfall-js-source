@@ -1828,3 +1828,50 @@ drops its group. The diamond stood at the nodes' mean, which in a scattered pixe
 stands on the node nearest that mean now. `scenes/travelView.js` copied every mark but its colour, so every diamond was
 brass in play - the colour is carried. And the decluttered travellers went last in the draw order, a crowd's dot over
 my party's - every mark keeps its order now, a crowd where its first member stood.
+
+## WILD-ALERT - the wilderness notices a fast traveller, or it does not (2026-10-04, Mac)
+
+Mac: *"Wilderness enemies now approach/non approach based on distance and a stealth check. Enemies alerted are given an
+exclamation point and slow down as they do now, non alerted enemies do not slowdown or bother the player."* Before it a
+band chased the moment the traveller crossed its sight (TV7: distance alone), every hostile foe standing about held the
+journey's clock for its sight whether it had seen anyone or not (OW6), and DFU's own sweep stopped a journey for any foe
+within the classic band (27 m) unaware or not. Now:
+
+- **The check** (`systems/wildAlert.js`, the port's own). An enemy within its reach of a fast traveller - a band's sight
+  (320 m by day, 190 by night), a foe's own (a camp's 60 m, a wanderer's 102.4) - is UNAWARE until it NOTICES them, on a
+  stealth check a classic game minute apart on the traveller's clock (`WILD_ROLL_S`, five scaled seconds: at x60 a
+  twelfth of a real second, so a fast traveller is checked as often per metre as a walker), the first the moment it
+  comes within reach. The check is DFU's own formula (FormulaHelper.CalculateStealthChance, `enemyMotor.js`
+  `stealthChance`) with the reach laid onto the formula's own 25.6 m (`noticeChance`): at the reach's edge the traveller
+  stays unseen with twice their Stealth in a hundred, at half the reach with their Stealth, close in almost never; past
+  it, no check. Out of reach and back is a fresh first check; an alerted enemy stays alerted (a band's chase and a foe's
+  own senses give up as they always did).
+- **A band** within its sight under the view is stepped by the check (`bandFrame`), and chases only once it has
+  noticed (the two-chaser cap and a peer's hold stand); unaware, it wanders on. Its notices go with its life
+  (`bandPrune`).
+- **A foe** - mine (a peer's puppet is its owner's), hostile, out in the wilderness (inside a town's rect the town's law
+  stands) - is checked each frame a fast traveller crosses the wilds (`wildFoesFrame`: a journey driving, or the
+  Overworld's movement keys, out of doors), and until it notices the pools leave the traveller off its list
+  (`wildGated` -> the senses' `wildUnaware` -> `exteriorFoes.js` `_armed`: the target machine's own noTargetMode,
+  CAMP-REST's switch, with the same "not already on the player" clause). One already on the traveller is alerted. A
+  wanderer DFU stands beside a fast traveller is met (AUDIT OW5b E1's stop at its placement) only if its first check at
+  the spot it was placed notices them; unnoticed it stands checked and unaware, and the journey runs on. Not fast
+  travelling, there is no gate: DFU's senses, as ever.
+- **Alerted holds the clock; unaware holds nothing.** `journeyThreats` asks a band's chase (a band that noticed) and an
+  ALERTED foe alone (`systems/encounters.js` `foeAlerted`: hostile, its target me - the motor's latch, a puppet's
+  stream - and seeing me or still hunting me blind on GiveUpTimer) - OW6's cap and ENEMY-PACE's floor as before ("slow
+  down as they do now"). The journey's own enemy stop and the view's `danger` count no gated foe (`wildSeen`).
+- **The "!"** (`WILD_MARK`). On the Overworld a chase's mark reads "! Orc, 4" and a camp a member of which is alerted
+  "! Orc camp, 4" (mine, or a peer's by its frames' tag - `wildCampKeys`). In play, over each alerted wilderness foe's
+  head (`ui/wildMarks.js`, both skins, the HUD lines' outlined gold in the pixel face): it pops in as the foe notices,
+  stands while a fast traveller's clock is held for it, and in plain play for `WILD_MARK_S` (3 s) from the notice; never
+  in a town, under a window or under the Overworld (whose marks carry it). The layer owns its own end: a standing mark
+  arms a watchdog each frame, and a frame that does not come (a host's loop gone) takes it down.
+
+Not changed: the sea's raiders and hostile ships (their lookout is the sea fight's own reach, NAV-H/OWS3), the rest's
+enemy check and the travel map's refusal (no journey runs - DFU's own sweep), the city watch. Pins
+`test/wildalert.test.js` (10: the law, the store, `foeAlerted`, the gate, the band's notice, the marks lifted and run, the
+layer); re-aimed `ow6_slowdown` (a wandering band holds nothing, a chase does; an unaware foe holds nothing), `tv7_bands`,
+`encounterplace` (the wanderer's placement check), `camproll`, `camp1_groups`, `waterfoes`, `ow6_camps`, `nav_h_host`,
+`tv1_travel_view`, `roadh_missiles`, `exteriorfoes`; `tools/mutants/wildalert.json` (32, all dead); seven older records
+re-aimed by content and dead, OW6-S-spent-band-slows retired with the wandering bands' arm it killed.
