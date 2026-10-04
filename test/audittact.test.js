@@ -464,7 +464,8 @@ test('AUDIT TACT D (coverage): the ground pass adds onto the frame, writes no de
 test('AUDIT TACT D (coverage): the watch resolves a telegraphed blow through the verdict AND the weight', () => {
   const g = rd('src/scenes/cityGuards.js');
   assert.match(g, /const dmg = blowScaled\(g\.ai, calculateAttackDamage\(g\.entity, playerEntity, \{/);
-  assert.match(g, /\}\)\);\n(?:\s*\/\/[^\n]*\n){4}\s*if \(dmg > 0\) \{ onPlayerHurt/, 'the weighed blow is what hurts him');
+  // PIN MOVED (TELL6e, bible/12-Enhanced-AI/Feud-Arc.md 8.2): what the landing does is asked of the same weighed blow
+  assert.match(g, /\}\)\);\n(?:\s*\/\/[^\n]*\n){4}\s*landBlowEffect\(g, dmg, playerFeet\);[^\n]*\n\s*if \(dmg > 0\) \{ onPlayerHurt/, 'the weighed blow is what hurts him');
 });
 
 test('AUDIT TACT (mutation survivor): a turned back is an opening - the waiting foe it is turned on goes in without a token; faced, it waits', () => {

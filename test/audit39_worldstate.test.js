@@ -51,7 +51,9 @@ test('AUDIT 39 #59: the two above-ground hosts gate the motor and the weapon on 
       `${name}: the footstep machine reads IsStandingStill`);
     assert.equal(/standingStill: !moving,/.test(s), false,
       `${name}: not a raw-move-key term (silent under autorun)`);
-    assert.ok(s.includes('weaponRig.frame(dt, { paralyzed })'), `${name}: no swing while frozen`);
+    // PIN MOVED (TELL6e: a knocked-down player swings nothing either - the rig's flag takes the knockdown beside the
+    // paralysis, systems/blowEffects.js knockedDown)
+    assert.ok(s.includes('weaponRig.frame(dt, { paralyzed: paralyzed || knockedDown() })'), `${name}: no swing while frozen`);
     assert.ok(s.includes('weaponRig.draw({ paralyzed })'), `${name}: ShowWeapons(false) - and no viewmodel`);
   }
   // the standalone dungeon host is the shape being matched
@@ -102,7 +104,7 @@ test('AUDIT 39r: the THIRD above-ground host - worldModes\' interior arm - reads
   // zeroes the axes the port's paralysis bag also zeroes.
   assert.ok(WORLD_MODES.includes('standingStill: player.standing,'), 'the footstep machine reads IsStandingStill');
   assert.equal(/standingStill: !(moving|anyMove\(mv\)),/.test(WORLD_MODES), false, 'not the raw keys');
-  assert.ok(WORLD_MODES.includes('interiorWeapon.frame(dt, { paralyzed })'), 'WeaponManager :235-239 - no swing while frozen');
+  assert.ok(WORLD_MODES.includes('interiorWeapon.frame(dt, { paralyzed: paralyzed || knockedDown() })'), 'WeaponManager :235-239 - no swing while frozen');   // PIN MOVED (TELL6e: and none knocked down)
   assert.ok(WORLD_MODES.includes('interiorWeapon.draw({ paralyzed })'), 'ShowWeapons(false) - and no viewmodel');
 });
 

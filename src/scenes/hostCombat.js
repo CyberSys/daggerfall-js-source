@@ -40,7 +40,9 @@ import { ATTRACT_RADIUS, ignoreHumanSounds } from '../characters/enemySounds.js'
 import { enemyDisplayName, ENEMY_BASICS } from '../characters/enemyBasics.js';   // AUDIT 24 (wave 42); TELL1: the bark a breaking blow wrings out
 import { windupHolds, windupStruck, tacticsNow, overreachOpen } from '../ai/tactics.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL2: the cues' clock; TELL4: the punish window
 import { blowK, blowWeight, behind, TELL } from '../ai/tells.js';
-import { BLOW } from '../ai/blowShapes.js';   // TELL6d: the aimed shot's speed   // TELL1: a blow's weight on the poise meter; TELL2: the cues' numbers
+import { BLOW } from '../ai/blowShapes.js';   // TELL6d: the aimed shot's speed
+import { blowEffectOf, queueBlowEffect, drainBlowEffects, tickBleed } from '../systems/blowEffects.js';   // TELL6e: what a landing does to the player
+import { BLOW_VERDICT_LIFE } from '../ai/foeBlows.js';   // TELL1: a blow's weight on the poise meter; TELL2: the cues' numbers
 import { comprehendLanguagesChance } from '../systems/effects.js';   // X11: the pacification bonus DFU reads inside its own formula
 
 // ---- DaggerfallUnityItem.GetWeaponSkillUsed / GetWeaponSkillIDAsShort ----
@@ -735,6 +737,27 @@ export function tellCues(f, audio, hearing = 1, now = tacticsNow()) {
     if (!ignoreHumanSounds(f.mobileType)) play(row?.attackSound, 1);
   }
   return played;
+}
+
+// ---- TELL6e: WHAT A LANDING DOES TO YOU (bible/12-Enhanced-AI/Feud-Arc.md section 8.2) ----
+/** A foe's blow's damage reached the player (`dmg`, at `playerFeet`): a telegraphed blow that landed there queues what
+ *  its shape does (systems/blowEffects.js); anything else - a plain swing, a stale landing, a roll that did nothing -
+ *  spends the word and does nothing. Each pool asks it where its blow's damage is decided. */
+export function landBlowEffect(f, dmg, playerFeet, now = tacticsNow()) {
+  const w = f?.ai?._blowFx;
+  if (!w) return null;
+  f.ai._blowFx = null;
+  if (!(dmg > 0) || now - w.at > BLOW_VERDICT_LIFE || !playerFeet) return null;
+  const fx = blowEffectOf(w.kind, w.iron);
+  queueBlowEffect(fx, dmg, [playerFeet[0] - f.ai.feet[0], playerFeet[2] - f.ai.feet[2]], f.entity ?? null);
+  return fx;
+}
+
+/** TELL6e: the player's frame, in every host before its motor's update - the queued landings applied (the motor's
+ *  push, rattle and knockdown, the camera's dip) and a bleed's tick through the host's own `hurt(n)`. */
+export function playerBlowFrame({ motor = null, entity = null, shake = null, hurt = null } = {}) {
+  drainBlowEffects({ motor, entity, shake });
+  if (entity && hurt) tickBleed(entity, hurt);
 }
 
 // ---- TELL6d: THE AIMED SHOT'S LOOSE (bible/12-Enhanced-AI/Feud-Arc.md section 8.1) ----

@@ -150,8 +150,14 @@ export function activeSpellIcons(entity) {
     // the buffs. DFU's null-caster arm sent it to the debuff row, where only a foe's spell has ever landed in DFU.
     (bundle.selfCast || bundle.ally ? self : other).push(item);
   }
+  // TELL6e (bible/12-Enhanced-AI/Feud-Arc.md 8.2): a sweep's BLEED is no spell's bundle, but it is shown as one, with
+  // the debuffs - the atlas's first icon (every bundle that names none draws it), its rounds its ticks left
+  const bleed = entity?.bleed;
+  if (bleed && bleed.left > 0) other.push({ iconIndex: BLEED_ICON, displayName: 'Bleeding', poolIndex: poolIndex++, expiring: bleed.left < 2, isItem: false, bundleId: null, endable: false });
   return { self, other };
 }
+/** TELL6e: the bleed's icon - the atlas's first, as an iconless bundle's. */
+export const BLEED_ICON = 0;
 
 /**
  * AlignIcons (:320-349). Lays one row out and answers the placed

@@ -6,7 +6,7 @@ these enemies and breath more depth into it"*; then, on the sixteen ideas offere
 detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
-(section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL5, TELL7 and TELL6a-d built; each
+(section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL7 built (TELL6 in five parts); each
 slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
@@ -1424,3 +1424,41 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
   hosts name `aimedBlowInfo` only for an aimed arrow (`m.aimed ? ... : null`) - `auditpscale1` lifts the dungeon's
   arrow hit into a bare function, which must not meet a name it never needs.
 - Mutants `tools/mutants/tell6d.json` (33), all dead.
+
+### TELL6e - BUILT 2026-10-04 (the Enhanced AI switch on, every host): what a landing does to you
+
+- **The law** - `systems/blowEffects.js` (new): `BLOW_EFFECT` and `blowEffectOf(kind, iron)` - the lunge and the
+  charge PUSH (3 and 5 m/s), the slam, the ring and the leap RATTLE (0.6 s at 60% of the walk, the camera's dip), the
+  sweep BLEEDS (30% of the blow's damage again over 3 s in three ticks), an iron slam, ring or charge KNOCKS DOWN (OPEN
+  6: 0.9 s, the eye 0.6 m down and up, no move, no swing, no cast; 5 s before another). A leap never knocks down; the
+  aimed shot does nothing but its arrow's damage. A knockdown takes a push with it.
+- **The word** - the brain stamps a landing that hit (`resolveLanding`: `ai._blowFx`, its shape and guard - a miss
+  none); each pool, where its blow's damage on me is decided, asks `hostCombat.landBlowEffect` (the street pool, the
+  dungeon's, the watch's): a fresh telegraphed landing that did damage queues its effect along the blow, from its foe
+  toward me; a stale one, a roll of nothing or a plain swing spend the word and do nothing.
+- **The body** - `player/motor.js`: `blowPush` (decaying at `BLOW_PUSH_DECAY` 12 m/s/s, stepped after the motor's own
+  move along the collider, stopped where the ground ahead drops more than `BLOW_PUSH_EDGE` 2 m - read through
+  `surfaceHit`, the terrain too), `blowRattle` (the walk's speed at its share), `blowKnockDown` (no move - the step's
+  input emptied - and `eyeAt` down over its first 0.15 s, up over its last 0.3 s), `isDown`.
+- **The frame** - `hostCombat.playerBlowFrame`, before the motor's update in all four hosts (`world.js`, `exterior.js`,
+  `worldModes.js`, `dungeon.js`): the queue drained (`drainBlowEffects`, the dip on `betterAmbience.weaponKick`) and the
+  bleed ticked (`tickBleed`) through the host's own door (`hurtPlayer`, the flash, the surface). The swing is barred
+  while down at every host's weapon rig (`knockedDown()` beside the paralysis) and the cast at `hostMagic.castInput`
+  (the spell stays readied).
+- **The bleed** - `startBleed`/`tickBleed`: a tick a second, its foe's mark on each (REVENANT-HARM's struck mark - a
+  death it brings is its foe's); any rise in health ends it (a spell, a potion, a bandage, a rest); a second adds what
+  the first had left; a death ends it. Shown with the debuffs (`ui/hudActiveSpells.js`: "Bleeding", its last tick
+  blinking) under `BLEED_ICON` - the atlas's first icon, as every bundle that names none draws; a bleed's own icon is
+  TELL9's to choose.
+- **Not built here** - a peer's (each client applies its own, TELL8); the bleed's own icon (TELL9).
+- Pins `test/tell6e_landing.test.js` (10): the law by shape; THE REAL PLAYER MOTOR's push (its v^2/2a, its edge), its
+  rattle and its knockdown (no move, the eye down and up); the frame (the push along the blow, the dip, a bleed begun, a
+  knockdown taking the push, its 5 s guard); the bleed (its ticks, its mark, a heal ending it, a second adding the
+  first's remainder, its HUD row); the pools' word (fresh, damaging, spent either way); the helper's tick through the
+  host's door; ON THE MOTOR the brain's stamp for a hit and none for a miss; the hosts, the pools and the gates wired.
+  Pins moved: `audittact` D (the watch's weighed blow asks for its landing); `audit39_worldmodes` #34, `audit39_worldstate`
+  #59 and 39r, `interiorfoes` IF and `perfrig1` (the rigs' flag takes the knockdown); `disc8` DISC8-G (exterior's frame
+  above its hold); `duel_wall` DUEL1 (the step's emptied input, the push before the ring's clamp). Mutant records re-aimed by content: `duel` (the motor's
+  step), `survtiers` (one cite) and `survtiers3` (three cites) - the hosts' cites the shift moved. Cites re-resolved (`tools/citeShift.mjs`) and 24 by hand, aligned by their HEAD lines' content; the open
+  flags regenerated (`tools/regenOpenFlags.mjs`).
+- Mutants `tools/mutants/tell6e.json` (32), all dead.

@@ -537,6 +537,7 @@ function resolveLanding(ai, s, b, verdict, now, cooled) {
   ai._blowLandedAt = now;
   ai._blowVerdict = verdict;
   ai._blowMult = b.mult; ai._blowAt = now; ai._blowSwing = true;
+  ai._blowFx = verdict ? { kind: b.kind, iron: b.guard === 'iron', at: now } : null;   // TELL6e: what it does where its damage lands (scenes/hostCombat.js landBlowEffect)
   ai._blowHold = false;   // TELL2: the held swing strikes on its next frame
   s.blowReady = cooled; s.blow = null;
   // TELL5 (7.4): a chain - hit or miss, a second blow at once; the punish window waits for its last. TELL6: never after a
