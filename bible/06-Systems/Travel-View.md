@@ -1413,8 +1413,8 @@ exactly that - so it stays the default, and the road is a second switch.
 
 - **The switch:** `GeneralOptions.FirstPersonTravelFollowsRoads` ("First Person Travel Follows Roads"), OW-TOGGLE's
   shape - the port's own key on the mod's pane (not in the vendored `modsettings.json`, its words say so), OFF, on the
-  tile right after the switch it serves, read LIVE ("Takes effect at once"). Online the player's own, as every key of
-  the mod's is (`ONLINE_PLAYERS_OWN_MODS`: "my own journey").
+  tile right after the switch it serves, read LIVE ("Takes effect at once"). Online the player's own - the room holds
+  only the mod's switch, its two journey dials and its ports rule (TRAVEL-ONLINE, `ONLINE_ROOM_MOD_KEYS`).
 - **On, with First-Person Travel on:** the map's pick is ROUTED. `scenes/world.js` `tvRoutesJourneys` grows from
   `tvOwnsJourneys` (every Overworld journey is routed) and is what the map's three forks ask (`beginAcceleratedTravel`,
   `onTravel`'s refusal line, `onTravelToCoords`). The routed arm is the Overworld's, whole - THE ONE CONSTRUCTION SEAM:

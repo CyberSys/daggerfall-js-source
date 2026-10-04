@@ -82,6 +82,19 @@ and the count still read only the pack, so a ship laid up was no candidate: the
 one ship of her size afloat was taken for the only one and given the bank cabin's
 contents, and a lone ship laid up was not found at all).
 
+**Mac's "The classic style ship is broken. its two ships clipped inside of eachother" and
+"from the ship deed it spawns in a dark void outside the game world and you can move
+around another ship under construction" (2026-10-04)** are the sailing cabin drawing
+her own fleet through its walls - CABIN-HULL below, which fixed it on main the same
+day (#579).
+OPEN FOR MAC: the bank cabin link above is made WITHOUT asking when one sailing ship
+matches (`boatCabinOwnership.js linkBankCabin`, from her menu, Enter cabin and every
+load outdoors): the bank ship's room moves into her cabin, and Transport > Ship and the
+bank ship's door then lead to her cabin, not to "Your Ship". Whether that link should
+be asked first is Mac's call; it is left as it stands. (The sentence this flag first
+answered - "Bank ownership and bank ship scenes stay independent" - is retired, the
+link recorded in its place, by CABIN-TITLES.)
+
 **Return to deck** goes through the same exit transition and resolves the same
 live boat's deck pose. It uses feet height without snapping to the seabed. A missing
 boat refuses the exit without destroying the room. Cabin entry/exit does not take

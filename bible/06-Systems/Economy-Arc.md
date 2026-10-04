@@ -97,7 +97,7 @@ current design "does not work in an enjoyable manner"):
   ore sells online for some 29,000-42,000.
 - **Sinks are one-time.** Houses, boats and crafting stations are bought
   once; nothing charges upkeep; bank balances are never touched; the online
-  death penalty takes a quarter of the purse alone
+  death penalty takes a tenth of the purse alone (a quarter until DEATH-TENTH, 2026-10-03)
   (`src/systems/deathPenalty.js`). Repairs were the one sink that scaled with
   gear, and they scaled hardest for the best gear.
 - **Shops.** Merchants have unlimited gold; online a shop pays at most half

@@ -253,7 +253,9 @@ elsewhere.
   Beautiful Cities' 224 `House5` records whose one model is a wall piece
   (`53210`) and two `House2` with none have no exterior door and are no
   residence: nothing sells them - the bank's market skips a house with no model
-  of its own (`housesForSale` `stands`), as no door could open it.
+  of its own in ARCH3D (`housesForSale` `stands`, the record's radius; the wall
+  piece's stand-in below is the port's, and gives it none), as no door could
+  open it.
 
 ## The pieces the mods borrow - the port's own stand-ins
 
@@ -297,6 +299,26 @@ one stand-in, on while either mod that places it is loaded.
 | its docks | `53140`-`53144` | 16 | measured off the pack's meshes: a plank deck whose top is the origin, five-sided piles 5 m below it and 1 m above, a ramp or five steps - which land where the author's do (GENRAS00's ramps at the long dock's two ends; TEMPASH3's three flights across the T-dock's wing) |
 | its platform, foundation and domes | `53160`, `53170`, `53182`, `53187`, `53194` | 22 | stone blocks and drum-and-hemisphere domes, classic textures - the foundation the pack's 16 x 8 x 16 m block, its top the floor of the two temples it stands under (centred, as the pack's mesh is, it walled up their front doors; no stand-in covers any door of either pack's towns) |
 | its crop fields | `53211`-`53214` | 252 | RMBCropBillboardBatch's own law: a grid 85 or 35 m a side, a plant every 4 m nudged up to half a metre, the climate's crop billboard (`TEXTURE.301`: wheat in the woodlands, corn in the mountains, sunflowers in the south, vines in swamp and rainforest; `511_22` stubble in winter), seeded by the spot so a field stands the same every visit (`world/flatFields.js`, sown by `world/rmbFlats.js`) |
+| its city-wall piece | `53210` | 224 | the middle 128 units of Daggerfall's own wall segment (`445`) out of the player's ARCH3D - its stone, its climate - cut and moved onto the piece's line (FIELD BUGS 2026-10-03c, below) |
+
+**The city walls' corners** (FIELD BUGS 2026-10-03c,
+`01-Overview/Field-Bugs-2026-10-03c.md`; Discord: "missing holes in the out
+walls of Alik'ra", "Saw the same thing in Chesterwark"). Beautiful Cities turns
+its walls round corners of its own - `WALLAA12` to `WALLAA15`, the 112
+composites built on them. Each stands its corner tower (`444`) where
+Daggerfall's corners stand it, 64 units in from where the two wall lines cross,
+its edge where Daggerfall's walls begin, 448 units along each line; but each
+line's first wall segment (`445`) stands a whole segment out from the tower and
+begins at 576. The author closes the 128 units between with the RMB Resource
+Pack's wall piece, `53210` - two a corner block, every one of the 224 - and
+without it every city's wall stands open at every turn, wide enough to walk
+through. Read off its placements (four corners, two lines each, both turns of
+the piece along a line), its wall stands on the 445s' own line 128 units along
+its `+z` and fills the gap centred 128 along its `+x`; the stand-in is exactly
+that, cut out of the player's own 445 (`townStandIns.js` `cityWallFillModel`),
+so it is solid as the wall is. A quarter of the placements (the two corners'
+pieces along their north line) turn it the other way across the wall, as the
+author did, so there the 445's inner face looks out - the stone is the same.
 
 ### Not stood in
 
@@ -310,7 +332,6 @@ packs):
 | `69465` | 4,786 | Rosy's fireplace dressing - the classic fireplace it dresses stands |
 | `52991` | 3,095 | the RMB Resource Pack's winter-smoke marker: an effect, no mesh |
 | `45181` | 568 | DET's chimney smoke, at the flues' tops: an effect |
-| `53210` | 224 | the pack's city-wall piece - every one against a classic wall that already stands |
 | `45179`, `45198`, `45205`, `45206`, `43756` | 286 | DET pieces no catalogue names, in few blocks |
 | `53129`, `53130` | 18 | the pack's wooden bridges: their rails are in its published files, their decks are not, so neither shape nor size can be read - the six village blocks that place them stand bridgeless |
 | `53132`, `53134` | 13 | its stone bridges: two meshes each under transforms the published files do not settle |
@@ -369,6 +390,12 @@ layout pins above, and by four more things the stand-ins needed:
   where it is made, the cached scenes and the discoveries, the load.
 - `test/wd3_online.test.js` - the service's layouts on the real service over
   SQLite, the client's ask and the room's switches.
+- `test/fb1003c_citywall.test.js` - the city walls' corners: the law off the
+  pack (all 224 pieces filling 448-576 units off the crossing of their two
+  lines, the tower 64 units in from it; the 210 on lines of the author's own
+  segments, the segments beginning where it ends), the stand-in cut from a
+  445 and its faces on the cuts, its install, and the real pipeline building
+  it from ARCH3D for the renderer and the collider.
 - `test/wd3_standins.test.js` - every stand-in above, its install and gates;
   with ARENA2 the coverage of both packs' every placement, the housing names,
   and the alias beds built from the player's own ARCH3D.

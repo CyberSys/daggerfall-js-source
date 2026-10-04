@@ -568,6 +568,46 @@ export async function overRate({ db, nowS }, key, max = LOGIN_MAX, windowS = LOG
   return (row?.count ?? 0) > max;
 }
 
+/**
+ * ACCT-RATE-MEM (2026-10-04, the login outage - Mac: "You log in and it sends you straight to title screen", "We have
+ * 300 people trying to log in at once"): AUDIT-ACC F12's bound, IN THE ISOLATE'S MEMORY AND NOT IN D1.
+ *
+ * F12 asked `overRate` with an `acct:` key on EVERY authenticated request - an upsert, so every read the game makes
+ * (a town's yards each minute, a home, a token) was also a WRITE to the one database. D1's own query insights on
+ * the day: 4,783,193 runs of that upsert, the most time of any statement, beside the session and player reads every
+ * request already makes. After two relay deploys put every player back through the door at once D1 answered
+ * "overloaded. Requests queued for too long", the session read under it failed, the service said 500, and the
+ * client went back to the title - and its retries were more of the same load.
+ *
+ * The bound is what F12 says it is - ACCOUNT_MAX a window per ACCOUNT, 429 'rate' - counted where it costs nothing.
+ * PER ISOLATE: a caller spread over several isolates meets the ceiling in each, so the cap is looser than a shared
+ * row's by that factor; it is a ceiling on abuse, generous on purpose (above), and a write on every read is the
+ * outage it was meant to prevent. The open doors' `login:` and `ip:` keys stay in D1: they are few, and must hold
+ * across isolates.
+ *
+ * THE WINDOW ONLY MOVES FORWARD (AUDIT RENOWN1, as `overRate`): a request stamped with a window already past is
+ * counted in the one open. BOUNDED: past ACCOUNT_RATE_KEYS accounts, the closed windows go; if every one is open,
+ * all of them - forgetting a count frees a caller early, never refuses one.
+ */
+export const ACCOUNT_RATE_KEYS = 50_000;
+const accountWindows = new Map();
+export function overAccountRate(id, nowS, max = ACCOUNT_MAX, windowS = ACCOUNT_WINDOW_S) {
+  const start = Math.floor(nowS / windowS) * windowS;
+  let w = accountWindows.get(id);
+  if (!w || w.start < start) {
+    if (!w && accountWindows.size >= ACCOUNT_RATE_KEYS) {
+      for (const [k, v] of accountWindows) if (v.start < start) accountWindows.delete(k);
+      if (accountWindows.size >= ACCOUNT_RATE_KEYS) accountWindows.clear();
+    }
+    w = { start, count: 0 };
+    accountWindows.set(id, w);
+  }
+  w.count++;
+  return w.count > max;
+}
+/** The accounts counted in this isolate (the pins' window). */
+export const accountRateKeys = () => accountWindows.size;
+
 /** A successful login forgives the key, so a player who mistyped twice
  *  and then got it right is not still on a countdown. */
 export async function clearRate({ db }, key) {

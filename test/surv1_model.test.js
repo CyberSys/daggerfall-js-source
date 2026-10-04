@@ -289,8 +289,8 @@ test('SURV1: hunger, thirst and sleep move on the clock, say their stage once, a
   assert.equal(log.filter((l) => l[1] === 'You have not eaten in a long while...').length, 1, 'ten live minutes held at Hungry: said once, not ten times');
 });
 
-test('SURV1: sleep pays the debt by its quality - a bed clears it, a rough rest only to tired; rations feed a starving player by themselves', () => {
-  const e = { stats: { strength: 50, intelligence: 50, willpower: 50, agility: 50, endurance: 50, personality: 50, speed: 50, luck: 50 }, raceId: RACES.Breton, items: [{ templateIndex: TEMPLATE.Rations, group: 'UselessItems2', stackCount: 2 }], activeEffects: [], health: 50, fatigue: 3000 };
+test('SURV1: sleep pays the debt by its quality - a bed clears it, a rough rest only to tired; rations feed a hungry or starving player by themselves', () => {
+  const e = { stats: { strength: 50, intelligence: 50, willpower: 50, agility: 50, endurance: 50, personality: 50, speed: 50, luck: 50 }, raceId: RACES.Breton, items: [{ templateIndex: TEMPLATE.Rations, group: 'UselessItems2', stackCount: 3 }], activeEffects: [], health: 50, fatigue: 3000 };
   const now = 50000;
   const s = survivalOf(e, now);
   s.sleepDebt = 10;
@@ -302,6 +302,7 @@ test('SURV1: sleep pays the debt by its quality - a bed clears it, a rough rest 
   runSurvivalMinutes(e, now + 840, now + 840 + 180, { ...noon, insideBuilding: true, resting: true, sleeping: 'bed' }, { worn: worn({}), sinks: quiet });
   assert.equal(Math.round(s.sleepDebt * 10) / 10, 0, 'three hours in a bed clears four');
   assert.equal(s.awakeSince, now + 1020, 'the waking marker moves with the sleep');
+  assert.equal(e.items[0].stackCount, 2, 'Hungry twelve hours into the rest: a sack eaten (RATIONS-HUNGRY)');
   s.lastAte = now + 1020 - 1500;
   const log = [];
   survivalMinute(e, now + 1021, { ...noon, insideBuilding: true }, { worn: worn({}), sinks: { ...quiet, say: (t) => log.push(t) } });
