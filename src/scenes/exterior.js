@@ -292,6 +292,7 @@ import { exhibitionFor, nextLadderBout, arenaLadderRestore, practiceBout } from 
 import { arenaReplaysRestore } from '../systems/arenaReplay.js';   // ARENA5: your ladder replay
 import { cityFloorCentre } from '../world/arenaFloor.js';
 import { setPlayerBout } from '../characters/enemyTargets.js';
+import { keptOffArenaGround } from '../systems/arenaGround.js';   // CURSE-OFF-SAND: the curse's dead keep off the arena's grounds
 import { registerAttackResolutionListener } from '../combat/formulas.js';
 import { registerPlayerSwingListener } from '../combat/playerWeapon.js';
 import { raceDisplayName } from '../systems/talkSession.js';   // MACRO-ONE: %ra's display name, as world.js reads it
@@ -3826,6 +3827,7 @@ export async function bootExterior(canvas, renderer, params, status) {
       if ((modes?.mode ?? 'exterior') !== 'exterior') return modes?.tryPlaceQuestFoe?.(handle) ?? false;
       if (!walkMode) return false;   // the fly camera has no controller capsule to place around
       const feet = player.pos;
+      if (keptOffArenaGround({ questName: handle.foe?.parentQuest?.questName, feet, centre: arenaCityOrigin ? arenaCityStage.centre() : null })) return false;   // CURSE-OFF-SAND
       const env = placeFoeEnv({
         collider,
         playerFeet: [feet[0], feet[1] + 0.9, feet[2]],

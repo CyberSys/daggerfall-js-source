@@ -38,6 +38,7 @@ import { createArenaSound } from '../systems/arenaSound.js';   // ARENA2: the cr
 import { arenaScoreSongs, ARENA_SCORE_SILENCE } from '../systems/arenaScore.js';   // ARENA2: the march and the fanfare
 import { drawArenaHud } from '../ui/arenaHud.js';   // ARENA2: the versus bar, the crowd's meter, the clock
 import { setPlayerBout } from '../characters/enemyTargets.js';   // ARENA2: the bout team's player arm
+import { keptOffArenaGround } from '../systems/arenaGround.js';   // CURSE-OFF-SAND: the curse's dead keep off the arena's grounds
 import { exhibitionFor, nextLadderBout, arenaLadderRestore, practiceBout } from '../systems/arenaLadder.js';   // ARENA2: the hour's exhibition, the ladder's next bout
 import { arenaReplaysRestore } from '../systems/arenaReplay.js';   // ARENA5: your ladder replay
 import { createArenaGate, nearArenaGate } from './arenaGate.js';   // ARENA3; ARENA4b: the Herald's choice and the pause door's banner too
@@ -14403,7 +14404,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // again from a view already on its way down. AUDIT DEEP2 A8: above the mode gate - indoors the key is answered
       // (the view's own refusal, said on the notice line), not silent. AUDIT DEEP2 A5: an auto-repeat is nothing - a
       // held key flipped the view up and down thirty times a second.
-      if (!townTalk.overlayActive && act === 'TravelView') { if (e.repeat) return true; const st = travelView?.state; if (st === 'up' || st === 'rising') travelView.exit('key'); else travelView?.enter(); return true; }
+      if (!townTalk.overlayActive && act === 'TravelView') { if (e.repeat) return true; travelViewKey(); return true; }
       if (!townTalk.overlayActive && (modes?.mode ?? 'exterior') === 'exterior') {
         // AUDIT DISC28 UI-7: THE PRESS EDGE FOR EVERY ARM OF THIS LADDER, as routeKey's own routeKeyAction has it (a
         // repeat of an action is swallowed before any door). AUDIT KB1 put this ladder's guard at the TAIL, below the
@@ -14859,6 +14860,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     cycleMode: () => townTalk.nextMode(),   // T3-touch: the phone's F1-F4
     socialInteract: () => socialInteract(),   // AUDIT SOC C9: the phone's F - the host's own door (a card over the body in front, else the friends panel; false with no account, and the layer's button then does nothing)
     overlayActive: () => townTalk.overlayActive || !!travelView?.active || !!modes?.overlayHeld,   // AUDIT DEEP2 A2: under the view the pad is a cursor (its pick, orbit and zoom) - never the world's look, activation or swing. FIELD BUGS 29h (TOUCH-HELD): and a window on a building's or a dungeon's own stack is a window - the castle guard's terms box had no nav row, so no abc, no keyboard and no Return on a phone (the standalone dungeon host's hook always read its stack)
+    // PAD-BINDS (FIELD BUGS 2026-10-04e): a d-pad choice whose action is on no key - the Overworld ships unbound
+    padAction: (act) => { if (act !== 'TravelView' || townTalk.overlayActive) return false; travelViewKey(); return true; },
     aimHold: () => !!naval?.atGuns,   // NAV-H: at a helm with guns the attack is the broadside's aim - the pad and the finger HOLD it (no gesture strokes) and look on under it
     // CSA-L: the pad's helm d-pad (ui/gamepadInput.js HELM_DPAD) - at the helm on Enhanced Plus, the helm panel's presses
     helm: {
@@ -15836,6 +15839,8 @@ export async function bootWorld(canvas, renderer, params, status) {
         return modes?.tryPlaceQuestFoe?.(handle) ?? false;
       }
       if (!(walkMode && playerSpawned)) return false;
+      // CURSE-OFF-SAND (FIELD BUGS 2026-10-04e): the Curse of Daggerfall's wave waits outside the arena's grounds
+      if (keptOffArenaGround({ questName: handle.foe?.parentQuest?.questName, feet: player.pos, centre: arenaCityPixel() ? arenaCityStage.centre() : null })) return false;
       // NAV-D: a raid the sea fight started (a pirate grappled a crewed boat) stands its waves on the deck they board -
       // the boat's own, not the wilderness ring (scenes/navalHost.js placeQuestFoe): Warm Ashes' "Your crew quickly
       // spring into action!" is a fight on your planks
@@ -18844,7 +18849,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     guest: () => storedSession(appStorage())?.kind === 'guest', signedIn: () => !!storedSession(appStorage()),   // HOTFIX 1003f: a private session's Host and Join want an account held
     struck: (d) => { if (d > 0) { flashPlayerDamage(d); playPlayerVoice(audio, playerPainVoice(playerEntity, d)); } },
     myHealth: (hp) => { if (playerEntity.health > 0) { playerEntity.health = Math.max(1, hp); surfacePlayer(); } },   // HOTFIX 1003f (live: "it shouldnt kick players after a bout"): the relay's 0 is a fall, never a death - the death screen took the loser out of the floor; the healers come
-    heal: arenaHeal,   // AUDIT PRE-MERGE 1003b C2: a session's bout let go before its healers - healed all the same
+    heal: () => { arenaHeal(); arenaBouts.refundQuiver(); },   // AUDIT PRE-MERGE 1003b C2: a session's bout let go before its healers - healed all the same; ARENA-ARROWS: and its quiver handed back
     inBout: () => arenaBouts.holds(),
     // ARENA4b: A WON BOUT'S RENOWN - the fighting character's (its receipt kept with it), adopted only while it is the one
     // standing here (RENOWN-CHAR, as a raid's is), by the one plan every Renown answer takes (net/renownTracker.js
@@ -23787,6 +23792,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const me = state.worldCoords(player.pos);
     return me.x >= r.minX - TV_NEAR_REACH && me.x <= r.maxX + TV_NEAR_REACH && me.z >= r.minZ - TV_NEAR_REACH && me.z <= r.maxZ + TV_NEAR_REACH;
   };
+  /** TV1 / AUDIT DEEP X-2: the TravelView action - up into the view, or out of it (and up again from a view already on
+   *  its way down). The key's arm and the pad's d-pad (PAD-BINDS: `padAction`, the action on no key) both take it. */
+  function travelViewKey() {
+    const st = travelView?.state;
+    if (st === 'up' || st === 'rising') travelView.exit('key'); else travelView?.enter();
+  }
   function onTravelViewPick(clientX, clientY, e = null) {
     if (travelViewConfirmOpen()) { hideTravelViewConfirm(false); return; }   // OW-CONFIRM: a press on the map lets the question go
     _tvAttack = null;   // OW-ATTACK: a walk elsewhere lets the attack go

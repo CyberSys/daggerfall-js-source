@@ -32,6 +32,7 @@ import { newCrowd, crowdHear, crowdTick, crowdBark, crowdCount, crowdFlipFps, cr
 import { fighterIdentity, boutMarks, boutGateOf } from '../systems/arenaFighters.js';
 import { EXHIBITION_PURSE, ladderAfter, arenaLadderRestore, arenaHash, seededRng, ladderTitle } from '../systems/arenaLadder.js';
 import { ARENA_TEXT } from '../systems/arenaText.js';
+import { markQuiver, refundQuiver } from '../systems/arenaQuiver.js';   // ARENA-ARROWS: the quiver comes back full from the sand
 import { arenaScoreFor } from '../systems/arenaScore.js';
 import { crowdSeats, pickSeats, RING_R } from '../world/arenaFloor.js';
 import { arenaHudModel } from '../ui/arenaHud.js';
@@ -110,6 +111,17 @@ export function createArenaBouts(deps) {
   const clockOf = (C) => (C?.relay ? now() : lawNow());
   const rng = deps.rng ?? Math.random;
   const P = deps.playerEntity;
+  /** ARENA-ARROWS: the quiver as I stepped into the bout I fight (systems/arenaQuiver.js), until the healers hand back
+   *  what it spent - every bout that sets my bout tag marks it, and every heal of mine (a session's let-go too) pays. */
+  let quiver = null;
+  function markMine() { quiver = markQuiver(P?.items); }
+  function refundMine() {
+    const mark = quiver;
+    quiver = null;
+    const n = mark ? refundQuiver(P?.items, mark) : 0;
+    if (n > 0) deps.say?.(ARENA_TEXT.ammoBack(n));
+    return n;
+  }
   let stage = null;
   /** The bout standing: `{ b, crowd, kind, stage, fighters: Map<id, foe>, tags: Map<id, tag>, you, purse, next, ... }` */
   let cur = null;
@@ -192,7 +204,7 @@ export function createArenaBouts(deps) {
       crowdBatches: [], throws: [], spawning: 0, title: false, startedAt: t, bark: '', barkAt: -Infinity, ringed: null,
       teams: boutTeams(ladder, practice, fighters),
     };
-    if (ladder) deps.setPlayerBout?.(cur.playerTag);
+    if (ladder) { deps.setPlayerBout?.(cur.playerTag); markMine(); }
     // ARENA-FIX 8: THE ENTRANCE - each fighter stands at the mouth of its side's passage under the tiers (the floor's
     // two gates, systems/arenaFighters.js boutGateOf; a pit has no gates - its fighter stands on the mark) facing in,
     // and walks to its mark when the Herald cries its name (`hear`, 'crier'); the law starts once every body stands
@@ -695,8 +707,8 @@ export function createArenaBouts(deps) {
   }
   /** THE HEALERS: everyone whole (the duel's own heal, the host's), the fighters' bodies too. */
   function heal(C) {
-    if (C.relay) { if (C.you) { deps.heal?.(); deps.say?.(ARENA_TEXT.healed); } return; }   // ARENA4: the relay's fighters heal on its word
-    if (C.ladder) { deps.heal?.(); deps.say?.(ARENA_TEXT.healed); C.lastHealth = P?.health ?? C.lastHealth; }
+    if (C.relay) { if (C.you) { deps.heal?.(); deps.say?.(ARENA_TEXT.healed); refundMine(); } return; }   // ARENA4: the relay's fighters heal on its word
+    if (C.ladder) { deps.heal?.(); deps.say?.(ARENA_TEXT.healed); refundMine(); C.lastHealth = P?.health ?? C.lastHealth; }
     for (const foe of C.fighters.values()) if (foe.entity) foe.entity.health = foe.entity.maxHealth ?? foe.entity.health;
   }
 
@@ -872,7 +884,7 @@ export function createArenaBouts(deps) {
       if (first) {
         C.crowd = newCrowd({ fighters: C.b.fighters.map((f) => ({ id: f.id, home: f.home, ai: f.ai })), beasts: !!C.next?.beasts });
         relayBanners(C);   // ARENA4b: the realm's banners and its laurel, from the first bell
-        if (C.you) { C.playerTag = { id: C.relay.o, side: C.b.fighters.find((f) => f.id === C.you)?.side ?? 0, out: false, hold: true }; deps.setPlayerBout?.(C.playerTag); }
+        if (C.you) { C.playerTag = { id: C.relay.o, side: C.b.fighters.find((f) => f.id === C.you)?.side ?? 0, out: false, hold: true }; deps.setPlayerBout?.(C.playerTag); markMine(); }
         buildCrowd(C);
         for (const a of C.M.ai) spawnPuppet(C, a);
       }
@@ -1126,6 +1138,7 @@ export function createArenaBouts(deps) {
   }
 
   return {
+    refundQuiver: refundMine,   // ARENA-ARROWS: a session's bout let go before its healers (scenes/arenaOnline.js letGoPriv) pays too
     setStage, ask, start, dismiss, frame, batches, playerSpare, holds, attackResolved, playerSwing,
     startRelay, relayWord,   // ARENA4: a bout the relay runs
     cheer,   // ARENA4b: my cheer or boo from the stands of a relay's bout

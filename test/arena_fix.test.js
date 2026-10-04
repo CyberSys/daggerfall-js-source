@@ -241,9 +241,9 @@ test('ARENA-FIX 4: a chained beast - targets nobody, nobody targets it, and the 
   const D = rd('src/scenes/dungeonContext.js');
   assert.match(D, /const _undercroftHall = isArenaUndercroft\(dfLocation\) \? undercroftPopulation\(dungeon\.blocks\) : null;/);
   assert.match(D, /const _hallBeasts = _undercroftHall \? _undercroftHall\.beasts\.map\(/, 'no random foe at any marker - the beasts alone');
-  assert.match(D, /: \(_hallBeasts \?\? _layoutEnemies\);/);
+  assert.match(D, /: \(_hallBeasts \? \[\.\.\._hallBeasts, \.\.\.deepFoesOf\(_layoutEnemies, _undercroftHall\.deep\)\] : _layoutEnemies\);/, 'UNDERCROFT-DEEP: the beasts, and the deep cellars\' own foes');
   assert.match(D, /const _layoutFoes = foes\.length;[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*for \(const f of foes\) \{\n\s*if \(f\.src\?\.arenaChained == null/, 'the chains tagged after the layout\'s run is measured');
-  assert.match(D, /for \(let l = 0; l < n && !_undercroftHall; l\+\+\) \{/, 'no rest broken down there');
+  assert.match(D, /for \(let l = 0; l < n && !\(_undercroftHall && undercroftHallNear\(_undercroftHall, lastPlayerFeet\)\); l\+\+\) \{/, 'no rest broken in the hall (UNDERCROFT-DEEP: the deep cellars are a keep\'s)');
   assert.match(D, /if \(!_undercroftHall\) markDungeonChampions\(/);
   assert.match(D, /arenaRole: f\.role \?\? null,/);
 });

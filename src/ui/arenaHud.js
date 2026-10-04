@@ -77,6 +77,9 @@ export function arenaHudModel(bout, crowd, now, { you = null, stamina = null, ba
     banner: f.side === leftSide ? (mine ? 'you' : 'a') : (mine ? 'them' : 'b'),
     team: teams?.[f.id] === 'red' || teams?.[f.id] === 'blue' ? teams[f.id] : '',
   });
+  // ARENA-TEAMS (FIELD BUGS 2026-10-04e): A GRAND MELEE IS NO TEAM. Every fighter is a side of its own, and the right
+  // column stood them together under one "vs" - so the three fighting each other read as one team turning on itself
+  const melee = bout.fighters.length > 2 && new Set(bout.fighters.map((f) => f.side | 0)).size === bout.fighters.length;
   const left = bout.fighters.filter((f) => f.side === leftSide).slice(0, HUD_ROWS_MAX).map(row);
   const right = bout.fighters.filter((f) => f.side !== leftSide).slice(0, HUD_ROWS_MAX).map(row);
   const secs = Math.ceil(boutTimeLeft(bout, now) / 1000);
@@ -84,7 +87,7 @@ export function arenaHudModel(bout, crowd, now, { you = null, stamina = null, ba
   const band = moodBand(mood);
   const live = bout.phase === 'fight';
   return {
-    phase: bout.phase, left, right, timer: ARENA_TEXT.hud.timeLeft(Math.max(0, secs)),
+    phase: bout.phase, left, right, timer: ARENA_TEXT.hud.timeLeft(Math.max(0, secs)), vs: melee ? ARENA_TEXT.hud.eachAlone : ARENA_TEXT.hud.vs,
     crowd: quiet ? null : { frac: Math.round(((mood + 1) / 2) * 1000) / 1000, band, word: ARENA_TEXT.mood[band] },   // ARENA-FIX 4: the training pit has no crowd - no meter
     stamina: mine && Number.isFinite(stamina) ? Math.round(clamp01(/** @type {number} */ (stamina)) * 1000) / 1000 : null,
     hint: mine && live && !mine.out && fighterShare(mine) <= YIELD_SHARE ? ARENA_TEXT.hud.yieldHint : '',
@@ -185,7 +188,7 @@ body:has(.hud-foe.on.blade) .arena-hud { top: calc(18px + 28px * var(--hud-scale
 
 let root = null, parts = null;
 let shown = null;
-const fresh = () => ({ vis: '', rows: { left: [], right: [] }, timer: '', stam: -2, crowd: -1, word: '', bark: '', hint: '', touch: null, stands: '', standsReady: false, scale: '' });
+const fresh = () => ({ vis: '', rows: { left: [], right: [] }, timer: '', vs: 'vs', stam: -2, crowd: -1, word: '', bark: '', hint: '', touch: null, stands: '', standsReady: false, scale: '' });
 /** ARENA4b: the stands' door now (the last draw's `cheer`) and the window whose keys are heard while the presses stand. */
 let cheerDoor = null, keyWin = null;
 /** A press of the stands (1 cheer, -1 boo): the host's door, while the row stands and the allowance lets one. */
@@ -278,7 +281,7 @@ function build(doc) {
   for (const n of [plate, bark, hint]) n.setAttribute('aria-hidden', 'true');
   root.append(plate, bark, stands);
   (doc.body ?? doc.documentElement)?.append(root);
-  parts = { L: L.rows, R: R.rows, timer, stam, stamFill, crowd, crowdFill, word, bark, hint, stands, cheer, boo };
+  parts = { L: L.rows, R: R.rows, timer, vs, stam, stamFill, crowd, crowdFill, word, bark, hint, stands, cheer, boo };
   shown = fresh();
 }
 
@@ -351,6 +354,7 @@ export function drawArenaHud(model, { hidden = false, touch = false, doc = globa
   writeRows(model.left, parts.L, shown.rows.left);
   writeRows(model.right, parts.R, shown.rows.right);
   if (model.timer !== shown.timer) { shown.timer = model.timer; parts.timer.textContent = model.timer; }
+  if ((model.vs ?? ARENA_TEXT.hud.vs) !== shown.vs) { shown.vs = model.vs ?? ARENA_TEXT.hud.vs; parts.vs.textContent = shown.vs; }   // ARENA-TEAMS
   const st = model.stamina == null ? -1 : model.stamina;
   if (st !== shown.stam) {
     shown.stam = st;

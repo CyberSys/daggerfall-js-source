@@ -337,6 +337,7 @@ import {
   clearSceneHidden, // BASE-HIDE: and what its owner took out of its own furniture comes back
   layoutSceneName,  // WD3 (AUDIT WD3 R1): a permanent scene's visit in another layout, kept beside it
 } from '../systems/sceneCache.js';
+import { keptOffArenaGround } from '../systems/arenaGround.js';   // CURSE-OFF-SAND: the curse's dead keep off the arena's own levels
 import { arenaGatePersonOf, arenaGatePersonName, arenaRecordDisplaced, isUndercroftDoor, isArenaUndercroft } from '../world/arenaCity.js';   // ARENA1: the gate's people; a save made in a building the arena took; ARENA2: the Herald's way down to the fighters' hall
 import { PIT_RING_R } from '../world/arenaUndercroft.js';   // ARENA-FIX 4: the training pit's ring
 import { hallOfChampions } from '../systems/arenaLadder.js';   // ARENA-FIX 4: the Hall of Champions' roll
@@ -11569,6 +11570,7 @@ export function createWorldModes(host) {
     tryPlaceQuestFoe(handle) {
       if (mode === 'interior') return tryPlaceInteriorQuestFoe(handle);
       if (mode !== 'dungeon' || !dungeonCtx) return false;
+      if (keptOffArenaGround({ questName: handle.foe?.parentQuest?.questName, inArenaLevel: isArenaFloor(dungeonLoc) || isArenaUndercroft(dungeonLoc) })) return false;   // CURSE-OFF-SAND
       const feet = player.pos;
       // origin lifted to the controller centre - DFU casts from
       // PlayerObject.transform.position, not the feet

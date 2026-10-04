@@ -47,6 +47,10 @@ export const PLUS_BIND_ROWS = Object.freeze([
   // Mac: "make mouselook on and off (same button) and walk mode bindable on controller"
   { id: 'mouselook', label: 'Mouselook on / off', sec: 'FreeMouse' },   // one button: frees the mouse, and takes the look back
   { id: 'walk', label: 'Walk mode on / off', sec: 'WalkMode' },          // DFU's slow walk, held on until pressed again
+  // PAD-BINDS (FIELD BUGS 2026-10-04e, Discord: "Overworld and Quick Dial are missing from the controller binding
+  // options"): both ship with no pad button - the d-pad's tap and hold offer them too (ui/plusPad.js DPAD_CHOICES)
+  { id: 'quickdial', label: 'Quick dial', sec: 'QuickDial' },
+  { id: 'overworld', label: 'Overworld', sec: 'TravelView' },
 ]);
 
 /** The pad button a row is on, or null. */
