@@ -1163,9 +1163,11 @@ export class HeldMapWindow {
         paintInkStatic(ctx, env.model, env.view, {
           paperW: env.paperW, paperH: env.paperH, dpr: env.dpr, band: env.band,
           filters: this.filters, names: null, regionNames: REGION_NAMES,
-          // MAP2: the harbours while the mod restricts ships to ports,
-          // and the mark in the mod's colour
-          ports: this._portsShown(),
+          // MAP2: the mark in the mod's colour. PORT-MAP: the harbours
+          // always - the quays stand at every port, whatever Travel Options
+          // says of where a ship may sail from (the Ports filter, the P key,
+          // still the mod's: _portsShown)
+          ports: true,
           markedMapId: this.markedMapId,
           markColor: rgbaCss(this._to?.settings?.markLocationColor),
           inks: this._markInks(),   // MAP-KEY: each kind in its classic dot's hue, or the pen with no palette
