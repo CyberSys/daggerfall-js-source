@@ -1,7 +1,7 @@
 // HCC: THE RUNTIME'S FAKE HOST - a flat world at y = 0 around a player who walks and mounts, the eight settings at
 // their defaults, the hotkeys, the windows' questions. One home for test/hcc_runtime.test.js and the branch audit's
 // pins (test/audit_hcc_branch.test.js). `w.noGround` takes the ground away (a spot the probe cannot hit yet); `w.ground`
-// is its height.
+// is its height, `w.slope` a side slope in degrees (WAGON-HITCH's audit).
 import { createHorseCartRuntime } from '../src/systems/horseCart.js';
 import { TRANSPORT } from '../src/systems/horseCartLaw.js';
 
@@ -18,7 +18,13 @@ export function makeWorld({ cart = true, horse = true, settings = {}, ground = 0
   };
   const phys = {
     now: () => w.now,
-    raycastAll: (o, d, max) => (!w.noGround && d[1] < 0 && o[1] >= w.ground && o[1] - w.ground <= max ? [{ point: [o[0], w.ground, o[2]], distance: o[1] - w.ground, normal: [0, 1, 0] }] : []),
+    // AUDIT WAGON-HITCH A1: `w.slope` (degrees) tilts the ground into a side slope falling toward +x - y = ground - tan(slope) x
+    raycastAll: (o, d, max) => {
+      const t = Math.tan(((w.slope ?? 0) * Math.PI) / 180), gy = w.ground - t * o[0];
+      if (w.noGround || !(d[1] < 0) || o[1] < gy || o[1] - gy > max) return [];
+      const n = Math.hypot(t, 1);
+      return [{ point: [o[0], gy, o[2]], distance: o[1] - gy, normal: [t / n, 1 / n, 0] }];
+    },
     sphereCastClear: () => true, threats: () => w.threats,
   };
   const fwd = () => [Math.sin(w.yaw), 0, Math.cos(w.yaw)];

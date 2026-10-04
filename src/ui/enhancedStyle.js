@@ -4676,6 +4676,25 @@ html.plus-pad-prompts-visible .px-over > .px-stage:not(.px-acctstage):not(.px-ti
 .piletab.on { color: rgb(243,239,44); border-color: var(--brass); cursor: default; }
 .piletabname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .piletabn { color: #d8cfae; font-variant-numeric: tabular-nums; }
+/* WAGON-FILTER (2026-10-04, Mac: "The wagon needs a filter option"): the player's own store - the wagon, their
+   storage, the Materials Bag - carries a search and a category menu between the head and the rows, in ONE row of
+   fixed furniture (PX21e: the rows scroll, never the frame). AUDIT WAGON-FILTER C1: the first cut's wrapping chips and
+   hint stood 202-236 px tall and left a phone on its side 1 px of list; one row is 44 px. The menu wears the search's
+   dress, the brass on focus. */
+.storefilter { display: flex; align-items: center; gap: 6px; padding: 6px 10px; flex: 0 0 auto;
+  border-bottom: 2px solid rgba(125,116,96,0.3); }
+.storesearch, .storecat { font: inherit; font-size: 13px; min-height: 32px; box-sizing: border-box; color: #d8cfae;
+  background: rgba(0,0,0,0.35); border: 1px solid rgba(125,116,96,0.45); border-radius: 0; }
+.storesearch { flex: 1 1 0; min-width: 0; padding: 0 8px; }
+.storecat { flex: 0 1 auto; max-width: 48%; padding: 0 4px; }
+.storecat option { color: #d8cfae; background: #10141a; }
+.storesearch::placeholder { color: #9c937d; }
+.storesearch:focus, .storecat:focus { outline: none; border-color: var(--brass); }
+/* SHIFT-STOW's line: its own element, so hiding it leaves no band - on a touch screen (no Shift) and a short screen
+   (the list first) */
+.storehint { margin: 0; padding: 4px 10px 0; flex: 0 0 auto; font-size: 11px; letter-spacing: 0.06em; color: #9c937d;
+  text-align: center; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
+@media (pointer: coarse), (max-height: 640px) { .storehint { display: none; } }   /* SHIFT-STOW: no Shift to tell of, or no room */
 /* NOT MULTICOL. column-count was the obvious answer and it is the
    wrong one: a multicol box that is also a SCROLL container fragments
    in the block direction, so the overflow columns went below the fold

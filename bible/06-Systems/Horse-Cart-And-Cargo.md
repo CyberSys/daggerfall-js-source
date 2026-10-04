@@ -32,7 +32,9 @@ WithPlayer, None, FollowingPlayer):
   settled a metre over the ground along its normal and smoothed (12 / 10
   per second), its wheels turning by the longitudinal travel over their
   radius, its cargo pieces (twelve classic models) showing by the wagon's
-  fullness (25 / 50 / 75 / 90 % of the 750 kg).
+  fullness (25 / 50 / 75 / 90 % of the 750 kg). The port departs here
+  (WAGON-HITCH, below): its moving wagon hangs on its shafts, 3.1 m from
+  the rider or the horse, with no ease in the horizontal.
 - **Dismounting** parks the wagon where it trailed (the mode set by the
   transport window, the quick-mount key or a script is OBSERVED, not
   intercepted) with the horse hitched 3.1 m ahead of it; riding the horse
@@ -68,8 +70,8 @@ WithPlayer, None, FollowingPlayer):
   id (a building's must also be on the same map pixel). A failed entry
   undoes the parking; stepping out closes the access.
 - **Fast travel** takes a following horse along (re-stood behind the
-  player once the world is up at the arrival, the team's wagon 2.5 m
-  behind it), or leaves it waiting at the departure with the setting off;
+  player once the world is up at the arrival, the team's wagon saved 2.5 m
+  behind it - and drawn on its shafts, 3.1 m: WAGON-HITCH below), or leaves it waiting at the departure with the setting off;
   a Travel Options accelerated journey ending re-stands it the same way.
 - **Physical persistence** off recalls everything to the player and lets
   every window answer as DFU's would; on again with no horse says so and
@@ -504,7 +506,8 @@ and struck (constructors, the `<Start>d__161` coroutine's five, the
 **398 authored methods**, each a row of `test/hcc_scope.test.js` with the
 symbol and module that carries it or a sentence saying why the port has
 no twin. **340 are ported**; **58 have no twin**, in these families and
-no other:
+no other. AUDIT WAGON-HITCH: six of the 340 (the trail's five and ApplyGroundedPose) are retired from the drawn wagon by WAGON-HITCH -
+still ported and pinned as the record, called by no runtime module (`RETIRED_BY_WAGON_HITCH` in the scope test):
 
 - `DeployedWagonFollowerCollisionFilter` (11): `Physics.IgnoreCollision`
   between the parked wagon's box and allied CharacterControllers - the
@@ -610,3 +613,162 @@ merge").**
   (the HCC-ONLINE paragraph and DISC20-C's ray), the Port-Ledger AUDIT HCC row,
   and the hcc_pool and disc20 rows in Testing.md still described the box
   PR-WAGON1 took away. They now say what the pins hold.
+
+## WAGON-HITCH - the wagon on its shafts (2026-10-04)
+
+Mac: "the wagon when attached to the horse should show in the overworld if
+attached and currently it sort of rubberbands and doesn't attach to the
+horse properly." Port-Ledger A, THE WAGON ON ITS SHAFTS.
+
+**The cause, measured** on the fake flat world (`test/hccWorld.mjs`)
+before anything changed. The mod lays the moving wagon on a trail point
+2.5 m back and eases it there at 12 per second (`ApplyGroundedPose`), so
+it trails its own target by speed / 12:
+
+| Case | The mod's law |
+|---|---|
+| Cart at rest | 2.5 m behind the rider |
+| Cart at the ride's 7.6 m/s | 3.07 m, back to within a centimetre of 2.5 m about a third of a second after the stop |
+| Frames of 1/90 and 1/30 s alternating | 3.031 / 3.038 m, frame by frame |
+| A following team setting off, the player walking 6 m/s | 0.81 m off its horse (the horse turned back past the wagon; AUDIT D's re-run of the pin's own walk came to 0.96-1.00 m), then 2.9 m at that pace (2.7 m at 3 m/s, 2.97 m at 10) |
+
+That is the rubber band, and the gap that moved under the horse is why the
+team never looked hitched. Under the Overworld it was worse: the traveller
+is drawn up to twelve times their size (OW-BIG), and the wagon hung a speck
+under the grown horse.
+
+**The law now** (`horseFollow.js`):
+
+- `hitchAxle` - the axle `length` from the hitch, on the line from where it
+  stood (the trailer law), facing the hitch. One home: the runtime and the
+  pool's peer wagons stand on it.
+- `hitchedPoseStep` - that axle on the ground the mod's own probe finds,
+  a metre up the normal, facing the hitch along the ground's plane. The
+  height and the tilt alone are eased, at the mod's 12 and 10. It stays
+  hidden until it first grounds; over ground not yet built it keeps its last
+  height and stays on its shafts.
+- `WagonHitch` - the last hitch, and whether it JUMPED: past `hitchJumpReach(dt)`, the mod's 20 m plus what
+  HITCH_JUMP_SPEED (30 m/s of game time) covers in the step (AUDIT A3, below).
+- The length is HITCHED_HORSE_LOCAL_Z, 3.1 m - the mod's own distance from
+  a parked wagon to its hitched horse. Parked, ridden and following, the
+  team stands alike.
+
+**The runtime** (`horseCart.js`):
+
+- **Riding the cart:** the hitch is the rider (the player's centre, the
+  cart's horse under them). A jump re-lays the wagon behind the team.
+  SeedTrail's reset is kept whole as `relayHitch`: the ground state, the
+  moving world pose and the wheels are forgotten, and the wagon is hidden
+  until it grounds - AUDIT BRANCH IL2 still holds.
+- **The following team:** the hitch is the horse. It is first laid from
+  where it was parked. A horse that jumps or is recovered from stuck takes
+  it along from where it stood, snapped - the IL's re-seed from the wagon
+  [IL_51ef-IL_51f9]; IL3 re-aimed to the shafts. The 15 m emergency
+  separation cannot arise on shafts, and has no arm.
+- **Mounting** a parked or following team (`hitchDeployedWagon`) drives
+  the wagon off from where it stood (`hitchSeed`), rather than laying it
+  behind the camera: it takes the nearest place on its shafts to that spot.
+  Mounted from beside the horse it barely moves; mounted from beside the
+  wagon itself it swings into line at once - 3.1 m from the rider is the law
+  (AUDIT A2 measured a 2.68 m, 135 degree swing from 0.42 m off the wagon).
+- **A dismount** parks the wagon where its WHEELS stood (the pose's `axle`),
+  so the hitched horse comes to stand where the rider sat - on a slope too.
+  With ShowTrailingWagon off there is no drawn wagon to park from, and the
+  mod's own fallback stands it 2.5 m behind the player (CaptureBestAvailable
+  DeploymentPose), the horse 0.6 m ahead of where the rider sat.
+
+**The presentation** (`horseCartPool.js`):
+
+- **Under the Overworld,** the cart's trailing wagon is DRAWN grown with
+  its rider about the hitch (`grownHitchedPosition`). The axle stands `g`
+  times as far on its line, the model is `g` times its size, and the wheels
+  rest on the ground found there. `selfGrow` is the view's own step for
+  mine; `grow` is OW-PEERS' `peerGrow` for another player's.
+- **Not grown:** a parked wagon (a world object) and a following team
+  (beside a horse billboard drawn at its own size).
+- **What is kept:** only the draw grows. The pose the runtime keeps, parks,
+  saves and sends stays the wagon's own, as the traveller's capsule does.
+- **Another player's cart wagon** hangs from their rider as this client
+  draws them (`peerAnchor`, `hitchPeerWagon`): the eased pose peerRiders
+  stands the rider on, `rd` 2. The height is the word's, eased; the tilt is
+  the word's ground. Before, their rider eased over a send interval and the
+  wagon's word on its own 12-per-second clock, and the two came apart at
+  speed. A parked wagon is never pulled.
+
+**The record kept.** The IL's `WagonTrail` and `groundedPoseStep` stay in
+`horseFollow.js`, pinned by `test/hcc_follow.test.js` and named by
+`test/hcc_scope.test.js`. They no longer place a drawn wagon.
+
+**THE FOUR HOSTS:**
+
+- `world.js`: wired - the seam and the draw's two grows; its modal branch
+  ticks the runtime indoors (`hccTick`).
+- `exterior.js`: runs the same runtime and pool, and has no travel view
+  and no peers, so it needs neither.
+- `worldModes.js`, `dungeonContext.js`: reach the runtime only through its
+  transition handlers (`host.horseCart?.()`), and draw no wagon (pinned).
+
+**Verification.**
+
+- **The pins:** `test/wagonhitch.test.js` (10 at the slice; 17 after its audit, below). The gap held at 3.1 m on
+  every frame, riding (uneven frames, the stop, a turn) and following. The
+  drive-off from the parked place, and the horse standing where the rider
+  sat. `hitchedPoseStep`'s hidden, lost-ground, height and tilt arms.
+  `hitchAxle` and `WagonHitch`. The grown position and draw, and a
+  following team not grown. Another player's wagon on its shafts at every
+  frame, and a parked one never pulled. The host's wiring.
+- **The mutants:** `tools/mutants/wagonhitch.json`, 9 at the slice (32 after its audit), all dead. The
+  re-aimed records of `hcc.json`, `auditbranch.json`, `auditinvis.json` and
+  `prwagon1.json` are all dead too.
+
+## AUDIT WAGON-HITCH (2026-10-04, Mac: "Audit this")
+
+Four lenses read the commit whole - the runtime, the presentation (online and the Overworld), the pack's filter and
+Shift, the records - each proving its findings by execution (the UI lens in a real Chromium through vite and Playwright,
+from the scratchpad). One blocker, one major; every finding is paid below, pinned (`test/wagonhitch.test.js` 17,
+`test/shiftstow.test.js` 9, `test/audit_hcc_branch.test.js` IL3, `test/hcc_scope.test.js`) and killed by a mutant
+(`tools/mutants/wagonhitch.json`, `shiftstow.json`: 264 dead over the nine lists the change touches, none survived;
+`test/el2_shadows.test.js`'s renderer pin re-aimed to the `noShadow` gate).
+
+**The runtime.**
+- **A1 (BLOCKER): the wagon swung round its hitch on any slope.** The drawn pose stands a metre up the ground's normal,
+  which on a slope leans downhill, and the shafts pulled from that pose next frame - a feedback that turned the wagon
+  until it hung straight down the hill: a 3 degree side slope, 75 degrees in two seconds with the rider standing; 8
+  degrees, the team parked sideways to the road; and more the higher the frame rate (5 degrees at 7.6 m/s: 20.5 at 30
+  fps, 59.6 at 144). The pins all ran on flat ground. The shafts now pull from where the WHEELS stand (`pose.axle`);
+  the park, the live following pose and the saved one read it too, so the horse stands where the rider sat on a slope.
+  The test world carries a side slope (`w.slope`).
+- **A3: a fast journey re-laid the wagon every frame.** Under Travel Options' x100 a 30 fps frame is 3.3 game seconds
+  and a cart 25 m, past the flat 20 m - the wagon re-laid behind the facing each frame, its wheels frozen, its height and
+  tilt snapped (the mod's own IsDiscontinuity did the same). A jump is now past `hitchJumpReach(dt)`; a real leap still
+  re-lays it. A4 (a following horse's 16 x 1.25 m substep rounding past 20 m) goes with it.
+- **A5:** a drive-off seed is spent whether the wagon's visual stands or not. **A2 / A6:** the mount's swing and the
+  hidden wagon's 2.5 m fallback are written above as what they are.
+- **M1 (the records lens): IL3 guarded the place, not the reset.** On shafts the place comes out the same whether the
+  re-seed runs or not; the pin now puts the horse onto ground three metres up and holds the wagon SNAPPED there, and a
+  teleport while riding is held re-laid behind the facing (the reset kept active would pull it toward the old place).
+
+**The presentation.**
+- **B1: a grown wagon sank into a hill.** The ground probe rose the mod's 8 m over the hitch while the grown axle stood
+  g hitch-lengths back; ground climbing more over that span put the origin under the hill, where the collider meets
+  nothing (it meets a floor only from above) - measured 9.1 m under at 15 degrees and g 12, a pop, not a sink. The
+  probe rises with the reach. My grown wagon is grown from its axle, not the drawn position (whose lean, grown, was g
+  times as long).
+- **B2: the grown wagon cast a giant's shadow** beside a rider who casts none (OW-BIG's law). `renderer.drawMesh` takes
+  `{ noShadow }`, and a grown wagon passes it.
+- **B4: another player's wagon took its height from the word**, which belonged to where the owner's wagon stood - 0.19
+  m under its own ground on a 20 degree climb. It takes the ground's height at its axle here, eased at the mod's 12.
+  **B5:** its eased tilt is forgotten with the anchor. **B7:** a grown wheel turns g times slower for the same road
+  (`grownWheelStep`).
+- **M2 (the records lens):** the peer wagon's restart from the word, its height's ease, its facing toward the rider and
+  its tilt's ease are pinned now; only the gap had been.
+- **Known, not changed:** another player's rider is grown off the last frame's eye (peerRiders syncs in the online frame,
+  before the travel view's), the wagon off this frame's - during the 1.2 s rise and 0.8 s fall a frame can stand them one
+  whole step apart (B3). A following team stays its own size beside the grown traveller, its horse billboard being
+  ungrown (B7) - a choice, written in OW-WAGON.
+
+**The records (D).** The 0.8 m and "inside 0.3 s" figures are given with their scenario; the four hosts are described as
+they are; the fast-travel line points here; the scope table names the six retired rows (`RETIRED_BY_WAGON_HITCH`) and
+the page says so beside the count. The pack's half - the filter's layout, its reset, the latch - is `10-UI/UI-Arc.md`'s
+AUDIT WAGON-FILTER AND SHIFT-STOW.
+
