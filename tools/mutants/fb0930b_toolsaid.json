@@ -303,8 +303,8 @@
   {
     "name": "TOOL-USE-the-stores-say-the-old-way",
     "file": "src/ui/profPages.js",
-    "old": "A tool used from your pack gathers nothing: it only points the way.';",
-    "new": "A tool used from your pack gathers into the pack, not here.';",
+    "old": "Tools used from your pack gather nothing.';",
+    "new": "Tools used from your pack gather into the pack, not here.';",
     "tests": ["test/fb0930b_toolsaid.test.js"]
   }
 ]
