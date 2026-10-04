@@ -298,7 +298,8 @@ test('REVENANT-DUNGEON, REVENANT-WIRE, the single-location host: a special foe o
   assert.match(d, /const _flee = f\.fleeing \|\| \(!f\._fleeRolled && revenantFleeHealth\(f\.entity\)\) \? revenantFleeStep\(f, _pf, \{ mayRun: !onlineRoom\(\) \|\| !_roomFoe, onMe: /, 'the one flee law - mine alone, never a room\'s shared foe');
   assert.match(d, /if \(_flee === 'escape'\) \{ escapeDungeonFoe\(f\); continue; \}/);
   assert.match(d, /if \(_flee === 'start' \|\| _flee === 'run'\) _tgt = null;/, 'running, it aims at nothing; its walk below');
-  assert.match(d, /function escapeDungeonFoe\(f(?:, \{ slip = false \} = \{\})?\) \{\s*\n\s*questPoolOps\.removeFoe\(f\);/);
+  // PIN MOVED (RVN3: the unbroken's escape - the same door, its own words)
+  assert.match(d, /function escapeDungeonFoe\(f(?:, \{ slip = false(?:, unbroken = false)? \} = \{\})?\) \{\s*\n\s*questPoolOps\.removeFoe\(f\);/);
   assert.match(d, /if \(foe\.entity\?\.revenant\) \{ const nr = revenantSlain\(playerEntity, foe\.entity\);/);
   // the wire
   const base = { i: 1, t: 7, x: 0, f: [0, 0, 0], y: 0 };

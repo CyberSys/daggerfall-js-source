@@ -16,9 +16,11 @@
 //   castOnPlayer(b) a spell bundle on me, no saving throw and no chance roll (a potion's way)
 //   player()        my entity (a kill's word names the foe, not me)
 //   clear(a, b)     AUDIT SET M4 (optional): whether nothing solid stands between feet a and feet b, chest high
+//   say(line)       RVN3 (optional): a line the scene's HUD speaks
+//   sfx(id, at)     RVN3 (optional): a sound where a foe stands
 // }
 
-/** @type {null | { foes: () => any[], feet: () => number[]|null, hurtFoe: (f: any, n: number) => void, castOnPlayer: (b: any) => void, player?: () => any, clear?: (a: number[], b: number[]) => boolean }} */
+/** @type {null | { foes: () => any[], feet: () => number[]|null, hurtFoe: (f: any, n: number) => void, castOnPlayer: (b: any) => void, player?: () => any, clear?: (a: number[], b: number[]) => boolean, say?: (line: string) => void, sfx?: (id: number, at: number[]) => void }} */
 let _door = null;
 /** The running host's word: this is the scene now. `null` takes it down. */
 export function setPlayerDoor(door) { _door = door && typeof door === 'object' ? door : null; }

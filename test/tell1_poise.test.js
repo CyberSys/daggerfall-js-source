@@ -316,7 +316,7 @@ test('TELL1: a staggered foe takes a quarter more - the registry, the formulas\'
   assert.match(fm, /const m = mentorDamageTakenMult\(target\);\n\s*if \(m > 1\) damage = Math\.max\(1, Math\.round\(damage \* m\)\);\n\s*\}\n(\s*\/\/[^\n]*\n)*\s*damage = blowTaken\(damage, attacker, target, weapon, /, 'after mentor mode, before the reports');
   const hm = rd('src/scenes/hostMagic.js');
   // PIN MOVED (RVN1: the landing notes my spell in its fight's ledger between the take and the sink)
-  assert.match(hm, /hurt: \(n, o\) => \{\n\s*const d = o\?\.whole \|\| o\?\.round \? n : blowTaken\(n, striker, foe\.entity, null, \{ kind: 'spell'[^\n]*\n[^\n]*\n\s*return sinks\.hurt\(d, o\);/, 'a spell\'s landing; a kill and a round as they come (RVN1: the ledger notes it between)');
+  assert.match(hm, /hurt: \(n, o\) => \{\n\s*const d = o\?\.whole \|\| o\?\.round \? n : blowTaken\(n, striker, foe\.entity, null, \{ kind: 'spell'[^\n]*\n[^\n]*\n\s*return sinks\.hurt\(d, \{ \.\.\.\(o \?\? \{\}\), element: spell\?\.element \?\? null \}\);/, 'a spell\'s landing; a kill and a round as they come (RVN1: the ledger notes it between; PIN MOVED RVN3: its element rides to the door)');
   assert.match(hm, /const r = applySpell\(spell, casterLevel, foe\.entity, landing, rolls, caster, ctx\);/);
 });
 
@@ -430,7 +430,7 @@ test('TELL1: every door asks the poise door where it writes DFU\'s knock, passes
   assert.match(ex, /f\.ai\.knockbackSpeed = weaponKnockbackSpeed\(damage, w\) \* \(_tell === 'stagger' \? TELL\.STAGGER_KNOCK : 1\);/);
   assert.match(ex, /damageFoe\(foe, damage, playerFeet, lookDir, \{ weapon: playerWeapon\.strikingWeapon \}\);/);
   assert.match(ex, /hurting: f\.ai\.hurtKnock \|\| f\.ai\.staggered,/);
-  assert.match(ex, /hurt: \(n, o\) => damageFoe\(f, n, null, null, \{ fromPlayer: false, kind: 'spell', whole: !!o\?\.whole, round: !!o\?\.round \}\),/);
+  assert.match(ex, /hurt: \(n, o\) => damageFoe\(f, n, null, null, \{ fromPlayer: false, kind: 'spell', whole: !!o\?\.whole, round: !!o\?\.round, element: o\?\.element \?\? null \}\),/);   // PIN MOVED (RVN3: a landing's element)
   const g = rd('src/scenes/cityGuards.js');
   assert.match(g, /const _tell = \(g\.ai\?\._tac\?\.state !== 'windup' && g\.ai\?\._tac\?\.state !== 'overreach'\) \? null : windupDoor\(g, damage, \{/);   // PIN MOVED (TELL4)
   assert.match(g, /if \(_tell === 'hold'\) return;\n\s*if \(knockDir && weaponKnockbackApplies\(g\.ai\.knockbackSpeed, true, guardWeight\)\) \{/);
@@ -444,7 +444,7 @@ test('TELL1: every door asks the poise door where it writes DFU\'s knock, passes
   assert.match(d, /foe\.ai\.knockbackSpeed = weaponKnockbackSpeed\(damage, w\) \* \(_tell === 'stagger' \? TELL\.STAGGER_KNOCK : 1\);/);
   assert.match(d, /damageFoe\(foe, damage, playerFeet, lookDir, \{ weapon: playerWeapon\.strikingWeapon \}\);/);
   assert.match(d, /hurting: f\.ai\.hurtKnock \|\| f\.ai\.staggered \|\| !!_pb\?\.staggered,/);   // PIN MOVED (TELL8: and the host's stagger on its puppet)
-  assert.match(d, /hurt: \(n, o\) => damageFoe\(f, n, null, null, \{ kind: 'spell', fromPlayer: o\?\.fromPlayer \?\? fromPlayer, whole: !!o\?\.whole, round: !!o\?\.round \}\),/);
+  assert.match(d, /hurt: \(n, o\) => damageFoe\(f, n, null, null, \{ kind: 'spell', fromPlayer: o\?\.fromPlayer \?\? fromPlayer, whole: !!o\?\.whole, round: !!o\?\.round, element: o\?\.element \?\? null \}\),/);   // PIN MOVED (RVN3: a landing's element)
   assert.match(rd('src/systems/effects.js'), /sinks\.hurt\(n, \{ fromPlayer: !a\.caster \|\| !!a\.caster\.isPlayer, bundleDuel: !!a\.bundleDuel, round: true \}\);/, 'a round says it is one');
   for (const [file, re] of [
     ['src/scenes/world.js', /cityGuards\.hurtGuard\(f, d, player\.pos, m\.dir, \{ kind: 'arrow' \}\)/],

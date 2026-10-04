@@ -13,6 +13,7 @@ import { revenantsFor, revenantOn, revenantPortrait, revenantRankNumeral, REVENA
 import { ownMinutes } from '../systems/worldTick.js';
 import { requestFittedIcon, fittedImg } from './textureCanvas.js';
 import { PERSONALITIES } from '../systems/revenantPersonality.js';   // REVENANT-VOICE: who each is
+import { WEAK_NAMES, WEAK_HINTS, weaknessKind, willMatters } from '../systems/revenantFeud.js';   // RVN3: its weakness, its will
 
 export const REVENANT_PAGE_SECTIONS = Object.freeze([['revenants', 'Revenants']]);
 export const REVENANT_PAGE_STYLE_ID = 'revenant-page-css';
@@ -47,6 +48,8 @@ export const REVENANT_PAGE_CSS = `
 .px-sys .rvn-come { font-size: 12px; color: #b8b0a0; }
 .px-sys .rvn-scars { font-size: 11px; color: #c9a27a; }
 .px-sys .rvn-learned { font-size: 11px; color: #e0a54a; }
+.px-sys .rvn-weak { font-size: 11px; color: #9fc2d8; }
+.px-sys .rvn-will { font-size: 11px; font-style: italic; color: #d0604f; }
 .px-sys .rvn-history { margin: 3px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 10px; color: #8b8578; }
 .px-sys .rvn-history li::before { content: '\\25C6 '; color: #c08a3e; }
 .px-sys .rvn-row.is-fallen .rvn-face img { filter: grayscale(1) brightness(0.6); }
@@ -111,6 +114,16 @@ export function learnedWords(r) {
   const names = (r?.learned ?? []).map((a) => ADAPT_NAMES[a]).filter(Boolean);
   return names.length ? `Learned: ${names.join(', ')}.` : '';
 }
+/** RVN3 (section 14; RVN12 completes the page): its weakness as the player knows it - unknown, its kind (a flinch's or a
+ *  rumour's hint), or what it is. */
+export function weaknessWords(r) {
+  const k = r?.weakKnown | 0;
+  if (k >= 2 && WEAK_NAMES[r.weak]) return `Weakness: ${WEAK_NAMES[r.weak]}.`;
+  if (k === 1) return `Weakness: ${WEAK_HINTS[weaknessKind(r.weak)] ?? 'Something'}.`;
+  return 'Weakness: unknown.';
+}
+/** RVN3 (14.2): from rank 3, the rule of its will. */
+export const willWords = (r) => (willMatters(r?.rank) ? 'Its will must be broken - strike its weakness, or stagger it twice.' : '');
 /** Its scars, newest first and each once - the ways it was hurt and what it learned (a deed's scar is the history's). */
 export function scarWords(r) {
   const seen = new Set();
@@ -172,6 +185,9 @@ function row(el, r, now, kindName) {
   if (scars) text.append(el('span', 'rvn-scars', scars));
   const learned = fallen ? '' : learnedWords(r);   // RVN2: and what it learned of them
   if (learned) text.append(el('span', 'rvn-learned', learned));
+  if (!fallen) text.append(el('span', 'rvn-weak', weaknessWords(r)));   // RVN3: its weakness, as I know it
+  const will = fallen ? '' : willWords(r);
+  if (will) text.append(el('span', 'rvn-will', will));
   const hist = (r.history ?? []).slice(-5);
   if (hist.length) {
     const ul = el('ul', 'rvn-history');

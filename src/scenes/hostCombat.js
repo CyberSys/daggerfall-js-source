@@ -40,7 +40,7 @@ import { ATTRACT_RADIUS, ignoreHumanSounds } from '../characters/enemySounds.js'
 import { enemyDisplayName, ENEMY_BASICS } from '../characters/enemyBasics.js';   // AUDIT 24 (wave 42); TELL1: the bark a breaking blow wrings out
 import { windupHolds, windupStruck, tacticsNow, overreachOpen, poiseTrack, LOCAL_TARGET } from '../ai/tactics.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL2: the cues' clock; TELL4: the punish window
 import { blowK, blowWeight, behind, TELL } from '../ai/tells.js';
-import { noteFeud } from '../systems/feudLedger.js';   // RVN1: my staggers and back hits, in a fight's ledger (a leaf)
+import { noteFeud, feudWeakBlow } from '../systems/feudLedger.js';   // RVN1: my staggers and back hits, in a fight's ledger (a leaf); RVN3: a blow of its weakness
 import { BLOW } from '../ai/blowShapes.js';   // TELL6d: the aimed shot's speed
 import { blowEffectOf, queueBlowEffect, drainBlowEffects, tickBleed } from '../systems/blowEffects.js';   // TELL6e: what a landing does to the player
 import { BLOW_VERDICT_LIFE } from '../ai/foeBlows.js';   // TELL1: a blow's weight on the poise meter; TELL2: the cues' numbers
@@ -659,7 +659,7 @@ export function applyDamageToNonPlayer(attacker, target, {
  * player in a beast's form), `weight` (DFU's weight in classic units, or a function answering it - read only when the
  * foe is winding up). `fx`: the pool's `audio`, `hitEffects`, `shake` (the player's own blow only) and `rolls`.
  */
-export function windupDoor(f, damage, { kind = 'melee', weapon = null, round = false, peer = false, striker = null, from = null, claws = false, weight = 0, wc = null, fromPlayer = true } = {}, fx = {}) {   // AUDIT TELL U6: `fromPlayer` the pool's provenance - a foe's own spell, a SetHealth(0), is nobody's word
+export function windupDoor(f, damage, { kind = 'melee', weapon = null, round = false, peer = false, striker = null, from = null, claws = false, weight = 0, wc = null, fromPlayer = true, element = null } = {}, fx = {}) {   // AUDIT TELL U6: `fromPlayer` the pool's provenance - a foe's own spell, a SetHealth(0), is nobody's word
   const mine = fromPlayer && !peer && !striker;
   if (f?.ai && overreachOpen(f.ai)) {   // TELL4: no meter to weigh - the blow lands, and the first staggers it
     const word = windupStruck(f.ai, f.entity, typeof weight === 'function' ? weight() : weight, 0);
@@ -677,7 +677,9 @@ export function windupDoor(f, damage, { kind = 'melee', weapon = null, round = f
       : blowK({ kind, weapon, claws, round, peer });
   const back = peer ? !!wc?.back : behind(blow.origin, blow.yaw, from);
   const watchful = f.entity?.revenant?.edge?.watchful === true;   // RVN2: a Watchful revenant's poise takes no back multiplier
-  const v = blowWeight(damage, k, peer ? { back: back && !watchful, weak: !!wc?.weak } : { back: back && !watchful });
+  // RVN3 (Feud-Arc.md 14.1): a blow of its weakness weighs x POISE_WEAK - a peer's as it judged it, mine or a foe's here
+  const weak = peer ? !!wc?.weak : !round && feudWeakBlow(f.entity, { kind, weapon: striker ? (striker.entity?.weapon ?? null) : weapon, element, attacker: striker?.entity ?? (fromPlayer ? { isPlayer: true } : null) });
+  const v = blowWeight(damage, k, { back: back && !watchful, weak });
   const w = typeof weight === 'function' ? weight() : weight;
   const word = windupStruck(f.ai, f.entity, w, v);
   windupFeedback(word, f, fx);

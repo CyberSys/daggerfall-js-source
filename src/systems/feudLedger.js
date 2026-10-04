@@ -23,12 +23,24 @@ const COUNTS = Object.freeze(['staggers', 'dodged', 'perfect', 'backHits', 'weak
 
 /** @type {null | ((entity: any) => boolean)} */
 let _gate = null;
+/** @type {null | ((entity: any, info: any) => boolean)} */
+let _weak = null;
+/** @type {null | ((entity: any) => void)} */
+let _onWeak = null;
 /** @type {null | (() => { now?: number, night?: boolean })} */
 let _clock = null;
 /** systems/revenant.js: which bodies keep a ledger (a revenant candidate, the switch on). */
 export function setFeudGate(fn) { _gate = typeof fn === 'function' ? fn : null; }
 /** systems/revenant.js: the character's minute and whether the sky reads night, when a ledger opens. */
 export function setFeudClock(fn) { _clock = typeof fn === 'function' ? fn : null; }
+/** RVN3: systems/revenant.js's word on whether a blow is of a body's weakness - `info` `{ cls, metal }` as the ledger's
+ *  writers know it, or `{ kind, weapon, element, attacker }` as a door does - and what follows a blow of it (`onWeak`). */
+export function setFeudWeakTest(fn, onWeak = null) { _weak = typeof fn === 'function' ? fn : null; _onWeak = typeof onWeak === 'function' ? onWeak : null; }
+/** RVN3: is this blow of `entity`'s weakness (false with no test, or for a body with none)? */
+export function feudWeakBlow(entity, info = {}) {
+  if (!_weak || !entity?.revenant) return false;
+  try { return !!_weak(entity, info ?? {}); } catch { return false; }
+}
 
 /** `entity`'s open ledger - opened now for a body the gate passes (`open`), else null. */
 export function feudOf(entity, open = true) {
@@ -48,13 +60,18 @@ export function feudOf(entity, open = true) {
   return entity._feud;
 }
 
-/** The player dealt `n` to `entity` by `cls` (FEUD_CLASSES; anything else is `other`) - `silver` when the weapon was. */
-export function noteFeudHarm(entity, cls, n, { silver = false } = {}) {
+/** The player dealt `n` to `entity` by `cls` (FEUD_CLASSES; anything else is `other`) - `silver` when the weapon was;
+ *  RVN3: a blow of its weakness (`metal` the weapon's) counts `weak`, and is told (`onWeak` - the reveal). */
+export function noteFeudHarm(entity, cls, n, { silver = false, metal = null } = {}) {
   if (!(n > 0)) return;
   const l = feudOf(entity);
   if (!l) return;
   l.dmg[FEUD_CLASSES.includes(cls) ? cls : 'other'] += n;
   if (silver) l.silver += n;
+  if (feudWeakBlow(entity, { cls, metal })) {
+    l.weak++;
+    try { _onWeak?.(entity); } catch { /* the reveal is not the blow's problem */ }
+  }
 }
 /** One more of a count (`staggers`, `dodged`, `perfect`, `backHits`, `weak`) in `entity`'s fight. */
 export function noteFeud(entity, what) {

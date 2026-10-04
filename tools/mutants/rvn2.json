@@ -288,18 +288,9 @@
     ]
   },
   {
-    "name": "RVN2-a-metal-weakness-touched",
-    "file": "src/systems/revenant.js",
-    "old": "  if (edge.weak && weapon && METAL_WEAKNESS[weapon.material] === edge.weak) return 1;\n",
-    "new": "",
-    "tests": [
-      "test/rvn2_adapt.test.js"
-    ]
-  },
-  {
     "name": "RVN2-the-fold-unregistered",
     "file": "src/systems/revenant.js",
-    "old": "  Object.assign(m.resist, resist);\n",
+    "old": "  Object.assign(m.resist, edge.resist);\n",
     "new": "",
     "tests": [
       "test/rvn2_adapt.test.js"

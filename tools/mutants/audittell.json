@@ -507,8 +507,8 @@
   {
     "name": "AUDITTELL-U6-pool",
     "file": "src/scenes/dungeonContext.js",
-    "old": "wc, fromPlayer,   // TELL8: a joiner's blow's class; AUDIT TELL U6: whose blow",
-    "new": "wc,   // TELL8: a joiner's blow's class; AUDIT TELL U6: whose blow",
+    "old": "wc, fromPlayer, element,   // TELL8: a joiner's blow's class; AUDIT TELL U6: whose blow",
+    "new": "wc, element,   // TELL8: a joiner's blow's class; AUDIT TELL U6: whose blow",
     "tests": [
       "test/audittell.test.js"
     ]

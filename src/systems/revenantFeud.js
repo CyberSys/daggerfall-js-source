@@ -50,6 +50,11 @@ export const ADAPT = Object.freeze({
 /** RVN3: from this rank its will must be broken; this many staggers break it. */
 export const WILL_RANK = 3;
 export const WILL_STAGGERS = 2;
+/** RVN3 (14.1): a blow of its weakness (a weapon class or a metal) x1.5; a daylight weakness x1.25 on every blow while
+ *  the sky reads day; an element's on the saving throw (the fold); its poise weight x2 is TELL's (`POISE_WEAK`). */
+export const WEAK = Object.freeze({ STRUCK: 1.5, DAYLIGHT: 1.25, RESIST: -50 });
+/** RVN3 (14.1): under this share of its health with its weakness unknown, it flinches - once a stand. */
+export const FLINCH_HEALTH = 0.5;
 /** RVN5: from this rank a revenant has a signature blow. */
 export const SIG_RANK = 2;
 /** RVN6: its band's size by rank (1 to 5). */
@@ -179,6 +184,43 @@ export function drawWeakness(id, mobileType, career = null) {
   const pool = weaknessPool(mobileType).filter(([w]) => !(ELEMENT_FLAG[w] && (shut & ELEMENT_FLAG[w])));
   return weighted(pool.length ? pool : [['blunt', 1]], idStream(id, 'weak')) ?? 'blunt';
 }
+/** A weapon's metal as a weakness names it (silver, elven, dwarven), or null. */
+const METAL_OF = Object.freeze({ 2: 'silver', 3: 'elven', 4: 'dwarven' });
+export const metalOf = (weapon) => (weapon && Number.isInteger(weapon.material) ? METAL_OF[weapon.material] ?? null : null);
+/** RVN3 (14.1): is a blow of class `cls` (a weapon class, or a spell's element) in metal `metal` one of weakness `weak` -
+ *  the daylight's every blow while the sky reads day (`day`)? */
+export function isWeakBlow(weak, cls, metal = null, day = false) {
+  if (!isWeakness(weak)) return false;
+  if (weak === 'daylight') return !!day;
+  return weak === cls || (metal != null && weak === metal);
+}
+/** RVN3 (14.2): its will broken in this fight (its ledger) - its weakness struck, or staggered WILL_STAGGERS times. */
+export const willBroken = (ledger) => !!ledger && ((ledger.weak | 0) > 0 || (ledger.staggers | 0) >= WILL_STAGGERS);
+/** RVN3 (14.2): must its will be broken (rank WILL_RANK and up)? */
+export const willMatters = (rank) => (rank | 0) >= WILL_RANK;
+/** RVN3 (14.1): WHAT IT SHIES FROM - the narrator's line, one a weakness, in no personality's voice. */
+export const FLINCH_LINES = Object.freeze({
+  fire: 'It keeps its eyes on your torch.',
+  frost: 'It shrinks from the chill on your breath.',
+  shock: 'It flinches at the crackle of a storm.',
+  poison: 'It covers its mouth at the reek of venom.',
+  magic: 'It flinches from the light gathering in your hands.',
+  silver: 'It flinches from the glint of silver.',
+  dwarven: 'Its eyes keep straying to your Dwarven steel.',
+  elven: 'It shrinks from the shimmer of elven steel.',
+  blunt: 'It guards its skull from every swing.',
+  axe: 'It twists away from the bite of an axe.',
+  blade: 'It turns its throat from every point.',
+  arrow: 'It keeps to cover from your arrows.',
+  h2h: 'It fears your bare hands more than any steel.',
+  daylight: 'It squints and shrinks from the daylight.',
+});
+/** RVN3 (14.1, 24.1): a weakness's name, and the hint a flinch or a rumour gives. */
+export const WEAK_NAMES = Object.freeze({
+  fire: 'Fire', frost: 'Frost', shock: 'Shock', poison: 'Poison', magic: 'Magic', silver: 'Silver', dwarven: 'Dwarven steel',
+  elven: 'Elven steel', blunt: 'Blunt weapons', axe: 'Axes', blade: 'Blades', arrow: 'Arrows', h2h: 'Bare hands', daylight: 'Daylight',
+});
+export const WEAK_HINTS = Object.freeze({ element: 'An element', metal: 'A metal', weapon: 'A weapon', sun: 'The sun' });
 /** Is `weak` an element `career` resists or is immune to (an older record's draw, met with its career at a stand)? */
 export const weaknessShut = (weak, career) => !!(ELEMENT_FLAG[weak] && ((((career?.resistanceFlags | 0) | (career?.immunityFlags | 0)) >>> 0) & ELEMENT_FLAG[weak]));
 

@@ -83,7 +83,7 @@
   {
     "name": "RVN1-the-listener-unregistered",
     "file": "src/systems/revenant.js",
-    "old": "  noteFeudHarm(target, cls, damage, { silver });\n",
+    "old": "  noteFeudHarm(target, cls, damage, { silver, metal: metalOf(weapon) });   // RVN3: its metal, for a metal weakness\n",
     "new": "",
     "tests": [
       "test/rvn1_ledger.test.js"

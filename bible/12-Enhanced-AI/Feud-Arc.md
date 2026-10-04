@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL, RVN1 and RVN2 built; RVN3-RVN13 next)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL and RVN1-RVN3 built; RVN4-RVN13 next)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -7,7 +7,7 @@ detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
 (section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts), AUDIT
-TELL, RVN1 and RVN2; each slice's record is at the foot.**
+TELL, and RVN1 to RVN3; each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -1787,7 +1787,8 @@ and `dungeonContext.js`.
   swing's backstab; `scenes/dungeon.js` hosts it).
 - **Not built here** - a peer's blow on my revenant rolls against its puppet, which carries no adaptations until
   RVN13's `ad`; the taunt that names one (RVN12's `{how}`).
-- Pins `test/rvn2_adapt.test.js` (11). Pins moved (each marked `PIN MOVED (RVN2: ...)`): `rvn1_ledger` (a record holds
+- Pins `test/rvn2_adapt.test.js` (11; the fold's revenant on a fixed id - a drawn weakness among the fights' had made
+  it flaky, which the gate caught). Pins moved (each marked `PIN MOVED (RVN2: ...)`): `rvn1_ledger` (a record holds
   its rank's), `audit18_hosts_dungeon` (the shaft hands its foe to the backstab), `auditworld6bii` and `questparty2` (the
   cull's A2 and Q4). The edge's class reader is `adaptBlowClass` (the gate's one-name law: `ai/puppetBlows.js` owns
   `blowClassOf`).
@@ -1795,3 +1796,53 @@ and `dungeonContext.js`.
   a rat's bite too small to weigh, the career at the real deed, the shaft's backstab door and its three siblings, the
   page's row) and each has its pin. Mutant records re-aimed by content (12): `tell3` (4), `tell5` (2), `rvn1` (2),
   `auditqp`, `revenant`, `set2` and `tell6b` (one each) - all judged again, all dead.
+
+### RVN3 - BUILT 2026-10-04 (the loot-rarity row on; the staggers with the Enhanced AI switch; every host)
+
+- **The law** - `systems/revenantFeud.js`: `WEAK` (x1.5 struck, x1.25 the daylight's, -50 an element's), `isWeakBlow`
+  (its class, its metal - `metalOf`: silver, elven, dwarven - or, for the daylight, every blow while the sky reads day),
+  `willMatters` (rank 3 and up), `willBroken` (the fight's ledger: `weak` struck, or `staggers` 2), `FLINCH_HEALTH` 0.5,
+  `FLINCH_LINES` (fourteen, one a weakness, the narrator's), `WEAK_NAMES`, `WEAK_HINTS`.
+- **One test of a weak blow** - `feudLedger.setFeudWeakTest` (registered by `revenant.js`; the leaf asks it): the ledger's
+  writers with `{ cls, metal }`, a door with `{ kind, weapon, element, attacker }`. `noteFeudHarm` counts `weak` and
+  tells the reveal. The strike listener passes the weapon's metal.
+- **Struck** - `registerBlowTakenMod('revenant')`: the daylight's x1.25 by day on every blow (a spell's landing too),
+  a class's or a metal's x1.5 - and no adaptation takes from a blow of it; an element's -50 on the fold (beside its
+  adaptations', never touching it). On a wind-up `hostCombat.windupDoor` weighs it x `POISE_WEAK` - mine by my weapon,
+  a striker's by its own, a spell's by its ELEMENT, now threaded: `hostMagic`'s landing hands `element` to the sinks,
+  every host's player spell sink (`world.js`, `exterior.js`, `worldModes.js`, the dungeon's) hands it to its pool's
+  door, and both doors (`damageFoe`) to the poise door.
+- **Revealed** - my first blow of it in a stand (`revealWeakness`): the "Weakness" word on its number each blow (after
+  the number, a microtask), the hiss (`SOUND.Burning`) where it stands through the player's door (`playerDoor`'s new
+  optional `sfx` and `say`, published by the cast engine), and - the first time - the record's `weakKnown` 2 and its card
+  (*Weakness*: "Blades - its weakness, laid bare."). A daylight weakness is struck by any blow of mine by day (decided
+  here: the sun is on it).
+- **The flinch** - `revenantFlinch(f)`, asked beside the taunt in both pools: under half its health, its weakness
+  unknown, once a stand - the narrator's line (no voice), `weakKnown` 1.
+- **The will** - `revenantFate.revenantWillHolds(f)` at both yield seams (`exteriorFoes.js`, the dungeon's, a room's
+  shared foe online still never): unbroken, it does not kneel - `beginTearAway(f, done)`: held at 1, its run over, its
+  body ashing out on the ember lane (`portalFx` with a `tint` - `fateDissolve` reads it; a portal's stays arcane) inside
+  the pools' leaving hold (`f.leaving`, 900 ms; decided here: the companion portal's hold, already fate-held everywhere,
+  and both damage doors now refuse a body leaving), whose hand-off is the escape - `escapeFoe` / `escapeDungeonFoe` with
+  `unbroken`: the `fled` deed (it ranks up and learns from the fight) and its card (*Unbroken*: "Grushnak staggers into
+  the smoke, unbroken.", its escape words). Broken, it kneels as ever; rank 2, it kneels; a Disintegrate's whole kills -
+  and `exterior.js` and `worldModes.js`'s encounter spell sinks, which dropped `whole` (world.js's and the dungeon's
+  passed it), pass it now: there, a Disintegrate on a revenant made it kneel.
+- **The page** - "Weakness: unknown." / "Weakness: An element." / "Weakness: Fire."; from rank 3 "Its will must be
+  broken - strike its weakness, or stagger it twice." (`weaknessWords`, `willWords`).
+- **Four hosts** - `scenes/world.js` WIRED (its spell sink's element; the street pool's seam, flinch and tear-away);
+  `scenes/exterior.js` WIRED (its sink's element and `whole`) - FLAGGED (section 32): no `fates`, so its revenants die
+  outright and the will never asks; `scenes/worldModes.js` WIRED (its sink's element and `whole`; its interior pool);
+  `scenes/dungeonContext.js` WIRED (its seam, flinch, tear-away, sink; `scenes/dungeon.js` hosts it).
+- **Not built here** - rumour's hint (RVN7); the will on a peer's screen (RVN13); a voice for the flinch and the will
+  (RVN12).
+- Pins `test/rvn3_weak.test.js` (9). Pins moved (each marked `PIN MOVED (RVN3: ...)`): `revenant` and `revenant_card`
+  (the escapes' `unbroken`), `revenant_fate` (the dungeon's seam), `rvn2_adapt` (its weakness now x1.5 and -50), `tell1_poise`, `exteriorfoes`,
+  `hostmagic_wiring`, `audit26_combat`, `audit68_review`, `audit68_worldjs`, `auditworld6biii`, `enchantpool` and `world2`
+  (the sinks', the doors' signatures' and the landing's `element`; exterior.js's and worldModes.js's `whole`; world2's
+  fate-held refusal), `audit24_lifetimes` (the death gap's bound, the will in it).
+- Mutants `tools/mutants/rvn3.json` (54): 53 dead, 1 recorded equivalent (the flinch's once-a-stand flag - the record's
+  own `weakKnown` refuses a second line); two survived the first run (the strike's metal; the tear-away's refusal) and
+  have pins. Mutant records re-aimed by content (6): `revenantfate` (3), `audittell`, `rvn1`, `rvn2` (one each); one
+  retired with its line - `rvn2`'s `RVN2-a-metal-weakness-touched` (61 now): the mod's metal check is unreachable, a
+  blow of a metal weakness being x1.5 ahead of every adaptation.

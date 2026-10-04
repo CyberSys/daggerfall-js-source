@@ -29,6 +29,7 @@ import { companionsWithYou, COMPANION_SLOTS } from './companionSlots.js';
 import { enemyDisplayName } from '../characters/enemyBasics.js';
 import { DISSOLVE_EMBER, DISSOLVE_ARCANE } from './dissolve.js';
 import { clearPlayerHarm } from './harmMark.js';   // AUDIT (2026-10-02): a beaten one's harm is no one's death
+import { willMatters, willBroken } from './revenantFeud.js';   // RVN3: the will (bible/12-Enhanced-AI/Feud-Arc.md 14.2)
 
 /** How long a beaten revenant kneels before it slips away (ms). */
 export const REVENANT_YIELD_MS = 90000;
@@ -48,6 +49,26 @@ export function revenantMayYield(f) {
   return !!r && !r.defeated && !r.sworn;
 }
 
+/** THE TEAR-AWAY's dissolve: its body ashes out on the ember lane over this long (ms) after a short beat, then it is gone
+ *  - inside the leaving hold (`f.leaving`, 900 ms), whose hand-off is its escape. */
+export const TEAR_MS = Object.freeze({ delay: 120, ms: 720 });
+/** RVN3 (14.2): DOES ITS WILL HOLD at the killing blow - a revenant of rank WILL_RANK and up whose weakness this fight has
+ *  not struck nor been staggered WILL_STAGGERS times (its ledger, systems/feudLedger.js)? Then it does not kneel. */
+export function revenantWillHolds(f) {
+  const r = revenantById(f?.entity?.revenant?.id);
+  return !!r && willMatters(r.rank) && !willBroken(f.entity._feud);
+}
+/** RVN3 (14.2): UNBROKEN, IT TEARS AWAY - held at 1, its fight and its run over, its body ashing out on the ember lane;
+ *  the pool's leaving hold (`f.leaving`, `done` the pool's escape - the `fled` deed: it ranks up and learns) takes it
+ *  out. Held by its fate (`leaving`) meanwhile: no blow, no spell, nobody's target. */
+export function beginTearAway(f, done, { now = Date.now() } = {}) {
+  f.fleeing = false;
+  f._fleeRolled = true;
+  if (f.entity) f.entity.health = 1;
+  if (f.ai) { f.ai.target = null; f.ai.fleeLeft = 0; f.ai.velX = 0; f.ai.velZ = 0; }
+  f.portalFx = { dir: 'out', at: now, delay: TEAR_MS.delay, ms: TEAR_MS.ms, tint: DISSOLVE_EMBER };
+  f.leaving = { at: now, done };
+}
 /** IT YIELDS: held at 1, its fight and its run over, its trophy rolled; answers the event its plea is said by. */
 export function beginYield(player, f, { now = Date.now(), rolls = Math.random } = {}) {
   f.yielded = { at: now };
@@ -159,8 +180,9 @@ export function fateDissolve(f, now = Date.now()) {
   const p = f?.portalFx;
   if (p) {
     const t = (now - p.at - p.delay) / p.ms;
-    if (p.dir === 'in') return t >= 1 ? null : [Math.max(0.001, 1 - Math.max(0, t)), ...DISSOLVE_ARCANE];
-    return t > 0 ? [Math.min(1, t), ...DISSOLVE_ARCANE] : null;
+    const tint = p.tint ?? DISSOLVE_ARCANE;   // RVN3: a tear-away's ember; a portal's arcane
+    if (p.dir === 'in') return t >= 1 ? null : [Math.max(0.001, 1 - Math.max(0, t)), ...tint];
+    return t > 0 ? [Math.min(1, t), ...tint] : null;
   }
   return null;
 }

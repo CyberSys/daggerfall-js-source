@@ -748,6 +748,12 @@
    "why": "RVN1/RVN2: whether a fight with a revenant began by night (its ledger's night scar), and a Night-stalker's night - its return and its blows"
   },
   {
+   "file": "src/systems/revenant.js",
+   "has": "const skyIsDay = () => { try { return !isNight(skyMinutes()); }",
+   "clock": "sky",
+   "why": "RVN3: whether the sky reads day - a daylight weakness bites"
+  },
+  {
    "file": "src/systems/save.js",
    "has": "? Math.floor(worldMinutes()), worldMinutes",
    "clock": "event",

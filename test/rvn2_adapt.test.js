@@ -144,9 +144,10 @@ test('RVN2 A WEAPON CLASS, through the REAL formulas\' tail: Mailed blades x0.7,
   }
   const sword = createWeapon(W.Longsword, 1, () => 0.5);
   const plain = hit(foe(), sword);
-  assert.equal(hit(adapted(['mailed'], { weak: 'blade' }), sword), plain, 'its weakness\'s class: untouched');
+  // PIN MOVED (RVN3: its weakness's blow is x1.5 - and no adaptation takes from it)
+  assert.equal(hit(adapted(['mailed'], { weak: 'blade' }), sword), Math.max(1, Math.round(plain * 1.5)), 'its weakness\'s class: untouched by Mailed (x1.5, RVN3)');
   const dwarven = createWeapon(W.Longsword, 4, () => 0.5);
-  assert.equal(hit(adapted(['mailed'], { weak: 'dwarven' }), dwarven), hit(foe(), dwarven), 'its weakness\'s metal: untouched');
+  assert.equal(hit(adapted(['mailed'], { weak: 'dwarven' }), dwarven), Math.max(1, Math.round(hit(foe(), dwarven) * 1.5)), 'its weakness\'s metal: untouched by Mailed (x1.5, RVN3)');
   assert.equal(hit(adapted(['mailed'], { weak: 'silver' }), dwarven), Math.max(1, Math.round(hit(foe(), dwarven) * 0.7)), 'another metal: mailed');
   // a monster's own body (a bear's claws) is no fist - its damage rides the shared DFRandom, so each blow from one seed
   const rat = foe({ mobileType: M.GrizzlyBear, level: 10, plain: true });
@@ -180,7 +181,7 @@ test('RVN2 AN ELEMENT, on the REAL saving throw: +25 (DFU\'s own Resistant) for 
   assert.ok(savingThrow(0, EFFECT_FLAGS.Fire, e, 0, roll(0.99)) > 0, 'a high roll still burns it: never immune');
   const weak = adapted(['fireproof'], { weak: 'fire' });
   computeEntityMods(weak);
-  assert.equal(entityResistMod(weak, ['fire']), 0, 'nothing touches its weakness');
+  assert.equal(entityResistMod(weak, ['fire']), -50, 'nothing touches its weakness (its -50, RVN3)');   // PIN MOVED (RVN3)
 });
 
 test('RVN2 SILVER-SCARRED, in BOTH cores: the Skeletal Warrior\'s double gone in DFU\'s, a Ghost\'s in PCAAO\'s; another metal untouched; a silver weakness keeps the double (mutants: the veto unregistered; the stock core ignores it; PCAAO\'s ignores it; a silver weakness scarred)', () => {

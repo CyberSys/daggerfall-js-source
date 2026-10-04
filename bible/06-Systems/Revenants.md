@@ -384,3 +384,14 @@ longer tracking, more feints, wider wind-ups; **Watchful** never unaware (no bac
 and closing with its charge or leap; **Relentless** faster and never culled while it hunts; **Night-stalker** comes only
 by night, its blows heavier. Nothing touches its weakness. The page lists what it learned. The law and every number:
 `bible/12-Enhanced-AI/Feud-Arc.md` section 13 and its RVN2 record.
+
+## 19. Its weakness and its will (FEUD RVN3, 2026-10-04)
+
+Each revenant hides one weakness, drawn on its id from its kind's pool (an element, a metal, a weapon class, or the
+daylight). A blow of it lands x1.5 (an element's at -50 on the saving throw; the daylight's x1.25 on every blow while the
+sky reads day), weighs twice on a wind-up, and no adaptation takes from it. The first blow of it reveals it - the
+"Weakness" word, a hiss, its card - and under half its health, unknown, it flinches from it (a hint). From rank 3 its
+will must be broken in the fight: strike its weakness, or stagger it twice. Unbroken at the killing blow it does not
+kneel - it tears away into the smoke, an escape that ranks it up. A Disintegrate kills it outright. The page says its
+weakness as known and the will's rule. The law: `bible/12-Enhanced-AI/Feud-Arc.md` section 14 and its RVN3 record.
+

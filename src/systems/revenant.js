@@ -61,11 +61,14 @@ import { getSeed, setSeed, srand } from '../formats/dfRandom.js';
 import { personalityFor, isPersonality, personalityLabel, voiceLine, beastBody, possessive, MUTE_KINDS } from './revenantPersonality.js';   // REVENANT-VOICE: who it is, and how it talks
 // FEUD, Part B (bible/12-Enhanced-AI/Feud-Arc.md sections 12-26): what a revenant remembers - its record's new fields and
 // the draws it is born with (systems/revenantFeud.js), and the fight's ledger (systems/feudLedger.js, a leaf)
-import { feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK, lessonOf, withLesson, adaptEdge, adaptBlowClass, ADAPT } from './revenantFeud.js';
+import { feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK, lessonOf, withLesson, adaptEdge, adaptBlowClass, ADAPT, isWeakBlow, metalOf, WEAK, WEAK_NAMES, FLINCH_LINES, FLINCH_HEALTH, WEAKNESS_ELEMENTS } from './revenantFeud.js';
+import { tagHit, HIT_TAGS } from '../ui/hitNumbers.js';   // RVN3: the "Weakness" word on my blow's number
+import { SOUND } from './soundClips.js';   // RVN3: the hiss of a weakness found
+import { revenantSay as sayRevenant } from './revenantVoice.js';   // RVN3: the reveal's card (the re-export below binds no local name)
 import { registerBlowTakenMod } from './blowTaken.js';   // RVN2: what its adaptations take off a blow (the leaf the formulas and a spell's landing read)
 import { registerEntityFold, newMods, EMPTY_MODS, computeEntityMods } from './entityMods.js';   // RVN2: its elemental adaptations on the saving throw
 import { registerSilverDoubleVeto } from '../combat/formulas.js';   // RVN2: a Silver-scarred one's double gone
-import { setFeudGate, setFeudClock, noteFeudHarm, noteFeudBackstab, takeFeud } from './feudLedger.js';
+import { setFeudGate, setFeudClock, noteFeudHarm, noteFeudBackstab, takeFeud, setFeudWeakTest, feudWeakBlow, elementFeudClass } from './feudLedger.js';
 
 // ── the numbers ─────────────────────────────────────────────────────
 /** A revenant is a foe of this level or more (LOOT7's champion floor, ELITE-FLOOR's). */
@@ -162,6 +165,8 @@ export const revenantOn = () => lootRarityOn();
 const nowMinutes = () => { try { return Math.floor(ownMinutes()); } catch { return 0; } };
 /** Does the sky read night now (TIME1's sky - the world's offline)? */
 const skyIsNight = () => { try { return isNight(skyMinutes()); } catch { return false; } };
+/** RVN3: ...and day (a daylight weakness bites while it does; no clock, no day). */
+const skyIsDay = () => { try { return !isNight(skyMinutes()); } catch { return false; } };
 const firstWord = (s) => String(s ?? '').trim().split(/\s+/)[0] || 'stranger';
 const pick = (list, rolls) => list[Math.min(list.length - 1, Math.floor(rolls() * list.length))];
 // AUDIT (2026-10-02): `{p}'s` the possessive the trophies spell ("Varis' Shadow"); a function replacement, so a `$` in
@@ -432,25 +437,54 @@ setFeudGate((entity) => revenantCandidate(entity));
 setFeudClock(() => ({ now: nowMinutes(), night: skyIsNight() }));
 registerPlayerStrikeListener('feud', (attacker, target, damage, weapon, info) => {
   const { cls, silver } = weaponFeudClass(weapon);
-  noteFeudHarm(target, cls, damage, { silver });
+  noteFeudHarm(target, cls, damage, { silver, metal: metalOf(weapon) });   // RVN3: its metal, for a metal weakness
   if (info?.backstab) noteFeudBackstab(target);
 });
+// RVN3 (section 14.1): ITS WEAKNESS - a blow of it, as the ledger's writers know it ({ cls, metal }) or a door does
+// ({ kind, weapon, element, attacker }); the daylight's every blow while the sky reads day
+setFeudWeakTest((entity, { cls = null, metal = null, kind = 'melee', weapon = null, element = null, attacker = null } = {}) => {
+  const weak = entity?.revenant?.weak;
+  if (!weak) return false;
+  const c = cls ?? (kind === 'spell' ? (element != null ? elementFeudClass(element) : null) : adaptBlowClass(attacker, weapon, kind));
+  return isWeakBlow(weak, c, metal ?? metalOf(weapon), skyIsDay());
+}, revealWeakness);
+/** RVN3: my blow of its weakness - the "Weakness" word on its number (each blow), and once a stand the hiss and, the
+ *  first time it is found, the record's `weakKnown` 2 and its card. */
+function revealWeakness(entity) {
+  Promise.resolve().then(() => { try { tagHit(entity, HIT_TAGS.weakness); } catch { /* no numbers mounted */ } });   // after the number the blow raises
+  if (entity._weakTold) return;
+  entity._weakTold = true;
+  const door = playerDoor();
+  const at = door?.foes?.()?.find((f) => f?.entity === entity)?.ai?.feet ?? null;
+  if (at) { try { door?.sfx?.(SOUND.Burning, at); } catch { /* a host with no sound */ } }
+  const r = entity.revenant?.id ? revenantById(entity.revenant.id) : null;
+  if (!r || r.weakKnown >= 2) return;
+  r.weakKnown = 2;
+  touch(r);
+  persist();
+  sayRevenant(revenantWeaknessEvent(r, { found: true }), (l) => door?.say?.(l));
+}
 // RVN2 (section 13.2): WHAT IT LEARNED, on every blow it takes - a weapon class through the target's registry (the
 // formulas' tail and a spell's landing read it; a spell weighs by its element, below), never below x0.6, and never a
-// blow of its weakness (a metal's: its weapon's; a class's: adaptEdge leaves it out)
-const METAL_WEAKNESS = Object.freeze({ 2: 'silver', 3: 'elven', 4: 'dwarven' });
+// blow of its weakness (RVN3: that is x1.5, ahead of every adaptation)
 registerBlowTakenMod('revenant', (attacker, target, weapon, info) => {
   const edge = target?.revenant?.edge;
-  if (!edge || info?.kind === 'spell') return 1;
-  if (edge.weak && weapon && METAL_WEAKNESS[weapon.material] === edge.weak) return 1;
+  if (!edge) return 1;
+  // RVN3 (14.1): its weakness - the daylight's on every blow by day (spells too), a class's or a metal's x1.5; an
+  // element's is the fold's, below
+  if (edge.weak === 'daylight') { if (skyIsDay()) return WEAK.DAYLIGHT; }
+  else if (info?.kind !== 'spell' && feudWeakBlow(target, { kind: info?.kind ?? 'melee', weapon, attacker })) return WEAK.STRUCK;
+  if (info?.kind === 'spell') return 1;
   return edge.taken[adaptBlowClass(attacker, weapon, info?.kind)] ?? 1;
 });
 // ...an element on its saving throw (+25, DFU's own Resistant - never immunity: ADAPT.RESIST)
 registerEntityFold('revenant', (entity) => {
-  const resist = entity?.revenant?.edge?.resist;
-  if (!resist || !Object.keys(resist).length) return EMPTY_MODS;
+  const edge = entity?.revenant?.edge;
+  const weakEl = edge && WEAKNESS_ELEMENTS.includes(edge.weak) ? edge.weak : null;   // RVN3: its element weakness, -50
+  if (!edge || (!Object.keys(edge.resist).length && !weakEl)) return EMPTY_MODS;
   const m = newMods();
-  Object.assign(m.resist, resist);
+  Object.assign(m.resist, edge.resist);
+  if (weakEl) m.resist[weakEl] = (m.resist[weakEl] ?? 0) + WEAK.RESIST;
   return m;
 });
 // ...and a Silver-scarred one's silver double gone (both cores ask, formulas.js silverDoubles)
@@ -714,6 +748,8 @@ const KICKERS = Object.freeze({
   yield: 'Yields', executed: 'Executed', spared: 'Sworn to you', slip: 'Slipped away',
   // REVENANT-COMPANION: sworn to the player
   arrive: 'Companion', dismiss: 'Sent away', downed: 'Companion down', kill: 'Companion', battle: 'Companion', release: 'Released',
+  // RVN3: its weakness found or hinted; its will unbroken
+  weakness: 'Weakness', unbroken: 'Unbroken',
 });
 /** @typedef {{ kind: string, kicker: string, id: string|null, name: string, rank: number, sub: string, mood: string|null,
  *   portrait: { archive: number, record: number } | null, speech: string|null, body: string|null, line: string }} RevenantEvent */
@@ -768,6 +804,30 @@ export function revenantEscapeEvent(r, playerName, { rolls = Math.random, archiv
     body: `Got away. ${r.rank > 1 ? `Now rank ${revenantRankNumeral(r.rank)} - it` : 'It'} will remember this.`,
     line: revenantEscapeLine(r), archive,
   });
+}
+/** RVN3 (14.1): its weakness - found (my blow of it: what it is) or hinted (its flinch: the narrator's line). */
+export function revenantWeaknessEvent(r, { found = false, archive = null } = {}) {
+  const name = WEAK_NAMES[r?.weak] ?? 'Something';
+  const body = found ? `${name} - its weakness, laid bare.` : (FLINCH_LINES[r?.weak] ?? 'It shies from something.');
+  return revenantEvent('weakness', r, { body, line: `${r.name}: ${body}`, archive });
+}
+/** RVN3 (14.2): its will unbroken - at the killing blow it tears away into the smoke (an escape: it ranks up and learns). */
+export function revenantUnbrokenEvent(r, playerName, { rolls = Math.random, archive = null } = {}) {
+  const body = `${r.given} staggers into the smoke, unbroken.`;
+  return revenantEvent('unbroken', r, { speech: voiceParts(r, 'escape', playerName, rolls).speech, body, line: body, archive });
+}
+/** RVN3 (14.1): ITS FLINCH - a revenant of mine under FLINCH_HEALTH of its health, its weakness unknown, shies from it:
+ *  once a stand (`f._flinched`), the record hinted (`weakKnown` 1). Answers the event to say, or null. */
+export function revenantFlinch(f, { archive = null } = {}) {
+  const e = f?.entity;
+  if (!e?.revenant?.id || f._flinched || !(e.health > 0) || !(e.health < (e.maxHealth || 1) * FLINCH_HEALTH)) return null;
+  f._flinched = true;
+  const r = revenantById(e.revenant.id);
+  if (!r || r.defeated || r.sworn || (r.weakKnown | 0) > 0) return null;
+  r.weakKnown = 1;
+  touch(r);
+  persist();
+  return revenantWeaknessEvent(r, { archive });
 }
 /** Slain at last - its last words, a speaker's. */
 export function revenantSlainEvent(r, playerName, { rolls = Math.random, archive = null } = {}) {
