@@ -600,8 +600,8 @@
   {
     "name": "show-does-not-clamp",
     "file": "src/ui/travelControlUI.js",
-    "old": "    this.timeAcceleration = Math.max(1, Math.min(this.accelerationLimit(), this.timeAcceleration));",
-    "new": "    this.timeAcceleration = Math.max(1, this.timeAcceleration);",
+    "old": "    this._timeAcceleration = Math.max(1, Math.min(this.accelerationLimit(), this._preferredAcceleration));",
+    "new": "    this._timeAcceleration = Math.max(1, this._preferredAcceleration);",
     "tests": [
       "test/to1_travelOptions.test.js"
     ]

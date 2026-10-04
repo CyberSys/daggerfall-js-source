@@ -174,7 +174,7 @@ test('AUDIT NAV2 F17 a journey holds the helm under the travel view: the helm pa
     document: {}, walkMode: true, enhancedHelmMounted: () => false, hideEnhancedHelm: () => {}, csaHelmInput: { held: new Set() },
     csaCall: (f) => f(), csaAboard: { aboard: null }, drawEnhancedHelm: (state) => drawn.push(state), peerName: (x) => x,
     townTalk: { hudCovered: false }, modes: { hudCovered: false }, gamePaused: () => false, hudRenderEnabled: () => true, touch: null,
-    cursorActive: () => true, pointerSurfaces: new Set(), csaKeyLabel: () => '', csaHelmHooks: {}, travelView,
+    cursorActive: () => true, pointerSurfaces: new Set(), csaKeyLabel: () => '', csaHelmHooks: {}, travelView, _travelUIHolder: { ui: null },
     navalOn: () => true,   // PIN MOVED (SHIP-CREW): the panel's Orders button asks whether the naval arc is on
   };
   const draw = mount(scope, fn('csaDrawHelmPanel'), 'csaDrawHelmPanel');

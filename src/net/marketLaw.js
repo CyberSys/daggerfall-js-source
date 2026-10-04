@@ -294,14 +294,15 @@ export const GOODS_FAMILIES = Object.freeze([
   Object.freeze(['weapons', 'Weapons']), Object.freeze(['armour', 'Armour']), Object.freeze(['clothing', 'Clothing']),
   Object.freeze(['jewellery', 'Jewellery and gems']), Object.freeze(['other', 'Everything else']),
 ]);
+/** One group-to-family table for both the client classifier and the service's pre-limit SQL filter. */
+export const GOOD_GROUP_FAMILIES = Object.freeze([
+  Object.freeze(['Weapons', 'weapons']), Object.freeze(['Armor', 'armour']),
+  Object.freeze(['MensClothing', 'clothing']), Object.freeze(['WomensClothing', 'clothing']),
+  Object.freeze(['Jewellery', 'jewellery']), Object.freeze(['Gems', 'jewellery']),
+]);
 /** A piece's family in the Goods view, by its DFU group. */
 export function goodFamily(rec) {
-  const g = rec?.group;
-  if (g === 'Weapons') return 'weapons';
-  if (g === 'Armor') return 'armour';
-  if (g === 'MensClothing' || g === 'WomensClothing') return 'clothing';
-  if (g === 'Jewellery' || g === 'Gems') return 'jewellery';
-  return 'other';
+  return GOOD_GROUP_FAMILIES.find(([group]) => group === rec?.group)?.[1] ?? 'other';
 }
 let _storesForms = /** @type {Set<string>|null} */ (null);
 /** THE STORES' OWN MATERIALS AS THE PACK HOLDS THEM - every mined, smelted, cut, felled, skinned and gathered material

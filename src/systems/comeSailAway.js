@@ -1665,6 +1665,7 @@ export function createComeSailAwayRuntime(deps) {
     deps.helm.setPlayerPosition(at.position);
     deps.helm.setFacing(at.yaw, 0);   // SetHorizontalFacing(child.forward)
     deps.helm.alignToGround?.(3);   // GameObjectHelper.AlignControllerToGround(controller, 3f)
+    deps.helm.finishBoarding?.();   // The ladder must not carry incoming fall or air momentum onto the deck.
   }
   /** TriggerDoor (5542-5572): the door the trigger hangs under, its Animator's Opened turned over. */
   function TriggerDoor(hit) {

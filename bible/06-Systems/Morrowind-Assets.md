@@ -241,8 +241,8 @@ die. One numbering across both slices (the code cites
   data.** The boot parsed `pickedSaveSnap` for the early build and the
   door parsed it again; the most-recent pick parses EVERY slot. Now one
   parse (`world.js:861` `bootSnap`), read by the early door only once the
-  store is known to carry files, handed to the door (`world.js:22777`,
-  `worldQuickLoad`'s `snap`, `world.js:12558`) and let go. And the parse
+  store is known to carry files, handed to the door (`world.js:22783`,
+  `worldQuickLoad`'s `snap`, `world.js:12564`) and let go. And the parse
   itself is one envelope now, not every slot's (SLOTS2, Online-Arc.md).
 - **F4 - the pool's refusal was decoded a second time here.** The
   preload kept images alone, so a texture the decoder refused was decoded
@@ -280,3 +280,20 @@ the fixes: a real `?world&load` in headless Chromium over the freeware
 ARENA2, a fixture Morrowind set attached - the early build under way at
 19.7 s (`loading data`), the arm standing at 26.2 s, before `loading the
 saved game` at 33.1 s, and one `[mw] arm built` line.
+
+## Daedric weapon shape audit (2026-10-04)
+
+The retail ESM contains distinct dagger, tanto, shortsword, wakizashi, longsword,
+katana, claymore, dai-katana and mace records. Picking only by animation type and
+material collapsed these into the alphabetically first shape: a longsword became
+a katana, and a mace became a club. The picker now prefers the template's shape
+within the existing available, unenchanted material pool. A missing equivalent
+keeps the previous fallback; bow ammunition selection is unchanged.
+
+The first-person preload, first/third-person weapon assembly and item-icon lookup
+pass the same shape. The equipment cache includes it so same-metal, same-class
+swaps refresh. World, exterior, worldModes interiors and dungeonContext continue
+using the shared weapon rig; no host-specific geometry or animation changes.
+This fixes selection, not authored grip transforms or scale. Retail archive checks
+and visual evidence accompany the separate handoff; full live-scene acceptance
+remains a release check.

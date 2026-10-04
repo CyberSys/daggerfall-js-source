@@ -1396,7 +1396,7 @@ export const MOD_WEAPON_TO_MW = Object.freeze({
   514: MW_WEAPON_TYPE.BluntOneHand,   // Light Flail
 });
 
-export function pickWeaponRecord(records, type, material = null, { has = null } = {}) {
+export function pickWeaponRecord(records, type, material = null, { has = null, shape = null } = {}) {
   // AUDIT MW-A F3: id-sorted, for the face's own reason (D27) - file
   // order is a property of the LOAD, and `ofType[0]` handed a player
   // whichever record their archive arrangement listed first. Sorted,
@@ -1426,8 +1426,8 @@ export function pickWeaponRecord(records, type, material = null, { has = null } 
   const ofType = present.length ? present : sorted;
   const chain = material ? DF_TO_MW_MATERIAL[material] : null;
   for (const want of (Array.isArray(chain) ? chain : chain ? [chain] : [])) {
-    const hit = ofType.find((r) => r.id.includes(want));
-    if (hit) return hit;
+    const matches = ofType.filter((r) => r.id.includes(want));
+    if (matches.length) return (shape && matches.find((r) => r.id.replace(/[^a-z]/g, '').endsWith(shape))) || matches[0];
   }
   return ofType[0];
 }
@@ -3020,4 +3020,13 @@ export function clipUnionBounds(assembly, poseAt, times) {
     } : { ...b };
   }
   return acc;
+}
+
+/** Preserve the item's shape within an animation class, after material and archive
+ * availability. An absent equivalent keeps the existing fallback. Retail uses Wakizashi
+ * in record IDs, while Daggerfall's template enum spells it Wakazashi. */
+export function dfWeaponShape(item, weaponsTable) {
+  if (!item || item.werecreatureClaws) return null;
+  const name = Object.keys(weaponsTable ?? {}).find((key) => weaponsTable[key] === item.templateIndex);
+  return name ? name.toLowerCase().replace(/[^a-z]/g, '').replace('wakazashi', 'wakizashi') : null;
 }

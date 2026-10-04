@@ -81,7 +81,13 @@ export function createMotherlodeBook({ door, character, me, nowS, onChange = () 
     if (!force && t - meAt < MOTHERLODE_ME_MS) return meNowV;
     meAt = t;
     const m = me() ?? null;
-    if (m !== meNowV) { meNowV = m; watches.clear(); }
+    if (m !== meNowV) {
+      meNowV = m;
+      watches.clear();
+      // Applied results belong to the old account even if its next read fails. The host hears of it from the
+      // frame's own settle (tick) - never from here: standingOn and found are asked inside the gather host's stand.
+      state.found = null;
+    }
     return meNowV;
   }
   /** the lines said this session, by `warn|key` and `risen|key`; the standing each lode was last stood with */
@@ -102,9 +108,9 @@ export function createMotherlodeBook({ door, character, me, nowS, onChange = () 
   }
 
   async function read() {
+    const m = meNow(true);
     const c = character();
     if (!c || busy) return null;
-    const m = meNow(true);
     busy = true;
     askedAt = nowMs();
     try {
@@ -181,12 +187,14 @@ export function createMotherlodeBook({ door, character, me, nowS, onChange = () 
     },
     /** The Motherlodes standing on pixel (`px`, `py`) now, for this account - the host stands them. */
     standingOn(px, py) {
+      meNow(true);
       const t = nowS();
       return state.lodes.filter((l) => l.x === px && l.y === py && state.day === Math.floor(t / 86400) && standing(l, t));
     },
     /** Every Motherlode standing now, wherever it is - the compass's, every frame: AUDIT SILVER-WAYS D7, into `out` (the
      *  caller's own list, emptied first) where one is handed, so the frame makes none. */
     standingAll(out = []) {
+      meNow();
       out.length = 0;
       const t = nowS();
       if (state.day !== Math.floor(t / 86400)) return out;
@@ -196,7 +204,7 @@ export function createMotherlodeBook({ door, character, me, nowS, onChange = () 
     /** A lode by its node key. */
     lodeOf: (key) => state.lodes.find((l) => l.key === key) ?? null,
     /** Whether this account's Motherlode today is found. */
-    found: () => state.found,
+    found: () => { meNow(); return state.found; },   // AUDIT SILVER-WAYS D7: the gather host's marks ask it every frame
     /** A strike's answer heard: the find, the count - and the change of standing handed on; then read again. */
     heard(data) {
       if (!data?.motherlode) return;

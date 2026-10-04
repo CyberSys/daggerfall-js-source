@@ -2687,6 +2687,7 @@ export function createNavalHost(deps) {
     adopt(entry);
     boarding = createBoarding({ kind, shipId: entry.id, from, to: { pos: to.pos, yaw: to.yaw } });
     boarding.boat = boat;
+    boarding.peerOrigin = deps.aboardPeer?.() ?? null;
     if (!boat) boarding.t = Infinity;   // on foot: no haul - over the rail at once
     entry.ship.boarded = true;
     entry.ship.speed = 0;
@@ -2850,7 +2851,7 @@ export function createNavalHost(deps) {
     deps.mid?.(`${entry.ship.names?.name ?? 'The ship'} is yours!`, 3);
     if (yielded) deps.say?.('The rest of her crew throw down their arms.', 3);
     // the prize: her hold drawn once (whoever opens it again finds what is left), the boat that took her
-    entry.prize = { hold: drawHold(entry.ship.cls, entry.ship.seed, (key, tier) => deps.hold?.(key, tier) ?? []), boat: b.boat ?? nearestBoat(entry.ship.pos), chosen: null, fate: null };
+    entry.prize = { hold: drawHold(entry.ship.cls, entry.ship.seed, (key, tier) => deps.hold?.(key, tier) ?? []), boat: b.boat ?? nearestBoat(entry.ship.pos), peerOrigin: b.peerOrigin ?? null, chosen: null, fate: null };
     endBoarding();   // the hands go home over the rail; her dead lie on her deck (entry.deck)
     openPrize(entry);
   }
@@ -2989,15 +2990,16 @@ export function createNavalHost(deps) {
       fate(which) {
         if (pz.fate) return false;
         if (which === 'claim') return claimPrize(entry, boat);   // SHIP-CLAIM: she is mine
+        // Move to a surviving deck before releasing this one; a passenger never takes its owner's helm.
+        if (!returnFromPrize(pz, boat)) { deps.say?.('No safe return deck is available. Keep her here or claim her first.', 4); return false; }
         pz.fate = which === 'scuttle' ? 'scuttle' : 'adrift';
         if (pz.fate === 'scuttle') { s.damage.scuttle(); s.damage.apply({ hull: 0, sail: 0, crew: 0, fire: true }, clock); igniteShip(entry); deps.say?.(`You put a torch to ${s.names?.name ?? 'her'}. She burns to the waterline.`, 4); sound(NAVAL_CLASSIC.bubbles, s.pos, 1); }   // a sinking ship's fire burns on until she is gone (navalDamage.js step)
         else { s.adrift = true; deps.say?.(`You cast ${s.names?.name ?? 'her'} off to drift.`, 3); }   // AUDIT NAV1 (B11): she drifts off downwind
-        if (boat) returnAboard(boat);
         return true;
       },
       /** AUDIT NAV1 (B11): Leave her - she lies taken where she is (Activate opens her again), and I am back at my helm,
        *  never left on her deck with the water between the hulls. */
-      leave() { if (boat) returnAboard(boat); },
+      leave() { returnFromPrize(pz, boat); },
     }) !== false;
   }
 
@@ -3049,7 +3051,7 @@ export function createNavalHost(deps) {
     const name = s.names?.name ?? 'She';
     // HOLDINGS: her title to the Fleet's book (the world host's packDeed), never the pack
     deps.say?.(boat.crewed ? `${name} is yours - her title is in your Fleet ledger (Holdings). She has no crew: hire hands at a shipwright.` : `${name} is yours - she lies where you took her.`, 5);
-    if (captor) returnAboard(captor);
+    if (!returnFromPrize(pz, captor)) returnAboard(boat);
     return true;
   }
   /** SHIP-CLAIM: whether a prize can be claimed - mine to settle, and Come Sail Away here to place her. */
@@ -3060,10 +3062,21 @@ export function createNavalHost(deps) {
 
   /** Back over the rail onto your own deck - AUDIT NAV1 (B11): and at her helm, as Black Flag hands you the wheel when
    *  the prize is settled (Come Sail Away's StartSailing: a wreck rows). */
+  function returnFromPrize(prize, ownBoat) {
+    if (ownBoat && myBoats().includes(ownBoat)) return returnAboard(ownBoat);
+    const peer = prize.peerOrigin;
+    if (!peer?.GameObject?.activeSelf || !deps.pool.peerBoats.includes(peer)) return false;
+    const spot = deps.board?.deckSpots?.(peer, 4)?.[0];
+    if (!spot || !deps.board?.placePlayer) return false;
+    deps.board.placePlayer(spot[0], spot[1]);
+    return true;
+  }
   function returnAboard(boat) {
     const spots = deps.board?.deckSpots?.(boat, 4) ?? [];
-    if (spots[0]) deps.board?.placePlayer?.(spots[0][0], spots[0][1]);
+    if (!spots[0] || !deps.board?.placePlayer) return false;
+    deps.board.placePlayer(spots[0][0], spots[0][1]);
     deps.board?.takeHelm?.(boat);
+    return true;
   }
 
   function endBoarding() {
