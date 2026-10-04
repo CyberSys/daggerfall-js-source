@@ -213,14 +213,14 @@ export class Place extends QuestResource {
    * pin) names another building by its key - a stranger's, a shop for a house, or none. It is chosen again in the town
    * as it stands, by the place's own law (P2/P3, the same exclusions), keeping what was already assigned to it, and
    * stamped anew. Answers whether it moved. A site no building of its kind stands for now keeps its record.
+   * QUESTOR-MOVED: a questor's hall is not such a site - it moves with its questor (person.js reseatMovedQuestor).
    */
   reseatMovedSite(world) {
     const sd = this.siteDetails;
+    if (this.scope === Scopes.None) return false;   // QUESTOR-MOVED (FIELD BUGS 2026-10-03b): a Place minted where the player stood (ConfigureFromPlayerLocation, `_<person>_home_`) has no P1-P3 law to be chosen again by - its P2 of 0 read as Alchemist, and a questor's hall (the journal's `__qgiver_`) went to the town's apothecary
     if (sd?.siteType !== SITE_TYPES.Building || !(sd.buildingKey > 0) || recordStands(sd)) return false;
-    const region = world?.maps?.getRegion?.(sd.regionIndex);
-    const index = region?.mapNameLookup?.get?.(sd.locationName);
-    const location = index == null ? null : world.maps.getLocation(sd.regionIndex, index);
-    if (!location?.exterior?.exteriorData) return false;
+    const location = this.siteTown(world);
+    if (!location) return false;
     let found;
     if (this.p2 === -1 && this.p3 === 0) found = this._collectQuestSitesOfBuildingType(world, location, BT_ALL_VALID, this.p3);
     else if (this.p2 === -1 && this.p3 === 1) found = this._collectQuestSitesOfBuildingType(world, location, BT_ANY_HOUSE, this.p3);
@@ -510,6 +510,15 @@ export class Place extends QuestResource {
       || locationType === LT_DUNGEON_RUIN || locationType === LT_GRAVEYARD;
   }
 
+  /** WD3: the town this Place's site names, as the world serves it now (its region's name lookup), or null - where a
+   *  moved site (reseatMovedSite) and a moved questor's hall (person.js reseatMovedQuestor) are chosen again. */
+  siteTown(world) {
+    const sd = this.siteDetails;
+    const index = world?.maps?.getRegion?.(sd?.regionIndex)?.mapNameLookup?.get?.(sd?.locationName);
+    const location = index == null ? null : world.maps.getLocation(sd.regionIndex, index);
+    return location?.exterior?.exteriorData ? location : null;
+  }
+
   /** CollectQuestSitesOfBuildingType (:1131-1250): the full block walk
    *  with the wildcard sets, the owned-house / guild-faction / TG+DB /
    *  already-assigned exclusions, the marker requirement, and the
@@ -519,16 +528,7 @@ export class Place extends QuestResource {
     const activeQuestSites = this.parentQuest?.hooks?.getAllActiveQuestSites?.() ?? [];
     const parentQuestPlaces = [...(this.parentQuest?.resources.values() ?? [])].filter((r) => r.isPlace && r !== this);
 
-    const width = location.exterior.exteriorData.width;
-    const height = location.exterior.exteriorData.height;
-    const blocks = [];
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const blockName = world.maps.getRmbBlockName(location, x, y);
-        const dfBlock = world.getBlock(blockName);
-        blocks.push({ dfBlock, x, y });
-      }
-    }
+    const blocks = townBlockGrid(world, location);
     const merged = mergeNamedBuildings(location.exterior.buildings, blocks.filter((b) => b.dfBlock), { locationIndex: location.locationIndex ?? 0 });   // AUDIT-RR F34: the replacement seed is NameSeed + LocationIndex here too (RMBLayout.cs:669)
 
     for (const b of blocks) {
@@ -903,6 +903,23 @@ export class Place extends QuestResource {
     this.siteDetails = dataIn.siteDetails ? structuredClone(dataIn.siteDetails) : null;
     this.sitePending = !this.siteDetails;
   }
+}
+
+/** The town's RMB grid as CollectQuestSitesOfBuildingType's block loop walks it: `{ dfBlock, x, y }` for each cell in
+ *  row order, `dfBlock` null where the world holds no block of the name. The one walk - the site collector's and a moved
+ *  questor's (person.js reseatMovedQuestor). */
+export function townBlockGrid(world, location) {
+  const width = location.exterior.exteriorData.width;
+  const height = location.exterior.exteriorData.height;
+  const blocks = [];
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const blockName = world.maps.getRmbBlockName(location, x, y);
+      const dfBlock = world.getBlock(blockName);
+      blocks.push({ dfBlock, x, y });
+    }
+  }
+  return blocks;
 }
 
 /** ValidateQuestMarkers (Place.cs:1462). */

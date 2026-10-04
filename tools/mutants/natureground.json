@@ -16,8 +16,8 @@
   {
     "name": "NATUREGROUND-lift-dropped",
     "file": "src/scenes/world.js",
-    "old": "addFlat(flat.archive, flat.record, fx, locLocal[1] + flat.y + lift, fz);",
-    "new": "addFlat(flat.archive, flat.record, fx, locLocal[1] + flat.y, fz);",
+    "old": " : flat.y + lift), fz);",
+    "new": " : flat.y), fz);",
     "tests": ["test/natureground.test.js"]
   },
   {

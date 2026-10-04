@@ -160,9 +160,17 @@ handed over at any smith of its town; a rented room is honoured at any inn of
 its town; a save or a Recall anchor made inside stands the player outside
 rather than through a stranger's door; a quest's building site is chosen again
 in the town as it stands, by the place's own P2/P3, keeping what was assigned to
-it (`Place.reseatMovedSite`, `QuestMachine.reseatMovedSites`). The one record
-not mended: a questor met indoors before the mods, online - the return to them
-asks an NPC that no longer stands in that layout.
+it (`Place.reseatMovedSite`, `QuestMachine.reseatMovedSites`); and a questor
+met indoors is seated again in it (FIELD BUGS 2026-10-03b QUESTOR-MOVED,
+`Person.reseatMovedQuestor`) - in the building the journal names as the town
+now stands, else the first named building holding one of their faction and
+look, on the person there of that faction and look, else of that faction - with
+no roll, so a party's copies agree. The questor keeps their name and the NPC
+answers to it (`movedQuestorName`, the interior's one name derivation); their
+hall moves with them, never by a Place's own P2/P3 (its P2 of 0 read as
+Alchemist); a party member's copy is mended as it arrives (a share, a resync),
+once the towns' layouts are known. A town with no such building keeps the
+record as it was.
 
 Every claim SAYS its town's layout, Daggerfall's own as `null`; a claim that
 names none is a build from before the town mods, and is refused (426
@@ -284,7 +292,7 @@ one stand-in, on while either mod that places it is loaded.
 | the table clutter | archive `56790` (22 records) | 4,827 | no peer's catalogue names it; each record a piece of Daggerfall's own clutter of the kind its height says - tableware and books on the tables, jars, potions and books on shelves and ledges |
 | the temple gardens | archive `10035` (7 records) | 151 | no catalogue names it either; rows of one record each on three temples' grounds - each a garden plant of Daggerfall's own (`TEXTURE.301`): cabbages, greens, lavender, flowers, a berry bush |
 | the RMB Resource Pack's rocks | 23 ids | 245 | a boulder of the climate's rock (`302_3`), each the size of the pack's own mesh, measured |
-| its hills | 23 ids | 47 | a mound of the climate's grass or rock, by the catalogue's size |
+| its hills | 23 ids | 47 | a mound of the climate's grass or rock, by the catalogue's size - smaller than the pack's own meshes (measured on its published files by `tools/rmbrpHills.mjs`: most 3-4x too narrow - 1.7-4.5x across the 23 - and 2-7x too low), so the trees six village blocks stand on the pack's hills (RESIAS08, TVRNAS00, 01, 03, TEMPASH3, WEAPAS02: 130 of `TEXTURE.504`, a metre to 13 m up) are seated on the mound or the ground drawn under them (TREES-SEATED, `world/townStandIns.js` `blockHillSeat`) |
 | its market stalls | 17 ids | 32 | a stall the pack's size (3.2 m across the counter, 4.9 m along it), its awning the cloth each prefab names (`TEXTURE.049` or `449`) |
 | its docks | `53140`-`53144` | 16 | measured off the pack's meshes: a plank deck whose top is the origin, five-sided piles 5 m below it and 1 m above, a ramp or five steps - which land where the author's do (GENRAS00's ramps at the long dock's two ends; TEMPASH3's three flights across the T-dock's wing) |
 | its platform, foundation and domes | `53160`, `53170`, `53182`, `53187`, `53194` | 22 | stone blocks and drum-and-hemisphere domes, classic textures - the foundation the pack's 16 x 8 x 16 m block, its top the floor of the two temples it stands under (centred, as the pack's mesh is, it walled up their front doors; no stand-in covers any door of either pack's towns) |
