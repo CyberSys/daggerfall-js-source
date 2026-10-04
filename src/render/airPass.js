@@ -262,7 +262,8 @@ export const AIR_ADAPT_CLOSE = 3.0;
 /** FLICKER-FIX (2026-10-02): THE CALMER EYE. With Steady shadows on the eye adapts at this share of its usual rate, in both
  *  directions: a shadow that pops for a few frames moves the scene's mean luminance, and the eye (closing in a third of a
  *  second) rippled with it, which read as the whole picture breathing. The rates are uniforms, so this is no shader change.
- *  shadowPass.js sets `calm` once a frame from the Steady shadows switch. */
+ *  shadowPass.js sets `calm` once a frame from the Calmer eye switch (STEADY-BALANCE: its own chip, off by default - it
+ *  rode Steady shadows, and opening at a third of the rate held a dark room dark and a candle's glare for seconds). */
 export const AIR_CALM_RATE = 0.35;
 export const AIR_TUNING = { calm: false };
 /** EL4: the 8-bit encodings - log2 luminance over [-12, 4] stops, log2
