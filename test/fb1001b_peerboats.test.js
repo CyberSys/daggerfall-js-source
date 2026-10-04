@@ -151,14 +151,15 @@ test('FB1001b PEER-HULL: ANOTHER PLAYER\'S HULL TAKES ME WHERE MY OWN TAKES ME -
 test('FB1001b PEER-HULL: HER DECK\'S FURNITURE AND HER HULL ARE MET AS MINE ARE - a ray across her deck at chest height meets her mainmast where the same ray meets mine, and the helm\'s sweep (world.js csaSphereCastAll, CheckCollision\'s) meets her hull at the distance it meets my boat\'s, so a boat of mine backs off hers as it backs off my own', async () => {
   const r = await rig({ hull: SMALL_SHIP });
   for (let i = 0; i < 2; i++) r.frame();
-  const mast = (boat) => colliderPoses(boat.GameObject).find((x) => x.node.name === 'GalleonMast2')?.collider;
-  assert.ok(mast(r.hers) && mast(r.own), 'the Small Ship carries her mainmast\'s collider (GalleonMast2)');
+  // PIN MOVED (GALLEON, 2026-10-01): the new galleon's mainmast (MainMast, Mac's), stepped 0.12 m abaft her middle
+  const mast = (boat) => colliderPoses(boat.GameObject).find((x) => x.node.name === 'MainMast')?.collider;
+  assert.ok(mast(r.hers) && mast(r.own), 'the Small Ship carries her mainmast\'s collider (MainMast)');
   /** A ray athwartships across a Small Ship's deck at the mainmast's station, chest high, from 3 m to port. */
   const across = (boat) => {
     const p = boat.GameObject.position;
-    const deck = raycastColliders(boat.GameObject, [p[0] - 3, p[1] + 30, p[2] - 5.74], [0, -1, 0], 60, { triggers: false, geometry: r.geometry });
+    const deck = raycastColliders(boat.GameObject, [p[0] - 3, p[1] + 30, p[2] - 0.12], [0, -1, 0], 60, { triggers: false, geometry: r.geometry });
     assert.ok(deck, 'her deck under the ray');
-    return r.colliders.exterior.raycastHit([p[0] - 3, deck.point[1] + 1.3, p[2] - 5.74], [1, 0, 0], 20);
+    return r.colliders.exterior.raycastHit([p[0] - 3, deck.point[1] + 1.3, p[2] - 0.12], [1, 0, 0], 20);
   };
   const mine = across(r.own), hers = across(r.hers);
   assert.ok(Number.isFinite(mine.dist) && r.w.buckets.get(mine.key)?.c === mast(r.own), `across my deck: my mainmast (${mine.key})`);

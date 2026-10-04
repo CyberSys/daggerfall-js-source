@@ -23,6 +23,7 @@
 // FAST_M and FAST_DEG of it she lies MADE FAST: a gangway runs from the quay's face to her rail (`gangwayOf`).
 
 import { alongside, hullSize, BERTH_HULL } from './shipLife.js';
+import { hullBuild, MOD_SMALL_SHIP_BUILD } from './navalShips.js';   // GALLEON-HOLDINGS: hull 2's gangway follows the build that stands
 import { hash32 } from '../../world/spawnedDungeons.js';
 import { mulberry32 } from '../../combat/bloodArt.js';
 
@@ -92,14 +93,23 @@ export const QUAY_KERB_H = 0.15;
  * AUDIT HOLDINGS Q1: WHERE A GANGWAY MEETS HER, by hull - `[x, y]` in her frame at her waist, measured off her own
  * colliders (the plank laid to her innermost rail cell climbed into her side under her deck on every hull but the
  * Rowboat's): a ship's at her main deck's entry port, just off her side; a boat's on her gunwale, the plank resting on it.
+ * GALLEON-HOLDINGS: the Small Ship's is Mac's galleon's (QUAYS measured the mod's, which left her plank 2.3 m off
+ * her side and 2.6 m under her main deck) - read through `gangwaySide`, which keeps the mod's galleon's while she
+ * stands in.
  */
 export const GANGWAY_SIDE = Object.freeze([
   Object.freeze([0.95, 0.7]),    // 0 Rowboat - on her gunwale (0.63 m up at 0.9 m out)
   Object.freeze([1.75, 1.36]),   // 1 Large Boat - on her gunwale (1.27 m up at 1.7-1.8 m out)
-  Object.freeze([7.65, 4.14]),   // 2 Small Ship - her main deck's port, her side 7.5-7.55 m out there
+  Object.freeze([5.45, 6.7]),    // 2 Small Ship - Mac's galleon: the entry port in her waist's bulwark, her side 5.33 m out there
   Object.freeze([9.2, 10.75]),   // 3 Large Galley - her upper deck (she never docks - DOCK_REFUSED)
   Object.freeze([7.65, 4.14]),   // 4 Carrack - her main deck's port, her side 7.45-7.5 m out there
 ]);
+/** GALLEON-HOLDINGS: the mod's own Small Ship's - her main deck's port, her side 7.5-7.55 m out there - hull 2's
+ *  while she stands in for Mac's galleon (navalShips.js MOD_SMALL_SHIP_BUILD, AUDIT GN-G4). */
+export const MOD_SMALL_SHIP_GANGWAY = Object.freeze([7.65, 4.14]);
+/** GALLEON-HOLDINGS: where a gangway meets `hull` - GANGWAY_SIDE's, but the mod's galleon's wherever hers is the
+ *  build that stands. */
+export const gangwaySide = (hull) => (hullBuild(hull) === MOD_SMALL_SHIP_BUILD ? MOD_SMALL_SHIP_GANGWAY : GANGWAY_SIDE[hull] ?? GANGWAY_SIDE[0]);
 /** AUDIT HOLDINGS Q2: the hulls no quay takes - a Large Galley (93 m) is half again a Carrack's berth, and rows in and
  *  out as the sea's own never moor (shipLife.js). */
 export const DOCK_REFUSED = Object.freeze([3]);

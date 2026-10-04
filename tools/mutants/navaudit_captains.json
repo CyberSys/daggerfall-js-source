@@ -569,8 +569,8 @@
   {
     "name": "NAV1C-sweeps-unsailable",
     "file": "src/systems/naval/navalAI.js",
-    "old": "  return { want: headingTo(ship.pos, aim), goal: aim, sails, sweeps, sailable: sweeps > 0 };",
-    "new": "  return { want: headingTo(ship.pos, aim), goal: aim, sails, sweeps };",
+    "old": "  return { want: headingTo(ship.pos, aim), goal: aim, sails, sweeps, sailable: sweeps > 0, berthing };",
+    "new": "  return { want: headingTo(ship.pos, aim), goal: aim, sails, sweeps, berthing };",
     "tests": [
       "test/navaudit_captains.test.js"
     ]

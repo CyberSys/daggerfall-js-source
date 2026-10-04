@@ -628,7 +628,10 @@ export function getBoatTransforms(boat, parent, ctx, reinitialize = false) {
       val3.setParentKeepWorld(child);
       val3.localPosition = [0, 0, 0];
       val3.localRotation = [0, 0, 0, 1];
-      fixDeformationsAwake(val3.addComponent({ type: 'FixDeformations', interval: 0.1, timer: 0 }), val3);
+      // AUDIT GN2-RG1/RG9: the renderer's own cadence where its prefab names one (a BakeCadence: the new galleon's,
+      // world/galleonRig.js BAKE - her rope every frame, each canvas from its own timer); the mod's carry none: verbatim
+      const cadence = child.getComponent('BakeCadence');
+      fixDeformationsAwake(val3.addComponent({ type: 'FixDeformations', interval: 0.1, timer: cadence?.timer ?? 0, ...(cadence?.everyFrame ? { everyFrame: true } : {}) }), val3);
     }
     getBoatTransforms(boat, child, ctx, reinitialize);
   }

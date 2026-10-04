@@ -106,7 +106,8 @@
     "new": "      const sides = [1, -1];",
     "tests": [
       "test/auditshiplife.test.js",
-      "test/shiplife.test.js"
+      "test/shiplife.test.js",
+      "test/auditgalleon_sea.test.js"
     ]
   }
 ]

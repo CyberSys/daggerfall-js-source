@@ -54,8 +54,10 @@ test('FIELD BUGS 2026-09-29 (the sea) #2: a frozen swimmer a hull sails over is 
   pool.destroyAll();
   const boat = pool.spawnNow(Object.assign(new Boat(2, 0), { uid: 7 }), { position: [0, 0, 0], rotation: [0, 0, 0, 1] });
   const geometry = (c) => (c.m_Mesh?.mesh ? pool.models.geometry(c.m_Mesh.mesh) : null);
-  // a slaughterfish frozen 2.5 m under the sea line, the hull sailed over it: inside her hull
-  const fish = new EnemyAI(new Collider(() => -100), [0, -2.5 - 0.9, 0], 0, { liveSpeed: 50, behaviour: 'Aquatic', mobileId: 11, waterSurfaceY: () => null });
+  // a slaughterfish frozen 3 m under the sea line, the hull sailed over it: inside her hull. PIN MOVED (GALLEON-2,
+  // 2026-10-02): her V bottom 4.47 m down under her middle on Mac's second export - from 2.5 m the fish's ray down its
+  // height stopped 17 cm short of it
+  const fish = new EnemyAI(new Collider(() => -100), [0, -3 - 0.9, 0], 0, { liveSpeed: 50, behaviour: 'Aquatic', mobileId: 11, waterSurfaceY: () => null });
   const centre = [fish.feet[0], fish.feet[1] + fish.centreOffset, fish.feet[2]];
   const hit = raycastColliders(boat.GameObject, centre, [0, -1, 0], fish.height, { triggers: true, geometry });
   assert.ok(hit && hit.node === boat.MeshObject && hit.collider === boat.MeshCollider, 'its ray down its height meets her hull from inside - FixedUpdate\'s rider test would take it');

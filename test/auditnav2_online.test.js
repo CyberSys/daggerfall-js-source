@@ -90,18 +90,19 @@ test('AUDIT NAV2 F2: a peer\'s boat is sized up as she sizes herself - a boat wi
 });
 
 test('AUDIT NAV2 F4: a rider on another player\'s boat is aboard her and sized as she is - a wary pirate that would take her is the rider\'s enemy too, so the rider is warned exactly when her owner is (SEA-PEACE read the rider as ashore, and a player off every boat of their own as one no wary pirate can size up) (mutants: the ridden boat unsized, the rider not aboard)', async () => {
-  // AUDIT NAV2 F25: the prize a wary pirate takes by the odds - a Large Galley with no crew to load her guns, to a brig
-  // (1.31 to one; a crewed one 1.12, a Large Boat's swivels keep every wary pirate off)
+  // AUDIT NAV2 F25: the prize a wary pirate takes by the odds - PIN MOVED (GALLEON, 2026-10-01): a Large Galley to a
+  // sloop, whose low hull her guns cannot lay on (the brig's broadside five guns now, Mac's galleon's ports: a crewless
+  // Large Galley 1.10 to one, no prize of hers)
   const r = await room([{ id: 'a', hull: HULL.LargeGalley }, { id: 'b', hull: null }]);
   const A = r.get('a'), B = r.get('b');
   A.s.boat.crewed = false;
   A.s.boat.GameObject.position = [0, 0, 0]; A.s.view.feet = [0, 0, 0];
   B.s.view.feet = [0.5, 0, 0.5];
   B.s.deps.aboardPeer = () => A.s.boat;   // Come Sail Away's riding: b stands on a's boat
-  const e = A.s.host._sea.get(A.s.host.spawnShip('pirateBrig', { range: 250, bearing: Math.PI / 2, temper: TEMPERS.wary }));
+  const e = A.s.host._sea.get(A.s.host.spawnShip('pirateSloop', { range: 250, bearing: Math.PI / 2, temper: TEMPERS.wary }));
   e.ship.pos = [250, 0, 0];
   r.run(3);
-  assert.equal(A.s.host.hostileNear(), true, 'she would take a\'s boat (a crewless Large Galley: 1.31 to one)');
+  assert.equal(A.s.host.hostileNear(), true, 'she would take a\'s boat (a Large Galley cannot lay on a sloop)');
   assert.equal(B.s.host.hostileNear(), true, 'and so her rider is warned: no rest, no journey');
   B.s.deps.aboardPeer = () => null;
   assert.equal(B.s.host.hostileNear(), false, 'ashore, nobody at sea is an enemy of theirs');

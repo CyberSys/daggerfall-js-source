@@ -58,6 +58,8 @@
 // and one with more draws its last submesh again with each extra one -
 // Unity's rule.
 
+import { galleonPrefab, GALLEON_PREFAB_ID } from '../world/galleonModel.js';   // GALLEON: Mac's ship stands in for hull 2
+
 /** Where the extractor's files are served (a pin reads them off the disk). */
 export const CSA_MODEL_URLS = Object.freeze({
   prefabs: new URL('../../vendor/come-sail-away/Models/prefabs.json', import.meta.url).href,
@@ -66,6 +68,9 @@ export const CSA_MODEL_URLS = Object.freeze({
   materials: new URL('../../vendor/come-sail-away/Models/materials.json', import.meta.url).href,
   animation: new URL('../../vendor/come-sail-away/Models/animation.json', import.meta.url).href,
 });
+/** GALLEON (2026-10-01): the new galleon's model, baked from Mac's export (tools/bakeGalleon.mjs) - the port's own, not
+ *  the mod's, so never among its files above: hull 2 is built on it (comeSailAwayModels' `galleon`). */
+export const GALLEON_MODEL_URL = new URL('../../src/assets/galleon/galleon.json', import.meta.url).href;
 
 /** CSA-E: the wind widget's pictures as Start imports them - TryImportTexture(112395, 1, i), frame i of the 24. */
 export const windWidgetFrameUrl = (/** @type {number} */ i) => new URL(`../../vendor/come-sail-away/Textures/112395_1-${i}.png`, import.meta.url).href;
@@ -80,10 +85,13 @@ export const soundUrl = (/** @type {string} */ name) => new URL(`../../vendor/co
 /**
  * The five files, fetched. NEVER TRAPS: a file that will not load is the
  * mod's boats missing, never the scene - the answer is null and it says
- * so once.
+ * so once. GALLEON: and the new galleon's model at `galleonUrl` (null for
+ * none) - missing, hull 2 is the mod's own galleon, said once. AUDIT
+ * GN2-PF4: fetched beside the five (it was asked for once all five had
+ * come - a whole fetch later).
  * @returns {Promise<ReturnType<typeof comeSailAwayModels> | null>}
  */
-export async function loadComeSailAwayModels(fetchFn = globalThis.fetch, urls = CSA_MODEL_URLS, log = console) {
+export async function loadComeSailAwayModels(fetchFn = globalThis.fetch, urls = CSA_MODEL_URLS, log = console, galleonUrl = GALLEON_MODEL_URL) {
   if (!fetchFn) return null;
   try {
     const get = async (/** @type {string} */ url, /** @type {boolean} */ binary) => {
@@ -91,10 +99,21 @@ export async function loadComeSailAwayModels(fetchFn = globalThis.fetch, urls = 
       if (!r || !r.ok) throw new Error(`${url}: ${r?.status ?? 'no answer'}`);
       return binary ? new Uint8Array(await r.arrayBuffer()) : r.json();
     };
-    const [prefabs, meshes, bin, materials, animation] = await Promise.all([
-      get(urls.prefabs, false), get(urls.meshes, false), get(urls.bin, true), get(urls.materials, false), get(urls.animation, false),
+    // GALLEON: her answer is her own - her model failing never fails the five, and is said only once they stand
+    const hers = galleonUrl ? get(galleonUrl, false).then((json) => ({ ok: true, json, error: null }), (error) => ({ ok: false, json: null, error })) : null;
+    const [prefabs, meshes, bin, materials, animation, her] = await Promise.all([
+      get(urls.prefabs, false), get(urls.meshes, false), get(urls.bin, true), get(urls.materials, false), get(urls.animation, false), hers,
     ]);
-    return comeSailAwayModels({ prefabs, meshes, bin, materials, animation });
+    // GALLEON: the new galleon over hull 2 - and, its model not answering, the mod's own galleon, said once (a ship
+    // missing her new timbers still sails as the old one; never no ship)
+    let galleon = null;
+    if (her && !her.ok) log?.warn?.('[come-sail-away] the new galleon did not load - hull 2 stands as the mod\'s own galleon', her.error);
+    else if (her) galleon = her.json;
+    try { return comeSailAwayModels({ prefabs, meshes, bin, materials, animation, galleon }); } catch (e) {
+      if (!galleon) throw e;
+      log?.warn?.('[come-sail-away] the new galleon would not build - hull 2 stands as the mod\'s own galleon', e);
+      return comeSailAwayModels({ prefabs, meshes, bin, materials, animation });
+    }
   } catch (e) {
     log?.warn?.('[come-sail-away] the boats\' models did not load - no boat can stand', e);
     return null;
@@ -103,18 +122,37 @@ export async function loadComeSailAwayModels(fetchFn = globalThis.fetch, urls = 
 
 /**
  * The files as the port reads them. `geometry(key)` decodes a mesh once.
- * @param {{ prefabs: { prefabs: Record<string, any>, components: any[] }, meshes: Record<string, any>, bin: Uint8Array, materials: Record<string, any>, animation: any }} files
+ *
+ * GALLEON (2026-10-01): with `galleon` (src/assets/galleon/galleon.json) the new galleon STANDS IN FOR HULL 2 - prefab
+ * 112412 is her tree (world/galleonModel.js galleonPrefab), her components join the shared table after the mod's, her
+ * meshes answer `geometry` (decoded already - she is built, not extracted) and `meshes` their boxes, and her clips and
+ * overrides join the mod's animation. Without it every file reads as the mod shipped it (the mod's own pins read that).
+ * @param {{ prefabs: { prefabs: Record<string, any>, components: any[] }, meshes: Record<string, any>, bin: Uint8Array, materials: Record<string, any>, animation: any, galleon?: any }} files
  */
-export function comeSailAwayModels({ prefabs, meshes, bin, materials, animation }) {
+export function comeSailAwayModels({ prefabs, meshes, bin, materials, animation, galleon = null }) {
   const decoded = new Map();
+  let prefabTable = prefabs.prefabs, components = prefabs.components, meshTable = meshes, anim = animation;
+  if (galleon) {
+    const g = galleonBuilt(galleon, prefabs);
+    prefabTable = { ...prefabs.prefabs, [String(GALLEON_PREFAB_ID)]: g.prefab };
+    components = [...prefabs.components, ...g.components];
+    meshTable = { ...meshes };
+    for (const [key, geo] of Object.entries(g.meshes)) {
+      meshTable[key] = { vertexCount: geo.vertexCount, aabb: geo.aabb, galleon: true };
+      decoded.set(key, geo);
+    }
+    anim = { ...animation, overrides: { ...animation.overrides, ...g.animation.overrides }, clips: { ...animation.clips, ...g.animation.clips } };
+  }
   return {
-    prefabs: prefabs.prefabs,
-    components: prefabs.components,
-    meshes,
+    prefabs: prefabTable,
+    components,
+    meshes: meshTable,
     materials,
-    animation,
+    animation: anim,
+    /** GALLEON: whether hull 2 is the new galleon (the art's registration, a probe's reading). */
+    galleon: !!galleon,
     /** The prefab tree DFU's MeshReplacement answers `id` with, or null (TryImportGameObject's false). */
-    prefab: (/** @type {number} */ id) => prefabs.prefabs[String(id)] ?? null,
+    prefab: (/** @type {number} */ id) => prefabTable[String(id)] ?? null,
     /** A mesh decoded to the port's shape, once; null for a key the files do not carry. */
     geometry(/** @type {string} */ key) {
       if (decoded.has(key)) return decoded.get(key);
@@ -124,6 +162,21 @@ export function comeSailAwayModels({ prefabs, meshes, bin, materials, animation 
       return g;
     },
   };
+}
+
+/** AUDIT GN2-PF4: HER PREFAB, BUILT ONCE A PROCESS. galleonPrefab is a long task (150-340 ms, bakedPartGeometry 126 of
+ *  it) and every world scene's pool loads the models anew, so it is built once and held: keyed by her bake's sha256 (her
+ *  source's hash), served again only for the same bake to the byte over the same mod table - a bake edited under the same
+ *  hash builds anew (the loader's broken-model pin). What it holds is read, never written: a boat instances her tree and
+ *  components by copy (world/prefabNode.js instantiatePrefab), and her meshes are drawn, baked and stood on, never changed
+ *  (test/auditgalleon2_prefab.test.js PF4). */
+let _built = null;   // { sha256, bake, base, old, built }
+function galleonBuilt(galleon, prefabs) {
+  const bake = JSON.stringify(galleon), base = prefabs.components.length, old = JSON.stringify(prefabs.prefabs[String(GALLEON_PREFAB_ID)] ?? null);
+  if (_built && _built.sha256 === galleon.sha256 && _built.bake === bake && _built.base === base && _built.old === old) return _built.built;
+  const built = galleonPrefab(galleon, prefabs);
+  _built = { sha256: galleon.sha256, bake, base, old, built };
+  return built;
 }
 
 /**
