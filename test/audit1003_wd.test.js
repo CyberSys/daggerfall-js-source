@@ -265,7 +265,7 @@ test('AUDIT PRE-MERGE 1003 WD2: a quest\'s building site chosen again in a town 
   } finally { done(); }
 });
 
-test('AUDIT PRE-MERGE 1003 WD2: a selected ITEM marker is carried to an item marker, or a spawn marker where the new building has none (_getSiteMarker\'s fallback); marker N kept at the new building\'s marker N; a building with no marker at all is no site, and the record is left as it was (mutants: the type unread; the fallback unread; the markerless building taken)', async () => {
+test('AUDIT PRE-MERGE 1003 WD2: a selected ITEM marker is carried to an item marker, or a spawn marker where the new building has none (_getSiteMarker\'s fallback); marker N kept at the new building\'s marker N; a building with no marker at all is no site, and the site is UNSEATED with its record kept (FIELD BUGS 2026-10-04b RESEAT-GAPS: it was left on its old key, a stranger\'s) (mutants: the type unread; the fallback unread; the markerless building taken)', async () => {
   const { markerScenePosition } = await import('../src/systems/quest/sceneMount.js');
   const itemSelected = (was) => { was.selectedMarker = { ...was.questItemMarkers[0], targetResources: [{ name: 'letter', original: '_letter_' }] }; };
   {
@@ -289,8 +289,10 @@ test('AUDIT PRE-MERGE 1003 WD2: a selected ITEM marker is carried to an item mar
   {
     const { m, place, was, w, done } = await movedSite([null, []]);
     try {
-      assert.equal(m.reseatMovedSites(w), 0, 'no marker to carry its people and things to');
-      assert.equal(place.siteDetails, was, 'the record as it was');
+      assert.equal(m.reseatMovedSites(w), 1, 'no marker to carry its people and things to: no building of the town is its own (test/fb1004b_reseatgaps.test.js)');
+      assert.equal(place.siteDetails.buildingKey, 0);
+      assert.deepEqual(place.siteDetails.unseated, { buildingKey: was.buildingKey, layout: was.layout }, 'the record kept - the key and layout it was chosen in');
+      assert.equal(place.siteDetails.questSpawnMarkers, was.questSpawnMarkers, 'with its markers and what they hold');
     } finally { done(); }
   }
 });

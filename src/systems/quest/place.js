@@ -212,24 +212,51 @@ export class Place extends QuestResource {
    * a quest of the player's own from before the town mods; offline, a pack that could not be loaded for the town's
    * pin) names another building by its key - a stranger's, a shop for a house, or none. It is chosen again in the town
    * as it stands, by the place's own law (P2/P3, the same exclusions), keeping what was already assigned to it, and
-   * stamped anew. Answers whether it moved. A site no building of its kind stands for now keeps its record.
+   * stamped anew. Answers whether its record changed.
    * QUESTOR-MOVED: a questor's hall is not such a site - it moves with its questor (person.js reseatMovedQuestor).
+   *
+   * FIELD BUGS 2026-10-04b RESEAT-GAPS: A SITE NO BUILDING OF ITS KIND STANDS FOR IS UNSEATED. It used to keep its old
+   * key, which names another building in the town as it stands - a stranger's house, a shop, or nothing - whose interior
+   * its markers do not belong to: its quest's person or thing stood at another building's coordinates there, `pc at`
+   * fired inside it, a house was opened to the quest's holder as the quest's (IsActiveQuestBuilding), talk and the town
+   * map named it, and the quest's end took it off the map. Unseated, the site names no building - key 0, DFU's own
+   * "none" - and keeps its record: its town and its building's name for the journal, its markers and what they hold, and
+   * the key and layout it was chosen in (`unseated`), which the town's pin still asks for (layoutPins.js
+   * layoutRecordsOf). Every load tries it again: it is seated back on its own key the moment its town stands in that
+   * layout again (offline, a pack that could not be loaded), and chosen again where a building of its kind stands.
    */
   reseatMovedSite(world) {
     const sd = this.siteDetails;
     if (this.scope === Scopes.None) return false;   // QUESTOR-MOVED (FIELD BUGS 2026-10-03b): a Place minted where the player stood (ConfigureFromPlayerLocation, `_<person>_home_`) has no P1-P3 law to be chosen again by - its P2 of 0 read as Alchemist, and a questor's hall (the journal's `__qgiver_`) went to the town's apothecary
-    if (sd?.siteType !== SITE_TYPES.Building || !(sd.buildingKey > 0) || recordStands(sd)) return false;
+    if (sd?.siteType !== SITE_TYPES.Building) return false;
+    const held = sd.unseated ? { ...sd, ...sd.unseated } : sd;   // RESEAT-GAPS: an unseated site is asked by its own record
+    if (!(held.buildingKey > 0)) return false;
+    if (recordStands(held)) return sd.unseated ? this._seatBack(held) : false;
     const location = this.siteTown(world);
     if (!location) return false;
     // FIELD BUGS 2026-10-04b RESEAT-DECLARED: by the place's DECLARED P2/P3 and its own house fallback - never the -1
     // that fallback wrote into it, which read as `random` and moved a House1 site into a tavern or a shop
     const { p2, p3 } = this.declaredSiteLaw();
     const { found } = this._searchTownSites(world, location, p2, p3);
-    if (!found.length) return false;
-    const next = this._carryAssignments(sd, found[this._range(found.length)]);
-    if (!next) return false;   // AUDIT PRE-MERGE 1003 WD2: a building with no marker to carry them to keeps the record
-    this.siteDetails = { ...next, questUID: sd.questUID ?? next.questUID, magicNumberIndex: sd.magicNumberIndex ?? 0 };
+    // AUDIT PRE-MERGE 1003 WD2: a building with no marker to carry them to is none (_collectQuestSitesOfBuildingType never offers one)
+    const next = found.length ? this._carryAssignments(held, found[this._range(found.length)]) : null;
+    if (!next) return this._unseat(held);
+    this.siteDetails = { ...next, questUID: held.questUID ?? next.questUID, magicNumberIndex: held.magicNumberIndex ?? 0 };
     this._stampSiteLayout();
+    return true;
+  }
+
+  /** RESEAT-GAPS: the site names no building and keeps its record - false when it already did. */
+  _unseat(held) {
+    if (this.siteDetails.unseated) return false;
+    const { layout, ...record } = held;
+    this.siteDetails = { ...record, buildingKey: 0, unseated: { buildingKey: held.buildingKey, ...(layout ? { layout } : {}) } };
+    return true;
+  }
+  /** RESEAT-GAPS: an unseated site whose town stands in the layout it was chosen in is its building again. */
+  _seatBack(held) {
+    const { unseated: _was, ...record } = held;
+    this.siteDetails = record;
     return true;
   }
 
@@ -590,17 +617,21 @@ export class Place extends QuestResource {
   _isBuildingAssigned(activeQuestSites, parentQuestPlaces, location, summary, buildingKey) {
     // Guild halls are excluded from the same-building check (N0B10Y03:
     // the questor's hall hosts the quest's own action)
+    // FIELD BUGS 2026-10-04b RESEAT-GAPS: and a site holds a building only where its key names it - in the layout it was
+    // chosen in (recordStands). A moved site not chosen again yet - the sibling the load's re-seat comes to next, another
+    // quest's - names a stranger by its old key, and that stranger was taken from the choice: two sites that both left a
+    // town's only House2 could both be kept out of it.
     if (summary.buildingType !== BT_GUILDHALL) {
       for (const place of parentQuestPlaces) {
         if (place.siteDetails?.siteType === SITE_TYPES.Building
           && place.siteDetails.mapId === location.mapTableData.mapId
-          && place.siteDetails.buildingKey === buildingKey) return true;
+          && place.siteDetails.buildingKey === buildingKey && recordStands(place.siteDetails)) return true;
       }
     }
     for (const site of activeQuestSites) {
       if (site.siteType === SITE_TYPES.Building
         && site.mapId === location.mapTableData.mapId
-        && site.buildingKey === buildingKey) return true;
+        && site.buildingKey === buildingKey && recordStands(site)) return true;
     }
     return false;
   }

@@ -96,7 +96,7 @@ test('ARENA1 move: every other record keyed there names no building - a room at 
     assert.equal(isBeingRepairedAt(item, makeBuildingKey(4, 4, 2), MAP), true);
   } finally { _resetLayoutPins(); }
   // a quest site there is chosen again (Place.reseatMovedSite asks recordStands); an inside save stands outside
-  assert.match(read('src/systems/quest/place.js'), /if \(sd\?\.siteType !== SITE_TYPES\.Building \|\| !\(sd\.buildingKey > 0\) \|\| recordStands\(sd\)\) return false;/);
+  assert.match(read('src/systems/quest/place.js'), /if \(recordStands\(held\)\) return sd\.unseated \? this\._seatBack\(held\) : false;/);   // FIELD BUGS 2026-10-04b RESEAT-GAPS: asked of the record the site holds
   assert.match(read('src/systems/layoutPins.js'), /if \(_displaced\(rec\)\) return false;\n\s*return layoutsMatch\(rec\.layout, layoutStampOfMapId\(rec\.mapId\)\);/);
   assert.match(read('src/scenes/worldModes.js'), /if \(!cabin && d\.buildingKey && arenaRecordDisplaced\(\{ mapId: questSceneCtx\?\.\(\)\?\.mapId \?\? 0, buildingKey: d\.buildingKey \}\)\) \{/);
   const w = read('src/scenes/world.js');
