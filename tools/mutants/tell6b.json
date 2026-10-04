@@ -74,8 +74,8 @@
   {
     "name": "TELL6b-quad-short",
     "file": "src/render/foeTelegraph.js",
-    "old": "ring: BLOW.ring.rOut, charge: BLOW.charge.len });",
-    "new": "ring: BLOW.ring.rOut, charge: BLOW.lunge.len });",
+    "old": "ring: BLOW.ring.rOut, charge: BLOW.charge.len,",
+    "new": "ring: BLOW.ring.rOut, charge: BLOW.lunge.len,",
     "tests": [
       "test/tell6b_charge.test.js"
     ]
@@ -92,7 +92,7 @@
   {
     "name": "TELL6b-never-out-of-reach",
     "file": "src/ai/tactics.js",
-    "old": "  return near ? all.filter((k) => !GAP_CLOSERS.includes(k)) : all.filter((k) => gapCloses(ai, k, dist, dx, dz));",
+    "old": "  return near ? all.filter((k) => !GAP_CLOSERS.includes(k)) : all.filter((k) => gapCloses(ai, k, dist, dx, dz, ent));",
     "new": "  return near ? all.filter((k) => !GAP_CLOSERS.includes(k)) : [];",
     "tests": [
       "test/tell6b_charge.test.js"
@@ -112,8 +112,8 @@
   {
     "name": "TELL6b-band-ignored",
     "file": "src/ai/tactics.js",
-    "old": "  if (!(dist >= P.from && dist <= P.to)) return false;\n",
-    "new": "",
+    "old": "  if (!(dist >= P.from && dist <= (kind === 'charge' ? P.to : P.range))) return false;",
+    "new": "  if (!(dist >= 0 && dist <= (kind === 'charge' ? 99 : P.range))) return false;",
     "tests": [
       "test/tell6b_charge.test.js"
     ]
@@ -130,8 +130,8 @@
   {
     "name": "TELL6b-cover-ignored",
     "file": "src/ai/tactics.js",
-    "old": "  return !(coverDistance(ai.collider, from, dir, len) < len);",
-    "new": "  return true;",
+    "old": "  if (coverDistance(ai.collider, from, dir, len) < len) return false;\n",
+    "new": "",
     "tests": [
       "test/tell6b_charge.test.js"
     ]

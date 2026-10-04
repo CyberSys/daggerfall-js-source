@@ -12,12 +12,12 @@ import { BLOW, TELL_NOW } from '../ai/blowShapes.js';   // the leaf - the brain 
 import { TELEGRAPH_STYLE_GLSL } from './telegraphStyle.js';   // TELL2: the boss's readable line, at a foe's scale (a leaf)
 
 /** The shapes as the shader's `uKind` says them. */
-export const BLOW_KIND = Object.freeze({ lunge: 0, sweep: 1, slam: 2, ring: 3, charge: 0 });   // TELL6: the charge's lane is the lunge's branch, its own numbers
+export const BLOW_KIND = Object.freeze({ lunge: 0, sweep: 1, slam: 2, ring: 3, charge: 0, leap: 2 });   // TELL6: the charge's lane is the lunge's branch, the leap's disc the slam's - each its own numbers
 /** TELL6: a shape's reach from the foe's feet (its farthest point). */
-const REACH = Object.freeze({ lunge: BLOW.lunge.len, sweep: BLOW.sweep.r, slam: BLOW.slam.ahead + BLOW.slam.r, ring: BLOW.ring.rOut, charge: BLOW.charge.len });
+const REACH = Object.freeze({ lunge: BLOW.lunge.len, sweep: BLOW.sweep.r, slam: BLOW.slam.ahead + BLOW.slam.r, ring: BLOW.ring.rOut, charge: BLOW.charge.len, leap: BLOW.leap.range + BLOW.leap.r });
 /** TELL6: a blow's quad half-extent - its own shape and the line's glow past its outline (TELL2 draws 0.5 m out), so a
- *  long shape does not enlarge every quad. */
-export const quadHalf = (kind) => (REACH[kind] ?? BLOW_QUAD_HALF) + 0.6;
+ *  long shape does not enlarge every quad. A leap's by its own point (`ahead`). */
+export const quadHalf = (kind, ahead = null) => (kind === 'leap' && Number.isFinite(ahead) ? ahead + BLOW.leap.r : REACH[kind] ?? BLOW_QUAD_HALF) + 0.6;
 /** The quad's half-extent about the foe's feet - every shape fits (TELL6: the charge's lane is the longest). */
 export const BLOW_QUAD_HALF = Math.max(...Object.values(REACH)) + 0.3;
 export const BLOW_LIFT = 0.06;
@@ -28,7 +28,7 @@ const OUTLINE = 0.12;   // metres of rim
  * in the shape, inBlow's law), `edge` (0..1 how far out toward the rim: the fill's reach), and `rim` (within the
  * outline of the rim).
  */
-export function blowField(kind, across, along) {
+export function blowField(kind, across, along, ahead = 0) {
   if (kind === 'lunge' || kind === 'charge') {   // TELL6: the charge's lane, the lunge's law
     const P = BLOW[kind];
     const inside = along >= -0.3 && along <= P.len && Math.abs(across) <= P.halfW;
@@ -47,6 +47,10 @@ export function blowField(kind, across, along) {
     const P = BLOW.ring, d = Math.hypot(across, along);
     const inside = d >= P.rIn && d <= P.rOut;
     return { inside, edge: Math.max(0, (d - P.rIn) / (P.rOut - P.rIn)), rim: inside && (d - P.rIn < OUTLINE || P.rOut - d < OUTLINE) };
+  }
+  if (kind === 'leap') {   // TELL6: the slam's disc, at its own point
+    const r = BLOW.leap.r, d = Math.hypot(across, along - ahead);
+    return { inside: d <= r, edge: d / r, rim: d <= r && r - d < OUTLINE };
   }
   const P = BLOW.slam, d = Math.hypot(across, along - P.ahead);
   const inside = d <= P.r;
@@ -79,7 +83,7 @@ uniform int uKind;
 uniform float uT;
 uniform float uFlash;
 uniform vec3 uColor;
-uniform vec4 uP;   // lunge: len, halfW / sweep: r, halfArc / slam: r, ahead / TELL6 ring: rIn, rOut
+uniform vec4 uP;   // lunge (TELL6: and the charge): len, halfW / sweep: r, halfArc / slam (and the leap): r, ahead / TELL6 ring: rIn, rOut
 uniform float uNow;   // TELL2: 0..1 through the last stretch before the landing
 uniform float uNearFloor;   // TELL2: the fog's floor for a mark near the player (0 none)
 uniform float uIron;   // TELL3: 1 an iron blow - its second rim and its hatch
@@ -176,11 +180,12 @@ export class FoeTelegraphPass {
       gl.uniform1f(U.uYaw, b.yaw);
       gl.uniform2f(U.uSlope, b.slope?.[0] ?? 0, b.slope?.[1] ?? 0);
       gl.uniform1i(U.uKind, BLOW_KIND[b.kind] ?? 0);
-      gl.uniform1f(U.uHalf, quadHalf(b.kind));   // TELL6: each its own size
+      gl.uniform1f(U.uHalf, quadHalf(b.kind, b.ahead));   // TELL6: each its own size
       const P = BLOW[b.kind];
       if (b.kind === 'lunge' || b.kind === 'charge') gl.uniform4f(U.uP, P.len, P.halfW, 0, 0);
       else if (b.kind === 'sweep') gl.uniform4f(U.uP, P.r, P.halfArc, 0, 0);
       else if (b.kind === 'ring') gl.uniform4f(U.uP, P.rIn, P.rOut, 0, 0);
+      else if (b.kind === 'leap') gl.uniform4f(U.uP, P.r, b.ahead ?? 0, 0, 0);
       else gl.uniform4f(U.uP, P.r, P.ahead, 0, 0);
       gl.uniform1f(U.uT, phase.t);
       gl.uniform1f(U.uFlash, phase.flash);

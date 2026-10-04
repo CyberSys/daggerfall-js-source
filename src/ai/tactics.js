@@ -35,6 +35,7 @@ import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { MOBILE_TYPES } from '../characters/mobileTypes.js';
 import { throwsBlows, blowShapesOf, blowFamily, makeBlow, fitBlowToGround, inBlow, setLiveBlow, windupNear, offsetBlows, BLOW, BLOW_CHANCE, BLOW_COLOR, IRON_COLOR } from './foeBlows.js';   // TACT4; TELL3: iron; TELL5: the family, the shapes' lengths
 import { coverDistance } from './cover.js';   // TELL6: a charge's lane must be free of cover
+import { GRAVITY } from '../player/motor.js';   // TELL6c: a leap's hop on the motor's own gravity
 import { tacticsNow, setTacticsClock, tickTactics } from './tacticsClock.js';   // AUDIT TACT D10/A3
 import { TELL, poiseOf, staggerSeconds, glintStrength, blowGuard, punishSeconds, windupSeconds, feints, chains, chainShape, trackYaw, blowCooldown } from './tells.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL3: a blow's guard; TELL4: the punish window; TELL5: patterns; TELL7: the cooldowns
 import { registerBlowTakenMod } from '../systems/blowTaken.js';   // TELL1: a staggered foe takes more - the leaf the formulas read
@@ -456,6 +457,7 @@ function beginWindup(ai, s, ent, shape, dx, dz, now, chain = 0) {
     : windupSeconds(BLOW[shape].windup, ent, { guard });
   const b = fitBlowToGround(makeBlow(shape, ai.feet, Math.atan2(dx, dz), now, guard === 'iron' ? IRON_COLOR : BLOW_COLOR, guard, windup), ai.collider);   // AUDIT TACT D8: on the ground it marks
   b.chain = chain; b.trackedAt = now;
+  if (shape === 'leap') { b.ahead = Math.min(BLOW.leap.range, Math.hypot(dx, dz)); b.jumpAt = b.land - BLOW.leap.arc; fitBlowToGround(b, ai.collider); }   // TELL6c: its point - my feet now, locked
   const n = (s.windups ?? 0) + 1;
   s.windups = n;
   if (chain === 0 && feints(blowFamily(ent.mobileType), ent, n - (s.lastFeint ?? -Infinity)) && Math.random() < TELL.FEINT_CHANCE) {
@@ -495,7 +497,9 @@ function windupTurn(ai, s, now, skipped) {
   }
   // TELL4 (6.2): my feet, sampled once - the first turn inside TELL_LATE of the landing
   if (atMe && s.blow.lateIn == null && now >= s.blow.land - TELL.TELL_LATE && now < s.blow.land) s.blow.lateIn = inBlow(s.blow, _me.feet[0], _me.feet[2]);
+  if (b0.kind === 'leap' && now >= b0.jumpAt && now < b0.land) return leapStep(ai, b0);   // TELL6c: the jump
   if (now >= s.blow.land) {
+    if (b0.kind === 'leap') { ai._tacDir = null; ai.moving = false; }   // TELL6c: landed at its point
     // AUDIT TACT A4/D6: only ever at ME - a wind-up whose foe has turned on another lands on no one here
     if (atMe && s.blow.kind === 'charge') { beginDash(ai, s, s.blow, now, cooled); return true; }   // TELL6: its landing is its run
     ai._blowLandedAt = now;   // TELL2: the landing, for the LAND cue (scenes/hostCombat.js tellCues)
@@ -542,21 +546,42 @@ function resolveLanding(ai, s, b, verdict, now, cooled) {
  *  gap-closers whose lanes are free. TELL7: from its whole set. */
 export function blowPool(ai, ent, dist, near, dx, dz) {
   const all = throwsBlows(ent) ? blowShapesOf(ent.mobileType, ent) : [];
-  return near ? all.filter((k) => !GAP_CLOSERS.includes(k)) : all.filter((k) => gapCloses(ai, k, dist, dx, dz));
+  return near ? all.filter((k) => !GAP_CLOSERS.includes(k)) : all.filter((k) => gapCloses(ai, k, dist, dx, dz, ent));
 }
-/** The shapes begun out of reach (TELL6c's leap joins). */
-export const GAP_CLOSERS = Object.freeze(['charge']);
+/** The shapes begun out of reach. */
+export const GAP_CLOSERS = Object.freeze(['charge', 'leap']);
 /** May `kind` be begun from `dist` out along (dx, dz)? The charge: 5-12 m, its lane free of the collider and of cover
- *  (ai/cover.js) to the target and a metre past. A shape of reach: never out of it. */
-export function gapCloses(ai, kind, dist, dx, dz) {
-  if (kind !== 'charge') return false;
-  const P = BLOW.charge;
-  if (!(dist >= P.from && dist <= P.to)) return false;
+ *  (ai/cover.js) to the target and a metre past. TELL6c the leap: 3-9 m, a clear line to the target, ground under its
+ *  point, never a flyer. A shape of reach: never out of it. */
+export function gapCloses(ai, kind, dist, dx, dz, ent = null) {
+  if (kind !== 'charge' && kind !== 'leap') return false;
+  const P = BLOW[kind];
+  if (!(dist >= P.from && dist <= (kind === 'charge' ? P.to : P.range))) return false;
+  if (kind === 'leap' && ENEMY_BASICS[ent?.mobileType]?.behaviour === 'Flying') return false;
   const l = Math.hypot(dx, dz) || 1, dir = [dx / l, 0, dz / l];
-  const from = [ai.feet[0], ai.feet[1] + 0.9, ai.feet[2]], len = Math.min(P.len, dist + 1);
+  const from = [ai.feet[0], ai.feet[1] + 0.9, ai.feet[2]], len = kind === 'charge' ? Math.min(P.len, dist + 1) : dist;
   const wall = ai.collider?.raycast?.(from, dir, len);
   if (Number.isFinite(wall) && wall < len) return false;
-  return !(coverDistance(ai.collider, from, dir, len) < len);
+  if (coverDistance(ai.collider, from, dir, len) < len) return false;
+  if (kind === 'leap' && ai.collider) {   // ground under its point - the terrain too, outdoors (Collider.surfaceHit)
+    const o = [ai.feet[0] + dx, ai.feet[1] + 2.5, ai.feet[2] + dz];
+    const g = ai.collider.surfaceHit ? ai.collider.surfaceHit(o, DOWN, 5)?.dist : ai.collider.raycast?.(o, DOWN, 5);
+    if (!Number.isFinite(g)) return false;
+  }
+  return true;
+}
+const DOWN = Object.freeze([0, -1, 0]);
+/** TELL6c: the leap's jump - its last BLOW.leap.arc seconds, from where it crouched to its point, a hop on the motor's
+ *  own gravity; the verdict at its landing, at the point. */
+function leapStep(ai, b) {
+  const tx = b.origin[0] + Math.sin(b.yaw) * b.ahead, tz = b.origin[2] + Math.cos(b.yaw) * b.ahead;
+  const dx = tx - ai.feet[0], dz = tz - ai.feet[2], d = Math.hypot(dx, dz), left = Math.max(1 / 16, b.land - clock());
+  if (!b.jumping) { b.jumping = true; ai.velY = (GRAVITY * BLOW.leap.arc) / 2; }   // up, and down again at its landing
+  if (d < 0.05) { ai._tacDir = null; ai.moving = false; return true; }
+  ai._tacDir = [dx / d, dz / d];
+  ai._tacSpeed = Math.min(d / left, 40) / Math.max(0.1, ai.speed ?? 1);
+  ai.moving = true; ai._tacStrike = false; ai._tacShoot = false;
+  return true;
 }
 /** TELL6: the charge's landing - its foe runs its lane, `cross` seconds end to end, along the collider (a wall ends it
  *  in a skid); the verdict is swept between its turns (the world boss's chargeStrikes law), once. Its held swing stands

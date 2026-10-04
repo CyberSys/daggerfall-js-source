@@ -50,7 +50,7 @@ test('TELL6b: the charge - a 9 m by 1.6 m lane from its feet, 0.9 s, x1.5, run i
   assert.match(rd('src/render/foeTelegraph.js'), /if \(b\.kind === 'lunge' \|\| b\.kind === 'charge'\) gl\.uniform4f\(U\.uP, P\.len, P\.halfW, 0, 0\);/);
   assert.equal(punishSeconds('charge'), 1.4);
   assert.ok(TELL.TRACKERS.includes('charge'));
-  assert.deepEqual([...GAP_CLOSERS], ['charge']);
+  assert.ok(GAP_CLOSERS.includes('charge'));   // PIN MOVED (TELL6c: the leap joins it)
 });
 
 test('TELL6b: who and when - a charger of the whole set, from 5-12 m, its lane free of walls and of cover; never in reach (mutants: the band; the wall; the cover)', () => {

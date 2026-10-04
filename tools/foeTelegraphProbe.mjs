@@ -45,6 +45,7 @@ window.draw = (kind, when, fog = null, slope = null, nearFloor = 0, guard = 'poi
   const share = when === 'mid' ? 0.5 : when === 'now' ? 0.95 : 0.4;   // TELL2: halfway, and inside the last stretch
   const at = when === 'land' ? blow.land + 0.02 : 10 + (blow.land - 10) * share;   // the landing's flash, or that far through the wind-up
   if (slope) blow.slope = slope;
+  if (kind === 'leap') blow.ahead = 3;   // TELL6: its point, 3 m out
   const n = pass.draw([{ blow, phase: blowPhase(blow, at), nearFloor }], proj, view, fog);
   // read the ground at a world point
   const px = (x, z) => { const v = [x, 0, z, 1]; const c = [0,0,0,0]; for (let r = 0; r < 4; r++) c[r] = vp[r]*v[0] + vp[4+r]*v[1] + vp[8+r]*v[2] + vp[12+r]*v[3];
@@ -110,6 +111,9 @@ try {
   const chargeL = await page.evaluate(() => window.draw('charge', 'land'));
   const lungeL = await page.evaluate(() => window.draw('lunge', 'land'));
   check('TELL6: the charge\'s lane reaches past the lunge\'s and is wider', chargeL.n === 1 && chargeL.err === 0 && chargeL.probes.lane7 > GROUND + 60 && Math.abs(lungeL.probes.lane7 - GROUND) < 6 && chargeL.probes.laneWide > GROUND + 60 && Math.abs(lungeL.probes.laneWide - GROUND) < 30, JSON.stringify({ charge: chargeL.probes, lunge: lungeL.probes }));
+  // TELL6: the leap - a disc at its point, its foe's own feet dark
+  const leapL = await page.evaluate(() => window.draw('leap', 'land'));
+  check('TELL6: the leap lights a disc at its point, nothing at its foe\'s feet', leapL.n === 1 && leapL.err === 0 && leapL.probes.ahead > GROUND + 60 && leapL.probes.far > GROUND + 60 && Math.abs(leapL.probes.feet - GROUND) < 6 && Math.abs(leapL.probes.out - GROUND) < 6, JSON.stringify(leapL.probes));
   // TELL3: an iron blow is never told by colour alone - a second line a quarter-metre inside, a hatch across its fill
   const poiseW = await page.evaluate(() => window.draw('lunge', 'wind'));
   const ironW = await page.evaluate(() => window.draw('lunge', 'wind', null, null, 0, 'iron'));

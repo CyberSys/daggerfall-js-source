@@ -107,13 +107,16 @@ export function makeBlow(kind, origin, yaw, now, color = null, guard = 'poise', 
 export function fitBlowToGround(b, collider) {
   if (!b || !collider?.raycast) return b;
   const fx = Math.sin(b.yaw), fz = Math.cos(b.yaw), wx = -fz, wz = fx;
-  const at = (x, z) => { const d = collider.raycast([x, b.origin[1] + 2.5, z], DOWN, 5); return Number.isFinite(d) ? b.origin[1] + 2.5 - d : null; };   // a stair's rise 2 m off is within reach
+  // a stair's rise 2 m off is within reach. TELL6c: the terrain too - outdoors the ground is no mesh, and a ray of meshes
+  // alone met nothing there (Collider.surfaceHit: the nearer of a mesh and the ground)
+  const at = (x, z) => { const o = [x, b.origin[1] + 2.5, z]; const d = collider.surfaceHit ? collider.surfaceHit(o, DOWN, 5)?.dist : collider.raycast(o, DOWN, 5); return Number.isFinite(d) ? b.origin[1] + 2.5 - d : null; };
   const h0 = at(b.origin[0], b.origin[2]);
   if (h0 == null) return b;
-  const hf = at(b.origin[0] + fx * 2, b.origin[2] + fz * 2), hw = at(b.origin[0] + wx * 2, b.origin[2] + wz * 2);
+  const far = b.ahead > 2 ? b.ahead : 2;   // TELL6: a leap's disc lies on the ground at its point
+  const hf = at(b.origin[0] + fx * far, b.origin[2] + fz * far), hw = at(b.origin[0] + wx * 2, b.origin[2] + wz * 2);
   const clamp = (v) => Math.max(-1, Math.min(1, v));
   b.origin[1] = h0;
-  b.slope = [hw == null ? 0 : clamp((hw - h0) / 2), hf == null ? 0 : clamp((hf - h0) / 2)];
+  b.slope = [hw == null ? 0 : clamp((hw - h0) / 2), hf == null ? 0 : clamp((hf - h0) / far)];
   return b;
 }
 const DOWN = Object.freeze([0, -1, 0]);
@@ -132,6 +135,7 @@ export function inBlow(b, px, pz) {
   }
   if (b.kind === 'slam') { const P = BLOW.slam; return Math.hypot(along - P.ahead, across) <= P.r; }
   if (b.kind === 'ring') { const P = BLOW.ring, d = Math.hypot(rx, rz); return d >= P.rIn && d <= P.rOut; }   // TELL6: safe at its feet
+  if (b.kind === 'leap') return Math.hypot(along - (b.ahead ?? 0), across) <= BLOW.leap.r;   // TELL6: a disc at its point
   return false;
 }
 

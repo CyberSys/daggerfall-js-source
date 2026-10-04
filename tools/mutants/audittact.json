@@ -185,7 +185,7 @@
   {
     "name": "ATACT-D8-flat",
     "file": "src/ai/foeBlows.js",
-    "old": "  b.slope = [hw == null ? 0 : clamp((hw - h0) / 2), hf == null ? 0 : clamp((hf - h0) / 2)];",
+    "old": "  b.slope = [hw == null ? 0 : clamp((hw - h0) / 2), hf == null ? 0 : clamp((hf - h0) / far)];",
     "new": "  b.slope = [0, 0];",
     "tests": [
       "test/audittact.test.js"

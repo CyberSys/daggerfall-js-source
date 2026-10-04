@@ -74,7 +74,7 @@
   {
     "name": "TELL6a-quad-shared",
     "file": "src/render/foeTelegraph.js",
-    "old": "      gl.uniform1f(U.uHalf, quadHalf(b.kind));   // TELL6",
+    "old": "      gl.uniform1f(U.uHalf, quadHalf(b.kind, b.ahead));   // TELL6",
     "new": "      gl.uniform1f(U.uHalf, BLOW_QUAD_HALF);   // TELL6",
     "tests": [
       "test/tell6a_ring.test.js"
@@ -83,8 +83,8 @@
   {
     "name": "TELL6a-quad-tight",
     "file": "src/render/foeTelegraph.js",
-    "old": "export const quadHalf = (kind) => (REACH[kind] ?? BLOW_QUAD_HALF) + 0.6;",
-    "new": "export const quadHalf = (kind) => (REACH[kind] ?? BLOW_QUAD_HALF) + 0.2;",
+    "old": "? ahead + BLOW.leap.r : REACH[kind] ?? BLOW_QUAD_HALF) + 0.6;",
+    "new": "? ahead + BLOW.leap.r : REACH[kind] ?? BLOW_QUAD_HALF) + 0.2;",
     "tests": [
       "test/tell6a_ring.test.js"
     ]
@@ -92,8 +92,8 @@
   {
     "name": "TELL6a-kind-id",
     "file": "src/render/foeTelegraph.js",
-    "old": "export const BLOW_KIND = Object.freeze({ lunge: 0, sweep: 1, slam: 2, ring: 3, charge: 0 });",
-    "new": "export const BLOW_KIND = Object.freeze({ lunge: 0, sweep: 1, slam: 2, ring: 2, charge: 0 });",
+    "old": "export const BLOW_KIND = Object.freeze({ lunge: 0, sweep: 1, slam: 2, ring: 3, charge: 0, leap: 2 });",
+    "new": "export const BLOW_KIND = Object.freeze({ lunge: 0, sweep: 1, slam: 2, ring: 2, charge: 0, leap: 2 });",
     "tests": [
       "test/tell6a_ring.test.js"
     ]

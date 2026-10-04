@@ -245,7 +245,7 @@ proven unchanged by a seeded run against the pre-TACT tree (same hash, same 440 
   the standalone hosts were unwired - all are now.
 - **The hosts and the ground (D).** D2 the location host never noted the player indoors - before every frame branch
   now. D3 a recentre left live wind-ups and the noted player in the old frame - `offsetTactics`. D8 the mark was flat
-  at the feet - fitted to the ground under it (sampled at its foot, ahead and across, to 45 degrees). D9 it glowed
+  at the feet - fitted to the ground under it (sampled at its foot, ahead and across, to 45 degrees). (TELL6c found the sample met no ground outdoors - a ray of meshes alone - and it asks the collider's ground too, `Feud-Arc.md`'s TELL6c record.) D9 it glowed
   through fog - fogged as the ground. D7 the switch's effect line said the next dungeon - the tactics, cover and blows
   are at once; only the navmesh waits. D11 the cover's broad phase built a string a cell a ray - numeric keys, no
   allocation a test. `tools/foeTelegraphProbe.mjs` now holds the fog and the tilt too (14 held).

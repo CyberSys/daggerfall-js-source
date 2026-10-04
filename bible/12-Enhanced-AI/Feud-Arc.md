@@ -6,8 +6,8 @@ these enemies and breath more depth into it"*; then, on the sixteen ideas offere
 detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
-(section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL5, TELL7, TELL6a and TELL6b built;
-each slice's record is at the foot.**
+(section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL5, TELL7 and TELL6a-c built; each
+slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -1365,3 +1365,29 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
   (the motor never hands a run to the detour). Mutant records re-aimed by content (the landing's one law and the
   pool): `audittact` A6, `tact2`, `tact4` (three), `tell2`, `tell4` (two), `tell5` (four), `tell6a`, `tell7`.
 - Mutants `tools/mutants/tell6b.json` (24), all dead.
+
+### TELL6c - BUILT 2026-10-04 (the Enhanced AI switch on, every host): the leap
+
+- **The shape** - `BLOW.leap` (1.0 s, a disc 1.8 m at its point, x1.6, 3-9 m off, its last `arc` 0.35 s the jump);
+  `inBlow`: the disc at the blow's `ahead` - its point, my feet at its start, locked. The ground draws it on the slam's
+  disc branch with `uP` (r, ahead) and a quad by its own point (`quadHalf(kind, ahead)`); `blowField` takes the
+  point.
+- **Who and when** - TELL7's whole set of the leapers; a gap-closer beside the charge (`GAP_CLOSERS`): `gapCloses` -
+  3-9 m, a clear line to the target (no wall, no cover), ground under its point, never a flyer. A sabertooth (a charger
+  and a leaper) chooses between them where both bands meet (5-9 m).
+- **The jump** - the wind-up a crouch (the held swing, standing); its last 0.35 s (`jumpAt`) the brain walks it to its
+  point at the speed that lands it there on time, a hop on the motor's own gravity (`velY` up, the arc of
+  `player/motor.js GRAVITY`); the verdict at its landing, at its point - on me, or on the empty ground I left (its 1.2 s
+  window there). It never chains.
+- **The ground under a mark, outdoors** - building the leap's fit found TACT4's (AUDIT TACT D8) sampled the ground with
+  a ray of meshes alone, which met nothing outdoors, where the ground is the collider's height field: every outdoor
+  mark lay flat at the foe's feet on a hillside. `fitBlowToGround` now asks `Collider.surfaceHit` (the nearer of a mesh
+  and the ground), and a leap samples the slope out to its point.
+- `tools/foeTelegraphProbe.mjs` gains the leap (a disc at its point, nothing at its foe's feet: 24 held).
+- Pins `test/tell6c_leap.test.js` (5): the numbers, the disc at its point, its mirror and quad; who and when (the band,
+  the line, the ground, a flyer, the pool beside the charge); the mark on the ground at its point and an outdoor lunge
+  on its hillside; ON THE MOTOR an elite spider's crouch, its arc and its landing on the player who stood at its point,
+  and on the ground a player left - its window there. Pins moved: `tell6a_ring` (a leap's quad by its point),
+  `tell6b_charge` (the leap joins the gap-closers). Mutant records re-aimed by content: `audittact` D8, `tell6a`
+  (three), `tell6b` (four).
+- Mutants `tools/mutants/tell6c.json` (20), all dead.
