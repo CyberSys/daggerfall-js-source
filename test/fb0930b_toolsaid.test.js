@@ -32,7 +32,7 @@ import { registerPresenter } from '../src/systems/notify.js';
 import { setModSetting, _resetModSettings } from '../src/systems/modSettings.js';
 import { CLIMATES, LOCATION_TYPES } from '../src/formats/mapsFile.js';
 import { FATIGUE_MULTIPLIER } from '../src/systems/statMods.js';
-import { GATHER_HOW, STORES_EMPTY_LINE } from '../src/ui/profPages.js';
+import { GATHER_HOW, STORES_EMPTY_LINE, STORES_EMPTY_CARRY_LINE } from '../src/ui/profPages.js';
 import { createGatherHost, aimAt, ACT_STOPPED_LINE } from '../src/scenes/gatherHost.js';
 import { herbKind, SICKLE_HAND } from '../src/scenes/herbHost.js';
 import { mineKind, PICK_HAND } from '../src/scenes/mineHost.js';
@@ -456,15 +456,23 @@ test('TOOL-USE: the Professions page says a tool\'s Use at the node is the key\'
   assert.match(GATHER_HOW.herbalism, /herb patch/);
   assert.match(GATHER_HOW.mining, /ore vein or a boulder/);
   assert.match(GATHER_HOW.logging, /tree/);
-  assert.match(GATHER_HOW.herbalism, /Using the Sickle or the Basket from your hotbar or quick slot at the patch is the same as the key - the Sickle picks the herbs, the Basket searches for food\. Used from your pack, they only point the way\.$/);
-  assert.match(GATHER_HOW.mining, /Using the Pick-Axe from your hotbar or quick slot there is the same as the key\. Used from your pack, it only points the way\.$/);
-  assert.match(GATHER_HOW.logging, /Using the Wood-Axe from your hotbar or quick slot there is the same as the key\. Used from your pack, it only points the way\.$/);
+  assert.match(GATHER_HOW.herbalism, /The Sickle or Basket also works from your hotbar or a quick slot\. Used from your pack, a tool just tells you where it works\.$/);
+  assert.match(GATHER_HOW.mining, /It also works from your hotbar or a quick slot\. Used from your pack, a tool just tells you where it works\.$/);
+  assert.match(GATHER_HOW.logging, /It also works from your hotbar or a quick slot\. Used from your pack, a tool just tells you where it works\.$/);
   for (const k of ['herbalism', 'mining', 'logging']) assert.doesNotMatch(GATHER_HOW[k], /Foraging|earns no XP/);
   // PIN MOVED (2026-10-01 part four, TOUCH-HOLD): and the Skinning Knife's Use
-  assert.match(STORES_EMPTY_LINE, /or use the Sickle, Basket, Pick-Axe, Wood-Axe, Skinning Knife or Fishing-Net from your hotbar or quick slot there\. A tool used from your pack gathers nothing: it only points the way\.$/);
+  assert.match(STORES_EMPTY_LINE, /or use the matching tool from your hotbar or a quick slot\. Tools used from your pack gather nothing\.$/);
   const src = readFileSync(new URL('../src/ui/profPages.js', import.meta.url), 'utf8');
   assert.match(src, /if \(GATHER_HOW\[_sel\]\) pane\.append\(el\('p', 'px-note', GATHER_HOW\[_sel\]\)\);/);
   assert.match(src, /: STORES_EMPTY_LINE\)\);/);
+  // AUDIT (2026-10-04): PROF-MENU retired the act choice key's search - the patch's and the body's lists carry it now; and
+  // BAG1's page says where a carrying book's goods go (the bag or the pack), not the Stores
+  assert.doesNotMatch(GATHER_HOW.herbalism, /act choice key/);
+  assert.match(GATHER_HOW.herbalism, /the patch's list also lets you search it for food/);
+  assert.doesNotMatch(src, /act choice key searches/);
+  assert.match(src, /The body\\'s list also lets you search it\.'\)\);/);
+  assert.match(STORES_EMPTY_CARRY_LINE, /goes into your Materials Bag or pack - put it in here in any town\.$/);
+  assert.match(src, /all\.size \? 'Nothing in the Stores matches\.' : STORES_EMPTY_CARRY_LINE\)\);/);
 });
 
 // ─── PROF-MENU (2026-10-01, Mac: "They should use the same menu the loot menu uses and not an interaction button") ───
