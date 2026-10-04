@@ -197,17 +197,14 @@ import { nightDue, setNightListener, nightStamp, nightKindOf, isNightStamp, carr
 import { createNightWatch, carriedNightAction, createCampWatch, campPasses } from '../systems/partyRestLaw.js';   // AUDIT REST-PARTY: the party's night, pinned by execution   // AUDIT REST II P1/P2: its watch   // CAMP-ROLL: the camp's one roll
 import { ambushNight } from '../systems/restAct.js';   // AUDIT REST-PARTY A1: a resting encounter stood breaks the night that rolled it
 import { createStandingWatch, installLegalNotices } from './standingHost.js';   // REP1: the watch's stop; REP5: the law's notices
-import { SPAWNER_ARMS } from '../systems/encounters.js';   // SURV6: the hunt's beast stands on the wilderness arm
-import { skillValue } from '../systems/skills.js';   // SURV6: the hunter's four skills
+import { skillValue } from '../systems/skills.js';   // TO1: the avoid-encounter roll's live Stealth
 import { refreshMentor, mentorStatusText, effectiveLevel } from '../systems/mentorMode.js';
 import { setMasterSkillsGate, MASTER_SKILLS_DUNGEON_TEXT } from '../systems/masterSkills.js';   // SOFTCAP3
 import { isOnlinePage, ONLINE_LAND_TRAVEL_REFUSAL } from '../systems/onlineLane.js';   // SOFTCAP3: Master Skills is online only; AUDIT TRAVEL-ONLINE T7: the map's floor
 import { readImmersiveTravelSettings, immersiveTravelLoaded, IT_POPUP } from '../systems/immersiveTravel.js';   // IT1: Immersive Travel - a driver's map and its fast travel; AUDIT IT1 W4: the mod loaded for the game
 // SOFTCAP1: mentor mode, the party's overlay
-import { inflictDisease } from '../systems/diseases.js';   // SURV6: a foul pool's water
-import { createHunting, HUNT_PENDING_NEAR_M } from './hunting.js';   // SURV6: hunting, foraging and the water search as real-time events
 import { createForagingWait } from './foragingWait.js';
-import { createMarksBook } from '../net/marksBook.js';   // MARKS1: the account's Marks - the balance, the Bank's sale, a guild's treasury   // FORAGE4: online, Foraging's quest time is a wait on the hunt's page
+import { createMarksBook } from '../net/marksBook.js';   // MARKS1: the account's Marks - the balance, the Bank's sale, a guild's treasury   // FORAGE4: online, Foraging's quest time is a wait on the wait page
 import { createNoticeBook, parseNoteCommand, planNoteAnswer, NOTE_LETTER_LOST } from '../net/noticeBook.js';   // NOTICE1: this device's Notice Boards - a town's board read, a note pinned
 import { createNoticeOverlay, closeNoticeDoor, noticeDoorOpen } from '../ui/noticeDoor.js';   // NOTICE1: the board's window, through its one door
 import { createProfBook } from '../net/profBook.js';   // PROF1: this character's professions - its Stores, its day, its harvests kept until answered
@@ -287,7 +284,7 @@ import { TIDE_EFFECTS } from '../net/tideLaw.js';   // SEASON1 part two: a Storm
 import { hallOfRecordsWindow } from '../ui/hallOfRecords.js';   // SEASON1 part three: a seat's Chronicle as a book (Seats-Arc 9.2)
 import { hasSpecialAbility, SPECIAL_ABILITY } from '../systems/rest.js';   // F-slice: the NoRegen restore gate
 import { locationCompassDirection, buildingCompassDirection, findFactionByTypeAndRegion, directionHintString } from '../systems/talk.js';   // wave 26: %di's remote arm + the region-faction search; the LOCAL arm beside it; SPAWNED-DUNGEONS2b: the same eight-word compass
-import { seasonValue, SEASONS, MINUTES_PER_DAY, dateFromClassicMinutes, dateTimeString, midDateTimeString, isDayFromMinutes } from '../systems/gameDate.js';   // AUDIT 23 (wts-1); Q4-v: the notebook's header shapes
+import { seasonValue, MINUTES_PER_DAY, dateFromClassicMinutes, dateTimeString, midDateTimeString, isDayFromMinutes } from '../systems/gameDate.js';   // AUDIT 23 (wts-1); Q4-v: the notebook's header shapes
 import { regionPriceAdjustment, worldPriceTiltOf, TRANSPORT_HORSE, TRANSPORT_SMALL_CART } from '../systems/shopStock.js';   // Q4-v: CreateGold's regional term (the shops' own producer); U41: Items.Contains(Transportation, ...)
 import { getNameBankOfRegion, getRandomFullName } from '../characters/nameHelper.js';   // AUDIT 23 (characters-5); AUDIT 58: MacroHelper.GetRandomFullName, one home
 import { createHitEffects, setSplashObserver } from './hitEffects.js';
@@ -511,7 +508,7 @@ import { createTravelSteer, createColliderProbe, steerDrive } from '../systems/t
 import { exteriorSurfaces, downProbe, rayDistanceFor, ON_EXTERIOR_WATER, exteriorSwimming } from '../player/exteriorSurface.js';   // ROAD-B (b3): PlayerMotor's three exterior surface methods; OT1: IsPlayerSwimming above ground
 import { isOnFoot } from '../systems/transport.js';   // TransportManager.IsOnFoot - the raycast's reach and the mounted footstep gate
 import { floorLanding } from '../player/enterExit.js';   // FixStanding for the exterior arrivals (2026-08-27)
-import { jumpSpeedMultiplier, isEnhancedJumping, tallySkill, SKILLS } from '../systems/skills.js';   // TO1: the avoid-encounter roll reads skillValue live (imported above, SURV6) Stealth   // AUDIT 64 F2: CheckAirControl's IsEnhancedJumping disjunct
+import { jumpSpeedMultiplier, isEnhancedJumping, tallySkill, SKILLS } from '../systems/skills.js';   // TO1: the avoid-encounter roll reads skillValue live (imported above) Stealth   // AUDIT 64 F2: CheckAirControl's IsEnhancedJumping disjunct
 import { playerEntity, surfacePlayer, hurtPlayer, playerBlowCameToNothing, setDeathPresenter, presentPlayerDeath, setAvoidDeathHook, registerDuelFell, duelSpare, setStaffPowers, staffPowers, registerLevitateWard, registerFreeFlight } from '../characters/playerEntity.js';   // AUDIT-SEATS G5: a siege's ward on Levitate   // AUDIT-SEATS G4: a spectator's flight
 import { SOUND } from '../systems/soundClips.js';
 import { createWeaponRig, autoBuildArms, armIdentityOf, armBuiltFor, armsReady, sheetHolderOf, buildArmsFor, prebuildArmsForSave } from '../combat/weaponRig.js';   // MWA1: the arms at boot; MWA3: the identity the arm should stand for, beside the one it does; MW-EARLY: and before the world is read
@@ -522,7 +519,7 @@ import { storesIn, spendStore, mintStores } from '../systems/naval/navalStores.j
 import { orderRows } from '../systems/naval/shipCrew.js';   // SHIP-CREW: the orders list   // SEA-REPAIR: carpenter's stores in a hold   // E4: PlayerEntity.CarriedWeight carries the gold counter's own term
 import { calculateAttackDamage } from '../combat/formulas.js';   // X2-slice: enemy-arrow impacts
 import { inflictPoison } from '../systems/poisons.js';   // X2-slice: poisoned enemy arrows
-import { weaponTypeForItem, WEAPON_TYPES } from '../combat/fpsWeapon.js';
+import { weaponTypeForItem } from '../combat/fpsWeapon.js';
 import { getStaticDoors } from '../world/staticDoors.js';
 import { spaceAcross, clearDoorways, doorSpotsNear, spacingSkips } from '../characters/foeSpacing.js';   // TACT3: the crowd and the door
 import { Collider } from '../player/collider.js';
@@ -5137,19 +5134,16 @@ export async function bootWorld(canvas, renderer, params, status) {
     //
     // TO-FIELD3 (Mac, 2026-09-18): "remove the changes the past session
     // did to the traveling system... journeys no longer sit as resting
-    // (needs charge normally again, health ticks back), and hunting
-    // rolls fire during travel again."
+    // (needs charge normally again, health ticks back)."
     //
     // TO-FIELD sat an accelerated journey as `resting` to take the
     // port's own fatigue surcharge off a 60x ride. It is REMOVED on
     // Mac's word, and the whole of it: `resting` is not a fatigue knob,
-    // it is the needs' one word for "sat still", and three other laws
-    // read it. It held the bare-skin block's naked-cold and sunburn
-    // ticks and the byFire exposure damage (needs.js:544, :520) - the
-    // health Mac wants ticking - and, the one TO-FIELD never counted,
-    // it shut the HUNTING roll off entirely (hunting.js:120 refuses on
-    // `resting`), so a traveller could not hunt on the road at all.
-    // One flag, four laws; the journey takes the world as it finds it.
+    // it is the needs' one word for "sat still", and other laws read
+    // it. It held the bare-skin block's naked-cold and sunburn ticks
+    // and the byFire exposure damage (needs.js:544, :520) - the health
+    // Mac wants ticking. One flag, several laws; the journey takes the
+    // world as it finds it.
     //
     // WHAT THIS RESTORES, said plainly so it is not rediscovered as a
     // bug: the needs stack starving 4, parched 6 or dehydrated 12,
@@ -8263,45 +8257,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (_hccSettingsKey !== null) hccRuntime.handleSettingsChanged();
     _hccSettingsKey = k;
   };
-  // SURV6 - HUNTING, FORAGING AND THE WATER SEARCH (survival/hunting.js,
-  // scenes/hunting.js): once a game minute in the wilderness by day
-  // with no foe near, the luck roll; an event opens the Yes/No box in
-  // the overlay slot, the search runs its game minutes in real seconds
-  // on the busy page, the outcome lands in the pack (or on the body),
-  // the minutes pass offline (online the clock stands, WORLD5), and
-  // "the hunted" stands on the wilderness arm as an encounter would.
-  // This host alone: exterior.js lives inside the town rect.
   /** SEA-HUNT: the player afloat - at a helm (Come Sail Away sailing), on a boat's deck (its "I'm On A Boat"), aboard
-   *  another player's boat, on a sea ship's deck (the naval host's aboard), or swimming. The land's own business - the
-   *  hunt, a bounty's trail, a wilderness band's chase - is none of theirs there. */
+   *  another player's boat, on a sea ship's deck (the naval host's aboard), or swimming. The land's own business - a
+   *  bounty's trail, a wilderness band's chase - is none of theirs there. */
   const playerAfloat = () => !!csaRuntime?.isSailing?.() || (playerEntity.activeEffects ?? []).some((e) => isBoatEffectBundle(e?.bundleName))
     || !!csaAboard.aboard?.boat || !!naval?.aboard?.() || (walkMode && playerSpawned && !!player.isPlayerSwimming);
-  /** HUNT-FOES (FIELD BUGS 2026-10-02): a foe that sees me, or one still loading within HUNT_PENDING_NEAR_M of my feet
-   *  (spawnFoe is async - the frame's encounter roll runs before the hunt's, and a foe on its way is in no pool yet), is
-   *  near: no hunt opens over it, and one open is closed. A stand loading far off (a site's garrison as its block
-   *  streams in) is no foe near. */
-  const huntFoesNear = () => {
-    if (duelEnemyNear() || areEnemiesNearby(exteriorFoePool())) return true;   // AUDIT: a duel's foe is a peer, in no pool - every other gate here asks it
-    const f = walkMode && playerSpawned ? player.pos : cam.pos;
-    return exteriorFoes.pendingFeet().some((p) => Math.hypot(p[0] - f[0], p[2] - f[2]) <= HUNT_PENDING_NEAR_M);
-  };
-  const hunting = createHunting({
-    entity: playerEntity,
-    env: () => ({
-      minute: Math.floor(ownMinutes()), climateIndex: maps.getClimateIndex(playerTravelPixel().x, playerTravelPixel().y),   // LIVED1: the hunt's minute is the body's (its needs, its catch's age); the winter below is the sky's
-      luck: liveStat(playerEntity, 'luck'), winter: seasonValue(dateFromClassicMinutes(skyMinutes())) === SEASONS.Winter,   // TIME1: the sky's winter
-      outdoors: _mode() === 'exterior' && !(walkMode && playerSpawned && player.isPlayerSwimming), afloat: playerAfloat(), inLocationRect: _musicInLocationRect(), night: isNight(minuteNow()),   // SEA-HUNT: nothing is hunted from a deck
-      enemiesNear: huntFoesNear(), resting: !!playerEntity.isResting || !!playerEntity.preventEnemySpawns,
-      hasBow: weaponTypeForItem(weaponRig.playerWeapon.weapon) === WEAPON_TYPES.Bow,
-      skills: { archery: skillValue(playerEntity, SKILLS.Archery), stealth: skillValue(playerEntity, SKILLS.Stealth), criticalStrike: skillValue(playerEntity, SKILLS.CriticalStrike), climbing: skillValue(playerEntity, SKILLS.Climbing) },
-    }),
-    showOverlay: (w) => townTalk.showOverlay(w), overlayActive: () => townTalk.overlayActive,
-    advanceMinutes: (n, { quiet = false } = {}) => { playerTicker.advance(n); if (!quiet) runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, true); },   // CAMP-REST: the search's minutes are spent through the tick as a skip - no group roll on the replay; AUDIT HUNT-FOES: none at all when the box was taken away
-    spawnBeast: ({ mobileType, count }) => { const feet = walkMode && playerSpawned ? player.pos : cam.pos; for (let i = 0; i < count; i++) _standEncounterFoe({ mobileType, ...SPAWNER_ARMS.wilderness }, feet); },
-    inflictPoison, inflictDisease, tally: (id) => tallySkill(playerEntity, id, 1),
-    enemiesNear: () => huntFoesNear(),   // HUNT-FOES: a foe come near closes the ask or the search
-  });
-  // FORAGE4 (bible/06-Systems/Foraging.md 13.1): online, QAE's `raise time by` is a wait on the hunt's busy page, in
+  // FORAGE4 (bible/06-Systems/Foraging.md 13.1): online, QAE's `raise time by` is a wait on the wait page, in
   // the same slot - opened only when the slot is free (the tool's box and the pack closed first), the quest's boxes
   // held behind it, a foe near (the rest test, a duel's foe with it) ending it with the rest forgiven
   const foragingWait = createForagingWait({
@@ -12688,7 +12649,6 @@ export async function bootWorld(canvas, renderer, params, status) {
       // before the save is read over the entity it was building for.
       modes?.abortTransition?.();
       await modes?.transitionSettled?.();
-      if (hunting.window) townTalk.closeOverlay(hunting.window);   // AUDIT HUNT-FOES: a hunt's box over the load is the replaced game's - closed before the save is read (its minutes quiet, no beast), never closed later over the loaded one
       if (csaRuntime) csaCall(() => csaRuntime.OnStartLoad());   // CSA-D: ComeSailAway.OnStartLoad - the riders dropped, the helm left; CSA-J (the audit): AHEAD of the save's player (SaveLoadManager.cs:1378, the restore at :1497) - its StopSailing hands a lent ship back, and after restorePlayer it took the loaded character's own
       const extras = restorePlayer(playerEntity, snap, spellsByIndex);
       if (!extras) { townTalk.say('Save version mismatch.'); return; }
@@ -13008,7 +12968,6 @@ export async function bootWorld(canvas, renderer, params, status) {
       townTalk.say('Could not import the classic save.');
       return false;
     }
-    if (hunting.window) townTalk.closeOverlay(hunting.window);   // AUDIT HUNT-FOES: as the quickload's
     const extras = restorePlayer(playerEntity, bundle.snap, spellsByIndex);
     if (!extras) return false;
     autoBuildArms(playerEntity);   // MWA1: the classic save's character too
@@ -27161,23 +27120,6 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // HCC: the horse billboards on the flats' axis (the runtime ticked above, hccTick - AUDIT HCC H1)
     if (hcc.enabled && _mode() === 'exterior') livePersonBatches.push(...hcc.batches());
     if (csaOn() && _mode() === 'exterior') pushSeenShipFlats(csa.batches(), livePersonBatches);   // CSA-B: the boats' crews and lanterns; SHIP-FLATS: none under a pixel
-    // TO-FIELD3 (Mac, 2026-09-18): "hunting rolls fire during travel
-    // again". TO-FIELD held SURV6's roll while an accelerated journey
-    // ran; the gate is REMOVED on Mac's word, with the `resting` flag
-    // above that was holding the roll a second time from inside
-    // (hunting.js:120).
-    //
-    // WHAT IT MEANS, said plainly so it is not rediscovered as a bug:
-    // the roll fires once a GAME minute, and a journey spends those at
-    // up to a hundred times real time, so a wilderness ride rolls it
-    // every few real seconds. Every event opens a Yes/No box through
-    // `townTalk.showOverlay`, and the mod reads a foreign window on top
-    // as a reason to stop (TravelOptionsMod.cs:1348-1356,
-    // `interruptTravel`). A long wilderness journey will therefore be
-    // interrupted by game, often. That is the wilderness being alive
-    // while you cross it, which is what was asked for; anyone who would
-    // rather ride through it turns the survival mod's hunting off.
-    if (_mode() === 'exterior') hunting.tick();   // SURV6: the minute's hunting roll; the window takes the slot
     foragingWait.tick();   // FORAGE4: online, a standing wait takes the slot when it is free, and writes its seconds left for the save
     // PERF-CROWD (2026-09-19): and the live crowd is culled too. This list
     // is the townspeople, the city watch, the exterior foes, the ground

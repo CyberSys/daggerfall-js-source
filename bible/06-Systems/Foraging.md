@@ -71,8 +71,8 @@ and the Features row together, as `vendor/foraging/`:
    run it.
 3. **ONLINE CHANGES ONE THING: THE CLOCK.** The shared clock is nobody's to move (WORLD5: `sharedClassicMinutes`,
    `src/net/wire.js`), so QAE's `raise time by` cannot run online. It becomes a wait the player sits through (13.1) -
-   the rule Climates & Calories' hunt already follows (SURV6: `HUNT_WAIT_PER_HOUR`,
-   `src/systems/survival/hunting.js`). MERGE 2 (2026-09-29, main's LIVED1 - "your own time"): and, as the hunt's
+   the rule Climates & Calories' hunt followed (SURV6's `HUNT_WAIT_PER_HOUR`; the hunt RETIRED by HUNT-OUT,
+   2026-10-04, the rate lives on as `WAIT_PER_HOUR` in `src/scenes/foragingWait.js`). MERGE 2 (2026-09-29, main's LIVED1 - "your own time"): and, as the hunt's
    minutes do after its page, the quest's time passes on the character's OWN clock online - the host's raiseTime is
    the character's time in both lanes, the shared clock still nobody's. Two small things change with it, both for the professions: the console
    command refuses (8), and - BUILT with the professions (PROF1, 2026-09-28) - the six tools shelve whatever the switch
@@ -592,8 +592,10 @@ shipped, so one mod's patch never takes the quest pack down. Q1-Q6 and Q12 stay:
 ### 13.1 The clock (the main change)
 
 DECIDED (law 3): online, **`raise time by H:MM` is a wait**. The quest's other actions run as they would offline; the
-player sits on the busy page C&C's hunt already has (`src/ui/huntWindow.js`, its Busy phase - THE ONE CONSTRUCTION
-SEAM: the same constructor), at **8 real seconds a game hour** (`HUNT_WAIT_PER_HOUR`, imported, not copied). FACT, the
+player sits on the busy page C&C's hunt had (`ui/huntWindow.js`, its Busy phase - THE ONE CONSTRUCTION SEAM: the same
+constructor; HUNT-OUT, 2026-10-04: the hunt RETIRED and the file DELETED, its busy page kept alone as
+`src/ui/waitWindow.js`, no options left to give), at **8 real seconds a game hour** (`HUNT_WAIT_PER_HOUR` then,
+`WAIT_PER_HOUR` in `src/scenes/foragingWait.js` now). FACT, the
 hunt's page today always opens on its Yes/No ask, ends its Busy phase on Esc and always closes on a result page; so
 FORAGE4 gives the constructor four options, the hunt keeping its defaults - `{ ask: false, escape: false,
 interruptWhen, result: false }`:
@@ -824,7 +826,7 @@ The inventory's Use is host-agnostic (`src/systems/useItem.js`); the host answer
 | **THE SLOT IS EMPTIED BEFORE THE OCCUPANT IS TOLD** | The result box sits over the inventory in the overlay stack; the busy wait takes the host's overlay slot, nulled before it is disposed |
 | **ASYNC NEVER DROPS** | Offline nothing is async. Online the act's harvest is PROF0's request with its id |
 | **EVERY ALLOCATION HAS AN OWNER** | The seven textures are the texture door's, loaded lazily - and registered whatever the switch says, so an inert saved tool still draws (AUDIT 28 F5: this said "gated on the switch"); the tool in the hand is the weapon rig's for the act's length |
-| **THE ONE CONSTRUCTION SEAM** | The busy wait is huntWindow's constructor, not a second one |
+| **THE ONE CONSTRUCTION SEAM** | The busy wait was huntWindow's constructor, not a second one; since HUNT-OUT (the hunt removed) it is the one page left, `waitWindow.js` |
 | **THE NATIVE-WINDOW RULE** | The result box is DFU's `DaggerfallMessageBox`, drawn native (`src/ui/messageBox.js`) |
 | **A SLICE CLOSES ITS LEDGER ROW** | FORAGE1-2 added section A's FORAGING row (FORAGE-FIX and the other departures) and section B's FORAGING'S QUIRKS row (12); FORAGE3 ported the hooks' quirks that row already recorded (Q1, Q2, Q12) and marked them so; FORAGE4 writes its wait into the A row's departure (5) (13.1) |
 | **THE RELAY VERSION** | Foraging needs none. The act's pose field is PROF's (PROF0 5.1) |
@@ -932,7 +934,7 @@ takes the road to the Prison two pixels north: its dungeon veins do not care abo
 | Fetch | 2 / 4 / 6 / 8 bundles; 200-300 / 400-600 / 600-800 / 800-1000 gold; 2 / 3 / 3 / 4 days |
 | Loot hooks | general store shelf 0-1; house 15%, 0-1; dungeon 25 / 20 / 15 / 10 / 5%; corpse 5% (class), 2% (Orc, Giant) |
 | Shelves | tools 27% General Store, 11% Pawn Shop; Mushroom, Egg 40% / 16% |
-| Online wait | 8 s a game hour (`HUNT_WAIT_PER_HOUR`) |
+| Online wait | 8 s a game hour (`WAIT_PER_HOUR`) |
 | Act bands | x0.85 / 1.00 / 1.15 / 1.30 |
 | Net | throw 0.3-1.5 s, 3-12 m; wait 5-30 s (first and last daylight hour x0.5, storm x2); tug 600 ms; band 20-30%; 20 s; slip 2 s; 1-2 fish as Raw Fish; 40 hauls a day an account |
 | Basket (online) | 1 / 1-2 / 1-3 finds; three glints of 1.0-1.4 s; clean +50%, two +25% |
@@ -1022,12 +1024,12 @@ The three loot hooks, 1:1 off IL_0520-IL_0b8f, and the two DFU events they hang 
 
 Online Foraging - the wait (13.1), and with it Foraging whole in both lanes:
 
-- **The page**, `src/ui/huntWindow.js`: C&C's hunt page, THE ONE CONSTRUCTION SEAM - four constructor options (`ask`,
+- **The page**, `ui/huntWindow.js` (DELETED by HUNT-OUT, 2026-10-04 - the busy page alone is `src/ui/waitWindow.js` now, no Escape and no options): C&C's hunt page, THE ONE CONSTRUCTION SEAM - four constructor options (`ask`,
   `escape`, `interruptWhen`, `result`; the hunt leaves three at their defaults and, since HUNT-FOES, FIELD BUGS
   2026-10-02, gives `interruptWhen` a foe near, asked on its ask page too), and `remaining` / `extend(seconds)` for the
   wait's queue. The busy page's caption says "Escape to walk away" only where Escape does.
 - **The wait**, `src/scenes/foragingWait.js` (`createForagingWait`): a quest's game seconds become real ones at
-  `huntRealSeconds` (8 s a game hour, imported); the record `{ seconds, label, held }` lives on the player
+  `huntRealSeconds` (8 s a game hour, imported; since HUNT-OUT its own `waitRealSeconds`); the record `{ seconds, label, held }` lives on the player
   (`playerEntity.foragingWait`, one of `systems/save.js`'s ENTITY_FIELDS), so its seconds left and the boxes held
   behind it ride the save and a reload reopens the page; the page opens only when the slot is free; a second wait joins
   the first, their sum; the quest's boxes are held (`holds` / `hold`) while the wait is pending or open and shown in

@@ -63,25 +63,6 @@
     ]
   },
   {
-    "name": "SEA-HUNT-afloat-gate-dropped",
-    "file": "src/systems/survival/hunting.js",
-    "old": "  if (!climate || !outdoors || afloat || inLocationRect",
-    "new": "  if (!climate || !outdoors || inLocationRect",
-    "tests": [
-      "test/deckfield.test.js"
-    ]
-  },
-  {
-    "name": "SEA-HUNT-host-no-afloat",
-    "file": "src/scenes/world.js",
-    "old": "afloat: playerAfloat(), inLocationRect: _musicInLocationRect()",
-    "new": "afloat: false, inLocationRect: _musicInLocationRect()",
-    "tests": [
-      "test/deckfield.test.js",
-      "test/surv6_hunting.test.js"
-    ]
-  },
-  {
     "name": "SEA-HUNT-bounty-at-sea",
     "file": "src/scenes/world.js",
     "old": "&& !(walkMode && player.isPlayerSwimming) && !playerAfloat(),",
