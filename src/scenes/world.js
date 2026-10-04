@@ -227,6 +227,7 @@ import { fleetBook, fleetShip, titleDeed, knowShip, retitle, setShipPort, forget
 import { createFleetHost } from './fleetHost.js';   // HOLDINGS: the Fleet page's host half
 import { createQuayPool } from './quayPool.js';   // QUAYS: a harbour's quays, stood off its berths, and the gangways
 import { HARBOUR_REACH } from '../systems/naval/shipLife.js';   // AUDIT HOLDINGS O1: the harbour's scan reach, its pixels built before it is sounded
+import { createHarbourBook } from '../systems/naval/harbourBook.js';   // HARBOUR-BOOK: the harbours near the player, the quays' and the sea's
 import { withdrawIntoPack, materialLabel, materialCountLabel } from '../systems/profItems.js';   // PROF1: a Stores material as DFU's own item
 import { heldOf as bagHeldOf, roomFor as bagRoomFor, mintCarried, takeCarried, giveCarried, bagTakesOf, bagWeight, hasBag, emptyBagIntoPack } from '../systems/materialsBag.js';   // BAG1: the Materials Bag and the pack, the book's hands
 import { BAG_KG_LIMIT, madeWhere, movedFirstText } from '../net/bagLaw.js';   // AUDIT BAG1 B9: where a station's work went; AUDIT2 K8: what went in before a refusal
@@ -7372,6 +7373,14 @@ export async function bootWorld(canvas, renderer, params, status) {
     };
     return { key: `port:${t.id}`, name: t.name, rect, ready };   // SHIP-TAGS: her name, the words a ship bound there is read by
   };
+  // HARBOUR-BOOK (systems/naval/harbourBook.js; bible/03-World/Holdings.md section 7): THE HARBOURS NEAR THE PLAYER -
+  // this host's, sounded off the port near the player every exterior frame whatever runs on the water, moved with the
+  // floating origin and emptied at a transition, a jump and a load; the quays stand off it and the naval host reads it.
+  // It was the naval host's own and sounded only in its frame: with Naval Combat or Come Sail Away off, no port stood a quay.
+  const harbourBook = createHarbourBook({
+    harbourNear: navalHarbourNear,
+    isWater: navalIsWater,
+  });
   /** DECK-WALK: a point in a hull's deck frame (her mesh node's, systems/naval/navalDeck.js) to the world, where her
    *  node stands, rolls and pitches now - and back; into `out` when given. */
   const navalDeckToWorld = (boat, p, out) => outOfDeck(boat.MeshObject.worldMatrix(), p, out);
@@ -7585,7 +7594,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     csa: () => (navalOn() ? csaRuntime : null),
     seaY: () => tvSeaY(),
     isWater: navalIsWater,
-    harbourNear: navalHarbourNear,   // SHIP-LIFE: the port town near the player, which the host finds a harbour off
+    harbourBook,   // SHIP-LIFE, HARBOUR-BOOK: the harbours near the player - this host sounds, moves and empties them
     shipName: (boat) => fleetHost?.nameOf(boat) ?? '',   // QUAYS: her name, in the gangway's word
     quayLaid: (key, index) => quays?.laid(key, index) ?? true,   // AUDIT HOLDINGS Q9: no gangway onto a quay not yet laid
     dockedPort: (boat, port) => { const r = boat?.uid ? fleetShip(boat.uid) : null; if (r && (r.port?.name ?? null) !== port) setShipPort(boat.uid, port == null ? null : { name: port }); },   // QUAYS: the Fleet's word of the port she lies made fast at
@@ -7718,7 +7727,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   });
   /** The sea emptied: a transition, a teleport, the arc switched off - its window with it. */
   const navalClear = () => { naval?.clear(); navalFlames.clear(); navalCrew.clear(); closeNavalPlunder(); closeNavalYard(); drawNavalHud(null); drawNavalTags([]); drawCrewBars([]); drawCrewLines([]); };
-  const navalTransition = () => navalClear();
+  const navalTransition = () => { harbourBook.clear(); navalClear(); };   // HARBOUR-BOOK: the harbours forgotten with the sea, found again where the world is next
   /** KEEP-PLUNDER: before a transition or a jump empties the sea, my crew stows what I left on it (navalHost
    *  stowPlunder) - ahead of Come Sail Away's own transition, while my boats still stand. Never on a load: the loaded
    *  save's hold is the one that stands. */
@@ -9809,7 +9818,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     renderer,
     prepare: async (model) => { for (const sm of model.subMeshes) { await getTexture(sm.textureArchive); uploadRecord(sm.textureArchive, sm.textureRecord, { opaque: true }); } },
     collider: () => collider,
-    harbours: () => (navalOn() ? naval?.harbourList?.() ?? [] : []),
+    harbours: () => harbourBook.list(),   // HARBOUR-BOOK: whatever runs on the water - a port's quays are its town's
     seaY: () => tvSeaY(),
     // AUDIT HOLDINGS Q6: a full-detail pixel's ground alone - a far pixel's coarse one (its stride past 1) planned a
     // jetty off a surface the refined pixel buries or leaves hanging, and two players planned it apart
@@ -25937,6 +25946,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       hcc.offsetAll(r.offset);   // HCC: FloatingOrigin.OnPositionUpdate - every scene point the runtime holds, the peers' teams, the parked wagon's collider
       if (csaRuntime) csaCall(() => csaRuntime.OnPositionUpdate(r.offset)); else csa.offsetAll(r.offset);
       csaPeers.rebase(r.offset);   // CSA-J: the peers' eased places with the world
+      harbourBook.offsetAll(r.offset);   // HARBOUR-BOOK: the harbours' berths and mouths - before the sea and the quays read them
       naval?.offsetAll(r.offset); navalFlames.offsetAll(r.offset);   // NAV-H: the sea's ships, their shots, smoke and fires - before their buckets stand again below
       quays?.offsetAll();   // AUDIT HOLDINGS Q7: the quays' still colliders stood again where the berths (moved just above) lie
       csaSyncColliders(); yards?.rebase();   // CSA-D: the boats' buckets stand where the shift put them before any motor step meets them   // CSA-C: the mod's own FloatingOrigin.OnPositionUpdate (its kept bug: a boat out of sight stays behind)   // FB1001 YARD-RECENTRE: and the yards' pieces with their buckets, in place - their frame ran above the shift, and the draw is below (one line, so no line cite moves)
@@ -26333,6 +26343,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     try { if (gatePool?.frame(dt)) warmGateVeil(); } catch (e) { console.warn('[gate] pool', e?.message ?? e); }   // AUDIT WB D5: a gate stands - the step's veil is built ahead
     try { sigilBroker?.frame(dt); } catch (e) { console.warn('[broker] pool', e?.message ?? e); }   // SET7: the Broker stands where the clock stands her - BROKER-CAGE: in her cage at the faithful's circle
     try { riteHost?.frame(); } catch (e) { console.warn('[rite] host', e?.message ?? e); }   // WB12d: the faithful's circle, before the lights (its braziers light the ground)
+    try { if (_mode() === 'exterior' && !_loading) harbourBook.step(now / 1000); } catch (e) { console.warn('[harbours] book', e?.message ?? e); }   // HARBOUR-BOOK: the port near the player sounded, before its quays stand
     try { quays?.frame(); } catch (e) { console.warn('[quays] pool', e?.message ?? e); }   // QUAYS: the harbours' quays stood or taken down, before the lights (their lanterns) and the world pass
     // Lanterns on 17:00-08:00, flickering verbatim; pixel-local lights
     // placed under the current compensation, nearest 16 to the camera.
