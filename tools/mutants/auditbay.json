@@ -767,8 +767,8 @@
   {
     "name": "BAY-A18-unsaid",
     "file": "src/scenes/navalHost.js",
-    "old": "casks, spent: spentSaid }, toWire);",
-    "new": "casks }, toWire);",
+    "old": "casks, spent: spentSaid, laid }, toWire);",
+    "new": "casks, laid }, toWire);",
     "tests": [
       "test/auditbay_lanes.test.js"
     ]
@@ -805,8 +805,8 @@
   {
     "name": "BAY-A18-wire-word-of-spent-alone",
     "file": "src/systems/naval/navalWire.js",
-    "old": "out.t !== undefined || out.f || out.w || out.l ? out : null;",
-    "new": "out.t !== undefined || out.f || out.w ? out : null;",
+    "old": "out.t !== undefined || out.f || out.w || out.l || out.g ? out : null;",
+    "new": "out.t !== undefined || out.f || out.w || out.g ? out : null;",
     "tests": [
       "test/auditbay_lanes.test.js"
     ]

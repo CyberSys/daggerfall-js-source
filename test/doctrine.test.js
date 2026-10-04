@@ -413,6 +413,16 @@ const PUBLIC_ALLOWLIST = new Map([
   ['src/assets/mw/source/Brigandine_Steel.png', "SUPPLIED - the brigandine's texture as Mac supplied it with the mesh (the FBX's Steel.png), committed as the DDS's source"],
   ['src/assets/mw/meshes/brigandine_steel.nif', 'SUPPLIED - the brigandine, baked to a Morrowind NIF by tools/bakeBrigandine.mjs (skinned from the body at bind time, MW-BRIG2); a Bethesda format, no Bethesda data'],
   ['src/assets/mw/textures/brigandine_steel.dds', 'SUPPLIED - Brigandine_Steel.png mip-chained to an uncompressed DDS by tools/meshTexture.mjs writeDds; no ARENA2 or Morrowind pixel in it'],
+  // GALLEON (2026-10-01): the new galleon, Mac's own model of hull 2 (the
+  // Small Ship), supplied as three Blender exports of one scene - the same
+  // geometry, only their creation stamps differ, so one is committed. The
+  // FBX is the source; tools/bakeGalleon.mjs re-makes galleon.json from it
+  // (its parts in the boat's frame, triangulated), and
+  // test/galleon_model.test.js holds the bake to the bytes. Her pictures
+  // carry no file at all: world/galleonArt.js paints them at load, from
+  // nothing but numbers - no ARENA2 pixel.
+  ['src/assets/galleon/source/New_Ship.fbx', "SUPPLIED - Mac's Blender export of the new galleon (2026-10-01; his second, New_Ship_Even_EVEN_newer.fbx, over it 2026-10-02), committed so galleon.json is a DERIVATION the gate can re-run"],
+  ['src/assets/galleon/galleon.json', 'SUPPLIED - New_Ship.fbx baked to the boat\'s frame by tools/bakeGalleon.mjs; geometry only, no ARENA2 or Come Sail Away data'],
 ]);
 
 test('doctrine: nothing ships out of public/ or src/assets/ that is not provably ours', () => {
