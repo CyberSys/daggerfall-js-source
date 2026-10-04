@@ -184,8 +184,9 @@ Every version of the door grief, fixed without asking further (Mac: "stop asking
   the small and the flying none. The tier (Mac): level 10 and up, or an elite.
 - **When** - from the brain (`ai/tactics.js`): a melee-token holder in reach of the local player, its cooldown (8-15 s)
   spent, no other foe winding up within 20 m of the player, a 1-in-10 roll a classic tick. It STANDS the wind-up, its
-  aim locked; a knock or a paralysis (any classic tick the motor did not let it decide) breaks it. Once begun it is
-  committed - it lands where it was aimed though the target slips out of its sight.
+  aim locked; a paralysis, or a shove no blow's door wrote (a charging horse's), breaks it - a landed blow does not
+  since TELL1 (`Feud-Arc.md` section 3): it holds, and weighs on the foe's poise until the wind-up breaks and the foe is
+  staggered. Once begun it is committed - it lands where it was aimed though the target slips out of its sight.
 - **The landing** - where the player's feet stand (noted each frame) is the verdict; the swing comes at once (the
   attack component's forced swing, past DFU's clock and reach); the host's own hit resolution asks `blowConnects`
   in place of its reach test and `blowScaled` on DFU's damage roll (armour, skill, the party's weighing and all) - in

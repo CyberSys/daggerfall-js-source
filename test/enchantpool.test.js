@@ -17,7 +17,7 @@
 // classic strike spells did nothing; the vampiric drain and both
 // artifact affinity scans saw an empty room. Nothing threw and nothing
 // was logged. The one ctx in play is that mount - no host passes an
-// enchantCtx at the strike site (formulas.js:509 defaults it null) -
+// enchantCtx at the strike site (formulas.js:510 defaults it null) -
 // so mergeCtx folds it under every dispatch, in every mode.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -173,7 +173,7 @@ test('AUDIT 58: the WABBAJACK re-stands a foe in the pool that owns it', () => {
   // is two pools. `exteriorFoePool` is the watch AND the encounter
   // foes, and this arm handed both to the encounter pool's remover.
   // That was not a leak - removeFoe never looks the record up in `foes`
-  // (exteriorFoes.js:577-582) and both pools share the host's one
+  // (exteriorFoes.js:578-583) and both pools share the host's one
   // renderer - but the teardown of a watchman is the WATCH's to own,
   // and `removeFoe`'s `questBehaviour?.notifyDestroyed()` is an
   // encounter-pool term a guard has no business reaching, so the
@@ -256,8 +256,8 @@ test('EC1: the world host consumes the shared law rather than a second copy of i
   // two pools, with world.js's own _encounter split
   const wm = read('src/scenes/worldModes.js');
   assert.match(wm, /insideFoeSinksFor\(foe, fromPlayer\) \{/, 'the interior host has a foeSinksFor of its own');   // AUDIT 68 X4: + the engine's provenance
-  assert.match(wm, /if \(foe\._encounter\) interiorFoes\?\.damageFoe\(foe, n, player\.pos, null, \{ fromPlayer: fp, kind: 'spell' \}\);\n\s+else interiorGuards\?\.hurtGuard\(foe, n, player\.pos, null, \{ fromPlayer: fp \}\);/,
-    'routed by pool, so the billboard dies in the pool that owns it');
+  assert.match(wm, /if \(foe\._encounter\) interiorFoes\?\.damageFoe\(foe, n, player\.pos, null, \{ fromPlayer: fp, kind: 'spell', round: !!o\?\.round \}\);[^\n]*\n\s+else interiorGuards\?\.hurtGuard\(foe, n, player\.pos, null, \{ fromPlayer: fp, kind: 'spell', round: !!o\?\.round \}\);/,
+    'routed by pool, so the billboard dies in the pool that owns it');   // PIN MOVED (TELL1: the kind reaches the watch, and whether a tick is a later round)
   // every enchant-ctx site that reaches a foe's vitals goes through the
   // router - a bare foeSinks() there is the exterior assumption again.
   //

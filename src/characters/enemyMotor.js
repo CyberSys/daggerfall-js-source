@@ -65,7 +65,7 @@ import { GRAVITY, FIXED_DT, MAX_FRAME_DT, CLASSIC_TO_UNITY_RATIO, FALL_DAMAGE_TH
 import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap, which cannot loop
 import { MOBILE_TYPES } from './mobileTypes.js';
 import { coverDistance } from '../ai/cover.js';   // TACT1: billboards are cover (sight, the clear shot)
-import { tacticsStep } from '../ai/tactics.js';   // TACT2: the tactics brain
+import { tacticsStep, tacticsNow } from '../ai/tactics.js';   // TACT2: the tactics brain; TELL1: its clock, for the stagger's end
 
 // C15 knockback (EnemyMotor.KnockbackMovement): classic units through
 // the speed ratio. Stored speed clamps at 40; motion caps at 25; the
@@ -531,6 +531,8 @@ export class EnemyAI {
     this.knockbackSpeed = 0;   // C15: classic-through-ratio units; the scene sets it on landed hits
     this.knockbackDir = null;  // the attack ray direction (3D - flyers take the y)
     this.hurtKnock = false;    // per-step: speed above the hurt threshold (the scene's hurting input)
+    this.staggerUntil = 0;     // TELL1: a broken wind-up's stagger ends here, on the brain's clock (ai/tactics.js windupStruck)
+    this.staggered = false;    // per-step: staggered - CanAct false, its Hurt held (the scene's hurting input with hurtKnock)
     this._dist = Infinity;
     // P13 stealth state (EnemySenses fields)
     this.hasEncounteredPlayer = false;
@@ -1776,6 +1778,11 @@ export class EnemyAI {
     // no CanAct/flyerFalls write. Folding the pause into `knocked`
     // carries all four, in DFU's own order.
     const knocked = this.knockbackSpeed > 0 && !paused;
+    // TELL1 (bible/12-Enhanced-AI/Feud-Arc.md 3.2): STAGGERED - its wind-up broken by a blow past its poise - it can do
+    // nothing, as a knock: CanAct false, standing, its Hurt held by the host. The port's own beat (no DFU motor has
+    // one), so it exists only with the Enhanced AI switch on, which alone stands a wind-up to break.
+    const staggered = this.staggerUntil > 0 && tacticsNow() < this.staggerUntil;
+    this.staggered = staggered;
     // AUDIT 26 F010: CanAct, EXPOSED. HandleParalysis and
     // KnockbackMovement clear it (:255, :317) and the attack/cast
     // components' bow-roll and spell branches live behind
@@ -1803,7 +1810,7 @@ export class EnemyAI {
     // HandleParalysis and KnockbackMovement have settled CanAct, and
     // BEFORE TakeAction reads avoidObstaclesTimer (:166-172).
     this._clock += dt;
-    this._updateDetourTimers(dt, !paralyzed && !knocked);
+    this._updateDetourTimers(dt, !paralyzed && !knocked && !staggered);
     // MT-i: the host's targeting context arms the classic target
     // machine - a closure over the pool's shared candidate list
     // (enemyTargets.runTargetMachine; a hook, not an import, so the
@@ -1857,7 +1864,7 @@ export class EnemyAI {
     this.targetIsLocalPlayer = !this._armedTargeting || (this.target != null && this.target.isPlayer === true && this.target.isPeer !== true);
     // MT-iii's hostility narrowing, now on THIS step's target machine.
     const foeTarget = this._armedTargeting && this.target != null && !this.target.isPlayer;
-    this.canAct = !paralyzed && !knocked && (this.isHostile || foeTarget);
+    this.canAct = !paralyzed && !knocked && !staggered && (this.isHostile || foeTarget);
     if (!this.canAct || paused) this._tacSkipped = true;   // AUDIT TACT D1/A3: a step it could not decide - the brain's word for a knock, never a clock's
     if (targeting && targetFeet == null) {
       this.inSight = false;
@@ -1896,10 +1903,10 @@ export class EnemyAI {
     // transform starts; the port's `moving` is a LATCH the classic
     // tick sets, and a latch left standing would walk the Seducer on
     // for up to a classic tick after DFU's has stopped dead.
-    if (paralyzed || paused || !(this.isHostile || foeTarget)) this.moving = false;
+    if (paralyzed || paused || staggered || !(this.isHostile || foeTarget)) this.moving = false;
     // CREW-COMPANIONS: a companion (the host's `follow`) with no foe to fight - or one chased too far from its
     // leader - keeps to the leader instead: the pursuit's own turn-then-walk, aimed at the leader's feet.
-    this._following = !!this.follow && !paralyzed && !paused && !knocked && this._followWanted();
+    this._following = !!this.follow && !paralyzed && !paused && !knocked && !staggered && this._followWanted();
     if (this._following) this._followTicks(classicTicks, dt);
 
     // C15 KnockbackMovement, verbatim: runs INSTEAD of pursuit (and

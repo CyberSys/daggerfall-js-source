@@ -246,23 +246,28 @@ value, as TACT4's do; TACT2's five-foe seeded pin and C15's knockback pins hold 
   - `canAct` false for the length (the motor's `_step`, beside paralysis); the brain's state `staggered` (no wind-up,
     no token, no swing), then TACT2's RECOVER;
   - the Hurt animation held and looped at its own 4 fps, the held swing cancelled (4.1);
-  - every blow it takes x1.25 (`STAGGER_TAKEN`), through one new named registry at the tail of
-    `calculateAttackDamage` - `registerBlowTakenMod(name, fn(attacker, target, damage, weapon, notes))`, after
-    `damageScale` and mentor mode and before the strike listeners, so they report what landed - and the same fold in
-    `hostMagic.applySpellToFoe` for spells. The registry is new because `entityMods.registerWeaponBlowMod` sees weapon
-    blows only, not hands or spells;
+  - every blow it takes x1.25 (`STAGGER_TAKEN`), through one new named registry - `registerBlowTakenMod(name,
+    fn(attacker, target, weapon, info))` in the leaf `systems/blowTaken.js` - read at the tail of
+    `calculateAttackDamage`, after `damageScale` and mentor mode and before the strike listeners (so they report what
+    landed), and at a spell's landing in `hostMagic.applySpellToFoe`. The registry is new because
+    `entityMods.registerWeaponBlowMod` sees weapon blows only, not hands or spells; a leaf because the brain registers
+    into it and the formulas, which read it, import the motor, which imports the brain;
   - **no stunlock**: no new stagger for `STAGGER_IMMUNE` (3 s) after one ends; inside it, a broken wind-up just breaks.
-- **The feedback.** A break: a white impact flash at the chest (`hitEffects.showImpactFlash`), the foe's bark at pitch
-  0.7 with `SOUND.Hit2`, a small camera kick (`betterAmbience.weaponKick(0.6)`, through each host's `shake`), the hit
-  number's tag "Stagger" (Enhanced). A blow that **holds** (lands, no break): the target bar's poise track fills
+- **The feedback.** A stagger: the Weapon Widget's clang spark at the chest (`hitEffects.showMissEffect('clang')`, at
+  2.5 times its size), `SOUND.Hit2` and the foe's own bark at pitch 0.7 (a person's voice stays DFU's - the watch's
+  alone speaks), a small camera kick for the player's own blow (the host's `shake`, 0.6); the hit number's tag
+  "Stagger" is TELL9's. A blow that **holds** (lands, no break): the target bar's poise track fills
   (11.1), the tag "Holds", and the parry ring where its kind has `parrySounds`.
 
 ### 3.3 Where it is written
 
-The brain: `ai/tactics.js` (`windupTurn` reads the meter; the new state). The numbers: the new TELL table leaf. The
-doors: the three damage doors ask `windupHolds` and call a new `noteWindupBlow(ai, v)`. The motor:
-`characters/enemyMotor.js _step` (the stagger's CanAct). The tail: `combat/formulas.js`. Four hosts: all four run these
-pools (the interior's foes are the street's pool, `worldModes.js makeInteriorFoes`); nothing is host-local.
+The law: `ai/tells.js` (the table, the weight classes, poise, a blow's class and weight). The brain: `ai/tactics.js`
+(`windupHolds`, `windupStruck` - the meter, the break, the stagger - and the `staggered` state's exit to RECOVER). The
+doors: the three damage doors ask one law, `scenes/hostCombat.js windupDoor`, where each writes DFU's knockback, and the
+foe-vs-foe payload (`applyDamageToNonPlayer`) writes no knockback on a foe winding up. The motor:
+`characters/enemyMotor.js _step` (the stagger's CanAct). The tail: `combat/formulas.js`, through `systems/blowTaken.js`.
+Four hosts: all four run these pools (the interior's foes are the street's pool, `worldModes.js makeInteriorFoes`);
+nothing is host-local but the routes into the watch's door (the arrows' kind, the spell sinks' rounds).
 
 ## 4. The tell: body, ear and ground (TELL2)
 
@@ -1077,4 +1082,49 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
 
 ## Record
 
-Empty until a slice is built.
+### TELL1 - BUILT 2026-10-04 (the Enhanced AI switch on, every host)
+
+- **The law** - `ai/tells.js`: the `TELL` table (section 27's TELL1 rows, pinned whole); `weightClass` over DFU's weight
+  in classic units (200 / 700 / 1500); `kindHealth` (`maxHealth / healthMult`); `poiseSpecial` (elite 1.5, Elite
+  Dungeon 1.25, champion 1.25, Stalwart 1.5, a revenant +0.1 a rank); `poiseOf`; `staggerSeconds`; `blowK` (the
+  weapon's skill through `weapons.weaponSkillUsed`, two-handed by DFU's own hands table, `equipTable.getItemHands` -
+  so a Battle Axe is one-handed and a Flail and a War Axe two; an arrow, a spell's landing, a later round 0, a peer's 1,
+  claws 1); `behind` (more than 110 degrees off the locked facing); `blowWeight`.
+- **What was stood** - every multiplier of a foe's maximum health multiplies `entity.healthMult`:
+  `eliteFoes.promoteEliteFoe` (its own, never a puppet's), `champions.applyChampion`, the dungeon's Elite Dungeon
+  doubling (`applyEliteScaling`), `revenant.applyRevenant`, a rite's summoner (`scenes/riteHost.js`), a sworn one
+  (`revenantCompanions.js`). The strong-player scaling (`enemyEntity.js`) is the kind's own and stays in `H0`.
+- **The brain** - `ai/tactics.js`: `windupHolds`, `windupStruck` (the meter set at the first blow, the break - mark
+  gone, cooldown begun, token handed to the longest waiter - and the stagger: state `staggered`, `ai.staggerUntil` and
+  `entity.staggerUntil` on the brain's clock, `staggerReady` 3 s past its end); a break inside the guard is a plain
+  break (state `wait`, DFU's knock for the blow). The stagger's end goes to RECOVER (its hop and its beat). The fold
+  `tell-stagger` registers at import.
+- **The motor** - `characters/enemyMotor.js _step`: `staggered` joins CanAct, the stop of the walk latch, the detour
+  timers and the follow, as a knock does; `ai.staggered` per step. A paralysis still breaks a wind-up (the brain's next
+  turn hears `_tacSkipped`) and staggers nothing.
+- **The doors** - `scenes/hostCombat.js windupDoor` (the class from the door's `kind`, the player's `weapon`, a
+  striker's own weapon or a monster striker's body, the `round`, `peer`, `from` for the back test, the weight read only
+  when winding up) and `windupFeedback` (the clang, the hit, the bark, the kick; the parry ring on a hold of a kind DFU
+  gives one). Asked in `exteriorFoes.js damageFoe`, `cityGuards.js damageGuard` and the dungeon's `damageFoe`, where
+  each writes knockback: 'hold' returns before it, 'stagger' writes it x1.5. Each door gained `weapon` and `round` (the
+  watch's `kind` and `striker` too - it had neither); each pool's `resolvePlayerHit` passes the striking weapon; the
+  watch's `hurtFromFoe` takes the striker and its foe-vs-foe swing passes it. `applyDamageToNonPlayer` writes no
+  knockback on a foe winding up.
+- **The Hurt** - the three live mobile updates pass `hurting: ai.hurtKnock || ai.staggered`: a stagger's Hurt held.
+- **Spells** - `effects.js runEffectRound` says `round: true`; every foe sink forwards it (the street's, the dungeon's,
+  `world.js`, `exterior.js` and `worldModes.js` for the encounter pool and the watch); `hostMagic.applySpellToFoe`
+  takes a landing's damage through `blowTaken` (a kill and a round as they come).
+- **Arrows into the watch** - `world.js`, `exterior.js` and `worldModes.js` pass `kind: 'arrow'` to `hurtGuard`.
+- **Four hosts** - `scenes/world.js` WIRED (its pools; the watch's arrows and spell sinks); `scenes/exterior.js`
+  WIRED (the same); `scenes/worldModes.js` WIRED (the interior's encounter pool and watch; their arrows and sinks);
+  `scenes/dungeonContext.js` WIRED (its door, sinks and swing; `scenes/dungeon.js` hosts it).
+- **Not built here** - a peer's relayed blow weighs K = 1 and a puppet carries no stagger (TELL8); the target bar's
+  poise track and the tags (TELL9); the weakness's X (RVN3).
+- Pins `test/tell1_poise.test.js` (15): the table whole; the classes on DFU's weights; poise; every multiplier's
+  `healthMult` through its producer (and the three not exported by their source); the classes and the back; on the real
+  motor a hold that lands, a break and a stagger (its length, its token, its cooldown, nothing decided, standing, then
+  the beat), no stunlock, the weight's length and an elite's poise, a paralysis and the switch off; a staggered foe's x1.25
+  end to end through `calculateAttackDamage`; THE REAL STREET POOL (DFU's knock to the bit off a wind-up, a mace's hold
+  with its parry, the stagger's shove x1.5, the clang and the kick, the Hurt held every frame); the foe-vs-foe payload
+  and a monster striker's weight; every door, Hurt, round and arrow route by source.
+- Mutants `tools/mutants/tell1.json` (39), all dead.

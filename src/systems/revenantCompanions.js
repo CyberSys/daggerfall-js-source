@@ -131,6 +131,7 @@ export function applySwornStrength(entity, r, { fresh = true } = {}) {
   const rank = Math.max(1, r.rank | 0);
   if (fresh) {
     entity.maxHealth = Math.max(1, Math.round((entity.maxHealth || 1) * (1 + REVENANT_HEALTH_PER_RANK * rank)));
+    entity.healthMult = (entity.healthMult ?? 1) * (1 + REVENANT_HEALTH_PER_RANK * rank);   // TELL1: what was stood on the kind's own health (its poise)
     entity.health = entity.maxHealth;
   }
   entity.damageScale = 1 + REVENANT_DAMAGE_PER_RANK * rank;

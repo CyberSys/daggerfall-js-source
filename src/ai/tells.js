@@ -1,0 +1,130 @@
+// @ts-check
+// TELL1 - POISE AND THE STAGGER (bible/12-Enhanced-AI/Feud-Arc.md section 3; Mac, 2026-10-04: "player's can easily stun
+// these enemies and breath more depth into it", then "Go" on every call of the arc).
+//
+// Before this, one landed hit of anything cancelled any telegraphed wind-up for free: every damaging weapon hit writes
+// DFU's knockback (floored at 15 classic units, three times the hurt threshold) and the brain broke the wind-up on any
+// knock, at the cost of the blow's cooldown alone. Now a foe WINDING UP holds through a blow - no shove, no Hurt - and
+// the blow's WEIGHT fills its POISE meter; at its poise the wind-up BREAKS and the foe is STAGGERED: helpless for about
+// a second, taking a quarter more from every blow. A heavy weapon, a blow at its back (and a revenant's weakness, RVN3)
+// weigh more; a dagger rarely breaks a giant.
+//
+// The law here; the meter and the stagger on the brain (ai/tactics.js windupStruck), the doors in the pools.
+// Outside a wind-up nothing here is asked: DFU's knockback, to the bit. The Enhanced AI switch off, no wind-up exists.
+
+import { weaponSkillUsed } from '../characters/weapons.js';
+import { SKILLS } from '../systems/skills.js';
+import { getItemHands, ITEM_HANDS } from '../characters/equipTable.js';
+
+/** Every TELL number on one table (section 27). Seconds, shares, multipliers. */
+export const TELL = Object.freeze({
+  // the poise: a share of the kind's own health, by DFU's weight (classic units, formulas.enemyWeightClassicUnits)
+  POISE_W: Object.freeze({ light: 0.2, medium: 0.3, heavy: 0.4, massive: 0.5 }),
+  WEIGHT_MEDIUM: 200,
+  WEIGHT_HEAVY: 700,
+  WEIGHT_MASSIVE: 1500,
+  // ...and by what the foe is
+  POISE_ELITE: 1.5,             // an elite (eliteFoes.js, `eliteFoe`)
+  POISE_ELITE_DUNGEON: 1.25,    // an Elite Dungeon's foe (`elite`)
+  POISE_CHAMPION: 1.25,         // a LOOT7 champion...
+  POISE_STALWART: 1.5,          // ...a Stalwart one
+  POISE_REVENANT_RANK: 0.1,     // a revenant, +0.1 a rank
+  // a blow's weight: its damage by its kind
+  K_BLUNT: 1.5,
+  K_AXE: 1.25,
+  K_LONG_BLADE: 1.0,
+  K_SHORT_BLADE: 0.7,
+  K_HANDS: 0.6,
+  K_CLAWS: 1.0,                 // a werebeast's, or a monster's own
+  K_TWO_HANDED: 1.15,           // on top of its class
+  K_ARROW: 0.5,
+  K_SPELL: 0.75,                // a spell's landing; its later rounds weigh nothing
+  K_PEER: 1,                    // a peer's relayed blow (TELL8 carries its class)
+  POISE_BACK: 1.5,              // a blow from behind the wind-up's locked facing...
+  BACK_DEG: 110,                // ...more than this far off it (TACT's BACK_TURNED_DEG)
+  POISE_WEAK: 2,                // a revenant's weakness (RVN3)
+  // the stagger
+  STAGGER_S: Object.freeze({ light: 1.4, medium: 1.2, heavy: 1.0, massive: 0.8 }),
+  STAGGER_KNOCK: 1.5,           // the breaking blow's withheld knockback, written at this
+  STAGGER_TAKEN: 1.25,          // every blow a staggered foe takes
+  STAGGER_IMMUNE: 3,            // no new stagger for this long after one ends
+});
+
+/** The weight class of a foe of `weight` classic units. */
+export function weightClass(weight) {
+  const w = Number.isFinite(weight) ? weight : 0;
+  if (w >= TELL.WEIGHT_MASSIVE) return 'massive';
+  if (w >= TELL.WEIGHT_HEAVY) return 'heavy';
+  if (w >= TELL.WEIGHT_MEDIUM) return 'medium';
+  return 'light';
+}
+
+/** The kind's own maximum health: `maxHealth` over every special multiplier stood on it (`healthMult`, written by
+ *  each one - an elite's, a champion's, an Elite Dungeon's, a revenant's rank). */
+export function kindHealth(entity) {
+  const m = Number.isFinite(entity?.healthMult) && entity.healthMult > 0 ? entity.healthMult : 1;
+  return Math.max(1, (entity?.maxHealth || 1) / m);
+}
+
+/** What the foe is, on its poise. */
+export function poiseSpecial(entity) {
+  if (!entity) return 1;
+  let s = 1;
+  if (entity.eliteFoe === true) s *= TELL.POISE_ELITE;
+  else if (entity.elite === true) s *= TELL.POISE_ELITE_DUNGEON;
+  if (entity.champion) s *= entity.champion === 'stalwart' ? TELL.POISE_STALWART : TELL.POISE_CHAMPION;
+  const rank = entity.revenant?.rank | 0;
+  if (rank > 0) s *= 1 + TELL.POISE_REVENANT_RANK * rank;
+  return s;
+}
+
+/** P: the poise of a foe (its entity; DFU's `weight`, classic units, kit and all). */
+export function poiseOf(entity, weight) {
+  return kindHealth(entity) * TELL.POISE_W[weightClass(weight)] * poiseSpecial(entity);
+}
+
+/** How long a foe of `weight` stays staggered (seconds). */
+export const staggerSeconds = (weight) => TELL.STAGGER_S[weightClass(weight)];
+
+/**
+ * K: a blow's weight by its kind and its weapon. `kind` the door's ('melee', 'arrow', 'spell'); `weapon` the striking
+ * item (null bare-handed); `claws` a striker that fights with its own body (a monster, a werebeast in its form);
+ * `round` a spell's later round; `peer` a blow relayed from another client. Anything else (a fall, a poison's tick)
+ * weighs nothing.
+ */
+export function blowK({ kind = 'melee', weapon = null, claws = false, round = false, peer = false } = {}) {
+  if (kind === 'spell') return round ? 0 : TELL.K_SPELL;
+  if (peer) return TELL.K_PEER;
+  if (kind === 'arrow') return TELL.K_ARROW;
+  if (kind !== 'melee') return 0;
+  if (!weapon) return claws ? TELL.K_CLAWS : TELL.K_HANDS;
+  const skill = Number.isInteger(weapon.templateIndex) ? weaponSkillUsed(weapon.templateIndex) : null;
+  let k;
+  switch (skill) {
+    case SKILLS.BluntWeapon: k = TELL.K_BLUNT; break;
+    case SKILLS.Axe: k = TELL.K_AXE; break;
+    case SKILLS.LongBlade: k = TELL.K_LONG_BLADE; break;
+    case SKILLS.ShortBlade: k = TELL.K_SHORT_BLADE; break;
+    case SKILLS.Archery: return TELL.K_ARROW;   // a bow swung, or a shaft a foe loosed (its blow carries the bow)
+    default: k = TELL.K_LONG_BLADE;   // a weapon the table does not know: a sword's weight
+  }
+  let both = false;
+  try { both = getItemHands(weapon) === ITEM_HANDS.Both; } catch { both = false; }
+  return both ? k * TELL.K_TWO_HANDED : k;
+}
+
+/** Is `from` (a point, xz) behind a facing `yaw` (atan2(dx, dz)) at `origin` - more than BACK_DEG off it? */
+export function behind(origin, yaw, from) {
+  if (!origin || !from || !Number.isFinite(yaw)) return false;
+  const vx = from[0] - origin[0], vz = from[2] - origin[2];
+  const l = Math.hypot(vx, vz);
+  if (l < 1e-6) return false;
+  const dot = (vx / l) * Math.sin(yaw) + (vz / l) * Math.cos(yaw);
+  return dot < Math.cos(TELL.BACK_DEG * Math.PI / 180);
+}
+
+/** v: a blow's weight on the meter - its final damage, by its kind, from behind, of its weakness. */
+export function blowWeight(damage, k, { back = false, weak = false } = {}) {
+  if (!(damage > 0) || !(k > 0)) return 0;
+  return damage * k * (back ? TELL.POISE_BACK : 1) * (weak ? TELL.POISE_WEAK : 1);
+}

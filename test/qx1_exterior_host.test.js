@@ -490,7 +490,7 @@ test('ROAD-G G2: the outdoor arm is PlaceFoeExteriorLocation - the 5/20 ring, th
 // ─── ROAD-G G2 review: the seams the lane shipped and nothing held ───
 
 test('ROAD-G G2 review: the cast engine raises the two ready-spell doors into THIS host\'s machine', () => {
-  // hostMagic.js:97-98 declares `onNewReadySpell` / `onCastReadySpell`
+  // hostMagic.js:98-99 declares `onNewReadySpell` / `onCastReadySpell`
   // and is the ONLY raiser in the tree (SetReadySpell raises NEW right
   // after `readiedSpell = sp`; `done()` raises CAST on every release
   // path, before the ready clears). machine.js:935/:941 fan them out,
@@ -500,7 +500,7 @@ test('ROAD-G G2 review: the cast engine raises the two ready-spell doors into TH
   // for the interior mode, so while the mount passed neither key every
   // `cast X spell do` / `cast X effect do` on this route - and in every
   // shop entered from it - was permanently deaf. world.js:9396-9397 and
-  // dungeonContext.js:2837-2838 wire the identical pair.
+  // dungeonContext.js:2840-2841 wire the identical pair.
   const doorSrc = slice('    onNewReadySpell: (sp) => questBridge',
     '    // ROAD-G G2 (a): THE THREE-ARM SHAPE');
   // ...and they are keys of the ENGINE MOUNT, not of some other bag:

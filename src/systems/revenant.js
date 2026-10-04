@@ -521,6 +521,7 @@ export function applyRevenant(entity, r, { now = nowMinutes() } = {}) {
   entity.revenant = { id: r.id, name: r.name, rank: r.rank };
   entity.maxHealth = Math.max(1, Math.round((entity.maxHealth || 1) * (1 + REVENANT_HEALTH_PER_RANK * r.rank)));
   entity.health = entity.maxHealth;
+  entity.healthMult = (entity.healthMult ?? 1) * (1 + REVENANT_HEALTH_PER_RANK * r.rank);   // TELL1: what was stood on the kind's own health (ai/tells.js kindHealth - its poise)
   const prior = Number.isFinite(entity.damageScale) && entity.damageScale > 0 ? entity.damageScale : 1;
   entity.damageScale = prior * (1 + REVENANT_DAMAGE_PER_RANK * r.rank);
   r.out = true; r.outAt = Date.now(); r.returns++;

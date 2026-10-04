@@ -66,7 +66,8 @@ import { MobileUnit } from '../characters/mobileUnit.js';
 import { EnemyAI, withinYaw, isBackFacing, foeFrameDt } from '../characters/enemyMotor.js';
 import { spaceFoes, DOORWAY_DEPTH } from '../characters/foeSpacing.js';   // FOE-SPACING: the watch keeps apart   // TACT3c: past the threshold
 import { runTargetMachine, isPlayerTarget, PLAYER_TARGET, resetAllyTeamOnPlayerAttack, wireRecipient, bumpAtkCount, staticTeamOf } from '../characters/enemyTargets.js';   // AUDIT WATCH1: the wire's spellings, one home   // MT-ii   // ROAD-G G1: MakeEnemyHostileToAttacker's entity-side half, for the watch too
-import { applyDamageToNonPlayer, spawnEnemyLoot } from './hostCombat.js';   // MT-ii: EnemyAttack.ApplyDamageToNonPlayer
+import { applyDamageToNonPlayer, spawnEnemyLoot, windupDoor } from './hostCombat.js';   // MT-ii: EnemyAttack.ApplyDamageToNonPlayer; TELL1: the poise door
+import { TELL } from '../ai/tells.js';   // TELL1: the breaking blow's shove
 import { stampWonWeapons } from '../systems/lootRarity.js';   // SIGIL1: a body's weapons won online
 import { EnemyAttack } from '../characters/enemyAttack.js';
 import { makeEnemyEntity } from '../characters/enemyEntity.js';
@@ -165,7 +166,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
   // with no Y test. The default keeps the two street pools as they were.
   playerInside = false,
   // ROAD-G G1: GameManager.MakeEnemiesHostile over the HOST's whole
-  // area, the encounter pool's dep to the line (exteriorFoes.js:225).
+  // area, the encounter pool's dep to the line (exteriorFoes.js:226).
   // DaggerfallEntityBehaviour.cs:255-258 fires it when a NON-hostile
   // enemy is struck by the player, and Knight_CityWatch is an
   // EnemyClass - one of the two EntityTypes that walk (:250). This
@@ -319,7 +320,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
         // candidate IS the handle both pools already share. `fromPlayer
         // = false`: a monster's blow is not the player's, so it levies
         // no Murder (DaggerfallEntityBehaviour.cs:203).
-        hurtFromFoe: (dmg, dir) => damageGuard(g, dmg, null, dir ?? null, { fromPlayer: false }) };   // AUDIT 24 (wave 41)
+        hurtFromFoe: (dmg, dir, striker = null) => damageGuard(g, dmg, null, dir ?? null, { fromPlayer: false, striker }) };   // AUDIT 24 (wave 41); TELL1: and whose blow (its weight on a wind-up)
       // A5: the CONCEALMENT closure the illusion gate has read since
       // MT-i and nothing ever built (the encounter pool's law, one
       // spelling). BlockedByIllusionEffect (EnemySenses.cs:658-683)
@@ -757,7 +758,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
    *  which arrowFlight.js calls unconditionally (arrowFlight.js:324)
    *  because `dealDamage` is inside its own `dmg > 0` fork - so the
    *  door is PUBLIC (the returned surface below), exactly as the
-   *  encounter pool's is (exteriorFoes.js:2879). */
+   *  encounter pool's is (exteriorFoes.js:2889). */
   function handleAttackFromPlayer(g, playerFeet = null) {
     if (!g?.ai) return;
     // DISC19-F (AUDIT DISC19): A BLOW ON A DEFENDER IS ASSAULT. The
@@ -794,7 +795,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
    *  watchman, an ungated crime FRAMES THE PLAYER for a murder they
    *  did not commit, and the watch responds to that crime, so the
    *  town turns on them for a rat's work. */
-  function damageGuard(g, damage, playerFeet, knockDir, { fromPlayer = true, bypassShield = false, peer = false } = {}) {
+  function damageGuard(g, damage, playerFeet, knockDir, { fromPlayer = true, bypassShield = false, peer = false, kind = 'melee', weapon = null, round = false, striker = null } = {}) {   // TELL1: the blow's kind, the player's weapon, a spell's later round and the striking foe - its weight on a wind-up's poise
     if (g.dead) return;   // AUDIT 68 S20-foe-dies-twice: a corpse takes no blow - a magic round after the killing one tallied a second Murder and minted a second body
     if (fromPlayer && !peer && g.defender && raidHere()) return;   // RAID-GUARDS: whatever road a blow of the player's takes to the door, a raid's defender takes none of it - and no Assault comes of one
     // AUDIT WATCH1 A4: a PEER's blow (WATCH1's net seam) is the encounter pool's peer law (AUDIT WORLD6b B2): no
@@ -912,12 +913,21 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     // through the shared gate anyway (AUDIT 24 wave 38): the pool
     // should not be the place that remembers which arm applies to it.
     const guardWeight = ENEMY_BASICS[GUARD_MOBILE_TYPE]?.weight ?? 0;
+    // TELL1 (bible/12-Enhanced-AI/Feud-Arc.md section 3): a watchman WINDING UP holds through the blow - no shove, no
+    // Hurt - and the blow weighs on his poise; past it the wind-up breaks and he is staggered, the breaking blow's shove
+    // half again as hard. Not winding up, this answers null and DFU's knockback stands (hostCombat.windupDoor's one law)
+    const _tell = g.ai?._tac?.state !== 'windup' ? null : windupDoor(g, damage, {   // only a watchman winding up builds the blow's bag
+      kind, weapon, round, peer, striker, from: striker?.ai?.feet ?? playerFeet,
+      claws: fromPlayer && !peer && !weapon && !!playerEntity?.isInBeastForm,
+      weight: () => enemyWeightClassicUnits(true, 'male', guardWeight, g.entity?.items),
+    }, { audio, hitEffects });
+    if (_tell === 'hold') return;
     if (knockDir && weaponKnockbackApplies(g.ai.knockbackSpeed, true, guardWeight)) {
       // EW1: a guard is the one foe whose kit is never empty - the
       // watch spawns armed and armoured, so this is the call site
       // where the missing item term moved the answer most.
       const w = enemyWeightClassicUnits(true, 'male', guardWeight, g.entity?.items);
-      g.ai.knockbackSpeed = weaponKnockbackSpeed(damage, w);
+      g.ai.knockbackSpeed = weaponKnockbackSpeed(damage, w) * (_tell === 'stagger' ? TELL.STAGGER_KNOCK : 1);
       g.ai.knockbackDir = [knockDir[0], knockDir[1], knockDir[2]];
     }
   }
@@ -1121,7 +1131,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
       g._mout = g.mobile.update(dt, {
         moving: g.ai.moving,
         striking: strikeEdge,
-        hurting: g.ai.hurtKnock,
+        hurting: g.ai.hurtKnock || g.ai.staggered,   // TELL1: a staggered watchman's Hurt held for his stagger
         casting: false,
         rangedStriking: false,
       }, g.ai.yaw, g.ai.feet, eye);
@@ -1147,7 +1157,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
             applyDamageToNonPlayer(g, _foeTarget, {
               weapon: fwpn, direction: ffwd, rolls: Math.random,
               calculateAttackDamage,
-              dealDamage: (t, d) => t.hurtFromFoe?.(d, ffwd),
+              dealDamage: (t, d) => t.hurtFromFoe?.(d, ffwd, g),   // TELL1: the striker rides the blow (its weapon weighs it on a wind-up)
               audio, hitEffects,
               // AUDIT 58: FormulaHelper.cs:691-696 has NO player gate -
               // the watch's poisoned blade doses the monster it strikes.
@@ -1323,7 +1333,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
         // C2-slice (combat-17): the struck watchman cries out 40%
         const pain = enemyPainVoice(foe, damage);
         if (pain && pain.clip >= 0) audio?.play3d?.(pain.clip, [foe.ai.feet[0], foe.ai.feet[1] + 0.9, foe.ai.feet[2]], 1, { maxDistance: 16, pitch: 1 + pain.pitchLift });   // AUDIT 58: EnemySounds.cs:172-175
-        damageGuard(foe, damage, playerFeet, lookDir);
+        damageGuard(foe, damage, playerFeet, lookDir, { weapon: playerWeapon.strikingWeapon });   // TELL1: the blow's weapon weighs it on a wind-up's poise
       } else {
         // WeaponManager.cs:609-615: a connecting swing that dealt
         // nothing still makes a noise. The exterior hosts played

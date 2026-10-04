@@ -32,12 +32,14 @@ import { championOf } from '../systems/champions.js';   // LOOT7: the champions'
 import { isGoldPieces } from '../systems/inventory.js';   // PLAIN-LOOT: a plain foe's gold all of it
 import { liveStat, FATIGUE_DRAIN_SCALE } from '../systems/statMods.js';   // RF2: the player's live luck for the roll   // AUDIT 58: ItemHelper's EquipItem half - a foe's equip table is what DamageEquipment's struck side reads
 import { GLOBAL_SCALE } from '../world/meshReader.js';
-import { swingSoundFor, hitSoundFor, ENEMY_HIT_VOLUME } from '../systems/soundClips.js';
+import { swingSoundFor, hitSoundFor, ENEMY_HIT_VOLUME, SOUND } from '../systems/soundClips.js';
 import { bloodCentre } from './hitEffects.js';   // AUDIT 62 F19: EnemyAttack.cs:326-328's one home, the same law the four player-melee sites cite
 import { bloodHit } from '../combat/bloodDecals.js';   // BLOOD1b: the blow, in the shape the mark's ladder reads
 import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';
 import { ATTRACT_RADIUS } from '../characters/enemySounds.js';   // AUDIT 24 (wave 41)
-import { enemyDisplayName } from '../characters/enemyBasics.js';   // AUDIT 24 (wave 42)
+import { enemyDisplayName, ENEMY_BASICS } from '../characters/enemyBasics.js';   // AUDIT 24 (wave 42); TELL1: the bark a breaking blow wrings out
+import { windupHolds, windupStruck } from '../ai/tactics.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3)
+import { blowK, blowWeight, behind } from '../ai/tells.js';   // TELL1: a blow's weight on the poise meter
 import { comprehendLanguagesChance } from '../systems/effects.js';   // X11: the pacification bonus DFU reads inside its own formula
 
 // ---- DaggerfallUnityItem.GetWeaponSkillUsed / GetWeaponSkillIDAsShort ----
@@ -593,8 +595,9 @@ export function applyDamageToNonPlayer(attacker, target, {
     // cityGuards.js) have used the shared law all along.
     audio?.play3d?.(hitSoundFor(weapon), at, ENEMY_HIT_VOLUME, { maxDistance: 16 });
     hitEffects?.showBloodSplash?.(tEnt?.basics?.bloodIndex ?? 0, bloodCentre(at, target.ai?.height ?? 1.8), null, bloodHit(damage, tEnt));   // BLOOD1b: foe-on-foe bleeds by its blow too
-    // :336-350 - the knockback, on the ATTACKER-class guard
-    if (target.ai && enemyKnockbackApplies(target.ai.knockbackSpeed ?? 0, aEnt?.isClass,
+    // :336-350 - the knockback, on the ATTACKER-class guard. TELL1: never on a foe winding up - the blow HOLDS there and
+    // the target's own door weighs it on the poise meter (windupDoor below), shoving it only when it breaks
+    if (target.ai && !windupHolds(target.ai) && enemyKnockbackApplies(target.ai.knockbackSpeed ?? 0, aEnt?.isClass,
       tEnt?.basics?.weight)) {
       // EW1: the TARGET's kit, not the attacker's
       const w = enemyWeightClassicUnits(tEnt?.isClass, tEnt?.gender, tEnt?.basics?.weight, tEnt?.items);
@@ -630,6 +633,50 @@ export function applyDamageToNonPlayer(attacker, target, {
   // :389-391 - and the struck foe turns on whoever hit it.
   target.ai?.makeEnemyHostileToAttacker?.(attacker, attacker.ai?.feet ?? null);
   return damage;
+}
+
+// ---- TELL1: THE POISE DOOR (bible/12-Enhanced-AI/Feud-Arc.md section 3) ----
+/**
+ * One law for the three damage doors (exteriorFoes.damageFoe, cityGuards.damageGuard, the dungeon's damageFoe), asked
+ * where each writes DFU's knockback. A blow landing on a foe WINDING UP holds: its weight - its damage by its kind
+ * (ai/tells.js blowK: the striker's weapon, an arrow, a spell's landing), from behind the wind-up's locked facing half
+ * again - goes on the foe's poise meter (ai/tactics.js windupStruck). Answers null when the foe is not winding up (the
+ * door's knockback stands, DFU's to the bit), else the brain's word: 'hold' (the door writes no shove and plays no
+ * Hurt), 'break' (the wind-up only broke - its last stagger too recent - and the blow knocks as DFU's does) or
+ * 'stagger' (the door writes the breaking blow's shove at TELL.STAGGER_KNOCK).
+ *
+ * `opts`: the door's `kind`, the striking `weapon` (the player's), `round` (a spell's later round), `peer`, `striker`
+ * (a foe's record - its own weapon, its own body for a monster), `from` (where the blow came from), `claws` (the
+ * player in a beast's form), `weight` (DFU's weight in classic units, or a function answering it - read only when the
+ * foe is winding up). `fx`: the pool's `audio`, `hitEffects`, `shake` (the player's own blow only) and `rolls`.
+ */
+export function windupDoor(f, damage, { kind = 'melee', weapon = null, round = false, peer = false, striker = null, from = null, claws = false, weight = 0 } = {}, fx = {}) {
+  if (!f?.ai || !windupHolds(f.ai)) return null;
+  const blow = f.ai._tac.blow;
+  const k = striker
+    ? blowK({ kind, weapon: striker.entity?.weapon ?? null, claws: !((striker.mobileType ?? 0) >= 128), round, peer })
+    : blowK({ kind, weapon, claws, round, peer });
+  const v = blowWeight(damage, k, { back: behind(blow.origin, blow.yaw, from) });
+  const w = typeof weight === 'function' ? weight() : weight;
+  const word = windupStruck(f.ai, f.entity, w, v);
+  windupFeedback(word, f, fx);
+  return word;
+}
+/** TELL1: what a blow on a wind-up sounds and looks like. A stagger: the Weapon Widget's clang spark at the chest, a
+ *  hit and the foe's own bark low (a person's voice stays DFU's - the watch's alone speaks), a small kick of the
+ *  camera for the player's own blow. A hold: the parry ring of a kind DFU gives one (`parrySounds`). */
+export function windupFeedback(word, f, { audio = null, hitEffects = null, shake = null, rolls = Math.random } = {}) {
+  if (!word || !f?.ai) return;
+  const at = bloodCentre(f.ai.feet, f.ai.height ?? 1.8);
+  const basics = ENEMY_BASICS[f.mobileType];
+  if (word === 'stagger') {
+    hitEffects?.showMissEffect?.('clang', at, { scale: 2.5 });
+    audio?.play3d?.(SOUND.Hit2, at, 1, { maxDistance: 16 });
+    if (basics?.barkSound != null && (f.mobileType < 128 || f.mobileType === KNIGHT_CITY_WATCH)) audio?.play3d?.(basics.barkSound, at, 1, { maxDistance: 16, pitch: 0.7 });
+    shake?.(0.6);
+  } else if (word === 'hold' && basics?.parrySounds) {
+    audio?.play3d?.(PARRY_1 + Math.floor(rolls() * PARRY_SOUND_COUNT), at, PARRY_VOLUME, { maxDistance: 16 });
+  }
 }
 
 // ---- GameManager.MakeEnemiesHostile (ROAD-B, hostility model) ----

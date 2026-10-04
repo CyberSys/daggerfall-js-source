@@ -63,6 +63,7 @@ import { duelSpellOf } from '../combat/duelCombat.js';   // DUEL1: the harmful h
 import { markPlayerHarm } from '../systems/harmMark.js';   // REVENANT-HARM: a foe's spell on the player leaves its mark (a death no blow names is its)
 import { sparedByPlayer, isShipmate } from '../combat/friendlyFire.js';   // SHIPMATES: who the player's spells pass by, and whose blasts pass the player by
 import { coverDistance, coverStep } from '../ai/cover.js';   // TACT1: billboards are cover; AUDIT TACT B5: met by touch
+import { blowTaken } from '../systems/blowTaken.js';   // TELL1: what a spell's target takes (a staggered foe a quarter more)
 
 /**
  * AUDIT SET M4: whether a burst from feet `a` reaches feet `b` through `collider` - chest to chest, a wall between is
@@ -478,7 +479,11 @@ export function createPlayerMagic({
     // REVENANT-FATE (the 2026-10-02 audit): one held by its fate - kneeling, burning, gathering into a portal - takes no
     // spell: its blow was already refused (the kill door), and a Wabbajack, a paralysis or a drain landed all the same
     if (foe?.yielded || foe?.executing || foe?.sparing || foe?.leaving) return null;
-    const r = applySpell(spell, casterLevel, foe.entity, sinks, rolls, caster, ctx);
+    // TELL1 (bible/12-Enhanced-AI/Feud-Arc.md 3.2): the landing's damage through what the TARGET takes (a staggered foe a
+    // quarter more - systems/blowTaken.js, the formulas' tail's law for a spell); a kill and a later round as they come
+    const striker = caster?.entity ?? playerEntity;
+    const landing = sinks?.hurt ? { ...sinks, hurt: (n, o) => sinks.hurt(o?.whole || o?.round ? n : blowTaken(n, striker, foe.entity, null, { kind: 'spell', element: spell?.element ?? null }), o) } : sinks;
+    const r = applySpell(spell, casterLevel, foe.entity, landing, rolls, caster, ctx);
     // STRIKE-SHARED (2026-09-29): ANOTHER PLAYER'S strike spell, landed here on the foe I own (`ctx.peerCaster` its id).
     // The trap's line is its caster's and not mine to speak, and a new trap is marked with whose it is - its soul goes
     // to that caster's pack, never mine (mysticism.js peerSoulTrapOf). An incumbent trap keeps its own caster, as it

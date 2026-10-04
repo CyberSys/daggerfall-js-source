@@ -511,7 +511,11 @@ EnemyMotor.KnockbackMovement + FormulaHelper:
 - THE SPEED (weaponKnockbackSpeed, formulas.js): kb = ((10d - w) *
   256)/(w + 10d) * 2d; speed = (10d/w) * (2d - kb/256), through
   classicToUnitySpeedUnitRatio/10 (3.95), FLOORED at 15 classic - so
-  every landed player hit clears the 5-classic hurt threshold.
+  every landed player hit clears the 5-classic hurt threshold. (The
+  port's own exception, TELL1 in `12-Enhanced-AI/Feud-Arc.md`: with
+  the Enhanced AI switch on, a foe WINDING UP a telegraphed blow holds
+  - no shove, no Hurt - until its poise breaks; DFU's law everywhere
+  else.)
   Weight (enemyWeightClassicUnits): monster table Weight, class
   female 240 / male 350; the + items*4 term FLAGGED to item weights.
 - THE GATE (WeaponManager:578): monsters need Weight > 0 - the
@@ -625,7 +629,7 @@ the DEFAULT state, because starting weapons land in the bag unequipped
 `WEAPON_SKILL[playerWeapon.weapon.name]` raw at both its swing sites
 where the exterior hosts guarded with `?.`: the strike-frame bow test
 threw on EVERY bare-handed swing (reproduced live at
-dungeonContext.js:2589 by tools/fistProbe.mjs), the melee tally on
+dungeonContext.js:2592 by tools/fistProbe.mjs), the melee tally on
 every resolved fist hit. Fixed with the rule enforced, not remembered:
 a source sweep over src/scenes fails on any unguarded
 `playerWeapon.weapon.` deref, the bare-handed path is driven
@@ -1368,7 +1372,7 @@ review had to apply to `pauseWindow`/`restWindow`. And `listPicker.js`'s
 which was a router — the round bumped the dungeon's `:4112` to `:4113`
 mechanically, and a wrong number moved by the right offset is still
 wrong. All three are resolved by content (`townTalk.js:1254`,
-`worldModes.js:10872`, `dungeonContext.js:8819`) and pinned as a set.
+`worldModes.js:10872`, `dungeonContext.js:8832`) and pinned as a set.
 
 The `worldModes.js` fix inserts one line, so cites into that host past
 it move by one: the dungeon's `worldModes.js:9339` and

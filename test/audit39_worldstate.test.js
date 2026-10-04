@@ -340,7 +340,7 @@ test('AUDIT-39r: a player ARROW knocks a watchman back - WeaponManager sets Knoc
   assert.equal(g2.ai.knockbackDir, undefined, 'a directionless caster shoves nobody');
   // and both above-ground hosts hand the missile's direction over
   for (const [name, s] of HOSTS) {
-    assert.match(s, /cityGuards\.hurtGuard\(f, d, player\.pos, m\.dir\)/,
+    assert.match(s, /cityGuards\.hurtGuard\(f, d, player\.pos, m\.dir, \{ kind: 'arrow' \}\)/,   // PIN MOVED (TELL1: and the blow's kind - a shaft's weight on a wind-up)
       `${name}: the guard arm of onPlayerArrowHitFoe carries m.dir, like the foe arm beside it`);
   }
 });

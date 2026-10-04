@@ -24,6 +24,9 @@
 //     foe the target walks up to fights; the step back after a blow is a hop; a hurt foe or a kiting archer turns and
 //     WALKS away (a foe walks the way it faces), at most once a cooldown; a shooter without a token stands off, never
 //     circles.
+//   - TELL1 (bible/12-Enhanced-AI/Feud-Arc.md section 3): POISE. A foe winding up holds through a blow - the doors write
+//     no knockback - and the blow's weight fills its poise meter; at its poise the wind-up breaks and the foe is
+//     STAGGERED (a held Hurt, nothing decided, a quarter more taken). Before it, any landed hit broke any wind-up.
 //
 // One registry of tokens, by target: the local player is one key, every other target its own object.
 
@@ -32,6 +35,8 @@ import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { MOBILE_TYPES } from '../characters/mobileTypes.js';
 import { throwsBlows, blowShapesOf, makeBlow, fitBlowToGround, inBlow, setLiveBlow, windupNear, offsetBlows, BLOW_CHANCE, BLOW_COOLDOWN_MIN, BLOW_COOLDOWN_MAX, BLOW_COLOR } from './foeBlows.js';   // TACT4
 import { tacticsNow, setTacticsClock, tickTactics } from './tacticsClock.js';   // AUDIT TACT D10/A3
+import { TELL, poiseOf, staggerSeconds } from './tells.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3)
+import { registerBlowTakenMod } from '../systems/blowTaken.js';   // TELL1: a staggered foe takes more - the leaf the formulas read
 
 export const tacticsSwitchOn = () => getPref('enhancedAI') === true;
 
@@ -129,6 +134,46 @@ export function releaseTactics(ai) {
 }
 /** AUDIT TACT A4/D5/D6: a blow's landing state, spent - no verdict, weight or forced swing left for a later swing. */
 function clearBlowState(ai) { ai._blowVerdict = null; ai._blowMult = undefined; ai._blowSwing = false; }
+
+// ── TELL1: POISE AND THE STAGGER (bible/12-Enhanced-AI/Feud-Arc.md section 3; Mac: "player's can easily stun these
+// enemies") ───────────────────────────────────────────────────────────────────────────────────────────────────────
+/** Does a blow landing on this foe land on a wind-up? Then it HOLDS - the door writes no knockback and plays no Hurt -
+ *  and its weight goes on the poise meter (`windupStruck`). The switch off, never. */
+export function windupHolds(ai) {
+  const s = ai?._tac;
+  return !!s && s.state === 'windup' && !!s.blow && tacticsSwitchOn();
+}
+/**
+ * TELL1: a blow of weight `v` (ai/tells.js blowWeight) landed on a foe winding up - `ent` its entity, `weight` DFU's
+ * weight in classic units, kit and all (formulas.enemyWeightClassicUnits, as the door's knockback reads it). The meter
+ * fills against the foe's poise (set at the first blow: its kind's health by its weight, by what it is); at the poise
+ * the wind-up BREAKS - its mark gone, the blow's cooldown begun, its melee token handed on - and the foe is STAGGERED
+ * for its weight's `STAGGER_S`: nothing it decides (the motor's CanAct), its Hurt held, every blow it takes
+ * x`STAGGER_TAKEN`. Inside `STAGGER_IMMUNE` of its last stagger's end a broken wind-up only breaks.
+ * Answers null (no wind-up here: DFU's knockback, as ever), 'hold', 'break' or 'stagger'.
+ */
+export function windupStruck(ai, ent, weight, v) {
+  if (!windupHolds(ai)) return null;
+  const s = ai._tac, b = s.blow, now = clock();
+  if (!Number.isFinite(b.poise)) b.poise = poiseOf(ent, weight);
+  b.taken = (b.taken ?? 0) + (v > 0 ? v : 0);
+  if (b.taken < b.poise) return 'hold';
+  setLiveBlow(ai, null); s.blow = null;
+  s.blowReady = now + BLOW_COOLDOWN_MIN + Math.random() * (BLOW_COOLDOWN_MAX - BLOW_COOLDOWN_MIN);
+  clearBlowState(ai);
+  const bd = s.key != null ? _boards.get(s.key) : null;
+  if (bd) { bd.melee.delete(ai); bd.waiting.set(ai, now); }   // the token goes on to whoever waited longest
+  ai._tacStrike = false; ai._tacShoot = false; ai.moving = false;
+  if (now < (s.staggerReady ?? -Infinity)) { s.state = 'wait'; return 'break'; }   // no stunlock: a stagger, then 3 s of none
+  s.state = 'staggered'; s.until = now + staggerSeconds(weight); s.staggerReady = s.until + TELL.STAGGER_IMMUNE;
+  ai.staggerUntil = s.until;   // the motor's hold (characters/enemyMotor.js _step)
+  if (ent) ent.staggerUntil = s.until;   // ...and what every blow at it reads (the fold below)
+  return 'stagger';
+}
+/** TELL1: is this entity staggered now (on the brain's clock)? */
+export const staggeredNow = (ent, now = clock()) => Number.isFinite(ent?.staggerUntil) && now < ent.staggerUntil;
+// TELL1: a staggered foe takes a quarter more from every blow - the formulas' tail and a spell's landing read this
+registerBlowTakenMod('tell-stagger', (attacker, target) => (staggeredNow(target) ? TELL.STAGGER_TAKEN : 1));
 /** How many tokens of `kind` the target `key` has out (tests, probes). */
 export function tokensOut(key, kind) { return _boards.get(key)?.[kind]?.size ?? 0; }
 export const LOCAL_TARGET = LOCAL;
@@ -183,6 +228,12 @@ export function tacticsStep(ai, dx, dz) {
   const fighting = (ai.inSight || away) && ai.detected && Number.isFinite(dist) && dist <= (shooter(ai) ? TACT.SHOOT_RANGE : TACT.ENGAGE_RANGE) && !ai.follow;
   const key = fighting ? targetKey(ai) : null;
   ai._tacStrike = undefined; ai._tacShoot = undefined;
+  // TELL1: staggered - the motor holds it (it cannot act, so the brain is rarely asked); spent, the beat after a blow
+  if (s.state === 'staggered') {
+    if (now < s.until) { ai._tacStrike = false; ai._tacShoot = false; ai.moving = false; return true; }
+    s.state = 'recover'; s.until = now + TACT.RECOVER_MIN + Math.random() * (TACT.RECOVER_MAX - TACT.RECOVER_MIN);
+    s.backUntil = now + TACT.RECOVER_HOP;
+  }
   // TACT4: a wind-up, once begun, is committed - it lands where it was aimed whether or not the target stays in sight
   if (s.state === 'windup' && s.blow) return windupTurn(ai, s, now, skipped);
   if (s.key !== key) { releaseTactics(ai); s.key = key; s.state = 'wait'; }
