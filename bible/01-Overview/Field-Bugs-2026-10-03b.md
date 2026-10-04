@@ -1,4 +1,4 @@
-# FIELD BUGS 2026-10-03b - the trees on the hills drawn, the Aetheric pieces the maker refuses
+# FIELD BUGS 2026-10-03b - the trees on the hills drawn, the Aetheric pieces the maker refuses, a ship's cabin without her hull
 
 The Discord's bug reports of 2026-10-03, handed over as screenshots: *"Floating trees in Tamhope"* (Rissa), *"Bugged
 Quest"* (RyuDouro: "the NPC to deliver no longer exists in the same shop"; TutucoGOD: "the NPC doesn't exist on the
@@ -12,6 +12,7 @@ by tests that fail on the record's own code (14cd193b1), the new pins mutation-c
 |---|---|---|---|
 | 1 | "Floating trees in Tamhope" (Rissa) | six Beautiful Villages blocks stand TEXTURE.504's trees on the RMB Resource Pack's hills at the author's heights, and the port's stand-in mounds are a fraction of the pack's size - 121 of 130 trees hung more than 1.5 m over what is drawn | TREES-SEATED |
 | 5 | "You can enchant Ruhn's gear, lol" | an Aetheric piece carries no DFU enchantment, so DFU's one item refusal (IsEnchanted) never met it: the maker listed the Regalia, the Broker's ware and the raid sets as plain Daedric and spent their whole budget over their powers | AETHERIC-MAKER |
+| 6 | "i got into my boats interior and then got out and i'm in the void" (Regi) | a ship's cabin is built at her own root with her fleet kept afloat outside, and the host's indoor arms stood that fleet in the room - her decks in its collider and drawn through it (the planks and holes), her ladder and her helm pressed from it, which stood the player on her deck in the building's frame: her hull alone in the black | CABIN-HULL |
 
 ## TREES-SEATED (1)
 
@@ -74,5 +75,41 @@ Regalia ware, a raid's thanks).
 (`rarityTier.js` stampedTier) still answers for it. The wire's `validSetMarks` does not refuse an enchanted Aetheric
 piece, for the same reason: it would make those pieces unreadable to the room.
 
+## CABIN-HULL (6)
+
+`scenes/world.js` csaSyncColliders, csaActivationPick, csaPeerActivationPick, csaActivate; the host's drawModeMeshes,
+csaDrawParticlesBlended, extraBillboards and modeLights. A ship's cabin (SAILING-CABINS) is a building interior built
+at her own root - `sailingCabinEntry` stands the bank ship's room on `trs(origin)`, the origin her
+`GameObject.position` - and her fleet is kept afloat while her owner is below (`keepExteriorBoats`: the network keeps
+its heartbeat). This host's indoor Come Sail Away arms read a boat active indoors as CSA-C's, a boat on a dungeon's
+water that stands in the mode's frame. So the kept fleet was baked into the ROOM's collider (`csaSyncColliders` over
+`csaModeCollider()`, and taken out of the street's), drawn in the room (`drawModeMeshes`, the peers' boats too) and
+pressed from it (`csaActivationPick` in worldModes.js's tryExit ladder). Measured over the vendored Small Ship: her
+decks stood in the room at +0.38, +3.48/3.64 and +6.77 m over her root, crossing the axis-aligned room at her heading -
+the planks and holes of the report's second picture, things on the room's floor down between them - and a press on
+her within 3.2 m opened her rows (the list arm answers every mode but the street's), whose Board and Take the helm ran
+BoardBoat or StartSailing: the player stood on her deck with the mode still the building's - INTERIOR_CLEAR's black
+round her hull, nothing else, the cabin's door under them and Enter cabin refused without a word (the access asks the
+street's mode). That is the void. Now below deck the fleet stays outside: every hull, mine and every peer's, stays in
+the street's collider (a visitor's way out lands on the owner's deck as the owner's does), no pick answers and no
+press runs, and the host draws neither the fleet nor its quads and drops in the room, nor stands its crew and lanterns'
+billboards there or lights the room with them. The same change shuts a second door: the deck the way out lands on had
+gone with the room's collider, and the street's motor takes its first step before the mod's step stands any boat again
+(world.js: player.update, then csaUpdate) - a 0.1 s first frame dropped a body through a Small Ship's bow (7.53 to
+4.19 m measured). It is there from the first step now. `keepExteriorBoats` stays. THE FOUR HOSTS: world.js is the one
+host with a cabin (fixed here); worldModes.js builds the room and asks these arms (unchanged); the standalone
+exterior.js has no sailing runtime and dungeonContext.js no exterior fleet. `03-World/Come-Sail-Away.md`'s cabin
+section says it. `test/fb1003b_cabinhull.test.js`: a deed ship from the real runtime, a peer's off a minted wire
+record, the cabin and its landing from the shipped access, the real motor and collider, world.js's own functions
+lifted from its source; `test/csa_together.test.js`'s, `test/prww1_werewolf.test.js`'s and `test/wb4_gate_boss.test.js`'s
+source pins, five `fb1001b_peerboats` mutants, `prww1.json`'s PRWW1-modal-hook-narrowed-back and `wb4.json`'s
+WB4-the-body-not-drawn re-aimed at the lines moved (each still dead).
+
+**Said, not fixed.** A save taken in the void before this fix restores the cabin at the saved place - the deck's
+height, over a room that no longer holds her deck; `/unstuck` in the chat takes the cabin's own way out (Return to
+deck). Where the bank ship's room stands against her hull is inferred, not seen: SHIPAA00/01's interior is the
+player's ARENA2 and none was here. And the bank-linked Transport path enters the cabin straight after its teleport,
+before the pixels round her have streamed; streaming stays frozen indoors, so they come in after the way out.
+
 Mutation lists: `tools/mutants/fb1003b.json` (AETHERIC-MAKER, 3, 3 dead), `tools/mutants/fb1003b_trees.json`
-(TREES-SEATED, 18, 18 dead).
+(TREES-SEATED, 18, 18 dead), `tools/mutants/fb1003b_cabin.json` (CABIN-HULL, 9, 9 dead).
