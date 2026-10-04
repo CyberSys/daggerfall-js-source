@@ -1176,7 +1176,7 @@ export class QuestMachine {
     // AUDIT 68 S29-share-topics: StartQuest's talk registration, in its place (before the live table) - a received
     // quest's people and places had no 'tell me about'/'where is', and its `dialog link` actions found no quest
     this.deps.addQuestTopics?.(quest);
-    this.quests.set(quest.uid, quest);
+    this.quests.set(quest.uid, quest); this._reseatArrived(quest);   // QUESTOR-MOVED: a copy from before the town mods, mended on arrival (its links made after)
     for (const resource of quest.resources.values()) {
       if (resource.isPlace && resource.siteDetails) this.createSiteLink(quest, resource.symbol);
     }
@@ -1372,6 +1372,7 @@ export class QuestMachine {
       for (const action of task.actions) { if (before.get(`${t}:${a}`) === true && !action.isComplete) action.isComplete = true; a++; }
       t++;
     }
+    this._reseatArrived(quest);   // QUESTOR-MOVED: a partner's copy from before the town mods, mended as it lands
     for (const resource of quest.resources.values()) {
       if (resource.isPlace && resource.siteDetails) this.createSiteLink(quest, resource.symbol);
     }
@@ -1575,21 +1576,54 @@ export class QuestMachine {
   }
 
   /** WD3 (AUDIT WD3 S5): every incomplete quest's building sites whose town stands in another layout now, chosen again
-   *  in it (Place.reseatMovedSite), their site links following. Answers how many moved. */
+   *  in it (Place.reseatMovedSite), their site links following - and (QUESTOR-MOVED) its questors met in a building of
+   *  such a town, seated again in it (Person.reseatMovedQuestor), their halls with them. Answers how many moved. */
   reseatMovedSites(world = this.deps.world ?? null) {
     if (!world) return 0;
     let moved = 0;
-    for (const quest of this.quests.values()) {
-      if (quest.questComplete) continue;
-      for (const resource of quest.resources.values()) {
-        if (!resource.isPlace || !resource.reseatMovedSite?.(world)) continue;
-        moved++;
-        for (const link of this.siteLinks) {
-          if (link.questUID === quest.uid && link.placeSymbol?.name === resource.symbol?.name) link.buildingKey = resource.siteDetails.buildingKey;
-        }
+    for (const quest of this.quests.values()) moved += this._reseatMovedOf(quest, world);
+    return moved;
+  }
+  /** One quest's half of reseatMovedSites - the questors first, so a questor's hall moves with them and never by a
+   *  Place's own law (it has none: Place.reseatMovedSite's Scopes.None). */
+  _reseatMovedOf(quest, world) {
+    if (!world || quest.questComplete) return 0;
+    let moved = 0;
+    const follow = (place) => {
+      for (const link of this.siteLinks) {
+        if (link.questUID === quest.uid && link.placeSymbol?.name === place.symbol?.name) link.buildingKey = place.siteDetails.buildingKey;
       }
+    };
+    for (const resource of quest.resources.values()) {
+      if (!resource.isPerson || !resource.reseatMovedQuestor?.(world)) continue;
+      moved++;
+      const hall = resource.homePlaceSymbol ? quest.getPlace(resource.homePlaceSymbol) : null;
+      if (hall?.siteDetails) follow(hall);
+    }
+    for (const resource of quest.resources.values()) {
+      if (!resource.isPlace || !resource.reseatMovedSite?.(world)) continue;
+      moved++;
+      follow(resource);
     }
     return moved;
+  }
+  /** QUESTOR-MOVED: a quest that ARRIVED (a partner's share, a resync) is mended as a load mends a save's
+   *  (the world host's applyLayoutPins) - a copy taken before the town mods names a questor and sites in a layout it no
+   *  longer stands in. Not before the host knows its towns' layouts: the world seam's `townLayoutsKnown()` (online,
+   *  the service's homes, AUDIT WD3 S4/S5; absent, known) - the load's own reseat runs once it does. */
+  _reseatArrived(quest) {
+    const world = this.deps.world ?? null;
+    if (!world || world.townLayoutsKnown?.() === false) return 0;
+    return this._reseatMovedOf(quest, world);
+  }
+
+  /** QUESTOR-MOVED: the name a static NPC answers to when it was seated as a questor that stood elsewhere
+   *  (Person.reseatMovedQuestor) - the questor's own, the journal's - or null. In DFU the questor's name and the NPC's
+   *  are one (Person.nameSeed is the clicked NPC's, SetupQuestorNPC), so a questor bound where they stand answers
+   *  null here and the NPC's own name stands, as DFU's does. */
+  movedQuestorName(npcData) {
+    const person = this.activeQuestor(npcData);
+    return person && person.nameSeed !== npcData?.nameSeed ? person.displayName : null;
   }
 
   /** WD3 (AUDIT WD3 S3): every incomplete quest's questor met in a building - its town keeps the layout the questor

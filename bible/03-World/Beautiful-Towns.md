@@ -160,9 +160,17 @@ handed over at any smith of its town; a rented room is honoured at any inn of
 its town; a save or a Recall anchor made inside stands the player outside
 rather than through a stranger's door; a quest's building site is chosen again
 in the town as it stands, by the place's own P2/P3, keeping what was assigned to
-it (`Place.reseatMovedSite`, `QuestMachine.reseatMovedSites`). The one record
-not mended: a questor met indoors before the mods, online - the return to them
-asks an NPC that no longer stands in that layout.
+it (`Place.reseatMovedSite`, `QuestMachine.reseatMovedSites`); and a questor
+met indoors is seated again in it (FIELD BUGS 2026-10-03b QUESTOR-MOVED,
+`Person.reseatMovedQuestor`) - in the building the journal names as the town
+now stands, else the first named building holding one of their faction and
+look, on the person there of that faction and look, else of that faction - with
+no roll, so a party's copies agree. The questor keeps their name and the NPC
+answers to it (`movedQuestorName`, the interior's one name derivation); their
+hall moves with them, never by a Place's own P2/P3 (its P2 of 0 read as
+Alchemist); a party member's copy is mended as it arrives (a share, a resync),
+once the towns' layouts are known. A town with no such building keeps the
+record as it was.
 
 Every claim SAYS its town's layout, Daggerfall's own as `null`; a claim that
 names none is a build from before the town mods, and is refused (426
