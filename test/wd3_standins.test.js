@@ -238,7 +238,9 @@ test('WD3 stand-ins, every built piece is sound - Rosy\'s hangings and rugs, the
   // the platform, the foundation, the domes
   assert.deepEqual([box[53160].lo, box[53160].hi], [[-2, -1, -2], [2, 1, 2]]);
   assert.deepEqual([box[53170].lo, box[53170].hi].map((v) => v.map((x) => +x.toFixed(3))), [[-8, -6.4, -8], [8, 1.6, 8]], 'the temples\' floor its top - their doors never walled up (AUDIT WD3 T1)');
-  for (const id of [53182, 53187, 53194]) assert.ok(near(box[id].hi[1], 3.6, 1e-5) && near(box[id].lo[1], -1.2, 1e-5), id);
+  // FIELD BUGS 2026-10-04b DOMES: the pack's own meshes at their prefabs' scale - the drum's foot on the origin, the crown at
+  // 8.43 m, 03's spire (53182, 53194) at 10.75 m (test/fb1004b_domes.test.js holds the whole profile)
+  for (const id of [53182, 53187, 53194]) assert.ok(near(box[id].lo[1], 1.15 * 0.046875, 1e-5) && near(box[id].hi[1], (id === 53187 ? 179.8 : 229.4) * 0.046875, 1e-5) && near(box[id].hi[0], 4.8, 1e-5), id);
   // Rosy's: the small hangings hang from their rod, the rugs lie on the floor
   for (const id of [69467, 69468, 69469]) assert.ok(box[id].tex.has(`${TOWN_PICTURE_ARCHIVE}_${PICTURE.smallHanging(id - 69467)}`) && near(box[id].lo[1], -0.6, 1e-5), id);
   for (const id of [69471, 69472]) assert.ok(near(box[id].lo[1], 0) && near(box[id].hi[1], 0.012, 1e-5), id);
