@@ -195,12 +195,12 @@
   {
     "name": "ACC1b-20-an-authenticated-caller-is-unbounded",
     "file": "server-account/src/index.js",
-    "old": "      if (await overRate(ctx, `acct:${who.player.id}`, ACCOUNT_MAX, ACCOUNT_WINDOW_S)) {\n        return no('rate', 429, origin);\n      }",
-    "new": "      void ACCOUNT_MAX; void ACCOUNT_WINDOW_S;",
+    "old": "      if (overAccountRate(who.player.id, nowS, ACCOUNT_MAX, ACCOUNT_WINDOW_S)) {\n        return no('rate', 429, origin);\n      }",
+    "new": "      void overAccountRate; void ACCOUNT_MAX; void ACCOUNT_WINDOW_S;",
     "tests": [
       "test/accountworker.test.js"
     ],
-    "note": "AUDIT-ACC F12 put back: the shape that shipped, where only the open routes were bounded. One valid session could mint Ed25519 signatures and spend D1 without limit - a limit on strangers and not on members is a limit on the wrong axis."
+    "note": "AUDIT-ACC F12 put back: the shape that shipped, where only the open routes were bounded. One valid session could mint Ed25519 signatures and spend D1 without limit - a limit on strangers and not on members is a limit on the wrong axis. ACCT-RATE-MEM: re-aimed at the check as it stands - counted in the isolate's memory (accounts.js overAccountRate)."
   },
   {
     "name": "ACC1b-21-the-rate-limited-caller-is-told-their-secret-is-wrong",

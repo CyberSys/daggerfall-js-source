@@ -38,20 +38,22 @@
   {
     "name": "harbour-at-far",
     "file": "src/ui/inkMap.js",
-    "old": "    if (opts.ports && m.port && band !== 'far') paintHarbour(ctx, x, y);",
-    "new": "    if (opts.ports && m.port) paintHarbour(ctx, x, y);",
+    "old": "    if (opts.ports && m.port) harbours.push([ink, ...toPaper(view, m.x, m.y)]);",
+    "new": "    if (opts.ports && m.port && band !== 'far') harbours.push([ink, ...toPaper(view, m.x, m.y)]);",
     "tests": [
       "test/heldmap.test.js"
-    ]
+    ],
+    "note": "PORT-MAP (PIN MOVED, 2026-10-04): the law reversed - a port's anchor at EVERY band now; re-aimed by content to MAP2's far gate coming back, which the moved pin (at far too) kills."
   },
   {
     "name": "harbour-always",
     "file": "src/ui/inkMap.js",
-    "old": "    if (opts.ports && m.port && band !== 'far') paintHarbour(ctx, x, y);",
-    "new": "    if (m.port && band !== 'far') paintHarbour(ctx, x, y);",
+    "old": "    if (opts.ports && m.port) harbours.push([ink, ...toPaper(view, m.x, m.y)]);",
+    "new": "    if (m.port) harbours.push([ink, ...toPaper(view, m.x, m.y)]);",
     "tests": [
       "test/heldmap.test.js"
-    ]
+    ],
+    "note": "PORT-MAP (PIN MOVED, 2026-10-04): re-aimed by content - the anchors gathered by the paint's own `ports`."
   },
   {
     "name": "mark-per-window",

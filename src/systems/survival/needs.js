@@ -41,6 +41,10 @@ import { HARD_RULES } from './difficulty.js';
 const STIFF_PENALTY = 5;
 import { MINUTES_PER_DAY } from '../gameDate.js';
 
+/** RATIONS-HUNGRY: the hunger stages a sack of rations in the pack is eaten at by itself (Starving alone until
+ *  2026-10-03). Peckish is not one - a sack is a full meal, and Peckish is a rumble, not a need. */
+export const AUTO_EAT_STAGES = Object.freeze(['hungry', 'starving']);
+
 export const NEED = Object.freeze({
   PECKISH_AT: 240, HUNGRY_AT: 720, STARVING_AT: 1440,   // minutes since a meal
   THIRSTY: 50, PARCHED: 80, DEHYDRATED: 100, THIRST_MAX: 150,
@@ -181,6 +185,17 @@ export function landWakingDebt(s, now) {
   s.wakingUntil = 0;
   s.sleepDebt = Math.min(NEED.SLEEP_DEBT_MAX, (s.sleepDebt ?? 0) + WAKING_DEBT_HOURS);
   return true;
+}
+
+/** SLEEP PAYS ITS DEBT BY ITS QUALITY: `minutes` asleep `sleeping` ('bed' | 'camp' | 'rough') take what they pay off the
+ *  record's debt, never below the tier's rough floor, and the sleeper is awake from `now`. The minute law pays its
+ *  minute here; REST-SLEEP1's short rest (systems/restAct.js sleepShortRest) a night's minutes at once, no clock moving. */
+export function paySleep(s, sleeping, minutes, now, rules = HARD_RULES) {
+  const rate = sleeping === 'rough' ? 0.5 : 1.5;   // hours of debt per hour asleep
+  const floor = sleeping === 'rough' ? SLEEP_FLOOR_AT[rules.roughSleepFloor] ?? 0 : 0;   // SURV-TIERS: Hard's rough night never pays below tired; Casual's pays down to nothing
+  const next = s.sleepDebt - rate * minutes / 60;
+  s.sleepDebt = s.sleepDebt >= floor ? Math.max(floor, next) : Math.max(0, next);   // AUDIT SURV A: the floor holds from above and never lifts a rested sleeper up to it
+  s.awakeSince = now;
 }
 
 export function survivalStatMods(s, temp, now, { endurance = 50, rules = HARD_RULES, vampire = false } = {}) {
@@ -399,7 +414,9 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
   const hungerNow = vampire ? 'fed' : hungerStage(hunger);
   let refunded = 0;   // AUDIT SURV-TIERS (the third pass): the fed hour's refund is a refill the loan is settled by (loanPool)
   if (hungerNow === 'fed' && !vampire) { s.fed += 1; if (s.fed >= WELL_FED_MINUTES) { s.fed = 0; sinks.restoreFatigue?.(DRAIN.wellFed); refunded = DRAIN.wellFed; } }
-  if (hungerNow === 'starving' && autoEat) {
+  // RATIONS-HUNGRY (2026-10-03, Mac: "With C&C let it auto consume any rations in inventory when hungry"): a sack in
+  // the pack is eaten as the player turns Hungry, not left until they starve - the Hungry line never said over food
+  if (AUTO_EAT_STAGES.includes(hungerNow) && autoEat) {
     const sack = items.find((i) => i.templateIndex === TEMPLATE.Rations && isFood(i));
     if (sack) { eatRations(entity, sack, now, say); }
   }
@@ -474,11 +491,7 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
   if (!vampire) {
     if (landWakingDebt(s, now)) say?.(SURVIVAL_TEXT.wakingEnd);   // REST6: the salts' hour is over
     if (sleeping) {
-      const rate = sleeping === 'rough' ? 0.5 : 1.5;   // hours of debt per hour asleep
-      const floor = sleeping === 'rough' ? SLEEP_FLOOR_AT[rules.roughSleepFloor] ?? 0 : 0;   // SURV-TIERS: Hard's rough night never pays below tired; Casual's pays down to nothing
-      const next = s.sleepDebt - rate / 60;
-      s.sleepDebt = s.sleepDebt >= floor ? Math.max(floor, next) : Math.max(0, next);   // AUDIT SURV A: the floor holds from above and never lifts a rested sleeper up to it
-      s.awakeSince = now;
+      paySleep(s, sleeping, 1, now, rules);
     } else if (awakeHours(s, now) > NEED.AWAKE_FREE_HOURS) {
       s.sleepDebt = Math.min(NEED.SLEEP_DEBT_MAX, s.sleepDebt + 1 / 60);
     }
@@ -607,7 +620,7 @@ export function drinkWater(entity, now, say = null) {
 }
 
 /** Rations: a sack feeds one meal's worth (FOOD[Rations].satiety) and
- *  the marker lands at now - 10 so a starving player is fed at once. */
+ *  the marker lands at now - 10 so a hungry or starving player is fed at once. */
 export function eatRations(entity, sack, now, say = null) {
   const s = survivalOf(entity, now);
   const items = entity.items ?? [];

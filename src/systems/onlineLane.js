@@ -210,8 +210,8 @@ export function onlineForcedPref(key, search) {
  *     the Shield Widget's block is always the defender's own;
  *   - Oblivion leveling is written into a CHARACTER at creation and
  *     kept by that character; Handheld Torches is an item in my save
- *     with a light on my screen; Travel Options is my own journey
- *     (OL2 already spends no world time online).
+ *     with a light on my screen. (Travel Options was "my own journey"
+ *     here until TRAVEL-ONLINE, below: its off switch was a teleport.)
  *
  * None of those reaches a second machine as a RULE. Each reaches it as
  * a RESULT, which is exactly what the wire carries.
@@ -271,13 +271,16 @@ export function onlineForcedPref(key, search) {
  * Calories reaches another player only through a corpse's FOOD -
  * meat and rations, no power and no gear - and forcing it means
  * nobody may opt out of freezing to death, which is a live
- * complaint; the Shield Widget, Handheld Torches, Oblivion leveling
- * and Travel Options only ever make the player's OWN run harder or
- * easier, and the last two of those mostly harder.
+ * complaint; the Shield Widget, Handheld Torches and Oblivion leveling
+ * only ever make the player's OWN run harder or easier.
  *
  * So: what the lane forces is the floor the room stands on, and the
  * three switches that spend a stranger's evening. (CORPSE-FOOD, 2026-09-23: the food itself is the room's - minted online whatever the tier, survival/switch.js corpseFoodOn - and the tier stays the player's.)
  */
+/** AUDIT TRAVEL-ONLINE T7: what the map says if a trip over land ever reaches fast travel online (world.js's fork) -
+ *  unreachable while the room holds Travel Options' switches, said rather than teleported should it ever be reached. */
+export const ONLINE_LAND_TRAVEL_REFUSAL = 'Online, a journey over land is travelled, not skipped. Turn on Travel Options and try again.';
+
 export const ONLINE_ROOM_MOD_KEYS = Object.freeze({
   'roads-hazelnut': Object.freeze({
     Enabled: true,        // which network is painted, and so which beds are smoothed
@@ -310,6 +313,21 @@ export const ONLINE_ROOM_MOD_KEYS = Object.freeze({
   // puppets and fights them, and a raid's deaths are every owner's summed. A player with the switch off would walk a
   // raided town the others fight in, unable to see the raiders striking him; the switch is the room's.
   'world-events-raiding-parties': Object.freeze({ Enabled: true }),
+  // TRAVEL-ONLINE (2026-10-03, Mac: "Remove instant travel online"; and TO-ONLINE's own words, 2026-09-19: "travel
+  // options uses instant travel for the online mod, which shouldn't be the case"): online a trip on the map is TRAVELLED -
+  // the mod's journey, or the Overworld's on the enhanced skin - never Daggerfall's fast travel, which online is a
+  // teleport (it arrives at the world's present: no world time to spend). Three switches reached that teleport: the mod
+  // off, and either of the two dials that send a Cautious or an Inns trip down the journey (ui/travelPopUp.js
+  // isPlayerControlledTravel; TO-LIVE put both on the tile). AUDIT TRAVEL-ONLINE T1: and a fourth - the ports rule. Off,
+  // nothing knocks the ship toggle (on by default, travelMapState.js) off a trip from the wilderness to an inland place,
+  // and a ship is never walked: the teleport again, free with Camp Out. All four are the room's, at the shipped defaults.
+  // A ship's passage from a port, and a party's journey to its leader (DFU's fast travel by design), are not touched.
+  'travel-options': Object.freeze({
+    Enabled: true,
+    'CautiousTravel.PlayerControlledCautiousTravel': true,
+    'StopAtInnsTravel.PlayerControlledInnsTravel': true,
+    'ShipTravel.OnlyFromPorts': true,
+  }),
   // DW-A to DW-D (2026-09-25): the fourth floor, and more than a floor. Iliac
   // Puddle No More carves the sea out from under the terrain - the switch
   // and the depth decide where the seafloor stands, so two players who
@@ -407,7 +425,6 @@ export const ONLINE_PLAYERS_OWN_MODS = [
   'shield-widget',               // the block is the DEFENDER's - damageShieldPool runs where the blow lands
   'handheld-torches',            // an item in my save with a light on my screen
   'oblivion-remaster-leveling',  // written into a character at creation and kept by that character
-  'travel-options',              // my own journey; OL2 already spends no world time online
   'diverse-weapons',        // DW1: the first-person weapon's and the icons' art - drawn on your own screen and nowhere else
   'horse-cart-and-cargo',   // HCC: whose horse and wagon stand where is the player's own; the others only SEE them (the online half rides the pose and the cell's frame, never a switch of the room's ground)
   'warm-ashes-ships',       // WA1: my own voyage's ambush - my quest, my crew and pirates (a spawner's foes, WORLD2: a peer on the same deck sees them fight), my lent ship; the pirate vessels are my blocks' variant and stand 40-140 m off in open water, where a peer without them sees sea
