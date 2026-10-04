@@ -167,6 +167,7 @@ export function fakeRoom(key, { now = () => Date.now(), ROOMS = null } = {}) {
       close(code, reason) { this.closed = { code, reason }; const i = sockets.indexOf(ws); if (i >= 0) sockets.splice(i, 1); },
       serializeAttachment(a) { if (JSON.stringify(a).length > 2048) throw new Error('attachment too large'); this.att = JSON.parse(JSON.stringify(a)); }, deserializeAttachment() { return this.att; } };
     state.acceptWebSocket(ws);
+    room._adopt?.(ws, ws.att);   // SCALE2b: a socket comes in by the object's door (Room.fetch adopts it), as the runtime's do
     return ws;
   };
   const look = { race: 'Nord', gender: 'male', faceIndex: 0, items: [] };

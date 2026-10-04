@@ -39,6 +39,21 @@
 // Every rate whole over the clock, as the fire's (wardRatesWhole); every pattern round the ring a whole number of
 // itself, so no seam behind the wearer.
 //
+// PRIMARCH (2026-10-04, GA00250, relayed by the owner: "can the aura be a golden light around the character? like i've
+// seen some rare mobs with it" - the elite foes' glow, systems/hitFlash.js ELITE_GLOW_GLSL: a warmth, an edge of light
+// round the silhouette and embers rising off it): THE GOLDEN RADIANCE, the third aura, the same pass's third look. Not a
+// mark on the ground but LIGHT ABOUT THE BODY:
+//   - THE WALL: a column of golden light the body's own width (RADIANCE_R) standing past the crown (RADIANCE_H), lit as
+//     a glowing shell is - faint where it crosses the body (the eye looks straight through it) and brightest at its two
+//     edges, where the eye looks along it, so it reads as light ROUND the wearer, a halo up the silhouette, and never as
+//     a gold wash over them; shafts in it climbing, fading toward the top, breathing; RADIANCE_MOTES golden motes rising
+//     the column's height at their own places and paces, the elite's embers. From inside it (the wearer's own first
+//     person) the column is not drawn - only its motes, dimmer - so the wearer's own view is never veiled in gold.
+//   - THE GROUND: the light the column throws - a pool, brightest at the feet; a white-gold ring at the column's foot;
+//     RADIANCE_RAYS rays out across the pool, turning slowly.
+// It kindles UP: the ground lights as the fire's does, and the column rises from the feet to past the crown. Every rate
+// whole over the clock (radianceRatesWhole). No third draw.
+//
 // Not a DFU member. Ledger A (WB).
 import { FOG_FACTOR_GLSL } from './labGrass.js';
 import { buildProgram } from './glProgram.js';
@@ -92,11 +107,34 @@ export const WARD_SCRIPT = Object.freeze([25, 38, 51, 12, 19, 40, 61, 18, 33, 15
 /** Its light: the ward's violet (the Aegis of Oblivion's own - ui/playerBadge.js OBLIVION_VIOLET), the lilac-white at a
  *  line's heart (OBLIVION_LILAC), and the abyss's violet in the mist (OBLIVION_ABYSS). RGB 0..1. */
 export const WARD_RGB = Object.freeze({ violet: Object.freeze([0.698, 0.302, 1]), heart: Object.freeze([0.925, 0.863, 1]), abyss: Object.freeze([0.302, 0.102, 0.58]) });
+/** PRIMARCH: THE GOLDEN RADIANCE'S MEASURES - the column's radius about the body (clear of the shoulders, inside the
+ *  fire's ring) and its height (past the crown: the walking body is 1.8 m, player/motor.js CAPSULE_HEIGHT), the pool's
+ *  reach on the ground (inside the ground quad), the rays round it, the motes up it, and the shafts' lattice cells round
+ *  the column. */
+export const RADIANCE_R = 0.6;
+export const RADIANCE_H = 2.2;
+export const RADIANCE_POOL_R = 1.15;
+export const RADIANCE_RAYS = 12;
+export const RADIANCE_MOTES = 18;
+export const RADIANCE_ROUND = 24;
+/** Its rates (Hz), each a whole number of cycles over AURA_CLOCK_PERIOD: the light's breath, the rays' turn (a turn in
+ *  30 s), and the slowest mote's climb (the others two and three times it); and the shafts' climb in lattice cells a
+ *  second. */
+export const RADIANCE_HZ = Object.freeze({ pulse: 1 / 4, rays: 1 / 30, mote: 1 / 6 });
+export const RADIANCE_FLOW = Object.freeze({ shafts: 0.5 });
+/** Every radiance rate whole over the clock. Pure. */
+export const radianceRatesWhole = () => [...Object.values(RADIANCE_HZ), ...Object.values(RADIANCE_FLOW)]
+  .every((r) => Number.isInteger(Math.round(r * AURA_CLOCK_PERIOD * 1e6) / 1e6));
+/** Its light: the gold the column glows in (the elite foe's warmth, a step paler - systems/hitFlash.js ELITE_GOLD
+ *  #ffad29), and the white-gold at the ring's heart and in the motes - the Primarch's own light gold (ui/playerBadge.js
+ *  PRIMARCH_GOLD, the menu's #d8cfae). RGB 0..1. */
+export const RADIANCE_RGB = Object.freeze({ gold: Object.freeze([1, 0.741, 0.278]), heart: Object.freeze([0.847, 0.812, 0.682]) });
 /** AEGIS: HOW EACH AURA IS DRAWN - its kind in the shader (`uAura`), its ring's radius, its wall's height and how many
  *  symbols float off it (the third draw - none for the fire). A pin walks AURAS and requires one each. */
 export const AURA_LOOK = Object.freeze({
   dagonfire: Object.freeze({ kind: 0, ringR: AURA_RING_R, flameH: AURA_FLAME_H, glyphs: 0 }),
   oblivionward: Object.freeze({ kind: 1, ringR: WARD_RING_R, flameH: WARD_WALL_H, glyphs: WARD_GLYPHS }),   // and its floating symbols
+  radiance: Object.freeze({ kind: 2, ringR: RADIANCE_R, flameH: RADIANCE_H, glyphs: 0 }),   // PRIMARCH: the column about the body
 });
 /** The look a wearer's aura is drawn with - Dagon's Fire for one that names none (the fire was the only aura before). */
 export const auraLookOf = (aura) => (typeof aura === 'string' && Object.hasOwn(AURA_LOOK, aura) ? AURA_LOOK[aura] : AURA_LOOK.dagonfire);
@@ -278,6 +316,53 @@ vec3 wardWall(vec2 q) {
   return col * wardDrawn(fract(u + 0.5));
 }
 `;
+/** PRIMARCH: THE GOLDEN RADIANCE'S LIGHT - the column about the body (its wall) and the light it throws on the ground. */
+const RADIANCE_GLSL = `
+const vec3 RAD_GOLD = ${v3(RADIANCE_RGB.gold)};
+const vec3 RAD_HEART = ${v3(RADIANCE_RGB.heart)};
+float radianceBreath() { return 0.85 + 0.15 * sin(uTime * TAU ${hzGlsl(RADIANCE_HZ.pulse)}); }
+vec3 radianceGround(vec2 p) {
+  float r = length(p), a = atan(p.y, p.x);
+  if (r > uGroundR) discard;
+  float R = uRingR, breath = radianceBreath();
+  // THE POOL: the light the column throws, brightest at the feet and gone before the quad's edge
+  vec3 col = RAD_GOLD * exp(-r * r / 0.30) * 0.42 * breath;
+  // THE RING at the column's foot: a white-gold line in a golden glow
+  float dr = r - R;
+  col += RAD_GOLD * exp(-dr * dr / 0.0016) * 0.55 * breath + RAD_HEART * exp(-dr * dr / 0.00018) * 0.7;
+  // THE RAYS out from the ring across the pool, turning slowly - a whole number round, so no seam behind the wearer
+  float ray = pow(0.5 + 0.5 * cos(${RADIANCE_RAYS.toFixed(1)} * (a - uTime * TAU ${hzGlsl(RADIANCE_HZ.rays)})), 8.0);
+  col += RAD_GOLD * ray * 0.3 * breath * smoothstep(R * 0.9, R + 0.08, r) * (1.0 - smoothstep(R + 0.15, ${RADIANCE_POOL_R.toFixed(3)}, r));
+  return col * (1.0 - smoothstep(uGroundR - 0.2, uGroundR, r));
+}
+vec3 radianceWall(vec2 q) {
+  float u = q.x, v = q.y;
+  // A GLOWING SHELL: faint where the eye looks through it (across the body), brightest where it looks along it (the
+  // silhouette's two edges) - the horizontal facing of the column's surface to the eye
+  float an = u * TAU;
+  vec2 e = uCamPos.xz - vWorld.xz;
+  float facing = dot(e, e) > 1e-8 ? abs(dot(vec2(cos(an), sin(an)), normalize(e))) : 1.0;
+  float rim = 0.14 + 0.86 * pow(1.0 - facing, 2.0);
+  // the shafts climbing it, and the column fading toward its top
+  float shaft = vnoiseP(vec2(u * ${RADIANCE_ROUND.toFixed(1)}, v * 2.5 - uTime * ${RADIANCE_FLOW.shafts.toFixed(3)}), vec2(${RADIANCE_ROUND.toFixed(1)}, ${(RADIANCE_FLOW.shafts * AURA_CLOCK_PERIOD).toFixed(1)}));
+  float rise = (1.0 - smoothstep(0.4, 1.0, v)) * (0.7 + 0.3 * (1.0 - v));   // whole to the chest, gone past the crown
+  // never from inside it: the wearer's own first person sees no gold veil, only the motes, dimmer
+  float outside = smoothstep(uRingR + 0.1, uRingR + 0.6, length(uCamPos.xz - uAt.xz));
+  vec3 col = RAD_GOLD * rim * rise * (0.35 + 0.65 * shaft * shaft) * 0.75 * radianceBreath() * outside;
+  // THE MOTES, rising the column's height each at its own place and pace, kindling off the ground and dimming as they go
+  float circ = TAU * uRingR, sparks = 0.0;
+  for (int m = 0; m < ${RADIANCE_MOTES}; m++) {
+    float fm = float(m);
+    float h1 = fract(sin(fm * 63.71 + 2.3) * 43758.5453), h2 = fract(sin(fm * 27.13 + 5.9) * 24634.6345);
+    float mv = fract(uTime ${hzGlsl(RADIANCE_HZ.mote)} * (1.0 + mod(fm, 3.0)) + h2);
+    vec2 dm = vec2((fract(u - h1 + 0.5) - 0.5) * circ, (v - mv) * uFlameH);
+    sparks += exp(-dot(dm, dm) / 0.0005) * (1.0 - mv) * smoothstep(0.0, 0.08, mv);
+  }
+  col += (RAD_HEART + RAD_GOLD) * 0.55 * sparks * mix(0.35, 1.0, outside);
+  // kindled UP: the light rising from the feet
+  return col * clamp((uKindle * 1.25 - v) / 0.15, 0.0, 1.0);
+}
+`;
 export const AURA_VS = HEAD + `layout(location = 0) in vec2 aP;   // the ground: a corner -1..1; the flames: x the step round 0..1, y up 0..1; a symbol: x its number * 2 + the corner's u, y its v
 uniform mat4 uVP;
 uniform int uKind;      // 0 the ground, 1 the flames, 2 the ward's floating symbols (AEGIS)
@@ -321,7 +406,8 @@ export const AURA_FS = HEAD + `in vec2 vP;
 in vec3 vWorld;
 in vec3 vS;             // AEGIS: a floating symbol's age, rune and number
 uniform int uKind;
-uniform int uAura;      // AEGIS: 0 Dagon's Fire, 1 the Oblivion Ward (AURA_LOOK)
+uniform int uAura;      // AEGIS: 0 Dagon's Fire, 1 the Oblivion Ward, 2 the Golden Radiance (AURA_LOOK - PRIMARCH)
+uniform vec3 uAt;       // PRIMARCH: the feet - the axis the radiance's column stands on
 uniform float uTime, uSeed, uKindle, uRingR, uGroundR, uFlameH;
 uniform int uFogMode;
 uniform float uFogDensity;
@@ -330,8 +416,9 @@ uniform vec3 uCamPos;
 out vec4 o;
 ${FOG_FACTOR_GLSL}${NOISE_GLSL}
 const float TAU = 6.283185307179586;
-${WARD_GLSL}
+${WARD_GLSL}${RADIANCE_GLSL}
 void main() {
+  if (uAura == 2) { vec3 rad = uKind == 0 ? radianceGround(vP) : radianceWall(vP); o = vec4(rad * uKindle * fogFactorAt(vWorld), 1.0); return; }   // PRIMARCH
   if (uAura == 1) { vec3 ward = uKind == 0 ? wardGround(vP) : uKind == 1 ? wardWall(vP) : wardSymbol(vP, vS); o = vec4(ward * uKindle * fogFactorAt(vWorld), 1.0); return; }   // AEGIS
   // every rate a whole number of cycles over the clock, in turns a second times TAU - never a rounded radian rate, which
   // drifts off whole by its rounding times the period and steps the picture at the wrap
