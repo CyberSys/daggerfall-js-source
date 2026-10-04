@@ -54,7 +54,7 @@ import { flattenNif } from '../formats/mwNifMesh.js';
 import {
   assembleFirstPersonArm, poseAssembly, armPieceRows, clipReport, clipUnionBounds, clipSweepTimes, bindPartsInto,
   armReport, armMeshPaths, bodyParts,
-  weaponRecords, dfWeaponToMw, pickWeaponRecord, weaponAttachBone, MW_WEAPON_TYPE,
+  weaponRecords, dfWeaponToMw, dfWeaponShape, pickWeaponRecord, weaponAttachBone, MW_WEAPON_TYPE,
   ammoTypeFor, arrowAttachBone, ARROW_FALLBACK_NODE, reloadsItself, shootsRatherThanSwings,
   firstPersonCameraRef, composeStanceGroup, composeWeaponGroup, mwAttackType, attackKeys, MW_SHOOT_ATTACK, strikeReversed,
   weaponShortGroup, calculateWindUp, releaseStartPoint, EQUIP_KEYS, UNEQUIP_KEYS, isRealWeapon,
@@ -1290,7 +1290,7 @@ export function fpWeaponKey(item, hasAmmo) {
   // (lycanthropy.js WERECLAWS_ITEM, material 0) - to a Morrowind arm that is hand-to-hand, the bare fist - and keyed
   // as "Iron" they were a weapon swap on every transformation (the equip replayed on a body about to be replaced).
   const hand = item && item.werecreatureClaws ? null : item;
-  return `${dfWeaponToMw(hand, WEAPONS)}:${hand ? materialName(hand) : ''}:${hasAmmo ? 1 : 0}`;
+  return `${dfWeaponToMw(hand, WEAPONS)}:${hand ? materialName(hand) : ''}:${hasAmmo ? 1 : 0}:${dfWeaponShape(hand, WEAPONS) ?? ''}`;
 }
 
 /**
@@ -1347,7 +1347,7 @@ export function weaponPartPaths({ weapon, hasAmmo = false, allWeapons, has = nul
   if (own) return [`meshes/${own.model}`];
   const mwType = dfWeaponToMw(weapon, WEAPONS);
   if (mwType === MW_WEAPON_TYPE.None) return paths;
-  const rec = pickWeaponRecord(allWeapons, mwType, weapon ? materialName(weapon) : null, { has });   // MW-D50: a record the archives carry
+  const rec = pickWeaponRecord(allWeapons, mwType, weapon ? materialName(weapon) : null, { has, shape: dfWeaponShape(weapon, WEAPONS) });   // MW-D50: a record the archives carry
   if (rec) paths.push(`meshes/${rec.model}`);
   const ammoType = ammoTypeFor(mwType);
   if (ammoType !== MW_WEAPON_TYPE.None && hasAmmo) {
@@ -1547,7 +1547,7 @@ export function resolveWeaponParts({ weapon, hasAmmo = false, allWeapons, find, 
     return { mwType: own.animateAs, parts, weaponInfo, arrowInfo, notes };
   }
   if (mwType !== MW_WEAPON_TYPE.None) {
-    const rec = pickWeaponRecord(allWeapons, mwType, weapon ? materialName(weapon) : null, { has });   // MW-D38; MW-D50: a record the archives carry
+    const rec = pickWeaponRecord(allWeapons, mwType, weapon ? materialName(weapon) : null, { has, shape: dfWeaponShape(weapon, WEAPONS) });   // MW-D38; MW-D50: a record the archives carry
     if (!rec) {
       notes.push(`weapon: your archives carry no unenchanted Morrowind weapon of type ${mwType}`);
     } else {
@@ -2981,7 +2981,7 @@ export function createFpArm() {
         const own = ownWeaponModelFor(item);
         if (own) return { id: own.id, model: own.model };
         const mwType = dfWeaponToMw(item, WEAPONS);
-        return mwType !== MW_WEAPON_TYPE.None ? pickWeaponRecord(cat.weapons, mwType, materialName(item)) : null;
+        return mwType !== MW_WEAPON_TYPE.None ? pickWeaponRecord(cat.weapons, mwType, materialName(item), { shape: dfWeaponShape(item, WEAPONS) }) : null;
       }
       if (item.group === 'Armor') {
         return mwArmorRecords(cat.armors, item.templateIndex, item.material ?? 0).records[0] ?? null;
@@ -3184,7 +3184,10 @@ export function createFpArm() {
       climbLast = climbRequestToRig(cw, { feet: snap.feet, yaw: snap.yaw, unitsPerMetre: MW_UNITS_PER_METER, weight: rs.weight, height: rs.height });
       return climbLast;
     }
-    return climbLast ? { ...climbLast, w: cw.w } : null;
+    return climbLast ? { ...climbLast, w: cw.w,
+      // A completed vault may release after its last mapped frame (the motor already removed the snapshot).
+      hands: cw.hands.L.w > 0 || cw.hands.R.w > 0 ? climbLast.hands : null,
+    } : null;
   }
   /** CLIMB6: ...and the FIRST-PERSON arms' - the hands only, each reaching along the line from the rig's eye through
    *  where its hold stands on screen (the arms are laid over the world: the grip covers the stone in the picture). The

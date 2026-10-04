@@ -66,8 +66,8 @@
   {
     "name": "AUDIT-NAV2-F17-the-panel-under-the-view",
     "file": "src/scenes/world.js",
-    "old": " || !hudRenderEnabled() || !!travelView?.active,",
-    "new": " || !hudRenderEnabled(),",
+    "old": " || !hudRenderEnabled() || !!travelView?.active || !!_travelUIHolder.ui?.isShowing,",
+    "new": " || !hudRenderEnabled() || !!_travelUIHolder.ui?.isShowing,",
     "tests": [
       "test/auditnav2_helm.test.js"
     ]

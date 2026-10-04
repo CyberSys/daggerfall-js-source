@@ -6343,6 +6343,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const deck = raycastColliders(pick.boat.GameObject, o, [0, -1, 0], 3, { triggers: true, geometry: csaColliderMesh });
     const d = deck && (!ground || deck.distance < ground.distance) ? deck.distance : ground ? ground.distance : null;
     csaSetPlayerPosition([c[0], alignControllerToGround(c[1], d, player.height ?? CAPSULE_HEIGHT, 3), c[2]]);
+    csaFinishBoarding();
     if (csaAboard.board(pick.boat, CSA_ABOARD_GRACE)) csaSyncColliders();
     cam.pos = player.eyeAt();
   }
@@ -6508,6 +6509,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   let _csaMovedPlayer = false;   // CSA-D: the helm wrote the player's transform this frame - the eye follows
   /** CSA-D: the PlayerObject's transform written - the controller's centre, the feet half a height below. */
   const csaSetPlayerPosition = (c) => { player.pinFeet(c[0], c[1] - player.height / 2, c[2]); _csaMovedPlayer = true; };
+  // Ladder boarding is a placement, unlike the continuous helm/deck carry.
+  // Drop the incoming fall and airborne drift after alignment to the deck.
+  const csaFinishBoarding = () => { player.spawn(...player.pos); };
   let _csaTime = 0;   // CSA-C: Time.time for the mod - the game's, held by a pause
   let _csaHour = null;   // CSA-E: WorldTime's lastHour, for OnNewHour
   // ── CSA-I: the position reading's host - its pause (a window in the mode's slot), the keys and the mouse as
@@ -6671,6 +6675,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     },
     helm: {
       setPlayerPosition: csaSetPlayerPosition,
+      finishBoarding: csaFinishBoarding,
       setFacing: (yawDeg, pitchDeg) => csaSetFacing(yawDeg, pitchDeg),   // PlayerMouseLook.SetFacing -> Init: the owed look dropped
       turnPlayer: (deg) => { cam.yaw += (deg * Math.PI) / 180; },   // the child's world yaw turned with its parent's
       freeze: (seconds) => { player.freezeMotor = seconds; },
@@ -7539,13 +7544,19 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   /** The plunder window over the world, the hold's loot window between two of its presses (navalPlunderDoor.js). */
   function navalOpenPlunder(model) {
-    let why = 'close';
+    let why = 'close', hold = null;
     const win = createNavalPlunderOverlay({
       model, nameOf: (item) => itemLongName(item),
+      prepareHold: () => {
+        // DISC10-E L3: a beast's refusal is the pack door's own (its DFU box, said there) - never a host's copy; refused, it is null
+        if (!inventoryDoorReady()) return 'Inventory is still loading. Please try again.';
+        hold = makeInventoryWindow({ loot: { items: () => model.items, containerImage: () => CONTAINER_IMAGES.Chest, playerOwned: false } });
+        return hold ? null : 'The hold could not be opened.';
+      },
       onClose: (reason) => { why = reason; if (reason !== 'hold' && model.raid && !model.fated()) model.fate('sail'); if (reason === 'leave') model.leave?.(); },   // a voyage's raid never waits on a window shut; AUDIT NAV1 (B11): Leave her - back to my own helm
     });
     if (!win) return false;
-    townTalk.showOverlay(win, () => { if (why === 'hold') navalOpenHold(model); });
+    townTalk.showOverlay(win, () => { if (why === 'hold') navalOpenHold(model, hold); });
     return true;
   }
   /** AUDIT NAV1 (the helm): the shipwright's window over the world (navalPlunderDoor.js's yard door). */
@@ -7555,9 +7566,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     townTalk.showOverlay(win);
     return true;
   }
-  function navalOpenHold(model) {
-    const inv = inventoryDoorReady() ? makeInventoryWindow({ loot: { items: () => model.items, containerImage: () => CONTAINER_IMAGES.Chest, playerOwned: false } }) : null;
-    if (!inv) { navalOpenPlunder(model); return; }
+  // Reuse the inventory prepared before closing plunder; it owns the loot window's setup.
+  function navalOpenHold(model, inv) {
+    if (!inv) { townTalk.say('The hold could not be opened. Please try again.', 4); navalOpenPlunder(model); return; }
     townTalk.showOverlay(inv, () => { if (!model.fated()) navalOpenPlunder(model); });
   }
   const navalFlames = createNavalFlames({ renderer, getTexture, uploadRecordFrame });
@@ -8163,7 +8174,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const ab = helm ? null : csaAboard.aboard;
     drawEnhancedHelm({
       helm, aboard: ab ? { hull: ab.boat.hull, owner: peerName(ab.owner) } : null,
-      covered: townTalk.hudCovered || (modes?.hudCovered ?? false) || gamePaused() || !hudRenderEnabled() || !!travelView?.active,   // AUDIT NAV2 F17: under the travel view a journey holds the helm - its hand sets her sails, the arrows turn the view
+      covered: townTalk.hudCovered || (modes?.hudCovered ?? false) || gamePaused() || !hudRenderEnabled() || !!travelView?.active || !!_travelUIHolder.ui?.isShowing,   // A first-person journey also owns the helm. AUDIT NAV2 F17: under the travel view a journey holds the helm - its hand sets her sails, the arrows turn the view
       touch: !!touch, mouseFree: cursorActive() || pointerSurfaces.size > 0 || !document.pointerLockElement,
       freeKey: csaKeyLabel('FreeMouse'), keyOf: csaKeyLabel,
     }, csaHelmHooks);
@@ -9332,6 +9343,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const _castSeen = new Map();   // SPELLFX1: peer id -> { cn, frame } - the last cast count seen and the frame it was seen on
   let _castFrame = 0;
   let _veilT = 0;   // INVIS-LOOK: the concealed peers' clock (seconds), for the shimmer - the foe pools keep their own
+  const _peerMapPoses = new Map();   // The same boat-adjusted positions used to render this frame.
   const _veils = new Map();   // INVIS-LOOK: peer id -> this frame's concealed draw (ECV1's visual), for every layer
   const _hiddenPeers = new Set();   // AUDIT (pre-merge) I-B: the peers the classic lane stands nowhere this frame - their teams with them
   const veilOf = (id) => _veils.get(id) ?? null;
@@ -21798,6 +21810,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     const peerEye = travelView?.eye ?? cam.pos, peerRight = [Math.cos(peerYaw), 0, -Math.sin(peerYaw)];
     const tvGrow = travelView?.active ? peerGrow : null;   // OW-PEERS: the others grown under the Overworld, as the traveller is
     const drawable = isCellRoom(online.room) && csaOn() ? csaAboard.glue(online.drawable(), { poseOf: (o, i) => csaPoseAhead(o, i, dt), toWire: campToWire, dt }) : online.drawable();   // CSA-K: a peer aboard a boat stands on its deck as it is drawn here - its owner's (mine among them) or the one led here - never a stride behind it
+    _peerMapPoses.clear();
+    for (const d of drawable) if (d?.shown) _peerMapPoses.set(d.id, d.shown);
     const visiblePeers = cabin ? drawable : drawable.filter((d) => !csaPeers.isBelowDeck(d.id));
     peerCastVisuals(visiblePeers);   // SPELLFX1: a peer's new cast, drawn once
     _veilT += dt > 0 ? dt : 0;
@@ -23516,6 +23530,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (!boat || !csaRuntime.AllBoats.includes(boat)) return;
     const p = boat.GameObject.position, fw = csaQuatRotate(boat.GameObject.rotation, [0, 0, 1]);
     const base = Math.atan2(fw[0], fw[2]);
+    let placedAshore = false;
     ashore: for (let r = 2; r <= TV_SEA_ASHORE_M; r += 2) {
       for (const off of [0, 0.4, -0.4, 0.8, -0.8, 1.6, -1.6, Math.PI]) {
         const x = p[0] + Math.sin(base + off) * r, z = p[2] + Math.cos(base + off) * r;
@@ -23523,9 +23538,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         const h = heightAt(x, z);
         if (!Number.isFinite(h) || h < tvSeaY() + 0.2) continue;   // under the sea's top: not ashore
         player.spawn(x, h + 0.05, z);
+        placedAshore = true;
         break ashore;
       }
     }
+    if (!placedAshore) { tvSeaStop(TRAVEL_VIEW_TEXT.noShore); return; }
     if (tvSea.means?.again && boat.packable && csaPassengersOn(boat) === 0 && !csaRuntime.deedMissing(boat)) csaCall(() => csaRuntime.PackBoat(boat, true));   // "You store the boat in your inventory" - SHIP-PACK: a ship with her deed in the pack
     else {
       tvSay(TRAVEL_VIEW_TEXT.leftMoored);
@@ -24206,7 +24223,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // (`_hiddenPeers`) and the veiled (`_veils`) are never marked
     for (const d of online?.drawable?.() ?? []) {
       if (!d?.shown || _hiddenPeers.has(d.id) || _veils.has(d.id)) continue;
-      const f = onlineToScene(d.shown);
+      const f = onlineToScene(_peerMapPoses.get(d.id) ?? d.shown);
       // AUDIT NAMES N2-2: THE SWITCH HOLDS - a player who shares nothing with the region ("Show me to travellers" off)
       // and is not of my party is named only as close as play names them (NAME_RANGE from where I stand) and never held
       // at the edge; my party, and a player whose mark the region already has, are named wherever they stand

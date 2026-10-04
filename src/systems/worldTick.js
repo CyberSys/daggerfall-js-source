@@ -1441,7 +1441,17 @@ export function normalizeAcross(entity, from, to) {
   if (n <= 0 || entity.preventNormalizingReputations) return 0;
   // AUDIT LIVED1b F3: at most NORMALIZE_ACROSS_MAX walks - a tampered save's -1e308 asked for ~1e300 and the load never
   // returned; a reputation is clamped to +-100 and each walk moves it one point, so no more can change anything
-  for (let k = 0; k < Math.min(n, NORMALIZE_ACROSS_MAX); k++) normalizeReputations(entity, entity.factionRep ?? null, { recoveryOnly: true });
+  const steps = Math.min(n, NORMALIZE_ACROSS_MAX);
+  for (let k = 0; k < steps; k++) normalizeReputations(entity, entity.factionRep ?? null, { recoveryOnly: true });
+  // A menu load can receive the shared clock before faction data attaches.
+  // Recover the saved columns too, so an intervening save retains the recovery.
+  // Copy them: the loaded snapshot may be reused for another restore.
+  if (!entity.factionRep && Array.isArray(entity.savedFactionRep?.rep)) {
+    entity.savedFactionRep = {
+      ...entity.savedFactionRep,
+      rep: entity.savedFactionRep.rep.map((v) => v < 0 ? Math.min(0, Math.max(-100, v + 1) + steps - 1) : v),
+    };
+  }
   return n;
 }
 
