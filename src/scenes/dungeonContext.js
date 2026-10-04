@@ -21,7 +21,7 @@ import { layoutDungeon, isDungeonExitDoor } from '../world/dungeonLayout.js';
 import { isGateArena, COURT_TEXT } from '../world/gateArena.js';
 import { isArenaFloor } from '../world/arenaFloor.js';
 import { isArenaUndercroft } from '../world/arenaCity.js';   // ARENA-FIX 4: the fighters' hall
-import { undercroftPopulation, chainTag } from '../world/arenaUndercroft.js';   // ARENA2: the arena floor's instance - what the sand will not allow
+import { undercroftPopulation, chainTag, deepFoesOf, undercroftHallNear } from '../world/arenaUndercroft.js';   // ARENA2: the arena floor's instance - what the sand will not allow
 import { ARENA_TEXT } from '../systems/arenaText.js';   // WB3b: the Burning Court - what the Deadlands will not allow
 import { dungeonFirePlan, colliderFireProbe, inFireWard, DUNGEON_FIRE_FLAT, fireLayoutInputs } from '../world/dungeonFires.js';   // REST3: the dungeon's own campfires
 import { withFireMarks } from '../ui/nodeMarks.js';   // REST3: the campfires on the compass
@@ -396,7 +396,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   const dungeon = layoutDungeon(dfLocation, blocks, getModelPre);
   // ARENA-FIX 4: THE ARENA UNDERCROFT IS THE FIGHTERS' HALL (world/arenaUndercroft.js): its people, the training pit's
   // dummy, the Hall of Champions' trophies and the beasts' chains stood at the layout's own markers, as flats of the
-  // block they stand in (a copy of the layout - the laid block is shared); its beasts below, and no random foe
+  // block they stand in (a copy of the layout - the laid block is shared); its beasts below, and no random foe in the
+  // hall's reach (UNDERCROFT-DEEP, FIELD BUGS 2026-10-04e: the deep cellars past it stand the keep's own again)
   const _undercroftHall = isArenaUndercroft(dfLocation) ? undercroftPopulation(dungeon.blocks) : null;
   if (_undercroftHall) {
     for (const [bi, b] of dungeon.blocks.entries()) {
@@ -1036,7 +1037,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // The extras are pulled back from walls by a ray through this dungeon's own collider (every
   // peer has the same geometry, so every peer builds the same list - the foe frame's index law).
   // The ray starts at chest height so a step or a floor seam does not read as a wall.
-  // ARENA-FIX 4: the hall stands no random foe - only the beast tier's chained beasts, passive at their markers (the undercroft is the city's own keep, never an elite spawn)
+  // ARENA-FIX 4: the hall stands no random foe - only the beast tier's chained beasts, passive at their markers (the undercroft is the city's own keep, never an elite spawn); UNDERCROFT-DEEP: past the hall's reach the keep's own foes stand again (below)
   const _hallBeasts = _undercroftHall ? _undercroftHall.beasts.map((b, i) => ({ x: b.x, y: b.y, z: b.z, mobileType: b.mobileType, fixed: true, reaction: 'passive', gender: 'unspecified', spawnDistanceType: 0, loadID: 0x55430100 + i, blockIndex: -1, arenaChained: i })) : null;
   const enemies = dfLocation?.elite
     ? expandEliteEnemies(_layoutEnemies, {
@@ -1046,7 +1047,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // copy off a walkway's edge (or onto a crate) reads as another floor and turns to the next bearing
       floor: (at) => { const d = collider.raycast([at[0], at[1] + 1, at[2]], [0, -1, 0], 3); return Number.isFinite(d) ? at[1] + 1 - d : null; },
     })
-    : (_hallBeasts ?? _layoutEnemies);
+    : (_hallBeasts ? [..._hallBeasts, ...deepFoesOf(_layoutEnemies, _undercroftHall.deep)] : _layoutEnemies);   // UNDERCROFT-DEEP: and the deep cellars' foes, past the hall's reach
   if (!_undercroftHall) markDungeonChampions(enemies, dfLocation.dungeon.recordElement.header.locationId);   // ARENA-FIX 4: no champion among the chained beasts   // LOOT7: the layout's champions, a hash of the place and the marker - every client the same, no wire word
   // ELITE FOES: an Elite Dungeon holds 3 or 4 champions among its foes - a pure pick over the list every client builds,
   // seeded by the dungeon's own id, so every client marks the same records (systems/eliteFoes.js)
@@ -2162,7 +2163,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:16563 / exterior.js:3938), set
+  // host's own townTalk sink (world.js:16581 / exterior.js:3944), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2546,7 +2547,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // AUDIT 68 S19-rest-alert-decay-wrong-clock: at the span's own end - the character's clock (LIVED1), which a
     // rested night moves online as offline.
     decayEnemyAlert(playerEntity, Math.floor(end));
-    for (let l = 0; l < n && !_undercroftHall; l++) {   // ARENA-FIX 4: nothing breaks a rest in the fighters' hall
+    for (let l = 0; l < n && !(_undercroftHall && undercroftHallNear(_undercroftHall, lastPlayerFeet)); l++) {   // ARENA-FIX 4: nothing breaks a rest in the fighters' hall; UNDERCROFT-DEEP: the deep cellars past it are a keep's
     const hit = intermittentEnemySpawn({
       gameMinutes: start + l + 1, inside: true, inDungeon: true, isResting: true,
       restAsks: playerEntity.restAsks,   // SURV4 + SURV-TIERS: priced at the open (scenes/shared.js) - the bare floor asks twice in Hard; a fire on it, or any Casual floor, once
@@ -2802,7 +2803,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // copied mount would have diverged the first time an arm grew.
   /** DR1: THE TWO SPELL WINDOWS THIS HOST MOUNTS NOW, and the one door
    *  they go through. `mountSpellWindow` is worldModes'
-   *  mountSpellWindow DUNGEON ARM (worldModes.js:1456,
+   *  mountSpellWindow DUNGEON ARM (worldModes.js:1457,
    *  `dungeonCtx?.showOverlay(win)`) resolved to what it actually
    *  calls here - this file's own pushDungeonWindow, which IS
    *  UserInterfaceManager.PushWindow. So a spell window raised over an
@@ -3349,7 +3350,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1126 against :1156; worldModes.js:8652 against :8672).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1126 against :1156; worldModes.js:8653 against :8673).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -4190,7 +4191,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // was struck; the port retired wall hits with no payload.
         const impact = [m.pos[0] + _unit[0] * hitWall, m.pos[1] + _unit[1] * hitWall, m.pos[2] + _unit[2] * hitWall];   // ROAD-H tail (review): the collider answers in the RAY's own units, and the ray is `_unit` - `m.dir` would scale the impact point by |dir| (`colliderPosition += direction.normalized * hitInfo.distance`, DaggerfallMissile.cs:347)
         if (m.spell?.rangeType === 4) {
-          const wCaster = m.casterFoe ? { entity: m.casterFoe.entity, sinks: foeSinks(m.casterFoe) } : null;
+          const wCaster = m.casterFoe ? { entity: m.casterFoe.entity, sinks: foeSinks(m.casterFoe), foe: m.casterFoe } : null;   // ARENA-TEAMS: and its foe - whose blast it is (hostMagic.js missileCaster's shape)
           magic.explodeAt(impact, m.spell, m.casterLevel ?? effectiveLevel(playerEntity), playerFeet, wCaster, { playerHeight });   // ROAD-H H2: the blast's OverlapSphere meets the player's LIVE capsule
         }
         // AUDIT 26 F033: DoCollision swaps the billboard to record 1 of
@@ -4262,8 +4263,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:27493,
-              // exterior.js:5601 and worldModes.js:9376 already ran;
+              // playerArrowHitFoe is the one copy world.js:27534,
+              // exterior.js:5607 and worldModes.js:9377 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -4402,7 +4403,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (m.aimFoe && !m.aimFoe.dead) {
         const af = m.aimFoe;
         if (missileHitsFoe(m.pos, af)) {
-          const fCaster = m.casterFoe ? { entity: m.casterFoe.entity, sinks: foeSinks(m.casterFoe) } : null;
+          const fCaster = m.casterFoe ? { entity: m.casterFoe.entity, sinks: foeSinks(m.casterFoe), foe: m.casterFoe } : null;   // ARENA-TEAMS
           if (m.spell.rangeType === 4) magic.explodeAt(m.pos, m.spell, m.casterLevel ?? effectiveLevel(playerEntity), playerFeet, fCaster, { playerHeight });   // ROAD-H H2
           else applySpell(m.spell, m.casterLevel ?? effectiveLevel(playerEntity), af.entity, foeSinks(af, false), Math.random, fCaster);   // AUDIT WORLD2 B7: a foe's missile
           showImpactFlash(m, [m.pos[0], m.pos[1], m.pos[2]]);   // F033
@@ -4414,7 +4415,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // S16: enemy missiles carry their caster (level + the
         // transfer heal-back pair); trap casts stay casterless (DFU
         // action casters are null) on the S4b player-level shape.
-        const mCaster = m.casterFoe ? { entity: m.casterFoe.entity, sinks: foeSinks(m.casterFoe) } : null;
+        const mCaster = m.casterFoe ? { entity: m.casterFoe.entity, sinks: foeSinks(m.casterFoe), foe: m.casterFoe } : null;   // ARENA-TEAMS
         if (m.spell.rangeType === 4) magic.explodeAt(m.pos, m.spell, m.casterLevel ?? effectiveLevel(playerEntity), playerFeet, mCaster, { playerHeight });   // ROAD-H H2
         else magic.applySpellToPlayer(m.spell, m.casterLevel ?? effectiveLevel(playerEntity), mCaster);
         showImpactFlash(m, [m.pos[0], m.pos[1], m.pos[2]]);   // F033

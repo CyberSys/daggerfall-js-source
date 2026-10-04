@@ -205,7 +205,7 @@ test('AUDIT OW5 P6: my party on the Overworld wherever they are - from the party
   };
   mount(env, m[1]);
   assert.deepEqual(marks, [{ key: 'pty:a', at: [300 * 32768 + 16384, 2, 200 * 32768 + 16384], label: 'Far Ally', kind: 'party', edge: true }]);
-  assert.match(WORLD, /marks\.push\(\{ key: `trav:\$\{t\.id\}`[^\n]*\n\s*near\.add\(t\.id\);/, 'a region\'s mark counts as marked');
+  assert.match(WORLD, /marks\.push\(\{ key: `trav:\$\{t\.id\}`[^\n]*\n\s*kin: travellerKin\([^\n]*\n\s*near\.add\(t\.id\);/, 'a region\'s mark counts as marked');   // FIELD BUGS 2026-10-04e: the mark's OW-KIN/OW-WHO fields on its own line
 });
 
 test('AUDIT OW5 G5: a first-person crossing keeps its journey\'s clock - Come Sail Away\'s own reset (the landfall\'s disembark) left x1 under a panel asking x10 with the view down; never over the Overworld\'s own hold, nor the helm\'s own time step', () => {

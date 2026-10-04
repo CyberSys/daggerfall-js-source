@@ -84,8 +84,10 @@ export const TRAVELLER_LEGEND_TEXT = 'Traveller';
  * TV3: the host's travellers ({id, name, px, py, fx, fy, tv} rows - systems/travellerMarks.js's book, the host's
  * `travellers` dep), as marks placed within their pixel to the mark's own 256th: `x`/`y` in map pixels (y counts
  * south, the fraction counts north, so it is turned round). OWS1: `ship` - the host's word that the row's traveller
- * is at sea (isShipMark: their mark's way), drawn as a ship.
- * @returns {Array<{id:string, name:string, x:number, y:number, journey:boolean, ship:boolean}>}
+ * is at sea (isShipMark: their mark's way), drawn as a ship. OW-KIN / OW-WHO (FIELD BUGS 2026-10-04e): `kin` - the
+ * host's word of who they are to me ('friend' | 'guild', systems/travelViewFilters.js travellerKin) - and `lv` their
+ * Renown, for the name's colour and the players' filters.
+ * @returns {Array<{id:string, name:string, x:number, y:number, journey:boolean, ship:boolean, kin:string|null, lv:number|null}>}
  */
 export function readTravellerMarks(travellers, size = BAY) {
   const rows = typeof travellers === 'function' ? travellers() : null;
@@ -97,12 +99,13 @@ export function readTravellerMarks(travellers, size = BAY) {
     const px = Math.floor(Number(r.px)), py = Math.floor(Number(r.py));
     if (!Number.isFinite(px) || !Number.isFinite(py) || px < 0 || py < 0 || px >= width || py >= height) continue;
     const fx = Math.min(255, Math.max(0, Number(r.fx) || 0)), fy = Math.min(255, Math.max(0, Number(r.fy) || 0));
-    out.push({ id: r.id, name: String(r.name ?? '').trim() || TRAVELLER_LEGEND_TEXT, x: px + (fx + 0.5) / 256, y: py + 1 - (fy + 0.5) / 256, journey: !!r.tv, ship: r.ship === true });
+    out.push({ id: r.id, name: String(r.name ?? '').trim() || TRAVELLER_LEGEND_TEXT, x: px + (fx + 0.5) / 256, y: py + 1 - (fy + 0.5) / 256, journey: !!r.tv, ship: r.ship === true,
+      kin: r.kin === 'friend' || r.kin === 'guild' ? r.kin : null, lv: Number.isFinite(r.lv) ? Number(r.lv) : null });   // OW-KIN / OW-WHO
   }
   return out;
 }
 /** TV3: what moves a traveller's mark - the pixel's 256th and the name; a key a poll compares. */
-export const travellerMarksKey = (marks) => marks.map((m) => `${m.id}:${m.x.toFixed(3)},${m.y.toFixed(3)},${m.journey ? 1 : 0},${m.ship ? 1 : 0},${m.name}`).join('|');   // OWS1: a traveller putting to sea is drawn again
+export const travellerMarksKey = (marks) => marks.map((m) => `${m.id}:${m.x.toFixed(3)},${m.y.toFixed(3)},${m.journey ? 1 : 0},${m.ship ? 1 : 0},${m.kin ?? ''},${m.lv ?? ''},${m.name}`).join('|');   // OW-KIN: a friend made, a guild joined - drawn again   // OWS1: a traveller putting to sea is drawn again
 
 /**
  * @typedef {{ acct: string|null, name: string, px: number, py: number, in: number, loc: string,

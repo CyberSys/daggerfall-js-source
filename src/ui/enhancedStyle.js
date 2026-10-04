@@ -2807,6 +2807,14 @@ html.plus-pad-prompts-visible .px-over > .px-stage:not(.px-acctstage):not(.px-ti
 .tview-fdot-towns { background: #e9e4d9; } .tview-fdot-distant { background: #c08a3e; } .tview-fdot-dungeons { background: #b0443a; }
 .tview-fdot-enemies { background: #e0503c; } .tview-fdot-travellers { background: #4e7f72; } .tview-fdot-gathering { background: linear-gradient(135deg, #e586ec, #d9894a 50%, #d4e157); }
 .tview-fnum { min-width: 2ch; text-align: right; font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+/* OW-WHO / OW-NODE-KM (FIELD BUGS 2026-10-04e): the players by kin - each switch's dot the colour their names wear
+   (systems/travelViewFilters.js TV_KIN_COLORS; a stranger the traveller's verdigris) - and the two steps, pressed round */
+.tview-fdot-kin-friends { background: #8fd0ff; } .tview-fdot-kin-guild { background: #c9a6ff; } .tview-fdot-kin-others { background: #4e7f72; }
+.tview-filter.tview-cycle { grid-template-columns: 1fr; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tview-filter.tview-cycle-wide { grid-column: 1 / -1; }
+/* SEAT-TIP: the held map's card (.hmtip), over the Overworld - placed in the root's viewport pixels; over the block
+   (.hmtip's own z-index stands later in the sheet, so this rule names both classes to outweigh it) */
+.hmtip.tview-tip { z-index: 4; }
 .tview-filter:not(.on) .tview-fnum { opacity: 0.6; }
 /* OW-CONFIRM: the view's own question - over the map's upper middle, in the block's stone; its presses the Path switch's */
 .tview-confirm { position: absolute; left: 50%; top: 28%; transform: translate(-50%, -50%); pointer-events: auto; z-index: 2;
@@ -2823,6 +2831,10 @@ html.plus-pad-prompts-visible .px-over > .px-stage:not(.px-acctstage):not(.px-ti
 .tview-foot { display: flex; padding: 8px 12px 10px; }
 .tview-foot > .tview-back { flex: 1 1 auto; text-align: center; }
 @media (pointer: coarse) { .tview-bar { bottom: auto; top: 14px; } }
+/* OW-WHO (FIELD BUGS 2026-10-04e): the Players' switches and the two steps made the filters three rows taller - on a
+   touch screen the block stands from the top, and a phone held landscape ran it off the foot. The switches scroll
+   within their own section (the block itself never clips: the docked journey's word hangs above it) */
+@media (pointer: coarse) { .tview-filters { max-height: 38vh; overflow-y: auto; overscroll-behavior: contain; } }
 @media (max-width: 520px) { .tview-bar { right: 10px; width: calc(100vw - 20px); } }
 @media (prefers-reduced-motion: reduce) { .tview-filter, .tview-fdot { transition: none; } }
 .travelpanel-msg { position: absolute; left: 50%; top: 86px; transform: translateX(-50%);
@@ -5069,6 +5081,9 @@ html.plus-pad-prompts-visible .px-over > .px-stage:not(.px-acctstage):not(.px-ti
 .hmkeykind.dim { opacity: 0.4; }
 .hmkeyrow.off .hmkeykind { opacity: 0.3; }
 .hmkeychip { flex: none; display: block; box-shadow: 0 0 0 1px rgba(0,0,0,0.8); }
+/* OW-WHO: the Players row's word - the row's first cell, so never hidden with the glyphs' words on a phone (the
+   grid's rows are display: contents, and a hidden first cell would shift every row after it a column) */
+.hmkeywho { font-size: 11px; color: #c5bda2; letter-spacing: 0.08em; text-transform: uppercase; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 @media (max-width: 860px) {
   .hmkey { max-width: calc(100vw - 24px); }
   .hmkeyname { display: none; }   /* a phone keeps the toggles and the glyphs; each glyph's title names it */

@@ -8,7 +8,8 @@
 //
 // So, down there (all of it Daggerfall's own art, laid at the layout's own markers - nothing placed by hand, so the
 // same every load and every machine):
-// - NO RANDOM FOE stands at any marker and no rest is broken by one (scenes/dungeonContext.js reads `isUndercroft`).
+// - NO RANDOM FOE stands at the hall's markers and no rest is broken by one there (scenes/dungeonContext.js reads
+//   `isUndercroft`); the deep cellars past it are a keep's (below).
 // - THE PEOPLE: nearest the stair down, the PIT MASTER (357:3, the man in black) at the training pit, its straw dummy
 //   (211:20) beside him; the KEEPER OF THE HALL (183:12, the hooded archivist) at the Hall of Champions, its trophies
 //   (the champions' cups 200:1 and 200:5, a shield, a helm and a sword of TEXTURE.207) round her; then, at the next
@@ -21,7 +22,10 @@
 //   markers past the people, chained (211:5 either side): real bodies, passive, and caged by the bout team's gate
 //   (characters/enemyTargets.js boutGate - a tag nobody shares and always held: they target nobody and nobody them),
 //   held at the foe yield floor if struck (no corpse, no loot) and the keepers' warning said.
-// - The rest of the markers stand empty - the deep cellars are quiet.
+// - PAST THE HALL, THE DEEP CELLARS (UNDERCROFT-DEEP, FIELD BUGS 2026-10-04e, Discord: "The dungeon under the arena is
+//   also completely missing enemies"): a marker a whole RDB block (UNDERCROFT_DEEP_M) from the stair and from every place
+//   the hall took holds the layout's own random foe again (`deep`) - the HumanStronghold's table the keep was laid with.
+//   The markers nearer the hall stand empty, and no rest within that reach is broken (`undercroftHallNear`).
 //
 // Pure: markers in, the population out. Not a DFU member. Ledger A (ARENA).
 
@@ -59,6 +63,9 @@ export const BEAST_CHAIN = Object.freeze([211, 5]);
  *  the light every lit place of the hall gives, metres (a dungeon Light's range). */
 export const HALL_BRAZIER = Object.freeze([210, 19]);
 export const HALL_LIGHT_M = 7;
+/** UNDERCROFT-DEEP: how far from the stair and from every place of the hall a marker must stand to hold a foe, metres -
+ *  one RDB block (2048 units), so the hall's own block and its neighbours' near markers stay quiet. */
+export const UNDERCROFT_DEEP_M = 51.2;
 /** The undercroft's flats' identities (StaticNPC's name seed and the actions' keys stay clear of any RDB object's). */
 const SEED = 0x55430000;
 
@@ -71,7 +78,8 @@ const isEditor = (m) => (m.archive ?? EDITOR) === EDITOR;
  * block's frame), `beasts` the chained beasts (`{ x, y, z, mobileType }`, the dungeon's frame), `pit` the training
  * pit's centre (and `pitAxis` its passage's way, [x, z]) and `hall` the Hall of Champions' (the dungeon's frame, or null), `lights` the hall's lamps (`{ x, y, z, range }`, the
  * dungeon's frame - every lit place: the pit's and the Hall's braziers, each person's lamp), `quiet` how many markers
- * stand empty.
+ * stand empty, `deep` the markers past the hall's reach where the layout's own foe stands (`{ x, y, z }`, the dungeon's
+ * frame - UNDERCROFT-DEEP) and `near` the hall's places (the stair and every marker it took) that reach is measured from.
  * Pure.
  */
 export function undercroftPopulation(blocks) {
@@ -86,7 +94,7 @@ export function undercroftPopulation(blocks) {
       else if (m.record === RANDOM || m.record === FIXED) marks.push(at);
     }
   });
-  const out = { flats: [], beasts: [], lights: [], pit: null, pitAxis: null, hall: null, quiet: 0 };
+  const out = { flats: [], beasts: [], lights: [], pit: null, pitAxis: null, hall: null, quiet: 0, deep: [], near: [] };
   if (!marks.length) return out;
   const s = start ?? marks[0];
   const d = (m) => Math.hypot(m.x - s.x, m.y - s.y, m.z - s.z);
@@ -132,8 +140,26 @@ export function undercroftPopulation(blocks) {
     flat(m, BEAST_CHAIN[0], BEAST_CHAIN[1], { side: 1.2 });
     flat(m, BEAST_CHAIN[0], BEAST_CHAIN[1], { side: -1.2 });
   }
-  out.quiet = order.length - i;
+  // UNDERCROFT-DEEP: past the hall's reach, the deep cellars hold the keep's own foes again
+  out.near = [[s.x, s.y, s.z], ...order.slice(0, i).map((m) => [m.x, m.y, m.z])];
+  for (const m of order.slice(i)) if (!undercroftHallNear(out, [m.x, m.y, m.z])) out.deep.push({ x: m.x, y: m.y, z: m.z });
+  out.quiet = order.length - i - out.deep.length;
   return out;
+}
+
+/** UNDERCROFT-DEEP: the layout's own foes (characters/dungeonEnemies.js collectDungeonEnemies - stood at the marker's
+ *  own place) that stand at a `deep` marker; every other one of the keep's table stays unstood. Pure. */
+export function deepFoesOf(layoutEnemies, deep) {
+  const at = new Set((deep ?? []).map((m) => `${m.x}|${m.y}|${m.z}`));
+  return (layoutEnemies ?? []).filter((e) => at.has(`${e.x}|${e.y}|${e.z}`));
+}
+
+/** UNDERCROFT-DEEP: whether `feet` (the dungeon's frame) stand within the hall's reach - UNDERCROFT_DEEP_M of the stair
+ *  or of any place the hall took (`hall` undercroftPopulation's answer). No rest is broken there. Pure. */
+export function undercroftHallNear(hall, feet) {
+  if (!hall || !feet) return false;
+  for (const p of hall.near ?? []) if (Math.hypot(feet[0] - p[0], feet[1] - p[1], feet[2] - p[2]) < UNDERCROFT_DEEP_M) return true;
+  return false;
 }
 
 /** A beast's chain: the bout team's tag no other body carries, always held - it targets nobody, nobody targets it; the

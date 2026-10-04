@@ -22,3 +22,13 @@ export const isShipmate = (t) => !!t && (t.deckBoat != null || t.shipmate === tr
 
 /** Whether the player's own harm passes `t` by: a town's defender, or a shipmate. */
 export const sparedByPlayer = (t) => !!t && (t.defender === true || isShipmate(t));
+
+/** ARENA-TEAMS (FIELD BUGS 2026-10-04e, Discord: "The multiple npc arena fights will target each other despite being
+ *  on the same team"): two fighters of ONE bout on ONE side (characters/enemyTargets.js boutGate's `entity.bout`) - the
+ *  two-against-one bouts' pair. The gate already kept each other out of their TARGETS; a Mage's or a Healer's area
+ *  spell (hostMagic.js explodeAt) still burst on the partner beside it, which read as the two fighting. Its blast
+ *  passes a teammate by. A Grand Melee is every fighter a side of its own, so nobody there is anybody's teammate. */
+export function boutTeammates(a, b) {
+  const x = a?.entity?.bout ?? null, y = b?.entity?.bout ?? null;
+  return !!x && !!y && a !== b && String(x.id) === String(y.id) && (x.side | 0) === (y.side | 0);
+}

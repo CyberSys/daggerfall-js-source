@@ -61,7 +61,7 @@ import { setPlayerDoor } from '../systems/playerDoor.js';   // SET2: this host p
 import { createHitEffects } from './hitEffects.js';   // AUDIT 26 F033: DaggerfallMissile's impact flash
 import { duelSpellOf } from '../combat/duelCombat.js';   // DUEL1: the harmful half of a spell, which alone may reach a duel opponent
 import { markPlayerHarm } from '../systems/harmMark.js';   // REVENANT-HARM: a foe's spell on the player leaves its mark (a death no blow names is its)
-import { sparedByPlayer, isShipmate } from '../combat/friendlyFire.js';   // SHIPMATES: who the player's spells pass by, and whose blasts pass the player by
+import { sparedByPlayer, isShipmate, boutTeammates } from '../combat/friendlyFire.js';   // SHIPMATES: who the player's spells pass by, and whose blasts pass the player by
 import { coverDistance, coverStep } from '../ai/cover.js';   // TACT1: billboards are cover; AUDIT TACT B5: met by touch
 
 /** SUNBABY2: a sky fireball (skyFire) is drawn this many times its flat's size, its flash too - a ball a sun throws,
@@ -643,6 +643,7 @@ export function createPlayerMagic({
       if (excludeFoe && t === excludeFoe) continue;
       if (caster?.entity === playerEntity && sparedFromPlayer(t)) continue;   // DISC19-F (AUDIT DISC19): my blast passes the defenders by
       if (crewBlast && isShipmate(t)) continue;
+      if (caster?.foe && boutTeammates(caster.foe, t)) continue;   // ARENA-TEAMS: a bout fighter's blast passes its teammate by
       if (t.puppet && caster?.entity && caster.entity !== playerEntity) continue;   // AUDIT WORLD6b-iii(a) C15: a FOE's blast lands nothing on a PUPPET here - its owner's world resolves that foe (my own blast on a puppet still goes to its owner as my hit)
       applySpellToFoe(spell, casterLevel, t, caster);
     }

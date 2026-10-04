@@ -633,8 +633,8 @@
   {
     "name": "OVERWORLD-NAMES-party-not-green",
     "file": "src/ui/travelViewHud.js",
-    "old": "  x.font = rowFont; x.fillStyle = party ? N.party : N.name;",
-    "new": "  x.font = rowFont; x.fillStyle = N.name;",
+    "old": "  x.font = rowFont; x.fillStyle = party ? N.party : (TV_KIN_COLORS[m.kin] ?? N.name);",
+    "new": "  x.font = rowFont; x.fillStyle = (TV_KIN_COLORS[m.kin] ?? N.name);",
     "tests": [
       "test/tv5_far_places.test.js"
     ],
@@ -663,8 +663,8 @@
   {
     "name": "OVERWORLD-NAMES-badge-unsigned",
     "file": "src/ui/travelViewHud.js",
-    "old": ", q.m.kind ?? '', q.bk, q.fade ? 1 : 0);",
-    "new": ", q.m.kind ?? '', q.fade ? 1 : 0);",
+    "old": ", q.m.kind ?? '', q.bk, q.fade ? 1 : 0, q.m.kin",
+    "new": ", q.m.kind ?? '', q.fade ? 1 : 0, q.m.kin",
     "tests": [
       "test/tv5_far_places.test.js"
     ],
