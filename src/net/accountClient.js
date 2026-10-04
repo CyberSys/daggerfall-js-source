@@ -1033,6 +1033,24 @@ export function accountRaids({ fetch, storage }) {
   };
 }
 
+/** SERPENT1: a sea serpent's receipt the relay signed for this account, carried to the service with the character that
+ *  fought it and this device's claim id (the hoard's key) - `{ recorded, slain, renown, spoils, order }`, or
+ *  `{ recorded: false, why }` (`claimed`, `guest`). */
+export const claimSerpentReceipt = (io, receipt, character, name = null, cid = null) => call(io, '/v1/serpent/claim', { receipt, character, name, ...(cid ? { cid } : {}) });
+
+/**
+ * SERPENT1: THE SERPENTS' ONE CALL, bound to this device's stored session (the raids' own shape). With no session there
+ * is no account to claim for: `{ ok: false, error: 'no-session' }`, never a knock - and net/serpentClaims.js keeps the
+ * receipt for when there is one.
+ */
+export function accountSerpents({ fetch, storage }) {
+  const io = () => { const s = storedSession(storage); return s ? { fetch, base: serviceBase(storage), secret: s.secret } : null; };
+  return {
+    claim: async (receipt, character, name = null, cid = null) => { const i = io(); return i ? claimSerpentReceipt(i, receipt, character, name, cid) : { ok: false, error: 'no-session' }; },
+    me: () => storedSession(storage)?.id ?? null,
+  };
+}
+
 /**
  * ARENA4: THE ARENA (server-account/src/arena.js) through the one door - a bout's receipt the relay signed, carried here
  * by an account it names (`claim`); the boards, counted from the rows (`board` - the season's ratings, the climb, the

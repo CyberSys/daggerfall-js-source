@@ -40,6 +40,7 @@ import {
 } from './overworldModel.js';
 import { getPixelColorIndex, FILTER_SRC } from './travelMapWindow.js';   // MAP-KEY: the classic's filter law and its four buttons, asked of - never copied
 import { GATE_RING_CSS, GATE_FILL_CSS } from './gateMapMark.js';   // WB1: the Oblivion Gate's ring, in the omen's own colours
+import { SERPENT_MAP_INK } from './serpentMapMark.js';   // SERPENT1: the sea serpent's ring, in the sea's colours
 import { BOUNTY_RING_CSS, BOUNTY_FILL_CSS } from './bountyMapMark.js';   // BOUNTY1: a held bounty's black circle
 import { RAID_MARK_CSS } from './eventMapMarks.js';   // EVENT-TIP: a town under attack
 import { QUEST_MARK_CSS, QUEST_MARK_LIFT } from './questMarks.js';   // GUIDE5: where a quest points
@@ -1070,6 +1071,8 @@ export function paintInkOverlay(ctx, view, opts) {
   const pulse = opts.pulse ?? 0;
   // WB1: the gate's ring under everything else that breathes - a party member standing in it reads over it
   if (opts.gate && visible(opts.gate.cx, opts.gate.cy, opts.gate.r + 2)) paintGateRing(ctx, view, opts.gate, pulse);
+  // SERPENT1: the sea serpent's ring beside it, in the sea's colours
+  if (opts.serpent && visible(opts.serpent.cx, opts.serpent.cy, opts.serpent.r + 2)) paintGateRing(ctx, view, opts.serpent, pulse, SERPENT_MAP_INK);
   // BOUNTY1: each held bounty's black circle, under the party too
   for (const b of opts.bounties ?? []) if (visible(b.cx, b.cy, b.r + 2)) paintBountyRing(ctx, view, b, pulse);
   // EVENT-TIP: the towns under attack, over the ring and under the party - a member standing in one reads over it
@@ -1146,14 +1149,14 @@ export function inkShip(ctx, x, y) {
  * @param {CanvasRenderingContext2D} ctx @param {{ox:number, oy:number, scale:number}} view
  * @param {{cx:number, cy:number, r:number, label?:string}} g @param {number} [pulse] 0..1
  */
-export function paintGateRing(ctx, view, g, pulse = 0) {
+export function paintGateRing(ctx, view, g, pulse = 0, ink = null) {   // SERPENT1: `ink` {ring, fill} - the sea serpent's ring in its own colours
   const [x, y] = toPaper(view, g.cx, g.cy);
   const r = Math.max(10, g.r * view.scale);
   ctx.save();
   ctx.setLineDash([]);
-  ctx.fillStyle = GATE_FILL_CSS;
+  ctx.fillStyle = ink?.fill ?? GATE_FILL_CSS;
   ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = GATE_RING_CSS; ctx.lineWidth = 2.4;
+  ctx.strokeStyle = ink?.ring ?? GATE_RING_CSS; ctx.lineWidth = 2.4;
   ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
   // the inner ring breathes, broken like a fire's edge
   ctx.globalAlpha = 0.45 + 0.45 * pulse; ctx.lineWidth = 1.3; ctx.setLineDash([4, 5]);
@@ -1164,7 +1167,7 @@ export function paintGateRing(ctx, view, g, pulse = 0) {
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.lineJoin = 'round';
     ctx.strokeStyle = PEN.halo; ctx.lineWidth = 2 * HALO_PEN;
     ctx.strokeText(g.label, x, y - r - 3);
-    ctx.fillStyle = GATE_RING_CSS;
+    ctx.fillStyle = ink?.ring ?? GATE_RING_CSS;
     ctx.fillText(g.label, x, y - r - 3);
   }
   ctx.restore();

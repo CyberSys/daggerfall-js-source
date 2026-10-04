@@ -2,8 +2,8 @@
   {
     "name": "SEAPEACE-hostileNear-ashore",
     "file": "src/scenes/navalHost.js",
-    "old": "    if (!aboardShip()) return false;\n    const feet = deps.feet(), me = meContact();",
-    "new": "    const feet = deps.feet(), me = meContact();",
+    "old": "    if (!aboardShip()) return false;\n    if (deps.serpent?.near?.()) return true;   // SERPENT1: the sea serpent's waters about me",
+    "new": "    if (deps.serpent?.near?.()) return true;   // SERPENT1: the sea serpent's waters about me",
     "tests": [
       "test/seapeace.test.js"
     ]

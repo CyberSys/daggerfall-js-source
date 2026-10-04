@@ -133,6 +133,8 @@
 //   wayScale(underSail) -> 0..1                   the share of her way her hurts leave (moveSpeed)
 //   sailRefused() -> text | null                  why no sail will set (RaiseSails refuses with it)
 //   brake() -> m/s^2 | 0                          a heave-to's brake: her way comes off at this, whatever her own rate
+//   drift(boat) -> [x, 0, z] | null               SERPENT1: a world m/s carried on the sea's current under her (the sea
+//                                                serpent's maelstrom pulling her in, a blow's throw) - the port's own
 //   HELM-WAY (the port's; optional - none handed is the mod to the letter):
 //   handling() -> 'responsive' | 'classic'        the Features row's Ship handling (systems/helmWay.js) - taken once a
 //                                                 helm, at StartSailing (AUDIT NAV2 F14)
@@ -1426,7 +1428,10 @@ export function createComeSailAwayRuntime(deps) {
         carryChildren(boat, before);
         return;
       }
-      let val = inverseTransformDirection(t, state.currentVector);
+      // SERPENT1 (the port's own seam - the mod has none): the sea serpent's maelstrom and a blow's throw ride the
+      // current under her (`deps.drift`, world m/s), so her own helm still answers - she sails out of the whirl or not
+      const drift = deps.drift?.(boat) ?? null;
+      let val = inverseTransformDirection(t, drift ? vAdd(state.currentVector, drift) : state.currentVector);
       if (!vEquals(state.CollisionVector, [0, 0, 0])) {
         // FIELD BUGS 2026-10-02 ROCK-AWAY (a departure): the response takes the way INTO what she met, as the C# does
         // - and her way off it, and the current's, the C# took too: a rock astern of a ship sailing away (or ahead of

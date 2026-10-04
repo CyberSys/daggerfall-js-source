@@ -1,0 +1,391 @@
+[
+  {
+    "name": "SERPENT1-law-every-day",
+    "file": "src/net/serpentLaw.js",
+    "old": "day >= 0 && day % SERPENT_EVERY_DAYS === SERPENT_DAY_PHASE;",
+    "new": "day >= 0;",
+    "tests": [
+      "test/serpent1_law.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-law-slain-sounds",
+    "file": "src/net/serpentLaw.js",
+    "old": "const end = slain ? /** @type {number} */ (fellAt) : t.soundAt;",
+    "new": "const end = t.soundAt;",
+    "tests": [
+      "test/serpent1_law.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-law-admits-past-seal",
+    "file": "src/net/serpentLaw.js",
+    "old": "return isSerpentDay(day) && nowMs >= t.riseAt && nowMs < t.sealAt; };",
+    "new": "return isSerpentDay(day) && nowMs >= t.riseAt && nowMs < t.soundAt; };",
+    "tests": [
+      "test/serpent1_law.test.js",
+      "test/serpent1_relay.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-receipt-version-unread",
+    "file": "src/net/serpentReceipt.js",
+    "old": "if (parts.length !== 3 || parts[0] !== SERPENT_RECEIPT_V) return null;",
+    "new": "if (parts.length !== 3) return null;",
+    "tests": [
+      "test/serpent1_relay.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-receipt-raid-shape",
+    "file": "src/net/serpentReceipt.js",
+    "old": "|| c.w !== undefined ",
+    "new": "",
+    "tests": [
+      "test/serpent1_relay.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-receipt-unsigned-honoured",
+    "file": "src/net/serpentReceipt.js",
+    "old": "if (!sig64) return { ok: false, why: 'unsigned' };",
+    "new": "",
+    "tests": [
+      "test/serpent1_relay.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-brain-cap-off",
+    "file": "src/net/serpentBrain.js",
+    "old": "const got = Math.max(0, Math.min(d, SERPENT_HIT_CAP_X * ref, p.bucket, left));",
+    "new": "const got = Math.max(0, Math.min(d, p.bucket, left));",
+    "tests": [
+      "test/serpent1_law.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-brain-head-always",
+    "file": "src/net/serpentBrain.js",
+    "old": "const x = (z === ZONES.head && headExposed(f, pts, now, stun) ? HEAD_X : 1) * (stun ? STUN_X : 1);",
+    "new": "const x = (z === ZONES.head ? HEAD_X : 1) * (stun ? STUN_X : 1);",
+    "tests": [
+      "test/serpent1_law.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-brain-reach-unbounded",
+    "file": "src/net/serpentBrain.js",
+    "old": "if (!near || near.d > GUN_REACH_M + SERPENT_POSE_SLACK) return out;",
+    "new": "if (!near) return out;",
+    "tests": [
+      "test/serpent1_law.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-brain-everyone-earned",
+    "file": "src/net/serpentBrain.js",
+    "old": "return (p.share > 0 && p.dealt >= SERPENT_RECEIPT_SHARE * p.share) || p.stoodMs >= SERPENT_STOOD_SHARE * fight;",
+    "new": "return true;",
+    "tests": [
+      "test/serpent1_law.test.js",
+      "test/serpent1_relay.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-brain-late-escape",
+    "file": "src/net/serpentBrain.js",
+    "old": "    if (now - c.at > COIL_ESC_MS) return out;\n",
+    "new": "",
+    "tests": [
+      "test/serpent1_law.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-brain-ward-off",
+    "file": "src/net/serpentBrain.js",
+    "old": "  if (now < f.shieldUntil) return out;\n",
+    "new": "",
+    "tests": [
+      "test/serpent1_law.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-relay-old-law",
+    "file": "server/src/index.js",
+    "old": "if (!(m.bv >= SERPENT_BRAIN_MIN)) { no('reload'); return; }",
+    "new": "",
+    "tests": [
+      "test/serpent1_relay.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-relay-far-admitted",
+    "file": "server/src/index.js",
+    "old": "if (Math.hypot(at.x, at.z) > serpentBrain.ADMIT_R) { no('too far from its waters'); return; }",
+    "new": "",
+    "tests": [
+      "test/serpent1_relay.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-relay-fan-unbounded",
+    "file": "server/src/index.js",
+    "old": "return Math.hypot(c.x, c.z) <= serpentBrain.FAN_R;",
+    "new": "return true;",
+    "tests": [
+      "test/serpent1_relay.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-relay-receipt-unearned",
+    "file": "server/src/index.js",
+    "old": "if (!serpentBrain.serpentEarned(f, sub)) continue;",
+    "new": "",
+    "tests": [
+      "test/serpent1_relay.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-relay-other-cell-site",
+    "file": "server/src/index.js",
+    "old": "if (cellRoomOfWire(m.sx, m.sz) !== a.key) { this._junk(ws); return; }",
+    "new": "",
+    "tests": [
+      "test/serpent1_relay.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-hub-hello-past-day",
+    "file": "server/src/index.js",
+    "old": "if (g && serpentHolds(g.d, now)) this._send(ws, JSON.stringify({ t: 'serpent', ...g }));",
+    "new": "if (g) this._send(ws, JSON.stringify({ t: 'serpent', ...g }));",
+    "tests": [
+      "test/serpent1_relay.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-hub-hello-silent",
+    "file": "server/src/index.js",
+    "old": "if (g && serpentHolds(g.d, now)) this._send(ws, JSON.stringify({ t: 'serpent', ...g }));",
+    "new": "void g;",
+    "tests": [
+      "test/serpent1_relay.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-books-guest-counted",
+    "file": "server-account/src/serpents.js",
+    "old": "if (!player.handle) {",
+    "new": "if (false) {",
+    "tests": [
+      "test/serpent1_relay.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-books-hoard-twice",
+    "file": "server-account/src/serpents.js",
+    "old": "db.prepare('INSERT OR IGNORE INTO serpent_spoils",
+    "new": "db.prepare('INSERT OR REPLACE INTO serpent_spoils",
+    "tests": [
+      "test/serpent1_relay.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-wire-relay-min",
+    "file": "src/net/wire.js",
+    "old": "export const SERPENT_RELAY_MIN = 162;",
+    "new": "export const SERPENT_RELAY_MIN = 161;",
+    "tests": [
+      "test/serpent1_relay.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-renown-serpent-worth",
+    "file": "src/net/renown.js",
+    "old": "export const RENOWN_SERPENT_QUESTS = 6;",
+    "new": "export const RENOWN_SERPENT_QUESTS = 3;",
+    "tests": [
+      "test/serpent1_relay.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-host-every-ball-a-word",
+    "file": "src/scenes/serpentHost.js",
+    "old": "if (!pending.size || t - pendingAt < HIT_GATHER_MS) return;",
+    "new": "if (!pending.size) return;",
+    "tests": [
+      "test/serpent1_client.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-host-blow-twice",
+    "file": "src/scenes/serpentHost.js",
+    "old": "    if (t < a.at) return;\n    resolved.add(a.i);",
+    "new": "    if (t < a.at) return;",
+    "tests": [
+      "test/serpent1_client.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-host-coil-forever",
+    "file": "src/scenes/serpentHost.js",
+    "old": "if (t > c.until + COIL_LOST_MS) { held = null; return; }",
+    "new": "",
+    "tests": [
+      "test/serpent1_client.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-host-coil-no-word",
+    "file": "src/scenes/serpentHost.js",
+    "old": "if (t - held.at > COIL_WORD_WAIT_MS) held = null; return;",
+    "new": "return;",
+    "tests": [
+      "test/serpent1_client.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-host-in-every-frame",
+    "file": "src/scenes/serpentHost.js",
+    "old": "const due = lastIn.day !== sw.day || t - lastIn.at >= (answered ? IN_RESEND_MS : IN_RETRY_MS);",
+    "new": "const due = true;",
+    "tests": [
+      "test/serpent1_client.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-host-hull-not-at-helm",
+    "file": "src/scenes/serpentHost.js",
+    "old": "const hl = b?.atHelm ? b.hull : -1;",
+    "new": "const hl = b ? b.hull : -1;",
+    "tests": [
+      "test/serpent1_client.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-host-whirl-ignored",
+    "file": "src/scenes/serpentHost.js",
+    "old": "if (s.mael && !s.fell && !s.gone) { const [x, z] = site(b.pos[0], b.pos[2]); const p = maelPull(s.mael, x, z, t); vx += p.v[0]; vz += p.v[1]; }",
+    "new": "",
+    "tests": [
+      "test/serpent1_client.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-omen-line-twice",
+    "file": "src/systems/serpentOmen.js",
+    "old": "if (line && (t.day !== saidDay || rank > saidRank)) {",
+    "new": "if (line && (t.day !== saidDay || rank >= saidRank)) {",
+    "tests": [
+      "test/serpent1_client.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-omen-site-cached",
+    "file": "src/systems/serpentOmen.js",
+    "old": "(!cache.site && now() - cache.at >= SITE_RETRY_MS)",
+    "new": "false",
+    "tests": [
+      "test/serpent1_client.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-strike-middle-alone",
+    "file": "src/systems/serpentStrike.js",
+    "old": "return [[boat.x + fx, boat.z + fz], [boat.x, boat.z], [boat.x - fx, boat.z - fz]];",
+    "new": "return [[boat.x, boat.z]];",
+    "tests": [
+      "test/serpent1_client.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-strike-ram-whole-lane",
+    "file": "src/systems/serpentStrike.js",
+    "old": "const run = Math.max(0, Math.min(len, ((t - atk.at) / 1000) * RAM_V));",
+    "new": "const run = len;",
+    "tests": [
+      "test/serpent1_client.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-strike-grip-carry-dropped",
+    "file": "src/systems/serpentStrike.js",
+    "old": "const hull = carry.hull + (GRIP.hull * whole.maxHull + GRIP.base) * dtS, crew = carry.crew + GRIP.crew * dtS;",
+    "new": "const hull = (GRIP.hull * whole.maxHull + GRIP.base) * dtS, crew = GRIP.crew * dtS;",
+    "tests": [
+      "test/serpent1_client.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-link-state-kill-lost",
+    "file": "src/net/serpentLink.js",
+    "old": "if (w.k === 'st' && w.fell && Number.isSafeInteger(w.d) && !falls.has(w.d)) falls.set(",
+    "new": "if (false) falls.set(",
+    "tests": [
+      "test/serpent1_client.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-link-refusal-every-word",
+    "file": "src/net/serpentLink.js",
+    "old": "if (!refused.has(w.m)) { refused.add(w.m); say(SERPENT_NO_TEXT[w.m] ?? w.m); }",
+    "new": "say(SERPENT_NO_TEXT[w.m] ?? w.m);",
+    "tests": [
+      "test/serpent1_client.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-spoils-stood-full-gold",
+    "file": "src/systems/serpentSpoils.js",
+    "old": "* (dealt ? 1 : STOOD_GOLD));",
+    "new": ");",
+    "tests": [
+      "test/serpent1_client.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-sounds-roar-unpitched",
+    "file": "src/systems/serpentSounds.js",
+    "old": "roar: cue(DREUGH.barkSound, 0.42, 2.2, 60, 3200),",
+    "new": "roar: cue(DREUGH.barkSound, 1, 2.2, 60, 3200),",
+    "tests": [
+      "test/serpent1_client.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-ink-serpent-in-gate-red",
+    "file": "src/ui/inkMap.js",
+    "old": "ctx.strokeStyle = ink?.ring ?? GATE_RING_CSS; ctx.lineWidth = 2.4;",
+    "new": "ctx.strokeStyle = GATE_RING_CSS; ctx.lineWidth = 2.4;",
+    "tests": [
+      "test/serpent1_client.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-bar-countdown-always",
+    "file": "src/ui/serpentBar.js",
+    "old": "wrath: !b.fell && soundIn <= SOUND_WARN_MS ?",
+    "new": "wrath: !b.fell ?",
+    "tests": [
+      "test/serpent1_client.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-world-no-frame",
+    "file": "src/scenes/world.js",
+    "old": "    serpentFrame();   // SERPENT1",
+    "new": "    // gone",
+    "tests": [
+      "test/serpent1_client.test.js"
+    ]
+  },
+  {
+    "name": "SERPENT1-world-naval-seam",
+    "file": "src/scenes/world.js",
+    "old": "    get serpent() { return serpentHost; },",
+    "new": "",
+    "tests": [
+      "test/serpent1_client.test.js"
+    ]
+  }
+]
