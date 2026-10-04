@@ -1,0 +1,237 @@
+[
+  {
+    "name": "HOME-PRICE-the-rate",
+    "file": "src/net/homeLaw.js",
+    "old": "export const HOME_PRICE_PER_M2 = 300;",
+    "new": "export const HOME_PRICE_PER_M2 = 250;",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-the-town-factor-linear",
+    "file": "src/net/homeLaw.js",
+    "old": "return (3 + Math.sqrt(n)) / 4;",
+    "new": "return (3 + n) / 4;",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-the-town-unbounded",
+    "file": "src/net/homeLaw.js",
+    "old": "Math.min(HOME_TOWN_BLOCKS_MAX, Math.max(1, Math.trunc(blocks)))",
+    "new": "Math.max(1, Math.trunc(blocks))",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-no-floor",
+    "file": "src/net/homeLaw.js",
+    "old": "return Math.min(HOME_PRICE_MAX, Math.max(HOME_PRICE_MIN, price));",
+    "new": "return Math.min(HOME_PRICE_MAX, price);",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-no-cap",
+    "file": "src/net/homeLaw.js",
+    "old": "return Math.min(HOME_PRICE_MAX, Math.max(HOME_PRICE_MIN, price));",
+    "new": "return Math.max(HOME_PRICE_MIN, price);",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-rounded-down",
+    "file": "src/net/homeLaw.js",
+    "old": "const price = Math.round((footprintM2 * HOME_PRICE_PER_M2",
+    "new": "const price = Math.floor((footprintM2 * HOME_PRICE_PER_M2",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-an-unmeasured-house-priced",
+    "file": "src/net/homeLaw.js",
+    "old": "if (!(Number.isFinite(footprintM2) && footprintM2 > 0)) return 0;",
+    "new": "if (!Number.isFinite(footprintM2)) return 0;",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-the-floor-unchecked",
+    "file": "src/net/homeLaw.js",
+    "old": "Number.isSafeInteger(v) && v >= HOME_PRICE_MIN && v <= HOME_PRICE_MAX;",
+    "new": "Number.isSafeInteger(v) && v > 0 && v <= HOME_PRICE_MAX;",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-the-service-range-unread",
+    "file": "server-account/src/homes.js",
+    "old": "  if (!homePriceOk(price)) return { error: 'home-update' };\n",
+    "new": "\n",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-the-update-unsaid",
+    "file": "server-account/src/homes.js",
+    "old": "  if (!homePriceOk(price)) return { error: 'home-update' };\n",
+    "new": "  if (!homePriceOk(price)) return { error: 'bad-home' };\n",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-the-hall-range-unread",
+    "file": "server-account/src/halls.js",
+    "old": "  if (!homePriceOk(price)) return { error: 'home-update' };   // HOME-PRICE",
+    "new": "  // HOME-PRICE",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-the-height-for-depth",
+    "file": "src/systems/onlineHomes.js",
+    "old": "const m2 = (size?.x ?? 0) * (size?.z ?? 0) * scale * scale;",
+    "new": "const m2 = (size?.x ?? 0) * (size?.y ?? 0) * scale * scale;",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-the-scale-once",
+    "file": "src/systems/onlineHomes.js",
+    "old": "const m2 = (size?.x ?? 0) * (size?.z ?? 0) * scale * scale;",
+    "new": "const m2 = (size?.x ?? 0) * (size?.z ?? 0) * scale;",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-the-town-width-alone",
+    "file": "src/systems/onlineHomes.js",
+    "old": "const n = (ext?.width ?? 0) * (ext?.height ?? 0);",
+    "new": "const n = (ext?.width ?? 0);",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-the-refund-told-another",
+    "file": "server-account/src/homes.js",
+    "old": "const refund = mine && !crossed ? homeSaleRefund(",
+    "new": "const refund = !crossed ? homeSaleRefund(",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-a-crossed-house-refunded",
+    "file": "server-account/src/homes.js",
+    "old": "const refund = mine && !crossed ? homeSaleRefund(",
+    "new": "const refund = mine ? homeSaleRefund(",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-a-house-from-before-off-paid",
+    "file": "server-account/src/homes.js",
+    "old": "homeSaleRefund(Number(realmHome ? h.paid : h.price) || 0)",
+    "new": "homeSaleRefund(Number(h.paid) || 0)",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-the-registry-drops-the-refund",
+    "file": "src/systems/onlineHomes.js",
+    "old": "refund: Number.isSafeInteger(h.refund) && h.refund >= 0 ? h.refund : null,",
+    "new": "refund: null,",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-the-claims-price-unread",
+    "file": "src/systems/onlineHomes.js",
+    "old": "const paid = Number.isSafeInteger(r.data?.home?.price) ? r.data.home.price : price;",
+    "new": "const paid = price;",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-the-offer-off-the-price",
+    "file": "src/systems/onlineHomes.js",
+    "old": "(Number.isSafeInteger(home?.refund) && home.refund >= 0 ? home.refund : homeRefund(price))",
+    "new": "homeRefund(price)",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-world-without-the-size",
+    "file": "src/scenes/world.js",
+    "old": "townBlocks: homeTownBlocks(dfLoc), ",
+    "new": "",
+    "tests": [
+      "test/homeprice.test.js",
+      "test/audit68_worldjs.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-exterior-without-the-size",
+    "file": "src/scenes/exterior.js",
+    "old": "townBlocks: homeTownBlocks(dfLocation), ",
+    "new": "",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-the-door-ignores-the-town",
+    "file": "src/scenes/worldModes.js",
+    "old": "const price = homeOnlinePrice(houseFootprintM2(bd), bd?.townBlocks ?? 0);",
+    "new": "const price = homeOnlinePrice(houseFootprintM2(bd), 1);",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-the-sale-off-the-price",
+    "file": "src/scenes/worldModes.js",
+    "old": "const refund = homeSaleOffer(home, homeListPrice(bd));",
+    "new": "const refund = homeSaleOffer(null, homeListPrice(bd));",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-a-bare-number",
+    "file": "src/systems/onlineHomes.js",
+    "old": "export const homeForSaleLine = (price) => `Can be your home: ${gold(price)} gold`;",
+    "new": "export const homeForSaleLine = (price) => `Can be your home: ${price} gold`;",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  },
+  {
+    "name": "HOME-PRICE-the-region-named",
+    "file": "src/systems/onlineHomes.js",
+    "old": "const EMPIRE_ACCOUNT_WORDS = 'your account at the Bank of the Empire';",
+    "new": "const EMPIRE_ACCOUNT_WORDS = \"this region's bank account\";",
+    "tests": [
+      "test/homeprice.test.js"
+    ]
+  }
+]

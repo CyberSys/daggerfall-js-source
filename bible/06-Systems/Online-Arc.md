@@ -4786,7 +4786,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7939` read, on one physical line:
+`src/scenes/worldModes.js:7959` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -9393,9 +9393,11 @@ took: three town homes a character, no upkeep.
   owner when party (the handles the relay signs), and - Daggerfall's own rung - a player whose active quest is set
   in it, so a quest never strands its player. It is shut to everyone else by no pick, no bash and no Open spell, the
   refusal "This is <owner>'s home. The door is locked." A house anyone may buy is its offer (HOME-OFFER below): "This house
-  can be your home. It costs N gold, from your purse and this region's bank account. Buy it?" - the price Daggerfall's
-  bank asks for that house (its model's radius x 1280 - the model the door's own record now carries,
-  `systems/talkTopics.js buildingDataForDoor`, the town directory's for the same building); Yes claims it first and takes the gold only once the claim
+  can be your home. It costs N gold, from your purse and your account at the Bank of the Empire. Buy it?" - HOME-PRICE
+  (2026-10-04, `06-Systems/Economy-Arc.md`): the ground its model stands on at 300 gold a square metre, raised by its
+  town's size, 5,000 to 250,000 (`net/homeLaw.js homeOnlinePrice`; the model the door's own record carries,
+  `systems/talkTopics.js buildingDataForDoor`, and the town's blocks, `townBlocks`), never Daggerfall's radius x 1280,
+  which stays the bank's offline; Yes claims it first and takes the gold only once the claim
   lands (the purse, letters of credit too, then the region's account, as Daggerfall's PurchaseHouse pays), asking the
   purse again after the answer and giving the claim back if it can no longer be paid; No goes on to the door, as
   Daggerfall's Info click does. HOME-OFFER (2026-09-26, Mac: "Enhanced plus cant buy house"): HOME1 asked in Info
@@ -10259,7 +10261,8 @@ own module (`src/net/hallLaw.js`), never net/guildLaw.js, which is in the relay'
   (`realm_gold`, AUDIT REALM L1-F3's part) in ONE batch with the row - the treasury's UPDATE guarded by what it holds,
   the guild holding no hall and the buyer still its guildmaster, then the INSERT (a building somebody owns is the
   primary key's refusal, and the batch goes back); a claim asked again finds the building already this guild's hall
-  (`repeat`). The price is the client's word, as a home's claim takes it. **Sold** (`/v1/guilds/hall/sell`): the
+  (`repeat`). The price is the client's word inside the online range (HOME-PRICE: `homePriceOk`, a build asking
+  another `home-update`), as a home's claim takes it. **Sold** (`/v1/guilds/hall/sell`): the
   deed share of what the treasury paid (`homeSaleRefund`) and half of what records paid for its pieces, back into the
   treasury and its realm part, in one batch with the row's DELETE - held to the pieces as they were read (their count
   and their sum), so none is sold unpaid. **Who may walk in** (`/v1/guilds/hall/entry`, an Officer's too).

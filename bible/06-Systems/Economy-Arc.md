@@ -175,10 +175,81 @@ current design "does not work in an enjoyable manner"):
   job" a choice rather than a chore, and secure services let a smith or a
   mage sell repairs without either side being robbed.
 
+## Homes, priced by what you get (HOME-PRICE, 2026-10-04)
+
+The ask: "We need to make house pricing make sense online". Offered three ways,
+the choice was a new online price "by what you get (its footprint, scaled by
+town size) inside a fixed range the server enforces", with the coherence fixes
+beside it.
+
+**What did not make sense.**
+- **The measure.** A door asked Daggerfall's own price: the model's bounding
+  RADIUS x 1280 (`src/systems/banking.js` `housePrice`, GetHousePrice). A
+  sphere grows with a roof's height and a wing's reach as much as with the
+  rooms, so prices ran from a few thousand to over a million - a hall's door
+  asked 1,274,880 from a treasury (FIELD BUGS 2026-10-03, HALL-GOLD), a home
+  customs carried in was priced 706,000 - while customs lets a level-10
+  character bring 120,000 in all. A cottage could cost more than a manor.
+- **The authority.** The service took whatever price a client named, from 1
+  gold to ten million (`homePriceOk`); it bundles no ARENA2, so it cannot
+  measure a building.
+- **The sale box.** It asked the deed share of the house's price NOW, the
+  client's sum, while the service pays the share of what was PAID.
+- **The words.** "From your purse and this region's bank account" - online,
+  EMPIRE-ACCOUNT moved every home's gold to the one Empire account - and every
+  sum a bare number ("600100 gold").
+
+**The law** (`src/net/homeLaw.js`, read by both ends): an online home costs
+the GROUND its model stands on - the ARCH3D box's width by depth, in square
+metres (`systems/onlineHomes.js` `homeFootprintM2`, the renderer's 0.025 m a
+unit) - at **300 gold a square metre**, raised by its town's size
+(`homeTownFactor`: 1 in a one-block hamlet, farm or manor, rising with the
+town's side, the square root of its RMB blocks - 1.5 at 3 x 3, 2 at 5 x 5,
+2.75 at 8 x 8), rounded to **whole hundreds** and held to **5,000-250,000**
+(`homeOnlinePrice`). A 6 x 6 m cottage in a hamlet is 10,800; a 10 x 10 m house
+in a 3 x 3 town 45,000; a 12 x 12 m house in an 8 x 8 city 118,800. A guild's
+hall is still the home's price and half again (`guildHallPrice`), so at most
+375,000. Offline nothing changes: the bank's market, its sale and customs'
+count of a deed read Daggerfall's own price.
+
+**The service holds the range.** A claim (`server-account/src/homes.js`
+`claimHome`) or a hall's (`halls.js` `buyHall`) naming a price outside it is
+refused `home-update` ("This game is out of date. Reload it to buy a home.") -
+a build from before HOME-PRICE asks Daggerfall's - and nothing is seated or
+paid. Inside the range the price is still the client's word: the service can
+hold no building's measure without game data (the doctrine), so a forged client
+can buy a manor at the floor. "Assume infinite wealth" covers it - the range
+bounds the damage, which the ten-million cap did not.
+
+**The sale says what it pays.** The town's answer tells the caller's own home
+what its sale pays back (`refund`): the deed share of what a realm record
+`paid`, of its `price` for a home from before the realm, nothing for one
+customs carried in (HOME-CROSSED's `crossed`). Never another account's. The
+client's registry keeps it, a claim writes the share of the price the service
+holds for it, and the door's "Sell your home for N gold?" asks that sum
+(`homeSaleOffer`), falling back to the house's online price only against a
+service that sends none. A home bought at Daggerfall's price before HOME-PRICE
+sells back at the share of what was paid for it.
+
+**The words.** Every sum a home's lines say carries its thousands, and online
+they name "your account at the Bank of the Empire". (The rent and decor lines
+still say "this region's bank account" - outside this change, left for their
+own.)
+
+**The four hosts.** `scenes/world.js` and `scenes/exterior.js` put the town's
+blocks on every door's building record (`townBlocks`, `homeTownBlocks`);
+`scenes/worldModes.js` prices the door and asks the sale; the dungeon host
+prices no door. `test/homeprice.test.js` (7), `tools/mutants/homeprice.json`
+(26, all dead). **Not verified here:** this tree has no ARENA2, so the spread
+over Daggerfall's real house models was not measured - the rate, the factor
+and the range are set from the field's prices and customs' allowance, and are
+open numbers (below).
+
 ## Open numbers
 
 The outing (one dungeon, one to two hours), the wear (DFU's amount since WEAR-ONE,
 `src/systems/equip.js` `DFU_WEAR_MULTIPLE` = 1), the kit ceiling (75%), the repair
 scale (a third), the potions' rates and the companion's capacity are all
 tunable, and each is to be read again against the Phase 1 ledger before it is
-turned.
+turned. So are a home's (HOME-PRICE, `src/net/homeLaw.js`): 300 gold a square
+metre, the town factor, and the 5,000-250,000 range.

@@ -188,7 +188,8 @@ export const carriedItemLists = (/** @type {any} */ snap) => [...stashedItemList
 /** OPEN (AUDIT REALM2 T3), as the allowance is: the price customs counts a Daggerfall house at. The realm's bank buys a
  *  house back at the deed's share of its building's model radius x 1280 (banking.js houseSellPrice), a measure no save
  *  carries - the bank reads it off the building at its counter - and a Daggerfall house costs tens of thousands
- *  (net/homeLaw.js, HOME_PRICE_MAX's note), so every house counts at the deed's share of the top of that range. */
+ *  (banking.js housePrice; HOME-PRICE: an ONLINE home is priced apart, net/homeLaw.js homeOnlinePrice), so every house
+ *  counts at the deed's share of the top of that range. */
 export const CUSTOMS_HOUSE_PRICE = 100_000;
 /** The realm's bank's buy-back and where it files a ship's room, as the game has them - systems/banking.js DEED_SELL_MULT,
  *  SHIP_PRICES, shipSellPrice, ownedShipType, ownsShip and SHIP_INTERIOR_MAP_IDS, talkTopics.js BUILDING_KEY_0 (the

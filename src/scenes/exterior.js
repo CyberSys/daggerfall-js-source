@@ -200,6 +200,7 @@ import { messageBox, mountWindow } from '../systems/notify.js';   // ENH-NOTICE3
 import { expandMessageBoxTokens } from '../systems/talkMacros.js';   // AUDIT 64 F10: SetTextTokens' null-mcp ExpandMacros pass
 import { HolidayTextTimer, holidayTextPrimesFor } from '../systems/holidays.js';   // AUDIT 64 F10: PlayerEnterExit.ShowHolidayText and its prime/drain
 import { buildingDataForDoor, locationBuildings } from '../systems/talkTopics.js';   // E2: the shop identity   // AUDIT 64 F26: BuildingDirectory's real building list in this host too
+import { homeTownBlocks } from '../systems/onlineHomes.js';   // HOME-PRICE: a town's size prices its homes
 import { hitSoundFor, swingSoundFor, ENEMY_HIT_VOLUME, PLAYER_HIT_VOLUME } from '../systems/soundClips.js';   // AUDIT 58: DFU's two hit volumes
 import { isInvisible, entityIsParalyzed } from '../systems/effects.js';   // AUDIT 39: the S19 gate is host-agnostic in DFU
 import { ANIMALS_ARCHIVE, ANIMAL_SOUND_BY_RECORD } from '../systems/soundClips.js';
@@ -4250,7 +4251,7 @@ export async function bootExterior(canvas, renderer, params, status) {
         position: [hit.door.matrix[12], hit.door.matrix[13], hit.door.matrix[14]],
       }, { locationIndex: dfLocation.locationIndex ?? 0 });
       if (!d) return null;
-      return { ...d, regionIndex: dfLocation.regionIndex, name: townTalk.directory.find((e) => e.buildingKey === d.buildingKey)?.name ?? '' };
+      return { ...d, regionIndex: dfLocation.regionIndex, townBlocks: homeTownBlocks(dfLocation), name: townTalk.directory.find((e) => e.buildingKey === d.buildingKey)?.name ?? '' };   // HOME-PRICE: the town's size
     },
   });
   // FORAGE1: THE FOUR HOSTS RULE - the fixed city runs Foraging too: QAE's four actions on its machine, and its

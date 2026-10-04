@@ -12,7 +12,7 @@ import worker from '../server-account/src/index.js';
 import { _resetKeyForTests } from '../server-account/src/signing.js';
 import { decorGoldDelta } from '../server-account/src/decor.js';
 import { SESSION_KEY, accountHomes, accountDecor } from '../src/net/accountClient.js';
-import { HOME_SALE_SHARE, homeSaleRefund } from '../src/net/homeLaw.js';
+import { HOME_SALE_SHARE, homeSaleRefund, HOME_PRICE_MIN } from '../src/net/homeLaw.js';
 import { DECOR_STATION_FEES, decorRescale, decorRefund } from '../src/net/decorLaw.js';
 import { DEED_SELL_MULT } from '../src/systems/banking.js';
 import { createOnlineHomes, buyOnlineHome, sellOnlineHome, homeRefund } from '../src/systems/onlineHomes.js';
@@ -134,12 +134,14 @@ test('REALM P2.2b: a realm character buys a home on its record and sells it back
 
 test('REALM P2.2b: a refusal moves nothing - a purse that cannot pay, a house another holds, a record that moved under the claim', async () => {
   const { env, player, record } = await stand();
-  const A = await player('Aldric', { goldPieces: 1_000, items: [], bankAccounts: bank(REGION, 500) });
+  // HOME-PRICE (PIN MOVED): the purse and the account one gold short of the range's floor and a gold over it, where they
+  // were 1,000 + 500 against 1,501 - a home costs at least HOME_PRICE_MIN now
+  const A = await player('Aldric', { goldPieces: HOME_PRICE_MIN - 500, items: [], bankAccounts: bank(REGION, 500) });
   const B = await player('Brisienna', { goldPieces: 90_000, items: [] });
-  assert.equal((await A.homes.claim({ mapId: MAP, buildingKey: KEY, region: REGION, character: A.char, price: 1_501, realm: A.at(1) })).error, 'realm-gold');
-  assert.equal((await B.homes.claim({ mapId: MAP, buildingKey: KEY, region: 0, character: B.char, price: 1_000, realm: B.at(1) })).ok, true);
-  assert.equal((await A.homes.claim({ mapId: MAP, buildingKey: KEY, region: REGION, character: A.char, price: 1_000, realm: A.at(1) })).error, 'home-taken');
-  assert.deepEqual(await record(A), { seq: 1, save: { goldPieces: 1_000, items: [], bankAccounts: bank(REGION, 500) } });
+  assert.equal((await A.homes.claim({ mapId: MAP, buildingKey: KEY, region: REGION, character: A.char, price: HOME_PRICE_MIN + 1, realm: A.at(1) })).error, 'realm-gold');
+  assert.equal((await B.homes.claim({ mapId: MAP, buildingKey: KEY, region: 0, character: B.char, price: HOME_PRICE_MIN, realm: B.at(1) })).ok, true);
+  assert.equal((await A.homes.claim({ mapId: MAP, buildingKey: KEY, region: REGION, character: A.char, price: HOME_PRICE_MIN, realm: A.at(1) })).error, 'home-taken');
+  assert.deepEqual(await record(A), { seq: 1, save: { goldPieces: HOME_PRICE_MIN - 500, items: [], bankAccounts: bank(REGION, 500) } });
   // a checkpoint landing mid-batch: the claim rolls back with it
   const realBatch = env.DB.batch.bind(env.DB);
   let raced = false;
@@ -147,7 +149,7 @@ test('REALM P2.2b: a refusal moves nothing - a purse that cannot pay, a house an
     if (!raced) { raced = true; assert.equal((await realmPut(A.io, A.char, { lease: A.lease, seq: 2 }, '{"goldPieces":1000,"mid":1}')).ok, true); }
     return realBatch(list);
   };
-  const r = await A.homes.claim({ mapId: MAP, buildingKey: KEY + 1, region: REGION, character: A.char, price: 900, realm: A.at(1) });
+  const r = await A.homes.claim({ mapId: MAP, buildingKey: KEY + 1, region: REGION, character: A.char, price: HOME_PRICE_MIN, realm: A.at(1) });   // HOME-PRICE (PIN MOVED): a price inside the online range, where it was 900
   assert.deepEqual([r.error, r.seq], ['seq', 2]);
   assert.equal(env.DB._raw.prepare('SELECT COUNT(*) AS n FROM homes WHERE building_key = ?').get(KEY + 1).n, 0, 'no house without its payment');
 });
@@ -155,7 +157,7 @@ test('REALM P2.2b: a refusal moves nothing - a purse that cannot pay, a house an
 test('REALM P2.2b: a realm character\'s decor moves the record\'s gold with the piece - placed, grown, shrunk, a station made, removed; a free write names no record; a paid one without it is refused', async () => {
   const { player, record } = await stand();
   const A = await player('Aldric', { goldPieces: 300_000, items: [], bankAccounts: bank(REGION, 0) });
-  assert.equal((await A.homes.claim({ mapId: MAP, buildingKey: KEY, region: REGION, character: A.char, price: 1_000, realm: A.at(1) })).ok, true);
+  assert.equal((await A.homes.claim({ mapId: MAP, buildingKey: KEY, region: REGION, character: A.char, price: HOME_PRICE_MIN, realm: A.at(1) })).ok, true);   // HOME-PRICE (PIN MOVED): a price inside the online range, where it was 1,000
   const where = { mapId: MAP, buildingKey: KEY, character: A.char };
   let seq = 2;
   const gold = async () => (await record(A)).save.goldPieces;
@@ -211,14 +213,14 @@ test('REALM P2.2b end to end: onlineHomes buys and sells for a realm character -
   assert.equal((await record(A)).save.bankAccounts[REGION].accountGold, homeSaleRefund(42_000));
   // a refused buy gives the price back
   const B = await player('Bran', { goldPieces: 50_000, items: [] });
-  await B.homes.claim({ mapId: MAP, buildingKey: KEY + 5, region: 0, character: B.char, price: 1_000, realm: B.at(1) });
+  await B.homes.claim({ mapId: MAP, buildingKey: KEY + 5, region: 0, character: B.char, price: HOME_PRICE_MIN, realm: B.at(1) });   // HOME-PRICE (PIN MOVED): a price inside the online range, where it was 1,000
   const taken = await buyOnlineHome(homes, {
-    mapId: MAP, buildingKey: KEY + 5, region: REGION, price: 1_000,
+    mapId: MAP, buildingKey: KEY + 5, region: REGION, price: HOME_PRICE_MIN,
     afford: (n) => n <= entity.goldPieces, pay: (n) => { entity.goldPieces -= n; }, refund: (n) => { entity.goldPieces += n; }, realm: { act },
   });
   assert.deepEqual([taken.ok, taken.error, entity.goldPieces], [false, 'home-taken', 8_000]);
   // a sale that landed and whose answer never came: the refund is the service's to say - the session ends
-  await buyOnlineHome(homes, { mapId: MAP, buildingKey: KEY + 9, region: REGION, price: 1_000, afford: () => true, pay: (n) => { entity.goldPieces -= n; }, realm: { act } });
+  await buyOnlineHome(homes, { mapId: MAP, buildingKey: KEY + 9, region: REGION, price: HOME_PRICE_MIN, afford: () => true, pay: (n) => { entity.goldPieces -= n; }, realm: { act } });
   let landedOnce = false;
   A.door.before = async (url) => {
     if (url.endsWith('/v1/homes/release') && !landedOnce) { landedOnce = true; return; }

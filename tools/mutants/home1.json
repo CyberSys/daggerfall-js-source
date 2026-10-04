@@ -138,11 +138,12 @@
   {
     "name": "HOME1-price-bound-off-by-one",
     "file": "src/net/homeLaw.js",
-    "old": "v > 0 && v <= HOME_PRICE_MAX;",
-    "new": "v > 0 && v < HOME_PRICE_MAX;",
+    "old": "v >= HOME_PRICE_MIN && v <= HOME_PRICE_MAX;",
+    "new": "v >= HOME_PRICE_MIN && v < HOME_PRICE_MAX;",
     "tests": [
       "test/home1.test.js"
-    ]
+    ],
+    "note": "HOME-PRICE (PIN MOVED, re-aimed by content): the price is a range now, floor and top."
   },
   {
     "name": "HOME1-route-wall-gone",

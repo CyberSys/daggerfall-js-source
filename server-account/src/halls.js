@@ -86,7 +86,8 @@ export async function buyHall(ctx, player, body = {}) {
   const a = await guildActorOf(db, player, character);
   if ('error' in a) return a;
   if (!hallMay(a.me.rank, 'hall')) return { error: 'guild-rank' };
-  if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey) || !homeRegionOk(region) || !homePriceOk(price)) return { error: 'bad-home' };
+  if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey) || !homeRegionOk(region) || !Number.isSafeInteger(price) || !(price > 0)) return { error: 'bad-home' };
+  if (!homePriceOk(price)) return { error: 'home-update' };   // HOME-PRICE: a build from before the online price (homes.js claimHome)
   if (!homeLayoutOk(layout)) return { error: 'bad-home' };   // AUDIT PRE-MERGE 1003 WD1: the layout the buyer's town stands in
   if (homeInArenaCell(mapId, buildingKey)) return { error: 'home-arena' };   // ARENA4b: the arena stands there - a build from before it still stands GEMSAL03 (homes.js claimHome's guard)
   if (!Object.hasOwn(body ?? {}, 'layout')) return { error: 'home-update' };   // AUDIT PRE-MERGE 1003 WD1: a build from before the town mods (AUDIT WD3 B2)

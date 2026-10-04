@@ -279,12 +279,12 @@ import { freeTavernRooms } from '../systems/guildServices.js';
 import { BankWindow, preloadBankArt, bankArtLoaded, BANK_RECTS, BANK_PANEL_X, BANK_PANEL_Y } from '../ui/bankWindow.js';
 import { BankPurchaseWindow, preloadPurchaseArt, purchaseArtLoaded } from '../ui/bankPurchaseWindow.js';   // H2
 import { titleDeed, shipLabel, creditShip, BOAT_DEED_TEMPLATE as FLEET_DEED_TEMPLATE, BOAT_PARTS_TEMPLATE as FLEET_PARTS_TEMPLATE } from '../systems/fleet.js';   // HOLDINGS: a bought deed into the Fleet's book; AUDIT HOLDINGS F5: bought parts' claim
-import { createBankAccounts, createHouses, BANK_REGION_COUNT, TRANSACTION_RESULT, ownsHouse, isHouseOwned, deedStands, ownedHouseKey, houseSellPrice, housesForSale, allocateHouseToPlayer, purchaseHouse, ownsShip, ownedShipType, purchaseShip, sellShip, sellHouse, SHIP_COORDS, SHIP_INTERIOR_MAP_IDS, housePrice, creditMarksSale, marksSaleCredit, crossedDeedLines, goldRegion, creditDecision, takeCredit, empireRefusalLines } from '../systems/banking.js';   // H1/H2   // H3: the two leaves - the sell price and the ship
+import { createBankAccounts, createHouses, BANK_REGION_COUNT, TRANSACTION_RESULT, ownsHouse, isHouseOwned, deedStands, ownedHouseKey, houseSellPrice, housesForSale, allocateHouseToPlayer, purchaseHouse, ownsShip, ownedShipType, purchaseShip, sellShip, sellHouse, SHIP_COORDS, SHIP_INTERIOR_MAP_IDS, creditMarksSale, marksSaleCredit, crossedDeedLines, goldRegion, creditDecision, takeCredit, empireRefusalLines } from '../systems/banking.js';   // H1/H2   // H3: the two leaves - the sell price and the ship
 // HOME1: the online homes - the door's one answer, the offer, the owner's menu, and an owned home's own scene
 import {
   homeCandidate, homePurchasable, homeSceneName, homeDoorAnswer, homeDoorTitle, homeLockedLine, homeBelongsLine,
   homeForSaleLine, homeOfferLines, HOME_BOUGHT_LINE, homeShortLine, homeOwnerLines, homeEntryLine, homeSaleLines, HOME_CROSSED_LINES, HOME_SALE_OUT,
-  homeSoldLine, homeRefund, HOME_ENTRY_WORDS, HOME_BANK_LINES, buyOnlineHome, sellOnlineHome, HOME_BUY_BUSY, homeDoorPrompt,
+  homeSoldLine, homeSaleOffer, HOME_ENTRY_WORDS, HOME_BANK_LINES, buyOnlineHome, sellOnlineHome, HOME_BUY_BUSY, homeDoorPrompt,
   HOME_BUY_ARM_MS, HOME_VERB, homeBuyRows, homeOwnerRows, homeNextEntry, HOME_OFFER_BUY, HOME_OFFER_PASS,   // HOME2
   homeVisitorRows,   // HOME-RENT: a tenant's rows, and a home's with a room to rent
   HALL_VERB, homeHallBuyRow, hallNextEntry, hallBoughtLine, hallShortLine, hallOldGoldLine, HALL_CHEST_SHUT, hallEntryTurnable,   // GUILD1d: a guild's hall; AUDIT PROF-541 R2-H1: its door's gate
@@ -293,13 +293,14 @@ import {
   HALL_OF_RECORDS_TEXT, HALL_OF_RECORDS_SHUT,   // SEASON1 part three: a seat's Hall of Records
   homeDoorName,   // FIELD BUGS 2026-09-30b HOME-PLAQUE: a nameless house with verbs is a Residence
   homeClaimLayout,   // AUDIT PRE-MERGE 1003 WD1: a hall is bought in its town's layout, as a home is
+  homeFootprintM2,   // HOME-PRICE: the ground a house stands on
 } from '../systems/onlineHomes.js';
 import { guildHallPrice, GUILD_HALL_ENTRY_WORDS } from '../net/hallLaw.js';   // GUILD1d: what a hall costs, in its refusal's words; who may walk in
 import { SEAT_HALL_DECOR_CAP, SEAT_HALL_CLEAR_M, SEAT_HALL_TEXT } from '../net/townSeatLaw.js';   // SEAT-HALL: the palace as the holder's hall
 import { crownRulerFactionId, crownRulerHere, crownHallPlan, CROWN_HALL_TEXT } from '../systems/crownHall.js';   // CROWN-HALL: the castle as the crown's holder's hall
 import { hallPlaquePlan, PLAQUE_MODEL, PLAQUE_BARE_MODEL } from '../world/arenaPlaques.js';   // ARENA5: the Hall of Champions' plaque wall
 import { bannerKeyOf } from './hallBanners.js';   // CROWN-HALL: the throne room's cloth, keyed as the street's
-import { HOME_ENTRIES, homePriceOk, rentCost, rentDaysLeft } from '../net/homeLaw.js';
+import { HOME_ENTRIES, homePriceOk, homeOnlinePrice, rentCost, rentDaysLeft } from '../net/homeLaw.js';   // HOME-PRICE: what a home costs online
 // HOME-RENT: a home's rooms, rented at its door and offered, priced and collected in its owner's decorator
 import {
   homeRooms, rentable, rentHomeRoom, collectHomeRent, rentPickLines, rentDaysLines, rentConfirmLines, rentDoneLine, rentShortLine,
@@ -544,7 +545,7 @@ export function createWorldModes(host) {
    *
    * AUDIT-WH H5. Three hover arms wrote `.Name` - the C# property, as
    * the mod's own source spells it (.cs:764, :725, :777) - and the
-   * record these hosts mint spells it `name` (exterior.js:4043 hands
+   * record these hosts mint spells it `name` (exterior.js:4044 hands
    * `dfLocation`, world.js hands `_questLoc()`; both are the port's
    * location record). `.Name` on it is `undefined`, so all three arms
    * fell to `''`, and `staticDoorName` answers NULL on an empty
@@ -3372,6 +3373,17 @@ export function createWorldModes(host) {
       return arch.getMesh(rec)?.radius ?? 0;
     } catch { return 0; }
   }
+  /** HOME-PRICE: the ground a building's own model stands on, in square metres (its ARCH3D box, as houseMeshRadius reads
+   *  the radius) - 0 for a model the reader cannot resolve. */
+  function houseFootprintM2(building) {
+    const id = building?.modelIdNum;
+    if (id == null) return 0;
+    try {
+      const rec = arch?.getRecordIndex?.(id);
+      if (rec == null || rec < 0) return 0;
+      return homeFootprintM2(arch.getMesh(rec)?.size, GLOBAL_SCALE);
+    } catch { return 0; }
+  }
   /** The market, priced. */
   const pricedHousesForSale = () => currentHousesForSale()
     .map((h) => ({ ...h, meshRadius: houseMeshRadius(h) }));
@@ -6015,14 +6027,20 @@ export function createWorldModes(host) {
   }
   /** What a home's door does for me (homeDoorAnswer): my party's handles, and my quest's rung. */
   const homeDoorFor = (b, home) => homeDoorAnswer(home, { partyNames: host.partyNames?.() ?? [], questSite: questSiteHere(b) });
-  /** What a house I could buy costs - online, its town known, nobody's home, for sale (no quest in it) - priced as
-   *  Daggerfall prices a house, off its model's radius (housePrice); 0 for none, or for a model nobody can value. */
+  /** HOME-PRICE (net/homeLaw.js homeOnlinePrice): what a house costs online - the ground its model stands on, raised by
+   *  its town's size (the door's `townBlocks`), never Daggerfall's radius x 1280 (the bank's, offline). 0 for a model
+   *  nobody can measure. */
+  function homeListPrice(bd) {
+    const price = homeOnlinePrice(houseFootprintM2(bd), bd?.townBlocks ?? 0);
+    return homePriceOk(price) ? price : 0;
+  }
+  /** What a house I could buy costs - online, its town known, nobody's home, for sale (no quest in it) - at its online
+   *  price (homeListPrice); 0 for none. */
   function homeOfferPrice(bd) {
     const homes = host.onlineHomes;
     if (!homes || !homeCandidate(bd) || !homes.known(homeTownOf(bd)) || homeOf(bd)) return 0;
     if (!homePurchasable(bd, { isActiveQuestBuilding: questSiteHere })) return 0;
-    const price = housePrice(houseMeshRadius(bd));
-    return homePriceOk(price) ? price : 0;
+    return homeListPrice(bd);
   }
   /** The hover's line under a house I could buy. */
   function homeSaleHover(bd) {
@@ -6659,7 +6677,9 @@ export function createWorldModes(host) {
     // and asks no price (it asked 600,100 of Seanobi's, and the service paid its deed share of nothing and took it)
     const home = homeOf(bd);
     if (home?.crossed && host.realmAct) { townTalk?.showOverlay?.(new ChoiceWindow({ lines: HOME_CROSSED_LINES, options: [{ code: 'Escape', label: 'Esc - close', action: () => {} }] })); return; }
-    const refund = homeRefund(housePrice(houseMeshRadius(bd)));
+    // HOME-PRICE: what the sale will pay - the service's own sum (its deed share of what was PAID), never this client's
+    // share of the house's price now, which a home bought before HOME-PRICE was never bought at
+    const refund = homeSaleOffer(home, homeListPrice(bd));
     townTalk?.showOverlay?.(new ChoiceWindow({
       lines: homeSaleLines(refund),
       options: [
@@ -10142,7 +10162,7 @@ export function createWorldModes(host) {
   addEventListener('mousedown', (e) => {
     // AUDIT-MACK F2: THIS HOST DOES NOT FEED THE HELD SET, and MAC-K1
     // briefly made it. `keys` is not this host's - it arrives on the
-    // host bag (`exterior.js:4105`, `world.js`'s twin), and the OUTER
+    // host bag (`exterior.js:4106`, `world.js`'s twin), and the OUTER
     // host's own mousedown writes `keys.add(mouseCode(e.button))`
     // UNGATED, before any mode test, on a listener that is never
     // removed. So the three button codes were already in the Set while
@@ -11925,7 +11945,7 @@ export function createWorldModes(host) {
      *  .cs:175-176 writes `weaponDrawn`/`usingLeftHand` off it,
      *  :420-421 restores them onto it. The port has FOUR PlayerWeapons
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
-     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3648-3670), and IS1 routed the inside-a-building save to
+     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3649-3671), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
      *  unconditionally (world.js:12188). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them

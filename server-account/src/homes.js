@@ -112,7 +112,10 @@ export async function claimHome(ctx, player, body = {}) {
   const { mapId, buildingKey, region, character, price, realm = null, layout = null } = body ?? {};
   const { db, nowS } = ctx;
   if (accountKind(player) !== 'linked') return { error: 'homes-need-account' };
-  if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey) || !homeRegionOk(region) || !homePriceOk(price)) return { error: 'bad-home' };
+  if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey) || !homeRegionOk(region) || !Number.isSafeInteger(price) || !(price > 0)) return { error: 'bad-home' };
+  // HOME-PRICE: a price outside the range a home costs online is a build from before it, asking Daggerfall's (its model's
+  // radius x 1280) - asked to update, never seated at it
+  if (!homePriceOk(price)) return { error: 'home-update' };
   if (!homeLayoutOk(layout)) return { error: 'bad-home' };   // WD3: the layout the claimant's town stands in (null: Daggerfall's)
   // ARENA4b: THE ARENA STANDS THERE. No building of Daggerfall's cell (4,3) has a key since ARENA1, but a build from
   // before the arena still stands GEMSAL03 and could buy one of its houses - a home keyed to nothing. Refused by the key,
@@ -264,7 +267,9 @@ const lookOfRow = (h) => { const look = h.look ? homeLookOf(h.look) : null; retu
 
 /**
  * A TOWN'S HOMES, for everyone standing in it - guests too: whose each is (the handle the relay signs), who may walk
- * in, and which are the caller's own. Never the price, never another account's character.
+ * in, and which are the caller's own. Never another account's price, never another account's character. HOME-PRICE: the
+ * caller's own each say what selling it pays back (`refund`) - the sale's own sum (realmRelease: the deed share of what
+ * a record `paid`; a house from before the realm, of its `price`) - so the door asks the sale at what it will pay.
  * @param {{db: any}} ctx
  */
 export async function homesInTown({ db, nowS = Math.floor(Date.now() / 1000) }, player, { mapId, character = null } = {}, { seats = false } = {}) {
@@ -277,7 +282,7 @@ export async function homesInTown({ db, nowS = Math.floor(Date.now() / 1000) }, 
   const me = typeof character === 'string' && CHAR_ID_RE.test(character) ? character : '';
   // GUILD1d: a hall's guild (its name, tag and heraldry) and the named character's rank in it; a home whose owner opened
   // it to their guild, whether the named character is in that guild with them
-  const { results = [] } = await db.prepare(`SELECT h.building_key, h.player, h.char_id, h.owner_name, h.entry, h.paid, h.look, h.guild_id,
+  const { results = [] } = await db.prepare(`SELECT h.building_key, h.player, h.char_id, h.owner_name, h.entry, h.price, h.paid, h.look, h.guild_id,
       g.name AS guild_name, g.tag AS guild_tag, g.heraldry AS guild_heraldry,
       (SELECT COUNT(*) FROM home_rooms r WHERE r.map_id = h.map_id AND r.building_key = h.building_key AND r.listed = 1 AND (r.tenant IS NULL OR r.until <= ?1)) AS vacant,
       (SELECT MIN(r.price) FROM home_rooms r WHERE r.map_id = h.map_id AND r.building_key = h.building_key AND r.listed = 1 AND (r.tenant IS NULL OR r.until <= ?1)) AS rent_from,
@@ -307,9 +312,13 @@ export async function homesInTown({ db, nowS = Math.floor(Date.now() / 1000) }, 
       }
       const mine = h.player === player.id;
       // HOME-CROSSED: my own realm character's house no record paid for is `crossed` - its door asks no price
-      const crossed = mine && REALM_ID_RE.test(String(h.char_id)) && !(Number(h.paid) > 0);
+      const realmHome = REALM_ID_RE.test(String(h.char_id));
+      const crossed = mine && realmHome && !(Number(h.paid) > 0);
+      // HOME-PRICE: what its sale pays back, as releaseHome pays it - a realm character's from what its record paid
+      const refund = mine && !crossed ? homeSaleRefund(Number(realmHome ? h.paid : h.price) || 0) : null;
       return {
         buildingKey: h.building_key, owner: h.owner_name, entry: open && !mine ? 'public' : h.entry, mine, ...(mine ? { character: h.char_id } : {}), ...(crossed ? { crossed } : {}),
+        ...(refund != null ? { refund } : {}),
         ...(Number(h.vacant) > 0 ? { rent: { vacant: Number(h.vacant), from: Number(h.rent_from) } } : {}),
         ...(Number.isSafeInteger(h.tenancy) && h.tenancy > nowS ? { tenant: h.tenancy } : {}),
         ...lookOfRow(h),   // HOME-LOOK: how its owner painted it
