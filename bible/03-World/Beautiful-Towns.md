@@ -159,8 +159,14 @@ places could not be shown as you left them") is honoured, never misread
 handed over at any smith of its town; a rented room is honoured at any inn of
 its town; a save or a Recall anchor made inside stands the player outside
 rather than through a stranger's door; a quest's building site is chosen again
-in the town as it stands, by the place's own P2/P3, keeping what was assigned to
-it (`Place.reseatMovedSite`, `QuestMachine.reseatMovedSites`); and a questor
+in the town as it stands, by the place's DECLARED P2/P3 and DFU's own house
+fallback (FIELD BUGS 2026-10-04b RESEAT-DECLARED: the fallback's stored p2 of -1
+had read as "any building", a house turned into a tavern or a shop), keeping
+what was assigned to it (`Place.reseatMovedSite`, `QuestMachine.reseatMovedSites`),
+and a site no building of its kind stands for is UNSEATED - its key none, its
+record kept - until its town stands in its layout again or a building of its
+kind is chosen at a later load, never left on a stranger's building (RESEAT-GAPS);
+and a questor
 met indoors is seated again in it (FIELD BUGS 2026-10-03b QUESTOR-MOVED,
 `Person.reseatMovedQuestor`) - in the building the journal names as the town
 now stands, else the first named building holding one of their faction and
@@ -199,6 +205,19 @@ elsewhere.
   under it now, in DFU's own order, so no landing DFU makes on a floor moves (`player/enterExit.js` `interiorLanding`'s
   `standsAt`); a room with nowhere to stand is refused in DFU's own words, "This house has nothing of value."; and a
   body ten metres under a room's lowest triangle is stood back at its door (FIELD BUGS 2026-10-04b VOID-ENTRY).
+- **The port's curation: a temple with no house.** Beautiful Villages replaces the location files of 34 of Arkay's
+  standalone temples with its `TEMPASA2` alone - the temple and 25 House5, none a house a quest seats anyone in - so a
+  temple quest whose person takes a local home (half of them: Person.cs AssignHomeTown) could not be made, and the
+  questor said "You're too late..." (C0B00Y01 505 times in 544, C0B00Y03 273). The 34 are kept Daggerfall's own BY
+  THEIR LOCATION KEYS (`layoutPins.js` `CURATED_CLASSIC`'s second row, asked before any type or grid, since the mod
+  replaces their files); the twelve villages laying `TEMPASA2` out among their own houses stay the author's (FIELD BUGS
+  2026-10-04b TEMPLE-HOME).
+- **The port's curation: quest markers no player reaches.** Six of the packs' interior designs (51 interiors, 1,105
+  buildings in 665 towns) hold a quest marker no one can reach - under the floor, in an attic, inside a stair, outside a
+  wall. Each of the eight stands at its measured floor spot, keyed by pack, block, record, kind and position
+  (`systems/quest/markerCuration.js`, measured by `tools/townQuestMarkers.mjs`); a save's sites are mended at the load;
+  and any building marker with no floor within 4 m under it stands its person, foe or item at the site's nearest marker
+  that has one (FIELD BUGS 2026-10-04b QUEST-MARKERS).
 - **The port's curation: a tavern with no tavern.** Beautiful Villages rebuilds
   `TVRNAS00` and `TVRNAS06` as houses (the classic blocks hold three taverns
   each) and leaves the 274 roadside taverns standing on them (their location

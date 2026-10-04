@@ -22,7 +22,7 @@ it, so it is the data the packs were built over). It held no TEXTURE files, so n
 | 7 | "When using this item, the screen froze; no other key would close it" (the Hall of Records of Hearthton Manor) | a close asked while the book rose was dropped, and its latch refused every later one | BOOK-RISE |
 | 8 | "Houses earned through Knightly Orders still possibly purchaseable?" - "To Arde's residence", "Buy it: 554330 gold" | the order's house was a deed in the save alone: its knight was offered it, and another player's claim took it | KNIGHT-HOUSE |
 | 9 | "Disappearing Horse? It's there but it gets culled on its right side" | not reproduced - the cart's horse culls correctly; every walking sprite's cull sphere was its birth size | CULL-SIZE |
-| 10 | (the audits) | the quests the town mods broke; two stand-ins off their pack's own law | QUEST-AUDIT, CROPS, DOMES |
+| 10 | (the audits) | the quests the town mods broke - unreachable markers, house-less temples, a re-seat that turned a house into a shop, quick loot that never told a quest - and two stand-ins off their pack's own law | QUEST-AUDIT (LOOT-CLICK, RESEAT-DECLARED, RESEAT-GAPS, QUEST-MARKERS, TEMPLE-HOME), CROPS, DOMES |
 
 ## CAMP-CAP (1)
 
@@ -323,18 +323,102 @@ temples', Thieves Guild's and Dark Brotherhood's halls keep their factions; no q
 reaches the journal and the letters (both re-expand when shown). The Thieves Guild's invitation (O0A0AL00) meets no bad
 marker among its 2,640 House1 candidates.
 
-The fixes for 1, 2, 3, 4 and 6 follow.
+The fixes, one each (verified over the player's data where it decides, and pinned without it where it can be):
+
+### LOOT-CLICK (4)
+
+`systems/itemTransfer.js` (sendQuestItemClick, the one door), `systems/quickLoot.js` (takeThrough - a row and take-all),
+`ui/enhancedInventory.js` (take - the card's Take and the pad's act - and openMenu's right-click Take),
+`ui/nativeInventory.js` (the classic window, through the same door). Quick loot and the enhanced window's take moved a
+quest item off a body without calling its quest's `setPlayerClicked`; DFU's remote-list click calls it first
+(DaggerfallInventoryWindow.cs:2027-2037), and only the row click and the classic window did. R0C20Y07, S0000503,
+N0B00Y06, O0B00Y11 and Q0C4XY04 gate on it (R0C20Y07's `clicked item _item_` raises the friend it needs). Every take off
+the remote side calls the one door now, the click first - a refused take still clicks, as DFU's does. No departure. The
+four hosts: each already hands `quickLootTake` and the shared windows a `getQuest`; no host changed.
+`test/fb1004b_lootclick.test.js` (8, the real R0C20Y07 and its body's pile); `tools/mutants/fb1004b_lootclick.json` (9,
+all dead).
+
+### RESEAT-DECLARED (3)
+
+`systems/quest/place.js` (declaredSiteLaw, _searchTownSites - one search for the setup and the re-seat, with the house
+fallback). A house site that found none of its kind falls back to any house and writes p2 = -1 (Place.cs:735, and the
+remote search's after 250 darts, :815); the re-seat (QUESTOR-MOVED's `reseatMovedSite`) read that as "any building". It
+re-reads the place's declared P2/P3 from Quests-Places by its name now: over the audit's forty villages, 130 re-seats,
+every one into a house. No departure beyond WD3's re-seat itself, which now keeps DFU's own declared law and fallback.
+The four hosts: the quest machine's, run by `scenes/world.js`'s load (applyLayoutPins) and as a shared quest arrives;
+`scenes/exterior.js`, `scenes/worldModes.js` and `scenes/dungeonContext.js` never call it. `test/fb1004b_reseatdeclared.test.js`
+(4); `tools/mutants/fb1004b_reseatdeclared.json` (5, all dead).
+
+### RESEAT-GAPS (6)
+
+`systems/quest/place.js` (_unseat, _seatBack, _isBuildingAssigned's `recordStands`), `systems/layoutPins.js`
+(layoutRecordsOf). A site with no candidate in the town as it stands kept its old key - a stranger's building - and a
+quest's sibling sites were compared by their stale keys. Now such a site is UNSEATED: its key is DFU's none (0), its
+record kept, and every load tries it again - seated back on its own key when its town stands in its layout again, or
+chosen again where a building of its kind stands, what was assigned to it carried. Nothing of its quest stands in a
+stranger's house meanwhile, and `pc at` cannot fire there. Siblings are compared only where their records stand (the
+"two in one building" did not reproduce with re-seats in turn; the stale keys' over-exclusion was the defect). Measured:
+of 265 cities with a weaponsmith in Daggerfall's layout, 247 have one chosen again in Beautiful Cities' and 18 are
+unseated (none stands). A port-only mechanism, as the re-seat is. `test/fb1004b_reseatgaps.test.js` (5);
+`tools/mutants/fb1004b_reseatgaps.json` (8, all dead); `audit1003_wd`'s markerless arm, its two mutant records and
+`arena1_move`'s pin re-aimed.
+
+### QUEST-MARKERS (1)
+
+`systems/quest/markerCuration.js` (CURATED_QUEST_MARKERS), `systems/quest/place.js` (the building's marker enumeration;
+mendCuratedMarkers, called from the machine's load), `systems/quest/sceneMount.js` (MARKER_FLOOR_REACH, siteMarkerSpots,
+standSpot), `scenes/worldModes.js` (standQuestFlatIn, interiorStandSpots and the person, item and foe arms),
+`tools/townQuestMarkers.mjs` (which measures the list). Each of the eight unreachable markers - six interior designs, 51
+of the packs' interiors - is keyed by the pack that lays it out (and only on a block the door serves from world data),
+the block, the building's record, its kind and its exact position, and STANDS AT ITS MEASURED FLOOR SPOT: the nearest
+floor a person walks to from the room's entrance, with half a metre of floor round it. A move, not a drop, so every
+marker DFU's quest law counts and indexes stays (`marker N`, anymarker's lists, the spawn-to-item fallback, the draws).
+Saves enumerated before it are mended at the load, their selected markers and targets kept. And a backstop for any
+building marker: with no floor within 4 m under it, its person, foe or item stands at the site's nearest marker that has
+one, else the room's nearest enter marker; one with a floor stands exactly as DFU stands it. The library (`DALIBRBL01/03`)
+is Beautiful Cities' own interior, made over `LIBRAL01/03`; Daggerfall's own libraries are sound. BLOCKS.BSA holds one
+bad design of its own (`WEAPAL02` #1, `SENT6` #11, four markers) that no town lays out; the backstop covers it. With the
+player's data the gated test finds every one of 1,105 buildings in 665 towns curated where the door serves it.
+Departures: the eight markers moved, the backstop, the load's mend (Port-Ledger, Ledger A). The four hosts:
+`scenes/worldModes.js` wired (its interior adapter serves `scenes/world.js` and `scenes/exterior.js`); `scenes/world.js`'s
+load runs the mend; `scenes/dungeonContext.js` unaffected (a dungeon's markers are Daggerfall's RDB). 
+`test/fb1004b_questmarkers.test.js` (11, two gated); `tools/mutants/fb1004b_questmarkers.json` (19, all dead); six source
+pins re-aimed (audit24_wave22, audit26_questitem, questflatanchor, fb1003b_totem, interiorfoes, rogueimp). Not changed: a
+void marker whose 4 m ray reaches a lower storey's floor.
+
+### TEMPLE-HOME (2)
+
+`systems/layoutPins.js` (CURATED_CLASSIC's second row, by location key; curatedOut asks the key first). The consequence,
+measured at the 34 temples with the questor clicked (sixteen draws each): `_assignHomeTown` makes `Place _x_home_ local
+house`, Beautiful Villages' `TEMPASA2` holds the temple and 25 House5 and no House1-4, the place throws, SelectQuest
+answers none, and the questor says TEXT.RSC 600 ("You're too late..."): C0B00Y01 505 times in 544, C0B00Y03 273, against
+0 and 0 in Daggerfall's own temple; C0B00Y02 fails everywhere (it wants a local tavern, which no temple has - DFU's
+own). DFU does the same with the mod. The 34 are kept Daggerfall's own by their KEYS, never by a grid: the mod replaces
+their location files, `scenes/world.js` fills its index before the pins can ask a town's grid, and a grid-keyed row
+would have indexed the mod's temple and then built it asking for a block the door no longer serves (the temple gone).
+The housing promise stands as CURATED_CLASSIC's: a save's own records there pin the mod back in, new ones are stamped
+classic, and discoveries made there under the mod are forgotten once (WD3's law). The twelve villages laying `TEMPASA2`
+out among their own houses stay the author's. A curation of the mod's data (Port-Ledger, Ledger A); DFU's quest law is
+untouched. The four hosts: the door asks the pins on every location and block read, so `scenes/world.js`,
+`scenes/exterior.js` and `scenes/worldModes.js` serve the same towns; `scenes/dungeonContext.js` unaffected (none of the
+34 has a dungeon). `test/fb1004b_templehome.test.js` (4); `tools/mutants/fb1004b_templehome.json` (4, all dead);
+`wd3_layoutPins`' row pin re-aimed.
+
+Recorded, not changed: the destinations that moved (5), and a questor met in a house is not re-seated (6).
+
 
 ## Integration
 
 The fixes were built on separate branches off one base and taken onto one, in this order: BOOK-RISE, CAMP-CAP,
 KNIGHT-HOUSE, QUEST-ITEM-NAMED, CULL-SIZE, PLACE-LRU, VOID-ENTRY, DOMES, CROPS, CITY-WALLS, CRATE-FREE, then the quest
-audit's. Every cite a change moved was re-resolved by `tools/citeShift.mjs` against the tree before it, each content
-checked; the struck Ledger and Settings-Screen-Spec cites that CD4 gates were moved by hand to the tool's own mapping,
-the other struck rows keeping their numbers; the cite mutants survtiers' and survtiers3's re-aimed by content (PIN
-MOVED). PLACE-LRU and VOID-ENTRY wrote the same line - the interior build's catch - on their two branches: it carries
-both now (the building's hold released, DFU's line said), and the three mutants aimed at it and PLACE-LRU's source pin
-were re-aimed at their own halves.
+audit's (LOOT-CLICK, RESEAT-DECLARED, RESEAT-GAPS, QUEST-MARKERS, TEMPLE-HOME), merged from a branch forked before most
+of the others: its ten conflicted files differed in cite numbers alone, ours taken and `tools/citeMerge.mjs` moving each
+line's cites from the side it came from. Every cite a change moved was re-resolved by `tools/citeShift.mjs` against the
+tree before it, each content checked; the struck Ledger and Settings-Screen-Spec cites that CD4 gates were moved by hand
+to the tool's own mapping, the other struck rows keeping their numbers; the cite mutants survtiers' and survtiers3's
+re-aimed by content (PIN MOVED). PLACE-LRU and VOID-ENTRY wrote the same line - the interior build's catch - on their
+two branches: it carries both now (the building's hold released, DFU's line said), and the three mutants aimed at it and
+PLACE-LRU's source pin were re-aimed at their own halves.
 
 ## Not verified here
 
@@ -346,4 +430,7 @@ were re-aimed at their own halves.
 - VOID-ENTRY's eighteen classic voids and four refusals were measured through the port's layout, not in Daggerfall
   Unity; CRATE-FREE cites Unity's sweep (ROCK-FREE's law), not a run of it.
 - CULL-SIZE leaves the horse report unreproduced: a parked team against a wall wants an in-game look.
+- The quest fixes in a browser: the enhanced window's takes (the tests use a fake DOM), how the journal shows an
+  unseated site, the curated markers' floor spots as the port's own pipeline stands them, the 34 temples at boot and load,
+  and online and party takes.
 
