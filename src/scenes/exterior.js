@@ -3901,11 +3901,8 @@ export async function bootExterior(canvas, renderer, params, status) {
     // AUDIT 58: the table id goes through the ID door, as
     // PlaySound.cs:74-75 does at create - the four-hosts twin of the
     // world host's hook.
-    playSound: (id) => {
-      if (_questAudioSource.isPlaying()) return false;
-      _questAudioSource.playOneShotId(id);
-      return true;
-    },
+    // QUIET-VENGEANCE: the same one body (QuestAudioSource.playQuestSound).
+    playSound: (id) => _questAudioSource.playQuestSound(id),
     // GivePc.cs:84 and its siblings ask IsPlayerInTown(TRUE, TRUE) -
     // both optional flags, mustBeInLocationRect AND mustBeOutside - so
     // a quest item handed over while the player stands in a shop goes
@@ -3968,7 +3965,7 @@ export async function bootExterior(canvas, renderer, params, status) {
   // AUDIT 63 F5: DaggerfallTalkWindow.OnPop's notebook filing
   // (DaggerfallTalkWindow.cs:319). townTalk holds the one talk-window
   // door and no notebook; the bridge holds the notebook and is built
-  // here, so the sink is handed down at this moment - world.js:16499's
+  // here, so the sink is handed down at this moment - world.js:16496's
   // line for this host.
   townTalk.notebookSink = (tokens) => questBridge?.notebook?.addNoteTokens(tokens);
   questBridge.onInitWorld();   // QuestMachine's OnInitWorld - this route's ONE city is its world
@@ -4227,7 +4224,7 @@ export async function bootExterior(canvas, renderer, params, status) {
       // search; an empty list means an owned house never resolves even
       // in its OWN town, so this host sold every deed for nothing
       // before F26's guard and would refuse every sale after it. Same
-      // two inputs the world host uses (world.js:22254).
+      // two inputs the world host uses (world.js:22251).
       buildings: locationBuildings(dfLocation.exterior?.buildings ?? [], loc.blocks, { locationIndex: dfLocation.locationIndex ?? 0 }),
       mapId: dfLocation?.mapTableData?.mapId ?? 0,
       regionIndex: dfLocation.regionIndex ?? 0,
@@ -5564,7 +5561,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // ROAD-G G2: THE ENEMY ARM EXISTS NOW - the note here said "this
     // host mounts no bow-armed pool", which stopped being true with the
     // encounter mount above, and an archer's shaft would have flown
-    // through the player for ever. world.js:26292-26565 is the shape.
+    // through the player for ever. world.js:26289-26562 is the shape.
     arrows.update(dt, {
       // enemy arrows hunt only a WALKING player - the fly camera has no
       // capsule to hit
@@ -5824,7 +5821,7 @@ export async function bootExterior(canvas, renderer, params, status) {
         const swing = {};   // AUDIT DISC19: one swing, one attack grunt, however many pools it is offered to
         if (!cityGuards.resolvePlayerHit(weaponRig.playerWeapon, eye, fwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing })) {
           // ROAD-G G2: encounter foes resolve AFTER the watch and
-          // BEFORE civilians - world.js:26698's order, and the order
+          // BEFORE civilians - world.js:26695's order, and the order
           // matters because a watchman standing over a quest foe must
           // still be the one the swing finds.
           if (exteriorFoes.resolvePlayerHit(weaponRig.playerWeapon, eye, fwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing })) {

@@ -59,6 +59,27 @@ const FLEE_AIM = 10;
 export const FOLLOW_STOP = 3;
 export const FOLLOW_SLACK = 1.5;
 export const FOLLOW_LEASH = 20;
+/** COMPANION-TRAIL (FIELD BUGS 2026-10-04b, Mac: "Companion pathing is really rough. They're also walking towards to
+ *  the wall, next to the exit that leads to outside"): a follower with no clear line to its leader walks the LEADER'S
+ *  OWN TRAIL (`follow.trail`, the crumbs crewAshore.js drops where the player walked) - the newest crumb it can see,
+ *  looked for every FOLLOW_SIGHT_S with at most FOLLOW_SIGHT_TRIES casts, the next crumb once it is within
+ *  FOLLOW_CRUMB_REACH. The street, a building and a dungeon without the pathing motor have no baked route, and straight at
+ *  the leader a companion walked into the wall beside every doorway the player had gone through. A line is clear when
+ *  a FOLLOW_SIGHT_RADIUS capsule reaches within FOLLOW_CRUMB_REACH of the point and the point is no more than
+ *  FOLLOW_SIGHT_DY above or below; a crumb further than FOLLOW_CRUMB_FAR is never looked at. */
+export const FOLLOW_SIGHT_S = 0.25;
+export const FOLLOW_SIGHT_TRIES = 6;
+export const FOLLOW_CRUMB_REACH = 0.8;
+export const FOLLOW_SIGHT_RADIUS = 0.25;
+export const FOLLOW_SIGHT_DY = 1.2;
+export const FOLLOW_CRUMB_FAR = 50;
+/** COMPANION-TRAIL: a follower walks while it is within FOLLOW_YAW_GATE_DEG of its way (turning as it goes) where a
+ *  pursuer stops to turn past 5.625 - the pursuit's gate stopped a companion on every bend of the player's path - and,
+ *  further than FOLLOW_RUN_M from its leader, at FOLLOW_RUN_PACE of its walk: a foe's walk (5 m/s at Speed 50) is
+ *  slower than the player's run (about 8), so a companion fell back to the catch-up's portal at every long run. */
+export const FOLLOW_YAW_GATE_DEG = 30;
+export const FOLLOW_RUN_M = 8;
+export const FOLLOW_RUN_PACE = 1.6;
 export const foeFrameDt = (dt) => Math.min(dt, FOE_MAX_FRAME_DT);
 export const GIVE_UP_TICKS = 200;   // EnemyMotor.GiveUpTimer refill (classic ticks; ~12.5s)
 import { GRAVITY, FIXED_DT, MAX_FRAME_DT, CLASSIC_TO_UNITY_RATIO, FALL_DAMAGE_THRESHOLD } from '../player/motor.js';   // the shared fall rule + the P16 fixed-timestep law; CH3: the fall threshold single-sources with the player's
@@ -514,10 +535,13 @@ export class EnemyAI {
     // WERE-FRIGHT: the run from a fright (flee, below) - seconds left, and the point it runs from. No run by default.
     this.fleeLeft = 0;
     this.fleeFrom = null;
-    /** CREW-COMPANIONS: the leader a companion keeps to (the host sets it; null for every other foe). @type {{ feet: () => (number[]|null), stop?: number, leash?: number }|null} */
+    /** CREW-COMPANIONS: the leader a companion keeps to (the host sets it; null for every other foe). COMPANION-TRAIL:
+     *  `trail` the crumbs where the leader walked, oldest first. @type {{ feet: () => (number[]|null), stop?: number, leash?: number, trail?: () => (number[][]|null) }|null} */
     this.follow = null;
     this._following = false;
     this._followWalking = false;
+    this._followPace = 1;   // COMPANION-TRAIL: the walk's share while following
+    this._crumb = null; this._trailMode = null; this._trailT = 0;   // COMPANION-TRAIL: the crumb held, 'leader' | 'crumb' | null, the next look
     this._returning = false;   // AUDIT CC-B3: drawn past the leash, coming home
     // TakeAction:443-449 sets stopDistance BEFORE GetDestination, and
     // both the approach test (:487) and the search ramp (:552) read it.
@@ -1656,21 +1680,85 @@ export class EnemyAI {
     if (!leader) { this.moving = false; return; }
     const d = Math.hypot(leader[0] - this.feet[0], leader[2] - this.feet[2]);
     const stop = this.follow.stop ?? FOLLOW_STOP;
-    if (d <= stop || (!this._followWalking && d <= stop + FOLLOW_SLACK)) { this._followWalking = false; this.moving = false; return; }
+    if (d <= stop || (!this._followWalking && d <= stop + FOLLOW_SLACK)) {
+      this._followWalking = false; this.moving = false; this._followPace = 1;
+      this._crumb = null; this._trailMode = null; this._trailT = 0;   // COMPANION-TRAIL: at heel - the next walk looks afresh
+      return;
+    }
     this._followWalking = true;
+    this._followPace = d > FOLLOW_RUN_M ? FOLLOW_RUN_PACE : 1;   // COMPANION-TRAIL: fallen back, it hurries
     const goal = this._followGoal(leader, dt);
     this.destination = [goal[0], leader[1], goal[2]];
     const aim = this.avoidObstaclesTimer > 0 ? this.detourDestination : this.destination;
     const dx = aim[0] - this.feet[0];
     const dz = aim[2] - this.feet[2];
     for (let i = 0; i < classicTicks; i++) {
-      if (!withinYaw(this.yaw, dx, dz, MOVE_YAW_GATE_DEG)) this.yaw = turnTowards(this.yaw, dx, dz);   // classic turns in place
+      if (!withinYaw(this.yaw, dx, dz, MOVE_YAW_GATE_DEG)) this.yaw = turnTowards(this.yaw, dx, dz);   // classic turns, on the classic ticks
     }
-    this.moving = withinYaw(this.yaw, dx, dz, MOVE_YAW_GATE_DEG);
+    this.moving = withinYaw(this.yaw, dx, dz, FOLLOW_YAW_GATE_DEG);   // COMPANION-TRAIL: and walks on while it turns
   }
 
-  /** CREW-COMPANIONS: where a following companion heads - straight at the leader (the pathing motor routes it). */
-  _followGoal(leader, dt) { return leader; }
+  /** CREW-COMPANIONS: where a following companion heads. COMPANION-TRAIL: the leader while it is in clear sight, else
+   *  the newest crumb of the leader's trail in sight, else the nearest crumb, else the leader (no trail: the straight
+   *  line it always walked). The pathing motor asks the trail first and takes its baked route when it has nothing. */
+  _followGoal(leader, dt) { return this._trailGoal(leader, dt) ?? this._nearestCrumb() ?? leader; }
+
+  /** COMPANION-TRAIL: whether a body walking from here would reach `to` - a FOLLOW_SIGHT_RADIUS capsule at the obstacle
+   *  probe's height (_obstacleCheck's points) cast flat at it, stopped no sooner than FOLLOW_CRUMB_REACH short of it
+   *  (a wall behind the point is not in the way), and the point within FOLLOW_SIGHT_DY of the feet. */
+  _clearLine(to) {
+    if (!(Math.abs(to[1] - this.feet[1]) <= FOLLOW_SIGHT_DY)) return false;
+    const dx = to[0] - this.feet[0], dz = to[2] - this.feet[2], d = Math.hypot(dx, dz);
+    if (d <= FOLLOW_CRUMB_REACH) return true;
+    const c = this._centre();
+    const p1 = [c[0], c[1] - this.height * OBSTACLE_P1_BELOW_CENTRE, c[2]];
+    const p2 = [p1[0], p1[1] + Math.min(this.height, DOOR_CROUCHING_HEIGHT) / 2, p1[2]];
+    return !(this.collider.capsuleCast(p1, p2, FOLLOW_SIGHT_RADIUS, [dx / d, 0, dz / d], d).dist < d - FOLLOW_CRUMB_REACH);
+  }
+
+  /** COMPANION-TRAIL: the trail's answer, or null when it has none - no trail, or no crumb in sight and none held. The
+   *  look (the line to the leader, then the crumbs newest first) runs every FOLLOW_SIGHT_S; between looks the held
+   *  answer stands, a held crumb giving way to the next once it is reached. */
+  _trailGoal(leader, dt) {
+    const trail = this.follow?.trail?.();
+    if (!trail?.length) { this._trailMode = null; this._crumb = null; return null; }
+    let i = this._crumb ? trail.indexOf(this._crumb) : -1;
+    if (this._trailMode === 'crumb' && i < 0) { this._trailMode = null; this._crumb = null; this._trailT = 0; }   // it left the trail (old, or the trail began again)
+    this._trailT -= dt;
+    if (this._trailT > 0) return this._trailMode === 'leader' ? leader : this._trailMode === 'crumb' ? this._crumbFrom(trail, i, leader) : null;
+    this._trailT = FOLLOW_SIGHT_S;
+    if (this._clearLine(leader)) { this._trailMode = 'leader'; this._crumb = null; return leader; }
+    const stride = Math.max(1, Math.ceil((trail.length - 1 - Math.max(i, 0)) / FOLLOW_SIGHT_TRIES));
+    for (let j = trail.length - 1, n = 0; j > i && n < FOLLOW_SIGHT_TRIES; j -= stride, n++) {
+      const p = trail[j];
+      if (Math.hypot(p[0] - this.feet[0], p[2] - this.feet[2]) > FOLLOW_CRUMB_FAR) continue;
+      if (this._clearLine(p)) { this._trailMode = 'crumb'; this._crumb = p; return this._crumbFrom(trail, j, leader); }
+    }
+    if (i >= 0) return this._crumbFrom(trail, i, leader);
+    this._trailMode = null; this._crumb = null;
+    return null;
+  }
+
+  /** COMPANION-TRAIL: the crumb at `i`, or the first after it not yet reached; past the newest, the leader. */
+  _crumbFrom(trail, i, leader) {
+    while (i < trail.length && Math.hypot(trail[i][0] - this.feet[0], trail[i][2] - this.feet[2]) <= FOLLOW_CRUMB_REACH) i++;
+    if (i >= trail.length) { this._trailMode = 'leader'; this._crumb = null; return leader; }
+    this._trailMode = 'crumb'; this._crumb = trail[i];
+    return this._crumb;
+  }
+
+  /** COMPANION-TRAIL: lost - no line to the leader nor to any crumb looked at - the nearest crumb inside
+   *  FOLLOW_CRUMB_FAR, held as the crumb to walk from (the next look tries the newer ones), or null. */
+  _nearestCrumb() {
+    const trail = this.follow?.trail?.();
+    if (!trail?.length) return null;
+    let best = -1, bd = FOLLOW_CRUMB_FAR;
+    for (let j = 0; j < trail.length; j++) {
+      const d = Math.hypot(trail[j][0] - this.feet[0], trail[j][2] - this.feet[2]);
+      if (d < bd) { bd = d; best = j; }
+    }
+    return best < 0 ? null : this._crumbFrom(trail, best, this.follow.feet?.() ?? trail[trail.length - 1]);
+  }
 
   /** WERE-FRIGHT: one fixed step of the run (flee, above). */
   _fleeStep(dt, paralyzed) {
@@ -2002,7 +2090,7 @@ export class EnemyAI {
     // under a parked foe leaves it frozen mid-air until it next
     // pursues - accepted: foes never ride movers (pre-C11 statics
     // did not either).
-    this._walkStep(dt);
+    this._walkStep(dt, this._following ? this._followPace : 1);   // COMPANION-TRAIL: a follower fallen back hurries
   }
 
   /** The grounded walker's step - _step's tail (the comment above its call), and a frightened foe's run (_fleeStep):
@@ -2098,6 +2186,7 @@ export class EnemyAI {
     this.avoidObstaclesTimer = 0; this.checkingClockwiseTimer = 0; this.didClockwiseCheck = false; this.lastTimeWasStuck = -Infinity;
     this._acc = 0; this.knockbackSpeed = 0; this.hurtKnock = false; this.moving = false;
     this._restGrounded = false;   // AUDIT WORLD2 B12: a foe that takes the seat standing still re-grounds on its first step, not its first move
+    this._crumb = null; this._trailMode = null; this._trailT = 0;   // COMPANION-TRAIL: stood afresh, it looks afresh
   }
 
   /** FALL-HOLD (FIELD BUGS 2026-09-30b, ReynBlackwinter: "constant fps drop in overworld ... Resets after
@@ -2130,5 +2219,6 @@ export class EnemyAI {
       p[0] += offset[0]; p[1] += offset[1]; p[2] += offset[2];
     }
     this.lastGroundedY += offset[1];
+    this._crumb = null; this._trailMode = null; this._trailT = 0;   // COMPANION-TRAIL: the trail is the layer's, begun again on the leader's jump
   }
 }

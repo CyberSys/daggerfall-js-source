@@ -16469,11 +16469,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     // the hook never did it: `386, vengence` rang record INDEX 386
     // (MaleGasp) instead of the record whose id is 386, and the
     // table's out-of-range ids (`11146, halt`) rang nothing at all.
-    playSound: (id) => {
-      if (questAudioSource.isPlaying()) return false;
-      questAudioSource.playOneShotId(id);
-      return true;
-    },
+    // QUIET-VENGEANCE: the skip, the ID door and the quiet sounds are the source's one body (playQuestSound).
+    playSound: (id) => questAudioSource.playQuestSound(id),
     // PlaySong hands a MIDI.BSA record name; the SongFiles member was
     // resolved in the action (systems/songFiles.js), which is where
     // DaggerfallSongPlayer.Play does it. DFU's quest song plays ONCE

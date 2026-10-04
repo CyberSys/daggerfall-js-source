@@ -218,20 +218,23 @@ test('CREW-COMPANIONS follow on the navmesh: the pathing motor takes a companion
     const mate = { ai, entity: { team: 'PlayerAlly', mobileTeam: 'PlayerAlly', health: 20, basics: { team: 'PlayerAlly' } }, companion: 'k' };
     ai.follow = { feet: () => leader, stop: 2.5 };
     const targeting = armed([mate]);
-    let gap = Infinity, south = -Infinity;
+    let gap = Infinity, south = -Infinity, at = Infinity;
     for (let n = 0; n < 60 * 16; n++) {
       ai.update(1 / 60, leader, mkSenses({ targeting }), false);
       gap = Math.min(gap, Math.hypot(ai.feet[0] - leader[0], ai.feet[2] - leader[2]));
+      if (at === Infinity && gap <= 2.5 + FOLLOW_SLACK) at = n / 60;
       south = Math.max(south, ai.feet[2]);
     }
-    return { gap, south, ai };
+    return { gap, south, at, ai };
   };
   const routed = walk(EnhancedEnemyAI, bake.chf);
   assert.ok(routed.gap <= 2.5 + FOLLOW_SLACK, `came to heel on the far side (${routed.gap.toFixed(2)} m)`);
   assert.ok(routed.south > 9, 'by the gap at the south end');
   assert.ok(routed.ai.navStats.repaths > 0, 'on a route');
+  // FIELD BUGS 2026-10-04b COMPANION-TRAIL: the follower's wider walk gate lets the classic motor's detour work its way
+  // round this one wall in the end (it pinned him at 6.87 m before) - the route is the way straight there
   const straight = walk(EnemyAI, null);
-  assert.ok(straight.gap > routed.gap + 1, `the classic motor walks straight at the wall (${straight.gap.toFixed(2)} m) - the route did the work`);
+  assert.ok(straight.at > routed.at + 1.5, `the classic motor gropes along the wall (heel at ${straight.at.toFixed(2)} s, the route ${routed.at.toFixed(2)} s) - the route did the work`);
 });
 
 // ── the companion layer ───────────────────────────────────────────────────────────────────────────────────────────
