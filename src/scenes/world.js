@@ -9482,7 +9482,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:3075 mounts the same one, gated on
+  // and dungeonContext.js:3076 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:7102
@@ -9580,7 +9580,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:572-577) never looks the record up in `foes`, and
+    // (exteriorFoes.js:575-580) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
     // got exactly what removeGuard (cityGuards.js:1645-1663) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
@@ -12215,7 +12215,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:8443), so exterior mode and a
+    // composer, dungeonContext.js:8457), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -17459,7 +17459,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // rides the cell's stream as puppets at every peer, and a peer's blow on one lands through the watch's own
       // door as NOT this player's blow (no Murder of mine for a watchman a peer kills). The crime itself stays the
       // criminal's: a peer who strikes my watch commits nothing, and my murder marks no one else.
-      watch: { list: () => cityGuards.guards, hurt: (g, dmg, at, dir) => cityGuards.hurtGuard(g, dmg, at, dir, { fromPlayer: false, peer: true }) },   // AUDIT WATCH1 A4: and a PEER's - no reveal, no notice, no pile
+      watch: { list: () => cityGuards.guards, hurt: (g, dmg, at, dir, wc = null) => cityGuards.hurtGuard(g, dmg, at, dir, { fromPlayer: false, peer: true, wc }) },   // AUDIT WATCH1 A4: and a PEER's - no reveal, no notice, no pile; TELL8: and its blow's class
       toWire: (feet) => { const wc = state.worldCoords(feet); return [wc.x, feet[1] - state.compensation[1], wc.z]; },
       toScene: (p) => { const l = state.localFromWorld(p[0], p[2]); return [l[0], p[1] + state.compensation[1], l[1]]; },
     });

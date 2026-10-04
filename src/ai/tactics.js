@@ -112,6 +112,15 @@ export function offsetTactics(offset) {
 export const boardsHeld = () => _boards.size;
 
 const LOCAL = Object.freeze({ local: true });
+/** TELL8 (bible/12-Enhanced-AI/Feud-Arc.md 10.2, OPEN 9): the feet a telegraphed blow is aimed at - mine for the
+ *  local player's key, else a PEER's the foe hunts (its candidate's, refreshed each frame in this frame's coordinates);
+ *  null for any other target (a foe, a peer with no pose). Each client judges its own feet at the landing (10.3); the
+ *  owner's own view of a peer's decides only its foe's window (6.3). */
+function targetFeet(ai, key) {
+  if (key === LOCAL) return _me?.feet ?? null;
+  const t = ai?.target;
+  return t?.isPeer && Array.isArray(t.feet) && t.feet.length === 3 ? t.feet : null;
+}
 /** The board's key for an ai's target: the local player is one key; a peer by its owner; a foe by itself. */
 export function targetKey(ai) {
   const t = ai._armedTargeting ? ai.target : null;
@@ -303,6 +312,7 @@ export function tacticsStep(ai, dx, dz) {
   ai._tacSpeed = 1;
   if (!tacticsSwitchOn()) { if (ai._tac) releaseTactics(ai); ai._tac = null; ai._tacStrike = undefined; ai._tacShoot = undefined; return false; }
   const now = clock();
+  if (ai._tac?.puppet) { setLiveBlow(ai, null); ai._tac = null; }   // TELL8: a puppet's synthetic state (ai/puppetBlows.js) is no brain's - a foe handed to me thinks afresh
   const s = ai._tac ?? (ai._tac = { key: null, kind: 'melee', state: 'wait', until: 0, slot: Math.random() * Math.PI * 2, hp: [], fled: false, seen: now, swung: 0, shot: 0, kiting: false, meleeUntil: 0, leased: 0, kiteUntil: 0, kiteReady: 0, backUntil: 0, backoffReady: 0, faceUntil: 0 });
   // AUDIT TACT D1/A3: a step it did not decide - knocked back, paralysed, held - is the MOTOR's word (`_tacSkipped`,
   // set when it could not act), never a gap on any clock: a slow frame is not a knock
@@ -336,8 +346,8 @@ export function tacticsStep(ai, dx, dz) {
   // TELL5 (7.4): a chain - its landing's strike drawn, the next blow winds up from the new facing (it keeps its token)
   if (s.state === 'chain') {
     if (now < s.chainAt) { ai._tacStrike = false; ai._tacShoot = false; ai.moving = false; return true; }
-    const ent = ai.vitals?.();
-    if (ent && _me && targetKey(ai) === LOCAL && ai.canAct !== false && !skipped) beginWindup(ai, s, ent, s.chainShape, _me.feet[0] - ai.feet[0], _me.feet[2] - ai.feet[2], now, s.chainN);
+    const ent = ai.vitals?.(), tf = targetFeet(ai, targetKey(ai));   // TELL8: at me, or at the peer it hunts
+    if (ent && tf && ai.canAct !== false && !skipped) beginWindup(ai, s, ent, s.chainShape, tf[0] - ai.feet[0], tf[2] - ai.feet[2], now, s.chainN);
     else s.state = 'engage';   // knocked, paralysed or turned away in the gap: the chain is spent
   }
   // TELL6 (8.1): a charge running its lane - committed; the verdict swept between its turns
@@ -447,10 +457,12 @@ export function tacticsStep(ai, dx, dz) {
   if (s.state === 'engage' && !b.melee.has(ai) && !open) s.state = 'wait';
   // TACT4: a telegraphed blow - a holder in reach of the tier, its cooldown spent, nobody else winding up near me
   // TELL6: in reach, a blow of reach; out of it, a gap-closer whose lane is free (the charge, 5-12 m)
-  if (s.state === 'engage' && b.melee.has(ai) && key === LOCAL && _me && ai.canAct !== false && now >= (s.blowReady ?? 0)) {   // AUDIT TACT: a token holder's, never an opportunist's
+  // TELL8 (10.2): at a peer it hunts as at me - one wind-up near each target, the peer's own feet its judge
+  const tf = s.state === 'engage' ? targetFeet(ai, key) : null;
+  if (s.state === 'engage' && b.melee.has(ai) && tf && ai.canAct !== false && now >= (s.blowReady ?? 0)) {   // AUDIT TACT: a token holder's, never an opportunist's
     const ent = ai.vitals?.();
     const shapes = blowPool(ai, ent, dist, dist <= reach + 0.5, dx, dz);
-    if (shapes.length && !windupNear(_me.feet, now, ai) && Math.random() < BLOW_CHANCE) {
+    if (shapes.length && !windupNear(tf, now, ai) && Math.random() < BLOW_CHANCE) {
       beginWindup(ai, s, ent, shapes[Math.floor(Math.random() * shapes.length)], dx, dz, now);
     }
   }
@@ -507,7 +519,9 @@ function windupTurn(ai, s, now, skipped) {
     dropSwing(ai);
     return false;
   }
-  const atMe = _me && targetKey(ai) === LOCAL;
+  const key = targetKey(ai);
+  const atMe = !!_me && key === LOCAL;
+  const tf = targetFeet(ai, key);   // TELL8: my feet, or the peer's it is aimed at (the owner's view - 6.3)
   const b0 = s.blow;
   // TELL5 (7.3): a feint - cut at FEINT_AT, and a plain DFU blow at once: DFU's damage and reach, no verdict, no weight
   if (b0.feint && now >= b0.cutAt) {
@@ -519,13 +533,13 @@ function windupTurn(ai, s, now, skipped) {
     return false;
   }
   // TELL5 (7.2): a lunge (and TELL6's charge) turns after my feet through the first TRACK_SHARE of its wind-up, then locks
-  if (atMe && TELL.TRACKERS.includes(b0.kind) && now < b0.start + TELL.TRACK_SHARE * (b0.land - b0.start)) {
-    const y = trackYaw(b0.yaw, Math.atan2(_me.feet[0] - b0.origin[0], _me.feet[2] - b0.origin[2]), now - (b0.trackedAt ?? b0.start));
+  if (tf && TELL.TRACKERS.includes(b0.kind) && now < b0.start + TELL.TRACK_SHARE * (b0.land - b0.start)) {
+    const y = trackYaw(b0.yaw, Math.atan2(tf[0] - b0.origin[0], tf[2] - b0.origin[2]), now - (b0.trackedAt ?? b0.start));
     b0.trackedAt = now;
     if (y !== b0.yaw) { b0.yaw = y; ai.yaw = y; fitBlowToGround(b0, ai.collider); }   // the foe turns with its mark
   }
   // TELL4 (6.2): my feet, sampled once - the first turn inside TELL_LATE of the landing
-  if (atMe && s.blow.lateIn == null && now >= s.blow.land - TELL.TELL_LATE && now < s.blow.land) s.blow.lateIn = inBlow(s.blow, _me.feet[0], _me.feet[2]);
+  if (tf && s.blow.lateIn == null && now >= s.blow.land - TELL.TELL_LATE && now < s.blow.land) s.blow.lateIn = inBlow(s.blow, tf[0], tf[2]);
   if (b0.kind === 'leap' && now >= b0.jumpAt && now < b0.land) return leapStep(ai, b0);   // TELL6c: the jump
   if (now >= s.blow.land && b0.kind === 'aimed') {   // TELL6d: loosed along its line - the arrow's flight decides; no verdict, no window
     ai._blowLandedAt = now;
@@ -535,10 +549,11 @@ function windupTurn(ai, s, now, skipped) {
   }
   if (now >= s.blow.land) {
     if (b0.kind === 'leap') { ai._tacDir = null; ai.moving = false; }   // TELL6c: landed at its point
-    // AUDIT TACT A4/D6: only ever at ME - a wind-up whose foe has turned on another lands on no one here
-    if (atMe && s.blow.kind === 'charge') { beginDash(ai, s, s.blow, now, cooled); return true; }   // TELL6: its landing is its run
+    // AUDIT TACT A4/D6: only ever at its target - a wind-up whose foe has turned on another lands on no one here.
+    // TELL8: at a peer as at me - the owner's view of the peer's feet decides its window; the peer's own, the blow
+    if (tf && s.blow.kind === 'charge') { beginDash(ai, s, s.blow, now, cooled); return true; }   // TELL6: its landing is its run
     ai._blowLandedAt = now;   // TELL2: the landing, for the LAND cue (scenes/hostCombat.js tellCues)
-    if (atMe) return resolveLanding(ai, s, s.blow, inBlow(s.blow, _me.feet[0], _me.feet[2]), now, cooled);
+    if (tf) return resolveLanding(ai, s, s.blow, inBlow(s.blow, tf[0], tf[2]), now, cooled, atMe);
     clearBlowState(ai); dropSwing(ai);
     s.blowReady = cooled; s.state = 'engage'; s.blow = null;
     ai._tacStrike = true;
@@ -549,12 +564,14 @@ function windupTurn(ai, s, now, skipped) {
 }
 
 /** TACT4: a landing at me decided - `verdict` (my feet in its shape; TELL6: a charge's run over them). The swing is
- *  released; TELL5 a chain may follow, hit or miss; TELL4 a miss overreaches. */
-function resolveLanding(ai, s, b, verdict, now, cooled) {
+ *  released; TELL5 a chain may follow, hit or miss; TELL4 a miss overreaches. TELL8 (6.3, 10.3): at a peer (`atMe`
+ *  false) the verdict is the owner's view of the peer's feet - it opens or withholds the window and the chain, never the
+ *  damage (the struck peer's own judgement, through its puppet): no verdict, weight or effect is left to land here. */
+function resolveLanding(ai, s, b, verdict, now, cooled, atMe = true) {
   ai._blowLandedAt = now;
-  ai._blowVerdict = verdict;
-  ai._blowMult = b.mult; ai._blowAt = now; ai._blowSwing = true;
-  ai._blowFx = verdict ? { kind: b.kind, iron: b.guard === 'iron', at: now } : null;   // TELL6e: what it does where its damage lands (scenes/hostCombat.js landBlowEffect)
+  ai._blowVerdict = atMe ? verdict : null;
+  ai._blowMult = atMe ? b.mult : undefined; ai._blowAt = now; ai._blowSwing = true;
+  ai._blowFx = atMe && verdict ? { kind: b.kind, iron: b.guard === 'iron', at: now } : null;   // TELL6e: what it does where its damage lands (scenes/hostCombat.js landBlowEffect)
   ai._blowHold = false;   // TELL2: the held swing strikes on its next frame
   s.blowReady = cooled; s.blow = null;
   // TELL5 (7.4): a chain - hit or miss, a second blow at once; the punish window waits for its last. TELL6: never after a
@@ -647,12 +664,13 @@ function dashTurn(ai, s, now) {
   const d = s.dash, b = d?.blow;
   if (!b) { s.state = 'engage'; return false; }
   const h = [ai.feet[0], ai.feet[2]];
-  const hit = !!_me && targetKey(ai) === LOCAL && segDist(_me.feet[0], _me.feet[2], d.head[0], d.head[1], h[0], h[1]) <= BLOW.charge.halfW;
+  const key = targetKey(ai), tf = targetFeet(ai, key);   // TELL8: my feet, or the peer's it runs at (the owner's view)
+  const hit = !!tf && segDist(tf[0], tf[2], d.head[0], d.head[1], h[0], h[1]) <= BLOW.charge.halfW;
   d.head = h;
   if (hit || now >= d.until || ai._tacBlocked) {
     ai._tacBlocked = false; ai._tacDir = null; ai.moving = false; s.dash = null;
-    if (!_me || targetKey(ai) !== LOCAL) { clearBlowState(ai); dropSwing(ai); s.blowReady = d.cooled; s.state = 'engage'; ai._blowLandedAt = now; return false; }
-    return resolveLanding(ai, s, b, hit, now, d.cooled);
+    if (!tf) { clearBlowState(ai); dropSwing(ai); s.blowReady = d.cooled; s.state = 'engage'; ai._blowLandedAt = now; return false; }
+    return resolveLanding(ai, s, b, hit, now, d.cooled, !!_me && key === LOCAL);
   }
   return dashStep(ai, b);
 }

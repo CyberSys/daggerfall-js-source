@@ -104,11 +104,13 @@
   {
     "name": "ATACT-D6-verdict-on-others",
     "file": "src/ai/tactics.js",
-    "old": "  const atMe = _me && targetKey(ai) === LOCAL;",
+    "old": "  const atMe = !!_me && key === LOCAL;",
     "new": "  const atMe = !!_me;",
     "tests": [
-      "test/audittact.test.js"
-    ]
+      "test/audittact.test.js",
+      "test/tell8_online.test.js"
+    ],
+    "note": "TELL8 (PIN MOVED): re-aimed by content - the owner winds up at a peer it hunts (`tf` its target's feet, `atMe` the damage's gate), a peer's blow carries its class, the relay moved to world162."
   },
   {
     "name": "ATACT-A5-backoff-ring",

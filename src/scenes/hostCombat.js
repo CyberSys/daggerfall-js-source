@@ -651,12 +651,13 @@ export function applyDamageToNonPlayer(attacker, target, {
  * 'stagger' (the door writes the breaking blow's shove at TELL.STAGGER_KNOCK). TELL4: a foe OVERREACHED (its blow
  * missed) is open too - the first blow that lands staggers it ('stagger'), unless its last stagger is too recent (null).
  *
- * `opts`: the door's `kind`, the striking `weapon` (the player's), `round` (a spell's later round), `peer`, `striker`
+ * `opts`: the door's `kind`, the striking `weapon` (the player's), `round` (a spell's later round), `peer` (TELL8: and
+ * `wc`, its class as the peer judged it - net/wire.js hitClassOf), `striker`
  * (a foe's record - its own weapon, its own body for a monster), `from` (where the blow came from), `claws` (the
  * player in a beast's form), `weight` (DFU's weight in classic units, or a function answering it - read only when the
  * foe is winding up). `fx`: the pool's `audio`, `hitEffects`, `shake` (the player's own blow only) and `rolls`.
  */
-export function windupDoor(f, damage, { kind = 'melee', weapon = null, round = false, peer = false, striker = null, from = null, claws = false, weight = 0 } = {}, fx = {}) {
+export function windupDoor(f, damage, { kind = 'melee', weapon = null, round = false, peer = false, striker = null, from = null, claws = false, weight = 0, wc = null } = {}, fx = {}) {
   if (f?.ai && overreachOpen(f.ai)) {   // TELL4: no meter to weigh - the blow lands, and the first staggers it
     const word = windupStruck(f.ai, f.entity, typeof weight === 'function' ? weight() : weight, 0);
     windupFeedback(word, f, fx);
@@ -665,10 +666,13 @@ export function windupDoor(f, damage, { kind = 'melee', weapon = null, round = f
   }
   if (!f?.ai || !windupHolds(f.ai)) return null;
   const blow = f.ai._tac.blow;
-  const k = striker
-    ? blowK({ kind, weapon: striker.entity?.weapon ?? null, claws: !((striker.mobileType ?? 0) >= 128), round, peer })
-    : blowK({ kind, weapon, claws, round, peer });
-  const v = blowWeight(damage, k, { back: behind(blow.origin, blow.yaw, from) });
+  // TELL8 (10.4): a PEER's blow weighs its class as the peer judged it against its puppet (`wc` - its K, its back
+  // flag, its weakness); without one, K_PEER and never from behind (`from` is no peer's feet here)
+  const k = peer ? (wc ? wc.k : blowK({ kind, round, peer }))
+    : striker
+      ? blowK({ kind, weapon: striker.entity?.weapon ?? null, claws: !((striker.mobileType ?? 0) >= 128), round, peer })
+      : blowK({ kind, weapon, claws, round, peer });
+  const v = blowWeight(damage, k, peer ? { back: !!wc?.back, weak: !!wc?.weak } : { back: behind(blow.origin, blow.yaw, from) });
   const w = typeof weight === 'function' ? weight() : weight;
   const word = windupStruck(f.ai, f.entity, w, v);
   windupFeedback(word, f, fx);

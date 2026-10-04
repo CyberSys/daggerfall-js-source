@@ -167,7 +167,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
   // with no Y test. The default keeps the two street pools as they were.
   playerInside = false,
   // ROAD-G G1: GameManager.MakeEnemiesHostile over the HOST's whole
-  // area, the encounter pool's dep to the line (exteriorFoes.js:227).
+  // area, the encounter pool's dep to the line (exteriorFoes.js:230).
   // DaggerfallEntityBehaviour.cs:255-258 fires it when a NON-hostile
   // enemy is struck by the player, and Knight_CityWatch is an
   // EnemyClass - one of the two EntityTypes that walk (:250). This
@@ -759,7 +759,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
    *  which arrowFlight.js calls unconditionally (arrowFlight.js:324)
    *  because `dealDamage` is inside its own `dmg > 0` fork - so the
    *  door is PUBLIC (the returned surface below), exactly as the
-   *  encounter pool's is (exteriorFoes.js:2895). */
+   *  encounter pool's is (exteriorFoes.js:2909). */
   function handleAttackFromPlayer(g, playerFeet = null) {
     if (!g?.ai) return;
     // DISC19-F (AUDIT DISC19): A BLOW ON A DEFENDER IS ASSAULT. The
@@ -796,7 +796,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
    *  watchman, an ungated crime FRAMES THE PLAYER for a murder they
    *  did not commit, and the watch responds to that crime, so the
    *  town turns on them for a rat's work. */
-  function damageGuard(g, damage, playerFeet, knockDir, { fromPlayer = true, bypassShield = false, peer = false, kind = 'melee', weapon = null, round = false, striker = null } = {}) {   // TELL1: the blow's kind, the player's weapon, a spell's later round and the striking foe - its weight on a wind-up's poise
+  function damageGuard(g, damage, playerFeet, knockDir, { fromPlayer = true, bypassShield = false, peer = false, kind = 'melee', weapon = null, round = false, striker = null, wc = null } = {}) {   // TELL8: `wc` a peer's blow's class   // TELL1: the blow's kind, the player's weapon, a spell's later round and the striking foe - its weight on a wind-up's poise
     if (g.dead) return;   // AUDIT 68 S20-foe-dies-twice: a corpse takes no blow - a magic round after the killing one tallied a second Murder and minted a second body
     if (fromPlayer && !peer && g.defender && raidHere()) return;   // RAID-GUARDS: whatever road a blow of the player's takes to the door, a raid's defender takes none of it - and no Assault comes of one
     // AUDIT WATCH1 A4: a PEER's blow (WATCH1's net seam) is the encounter pool's peer law (AUDIT WORLD6b B2): no
@@ -918,7 +918,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     // Hurt - and the blow weighs on his poise; past it the wind-up breaks and he is staggered, the breaking blow's shove
     // half again as hard. Not winding up, this answers null and DFU's knockback stands (hostCombat.windupDoor's one law)
     const _tell = (g.ai?._tac?.state !== 'windup' && g.ai?._tac?.state !== 'overreach') ? null : windupDoor(g, damage, {   // only a watchman winding up (TELL4: or overreached) builds the blow's bag
-      kind, weapon, round, peer, striker, from: striker?.ai?.feet ?? playerFeet,
+      kind, weapon, round, peer, striker, from: striker?.ai?.feet ?? playerFeet, wc,   // TELL8: a peer's blow's class
       claws: fromPlayer && !peer && !weapon && !!playerEntity?.isInBeastForm,
       weight: () => enemyWeightClassicUnits(true, 'male', guardWeight, g.entity?.items),
     }, { audio, hitEffects });

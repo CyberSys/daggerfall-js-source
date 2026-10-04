@@ -139,20 +139,22 @@
   {
     "name": "TELL6b-no-run",
     "file": "src/ai/tactics.js",
-    "old": "    if (atMe && s.blow.kind === 'charge') { beginDash(ai, s, s.blow, now, cooled); return true; }   // TELL6",
+    "old": "    if (tf && s.blow.kind === 'charge') { beginDash(ai, s, s.blow, now, cooled); return true; }   // TELL6",
     "new": "    // TELL6",
     "tests": [
       "test/tell6b_charge.test.js"
-    ]
+    ],
+    "note": "TELL8 (PIN MOVED): re-aimed by content - the owner winds up at a peer it hunts (`tf` its target's feet, `atMe` the damage's gate), a peer's blow carries its class, the relay moved to world162."
   },
   {
     "name": "TELL6b-run-never-hits",
     "file": "src/ai/tactics.js",
-    "old": "  const hit = !!_me && targetKey(ai) === LOCAL && segDist(",
+    "old": "  const hit = !!tf && segDist(",
     "new": "  const hit = false && segDist(",
     "tests": [
       "test/tell6b_charge.test.js"
-    ]
+    ],
+    "note": "TELL8 (PIN MOVED): re-aimed by content - the owner winds up at a peer it hunts (`tf` its target's feet, `atMe` the damage's gate), a peer's blow carries its class, the relay moved to world162."
   },
   {
     "name": "TELL6b-run-on-through",

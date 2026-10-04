@@ -6,8 +6,8 @@ these enemies and breath more depth into it"*; then, on the sixteen ideas offere
 detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
-(section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL7 and TELL9 built (TELL6 in five parts);
-each slice's record is at the foot.**
+(section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts); each
+slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -1513,3 +1513,62 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
   unchanged. Mutant records re-aimed by content: `audit1003_ui` U3 (two - markFoeThreat holds the same guard), `tell4`
   (the ring shares the word's line).
 - Mutants `tools/mutants/tell9.json` (50), all dead.
+
+### TELL8 - BUILT 2026-10-04 (the Enhanced AI switch on - forced on for everyone online; both streams): online
+
+- **The owner's word** - `ai/puppetBlows.js blowWire` (new module): each live foe record carries its wind-up - `wk`
+  its shape (0-6, `WIRE_KINDS`) +8 iron +16 a feint, `wy` its yaw, `wl` ms to its landing (clamped to 3000), `wo` its
+  origin through the record's own projection, `wp` a leap's or a shot's point - and `ws` 1 staggered, 2 overreached.
+  None for a cut feint, a landed blow (a charge's run is its landing) or a puppet. Written in both streams
+  (`exteriorFoes.js foesFrame` - the watch rides it too - and the dungeon's `roomRecord`); the dedupe key carries the
+  blow and its state (`blowWireKey`), never `wl` (it runs down every frame; the landing it names is fixed).
+- **The law** - `net/wire.js validFoeRecord`: the four wind-up fields together or none, each bounded (`FOE_WINDUP_MS`
+  3000, `wo` as `f`, `FOE_WINDUP_REACH` 64 m for `wp`), `ws` 1 or 2. The relay forwards both unread; its bundle
+  carries wire.js, so **`RELAY_VERSION` world162** (`test/relayversion.test.js`'s row; 25 pins moved with it).
+- **The puppet** - `applyBlowRecord` (both readers, the exterior's `applyPuppetRecord` and the dungeon's
+  `applyFoeRecord`) keeps a SYNTHETIC brain state on the puppet's `ai._tac` (`puppet: true`), so every reader of a
+  wind-up reads a peer's foe as its own: the ground (the mark from `wl`, part-filled by the shape's nominal length), the
+  glint (none for a feint), the cues (WIND, RELEASE, LAND - `tellCues` now runs for puppets in both pools), the target
+  bar (the threat, the track). A re-sent record of the same blow turns it (a lunge's tracking); a record written before
+  its landing and read after it is no new blow. The field gone before the landing: a feint's cut (its mark dashes, its
+  swing goes on as a plain blow) or a break (the mark gone, the held arm cancelled once). `puppetBlowTurn` each frame:
+  the state kept seen, the sprite's hold (true through the wind-up, 'cancel', 'spent' through an overreach), the
+  stagger's Hurt. `ws` stands on the puppet's entity (`staggerUntil`/`overreachUntil` at `PUPPET_HELD_UNTIL`, finite so
+  the fold reads it) - my roll against it takes x1.25 and x1.3, cleared when its owner says it ended.
+- **Each judges their own feet (10.3)** - a puppet's wind-up AT ME (the exterior: the blow's own recipient `b`; the
+  dungeon: its `g`) lands on my feet at its landing: the verdict, the shape's weight and its effect on the puppet's `ai`
+  exactly as a local landing leaves them, so its swing resolves through the host's own door (`resolveFoeMeleeVsPlayer`
+  -> `blowConnects`, `blowScaled`, `landBlowEffect` - the push, the rattle, the bleed, the knockdown, on my machine);
+  the late sample makes a perfect dodge mine (the ring, "Perfect"). The leap gate (AUDIT WORLD6b-iii(a) B7) lets a
+  charge's or a leap's blow through inside a verdict's life (`puppetGapLanded`).
+- **The owner's brain (10.2, OPEN 9)** - `ai/tactics.js targetFeet`: a foe winds up at the peer it hunts as at me (the
+  engage branch, the chain, tracking, the late sample, the charge's run) - one wind-up near each target. At its landing
+  the owner's view of the peer's feet decides its window (6.3) and its chain - never the damage: `resolveLanding`'s
+  `atMe` leaves no verdict, weight or effect to land on anyone here. A puppet handed to me (its owner gone) drops its
+  synthetic state at its first step.
+- **Poise from peers (10.4)** - `blowClassOf` judges my blow on a puppet winding up on my machine (its K by kind and
+  weapon, my feet behind its facing, the weakness flag for RVN3) and the hit carries it as `wc` (`net/wire.js
+  hitClassField`/`hitClassOf` - K x100 +1000 back +2000 weak, one bounded integer) - the exterior divert, the dungeon's
+  two lanes, the watch's door (world.js); the owner's `windupDoor` weighs a peer's blow by it. Without one, K_PEER and
+  never from behind - before it the back flag was judged from the OWNER's feet, a latent fault.
+- **Decided here** - `wp` is the point's distance along `wy` (a number, not a vector: the leap's disc and the shot's
+  line both lie along the yaw). The puppet's held frame is the owner's own mechanism (`hold` into `MobileUnit.update`),
+  not a host-side `heldPose`: the same machine strikes the same frame after the landing. A charge at a peer is judged
+  at its landing by its lane, not swept along a run the peer sees through a 200 ms stream. An aimed shot is never wound
+  up at a peer (its arrow is its owner's flight); onlookers see its line. A puppet's poise track shows its state, not
+  its meter (`taken` is the owner's and not on the wire - it reads empty until it breaks).
+- **Not built here** - RVN13's fields (`ad`, `wq`, `p2`, `rt`); a revenant's ember on a puppet's mark (RVN5).
+- Pins `test/tell8_online.test.js` (10): the record's law field by field; the owner's word (the flags, the clamp, the
+  projection, the key without `wl`); the puppet's state (the part-filled mark, its colour and glint, its tracking, kept
+  seen, the late record); the field gone (a feint's cut, a break's cancel), the stagger and the overreach on its entity
+  through the real fold; each judging their own feet (the verdict, the weight, the effect, the perfect dodge, an
+  onlooker, the aimed shot, the gap-closers' gate); ON A REAL SPRITE the held arm and the strike after the landing; THE
+  OWNER'S REAL BRAIN at a peer (a miss opening the window, a hit leaving nothing to land); a handed-over puppet; the
+  class's round trip and the door weighing it; both hosts by source. Pins moved: `audittact` (the opportunist's gate),
+  `auditworld6b` B1, `auditworld6biii` B7, `tell1_poise` (the dungeon's Hurt), `tell2_tell` (the pools' cues), `watch1`,
+  `world2`, `world3`, `world6b`, `world6biiie`, `auditpscale1`, `staffTeleport` (world162 supported), and the relay's 25
+  pins. Mutant records re-aimed by content (19): `auditpscale1` (two), `audittact` D6, `soc1` S38, `tact4` (two),
+  `tell2`, `tell4` (two), `tell5` (three), `tell6b` (two), `tell6e`, `watch1` (four).
+  Cites re-resolved (`tools/citeShift.mjs`, 91) and two by hand, by their HEAD lines' content.
+- Mutants `tools/mutants/tell8.json` (58), all dead.
+

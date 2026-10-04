@@ -106,20 +106,22 @@
   {
     "name": "TELL4-sample-never",
     "file": "src/ai/tactics.js",
-    "old": "  if (atMe && s.blow.lateIn == null && now >= s.blow.land - TELL.TELL_LATE && now < s.blow.land) s.blow.lateIn = inBlow(s.blow, _me.feet[0], _me.feet[2]);",
+    "old": "  if (tf && s.blow.lateIn == null && now >= s.blow.land - TELL.TELL_LATE && now < s.blow.land) s.blow.lateIn = inBlow(s.blow, tf[0], tf[2]);",
     "new": "",
     "tests": [
       "test/tell4_punish.test.js"
-    ]
+    ],
+    "note": "TELL8 (PIN MOVED): re-aimed by content - the owner winds up at a peer it hunts (`tf` its target's feet, `atMe` the damage's gate), a peer's blow carries its class, the relay moved to world162."
   },
   {
     "name": "TELL4-sample-every-tick",
     "file": "src/ai/tactics.js",
-    "old": "  if (atMe && s.blow.lateIn == null && now >= s.blow.land - TELL.TELL_LATE && now < s.blow.land) s.blow.lateIn",
-    "new": "  if (atMe && now >= s.blow.land - TELL.TELL_LATE && now < s.blow.land) s.blow.lateIn",
+    "old": "  if (tf && s.blow.lateIn == null && now >= s.blow.land - TELL.TELL_LATE && now < s.blow.land) s.blow.lateIn",
+    "new": "  if (tf && now >= s.blow.land - TELL.TELL_LATE && now < s.blow.land) s.blow.lateIn",
     "tests": [
       "test/tell4_punish.test.js"
-    ]
+    ],
+    "note": "TELL8 (PIN MOVED): re-aimed by content - the owner winds up at a peer it hunts (`tf` its target's feet, `atMe` the damage's gate), a peer's blow carries its class, the relay moved to world162."
   },
   {
     "name": "TELL4-no-lock-field",

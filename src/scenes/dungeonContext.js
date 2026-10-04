@@ -261,7 +261,7 @@ import { UnderwaterFog } from '../render/underwaterFog.js';   // ROAD-B (b3): Un
 import { NavClient } from '../ai/navClient.js';   // ENHANCED AI 3b
 import { getPref } from '../systems/uiPrefs.js';   // ENHANCED AI 3b: the Enhanced tab's switch
 import { raiseEnemyDeath, playRareDrop, pileBody, sayEnemyDied } from './corpseMarker.js';   // UL1: OnEnemyDeath; LR3: the drop chime; LOOT-STACK: a body as the loot window's tab; LOOT7-CHECK DUNGEON-DIED: the kill notice
-import { FOE_LEVEL_MAX, CELL_LOOSE_PUPPETS, sharedClassicMinutes } from '../net/wire.js';   // SEARCH1: a room's search stamp, read as the world minute it was searched at   // AUDIT RENOWN1 GAME-3: the stream's bound on a class foe's level; SUMMON-SYNC: an owner's loose stands a reader stands, the cell's allowance
+import { FOE_LEVEL_MAX, CELL_LOOSE_PUPPETS, sharedClassicMinutes, hitClassField, hitClassOf } from '../net/wire.js';   // TELL8: a blow's class on a hit   // SEARCH1: a room's search stamp, read as the world minute it was searched at   // AUDIT RENOWN1 GAME-3: the stream's bound on a class foe's level; SUMMON-SYNC: an owner's loose stands a reader stands, the cell's allowance
 import { partyFoeLoses, partyFoeHits, partyFoeHeals, noteFighter, foeFighters, takeWholeBlow, PARTY_ME } from '../systems/partyScale.js';   // PSCALE1: a shared foe weighs whoever fights it
 import { renownFoeStruck, renownFoeDied, renownFoeCarry, renownFoeRevived } from '../net/renownTracker.js';   // RENOWN1: a foe the player fought pays its Renown XP when it dies, by any hand   // AUDIT RENOWN1 GAME-10: a rebuilt foe keeps my blows, a revived one forgets them
 import { reportPlayerKill } from '../systems/playerKills.js';   // SET2: my own kills, told
@@ -277,7 +277,8 @@ import { rollLootRarity, pileSource, dungeonRarityTier, dungeonFamily, stampWonW
 import { foeHitFlash, setBatchHitFlash, puppetHurtStep, setBatchGlint, prefersReducedMotion } from '../systems/hitFlash.js';   // HITFLASH1; TELL2: a wind-up's glint
 import { coverDistance, coverStep, createCoverIndex, isCoverFlat, coverProxy } from '../ai/cover.js';   // TACT1: billboards are cover
 import { blowConnects, blowScaled } from '../ai/foeBlows.js';   // TACT4
-import { foeGlint } from '../ai/tactics.js';   // TELL2: a wind-up's glint (bible/12-Enhanced-AI/Feud-Arc.md section 4.2)
+import { foeGlint, tacticsNow } from '../ai/tactics.js';   // TELL2: a wind-up's glint (bible/12-Enhanced-AI/Feud-Arc.md section 4.2); TELL8: the record's wind-up on the foes' clock
+import { blowWire, blowWireKey, applyBlowRecord, puppetBlowTurn, blowClassOf } from '../ai/puppetBlows.js';   // TELL8: a wind-up on the wire - the host's word, the joiner's puppet, each judging its own feet, a blow's class
 import { ambushNight } from '../systems/restAct.js';   // AUDIT REST-PARTY A1: a resting encounter stood breaks the night that rolled it
 
 
@@ -306,7 +307,7 @@ const q3 = (v) => Math.round(v * 1000) / 1000; const GENDER_BIT = ['male', 'fema
 const HIT_POS_MAX = 1e6;
 // AUDIT FOES FOE5: the most damage one peer's blow may claim. The host TRUSTS the number (it never recomputes - the
 // striker's own calc is the game's), so without a bound any joiner could one-shot every foe in the room and empty it
-// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2715); the dungeon
+// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2729); the dungeon
 // had none. Past anything a legal swing, shaft or blast can roll.
 const HIT_DMG_MAX = 10000;
 /** REST-SYNC: a joiner's ask is answered - or given up on - inside this long: its rest breaks once, at the next hour. */
@@ -4579,7 +4580,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (f.mobileType >= 128 && Number.isInteger(f.entity?.level) && f.entity.level >= 0 && f.entity.level <= FOE_LEVEL_MAX) r.l = f.entity.level;
     if (!f.dead && _sharedFoe(f)) { const n = fightN(f); if (n > 1) r.n = n; }   // AUDIT PSCALE1: how many fight it - every joiner weighs its hits by the host's count
     if (f.dead && typeof f._trapBy === 'string' && performance.now() - (f._killedAt ?? -Infinity) <= KILLED_BY_MS) { r.j = f._trapBy; r.q = f._trapQ | 0; }   // STRIKE-SHARED: whose soul trap was on it as it fell, and its chance - for KILLED_BY_MS, as `v`
-    const key = `${r.f[0]},${r.f[1]},${r.f[2]},${r.y},${r.h},${r.d},${r.a},${r.m},${r.g},${r.c},${r.s},${r.n},${r.j},${r.v}`;
+    if (!f.dead && f.ai._tac && !f.ai._tac.puppet) Object.assign(r, blowWire(f.ai, tacticsNow()));   // TELL8 (10.1): its wind-up, its stagger, its overreach (the room's own frame) - a foe with a brain
+    const key = `${r.f[0]},${r.f[1]},${r.f[2]},${r.y},${r.h},${r.d},${r.a},${r.m},${r.g},${r.c},${r.s},${r.n},${r.j},${r.v}${r.wk !== undefined || r.ws !== undefined ? `,${blowWireKey(r)}` : ''}`;   // TELL8: and the wind-up's (never `wl`)
     // AUDIT SETS M1: the maximum - every full frame owes it again (and pays it, fitMaxima), a delta pays a few owed
     if (full) f._maxSent = undefined;
     const max = foeMaxOf(f);
@@ -5090,6 +5092,12 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (Number.isFinite(r.k)) f.entity.maxHealth = r.k;   // AUDIT SETS M1: the host's maximum - "under half" is its word (the copy was rolled at MY level)
     if (Number.isFinite(r.h)) { if (r.h < f.entity.health) p.hurt = true; f.entity.health = r.h; }
     if (r.a != null) { const a = r.a | 0; if (p.a != null && a !== p.a) p.strike = (a & 1) ? 'ranged' : 'melee'; p.a = a; }
+    // TELL8 (10.1): the host's wind-up, stagger and overreach - the puppet's synthetic state (ai/puppetBlows.js); at ME by
+    // the streamed target (the dungeon's record carries no `b` - its `g` is the blow's, WORLD3's law), judged on my feet
+    if (r.d !== 1 && (r.wk !== undefined || r.ws !== undefined || f.ai._tac?.puppet)) {   // a record that says none, on a puppet that holds none: nothing to do
+      const _to = p.target === '.' ? (f._ownFrom ?? _foesFrom) : (p.target || null), _me = opts.selfId?.() ?? null;
+      applyBlowRecord(f.ai, r, { origin: r.wo ?? null, me: _to != null && _me != null && _to === _me, entity: f.entity, collider });
+    }
     // AUDIT SET P-M3: THE HOST'S WORD THAT MY BLOW KILLED IT (its record's `v`, roomRecord's) - read before the death below
     // lays the body, once: the frame after finds the foe dead
     if (r.d === 1 && !f.dead && r.v != null && r.v === (opts.selfId?.() ?? null)) reportPlayerKill(f.entity, REMOTE_KILL);
@@ -5149,7 +5157,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const i = data.i | 0, dmg = Number(data.dmg);
     const xs = data.xs === 1;   // REST-SYNC: a shared encounter, by the room's number - not a layout index
     const f = xs ? (_sharedById.get(i) ?? null) : foes[i];
-    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2715). The number is a peer's
+    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2729). The number is a peer's
     // word and the host trusts it without recomputing, so an unbounded one let any joiner one-shot every foe in the
     // room - and, through the kill door, empty it. 10000 is past anything a legal swing, shaft or blast can roll.
     if (!f || (!xs && i >= _layoutFoes) || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
@@ -5187,7 +5195,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (pain && pain.clip >= 0) audio.play3d(pain.clip, [f.ai.feet[0], f.ai.feet[1] + 0.9, f.ai.feet[2]], 1, { maxDistance: 16, pitch: 1 + pain.pitchLift });
     }
     if (pt != null) inflictPoison(f.entity, pt, false, { currentMinute: Math.floor(classicMinutesRef.value) });   // WORLD6b-iii(e): the dose lands on the host's foe as FormulaHelper lands it - inside the blow, before the health moves, the foe's own saving throw rolled here; AUDIT WORLD6b-iii(e) A3: on the striker's word, whatever the number
-    damageFoe(f, dmg, at, dir, { fromPlayer: true, peer: true, kind, peerId: id, whole: data.z === 1 });   // AUDIT PSCALE1 DOORS-1: a joiner's kill is a kill
+    damageFoe(f, dmg, at, dir, { fromPlayer: true, peer: true, kind, peerId: id, whole: data.z === 1, ...(data.wc != null ? { wc: hitClassOf(data) } : {}) });   // AUDIT PSCALE1 DOORS-1: a joiner's kill is a kill; TELL8: its blow's class
     if (data.ar === 1 && kind === 'arrow' && arrowsIn(f.entity.items ??= []) < HIT_ARROWS_MAX) addItem(f.entity.items, bowDamageArrow());   // WORLD3: the shaft, where BowDamage puts it (MAC-N1: minted) (:145-147) - the corpse's items are the record's; AUDIT WORLD6b-iii(e) A1: HIT_ARROWS_MAX a body from peers' shafts
     // STRIKE-SHARED (2026-09-29, Mac: "Do #1"): the striker's strike spell, landed on MY foe - the real one - through the
     // cast engine's own foe door (its saving throw, its pacify, its trap marked as the striker's), every point of its
@@ -5728,7 +5736,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // InstantiatePrefab's a fresh GameObject per saved record, so
     // EnemyEntity's `PickpocketByPlayerAttempted` default is the loaded
     // truth for every enemy. The re-minting pools match that by
-    // construction (exteriorFoes.js:2068's restoreWorld goes through
+    // construction (exteriorFoes.js:2077's restoreWorld goes through
     // spawnFoe), but this host patches the LIVE foes in place, so a
     // same-dungeon reload kept a raised latch and a failed pickpocket
     // could never be retried - falsifying the law
@@ -5933,7 +5941,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const coop = coopHit(foe, damage, knockDir, kind, striker);
     if (coop?.al === 1) opts.onFoeHit?.({ ...(foe._encId != null ? { i: foe._encId, xs: 1 } : { i: pi }), ...coop });
   }
-  function damageFoe(foe, damage, playerFeet = null, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false, spell = null, striker = null, weapon = null, round = false } = {}) {   // AUDIT CC-E1: `striker` the foe whose blow it is (hurtFromFoe's); TELL1: `weapon` the player's striking item, `round` a spell's later round (the poise meter's weight)
+  function damageFoe(foe, damage, playerFeet = null, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false, spell = null, striker = null, weapon = null, round = false, wc = null } = {}) {   // TELL8: `wc` a joiner's blow's class (net/wire.js hitClassOf)   // AUDIT CC-E1: `striker` the foe whose blow it is (hurtFromFoe's); TELL1: `weapon` the player's striking item, `round` a spell's later round (the poise meter's weight)
     // AUDIT 68 S19-damagefoe-dead-reentry: a corpse takes no blow. EnemyDeath runs once; the round sinks tick on
     // after the killing tick inside one window, and each re-ran the whole death arm (trap, chime, OnEnemyDeath).
     if (foe.dead || (fromPlayer && !peer && foe.companion != null)) return;   // CREW-COMPANIONS: and my companion takes no blow of mine (exteriorFoes' AUDIT NAV2 F55 gate) - it turned him
@@ -5943,6 +5951,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // AUDIT PSCALE1 DOORS-1: a KILL is not a blow - a Disintegrate, a stat drained to zero (the sinks' `whole`), the
     // Razor's whole-health strike (its mark on the foe) - and no fighters' toughness divides it, here or at the host
     const _whole = whole || takeWholeBlow(foe.entity);
+    // TELL8 (10.4): MY blow on a puppet winding up rides to its owner with its class - its K, my feet against its facing
+    const _wc = fromPlayer && !peer && foe.ai?._tac?.state === 'windup' && foe._ownFrom !== ARENA_PUPPET_OWNER ? blowClassOf(foe.ai, { kind, weapon, claws: !weapon && !!playerEntity?.isInBeastForm, round }, playerFeet ?? lastPlayerFeet) : null;
     // the STRIKER's own HUD - the target frame (PX30) and the concealed reveal (ECV1) - before the divert (AUDIT
     // WORLD2 B6: a joiner's blow never marked) and never for a peer's blow applied here (C4: a peer's poke across the
     // room hijacked the host's target frame)
@@ -5972,6 +5982,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           ...(_pAt ? { p: [q2(_pAt[0]), q2(_pAt[1]), q2(_pAt[2])] } : {}),
           ...(knockDir ? { d: [q3(knockDir[0]), q3(knockDir[1]), q3(knockDir[2])] } : {}),
           ...(_pt != null ? { pt: _pt } : {}),
+          ...(_wc ? { wc: hitClassField(_wc) } : {}),   // TELL8: the blow's class, for the owner's poise meter
           ...(kind === 'arrow' ? { ar: 1 } : {}),
           ...(spell ?? {}),   // STRIKE-SHARED: a strike spell's record and level (`sp`, `lv`) - the owner lands the whole spell
           ...(_whole ? { z: 1 } : {}) });
@@ -6026,6 +6037,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           ...(_pAt ? { p: [q2(_pAt[0]), q2(_pAt[1]), q2(_pAt[2])] } : {}),
           ...(knockDir ? { d: [q3(knockDir[0]), q3(knockDir[1]), q3(knockDir[2])] } : {}),
           ...(_pt != null ? { pt: _pt } : {}),   // WORLD6b-iii(e): the striker's poison rides to the host's foe; AUDIT WORLD6b-iii(e) A3: the calc's word, whatever the number (the Strikes payload can zero it after the dose)
+          ...(_wc ? { wc: hitClassField(_wc) } : {}),   // TELL8: the blow's class, for the owner's poise meter
           ...(kind === 'arrow' ? { ar: 1 } : {}),
           ...(spell ?? {}),   // STRIKE-SHARED: a strike spell's record and level (`sp`, `lv`) - the host lands the whole spell
           ...(_whole ? { z: 1 } : {}) });
@@ -6141,7 +6153,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // blow's shove written half again as hard. Not winding up, this answers null and DFU's knockback stands (the
     // street's door, hostCombat.windupDoor's one law)
     const _tell = (foe.ai?._tac?.state !== 'windup' && foe.ai?._tac?.state !== 'overreach') ? null : windupDoor(foe, damage, {   // only a foe winding up (TELL4: or overreached) builds the blow's bag
-      kind, weapon, round, peer, striker, from: striker?.ai?.feet ?? playerFeet,
+      kind, weapon, round, peer, striker, from: striker?.ai?.feet ?? playerFeet, wc,   // TELL8: a joiner's blow's class
       claws: fromPlayer && !peer && !weapon && !!playerEntity?.isInBeastForm,
       weight: () => enemyWeightClassicUnits(!!foe.entity.isClass, foe.gender, ENEMY_BASICS[foe.mobileType]?.weight ?? 0, foe.entity?.items),
     }, { audio, hitEffects, shake: fromPlayer && !peer ? opts.shakeCamera : null });
@@ -6863,13 +6875,15 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       const _roomFoe = isRoomFoe(f, _fi);   // REST-SYNC: the layout's run, or a shared encounter
       const _puppet = isPuppetFoe(f, _fi);   // QUEST-PARTY phase 3c: a party member's quest foe follows its owner's stream; AUDIT PRE-MERGE 0928 O6: the one test, which the host asks too
       let _tgt = null, _strikeEdge = false;
+      let _pb = null;
       if (_puppet) {
         _strikeEdge = puppetStep(f, dt);
+        _pb = f.ai._tac?.puppet ? puppetBlowTurn(f.ai, _pf) : null;   // TELL8 (10.3): the host's wind-up - held, and AT ME judged on my feet at its landing
         f.ai._senses?.(_pf, null);   // AUDIT WORLD2 B4: observation, not decision - the rest gate and the exhaustion collapse read detected/inSight/_dist off the streamed pose
         if (f._pupMine && f.ai.inSight && f.ai.detected && !f.dead) setEnemyAlert(playerEntity, true, classicMinutesRef.value);   // AUDIT WORLD6b-ii B6: the host's foe beating on me is an enemy alert of mine
         f.sounds ??= new EnemySoundSource(f.mobileType);
         tickEnemySound(f.sounds, f.ai.feet, playerFeet || eye, dt, { audio, collider, hearing: acuteHearingMultiplier(playerEntity) });   // the barks are the foe's, not the frame's
-        if (_strikeEdge) playEnemyClip(audio, f.sounds.attack(), f.ai.feet, acuteHearingMultiplier(playerEntity));   // the streamed swing's own sound
+        if (_strikeEdge && f.ai._tac?.state !== 'windup') playEnemyClip(audio, f.sounds.attack(), f.ai.feet, acuteHearingMultiplier(playerEntity));   // the streamed swing's own sound; TELL8: a wind-up's is its cues'
       }
       else if (!_fateHeld) {   // REVENANT-FATE: a held foe decides nothing
       // MT-iv: the armed context and the target's feet - exteriorFoes'
@@ -7103,11 +7117,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
             moving: f.ai.moving,
             striking: _strikeEdge && !f.attack.firedRanged,   // the START edge (paralysis eats it - the attack machine above is gated, so ChangeEnemyState never fires: EnemyAttack.Update's early return, NOT FreezeAnims - wave 33)
             rangedStriking: _strikeEdge && !!f.attack.firedRanged,   // C17: archers draw records 20-24 - keyed per SWING (the in-band bow shot), not per foe
-            hurting: f.ai.hurtKnock || f.ai.staggered,   // C15: the knockback threshold IS the hurt anim (KnockbackMovement); TELL1: and a stagger holds it
+            hurting: f.ai.hurtKnock || f.ai.staggered || !!_pb?.staggered,   // C15: the knockback threshold IS the hurt anim (KnockbackMovement); TELL1: and a stagger holds it (TELL8: the host's, on its puppet)
             casting: !!f._castPending,   // C14: the cast decision's edge (Spell one-shot)
-            hold: _puppet ? false : f.ai._blowHold,   // TELL2: a telegraphed blow's swing, held at its raised arm until the landing (a puppet's is its owner's)
+            hold: _puppet ? (_pb?.hold ?? false) : f.ai._blowHold,   // TELL2: a telegraphed blow's swing, held at its raised arm until the landing (TELL8: a puppet's on its host's word)
           }, f.ai.yaw, f.ai.feet, eye);
-          if (!_puppet) tellCues(f, audio, acuteHearingMultiplier(playerEntity));   // TELL2: its wind, its release and its landing in the ear
+          tellCues(f, audio, acuteHearingMultiplier(playerEntity));   // TELL2: its wind, its release and its landing in the ear (TELL8: a puppet's too)
           f._castPending = false;
           // a puppet lands no blow of its own (WORLD2) - unless the blow is at ME, and a shaft at anyone flies (WORLD3, the arm consumes
           // those). AUDIT WORLD6b-ii B10: dropped AFTER the mobile set them this frame, not in puppetStep before it - a frame latched

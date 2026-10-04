@@ -4417,7 +4417,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1490`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1491`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4801,7 +4801,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5855`). With the property missing that call is a
+(`dungeonContext.js:5863`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -7151,7 +7151,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1131`, `src/net/online.js:2452`):**
+**Now (`src/net/wire.js:1163`, `src/net/online.js:2452`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -14271,3 +14271,15 @@ record; in short:
   `test/guild1b.test.js` re-aimed at the one account, and `test/fb0930b_bankregion.test.js`'s online half. Mutants:
   `tools/mutants/empireaccount.json` (41, all dead); `realm0.json` (4), `realm5.json` (1), `auditrealm.json` (1),
   `fb0930b_bankregion.json` (3) and `survtiers3.json` (2) re-aimed by content.
+
+## TELL8 - a wind-up on the foe stream (2026-10-04)
+
+The Feud arc's online slice (`bible/12-Enhanced-AI/Feud-Arc.md` section 10 and its TELL8 record; relay **world162**):
+both foe streams (the exterior's cells and the dungeon's rooms) carry a foe's telegraphed wind-up - `wk` its shape and
+flags, `wy` its yaw, `wl` ms to its landing (relative: each client's foes run on their own clock), `wo` its origin,
+`wp` a leap's or a shot's point - and `ws` its stagger or overreach (`net/wire.js validFoeRecord`). Every puppet draws
+the mark, the glint, the held arm and the cues from them (`ai/puppetBlows.js`), and a wind-up AT a player is judged
+on that player's own machine at its landing - the world boss's law (`net/gateStrike.js`). An owner's foe now winds up
+at a peer it hunts as at its owner; the owner's own view of the peer's feet decides only its foe's punish window. A
+peer's blow on a foe winding up carries its class (`wc`, `hitClassOf`) so the owner's poise meter weighs it as its own.
+

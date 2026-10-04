@@ -298,20 +298,22 @@
   {
     "name": "TELL5-no-tracking",
     "file": "src/ai/tactics.js",
-    "old": "  if (atMe && TELL.TRACKERS.includes(b0.kind) && now < b0.start + TELL.TRACK_SHARE * (b0.land - b0.start)) {",
+    "old": "  if (tf && TELL.TRACKERS.includes(b0.kind) && now < b0.start + TELL.TRACK_SHARE * (b0.land - b0.start)) {",
     "new": "  if (false) {",
     "tests": [
       "test/tell5_patterns.test.js"
-    ]
+    ],
+    "note": "TELL8 (PIN MOVED): re-aimed by content - the owner winds up at a peer it hunts (`tf` its target's feet, `atMe` the damage's gate), a peer's blow carries its class, the relay moved to world162."
   },
   {
     "name": "TELL5-track-everything",
     "file": "src/ai/tactics.js",
-    "old": "  if (atMe && TELL.TRACKERS.includes(b0.kind) && now < b0.start",
-    "new": "  if (atMe && now < b0.start",
+    "old": "  if (tf && TELL.TRACKERS.includes(b0.kind) && now < b0.start",
+    "new": "  if (tf && now < b0.start",
     "tests": [
       "test/tell5_patterns.test.js"
-    ]
+    ],
+    "note": "TELL8 (PIN MOVED): re-aimed by content - the owner winds up at a peer it hunts (`tf` its target's feet, `atMe` the damage's gate), a peer's blow carries its class, the relay moved to world162."
   },
   {
     "name": "TELL5-foe-unturned",
@@ -352,11 +354,12 @@
   {
     "name": "TELL5-chain-old-facing",
     "file": "src/ai/tactics.js",
-    "old": "beginWindup(ai, s, ent, s.chainShape, _me.feet[0] - ai.feet[0], _me.feet[2] - ai.feet[2], now, s.chainN);",
+    "old": "beginWindup(ai, s, ent, s.chainShape, tf[0] - ai.feet[0], tf[2] - ai.feet[2], now, s.chainN);",
     "new": "beginWindup(ai, s, ent, s.chainShape, Math.sin(ai.yaw + 2), Math.cos(ai.yaw + 2), now, s.chainN);",
     "tests": [
       "test/tell5_patterns.test.js"
-    ]
+    ],
+    "note": "TELL8 (PIN MOVED): re-aimed by content - the owner winds up at a peer it hunts (`tf` its target's feet, `atMe` the damage's gate), a peer's blow carries its class, the relay moved to world162."
   },
   {
     "name": "TELL5-chain-slow",

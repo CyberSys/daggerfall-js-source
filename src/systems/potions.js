@@ -206,7 +206,7 @@ export function gatherRecipe(recipe, availableTemplateIndices) {
 //    is potionBundle above (:138) - DrinkPotion's EffectBundleSettings
 //    (:903-947). U44 mounted it: scenes/hostMagic.js:1239-1245 builds the
 //    bundle, all three hosts hand `drinkPotion` down (world.js:10133,
-//    dungeonContext.js:2017, exterior.js:2702) and useItem.js:379
+//    dungeonContext.js:2018, exterior.js:2702) and useItem.js:379
 //    routes the bottle into it.
 //  - RandomlyAddPotionRecipe(25) is live in shopStock.js:238-245
 //    (AUDIT 26 F129, DaggerfallLoot.cs:165 - the Alchemist arm), so a

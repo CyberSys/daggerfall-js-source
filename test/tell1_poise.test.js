@@ -440,7 +440,7 @@ test('TELL1: every door asks the poise door where it writes DFU\'s knock, passes
   assert.match(d, /if \(_tell === 'hold'\) return;\n\s*if \(knockDir && foe\.ai\) \{/);
   assert.match(d, /foe\.ai\.knockbackSpeed = weaponKnockbackSpeed\(damage, w\) \* \(_tell === 'stagger' \? TELL\.STAGGER_KNOCK : 1\);/);
   assert.match(d, /damageFoe\(foe, damage, playerFeet, lookDir, \{ weapon: playerWeapon\.strikingWeapon \}\);/);
-  assert.match(d, /hurting: f\.ai\.hurtKnock \|\| f\.ai\.staggered,/);
+  assert.match(d, /hurting: f\.ai\.hurtKnock \|\| f\.ai\.staggered \|\| !!_pb\?\.staggered,/);   // PIN MOVED (TELL8: and the host's stagger on its puppet)
   assert.match(d, /hurt: \(n, o\) => damageFoe\(f, n, null, null, \{ kind: 'spell', fromPlayer: o\?\.fromPlayer \?\? fromPlayer, whole: !!o\?\.whole, round: !!o\?\.round \}\),/);
   assert.match(rd('src/systems/effects.js'), /sinks\.hurt\(n, \{ fromPlayer: !a\.caster \|\| !!a\.caster\.isPlayer, bundleDuel: !!a\.bundleDuel, round: true \}\);/, 'a round says it is one');
   for (const [file, re] of [

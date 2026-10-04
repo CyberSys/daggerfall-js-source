@@ -11,8 +11,9 @@
 // weight on DFU's own damage roll - armour, skill and all).
 //
 // Sparingly: a cooldown per foe, at most one wind-up near the player at a time, only from a foe holding a melee token
-// in reach (TACT2), never against anyone but the local player. With the Enhanced AI switch off the brain never starts
-// one, and both helpers answer the classic value.
+// in reach (TACT2) - TELL8: at the local player or a peer it hunts (each client judging its own feet, ai/puppetBlows.js),
+// one at a time near each. With the Enhanced AI switch off the brain never starts one, and both helpers answer the
+// classic value.
 
 import { MOBILE_TYPES } from '../characters/mobileTypes.js';
 import { tacticsNow } from './tacticsClock.js';   // AUDIT TACT: the foes' own time

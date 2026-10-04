@@ -23,7 +23,7 @@ import { copyEffectEntry } from '../systems/save.js';   // AUDIT 26 F216: the ca
 import { EnemyAI, isBackFacing, withinYaw, MELEE_DISTANCE, foeFrameDt } from '../characters/enemyMotor.js';   // AUDIT WORLD6b-iii(a) B4: the puppet's cast is read against the owner's own bands
 import { spaceFoes } from '../characters/foeSpacing.js';   // FOE-SPACING: the pack keeps apart
 import { blowConnects, blowScaled } from '../ai/foeBlows.js';   // TACT4
-import { foeGlint } from '../ai/tactics.js';   // TELL2: a wind-up's glint (bible/12-Enhanced-AI/Feud-Arc.md section 4.2)
+import { foeGlint, tacticsNow } from '../ai/tactics.js';   // TELL2: a wind-up's glint (bible/12-Enhanced-AI/Feud-Arc.md section 4.2); TELL8: the record's wind-up on the foes' clock
 import { runTargetMachine, boutGate, isPlayerTarget, isLocalPlayerTarget, isPeerTarget, resetAllyTeamOnPlayerAttack, PLAYER_TARGET, PEER_CAST_TARGET, targetAimPoint, enemyArrowOrigin, enemyTransformPoint, arrowAimDirection, wireRecipient, bumpAtkCount, staticTeamOf } from '../characters/enemyTargets.js';   // AUDIT WATCH1: the wire's spellings, one home   // WORLD6b-ii: the local player told from a peer, the peer told from a foe   // MT-ii   // ROAD-H H1/H1b: the ONE arrow loose point and the crouch dip
 import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_HEIGHT } from '../player/motor.js';   // CH3: the shared fall formula
 import { SOUND, hitSoundFor, ENEMY_HIT_VOLUME } from '../systems/soundClips.js';   // CH3: the FallDamage clip; WORLD6b: a peer's blow rung at the owner
@@ -58,7 +58,10 @@ import { MINUTES_PER_DAY, playerWeaponHitEntity, playerWeaponKillReported } from
 import { FOES_MS } from '../net/online.js';   // AUDIT ALL B2: the watchman moved since the frame the striker swung at
 import { applyChampion, rollStreetChampion, championIndex, championName, properName } from '../systems/champions.js';   // LOOT7: the street's champions
 import { lootCrown } from './lootLines.js';   // LOOT11: a body's line of light
-import { validFoeRecord, REVENANT_NAME_MAX, CELL_PUPPETS_MAX, CELL_WATCH_PUPPETS_MAX, CELL_FRAME_RECORDS_MAX, FOE_SEQ_MAX, POSE_BOUND, POSE_Y_BOUND, tokenGate, FOE_HEALTH_MAX, hitPoisonOf, hitSpellOf, hitSpellFields, HIT_ARROWS_MAX } from '../net/wire.js';   // STRIKE-SHARED: a strike spell rides the hit
+import { validFoeRecord, REVENANT_NAME_MAX, CELL_PUPPETS_MAX, CELL_WATCH_PUPPETS_MAX, CELL_FRAME_RECORDS_MAX, FOE_SEQ_MAX, POSE_BOUND, POSE_Y_BOUND, tokenGate, FOE_HEALTH_MAX, hitPoisonOf, hitSpellOf, hitSpellFields, HIT_ARROWS_MAX, hitClassField, hitClassOf } from '../net/wire.js';   // STRIKE-SHARED: a strike spell rides the hit
+import { blowWire, blowWireKey, applyBlowRecord, puppetBlowTurn, puppetGapLanded, blowClassOf } from '../ai/puppetBlows.js';   // TELL8: a wind-up on the wire - the owner's word, the puppet's state, each judging its own feet, a blow's class
+/** TELL8: a puppet with no wind-up state: nothing held, nothing staggered. */
+const NO_PUPPET_BLOW = Object.freeze({ hold: false, staggered: false });
 import { CORPSE_ACTIVATION_DISTANCE, liveFoeTargets, liveFoeFor } from '../player/activate.js';   // WORLD-HOVER H2: the LIVE bodies, in the shape the hover's one seam takes
 import { WEAPON_REACH } from '../combat/playerWeapon.js';   // AUDIT WATCH1 B2: a peer's melee blow on my watch lands from the player's own reach, no farther   // AUDIT WORLD6b-iii(c) A1/C7: the owner reads the taker's reach
 import { createWeapon, bowDamageArrow } from '../combat/enemyEquipment.js';   // MAC-N1: the recovered shaft is CreateWeapon's arrow, value and all   // AUDIT WORLD6b-ii B2: a puppet's weapon is its owner's word, rebuilt from the descriptor   // AUDIT WORLD6b B3/C2: a cell's record projected and its puppets capped, the wire's law
@@ -808,7 +811,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     f.entity.health = Math.min(f.entity.maxHealth ?? Infinity, f.entity.health + h);
   }
 
-  function damageFoe(f, damage, playerFeet, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false, spell = null, striker = null, weapon = null, round = false } = {}) {   // AUDIT CC-E1: `striker` the foe whose blow it is (hurtFromFoe's); TELL1: `weapon` the player's striking item, `round` a spell's later round (the poise meter's weight)
+  function damageFoe(f, damage, playerFeet, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false, spell = null, striker = null, weapon = null, round = false, wc = null } = {}) {   // TELL8: `wc` a peer's blow's class (net/wire.js hitClassOf)   // AUDIT CC-E1: `striker` the foe whose blow it is (hurtFromFoe's); TELL1: `weapon` the player's striking item, `round` a spell's later round (the poise meter's weight)
     if (f.dead || (fromPlayer && !peer && isShipmate(f))) return;   // AUDIT 68 S20-foe-dies-twice: a corpse takes no blow - a magic round after the killing one re-ran the whole death (notice, loot handlers, corpse)   // AUDIT NAV2 F55: and a shipmate none of the player's, whatever road it took here (cityGuards' damageGuard holds a raid's defender so) - the vampiric drain's reached him as the player's attack and turned him
     const bout = f.entity?.bout ?? null;   // ARENA2: a fighter on the arena's sand (scenes/arenaBouts.js)
     if (fromPlayer && !peer && !bout) renownFoeStruck(f);   // RENOWN1: MY blow - a puppet's too, before the divert sends it to the owner; ARENA2: never a bout fighter's (no renown on the sand)
@@ -847,12 +850,16 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         // WORLD6b-iii(e): the blade's or the shaft's dose (poisonFoe, inside this blow's calc) - spent by this door, once.
         // AUDIT WORLD6b-iii(e) A5: read inside the provenance gate - a fall's or a foe's door on this puppet leaves it
         const _pt = f._divertPt ?? null; f._divertPt = null;
+        // TELL8 (10.4): a blow on a puppet WINDING UP rides with its class - its K, my feet against its facing - so the
+        // owner's meter weighs it as its own
+        const _wc = f.ai?._tac?.state === 'windup' ? blowClassOf(f.ai, { kind, weapon, claws: !weapon && !!playerEntity?.isInBeastForm, round }, playerFeet) : null;
         f._divertFrame = _peerFrame;
         f._struckAt = _now();   // DISC10-E: the owner's `slain` answers THIS blow, inside SLAIN_WINDOW_MS, or nothing
         _net?.onPeerHit?.({ to: f.puppet, k: _owners.get(f.puppet)?.k ?? _net.room?.() ?? null, i: f.seq, dmg: Math.max(0, Math.round(Number(damage) || 0)), kind,   // WORLD6b-iii(b): keyed to the OWNER's cell (its frame's k) - across the seam that is not mine
           ...(_pAt ? { p: [q2(_pAt[0]), q2(_pAt[1]), q2(_pAt[2])] } : {}),
           ...(knockDir ? { d: [q3(knockDir[0]), q3(knockDir[1]), q3(knockDir[2])] } : {}),
           ...(_pt != null ? { pt: _pt } : {}),   // WORLD6b-iii(e): the striker's poison rides to the owner's foe. AUDIT WORLD6b-iii(e) A3: the dose is the CALC's word - FormulaHelper doses on the calc's damage and the Strikes payload can zero the number after it (LowDamageVs), so the number gates nothing here
+          ...(_wc ? { wc: hitClassField(_wc) } : {}),   // TELL8: the blow's class, for the owner's poise meter
           ...(kind === 'arrow' ? { ar: 1 } : {}),
           ...(spell ?? {}),   // STRIKE-SHARED: a strike spell's record and level (`sp`, `lv`) - the owner lands the whole spell
           ...(_whole ? { z: 1 } : {}) });   // AUDIT PSCALE1 DOORS-1: a kill goes to the owner as a kill. WORLD6b-iii(e): the shaft lands in the owner's copy, where BowDamage puts it (WORLD3's spelling for the dungeon's hit)
@@ -961,7 +968,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // and the blow weighs on its poise meter; past its poise the wind-up breaks and the foe is staggered, the breaking
     // blow's shove written half again as hard. Not winding up, this answers null and DFU's knockback stands
     const _tell = (f.ai?._tac?.state !== 'windup' && f.ai?._tac?.state !== 'overreach') ? null : windupDoor(f, damage, {   // only a foe winding up (TELL4: or overreached) builds the blow's bag
-      kind, weapon, round, peer, striker, from: striker?.ai?.feet ?? playerFeet,
+      kind, weapon, round, peer, striker, from: striker?.ai?.feet ?? playerFeet, wc,   // TELL8: a peer's blow's class
       claws: fromPlayer && !peer && !weapon && !!playerEntity?.isInBeastForm,
       weight: () => enemyWeightClassicUnits(isClass, f.gender, mobileWeight, f.entity?.items),
     }, { audio, hitEffects, shake: fromPlayer && !peer ? shake : null, rolls });
@@ -1283,6 +1290,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // those, on its owner - a foe hunting a peer is the next slice's)
       if (f.puppet) {
         const edge = puppetStep(f, dt);
+        const _pb = f.ai._tac?.puppet ? puppetBlowTurn(f.ai, playerFeet) : NO_PUPPET_BLOW;   // TELL8 (10.3): its owner's wind-up - held, and AT ME judged on my feet at its landing
         // WORLD6b-ii (AUDIT WORLD2 B4's shape): observation, not decision - the blow at me reads inSight and _dist off the
         // streamed pose. AUDIT WORLD6b-ii A6/B8: the latch tells the truth the stream carries (a puppet hunting another
         // peer is no enemy that has detected ME - the rest gate reads it), and the senses run for a puppet at me alone.
@@ -1304,12 +1312,13 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
           if (sp && !_pupParalyzed && puppetCastInBand(f, sp) && blowAllowed(f)) castSpellFrom(f, sp, playerFeet, true); else f._castPending = true;
           f._pup.cast = null;
         }
-        f._mout = f.mobile.update(dt, { moving: f.ai.moving, striking: edge && !f.attack.firedRanged, rangedStriking: edge && !!f.attack.firedRanged, hurting: f.ai.hurtKnock, casting: !!f._castPending }, f.ai.yaw, f.ai.feet, eye);
+        f._mout = f.mobile.update(dt, { moving: f.ai.moving, striking: edge && !f.attack.firedRanged, rangedStriking: edge && !!f.attack.firedRanged, hurting: f.ai.hurtKnock || _pb.staggered, casting: !!f._castPending, hold: _pb.hold }, f.ai.yaw, f.ai.feet, eye);   // TELL8: the held arm, the cancel, the spent pose, the stagger's Hurt
         if ((f._pupYield || f._pupExec) && f.mobile.heldPose) f._mout = f.mobile.heldPose('hurt', -1, f.ai.yaw, f.ai.feet, eye ?? f.ai.feet);   // REVENANT-FATE: its owner's kneels - so it kneels here
         else if (f._pupSpare && f.mobile.heldPose) f._mout = f.mobile.heldPose('idle', 0, f.ai.yaw, f.ai.feet, eye ?? f.ai.feet);   // ...and rises, sworn, into the light
         if (f._pupSpare && !f._pupSpareGate) { f._pupSpareGate = true; portals.open(f.ai.feet, { quiet: true }); }   // its portal, seen here too
         f._castPending = false;
-        if (edge) playEnemyClip(audio, f.sounds.attack(), f.ai.feet, acuteHearingMultiplier(playerEntity));
+        if (edge && f.ai._tac?.state !== 'windup') playEnemyClip(audio, f.sounds.attack(), f.ai.feet, acuteHearingMultiplier(playerEntity));   // TELL8: a wind-up's swing is its cues'
+        tellCues(f, audio, acuteHearingMultiplier(playerEntity));   // TELL8: its wind, its release and its landing in the ear - a peer's foe's as my own's
         tickEnemySound(f.sounds, f.ai.feet, playerFeet, dt, { audio, collider, hearing: acuteHearingMultiplier(playerEntity) });
         // WORLD6b-ii: a puppet lands no blow of its own (WORLD2) - unless the blow is at ME, and a shaft at anyone flies.
         // AUDIT WORLD6b-iii(a) A3: at ME by the SWING's own recipient (b), latched at its edge - not the hunt's live word
@@ -2160,7 +2169,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         f._heir = items ? h : null;
         if (f._heir) { r.e = h; r.it = items; }
       }
-      const key = `${r.f[0]},${r.f[1]},${r.f[2]},${r.y},${r.h},${r.k},${r.d},${r.a},${r.b},${r.m},${r.g},${r.l},${wd ? wd.join('/') : '-'},${r.c},${r.s},${r.u},${r.o},${r.n},${r.z ?? 0},${r.nm ?? ''},${r.yd ?? 0},${r.ex ?? 0},${r.sp ?? 0}`;
+      if (!f.dead && f.ai._tac && !f.ai._tac.puppet) Object.assign(r, blowWire(f.ai, tacticsNow(), (p) => _net.toWire(p)));   // TELL8 (10.1): its wind-up, its stagger, its overreach - a foe with a brain
+      const key = `${r.f[0]},${r.f[1]},${r.f[2]},${r.y},${r.h},${r.k},${r.d},${r.a},${r.b},${r.m},${r.g},${r.l},${wd ? wd.join('/') : '-'},${r.c},${r.s},${r.u},${r.o},${r.n},${r.z ?? 0},${r.nm ?? ''},${r.yd ?? 0},${r.ex ?? 0},${r.sp ?? 0}${r.wk !== undefined || r.ws !== undefined ? `,${blowWireKey(r)}` : ''}`;   // TELL8: and the wind-up's (never `wl`)
       if (!full && f._sentKey === key) continue;
       f._sentKey = key;
       out.push(r); src.set(r, f); if (qt) qtOf.set(r, qt);
@@ -2424,6 +2434,9 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (r.a !== undefined) { if (p.a != null && r.a !== p.a) p.strike = { kind: (r.a & 1) ? 'ranged' : 'melee', at: r.b ?? r.g ?? p.target }; p.a = r.a; }
     // WORLD6b-iii: a cast once per count, never the count a joiner arrived with; AUDIT WORLD6b-iii(a) B3/C9: no spell, no cast
     if (r.c !== undefined) { if (p.c != null && r.c !== p.c && Number.isInteger(r.s)) p.cast = { s: r.s, at: r.u ?? r.g ?? p.target }; p.c = r.c; }
+    // TELL8 (10.1): its owner's wind-up, stagger and overreach - the puppet's synthetic state (ai/puppetBlows.js); at ME by
+    // the blow's own recipient, judged on my feet at the landing (10.3)
+    if (r.d !== 1 && (r.wk !== undefined || r.ws !== undefined || f.ai._tac?.puppet)) applyBlowRecord(f.ai, r, { origin: r.wo ? _net.toScene(r.wo) : null, me: recipientIsMe(f, r.b ?? r.g ?? p.target), entity: f.entity, collider });
     if (r.d === 1 && !f.dead) {
       if (r.j !== undefined) casterSoulTrap(f, r);
       const t = p.wire ? _net.toScene(p.wire) : null; if (t) { f.ai.feet[0] = t[0]; f.ai.feet[1] = t[1]; f.ai.feet[2] = t[2]; } puppetDie(f);
@@ -2442,7 +2455,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   /** AUDIT WORLD6b-ii B1/C1: whether a blow (or a cast, WORLD6b-iii) of this puppet's owner's may land on me now - the
    *  owner's budget spent, and never from a puppet that leapt. */
   function blowAllowed(f) {
-    if (f._pup?.leap) return false;   // AUDIT WORLD6b-iii(a) B7: a leapt puppet spends no token of its owner's (it starved the owner's other puppets)
+    if (f._pup?.leap && !puppetGapLanded(f.ai)) return false;   // AUDIT WORLD6b-iii(a) B7: a leapt puppet spends no token of its owner's (it starved the owner's other puppets); TELL8: unless its owner's charge or leap carried it - that blow is its landing
+
     const o = _owners.get(f.puppet);
     const budget = tokenGate(o?.blows ?? null, _now(), PUPPET_BLOWS_PER_S);
     if (o) o.blows = budget.bucket;
@@ -2666,8 +2680,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // (DaggerfallEntityBehaviour.cs:203's `source == Player` gate, F035's law: no aggro turn, and a watchman a peer
     // kills is no Murder of mine - the crime stays whose it was, Multiplayer.md's lock). The knockback still lands
     // (the gate is knockDir's), the shield still absorbs, the corpse still falls and rides the next frame as `d: 1`.
-    if (onWatch) _net.watch.hurt(f, dmg, at, dir);   // (the provenance - a peer's, not this player's - is the host's to add: world.js hands `{ fromPlayer: false, peer: true }`)
-    else damageFoe(f, dmg, at, dir, { fromPlayer: true, kind, peer: true, peerId: from, whole: data.z === 1 });   // AUDIT PSCALE1 DOORS-1: a peer's kill is a kill
+    if (onWatch) _net.watch.hurt(f, dmg, at, dir, data.wc != null ? hitClassOf(data) : null);   // (the provenance - a peer's, not this player's - is the host's to add: world.js hands `{ fromPlayer: false, peer: true }`); TELL8: and its blow's class
+    else damageFoe(f, dmg, at, dir, { fromPlayer: true, kind, peer: true, peerId: from, whole: data.z === 1, ...(data.wc != null ? { wc: hitClassOf(data) } : {}) });   // AUDIT PSCALE1 DOORS-1: a peer's kill is a kill; TELL8: its blow's class
     // WORLD6b-iii(e): the shaft, where BowDamage puts it (:145-147) - the body's pile says so (o) and the grant carries it.
     // AUDIT WORLD6b-iii(e) A1: BOUNDED - HIT_ARROWS_MAX Arrows a body from peers' shafts, past it the blow lands and no
     // Arrow (a crafted stream minted a stack the projection refused whole, and the grant dropped the pile with it)

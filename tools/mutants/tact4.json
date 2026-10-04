@@ -200,20 +200,22 @@
   {
     "name": "TACT4-verdict-always",
     "file": "src/ai/tactics.js",
-    "old": "    if (atMe) return resolveLanding(ai, s, s.blow, inBlow(s.blow, _me.feet[0], _me.feet[2]), now, cooled);",
-    "new": "    if (atMe) return resolveLanding(ai, s, s.blow, true, now, cooled);",
+    "old": "    if (tf) return resolveLanding(ai, s, s.blow, inBlow(s.blow, tf[0], tf[2]), now, cooled, atMe);",
+    "new": "    if (tf) return resolveLanding(ai, s, s.blow, true, now, cooled, atMe);",
     "tests": [
       "test/tact4.test.js"
-    ]
+    ],
+    "note": "TELL8 (PIN MOVED): re-aimed by content - the owner winds up at a peer it hunts (`tf` its target's feet, `atMe` the damage's gate), a peer's blow carries its class, the relay moved to world162."
   },
   {
     "name": "TACT4-no-forced-swing",
     "file": "src/ai/tactics.js",
-    "old": "  ai._blowMult = b.mult; ai._blowAt = now; ai._blowSwing = true;",
-    "new": "  ai._blowMult = b.mult; ai._blowAt = now;",
+    "old": "  ai._blowMult = atMe ? b.mult : undefined; ai._blowAt = now; ai._blowSwing = true;",
+    "new": "  ai._blowMult = atMe ? b.mult : undefined; ai._blowAt = now;",
     "tests": [
       "test/tact4.test.js"
-    ]
+    ],
+    "note": "TELL8 (PIN MOVED): re-aimed by content - the owner winds up at a peer it hunts (`tf` its target's feet, `atMe` the damage's gate), a peer's blow carries its class, the relay moved to world162."
   },
   {
     "name": "TACT4-sight-breaks",

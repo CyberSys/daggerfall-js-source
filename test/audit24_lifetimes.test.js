@@ -56,7 +56,7 @@ test('audit24 lifetimes: an encounter foe frees its billboard batch on BOTH ends
   // spares corpses), so the batch would be unreachable and undead
   // AUDIT 26 F035/F041 grew the header: the door takes a provenance
   // flag (fromPlayer), defaulting true.
-  const dmg = bodyOf(src, "function damageFoe(f, damage, playerFeet, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false, spell = null, striker = null, weapon = null, round = false } = {})");   // PIN MOVED (TELL1: the striking weapon and a spell's round, the poise meter's weight)   // PIN MOVED (AUDIT CC-E1: and the striking foe)   // WORLD6b: the blow's kind and a peer's provenance, the dungeon door's own
+  const dmg = bodyOf(src, "function damageFoe(f, damage, playerFeet, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false, spell = null, striker = null, weapon = null, round = false, wc = null } = {})");   // PIN MOVED (TELL1: the striking weapon and a spell's round, the poise meter's weight; TELL8: a peer's blow's class)   // PIN MOVED (AUDIT CC-E1: and the striking foe)   // WORLD6b: the blow's kind and a peer's provenance, the dungeon door's own
   // The window is a PROXIMITY bound, not a law - it exists so the
   // release cannot drift out of the death branch entirely. X5 put the
   // Soul Trap intercept between the two points (the trap can refuse
@@ -78,7 +78,7 @@ test('audit24 lifetimes: a city guard frees its batch on both death paths, and t
   assert.match(src, /function releaseGuardBatch\(g\) \{[\s\S]*?destroyBillboardBatch\(g\.batch\)/);
   // AUDIT 26 F035 (+ MT-ii, the same gate from the other end): the
   // header grew its provenance flag. PIN MOVED (TELL1: and the blow's kind, weapon, round and striker - the poise meter's weight).
-  assert.match(bodyOf(src, 'function damageGuard(g, damage, playerFeet, knockDir, { fromPlayer = true, bypassShield = false, peer = false, kind = \'melee\', weapon = null, round = false, striker = null } = {})'),
+  assert.match(bodyOf(src, 'function damageGuard(g, damage, playerFeet, knockDir, { fromPlayer = true, bypassShield = false, peer = false, kind = \'melee\', weapon = null, round = false, striker = null, wc = null } = {})'),   // PIN MOVED (TELL8: a peer's blow's class)
     /health <= 0[\s\S]{0,300}releaseGuardBatch\(g\)/, 'the killed path');
   assert.match(src, /if \(!g\.dead && !g\.defender\) \{ g\.dead = true; releaseGuardBatch\(g\); \}/,   // DISC19-F: the town's defenders are not the crime's
     'and the walk-away path when the crime clears');
@@ -90,7 +90,7 @@ test('audit24 lifetimes: a city guard frees its batch on both death paths, and t
   // per-frame walk over `guards` paid for them. DFU destroys the
   // walk-away watch outright (EnemyEntity.cs:184-191) and keeps only
   // the killed body. So the key is the guard's own id now, and the
-  // prune is the encounter pool's (exteriorFoes.js:1474).
+  // prune is the encounter pool's (exteriorFoes.js:1483).
   // AUDIT-WH H2 moved the spelling, not the law: the id function is
   // one const now, read by the corpse lens AND by the live-foe
   // producer the plaque races, so a guard and the body it becomes

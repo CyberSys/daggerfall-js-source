@@ -461,16 +461,18 @@ test('TELL2: the ground\'s mark takes the boss\'s line from a leaf - premultipli
 test('TELL2: all three pools wire it - the hold into the sprite, the strike clip held for the WIND, the cues after the sprite, the glint beside the hit flash (mutants: any pool unwired)', () => {
   const pools = [
     ['src/scenes/exteriorFoes.js', 'f', 'hold: f.ai._blowHold,'],
-    ['src/scenes/dungeonContext.js', 'f', 'hold: _puppet ? false : f.ai._blowHold,'],
+    ['src/scenes/dungeonContext.js', 'f', 'hold: _puppet ? (_pb?.hold ?? false) : f.ai._blowHold,'],   // PIN MOVED (TELL8: a puppet's on its host's word)
     ['src/scenes/cityGuards.js', 'g', 'hold: g.ai._blowHold,'],
   ];
   for (const [file, v, hold] of pools) {
     const src = rd(file);
     assert.ok(src.includes(hold), `${file}: the hold`);
     assert.ok(src.includes(`${v}.ai._blowHold !== true`), `${file}: the strike clip held`);
-    const upd = src.indexOf(hold), cue = src.indexOf(`tellCues(${v}, audio, acuteHearingMultiplier(playerEntity));`);
+    const upd = src.indexOf(hold), cue = src.indexOf(`tellCues(${v}, audio, acuteHearingMultiplier(playerEntity));`, upd);   // PIN MOVED (TELL8: a puppet's cues stand in its own branch too - the owner's are the first after its sprite)
     assert.ok(cue > upd && cue - upd < 400, `${file}: the cues right after the sprite`);
     assert.ok(src.includes(`setBatchGlint(${v}.batch, foeGlint(${v}.ai, undefined, prefersReducedMotion()));`), `${file}: the glint`);
   }
-  assert.match(rd('src/scenes/dungeonContext.js'), /if \(!_puppet\) tellCues\(f, audio/, 'a puppet\'s cues are its owner\'s');
+  // PIN MOVED (TELL8: a puppet's cues are its own - its owner's wind-up rides the wire, ai/puppetBlows.js)
+  assert.ok(!/if \(!_puppet\) tellCues\(f, audio/.test(rd('src/scenes/dungeonContext.js')), 'a puppet\'s cues play here');
+  assert.match(rd('src/scenes/exteriorFoes.js'), /const _pb = f\.ai\._tac\?\.puppet \? puppetBlowTurn\(f\.ai, playerFeet\) : NO_PUPPET_BLOW;[\s\S]{0,4000}tellCues\(f, audio, acuteHearingMultiplier\(playerEntity\)\);   \/\/ TELL8/);
 });
