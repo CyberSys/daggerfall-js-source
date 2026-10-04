@@ -42,7 +42,8 @@ export async function freshPool() {
  * A sea: `hull` the player's boat at a helm (null: on foot), `water(x, z)` the land test, `wind`, `settings`, `level`,
  * `raidQuest(name)` the quest a raid starts (none: refused), `save` a save to restore first, `online` the room's seam
  * (none: offline), `pool` a client's own pool (freshPool; else the suites' shared one, emptied), `where` the waters'
- * fields over the harness's own, `peerBoats` the other players' boats at their helms (Come Sail Away's peers).
+ * fields over the harness's own, `peerBoats` the other players' boats at their helms (Come Sail Away's peers),
+ * `harbourBook` the world's harbour book (systems/naval/harbourBook.js; none: the host's own).
  * Answers `{ host, pool, boat, runtime, view, log, deps, run(seconds, dt) }`.
  */
 export async function sea(o = {}) {
@@ -79,6 +80,7 @@ export async function sea(o = {}) {
     peerBoats: () => o.peerBoats?.() ?? [],
     sendHit: (d) => !!o.online?.sendHit?.(d),   // the world's hit retry queue, stood in for by the room's own door
     raiderSpent: (id) => log.spent.push(id),
+    harbourBook: o.harbourBook ?? null,   // HARBOUR-BOOK: the world's book (none: the host keeps its own)
   };
   const host = createNavalHost(deps);
   if (o.save) host.restoreSaveData(o.save);

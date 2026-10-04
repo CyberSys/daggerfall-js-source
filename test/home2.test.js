@@ -28,8 +28,8 @@ test('HOME2 the law: every house type is a house - House1-6 and the for-sale hou
     assert.equal(homeCandidate(b(t)), false, `type ${t}`);
   }
   assert.deepEqual(HOME_VERB, { enter: 'home-enter', buy: 'home-buy', entry: 'home-entry', sell: 'home-sell', rent: 'home-rent' });   // HOME-RENT: and a room rented at the door
-  assert.deepEqual(homeBuyRows(1234), [{ id: 'home-enter', label: 'Go in' }, { id: 'home-buy', label: 'Buy it: 1234 gold' }], 'a plain click is still a plain click');
-  assert.deepEqual(homeBuyRows(1234, true)[1], { id: 'home-buy', label: 'Click again to buy: 1234 gold' });
+  assert.deepEqual(homeBuyRows(1234), [{ id: 'home-enter', label: 'Go in' }, { id: 'home-buy', label: 'Buy it: 1,234 gold' }], 'a plain click is still a plain click');   // HOME-PRICE: the thousands
+  assert.deepEqual(homeBuyRows(1234, true)[1], { id: 'home-buy', label: 'Click again to buy: 1,234 gold' });
   assert.equal(HOME_BUY_ARM_MS, 5000);
   assert.deepEqual(homeOwnerRows('party'), [{ id: 'home-enter', label: 'Go in' }, { id: 'home-entry', label: 'Who may enter: My party' }, { id: 'home-sell', label: 'Sell it' }]);
   assert.equal(homeOwnerRows('nonsense')[1].label, 'Who may enter: Only me', 'an entry this build does not know reads as the default');

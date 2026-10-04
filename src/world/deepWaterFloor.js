@@ -53,7 +53,9 @@ const SHORE_WALL_TOP_TEXTURE_STRENGTH = 0.35;
 const SKIRT_SLOPE_TANGENT = 0.6;
 const BOUNDARY_SKIRT_MIN_WIDTH = 2;
 const BOUNDARY_SKIRT_MAX_WIDTH = 8;
-const SHORE_TERRAIN_FIT_METERS = 180;
+/** The floor's shore fit: within this of the coast (m) it is lifted toward the vanilla ground (the sea's own top, in
+ *  the sea), full depth past it. HARBOUR-BOOK: exported for the quays' piers (systems/naval/quays.js JETTY_MAX). */
+export const SHORE_TERRAIN_FIT_METERS = 180;
 const FLOOR_SURFACE_CLEARANCE = 0.05;
 
 /** OceanElevation / MaxTerrainHeight, the float. */

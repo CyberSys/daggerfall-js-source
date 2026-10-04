@@ -1187,13 +1187,16 @@ cruise to random waypoints; a port had no ships at all. `systems/naval/shipLife.
 
 - **THE HARBOUR OFF THE TERRAIN** (`findHarbour`). No dock data exists - a port town is a flag in its exterior data -
   so the world hands the host the port town within a pixel of the player and its footprint in the scene
-  (`world.js navalHarbourNear`: `locationWorldRect` through the floating origin's `localFromWorld`), and the host finds
-  its harbour once: the town's rect grown HARBOUR_REACH walked on a SHORE_STEP grid for water beside land; each shore
+  (`world.js navalHarbourNear`: `locationWorldRect` through the floating origin's `localFromWorld`), and its harbour is
+  found once (HARBOUR-BOOK: the world's book, `systems/naval/harbourBook.js`, sounded whatever runs on the water - the
+  host reads it; `03-World/Holdings.md` section 7): the town's rect grown HARBOUR_REACH walked on a SHORE_STEP grid for water beside land; each shore
   point stood off the land along the shore's normal by her half width and BERTH_MARGIN is a BERTH lying parallel to the
   shore - kept only where her whole footprint (sized for BERTH_HULL, the Carrack) floats in the water of the deepest keel that
   berths (AUDIT GALLEON-2 GN1: `deepestBerther` over BERTH_HULLS - sounded for the Carrack alone, every berth was land
   to a hull 2 drawing 4.7 m, and her merchant galleons, navy cutters and pirate brigs froze at them for good; off Iliac
-  Puddle No More's carved shelf the berths lie 40-52 m off the shore now, 16-28 before), and BERTH_SPACING of her
+  Puddle No More's carved shelf the berths lie some 92 m off the shore, 80 before - HARBOUR-BOOK corrected GN1's 40-52 and
+  16-28, which read the bathymetry's depth without the floor's shore fit: within SHORE_TERRAIN_FIT_METERS (180 m) of the
+  coast the floor is lifted toward the sea's own top, 3.2 m deep only ~69 m out and 4.7 m ~80), and BERTH_SPACING of her
   length from every other, the nearest the town first, HARBOUR_BERTHS at most. Each berth has its APPROACH, open water
   APPROACH_LENGTHS astern of it and APPROACH_OUT off the shore. The MOUTH is the first point out along the berths' mean
   normal with MOUTH_CLEAR of open water all round. A town with no shore, or a harbour with no way out, has none.
