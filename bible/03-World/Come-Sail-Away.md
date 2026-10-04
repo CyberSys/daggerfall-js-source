@@ -2669,6 +2669,15 @@ false) at its helm as ashore (Port-Ledger A, WATER-FOES). THE FOUR HOSTS: `scene
 (`worldModes.js`, a ship's cabin included) has no foe in the water, a dungeon's (`dungeonContext.js`) flooded halls carry
 no boat of the port's rest gate yet - FLAGGED - and the standalone street (`exterior.js`) no sea. `test/waterfoes.test.js`.
 
+## A camp on her deck rides her (DECK-CAMP, 2026-10-04 - OURS)
+
+From the field: "Campfires placed on a boat dont attach to a boat." A Campfire or a tent placed on a boat's deck carries
+her number and its point in her deck's frame, and is posed off her every frame - hidden with her, packed back into its
+owner's pack once she is gone, saved and said on the wire by its place on her. The whole law is the Rest arc's
+(`06-Systems/Rest-Arc.md`, As built, DECK-CAMP); the seams here are `world.js campDeckAt` (the boat under a spot, off
+her collider bucket) and `campDeckResolve` (where she is now), and `comeSailAwayPeers.js hasBoat` (whether another
+player's word still names her).
+
 ## What was already waiting in the port
 
 - Iliac Puddle No More's swim stands down on a boat

@@ -5908,6 +5908,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     advanceMinutes: (n) => { playerTicker.advance(n); runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, true); },   // the cook's minutes pass - online on the character's own clock (LIVED1)   // CAMP-REST: spent through the tick as a skip, never replayed as walking time (no group roll)
     selfId: () => online?.id ?? null, onChanged: () => { _foesFullAt = -Infinity; },   // a change asks for a full frame, which carries the camps
     fieldCook: () => fieldCookNow(),   // PROF9: a Field Cook's own Campfire keeps its fuel
+    deck: { at: (pos) => campDeckAt(pos), resolve: (ref) => campDeckResolve(ref) },   // DECK-CAMP: a camp on a boat's deck rides her
   });
   /** PROF9 (bible/06-Systems/Professions-Arc.md 3.3): whether the player stands as a Field Cook - online, the professions
    *  the account's, Cooking's choice at 50 - so a night at their own Campfire spends no fuel (survival/camp.js spendCampNight). */
@@ -6378,6 +6379,32 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   /** BOAT-MENU: whether I stand on this boat's deck - the ground under me one of its buckets (the wake's own test). */
   const csaStandsOn = (boat) => !!player.grounded && typeof player.groundKey === 'string' && player.groundKey.startsWith(`csaBoat:${csaBoatId(boat)}:`);
+  /** DECK-CAMP (systems/survival/camp.js, scenes/camps.js ride): THE BOAT UNDER A CAMP'S SPOT - her bucket off the
+   *  collider's surface probe, read down from just over the spot (the camp's ground was hers) - as `{ ref, m }`: one of
+   *  mine by her number, or another player's by theirs and hers; none for a sea ship or a boat with no number. */
+  const campDeckAt = (pos) => {
+    const hit = collider?.surfaceHit?.([pos[0], pos[1] + 0.5, pos[2]], [0, -1, 0], 1.5);
+    const boat = typeof hit?.key === 'string' && hit.key.startsWith('csaBoat:') ? _csaBuckets.get(hit.key)?.boat ?? null : null;
+    if (!boat?.MeshObject || !(boat.uid > 0)) return null;
+    if (csaRuntime?.AllBoats?.includes(boat)) return { ref: { mine: true, uid: boat.uid }, m: boat.MeshObject.worldMatrix() };
+    const at = csaPeers.placeOf(boat);
+    return at ? { ref: { peer: at.owner, uid: boat.uid }, m: boat.MeshObject.worldMatrix() } : null;
+  };
+  /** DECK-CAMP: where a camp's boat is now - `{ m }` (her node's world matrix) while she stands to be seen, `{ hidden }`
+   *  while she is out of sight (Come Sail Away hides her past a pixel and indoors) or not known yet (a load's boats still
+   *  standing: its restore pending), `{ gone }` once she is no more - mine packed, laid up or purged (the boats settled),
+   *  another's no longer in her owner's word, or her owner gone from the room. */
+  const campDeckResolve = (ref) => {
+    const standing = (boat) => (boat.GameObject?.activeSelf && boat.MeshObject ? { m: boat.MeshObject.worldMatrix() } : { hidden: true });
+    if (ref?.mine) {
+      const boat = csaRuntime?.AllBoats?.find((b) => b.uid === ref.uid) ?? null;
+      if (boat) return standing(boat);
+      return !csaRuntime || (!_loading && !csaRuntime.pendingRestore) ? { gone: true } : { hidden: true };
+    }
+    const boat = ref?.peer ? csaPeers.boatByUid(ref.peer, ref.uid) : null;
+    if (boat) return standing(boat);
+    return ref?.peer && csaPeers.hasBoat(ref.peer, ref.uid) ? { hidden: true } : { gone: true };
+  };
   const sailingCabins = createSailingCabinAccess({
     available: () => !!csaRuntime && csaOn(),
     boats: () => csaRuntime?.AllBoats ?? [], mode: () => modes?.mode ?? 'exterior', busy: () => worldMoveBusy(),
@@ -26350,6 +26377,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     try { sigilBroker?.frame(dt); } catch (e) { console.warn('[broker] pool', e?.message ?? e); }   // SET7: the Broker stands where the clock stands her - BROKER-CAGE: in her cage at the faithful's circle
     try { riteHost?.frame(); } catch (e) { console.warn('[rite] host', e?.message ?? e); }   // WB12d: the faithful's circle, before the lights (its braziers light the ground)
     try { if (_mode() === 'exterior' && !_loading) harbourBook.step(now / 1000); } catch (e) { console.warn('[harbours] book', e?.message ?? e); }   // HARBOUR-BOOK: the port near the player sounded, before its quays stand
+    if (_mode() === 'exterior') camps.ride(dt);   // DECK-CAMP: the camps on a boat's deck posed off her - after she moved, before the lights (a fire's) and the world pass
     try { quays?.frame(); } catch (e) { console.warn('[quays] pool', e?.message ?? e); }   // QUAYS: the harbours' quays stood or taken down, before the lights (their lanterns) and the world pass
     // Lanterns on 17:00-08:00, flickering verbatim; pixel-local lights
     // placed under the current compensation, nearest 16 to the camera.
