@@ -52,7 +52,7 @@ import { potentEffect } from '../net/alchemyLaw.js';   // PROF12: a Potent potio
 import { SPELL_CAST_SOUND } from '../systems/enemySpells.js';
 import { tallySkill } from '../systems/skills.js';
 import { morphSelf } from '../systems/lycanthropy.js';   // V2a: the MorphSelf arm the ONE cast engine wires
-import { allyCastable, allyReachFor, allyCastFrame, allyCastCasterLine, allyCastCasterLineMany, allyCastSpell, PERSON_RADIUS, ALLY_TOUCH_REACH, ALLY_ARM_RADIUS, ALLY_ARMED_LINE, COMPANION_ARMED_LINE, companionCastable } from '../systems/allyCast.js';   // SPELL-GIFT: the arm near a mate, the line it says, and the area's one line; AUDIT WK-M4: what my companion can use
+import { allyCastable, allyReachFor, allyCastFrame, allyCastCasterLine, allyCastCasterLineMany, allyCastSpell, PERSON_RADIUS, ALLY_TOUCH_REACH, ALLY_ARM_RADIUS, ALLY_ARMED_LINE, COMPANION_ARMED_LINE, companionCastable, createGiftLineGate } from '../systems/allyCast.js';   // SPELL-GIFT: the arm near a mate, the line it says, and the area's one line; AUDIT WK-M4: what my companion can use
 import { hasResurrect, RESURRECT_REACH, RESURRECT_TEXT, pickFallenBody } from '../systems/resurrect.js';   // RESURRECT1: a fallen party member's body is the target   // ALLY-CAST: a beneficial spell at the party mate under the crosshair
 import { billboardSize, centredBase } from '../world/rmbFlats.js';
 import { createMagicCandle } from './magicCandle.js';   // X11: the Light effect's candle
@@ -171,8 +171,20 @@ export function createPlayerMagic({
   // SPELL HERE - a sentence refusing it where the player stands (a battle's wards: scenes/world.js), or null. Asked where
   // castRefusal is, with the spell, after it; a host that hands none refuses no spell for what it is.
   spellRefusal = null,
+  // GIFT-QUIET: the clock a gift's lines are held back by, in ms - the real one (performance.now) unless a test hands one
+  giftClockMs = undefined,
 }) {
   const playerCaster = () => ({ entity: playerEntity, sinks: playerSinks });
+  /** GIFT-QUIET (systems/allyCast.js GIFT_LINE_QUIET_S): a gift's line - an armed ready's, a caster's - said at most once
+   *  in the window (createGiftLineGate); `fresh` says it whatever the window. */
+  const giftGate = createGiftLineGate(giftClockMs);
+  function sayGift(line, fresh = false) { if (line && giftGate(line, fresh)) say(line); }
+  /** GIFT-QUIET (the 2026-10-04 audit): the arm the last ready took - 'mate-aim', 'mine-aim', 'mate-near', 'mine-near' -
+   *  or null for a ready that armed none. An arm unlike the last one is said whatever the window: a heal that armed with
+   *  my companion near, then fired on the spot once she stepped off, then armed again as she came back, said nothing,
+   *  and the casting hands were the only sign it waited. */
+  let _lastArm = null;
+  function sayArm(kind, prev, ...lines) { _lastArm = kind; for (const l of lines) sayGift(l, prev !== kind); }
   /** HOME-MAGIC: the place's refusal SAID, and the ready dropped with it (the silence gate's own shape) - true when a
    *  cast is barred here. A host's seam that throws bars nothing. */
   function barredHere() {
@@ -255,7 +267,7 @@ export function createPlayerMagic({
     const gift = allyCastSpell({ name: sp?.name, element: sp?.element, effects: sp?.effects, icon: sp?.icon }, { companion: true });
     if (!gift) return false;
     applySpellToFoe(gift, effectiveLevel(playerEntity), rec, null, { allyCast: true }, foeSinks(rec, false));
-    if (!quiet) say(allyCastCasterLine(sp.name, mark.name));
+    if (!quiet) sayGift(allyCastCasterLine(sp.name, mark.name));   // GIFT-QUIET
     return true;
   }
   /** COMPANION-KIT: a blast's gift to every companion in it - one line for all of them, as SPELL-GIFT's. */
@@ -263,7 +275,7 @@ export function createPlayerMagic({
     const names = [];
     for (const t of marks) if (giveToCompanion(t, sp, { quiet: true })) names.push(t.name);
     const line = allyCastCasterLineMany(sp.name, names);
-    if (line) say(line);
+    if (line) sayGift(line);   // GIFT-QUIET
     return names.length;
   }
   /** COMPANION-KIT: the companion the crosshair is on within `reach` - the aim passing within his body's radius of his
@@ -361,7 +373,7 @@ export function createPlayerMagic({
   function giveToAlly(mark, sp, { quiet = false } = {}) {
     let sent = false;
     try { sent = !!castAtAlly?.(mark.id, allyCastFrame(sp, effectiveLevel(playerEntity), mark.id)); } catch { sent = false; }
-    if (sent && !quiet) say(allyCastCasterLine(sp.name, mark.name));
+    if (sent && !quiet) sayGift(allyCastCasterLine(sp.name, mark.name));   // GIFT-QUIET
     return sent;
   }
   /** SPELL-GIFT (Tabitha: "Area at Range & Area around Caster don't have good tooltips or UI elements"): a blast that
@@ -370,7 +382,7 @@ export function createPlayerMagic({
     const names = [];
     for (const t of marks) if (giveToAlly(t, sp, { quiet: true })) names.push(t.name);
     const line = allyCastCasterLineMany(sp.name, names);
-    if (line) say(line);
+    if (line) sayGift(line);   // GIFT-QUIET
     return names.length;
   }
   // Classic click-to-cast: DFU's armed state IS the readied spell -
@@ -791,7 +803,7 @@ export function createPlayerMagic({
       lastCastCost = cost;
       tallyCastSkills(sp);
       surfacePlayer();
-      say(allyCastCasterLine(sp.name, ally.name));
+      sayGift(allyCastCasterLine(sp.name, ally.name));   // GIFT-QUIET
       return done(true);
     }
     // COMPANION-KIT: ...or MY COMPANION under the crosshair - the same reach, given here
@@ -939,6 +951,7 @@ export function createPlayerMagic({
    *  Answers as SetReadySpell does (AUDIT CONTRIB H3): true when the spell
    *  is in hand or cast, false when a gate refused it. */
   function readySpell(sp, { free = false } = {}) {
+    const prevArm = _lastArm; _lastArm = null;   // GIFT-QUIET: a ready that arms nothing ends the arm
     if (barredHere()) return false;   // HOME-MAGIC: before every other gate, a free ready's too (an item's spell)
     if (wardedHere(sp)) return false;   // AUDIT-SEATS G5: a battle's wards, before it costs anything
     if (!free && silenceBlocksCast(playerEntity)) { readiedSpell = null; readiedCost = 0; say(SILENCED_TEXT); return false; }
@@ -969,7 +982,7 @@ export function createPlayerMagic({
       // the mate says "Cast Heal on Bran", and the next click resolves through releaseFrame's ally arm, or through
       // the CasterOnly arm as ever if they moved. A free ready (A7) fires on the spot as DFU's does; so does one
       // with nobody there.
-      if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); return true; }
+      if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { sayArm('mate-aim', prevArm, PRESS_BUTTON_TO_FIRE_SPELL); return true; }
       // COMPANION-KIT: a CasterOnly gift ARMS with my companion under the crosshair, or near - the two arms of ALLY-CAST
       // here for a body of mine (companionMarksFor holds a free ready and a spell not his to him): the click gives it to
       // him, or, aimed anywhere else, to me.
@@ -977,13 +990,13 @@ export function createPlayerMagic({
       // and both crosshair arms before either near arm. My companion's two used to stand ahead of all of ALLY-CAST's, so a
       // ready with a mate under the crosshair and my companion near said "Aim at your companion..." and the click gave it
       // to the mate; with a mate near as well, the near line is the mate's (ALLY_ARMED_LINE).
-      if (companionInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); return true; }
+      if (companionInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { sayArm('mine-aim', prevArm, PRESS_BUTTON_TO_FIRE_SPELL); return true; }
       // SPELL-GIFT (2026-09-27, Tabitha: "a LARGE amount of buffs & spells just don't work when cast on another person"):
       // ...AND WITH A MATE NEAR, not only one already under the crosshair (systems/allyCast.js ALLY_ARM_RADIUS). Readied
       // first and aimed after - the way anyone casts - the buff had gone off on the caster on the spot. Armed, the click
       // gives it to the mate under the crosshair, or, aimed anywhere else, to the caster, as CasterOnly always does.
-      if (!free && allyCastable(sp) && allyNear(lastAim?.eye ?? null, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); say(ALLY_ARMED_LINE); return true; }
-      if (companionNear(lastAim?.eye ?? null, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); say(COMPANION_ARMED_LINE); return true; }
+      if (!free && allyCastable(sp) && allyNear(lastAim?.eye ?? null, sp)) { sayArm('mate-near', prevArm, PRESS_BUTTON_TO_FIRE_SPELL, ALLY_ARMED_LINE); return true; }
+      if (companionNear(lastAim?.eye ?? null, sp)) { sayArm('mine-near', prevArm, PRESS_BUTTON_TO_FIRE_SPELL, COMPANION_ARMED_LINE); return true; }
       if (!free && hasResurrect(sp)) { say(fallenInReach(lastAim?.eye ?? null, lastAim?.dir ?? null) ? PRESS_BUTTON_TO_FIRE_SPELL : RESURRECT_TEXT.aim); return true; }   // RESURRECT1: a caster-only Resurrect waits for the click, aimed at the body
       return castInput(null, null) !== false;
     }

@@ -101,8 +101,8 @@
   {
     "name": "AC-host-heals-self-too",
     "file": "src/scenes/hostMagic.js",
-    "old": "      say(allyCastCasterLine(sp.name, ally.name));\n      return done(true);\n    }",
-    "new": "      say(allyCastCasterLine(sp.name, ally.name));\n    }",
+    "old": "      sayGift(allyCastCasterLine(sp.name, ally.name));   // GIFT-QUIET\n      return done(true);\n    }",
+    "new": "      sayGift(allyCastCasterLine(sp.name, ally.name));   // GIFT-QUIET\n    }",
     "tests": [
       "test/allycast.test.js"
     ]
@@ -254,7 +254,7 @@
   {
     "name": "AAC-host-casteronly-instant",
     "file": "src/scenes/hostMagic.js",
-    "old": "      if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); return true; }\n",
+    "old": "      if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { sayArm('mate-aim', prevArm, PRESS_BUTTON_TO_FIRE_SPELL); return true; }\n",
     "new": "",
     "tests": [
       "test/allycast.test.js"
@@ -290,8 +290,8 @@
   {
     "name": "AAC-receiver-heals-the-line-last",
     "file": "src/scenes/world.js",
-    "old": "      if (loud) townTalk.say(allyCastTargetLine(who, spell.name));\n      const before = playerEntity.health;\n      magic.applySpellToPlayer(spell, d.level, null, { allyCast: true, strangerCast: !mate });",
-    "new": "      const before = playerEntity.health;\n      magic.applySpellToPlayer(spell, d.level, null, { allyCast: true, strangerCast: !mate });\n      if (loud) townTalk.say(allyCastTargetLine(who, spell.name));",
+    "old": "      const targetLine = allyCastTargetLine(who, spell.name);\n      if (loud && (!mate || _mateGiftGate(targetLine))) townTalk.say(targetLine);   // GIFT-QUIET: a mate's, once a window\n      const before = playerEntity.health;\n      magic.applySpellToPlayer(spell, d.level, null, { allyCast: true, strangerCast: !mate });",
+    "new": "      const before = playerEntity.health;\n      magic.applySpellToPlayer(spell, d.level, null, { allyCast: true, strangerCast: !mate });\n      const targetLine = allyCastTargetLine(who, spell.name);\n      if (loud && (!mate || _mateGiftGate(targetLine))) townTalk.say(targetLine);   // GIFT-QUIET: a mate's, once a window",
     "tests": [
       "test/allycast.test.js"
     ]

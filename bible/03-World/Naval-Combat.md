@@ -1398,6 +1398,22 @@ followers; all of this is the port's own, over CREW-COMPANIONS.
   ready, a companion knocked out (`_knockedOut`, the frame before he is carried aboard), or another player's companion
   (a puppet - his effects are his owner's). His spells and his whole ride with him from place to place
   (`crewAshore.js`: each new body stands with the last one's live entries and its max health) - not through a save.
+- **GIFT-QUIET (2026-10-04: "sometimes theres notification spam when putting a spell on companion")**: a gift's lines
+  - the armed ready's ("Press button to fire spell." and `COMPANION_ARMED_LINE` / `ALLY_ARMED_LINE`), the caster's
+  ("You cast Heal on Hilda.", one or many, a companion's or a party mate's) and a party mate's on the receiving end
+  ("Bran casts Heal on you.", `world.js online.onCast`) - are said at most once in `allyCast.js GIFT_LINE_QUIET_S`
+  (10 s) of real time, through one gate (`createGiftLineGate`; `hostMagic.js sayGift`). Every cast near a companion
+  said three different lines, so the notice stack's repeat guard (`ui/hudText.js` NOTICE-SPAM, the back row only)
+  never caught them: six heals a second apart held eleven Enhanced plates at once, now three. THE AUDIT (2026-10-04):
+  the window is counted from when a line was SAID, never refreshed by asking - and on the real clock, not an engine's
+  frames, which stopped with the engine (the world's, under a dungeon) and stretched at a low frame rate; and an ARM
+  unlike the last ready's (`sayArm`: a mate's or my companion's, aimed or near, or none) is said whatever the window -
+  a heal armed near her, fired on the spot once she stepped off, then armed again as she came back, said nothing, and
+  readying again to find out held it silent. The classic ready line outside an arm (`readySpell`'s tail), a heal's
+  "You are healed" (alone, it merges at the back) and every other line are untouched. THE FOUR HOSTS: one route for
+  all of them, `say` -> `hudText.add` -> the Enhanced notice panel - `world.js`'s engine on the street and, through
+  `worldModes.js`, in a building; `dungeonContext.js`'s own underground; `exterior.js`'s hands no companion or mate
+  seam, so no gift line is said there. `test/giftquiet.test.js`; `tools/mutants/giftquiet.json`: 17 mutants, all dead.
 - **The pack** (`crewCompanions.js` - each companion's live `items`, saved with the party through the host's item
   codec, `packedItemsCodec`, the cargo's own). Activating my companion in Info, Grab or Talk within
   `TREASURE_ACTIVATION_DISTANCE` (else "You are too far away", as any storage) opens it (`player/
