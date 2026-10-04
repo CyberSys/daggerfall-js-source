@@ -346,8 +346,8 @@
   {
     "name": "AUDITLIVED1B-F3-the-cap-walks-one",
     "file": "src/systems/worldTick.js",
-    "old": "for (let k = 0; k < Math.min(n, NORMALIZE_ACROSS_MAX); k++)",
-    "new": "for (let k = 0; k < Math.min(n, 1); k++)",
+    "old": "const steps = Math.min(n, NORMALIZE_ACROSS_MAX);",
+    "new": "const steps = Math.min(n, 1);",
     "tests": [
       "test/auditlived1b.test.js"
     ]

@@ -146,8 +146,8 @@
   {
     "name": "MARKET-ANY-law-clothing-family",
     "file": "src/net/marketLaw.js",
-    "old": "  if (g === 'MensClothing' || g === 'WomensClothing') return 'clothing';",
-    "new": "  if (g === 'MensClothing') return 'clothing';",
+    "old": "  Object.freeze(['MensClothing', 'clothing']), Object.freeze(['WomensClothing', 'clothing']),",
+    "new": "  Object.freeze(['MensClothing', 'clothing']),",
     "tests": [
       "test/fb1001_market_goods.test.js"
     ]

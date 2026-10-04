@@ -113,6 +113,7 @@ export const TRAVEL_VIEW_TEXT = Object.freeze({
   passenger: 'You are aboard another\'s boat - its helmsman sets the course.',
   noLaunch: 'There is no water here for your boat to float in.',
   noWayAtSea: 'Your boat can make no way toward its mark.',
+  noShore: 'There is no safe landing here. Your boat stays in the water.',
   leftMoored: 'Your boat is left moored where it landed.',
   noBoat: 'Your boat is not with you to cross the water.',
   aground: 'Your boat has run aground.',
