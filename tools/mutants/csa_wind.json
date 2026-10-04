@@ -1028,8 +1028,8 @@
   {
     "name": "CSA-E-anim-crossfade-restarts",
     "file": "src/world/unityAnimator.js",
-    "old": "    if (state !== playing) {",
-    "new": "    if (true) {",
+    "old": "    else if (state !== playing) {",
+    "new": "    else if (true) {",
     "tests": [
       "test/csa_animator.test.js"
     ]

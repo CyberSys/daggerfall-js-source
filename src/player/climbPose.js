@@ -198,7 +198,15 @@ export class ClimbPose {
     this.w = ease(this.w, on ? 1 : 0, on ? POSE.IN_TAU : POSE.OUT_TAU, dt);
     if (this.w < 1e-3 && !on) { this.reset(); return this.out; }
     out.w = this.w;
-    if (!on) return out;   // easing out: the last frame's targets, fading
+    if (!on) {
+      // The motor removes a finished move before the renderer sees its final frame. A slow frame can skip the
+      // vault's release window altogether; retain the body's ease-out, but never fade an already finished grip.
+      if (this.moveRef?.kind === 'vault' && this.moveRef.t >= 1) {
+        out.hands.L.w = 0;
+        out.hands.R.w = 0;
+      }
+      return out;   // other exits keep the last frame's targets, fading
+    }
     // the body's travel on the wall since the last frame (a teleport is none)
     const feet = c.track ?? c.feet;   // the gait reads the body's own way, never a moving hold's carry
     let d = [0, 0, 0];

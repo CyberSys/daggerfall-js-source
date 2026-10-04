@@ -541,6 +541,7 @@ export class PlayerMotor {
     this.swimSpeedScale = 1;     // DW-D: Iliac Puddle No More's swim speed multiplier (a walk speed modifier while swimming - swimSpeedNow)
     this.jumped = false;         // set for the frame a jump actually starts (fatigue/tally consumer)
     this.crouching = false;      // P12: toggled via input.crouch (edge); standing needs headroom
+    this._pkCrouchRestore = false; // A low mantle's temporary stance, distinct from the player's crouch toggle.
     // PlayerHeightChanger.heightAction / camTimer: null | 'crouch' |
     // 'stand'. The pending action lives on the RENDER frame, exactly
     // where DFU decides and applies it.
@@ -941,6 +942,7 @@ export class PlayerMotor {
     this._acc = 0;   // the fixed-step accumulator restarts clean
     this.arena = null;   // DUEL1: a placement is never a walk out of the ring - the host's duel law decides what it meant
     this._pkMove = null;   // CLIMB1: a placement is never the end of a mantle
+    this._pkCrouchRestore = false;
     if (this._wall) this._wallEnd();   // CLIMB2: nor a hold
     this._pkOffEdge = null;   // AUDIT CLIMB-ARC L6: nor a run off an edge (a press after it is no late leap)...
     this._pkLeap = null;      // ...nor a leap's flight (the catch looks no old way)
@@ -1117,6 +1119,7 @@ export class PlayerMotor {
    *  gets a nearly instant camera, DFU's own arithmetic. The eye path
    *  lives in _eyeLevel. */
   _heightAction(dt, input) {
+    if (!this.crouching) this._pkCrouchRestore = false;
     // DecideHeightAction's arm ORDER (:173-207). AUDIT 23 (motor-2):
     // the crouch press only toggles out of water or on solid ground
     // ((!swimming || IsGrounded) && pressedCrouch), and a free swim
@@ -1176,9 +1179,17 @@ export class PlayerMotor {
       this.heightTimerMax = HEIGHT_TIMER_MEDIUM;
       if (this.crouching) this.heightAction = 'stand';
     } else if (input.crouch && (!this.swimming || this.grounded)) {
+      this._pkCrouchRestore = false; // An accepted player stance request takes ownership back.
       this.heightAction = this.crouching ? 'stand' : 'crouch';
       this.heightTimerMax = HEIGHT_TIMER_FAST;
       this.forcedSwimCrouch = false;
+    } else if (this._pkCrouchRestore && !this.swimming && capsuleFits(this.collider, this.pos, CAPSULE_HEIGHT)) {
+      // A mantle may need a short capsule only for its path. Keep it under the ceiling, then restore
+      // the original standing stance once the WHOLE capsule fits, not merely the camera's stand sweep.
+      this._pkCrouchRestore = false;
+      this.heightAction = 'stand';
+      this.heightTimer = 0;
+      this.heightTimerMax = HEIGHT_TIMER_FAST;
     } else if (this.climb?.isClimbing) {
       // (2) CLIMBING forces standing every frame on the medium clock
       // (:184-191) - the timerMax is set whether or not a stand is
@@ -2647,6 +2658,7 @@ export class PlayerMotor {
     this.moveStrafe = 0;
     this.moveSpeed = 0;
     if (move.crouch && !this.crouching) {
+      this._pkCrouchRestore = this.heightAction !== 'crouch';
       this.standingHeightAdjustment = 0;
       this.crouching = true;
       this.heightAction = 'crouch';

@@ -19,6 +19,8 @@ import { orientedBox, launchVelocity, rangeAt, NAVAL_DEG } from '../src/systems/
 import { navalWireRecord } from '../src/systems/naval/navalWire.js';
 import { NAVAL_SFX, navalSoundRange } from '../src/systems/naval/navalSounds.js';
 import { hullBoxOf, rigBoxesOf, STRUCK_GRACE_S, TALLY_S, SHIP_FADE_S } from '../src/scenes/navalHost.js';
+import { stowSail } from '../src/systems/comeSailAway.js';   // AUDIT GALLEON-2 RG3: her canvas set, where her rig's boxes stand
+import { animatorOf } from '../src/systems/comeSailAwayBoat.js';
 import { navalHudText } from '../src/ui/navalHud.js';
 import { quatEuler } from '../src/world/unityAnimator.js';
 import { sea } from './navalSea.mjs';
@@ -124,7 +126,7 @@ test('AUDIT NAV1 G3 the fire\'s window: her half-extent across the line of fire 
   near(win('pirateBrig', player([100, 0, 0], { yaw: undefined, vel: [5, 0, 0] }), 100), win('pirateBrig', bowOn, 100), 1e-9, 'or her way\'s');
 });
 
-test('AUDIT NAV1 G4 never over her, never short: a lay the carriage cannot depress to strike her - a Large Boat alongside a galley\'s high deck - is neither run out nor fired; the depression the audit asked lets a Small Ship\'s broadside strike a sloop come alongside to grapple, where -3 flew over her (mutants: layPasses always, the band\'s roof)', () => {
+test('AUDIT NAV1 G4 never over her, never short: a lay the carriage cannot depress to strike her - a Large Boat alongside a galley\'s high deck - is neither run out nor fired; the depression the audit asked lets a Carrack\'s broadside strike a sloop come alongside to grapple, where -3 flew over her, and the new galleon\'s low guns strike her laid shallower (mutants: layPasses always, the band\'s roof)', () => {
   const lb = hullBuild(HULL.LargeBoat);
   // the galley's long guns stand 11.1 m up: a Large Boat 21 m off her side is under them
   const g = ship('pirateGalley');
@@ -135,8 +137,13 @@ test('AUDIT NAV1 G4 never over her, never short: a lay the carriage cannot depre
   const r = run(g, gw, 4);
   assert.equal(r.volleys.filter((v) => v.side === 'starboard').length, 0, 'no broadside that flies over her');
   assert.equal(r.runOuts.filter((x) => x.side === 'starboard').length, 0, 'and no tell for one');
-  // a Small Ship's broadside at a sloop 25 m off her guns
-  const b = ship('pirateBrig');
+  // a Carrack's broadside at a sloop 25 m off her guns - PIN MOVED (GALLEON, 2026-10-01): the Small Ship's guns stand
+  // 2.24 m over the sea now (Mac's galleon's gun deck), under the old -3's reach: hers strike a sloop alongside laid
+  // a degree and a half down, and -3 too
+  const brig = ship('pirateBrig');
+  const low = aimSolution(pose(brig), 'starboard', null, 0, { target: [31, 0, 0], targetY: lb.top * AIM_FREEBOARD });
+  assert.ok(layPasses(low, [31, 0, 0], [0, lb.top]) && low.elevation > -3 * DEG, `the Small Ship's low guns (${low.elevation / DEG})`);
+  const b = ship('pirateFlagship');
   const sol = aimSolution(pose(b), 'starboard', null, 0, { target: [33, 0, 0], targetY: lb.top * AIM_FREEBOARD });
   assert.ok(layPasses(sol, [33, 0, 0], [0, lb.top]), 'laid low enough at -8');
   assert.ok(sol.elevation > GUNS.long.minEl * DEG && sol.elevation < -3 * DEG, `below the old -3 (${sol.elevation / DEG})`);
@@ -324,6 +331,7 @@ test('AUDIT NAV1 G12 the rig is a target: a ball through her canvas tears it - a
   assert.deepEqual(events.filter((e) => e.type === 'hit').map((e) => e.zone), ['hull'], 'her side is hull');
   // a real hull's rig, heeled with her
   const h = await sea({ hull: HULL.SmallShip });
+  for (const sail of h.boat.Sails) stowSail(animatorOf(sail), false);   // PIN MOVED (AUDIT GALLEON-2 RG3): her canvas set - furled, no box stands
   const upright = rigBoxesOf(h.boat)[0];
   near(upright.ay[1], 1, 1e-9, 'upright');
   h.boat.MeshObject.localRotation = quatEuler(0, 0, 12);
@@ -331,7 +339,13 @@ test('AUDIT NAV1 G12 the rig is a target: a ball through her canvas tears it - a
   near(Math.acos(heeled.ay[1]) / DEG, 12, 0.01, 'the masts heel with her');
   assert.equal(HULL_BUILDS[HULL.Rowboat].rig.length, 0);
   assert.equal(HULL_BUILDS[HULL.Carrack].rig.length, 3, 'two courses and a lateen mizzen');
-  for (const b of HULL_BUILDS) for (const [mn] of b.rig) assert.ok(mn[1] >= b.top - 1e-9, `hull ${b.hull}: the canvas stands over her roof`);
+  // PIN MOVED (AUDIT GALLEON R5/G9): the Small Ship's boxes hang down to her canvas under her roof (her course's foot,
+  // her gaff sail's, her jib's) - each still reaches out of her hull's box, and the chain shot's band (navalAI.js rigBand)
+  // starts at her roof; every other hull's canvas stands over its roof as it did
+  for (const b of HULL_BUILDS) for (const [mn, mx] of b.rig) {
+    if (b.hull === HULL.SmallShip) assert.ok(mx[1] > b.top || mx[2] > b.bowZ || mn[2] < b.aftZ || mx[0] > b.halfWidth || mn[0] < -b.halfWidth, `hull ${b.hull}: each box out of her hull's`);
+    else assert.ok(mn[1] >= b.top - 1e-9, `hull ${b.hull}: the canvas stands over her roof`);
+  }
 });
 
 test('AUDIT NAV1 G13 the shots\' own: the targets read once a step however many balls fly; each gun of a ripple fires from its port where the deck has carried it; the brace stops the reload; what floats drifts downwind (mutants: the targets per ball, the carry dropped, the clocks braced, no drift)', () => {

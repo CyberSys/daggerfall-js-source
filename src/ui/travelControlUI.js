@@ -8,7 +8,7 @@
 // `pauseWhileOpened = false` and a clear background (:83-84), which is
 // a window that does not stop the game - the player keeps walking
 // underneath it. The port's overlay slot is the opposite: a townTalk
-// overlay HOLDS the motor and the world clock (scenes/world.js:22912,
+// overlay HOLDS the motor and the world clock (scenes/world.js:22922,
 // `_overlayHeld`), which is exactly what a journey must not do. So this
 // panel lives on the HUD layer, drawn by the host's `drawHud` pass and
 // clicked through the host's pointer ladder beside the large HUD's own
@@ -131,7 +131,8 @@ export class TravelControlUI {
    *  gives 55 and 25. */
   constructor({ defaultStartingAccel = 10, accelerationLimit = 100, ...deps } = {}) {
     this.deps = deps;
-    this.timeAcceleration = defaultStartingAccel;
+    this._preferredAcceleration = defaultStartingAccel;
+    this._timeAcceleration = defaultStartingAccel;
     this.accelLimit = accelLimitOf(accelerationLimit);
     this.halfAccelLimit = halfAccelLimitOf(accelerationLimit);
     this.halfLimit = false;          // :65
@@ -143,17 +144,22 @@ export class TravelControlUI {
     this.isChoiceWindow = true;      // the port's raw-key routing flag
   }
 
+  // TRAVEL-LAST-SPEED (bible/06-Systems/Travel-Options.md): a path's or a dial's cap never overwrites the chosen rate.
+  get timeAcceleration() { return this._timeAcceleration; }
+  set timeAcceleration(value) { this._preferredAcceleration = value; this._timeAcceleration = value; }
+
   /** :67-70, GetAccelerationLimit. */
   accelerationLimit() { return this.halfLimit ? this.halfAccelLimit : this.accelLimit; }
 
   /** TO-LIVE (scenes/world.js refreshTravelOptionsSettings): the tile's Acceleration Limit dial turned in play - the
-   *  constructor's rounding again, and the acceleration in force brought under it. */
+   *  constructor's rounding again, and the acceleration in force the chosen one under it (TRAVEL-LAST-SPEED). */
   setAccelerationLimit(accelerationLimit) {
     this.accelLimit = accelLimitOf(accelerationLimit);
     this.halfAccelLimit = halfAccelLimitOf(accelerationLimit);
     const limit = this.accelerationLimit();
-    if (this.timeAcceleration <= limit) return;
-    this.timeAcceleration = Math.max(1, limit);
+    const next = Math.max(1, Math.min(limit, this._preferredAcceleration));
+    if (this.timeAcceleration === next) return;
+    this._timeAcceleration = next;
     if (this.isShowing) this._accelChanged();
   }
 
@@ -163,12 +169,12 @@ export class TravelControlUI {
   /** :156-163, ShowMessage - three seconds of unscaled time. */
   showMessage(message) { this.message = String(message ?? ''); this.messageTimer = MESSAGE_SECONDS; }
 
-  /** :186-193, OnPush - the panel appears and the acceleration is
-   *  clamped into the limit in force. */
+  /** :186-193, OnPush - the panel appears and the CHOSEN acceleration is
+   *  clamped into the limit in force (TRAVEL-LAST-SPEED: the mod's kept it). */
   show() {
     this.isShowing = true;
     this.done = false;
-    this.timeAcceleration = Math.max(1, Math.min(this.accelerationLimit(), this.timeAcceleration));
+    this._timeAcceleration = Math.max(1, Math.min(this.accelerationLimit(), this._preferredAcceleration));
   }
 
   /** :195-199, OnPop. */

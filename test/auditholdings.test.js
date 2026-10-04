@@ -337,7 +337,12 @@ test('AUDIT HOLDINGS Q1: the gangway runs square to her side at her waist and to
     const [fx, fz] = sceneToQuay(f, g.foot[0], g.foot[2]), [hx, hz] = sceneToQuay(f, g.head[0], g.head[2]);
     assert.ok(Math.abs(fz - hz) < 1e-9, `hull ${hull}: square to her`);
     if (hull >= 2) {
-      assert.ok(Math.abs(Math.atan2(g.head[1] - g.foot[1], fx - hx) / DEG - GANGWAY_SLOPE) < 1e-6 && Math.abs(g.foot[1] - seaY - QUAY_DECK_UP) < 1e-9, `hull ${hull}: up from the deck at GANGWAY_SLOPE`);
+      // PIN MOVED (GALLEON-HOLDINGS): a ship's climbs from the deck at GANGWAY_SLOPE - but a head too high for that on the
+      // quay (Mac's galleon's at 6.7 m wants 8.8 m of run, and the quay is 4.5 m deep) stops GANGWAY_BACK short of its back
+      // and climbs steeper: hers alone of the hulls that dock
+      const slope = Math.atan2(g.head[1] - g.foot[1], fx - hx) / DEG, back = Math.abs(fx - (x0 + QUAY_WIDTH - GANGWAY_BACK)) < 1e-9;
+      assert.equal(back, hull === 2, `hull ${hull}: ${back ? 'stopped at' : 'clear of'} the quay's back`);
+      assert.ok((back ? slope > GANGWAY_SLOPE : Math.abs(slope - GANGWAY_SLOPE) < 1e-6) && Math.abs(g.foot[1] - seaY - QUAY_DECK_UP) < 1e-9, `hull ${hull}: up from the deck at GANGWAY_SLOPE, or steeper from GANGWAY_BACK (${slope.toFixed(2)} degrees)`);
     } else {
       assert.ok(Math.abs(fx - x0) < 1e-9 && Math.abs(g.foot[1] - seaY - QUAY_DECK_UP - QUAY_KERB_H) < 1e-9 && g.head[1] < g.foot[1], `hull ${hull}: down from the kerb's edge`);
     }

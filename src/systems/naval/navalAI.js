@@ -80,7 +80,7 @@
 // host forgives the player's stray ball on her (navalHost.js ALLY_STRAY_SHARE). And the bay is gentler: a quarter of
 // the pirates bold (BOLD_SHARE), and a boat lying still grappled only after GRAPPLE_STILL_S.
 
-import { classById, batteryOf, hullBuild, GUNS, HULL, SHIP_CLASSES, SHIP_TOUGHNESS } from './navalShips.js';
+import { classById, batteryOf, hullBuild, GUNS, HULL, SHIP_CLASSES, buildsStamp, SHIP_TOUGHNESS } from './navalShips.js';
 import { mulberry32 } from '../../combat/bloodArt.js';   // SEA-PEACE: the temper's draw (navalShips.js names on the same stream kind)
 import { createShipDamage, SHIP_STATES, STRUCK_AT, HOLED_BONUS, WATERLINE_BAND } from './navalDamage.js';
 import { createGunDeck, aimSolution, reloadSeconds } from './navalGunnery.js';
@@ -536,9 +536,10 @@ export function odds(a, b) {
  * AUDIT NAV2 F25: the share of a battery's balls that strike a hull at DUEL_RANGE (her gunners' `skill`): the depth a
  * lay long or short of her still passes through her (her height over the ball's fall at her, and her beam) against the
  * lay's error and the carriage's scatter in its height, times her half length against the scatter across the fire and
- * the fire's window. Reckoned once for each battery, crew and hull.
+ * the fire's window. Reckoned once for each battery, crew and hull as the builds stand (buildsKept).
  */
 export function hitShare(bat, skill, targetHull) {
+  buildsKept();
   const key = `${bat.gun}:${bat.muzzles[0][1]}:${skill}:${targetHull}`;
   let s = HIT_SHARE.get(key);
   if (s !== undefined) return s;
@@ -554,6 +555,11 @@ export function hitShare(bat, skill, targetHull) {
   return s;
 }
 const HIT_SHARE = new Map();
+/** AUDIT GN2-PF2: LAY_MIN and HIT_SHARE are the builds' as they stand - emptied when hull 2's switches (navalShips.js
+ *  setGalleonStanding): reckoned for the new galleon, the mod's galleon fallen back kept her numbers (her broadside's
+ *  dead zone on a Large Boat 11 m against its own 26). */
+let keptFor = -1;
+function buildsKept() { if (keptFor !== buildsStamp()) { keptFor = buildsStamp(); HIT_SHARE.clear(); LAY_MIN.clear(); } }
 
 /** A blow from `by` at `now`: the ship remembers who struck it. */
 export function provoke(ship, by, now) { if (by != null) ship.provoked.set(String(by), now); }
@@ -1162,11 +1168,12 @@ export const broadsideReach = (ship, seaY = 0) => batteryReach(ship, 'starboard'
  * AUDIT NAV2 F24 - a battery's DEAD ZONE on a hull: the shortest range (m, from her root) at which its lay, laid on her
  * as the gunnery lays it (AIM_FREEBOARD of her height, her rig's middle for chain shot), passes through her (layPasses)
  * - inside it the carriage cannot depress onto her (a galley's great guns on a Large Boat 91 m, her broadside 57: she
- * fought one from inside both and never struck it). Sounded once for each battery and hull, every LAY_MIN_STEP out to
- * the battery's reach (its reach when no lay strikes); 0 for none, or a barrel.
+ * fought one from inside both and never struck it). Sounded once for each battery and hull as the builds stand
+ * (buildsKept), every LAY_MIN_STEP out to the battery's reach (its reach when no lay strikes); 0 for none, or a barrel.
  * @param {number} hull @param {string} side @param {number} [targetHull]
  */
 export function layMin(hull, side, targetHull = HULL.LargeBoat) {
+  buildsKept();
   const key = `${hull}:${side}:${targetHull}`;
   let m = LAY_MIN.get(key);
   if (m !== undefined) return m;
@@ -1191,7 +1198,7 @@ export function layMin(hull, side, targetHull = HULL.LargeBoat) {
   LAY_MIN.set(key, m);
   return m;
 }
-/** AUDIT NAV2 F24: the dead zones sounded (the builds are frozen) - `hull:side:targetHull` -> m. */
+/** AUDIT NAV2 F24: the dead zones sounded - `hull:side:targetHull` -> m (AUDIT GN2-PF2: as the builds stand). */
 const LAY_MIN = new Map();
 export const LAY_MIN_STEP = 1;
 
@@ -1376,19 +1383,28 @@ function boardCourse(ship, enemy, wind, isWater) {
   const still = Math.hypot(v[0], v[2]) < GRAPPLE_STILL;
   const sweeps = still && d <= SWEEP_RANGE ? Math.min(SWEEP_WAY, pace) : 0;
   if (wp) return { want: headingTo(ship.pos, wp), goal: wp, sails, sweeps, sailable: sweeps > 0 };
-  if (d < 8) return { want: eYaw, goal: berth, sails, sweeps, sailable: sweeps > 0 };
+  // GALLEON (2026-10-01): THE LAST LEG INTO A SOUNDED BERTH - the berth open and the straight leg to it sounded clear
+  // (routeTo: no way round wanted), within her lookout's reach of it, she comes in on it as a moored ship berths
+  // (shipLife.js), never swung off it by the lookout's LOOKAHEAD_MIN past the berth: the new galleon's narrower hull lies
+  // closer in to the boat she boards, and the land 31 m beyond a prize held her off the grapple's reach for good
+  const berthing = still && !ship.route?.lost && berthOpen(ship, berth, f, r, ship.berthSide, isWater) && d <= lookout(ship).dist;
+  if (d < 8) return { want: eYaw, goal: berth, sails, sweeps, sailable: sweeps > 0, berthing };
   // up from astern to match a boat under way
   const lead = still ? 0 : Math.min(60, d) * 0.8, ahead = Math.min(10, d / Math.max(1, ship.speed));
   const aim = [berth[0] - f[0] * lead + v[0] * ahead, 0, berth[2] - f[2] * lead + v[2] * ahead];
-  return { want: headingTo(ship.pos, aim), goal: aim, sails, sweeps, sailable: sweeps > 0 };
+  return { want: headingTo(ship.pos, aim), goal: aim, sails, sweeps, sailable: sweeps > 0, berthing };
 }
+/** Test seam: boardCourse itself, for the pins of each of the last leg's guards (AUDIT GN-T4). */
+export const __boardCourse = boardCourse;
 
 /** AUDIT NAV2 F22: whether she can lie at a berth - her stem, middle and stern there, on her keel line and her outer
- *  side (the hull she berths by along `f`, her side of it `side` along `r`), all on water. */
+ *  side (the hull she berths by along `f`, her side of it `side` along `r`), all on water. GALLEON (2026-10-01): her
+ *  outer side SCAN_MARGIN out, as every leg to it is sounded (legClear) - the new galleon's narrower hull fitted a berth
+ *  0.4 m off a spit that no leg could sound its way into, and she gave the boarding up. */
 function berthOpen(ship, berth, f, r, side, isWater) {
   const b = hullBuild(ship.hull);
   for (const z of [b.bowZ, 0, b.aftZ]) {
-    for (const x of [0, b.halfWidth]) if (!isWater(berth[0] + f[0] * z + r[0] * side * x, berth[2] + f[2] * z + r[2] * side * x)) return false;
+    for (const x of [0, b.halfWidth + SCAN_MARGIN]) if (!isWater(berth[0] + f[0] * z + r[0] * side * x, berth[2] + f[2] * z + r[2] * side * x)) return false;
   }
   return true;
 }
@@ -1625,11 +1641,13 @@ export function bearsWithin(ship, lead, enemy, want, window) {
   return (Math.abs(err) - window) / Math.abs(rate);
 }
 
-/** A hull's rig as one band of height over the sea: its lowest box's floor to its highest's roof (m). */
+/** A hull's rig as one band of height over the sea: its lowest box's floor to its highest's roof (m). AUDIT GN-R5: never
+ *  under her own roof - the Small Ship's canvas hangs below hers (her course, her gaff sail's foot, her jib), and a
+ *  chain lay through that band strikes her hull's box first; every other hull's rig stands over its roof. */
 export function rigBand(build) {
   let lo = Infinity, hi = -Infinity;
   for (const [mn, mx] of build.rig) { lo = Math.min(lo, mn[1]); hi = Math.max(hi, mx[1]); }
-  return [lo, hi];
+  return [Math.max(lo, build.top), hi];
 }
 
 /**

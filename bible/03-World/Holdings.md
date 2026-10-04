@@ -242,7 +242,9 @@ off as she gathers way.
 plank with its lines runs SQUARE to her side at her waist - from where GANGWAY_SIDE says it meets her, measured off her
 own colliders: a ship's at her main deck's entry port just off her side, down to the quay's deck in from its face as
 far as a climb of GANGWAY_SLOPE (30 degrees) asks, never nearer the face than GANGWAY_CLEAR (2 m - over its kerb and the
-bollard at her waist) nor its back than GANGWAY_BACK (1 m); a boat's from the kerb's outer edge down over the water onto
+bollard at her waist) nor its back than GANGWAY_BACK (1 m) - Mac's galleon's, whose main deck stands 6.2 m up, stops
+there and climbs 47.3 degrees (GALLEON-HOLDINGS, `03-World/Come-Sail-Away.md`; `gangwaySide` keeps the mod's galleon's
+while she stands in); a boat's from the kerb's outer edge down over the water onto
 her gunwale (a Rowboat's lies 1.1 m under the quay: some 49 degrees). Every edge, face and rope of it clears her colliders
 and the quay's (AUDIT HOLDINGS Q1: laid to her innermost rail cell, it climbed into her side under her deck on every hull
 but the Rowboat's). On foot within GANGWAY_REACH (3 m) of its foot, looking at her, **Activate goes aboard** - over her

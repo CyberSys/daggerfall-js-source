@@ -289,11 +289,12 @@ export const BOAT_ACTIONS = Object.freeze({
 /** FIELD BUGS 2026-10-02b PLACE-AFLOAT: the placing's word for a water tile that stands over the sea's line. */
 export const PLACE_RAISED_TEXT = 'This water stands above the sea - place her on the open water.';
 /** HELM-KEYS (the port's, DECLARED): a helm IN IRONS - her sails up, her bow within IRONS_TELL_DEG of the wind's eye and
- *  her way under IRONS_TELL_WAY m/s for IRONS_TELL_S running: the sails cannot draw and the mod's rudder cannot turn a
- *  hull that makes no way, so the helm is told once how she comes out (IRONS_TEXT) - and the panel says it while it lasts
- *  (helmPanelState). The dwell: a sail just raised, or a tack through the wind's eye, is not lying in irons. AUDIT NAV2
- *  F18: the responsive helm's rudder answers at rest (HELM-WAY's steerage) - a Small Ship's helm alone brings her
- *  IRONS_TELL_DEG off the eye in some ten seconds - so it is told to put the helm over first (IRONS_HELM_TEXT). */
+ *  her way ahead under IRONS_TELL_WAY m/s (GALLEON: sternway too, her canvas aback) for IRONS_TELL_S running: the sails
+ *  cannot draw and the mod's rudder cannot turn a hull that makes no way, so the helm is told once how she comes out
+ *  (IRONS_TEXT) - and the panel says it while it lasts (helmPanelState). The dwell: a sail just raised, or a tack through
+ *  the wind's eye, is not lying in irons. AUDIT NAV2 F18: the responsive helm's rudder answers at rest (HELM-WAY's
+ *  steerage) - the helm alone brought the mod's galleon IRONS_TELL_DEG off the eye in some ten seconds, and brings the
+ *  new galleon off in 6.4 (AUDIT GALLEON T6) - so it is told to put the helm over first (IRONS_HELM_TEXT). */
 export const IRONS_TELL_DEG = 40;
 export const IRONS_TELL_WAY = 0.4;
 export const IRONS_TELL_S = 2;
@@ -1158,8 +1159,12 @@ export function createComeSailAwayRuntime(deps) {
     if (state.sailPosition === 0 || b.Sails.length < 1) return false;
     const toWind = Math.abs(vSignedAngle(flat(forwardOf(b.GameObject)), flat(state.windVectorCurrent), V_UP));   // the wind blows TO: 180 is dead into it
     // AUDIT NAV2 F15: her way THROUGH THE WATER - velocityCurrent carries the sea's current too (half the wind with the
-    // waves on, the mod's default), which held a hull lying head to wind over IRONS_TELL_WAY: never told
-    return toWind >= 180 - IRONS_TELL_DEG && vMagnitude(state.MoveVectorCurrent) < IRONS_TELL_WAY;
+    // waves on, the mod's default), which held a hull lying head to wind over IRONS_TELL_WAY: never told. GALLEON
+    // (2026-10-01): her way AHEAD (MoveVectorCurrent is her own frame's) - a gaff and a staysail come aback in the
+    // wind's eye (and square canvas when it is set: the default square-sail assist stows hers there - AUDIT GALLEON T6)
+    // and drive her astern (GetSailPower's backing), and the new galleon lying head to wind went astern over
+    // IRONS_TELL_WAY - 4.05 m/s in a 1.5 m/s wind: never told
+    return toWind >= 180 - IRONS_TELL_DEG && state.MoveVectorCurrent[2] < IRONS_TELL_WAY;
   }
   /** Update's manual trim (4370-4410): the brackets turn the fore-and-aft booms to 90 each way, or the square ones
    *  to 45 (with the modifier, or on a boat with neither lateen nor gaff), at 15 degrees a second; every boom set. */
@@ -1660,6 +1665,7 @@ export function createComeSailAwayRuntime(deps) {
     deps.helm.setPlayerPosition(at.position);
     deps.helm.setFacing(at.yaw, 0);   // SetHorizontalFacing(child.forward)
     deps.helm.alignToGround?.(3);   // GameObjectHelper.AlignControllerToGround(controller, 3f)
+    deps.helm.finishBoarding?.();   // The ladder must not carry incoming fall or air momentum onto the deck.
   }
   /** TriggerDoor (5542-5572): the door the trigger hangs under, its Animator's Opened turned over. */
   function TriggerDoor(hit) {
