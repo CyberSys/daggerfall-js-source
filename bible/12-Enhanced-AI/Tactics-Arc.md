@@ -200,6 +200,9 @@ Every version of the door grief, fixed without asking further (Mac: "stop asking
 - **Not built** - online, a peer does not see another's foe's telegraph (the wind-up does not ride the foe stream yet),
   and a blow is never at a peer; a block halving it (the port has no player block).
 - Pins `test/tact4.test.js` (13); mutants `tools/mutants/tact4.json` (30), all dead.
+- **Next:** `Feud-Arc.md` (FEUD, proposed 2026-10-04: "player's can easily stun these enemies") - poise and the
+  stagger, a held swing with a glint and cues, iron blows, the punish window, feints and chains, four new shapes, and the
+  wind-ups on the foe stream. Nothing here changes until a TELL slice ships.
 
 ## AUDIT TACT - 2026-10-02 (Mac: "Audit this and ensure perfection")
 

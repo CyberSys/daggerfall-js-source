@@ -1,6 +1,8 @@
 # Revenants
 
 **Status:** shipped 2026-10-02 (`src/systems/revenant.js`, `test/revenant.test.js`).
+**Next:** `12-Enhanced-AI/Feud-Arc.md` (FEUD, proposed 2026-10-04) - memory, a weakness, the will, a last stand, a
+signature, a band, a lair, theft, festering, new deeds and loyalty. Nothing below changes until a FEUD slice ships.
 Mac: "the ability for these enemies that kill you, or a very small chance to flee at low health. These enemies can
 return at a later time stronger, with a new name, a chance of more loot and taunt the player. This is our own
 [...] system."
@@ -116,7 +118,8 @@ revenants are its own.
 
 A revenant is its character's own memory. A returning one is my own foe, streamed as any: its kind, health, trait, glow
 and (**REVENANT-WIRE**) its name. The foe record's `nm` is printable and at most `REVENANT_NAME_MAX` (64) characters,
-validated in `net/wire.js validFoeRecord`; the relay is `world144`. Every puppet is called what its owner calls it.
+validated in `net/wire.js validFoeRecord`; the relay is `world153` (`world144`, then `world152`, on its branch, until
+main took both numbers). Every puppet is called what its owner calls it.
 
 ## 7. Names everywhere (FOE-TITLE)
 
@@ -149,8 +152,8 @@ The face is `ui/revenantCard.js`, on the enhanced skin only:
 
 ## 7b. The page (REVENANT-PAGE)
 
-`ui/revenantPage.js` is the **Revenants** page on the Enhanced pause menu's Stats rail, shown while revenants are made or
-any is remembered. The living come first, strongest first, each with:
+`ui/revenantPage.js` is the **Revenants** page on the Enhanced pause menu's Holdings tab (the Stats rail until HOLDINGS,
+2026-10-03), shown while revenants are made or any is remembered. The living come first, strongest first, each with:
 
 - its portrait and rank;
 - what it is;
@@ -280,7 +283,7 @@ enhanced plus UI feature."
   a hand is refused ashore when they are full ("no room at your side"), and a newly spared one waits **away**.
 - **Six** sworn at most; with six, SPARE is refused until one is released.
 - **Knocked out**, it is carried off through a portal to rest eight hours, then waits, fit again, to be called.
-- **The Companions page** (`ui/companionRoster.js`, the pause menu's Stats rail): the slot strip (who stands in each,
+- **The Companions page** (`ui/companionRoster.js`, the pause menu's Holdings tab): the slot strip (who stands in each,
   a crew hand by name, the open ones), **At your side** (portrait, rank, personality, health; Send away), **Away**
   (Call - refused, and saying why, while the slots are full or it is still hurt; its rest), **Release** asked twice.
 - **Its words**: as it arrives when called, as it is sent away or released, when it falls, now and then as it goes into
@@ -307,8 +310,8 @@ just popping in and out."
 
 The choice is the owner's (a revenant is its character's memory). The foe record carries `yd` (kneeling), `ex`
 (being executed) and `sp` (spared, rising into its portal), so every puppet kneels, burns away and goes as its owner's
-does; the hover says it is beaten (`world152`, re-recorded). A foe adopted by a peer (the owner's death) stands as
-itself - its owner's judgement goes with the owner - and a foe mid-judgement is never handed over.
+does; the hover says it is beaten (`world153`, with REVENANT-WIRE's `nm`). A foe adopted by a peer (the owner's
+death) stands as itself - its owner's judgement goes with the owner - and a foe mid-judgement is never handed over.
 
 ## 16. The audit (2026-10-02, Mac: "Audit everything and ensure perfection")
 
