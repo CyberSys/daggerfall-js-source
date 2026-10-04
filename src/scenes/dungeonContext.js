@@ -102,7 +102,7 @@ import { setMidScreenText, midScreenText } from '../ui/midScreenText.js';   // A
 // their bytes; this one module is ~16 KB of source.
 import { EnhancedEnemyAI, makeNavWorld } from '../ai/enhancedMotor.js';
 import { foeFrameDt } from '../characters/enemyMotor.js';   // FOE-CATCHUP: the one cap every pool hands its foes
-import { spaceFoes, spacingSkips, clearDoorways, actionDoorSpots } from '../characters/foeSpacing.js';   // FOE-SPACING: the pack keeps apart; AUDIT TACT C7: and the doorways clear
+import { spaceFoes, spacingSkips, clearDoorways, actionDoorSpots, freeLodgedFeet, clearPast } from '../characters/foeSpacing.js';   // FOE-SPACING: the pack keeps apart; AUDIT TACT C7: and the doorways clear; FIELD BUGS 2026-10-04d CRATE-FREE: and no foe stands in a crate
 import { isStaleChunk, STALE_CHUNK_IN_PLAY_TEXT, STALE_CHUNK_IN_PLAY_SECONDS } from '../systems/staleChunk.js';   // DISC19-D: a chunk gone mid-session is said, not swallowed
 import { hudRenderEnabled } from '../ui/hudShortcuts.js';   // AUDIT 64 F37: the Draw override covers popupText too
 import { FntFile } from '../formats/fntFile.js';
@@ -372,7 +372,7 @@ export async function levelModelRemap(id, subMeshes, texRemap, remap, deps) {
 }
 
 export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseType, opts = {}) {
-  const { renderer, arch, getGpuMesh, cpuModels, getTexture, uploadRecord, uploadRecordFrame, palette } = deps;
+  const { renderer, arch, getGpuMesh, cpuModels, getTexture, uploadRecord, uploadRecordFrame, palette, placeHold = null } = deps;   // FIELD BUGS 2026-10-04d PLACE-LRU: `placeHold` - the dungeon's hold on the shared caches (scenes/placeHolds.js), the three doors above its own; settled once built, released by destroy(). None from the standalone ?dungeon scene
 
   // Layout needs synchronous models (doors/exit extraction); a unit-size
   // pre-pass mirrors the standalone scene.
@@ -1332,8 +1332,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       const archive = e.gender === 'female' ? basics.femaleTexture : basics.maleTexture;
       const t = await getTexture(archive);
       const idleH = idleSpriteHeight(t);   // INCIDENT 2026-09-04: SetupDemoEnemy.cs:104 - the capsule reads the idle sprite
-      // E3a: the real entity - career from CLASS{ID-128}.CFG, level =
-      // player level, HP/skills/LiveSpeed verbatim (SetEnemyCareer)
+      if (!puppet) freeLodgedFeet(collider, pos, { height: enemyControllerHeight(idleH, basics.behaviour ?? 'General') });   // FIELD BUGS 2026-10-04d CRATE-FREE: a marker or a spot inside a crate's model stands the foe beside it, never in it (characters/foeSpacing.js)
+      // E3a: the real entity - career from CLASS{ID-128}.CFG, level = player level, HP/skills/LiveSpeed verbatim (SetEnemyCareer)
       const careerIndex = e.mobileType - 128;
       const cf = new D.ClassFile();
       cf.load(await D.fetchBytes(`CLASS${String(careerIndex).padStart(2, '0')}.CFG`));
@@ -1420,7 +1420,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // DISC28-H: a flyer hangs on its marker, never with its feet under the floor below it; a streamed puppet's position
       // is the owner's feet already, and re-hanging it built the flyer half a sprite low. AUDIT DISC28 MO-4: both through
       // the anchor's one door (enemyAnchor.js flyerStandFeet), whose floor read is pinned on the real collider
-      const pos = behaviour === 'Flying' ? flyerStandFeet(collider, [e.x, e.y, e.z], idleH, feetGiven) : D.floorLanding(collider, [e.x, e.y + 0.2, e.z]);
+      const pos = behaviour === 'Flying' ? flyerStandFeet(collider, [e.x, e.y, e.z], idleH, feetGiven) : D.floorLanding(collider, [e.x, e.y + 0.2, e.z]); if (!puppet) freeLodgedFeet(collider, pos, { height: enemyControllerHeight(idleH, behaviour), airborne: behaviour === 'Flying' });   // FIELD BUGS 2026-10-04d CRATE-FREE: the class arm's law, for a monster - a flyer freed at its own height
       const yawDeg = ((e.mobileType * 73 + Math.round(e.x + e.z)) % 8) * 45;   // deterministic facing (Ledger A rule)
       const career = await D.loadMonsterCareer(e.mobileType, D.fetchBytes);
       const entity = D.makeEnemyEntity(e.mobileType, basics, career, e.level ?? effectiveLevel(D.playerEntity));   // SOFTCAP1: a mentor's dungeon is built at the group's level; ARENA2: a bout fighter at its tier's
@@ -2162,7 +2162,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:16560 / exterior.js:3934), set
+  // host's own townTalk sink (world.js:16575 / exterior.js:3938), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2605,6 +2605,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // PARTY-REST19: forwarded straight from THIS host's own opts.canceledByFollower, relayed the same way
     // opts.onEnemyBreak already is - see world.js's checkCanceledByFollower for what it's for.
     canceledByFollower: () => opts.canceledByFollower?.() ?? false,
+    // CAMP-ROLL: forwarded straight from THIS host's own opts.campRest (world.js's camp, relayed through worldModes.js as
+    // opts.strangerRestGate is) - a party's rest underground rolls once, its roller's ask the camp's one (REST-SYNC)
+    camp: opts.campRest ?? null,
     endLines: (id) => rscLines(id),
     say: (msg) => hudText.add(msg),
     onLevelUp: _onLevelUp,
@@ -2799,7 +2802,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // copied mount would have diverged the first time an arm grew.
   /** DR1: THE TWO SPELL WINDOWS THIS HOST MOUNTS NOW, and the one door
    *  they go through. `mountSpellWindow` is worldModes'
-   *  mountSpellWindow DUNGEON ARM (worldModes.js:1453,
+   *  mountSpellWindow DUNGEON ARM (worldModes.js:1456,
    *  `dungeonCtx?.showOverlay(win)`) resolved to what it actually
    *  calls here - this file's own pushDungeonWindow, which IS
    *  UserInterfaceManager.PushWindow. So a spell window raised over an
@@ -3346,7 +3349,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1126 against :1156; worldModes.js:8565 against :8585).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1126 against :1156; worldModes.js:8652 against :8672).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -4259,8 +4262,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:27504,
-              // exterior.js:5597 and worldModes.js:9289 already ran;
+              // playerArrowHitFoe is the one copy world.js:27664,
+              // exterior.js:5601 and worldModes.js:9376 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -5656,7 +5659,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // every idle bat's feet AT its marker; the rebuilt spawn stands
     // correctly and the old feet would put it back into the ceiling.
     if (!keepRebuiltSpawn(sf, f.ai.feet, f.idleH, f.mobile?.basics?.behaviour ?? 'General', f.marker ?? null)) { f.ai.feet[0] = sf.feet[0]; f.ai.feet[1] = sf.feet[1]; f.ai.feet[2] = sf.feet[2]; }
-    f.ai.yaw = sf.yaw;
+    f.ai.yaw = sf.yaw; if (!sf.dead) freeLodgedFeet(collider, f.ai.feet, { height: f.ai.height, airborne: !!f.ai.flies });   // FIELD BUGS 2026-10-04d CRATE-FREE: a save, or the room's memory, holding a foe inside a crate - it walks out on the load
     // CH4: the senses/resource halves restore when the save carries
     // them (:182-183 motor.IsHostile / senses.HasEncounteredPlayer,
     // :178 SetMagicka); saves from before CH4 leave the live state.
@@ -7462,11 +7465,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const c = [(sb.aabb.min[0] + sb.aabb.max[0]) / 2, sb.aabb.min[1], (sb.aabb.min[2] + sb.aabb.max[2]) / 2];
     const feet = lastPlayerFeet ?? c;
     const out = [];
+    // FIELD BUGS 2026-10-04d CRATE-FREE: past the skin the line starts in - from inside an object over 0.9 m (a crate, a shelf, a sarcophagus) or a door's slab, that skin met from behind refused every spot, and every foe stood at the unchecked last resort below: in the crate searched, or the next one
     const clearFrom = (from, to) => {
       const dx = to[0] - from[0], dz = to[2] - from[2], d = Math.hypot(dx, dz);
       if (d < 1e-3) return true;
-      const hit = collider.raycast([from[0], from[1] + 0.9, from[2]], [dx / d, 0, dz / d], d + 0.35);
-      return !Number.isFinite(hit) || hit > d + 0.3;
+      return clearPast(collider, [from[0], from[1] + 0.9, from[2]], [dx / d, 0, dz / d], d + 0.3);
     };
     const fits = (spot) => {
       const up = collider.raycast([spot[0], spot[1] + 0.2, spot[2]], [0, 1, 0], 1.7);
@@ -8311,7 +8314,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // through the overlay as 'back' (ends a running rest)": that route
     // was never real. ROAD-B B5 built the real one. With a window up,
     // overlayAction turns any single character into `char:<k>`, so
-    // KeyR arrives as 'char:r', and ui/restWindow.js:362-364 runs A8's
+    // KeyR arrives as 'char:r', and ui/restWindow.js:373-375 runs A8's
     // normalizeCode inverse to turn it back into 'KeyR' - DFU's
     // toggleClosedBinding - so a second Rest press ends a running rest
     // or closes the selection page (:302-315), which is
@@ -9595,8 +9598,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // ...and this context's OWN popup column (AUDIT FONT F1) - EVERY
       // ALLOCATION HAS AN OWNER, and a torn-down context's DOM column
       // would otherwise outlive it on the page.
-      hudText.dispose();
+      hudText.dispose(); placeHold?.release();   // FIELD BUGS 2026-10-04d PLACE-LRU: LAST, its own GL objects gone - its blocks, flats and foes' frames are kept a couple of dungeons' worth, then freed unless another place holds them
     },
-  };
+  }; placeHold?.settle();   // FIELD BUGS 2026-10-04d PLACE-LRU: built - the keep of this dungeon's last visit goes
   return api;
 }

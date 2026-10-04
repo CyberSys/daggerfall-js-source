@@ -289,7 +289,7 @@ test('HCC runtime: the floating origin - rebase moves every scene point the mach
   const after = rt.view().moving.pose.position;
   assert.deepEqual(after, [before[0] + 100, before[1], before[2] - 50]);
   assert.deepEqual(state(), rec, 'the natives stand');
-  assert.equal(rt._trail().points[0][0], 100);
+  assert.equal(rt._hitch().last[0], w.pos[0] + 100, 'WAGON-HITCH: the shafts\' last hitch moves with the scene - left behind, the next frame reads a 100 m jump and re-lays the wagon');
 });
 
 test('HCC runtime: the visuals - the parked wagon grounds its two wheels and retries every second where there is no ground; the horse stands only when grounded', () => {

@@ -78,6 +78,7 @@ import {
 } from '../../src/net/marketLaw.js';
 import { MASTERWORK, PROVENANCE_RE } from '../../src/net/recipeLaw.js';
 import { takeTradeGoods, giveTradeGoods } from '../../src/net/realmTradeLaw.js';   // MARKET-ANY: a piece out of one record and into another, as a trade moves it
+import { vendorOf, VENDOR_STATION, VENDOR_LISTING_S, VENDOR_STOCK_SHOWN, VENDOR_BOARD_SHOWN } from '../../src/net/vendorLaw.js';   // HOME-VENDOR: a home's trader
 
 const DAY_S = 86_400;
 /** GOLD-MARKET: the Stores origin of units bought in the row's own currency (a listing's or a sale's `currency`). */
@@ -100,6 +101,9 @@ function asks(player, { character, rid, needRid = true, needChar = true }) {
   return null;
 }
 const shut = (player, env) => (marketOpenFor(player, env) ? null : { error: 'market-closed' });
+/** HOME-VENDOR: a trader standing - the home's piece `?1`/`?2` (its town, its id), indoors, made the vendor station. The
+ *  query joins it as `d` to its home `h`. */
+const VENDOR_STANDS_SQL = `d.map_id = ?1 AND d.id = ?2 AND d.yard = 0 AND json_extract(d.place, '$.station') = '${VENDOR_STATION}'`;
 const idOk = (id) => typeof id === 'string' && MARKET_ID_RE.test(id);
 /** An account a week registered may witness (SEAT0 3.2), as a harvest's does. */
 const witnessOf = (player, nowS) => (Number.isSafeInteger(player.registered_at) && player.registered_at <= nowS - WITNESS.ageS ? 1 : 0);
@@ -580,7 +584,7 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
     const familyFilter = family ? (typeof family === 'string' ? family : '') : null;
     const { results = [] } = await db.prepare(`SELECT * FROM market_listings WHERE state = 'open' AND kind = 'item' AND expires_at > ?1
       AND (?2 IS NULL OR (${GOODS_FAMILY_SQL}) = ?2)
-      ORDER BY price, at LIMIT 500`).bind(nowS, familyFilter).all();
+      AND vendor_id IS NULL ORDER BY price, at LIMIT 500`).bind(nowS, familyFilter).all();   // HOME-VENDOR: a trader's stock stands at it alone
     const rows = results.filter((l) => { const it = goodOf(l.item); return !!it && (!family || goodFamily(it) === family); }).slice(0, MARKET_SHOWN);
     const quotes = await quote(rows, () => 1);
     const reports = await reportsOf(rows.map((l) => l.id));
@@ -705,9 +709,10 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
  * units, nor a piece bought with gold (the wall).
  * MARKET-ANY: `kind` 'item' - a piece from the pack, with `item`, `pick` and `realm` (listGood).
  */
-export async function marketList(ctx, player, env, { character, region, kind, material: key = null, units = 1, provenance = null, wear = null, price, hubs, rid, currency = 'marks', board = null, item = null, pick = null, realm = null } = {}) {
+export async function marketList(ctx, player, env, { character, region, kind, material: key = null, units = 1, provenance = null, wear = null, price, hubs, rid, currency = 'marks', board = null, item = null, pick = null, realm = null, vendor = null } = {}) {
   // MARKET-ANY: a piece from the pack moves its seller's realm record - its own door, where the record stands asked first
-  if (kind === 'item') return listGood(ctx, player, env, { character, region, item, pick, price, hubs, rid, currency, realm, board });   // AUDIT SEATS-3 D2: and its board
+  if (kind === 'item') return listGood(ctx, player, env, { character, region, item, pick, price, hubs, rid, currency, realm, board, vendor });   // AUDIT SEATS-3 D2: and its board
+  if (vendor != null) return { error: 'bad-vendor' };   // HOME-VENDOR: a trader sells pieces from the pack alone
   const { db, nowS, rand } = ctx;
   const refused = asks(player, { character, rid });
   if (refused) return refused;
@@ -820,7 +825,7 @@ export async function marketList(ctx, player, env, { character, region, kind, ma
  * as a crafted piece ('market-piece-route' - its record's owner then moves with its sale); one whose record names
  * another lists from the pack like any piece. Answers the listing and the record's new sequence (`realm.seq`).
  */
-async function listGood(ctx, player, env, { character, region, item, pick, price, hubs, rid, currency, realm, board = null }) {
+async function listGood(ctx, player, env, { character, region, item, pick, price, hubs, rid, currency, realm, board = null, vendor = null }) {
   const { db, bucket, nowS, rand } = ctx;
   const refused = asks(player, { character, rid });
   if (refused) return refused;
@@ -833,6 +838,15 @@ async function listGood(ctx, player, env, { character, region, item, pick, price
   if (prior) return answer(prior, { repeat: true });
   const closed = shut(player, env);
   if (closed) return closed;
+  // HOME-VENDOR: a piece stocked at the seller's own trader - its home's region the listing's, its stall its only door
+  const vend = vendor == null ? null : vendorOf(vendor);
+  if (vendor != null && !vend) return { error: 'bad-vendor' };
+  if (vend) {
+    const h = await db.prepare(`SELECT h.region FROM home_decor d JOIN homes h ON h.map_id = d.map_id AND h.building_key = d.building_key
+      WHERE ${VENDOR_STANDS_SQL} AND h.player = ?3 AND h.char_id = ?4`).bind(vend.map, vend.id, me, character).first();
+    if (!h) return { error: 'vendor-not-yours' };
+    region = Number(h.region);
+  }
   if (!regionOk(region)) return { error: 'bad-region' };
   if (!priceOk(price)) return { error: 'bad-price' };
   if (currency !== 'gold') return { error: 'market-goods-gold' };   // law 3: what a save holds never becomes Drakes
@@ -867,9 +881,13 @@ async function listGood(ctx, player, env, { character, region, item, pick, price
     await db.batch([
       ...prep.steps,
       // THE DECISION: a place among the thirty, the id not spent - the record's piece on the listing, for gold
-      db.prepare(`INSERT OR IGNORE INTO market_listings (id, seller, char_id, region, kind, units, own, bought, price, fee, at, expires_at, rid, n, currency, item)
-        SELECT ?3, ?1, ?2, ?4, 'item', 1, 1, 0, ?5, ?6, ?7, ?8, ?9, ?10, 'gold', ?11 WHERE ${openSalesSql('?7')} < ?12`)
-        .bind(me, character, id, region, price, listingFee(price), nowS, nowS + MARKET_LISTING_S, rid, nonce, JSON.stringify(moved), listingsMax),
+      // HOME-VENDOR: a trader's piece at its stall (`vendor_map`, `vendor_id`), its thirty days, while the stall stands
+      db.prepare(`INSERT OR IGNORE INTO market_listings (id, seller, char_id, region, kind, units, own, bought, price, fee, at, expires_at, rid, n, currency, item, vendor_map, vendor_id)
+        SELECT ?3, ?1, ?2, ?4, 'item', 1, 1, 0, ?5, ?6, ?7, ?8, ?9, ?10, 'gold', ?11, ?13, ?14 WHERE ${openSalesSql('?7')} < ?12
+          AND (?14 IS NULL OR EXISTS (SELECT 1 FROM home_decor d JOIN homes h ON h.map_id = d.map_id AND h.building_key = d.building_key
+            WHERE d.map_id = ?13 AND d.id = ?14 AND d.yard = 0 AND json_extract(d.place, '$.station') = '${VENDOR_STATION}' AND h.player = ?1 AND h.char_id = ?2))`)
+        .bind(me, character, id, region, price, listingFee(price), nowS, nowS + (vend ? VENDOR_LISTING_S : MARKET_LISTING_S), rid, nonce, JSON.stringify(moved), listingsMax,
+          vend?.map ?? null, vend?.id ?? null),
       mustChange(db),   // no listing, no piece out of the record: the record's step rolls back with it
       ...witnessStatements(db, player, nowS, [region], hubsOf(hubs), 'EXISTS (SELECT 1 FROM market_listings WHERE seller = ?6 AND rid = ?7 AND n = ?8)', [me, rid, nonce]),
     ]);
@@ -892,7 +910,7 @@ async function listGood(ctx, player, env, { character, region, item, pick, price
  * to pay in all. Here, a material goes into the Stores at once and a piece is answered to the pack; elsewhere the goods
  * go by courier. The seller is paid at the sale; a piece's owner moves to the buyer in the same batch.
  */
-export async function marketBuy(ctx, player, env, { character, region, listing: id, units = 1, max, hubs, rid, realm = null, board = null } = {}) {
+export async function marketBuy(ctx, player, env, { character, region, listing: id, units = 1, max, hubs, rid, realm = null, board = null, vendor = null } = {}) {
   const { db, nowS, rand } = ctx;
   const refused = asks(player, { character, rid });
   if (refused) return refused;
@@ -945,6 +963,17 @@ export async function marketBuy(ctx, player, env, { character, region, listing: 
   const l = await db.prepare('SELECT * FROM market_listings WHERE id = ?1').bind(id).first();
   if (!l || l.state !== 'open' || Number(l.expires_at) <= nowS) return { error: 'market-gone' };
   if (l.seller === me) return { error: 'market-own' };
+  // HOME-VENDOR: a trader's piece is bought at its trader alone - the buyer's word names the listing's own stall, in its
+  // home's region, and the stall still stands; any other listing is no trader's
+  const vend = vendor == null ? null : vendorOf(vendor);
+  if (vendor != null && !vend) return { error: 'bad-vendor' };
+  if (l.vendor_id != null || vend) {
+    if (!vend) return { error: 'vendor-only' };
+    if (l.vendor_id !== vend.id || Number(l.vendor_map) !== vend.map || Number(l.region) !== region) return { error: 'vendor-not-here' };
+    const stands = await db.prepare(`SELECT 1 AS y FROM home_decor d JOIN homes h ON h.map_id = d.map_id AND h.building_key = d.building_key
+      WHERE ${VENDOR_STANDS_SQL} AND h.player = ?3`).bind(vend.map, vend.id, l.seller).first();
+    if (!stands) return { error: 'vendor-gone' };
+  }
   // GOLD-MARKET: a gold listing is bought with a realm record's gold, a Drakes listing with the account's Drakes
   if ((l.currency === 'gold') !== (at != null)) return { error: at ? 'market-currency' : 'market-gold-realm' };
   if (l.kind === 'piece' || l.kind === 'item') units = 1;   // MARKET-ANY: a piece from a pack, whole
@@ -1666,4 +1695,99 @@ export async function marketRemove(ctx, player, env, { listing: id } = {}) {
   ]);
   const a = await db.prepare('SELECT cn FROM market_auctions WHERE id = ?1').bind(id).first();
   return a?.cn === nonce ? { ok: true } : { error: 'market-gone' };
+}
+
+// ─── HOME-VENDOR: A HOME'S TRADER, AND THE REGION'S TRADERS ─────────────────
+
+/** A trader as its stock's reader sees it: where it stands and whose it is. */
+const vendorView = (v, me) => ({ map: Number(v.map_id), id: v.id, buildingKey: Number(v.building_key), region: Number(v.region), owner: v.owner_name, mine: v.player === me });
+
+/**
+ * HOME-VENDOR: A TRADER'S STOCK - `{ vendor: { map, id } }`, read by anyone the market is open to (a visitor at the
+ * stall, its owner stocking it): the trader, and its open pieces, newest first. 'vendor-gone' where no trader stands.
+ */
+export async function marketVendor(ctx, player, env, { vendor = null } = {}) {
+  const { db, nowS } = ctx;
+  const refused = asks(player, { needRid: false, needChar: false });
+  if (refused) return refused;
+  const closed = shut(player, env);
+  if (closed) return closed;
+  const vend = vendorOf(vendor);
+  if (!vend) return { error: 'bad-vendor' };
+  const v = await db.prepare(`SELECT d.map_id, d.id, h.building_key, h.region, h.owner_name, h.player FROM home_decor d
+    JOIN homes h ON h.map_id = d.map_id AND h.building_key = d.building_key WHERE ${VENDOR_STANDS_SQL}`).bind(vend.map, vend.id).first();
+  if (!v) return { error: 'vendor-gone' };
+  const { results = [] } = await db.prepare(`SELECT * FROM market_listings WHERE vendor_map = ?1 AND vendor_id = ?2 AND state = 'open'
+    AND expires_at > ?3 AND seller = ?4 ORDER BY at DESC LIMIT ${VENDOR_STOCK_SHOWN}`).bind(vend.map, vend.id, nowS, v.player).all();
+  return { ok: true, vendor: vendorView(v, player.id), rows: results.map((l) => listingView(l, player.id)) };
+}
+
+/**
+ * HOME-VENDOR: THE REGION'S TRADERS - `{ region, character? }`: every open piece standing at a trader of a home in that
+ * region, newest first, each with its trader (the Notice Board's Vendors tab searches these by the item, the owner, the
+ * town) and its house's DOOR as the town answer says it (homes.js townHomes: `entry`, `mine`, `guildmate`, `tenant`) for
+ * the character named - so the client keeps only the traders that character may walk in on (net/homeLaw.js homeMayEnter,
+ * the door's own law; a party's names are the relay's, never the service's). A guild's hall stands no trader.
+ */
+export async function marketVendors(ctx, player, env, { region, character = null } = {}) {
+  const { db, nowS } = ctx;
+  const refused = asks(player, { needRid: false, needChar: false });
+  if (refused) return refused;
+  const closed = shut(player, env);
+  if (closed) return closed;
+  if (!regionOk(region)) return { error: 'bad-region' };
+  const me = typeof character === 'string' && CHAR_ID_RE.test(character) ? character : '';
+  const { results = [] } = await db.prepare(`SELECT l.*, d.map_id AS v_map, d.id AS v_id, h.building_key AS v_key, h.owner_name AS v_owner, h.player AS v_player,
+      h.entry AS v_entry, (h.player = ?3 AND h.char_id = ?4) AS v_mine,
+      (h.entry = 'guild' AND EXISTS (SELECT 1 FROM guild_members a JOIN guild_members b ON b.guild_id = a.guild_id
+        WHERE a.player = h.player AND a.char_id = h.char_id AND b.player = ?3 AND b.char_id = ?4)) AS v_guildmate,
+      (SELECT MAX(r.until) FROM home_rooms r WHERE r.map_id = h.map_id AND r.building_key = h.building_key AND r.tenant = ?3 AND r.tenant_char = ?4 AND r.until > ?1) AS v_tenancy
+    FROM market_listings l JOIN home_decor d ON d.map_id = l.vendor_map AND d.id = l.vendor_id
+    JOIN homes h ON h.map_id = d.map_id AND h.building_key = d.building_key
+    WHERE l.state = 'open' AND l.expires_at > ?1 AND l.vendor_id IS NOT NULL AND h.region = ?2 AND h.player = l.seller AND d.yard = 0
+      AND h.guild_id IS NULL AND json_extract(d.place, '$.station') = '${VENDOR_STATION}'
+    ORDER BY l.at DESC LIMIT ${VENDOR_BOARD_SHOWN}`).bind(nowS, region, player.id, me).all();
+  return {
+    ok: true, region,
+    rows: results.map((l) => listingView(l, player.id, {
+      vendor: { map: Number(l.v_map), id: l.v_id }, map: Number(l.v_map), buildingKey: Number(l.v_key), owner: l.v_owner,
+      // the house's door, as the town answer says it to this character (homeMayEnter's own fields)
+      home: { owner: l.v_owner, entry: l.v_entry, mine: Number(l.v_mine) === 1,
+        ...(Number(l.v_guildmate) === 1 ? { guildmate: true } : {}), ...(Number.isSafeInteger(l.v_tenancy) && l.v_tenancy > nowS ? { tenant: Number(l.v_tenancy) } : {}) },
+    })),
+  };
+}
+
+/**
+ * HOME-VENDOR: MY TRADERS - `{ character }`: the Vendor page's read (the pause window's, beside the Professions). Every
+ * trader of this character's homes (where it stands), the pieces standing at them, the pieces they have SOLD (newest
+ * first, while the market keeps the sale's listing), and the gold the sales hold to collect at any board.
+ */
+export async function marketMyVendors(ctx, player, env, { character } = {}) {
+  const { db, nowS } = ctx;
+  const refused = asks(player, { character, needRid: false });
+  if (refused) return refused;
+  const closed = shut(player, env);
+  if (closed) return closed;
+  const me = player.id;
+  const { results: traders = [] } = await db.prepare(`SELECT d.map_id, d.id, h.building_key, h.region, h.owner_name, h.player FROM home_decor d
+    JOIN homes h ON h.map_id = d.map_id AND h.building_key = d.building_key
+    WHERE h.player = ?1 AND h.char_id = ?2 AND d.yard = 0 AND json_extract(d.place, '$.station') = '${VENDOR_STATION}' ORDER BY h.map_id, d.id`).bind(me, character).all();
+  const { results: stock = [] } = await db.prepare(`SELECT * FROM market_listings WHERE seller = ?1 AND char_id = ?2 AND vendor_id IS NOT NULL AND state = 'open'
+    AND expires_at > ?3 ORDER BY at DESC LIMIT ${VENDOR_STOCK_SHOWN * 2}`).bind(me, character, nowS).all();
+  const { results: sold = [] } = await db.prepare(`SELECT s.listing, s.price, s.total, s.tax, s.tithe, s.fee, s.at, l.item, l.vendor_map, l.vendor_id
+    FROM market_sales s JOIN market_listings l ON l.id = s.listing
+    WHERE s.seller = ?1 AND l.char_id = ?2 AND l.vendor_id IS NOT NULL ORDER BY s.at DESC LIMIT ${VENDOR_STOCK_SHOWN}`).bind(me, character).all();
+  const gold = await db.prepare('SELECT gold FROM market_gold WHERE player = ?1 AND char_id = ?2').bind(me, character).first();
+  return {
+    ok: true,
+    traders: traders.map((v) => vendorView(v, me)),
+    stock: stock.map((l) => listingView(l, me, { vendor: { map: Number(l.vendor_map), id: l.vendor_id } })),
+    sold: sold.map((s) => ({
+      listing: s.listing, item: goodOf(s.item), price: Number(s.price), total: Number(s.total),
+      gets: Math.max(0, Number(s.total) - Number(s.tax) - Number(s.tithe) - Number(s.fee ?? 0)), at: Number(s.at),
+      vendor: { map: Number(s.vendor_map), id: s.vendor_id },
+    })),
+    gold: Number(gold?.gold ?? 0),
+  };
 }

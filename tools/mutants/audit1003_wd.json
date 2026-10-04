@@ -167,8 +167,8 @@
   {
     "name": "AUDIT1003-WD2-the-old-marker-kept",
     "file": "src/systems/quest/place.js",
-    "old": "    this.siteDetails = { ...next, questUID: sd.questUID ?? next.questUID, magicNumberIndex: sd.magicNumberIndex ?? 0 };",
-    "new": "    this.siteDetails = { ...next, questUID: sd.questUID ?? next.questUID, magicNumberIndex: sd.magicNumberIndex ?? 0, selectedMarker: sd.selectedMarker ?? next.selectedMarker };",
+    "old": "    this.siteDetails = { ...next, questUID: held.questUID ?? next.questUID, magicNumberIndex: held.magicNumberIndex ?? 0 };",
+    "new": "    this.siteDetails = { ...next, questUID: held.questUID ?? next.questUID, magicNumberIndex: held.magicNumberIndex ?? 0, selectedMarker: held.selectedMarker ?? next.selectedMarker };",
     "tests": [
       "test/audit1003_wd.test.js",
       "test/wd3_layoutPins.test.js"

@@ -4566,3 +4566,17 @@ sign-in; link shared characters; grant by name; move the cutoff later), Mac chos
   filled); its shape (the five sources, no table left behind); and the real Worker before and after 0078 (Founder in
   the wardrobe and on the signed token). `tools/mutants/founder4.json` (12, all dead); three of `founder3.json`'s
   re-aimed by content at the new `firstPlayed` (6, all dead). The acct76 pins credit FOUNDER4 beside PRIMARCH.
+
+## KNIGHT-HOUSE — a deed the realm gave, held off its character's record (2026-10-04, acct77)
+
+FIELD BUGS 2026-10-04d (`01-Overview/Field-Bugs-2026-10-04d.md`; the law is `06-Systems/Online-Arc.md` KNIGHT-HOUSE).
+A Knightly Order's house was Daggerfall's deed in the save and nothing on this service, so every other player's claim
+on it landed and the knight's own claim paid for it again. Migration `0079_home_deed.sql` adds `homes.deed`;
+`POST /v1/homes/deed` (`server-account/src/homes.js` holdDeed) reads the character's realm record and refuses `no-deed` unless the
+record holds that deed (`src/net/homeLaw.js` homeDeedOf, which the client's door reads too) in the layout the hold names;
+otherwise it writes the building's row marked `deed` (price and paid 0) in the town's one layout, counted against the
+hour's claims. Every other claim on it answers 409 `home-taken`; the owner's is a repeat that pays nothing; the town's
+answer leaves the row out for its own character and marks it `deed` for everyone else; the cap of three counts the
+homes bought (`deed = 0`); `/v1/homes/release` with `deed: true` removes only the caller's own deed row, and a deed's row
+is never sold as a home. `HOME_MOVE_CARRIED` carries `deed`. `ACCOUNT_VERSION` acct77 in both the Worker and
+`wrangler.toml`; twelve version pins moved. Deploy order: the service (0079, then acct77), then the client.

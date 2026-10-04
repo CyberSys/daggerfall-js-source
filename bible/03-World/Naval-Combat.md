@@ -950,7 +950,8 @@ shooting cannons should have attack canceling." Each one root-caused (`test/deck
 - **SEA-HUNT** (DECLARED): the hunt asked outdoors-and-not-swimming, and the coast's first sea pixels read as land's
   climate, so a helm rolled the hunt. `huntRoll` takes `afloat` - off the host's one predicate, `playerAfloat` (a helm,
   a boat's deck, another's boat, a sea ship's deck, the water) - which a bounty's trail and a wilderness band now read
-  too (`bible/06-Systems/Climates-Calories.md` SEA-HUNT).
+  too (`bible/06-Systems/Climates-Calories.md` SEA-HUNT). HUNT-OUT (2026-10-04) removed the text hunt and its half
+  of this with it; the trail and the band still read `playerAfloat`.
 - **GUN-HOLD**: a laid broadside could only be fired - press to lay, release to fire, and no way to put it down but a
   window over it or bracing. ACTIVATE WHILE THE GUNS ARE LAID HOLDS FIRE (`navalHost.js holdFire`): the aim put down,
   "Hold fire." said, the release owes nothing and the guns stay loaded - the bow's own cancel (`playerWeapon.js`
@@ -963,7 +964,7 @@ shooting cannons should have attack canceling." Each one root-caused (`test/deck
   `tools/mutants/nav_h.json` NAV-H-the-guns-before-the-spell) - readying one is the player's own choice of what the
   press does.
 
-Mutants: `tools/mutants/deckfield.json` (19), all dead; three records re-aimed onto the new text (OW5-B1, NAV-F's board
+Mutants: `tools/mutants/deckfield.json` (19; 17 since HUNT-OUT took the hunt's two), all dead; three records re-aimed onto the new text (OW5-B1, NAV-F's board
 hint, SURV6's night gate), all dead.
 
 ## HELM-WAY (2026-09-29) - the ships handle, and a ship with no hands strikes

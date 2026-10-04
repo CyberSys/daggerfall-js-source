@@ -60,6 +60,7 @@ not a 1:1 port, with the mod's own item art carried.**
 The rules were read off the DLL's IL (`tools/ilDump.py`) - the reading
 is in `bible/06-Systems/Systems-Arc.md` under SURV - and rebuilt as
 the port's own survival arc: a felt temperature, five needs, food that
-spoils, camps and campfires as shared world objects, a costed rest,
-hunting. Nothing of the mod's code is carried; its numbers were the
+spoils, camps and campfires as shared world objects, a costed rest.
+(Its hunting, restated as SURV6, was removed from the port on
+2026-10-04, HUNT-OUT.) Nothing of the mod's code is carried; its numbers were the
 starting point and its item art is what a player sees.

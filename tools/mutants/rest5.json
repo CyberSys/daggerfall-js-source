@@ -107,22 +107,23 @@
  },
  {
   "name": "REST5-the-follower-sleeps-loud",
-  "file": "src/scenes/world.js",
-  "old": "    quietNights(() => {\n      if (kind) bag.overrideRestKind?.(() => kind);",
-  "new": "    ((f) => f())(() => {\n      if (kind) bag.overrideRestKind?.(() => kind);",
+  "file": "src/scenes/shared.js",
+  "old": "    quietNights(() => {\n      if (kind) _restKindOverride = () => kind;",
+  "new": "    ((f) => f())(() => {\n      if (kind) _restKindOverride = () => kind;",
   "tests": [
    "test/rest5_partynight.test.js"
   ],
-  "note": "AUDIT REST-PARTY (PIN MOVED): the decision lifted into systems/partyRestLaw.js and run on a table; re-aimed by content."
+  "note": "AUDIT REST-PARTY (PIN MOVED): the decision lifted into systems/partyRestLaw.js and run on a table; re-aimed by content. CAMP-ROLL (PIN MOVED): the carried night's sequence is the bag's one (scenes/shared.js restCampNight); re-aimed by content."
  },
  {
   "name": "REST5-the-carried-night-passes-on",
-  "file": "src/scenes/world.js",
-  "old": "r = night ? bag.restNight({ carried: true }) : bag.restShort();",
-  "new": "r = night ? bag.restNight() : bag.restShort();",
+  "file": "src/scenes/shared.js",
+  "old": "      r = night ? out.restNight({ carried: true }) : out.restShort();",
+  "new": "      r = night ? out.restNight() : out.restShort();",
   "tests": [
    "test/rest5_partynight.test.js"
-  ]
+  ],
+  "note": "CAMP-ROLL (PIN MOVED): the carried night's sequence is the bag's one (scenes/shared.js restCampNight); re-aimed by content."
  },
  {
   "name": "REST5-the-follow-tick-mirrors-online",

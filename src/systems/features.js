@@ -1064,7 +1064,7 @@ export const FEATURES = Object.freeze([
   // calories/README.md), not a port. The one switch for the whole of
   // it: the felt temperature and the five needs on the world minute,
   // the food, water and camping items the store shelves and a new
-  // character carries, camps and campfires, the costed rest, hunting.
+  // character carries, camps and campfires, the costed rest.
   // Off is the classic game: no needs, no provisions minted.
   // SURV-TIERS (2026-09-23): the one switch is three tiers now - Off,
   // Casual (the default: the needs only borrow stamina, and a rest,

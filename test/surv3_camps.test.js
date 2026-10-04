@@ -86,11 +86,12 @@ test('SURV3: placing - the gear pitches a tent and leaves the pack with its wear
   assert.equal(pack.includes(kit), false, 'REST2: the Campfire leaves the pack while it burns');
   const kit2 = createSurvivalItem(TEMPLATE.Campfire, { condition: 3 });
   const pack2 = [kit2];
-  const full = placeCampItem(kit2, pack2, { ...ctx, standing: CAMPS_PER_OWNER });
-  assert.equal(full.ok, false); assert.equal(full.text, CAMP_TEXT.tooMany); assert.equal(kit2.currentCondition, 3, 'a refusal costs nothing');
   const town = placeCampItem(kit2, pack2, { ...ctx, place: { inTown: true } });
-  assert.equal(town.text, SURVIVAL_USE_TEXT.campingTown); assert.equal(kit2.currentCondition, 3); assert.ok(pack2.includes(kit2));
+  assert.equal(town.text, SURVIVAL_USE_TEXT.campingTown); assert.equal(kit2.currentCondition, 3, 'a refusal costs nothing'); assert.ok(pack2.includes(kit2));
   assert.equal(placeCampItem(createSurvivalItem(TEMPLATE.Bread), pack2, ctx).ok, false, 'only the two placeables');
+  // FIELD BUGS 2026-10-04d CAMP-CAP: four at most is kept by striking the oldest (scenes/camps.js), never by refusing
+  const full = placeCampItem(kit2, pack2, { ...ctx, standing: CAMPS_PER_OWNER });
+  assert.deepEqual([full.ok, full.text, full.strike, kit2.currentCondition], [true, CAMP_TEXT.lit, 1, 3]);
   // packing: the gear back with its wear; REST2: the Campfire picked up with its charges
   const back = packCamp(r.camp);
   assert.equal(back.item.templateIndex, TEMPLATE.CampingEquipment); assert.equal(back.item.currentCondition, 10); assert.equal(back.text, CAMP_TEXT.packed);

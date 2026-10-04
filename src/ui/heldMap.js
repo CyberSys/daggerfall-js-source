@@ -106,6 +106,7 @@ import { readGateMark, gateMarkKey, GATE_RING_CSS, GATE_LEGEND_TEXT } from './ga
 import { SERPENT_RING_MAP_CSS, SERPENT_LEGEND_TEXT } from './serpentMapMark.js';   // SERPENT1: the sea serpent's ring, in the sea's colours
 import { readBountyMarks, bountyMarksKey, BOUNTY_RING_CSS, BOUNTY_LEGEND_TEXT, BOUNTY_LEGEND_RIM_CSS } from './bountyMapMark.js';   // BOUNTY1: held bounties' black circles, read as the gate's ring is
 import { readRaidMarks, raidMarksKey, placeTip, tipKey, readTip, RAID_MARK_CSS, RAID_LEGEND_TEXT, RAID_HIT_PX } from './eventMapMarks.js';   // EVENT-TIP: the raided towns, and the card a world event answers a hover with
+import { readVendorMark, vendorMarkKey, VENDOR_MARK_CSS, VENDOR_RIM_CSS, VENDOR_LEGEND_TEXT } from './vendorMapMark.js';   // HOME-VENDOR: the trader's waypoint
 import { readQuestMarks, questMarksKey, QUEST_MARK_CSS, QUEST_LEGEND_TEXT, QUEST_HIT_PX, QUEST_MARK_LIFT, QUEST_RAID_LIFT, QUEST_FOLLOWED_TEXT } from './questMarks.js';   // GUIDE5: where the quests point
 import {
   buildInkModel, buildInkMarks, paintInkStatic, paintInkOverlay, zoomBand, clampView, scaleMinOf, SCALE_MAX,   // MAP-FIELD2: placeNames is inkMap's law still, but this sheet no longer inks the names
@@ -647,6 +648,9 @@ export class HeldMapWindow {
     // GUIDE5: where the quests point (the host's `quests`, on the same poll) - each place the player's map holds
     this._quests = [];
     this._questsKey = '';
+    // HOME-VENDOR: the trader's waypoint (the host's `vendor`, on the same poll) - one coin, apart from the yellow mark
+    this._vendor = null;
+    this._vendorKey = '';
     this._tipKey = '';
     this._hoverAt = null;   // where the pointer last hovered, paper and client - a poll refreshes the card under it
     this._tipUntil = null;  // WB13c: a tap's card stands until this clock
@@ -1207,6 +1211,7 @@ export class HeldMapWindow {
           bounties: this._bounties,   // BOUNTY1
           raids: this._raids,   // EVENT-TIP: the towns under attack
           quests: this._quests,   // GUIDE5: where the quests point
+          vendor: this._vendor,   // HOME-VENDOR: the trader's waypoint
           travellers: this._trav.map((t) => ({ x: t.x, y: t.y, name: t.name, color: TRAVELLER_MARK_CSS, journey: t.journey, ship: t.ship })),   // TV3; OWS1: at sea, a ship
           pulse: env.pulse,
         });
@@ -1717,6 +1722,10 @@ export class HeldMapWindow {
       lift: this._raids.some((r) => r.px === m.px && r.py === m.py) ? QUEST_RAID_LIFT : QUEST_MARK_LIFT }));
     const questsKey = `${questMarksKey(quests)}#${quests.map((m) => m.lift).join(',')}`;
     if (questsKey !== this._questsKey) { this._questsKey = questsKey; this._quests = quests; gateMoved = true; this._dirty = true; }
+    // HOME-VENDOR: the trader's waypoint rides the same poll (set or cleared with the map open)
+    const vendor = readVendorMark(this.deps.vendor, this._size);
+    const vendorKey = vendorMarkKey(vendor);
+    if (vendorKey !== this._vendorKey) { this._vendorKey = vendorKey; this._vendor = vendor; gateMoved = true; this._dirty = true; }
     // TV3: the region's travellers ride the same poll, on their own key
     const trav = readTravellerMarks(this.deps.travellers, this._size);
     const travKey = travellerMarksKey(trav);
@@ -1748,7 +1757,7 @@ export class HeldMapWindow {
     const leg = this._chrome?.legend;
     if (!leg) return;
     leg.innerHTML = '';
-    if (!this._party.length && !this._gate && !this._serpent && !this._bounties.length && !this._raids.length && !this._trav.length && !this._quests.length) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
+    if (!this._party.length && !this._gate && !this._serpent && !this._bounties.length && !this._raids.length && !this._trav.length && !this._quests.length && !this._vendor) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
     if (this._party.length) {
       const dot = el('span', 'hmlegdot');
       dot.style.background = this._party.some((m) => m.online) ? PARTY_MARK_CSS : PARTY_OFFLINE_CSS;
@@ -1793,6 +1802,12 @@ export class HeldMapWindow {
     };
     if (this._quests.some((q) => q.tracked)) diamond(true, QUEST_FOLLOWED_TEXT);
     if (this._quests.some((q) => !q.tracked)) diamond(false, QUEST_LEGEND_TEXT);
+    if (this._vendor) {   // HOME-VENDOR: the coin explains itself
+      const dot = el('span', 'hmlegdot');
+      dot.style.background = VENDOR_MARK_CSS;
+      dot.style.boxShadow = `0 0 0 2px ${VENDOR_RIM_CSS}`;
+      leg.append(dot, el('span', 'hmlegtext', VENDOR_LEGEND_TEXT));
+    }
     leg.classList.toggle('open', true);
     leg.style.display = 'flex';
   }

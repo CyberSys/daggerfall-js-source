@@ -360,7 +360,7 @@ It keeps the day's kills one a site (`serpentfells`, `SERPENT_FELLS_MAX` 8) and 
 to every hello while its day holds - never an older day's than it keeps, never once its day is over (S12). A client
 hears its own site's.
 
-**The books** (`server-account/src/serpents.js`, migration `0079_serpent_kills.sql`, `ACCOUNT_VERSION` acct77,
+**The books** (`server-account/src/serpents.js`, migration `0081_serpent_kills.sql`, `ACCOUNT_VERSION` acct78,
 route `/v1/serpent/claim`):
 - The session is the claimant, never the body.
 - Each kill is one row per (day, account) in `serpent_kills`, paying the character that fought it
@@ -433,12 +433,12 @@ After the kill the bar holds a moment and fades.
 
 ## 11. Versions and deploy order
 
-- **The relay: `world164`** (world162 on its branch, renumbered past main's PRIMARCH (world162) and SUNBABY1 (world163) at the merge). The `serpent` frame (`net/wire.js` `validSerpentIn`, `validSerpentOut`,
+- **The relay: `world165`** (world162 on its branch, renumbered past main's PRIMARCH (world162) and SUNBABY1 (world163), then past PARTY-LEAD (world164), at the merges). The `serpent` frame (`net/wire.js` `validSerpentIn`, `validSerpentOut`,
   `SERPENT_RELAY_MIN`). `serpentLaw.js`, `serpentBrain.js`, `serpentBody.js` and `serpentReceipt.js` join the bundle.
-  A relay before it closes the socket on the frame, so a client sends one only to a relay that welcomed it with 162
+  A relay before it closes the socket on the frame, so a client sends one only to a relay that welcomed it with 165
   or later (`serpentOk`).
-- **The account service: `acct77`** (acct75 then acct76 on its branch, renumbered past main's HOME-PRICE (acct75) and PRIMARCH and FOUNDER4 (acct76) at the merges). Apply migration `0079_serpent_kills.sql` (0078 on its branch, past main's FOUNDER4 `0078_founder_links.sql`), then deploy (the deploy's path filter
-  carries `src/net/serpentReceipt.js`). Before acct77 the route answers nothing and a receipt waits on the device for
+- **The account service: `acct78`** (acct75, acct76 then acct77 on its branch, renumbered past main's HOME-PRICE (acct75), PRIMARCH and FOUNDER4 (acct76) and KNIGHT-HOUSE (acct77) at the merges). Apply migration `0081_serpent_kills.sql` (0078 then 0079 on its branch, past main's FOUNDER4 `0078_founder_links.sql`, KNIGHT-HOUSE `0079_home_deed.sql` and HOME-VENDOR `0080_home_vendors.sql`), then deploy (the deploy's path filter
+  carries `src/net/serpentReceipt.js`). Before acct78 the route answers nothing and a receipt waits on the device for
   its week.
 - **The order:** the relay first (it signs), then the service (it counts), then the client. A client on an older
   relay sees the omen and no fight.

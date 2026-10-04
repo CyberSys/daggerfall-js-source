@@ -137,7 +137,9 @@ test('FOUNDER4 the migration\'s shape: the column added once, the holdings gathe
   assert.deepEqual(tables(db), tables(before), 'no table left behind');
   assert.ok(!db.prepare("SELECT name FROM sqlite_master WHERE name LIKE 'founder_holdings%'").all().length, 'nor its index');
   assert.ok(db.prepare('PRAGMA table_info(players)').all().some((c) => c.name === 'first_played_at' && c.type === 'INTEGER' && !c.notnull));
-  assert.deepEqual(AFTER, ['0079_serpent_kills.sql'], 'the newest migration but SERPENT1\'s (0078 on its branch, renumbered past this one at its merge - PIN MOVED)');
+  // the newest when it landed; FIELD BUGS 2026-10-04d KNIGHT-HOUSE's 0079 came after it at that branch's merge of main -
+  // so the pin is what BEFORE needs: one of the service's migrations, every one before it applied first
+  assert.ok(MIGRATIONS.indexOf(FILE) > 0, 'one of the service\'s migrations');
 });
 
 // ── THE SERVICE, end to end ─────────────────────────────────────────

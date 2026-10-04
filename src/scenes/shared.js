@@ -56,8 +56,10 @@ import { killIfAnyLiveStatZero } from '../systems/statMods.js';   // AUDIT 24 (w
 import { hasSpecialAbility, SPECIAL_ABILITY, healthRecoveryRate, fatigueRecoveryRate, spellPointRecoveryRate, restIgnoresNoRegen } from '../systems/rest.js';
 import { entityImprovedAthleticism } from '../systems/enchantments.js';   // AUDIT 26 F044: the ImprovesTalents fatigue arm   // the rested hour's three rates, one home for every host (V5 + S40, same line from two lanes)
 import { getPreventedRestMessage } from '../systems/restSession.js';
-import { nightDue, nightRealMinutesLeft, stampNight, runRestNight, topUpRest, sleepShortRest, spendRoomNight, roomNightsLeft, heardNight, REST_CHANNEL_SECONDS, REST_ACT_TEXT, NIGHT_HOURS } from '../systems/restAct.js';   // REST1: the rest act online
+import { nightDue, nightRealMinutesLeft, stampNight, runRestNight, topUpRest, sleepShortRest, spendRoomNight, roomNightsLeft, heardNight, REST_CHANNEL_SECONDS, REST_ACT_TEXT, NIGHT_HOURS, openChannelHeal, stepChannelHeal } from '../systems/restAct.js';   // REST1: the rest act online
 import { registerPreventRestCondition } from '../systems/restSession.js';   // SURV7: the survival rest gate's seam
+import { quietNights } from '../systems/encounters.js';   // CAMP-ROLL: a camp mate's night rolls nothing of mine
+import { carriedRestKind } from '../systems/partyRestLaw.js';   // CAMP-ROLL: and is slept at the better of their spot and mine
 import { survivalFeed, installSurvivalGate } from '../systems/survival/env.js';   // SURV7: the needs' feed and the gate, composed from the entity   // ROAD-B B5: TickRest's per-frame poll (:357-360, :407-410)
 import { createNearbyScan, updateNearbyObjects, detectedMarkers, hasLiveDetector } from '../systems/nearbyObjects.js';   // X4: the Detect scan
 import { liveStat, maxFatigue } from '../systems/statMods.js';
@@ -2320,6 +2322,10 @@ export function createRestDeps(entity, opts = {}) {
     // null (none in reach). Read only under the shared clock: offline the rest is DFU's window, which asks nothing of it.
     restPoint = null, ...rest
   } = opts;
+  // CAMP-ROLL: the host's camp (world.js campRest: open, verdict, settle, close) - whose night an act's is, when a party
+  // rests together. Null where nothing rolls (a building) or nobody is near (offline, the dev host). It rides the
+  // pass-through to the window too (`out.camp`).
+  const camp = rest.camp ?? null;
   let _kind = REST_KIND.Rough;   // the running rest's kind as the laws PRICE it, read at the open - DFU's bed with the arc off
   let _place = REST_KIND.Rough;  // AUDIT SURV-TIERS: WHERE the running rest is, read at the open in every tier (see setResting)
   let _rules = null;             // SURV-TIERS: the running rest's tier rules (survival/difficulty.js), read at the open - null with the arc off
@@ -2344,6 +2350,7 @@ export function createRestDeps(entity, opts = {}) {
   // so an override always belongs to exactly the one session it was set for and can never bleed into this same
   // entity's next real rest.
   let _restKindOverride = null, _draughtFrom = null;
+  let _channel = null;   // REST-CHANNEL-HEAL: the channel's heal plan (restAct.js openChannelHeal), read at its open - one a rest
   let _spot = REST_KIND.Rough;   // AUDIT REST-PARTY: the rest's own spot at its open, before a Draught makes it a bed's - the party sleeps the spot   // REST6: the own minute a Sleeping Draught's night began (spent by a night slept through)
   const out = {
     // PlayerEntity.IsResting / IsLoitering (:268, :284, :789, :285).
@@ -2353,6 +2360,7 @@ export function createRestDeps(entity, opts = {}) {
     // spread if it needs to observe the edge.
     setResting: (b) => {
       entity.isResting = !!b;
+      _channel = null;   // REST-CHANNEL-HEAL: a plan belongs to the one rest that opened it
       // SURV4: the kind is read at the OPEN (the fire may die under a long night - it was lit when you lay down);
       // `entity.restKind` is the needs law's `sleeping` for the hosts' env feed and the kind the party pose broadcasts
       // PARTY-REST4b: `_restKindOverride`, when one is set, wins over the inherited `restKind()` position check -
@@ -2385,6 +2393,7 @@ export function createRestDeps(entity, opts = {}) {
       // forget it, so a later real rest (this same entity choosing to actually rest for themselves) never
       // silently inherits a stale kind broadcast by whoever they last mirrored.
       if (!b) { _restKindOverride = null; if (_draughtFrom != null && ownMinutes() - _draughtFrom >= DRAUGHT_SPENT_MINUTES) spendDraught(entity); _draughtFrom = null; }
+      if (!b) camp?.close?.();   // CAMP-ROLL: every window's every exit clears the flag here, so the camp's watch closes with it
     },
     setLoitering: (b) => { entity.isLoitering = !!b; },
     // THE PASS-THROUGH IS LOAD BEARING, and it is here because a review
@@ -2478,6 +2487,21 @@ export function createRestDeps(entity, opts = {}) {
     surfacePlayer();
     return result;
   };
+  // CAMP-ROLL: THE CARRIED NIGHT'S ONE SEQUENCE - a camp mate's night slept as theirs: the better of their spot and mine
+  // (AUDIT REST-PARTY carriedRestKind), read by a fresh open, and the night (or, inside my interval, the short rest)
+  // with its rolls quiet (encounters.js quietNights: only the roller rolls). world.js sleepCarriedNight (a member
+  // standing by) and the rest windows' camp wait (restAct.js campNightStep) both run it; the caller closes the rest.
+  out.camp = camp;
+  out.restCampNight = (theirs, night = nightDue(entity, ownMinutes())) => {
+    const kind = carriedRestKind(restKind(), theirs);
+    let r = null;
+    quietNights(() => {
+      if (kind) _restKindOverride = () => kind;
+      out.setResting(true);
+      r = night ? out.restNight({ carried: true }) : out.restShort();
+    });
+    return r;
+  };
   out.restShort = () => {
     topUpRest(entity, _kind, _rules, { night: false, maxFatigueOf: maxFatigue });
     sleepShortRest(entity, _kind, _rules, Math.floor(ownMinutes()));   // REST-SLEEP1: and it sleeps - a Tired or Drowsy sleeper is not kept waiting out the interval
@@ -2485,6 +2509,11 @@ export function createRestDeps(entity, opts = {}) {
     const left = nightRealMinutesLeft(entity, ownMinutes());
     return { textId: null, text: REST_ACT_TEXT.shortRest, extra: left > 0 ? REST_ACT_TEXT.nextNight(left) : null, enemyBroke: false, died: false };
   };
+  // REST-CHANNEL-HEAL (restAct.js openChannelHeal): the channel's bar heals as it fills - the plan read at the channel's
+  // open, under the kind and tier the rest opened with (setResting), and each frame's share paid; what it paid is kept
+  // when the hold breaks, and the end lands the night or the short rest from there. Answers the health it leaves.
+  out.restChannelOpen = () => { _channel = openChannelHeal(entity, _kind, _rules, { maxFatigueOf: maxFatigue }); };
+  out.restChannelHeal = (frac) => stepChannelHeal(entity, _channel, frac);
   return out;
 }
 

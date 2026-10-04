@@ -606,30 +606,21 @@
     ]
   },
   {
-    "name": "HUNT-no-release-on-close",
-    "file": "src/ui/huntWindow.js",
-    "old": "    noticeRelease(this);\n    this._onClosed?.(searched);",
-    "new": "    this._onClosed?.(searched);",
+    "name": "WAIT-no-release-on-close",
+    "file": "src/ui/waitWindow.js",
+    "old": "    noticeRelease(this);\n    this._onClosed?.(finished);",
+    "new": "    this._onClosed?.(finished);",
     "tests": [
-      "test/surv6_hunting.test.js"
+      "test/forage4_wait.test.js"
     ]
   },
   {
-    "name": "HUNT-no-release-at-the-page-turn",
-    "file": "src/ui/huntWindow.js",
-    "old": "    if (this.phase !== HUNT_PHASE.Busy) { noticeRelease(this); this._flow.draw(renderer, canvas, font); return; }",
-    "new": "    if (this.phase !== HUNT_PHASE.Busy) { this._flow.draw(renderer, canvas, font); return; }",
+    "name": "WAIT-panel-painted-once-and-left-stale",
+    "file": "src/ui/waitWindow.js",
+    "old": "    const rows = [{ text: this.busy, center: true }, { text: this.dots, center: true }];",
+    "new": "    const rows = this._rowsOnce ??= [{ text: this.busy, center: true }, { text: this.dots, center: true }];",
     "tests": [
-      "test/surv6_hunting.test.js"
-    ]
-  },
-  {
-    "name": "HUNT-panel-painted-once-and-left-stale",
-    "file": "src/ui/huntWindow.js",
-    "old": "    const rows = [{ text: this.busy, center: true }, { text: dots, center: true }];",
-    "new": "    const rows = this._rowsOnce ??= [{ text: this.busy, center: true }, { text: dots, center: true }];",
-    "tests": [
-      "test/surv6_hunting.test.js"
+      "test/forage4_wait.test.js"
     ]
   },
   {
@@ -669,12 +660,12 @@
     ]
   },
   {
-    "name": "HUNT-release-after-the-close-hook",
-    "file": "src/ui/huntWindow.js",
-    "old": "    noticeRelease(this);\n    this._onClosed?.(searched);",
-    "new": "    this._onClosed?.(searched);\n    noticeRelease(this);",
+    "name": "WAIT-release-after-the-close-hook",
+    "file": "src/ui/waitWindow.js",
+    "old": "    noticeRelease(this);\n    this._onClosed?.(finished);",
+    "new": "    this._onClosed?.(finished);\n    noticeRelease(this);",
     "tests": [
-      "test/surv6_hunting.test.js"
+      "test/forage4_wait.test.js"
     ]
   },
   {
@@ -847,7 +838,7 @@
     "new": "  const caption = toast ? false : NOTICE_HINT;",
     "tests": [
       "test/enhancedNotice.test.js",
-      "test/surv6_hunting.test.js",
+      "test/forage4_wait.test.js",
       "test/heldmap.test.js",
       "test/enhancedInventory.test.js"
     ]
@@ -917,12 +908,12 @@
     "note": "IT1 (PIN MOVED): re-aimed by content - Immersive Travel’s arm sits beside the line this record mutates."
   },
   {
-    "name": "HUNT-parchment-drawn-under-the-panel",
-    "file": "src/ui/huntWindow.js",
-    "old": "    if (noticeFrame(this, rows, { hint: this._escape ? 'Escape to walk away' : false })) { this._box = null; return; }   // FORAGE4: no Escape, no promise of one",
-    "new": "    noticeFrame(this, rows, { hint: this._escape ? 'Escape to walk away' : false });   // FORAGE4: no Escape, no promise of one",
+    "name": "WAIT-parchment-drawn-under-the-panel",
+    "file": "src/ui/waitWindow.js",
+    "old": "    if (noticeFrame(this, rows, { hint: false })) { this._box = null; return; }",
+    "new": "    noticeFrame(this, rows, { hint: false });",
     "tests": [
-      "test/surv6_hunting.test.js"
+      "test/forage4_wait.test.js"
     ]
   }
 ]

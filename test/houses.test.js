@@ -10,7 +10,7 @@
 //   - buildingLocks.isHouseOwned, whose contract has named the hook
 //     since R1 with nothing able to answer it, so your own front door
 //     was locked against you;
-//   - quest place.js:596, which skips a house you own when choosing a
+//   - quest place.js:653, which skips a house you own when choosing a
 //     quest site, and defaulted false - so your own home stayed
 //     eligible.
 //

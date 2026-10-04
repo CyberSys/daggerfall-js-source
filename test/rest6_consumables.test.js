@@ -228,7 +228,7 @@ test('REST6 the cards: each item\'s lines under its name and weight', () => {
 test('REST6 by source: the windows kneel by the candle, the hosts\' rest points read the Bedroll, the shelves stock at their end, the loot hooks subscribe last, the cards read the seven', () => {
   for (const f of ['src/ui/restWindow.js', 'src/ui/enhancedRest.js']) {
     const s = rd(f);
-    assert.match(s, /meditate \? (this\.)?deps\.restMeditate\?\.\(\)/, f);
+    assert.match(s, /meditate\) \{ (this\.|overlay\.)_end\((this\.)?deps\.restMeditate\?\.\(\)/, f);   // CAMP-ROLL (RE-AIMED): the kneel ends on its own line - a night goes to the camp's step
     assert.match(s, /REST_ACT_TEXT\.meditating/, f);
     assert.match(s, /deps\.snuffCandle\?\.\(\)/, f);
   }

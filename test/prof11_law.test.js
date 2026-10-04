@@ -73,7 +73,7 @@ test('PROF11 law: the mason\'s bench\'s works (4.5) - the cut, two Rough Stone a
   assert.equal(workOpen(smeltRecipe('saw:pine'), 0), true);
   assert.deepEqual([MASON_FEE, FORGE_FEE, WORKBENCH_FEE, LOOM_FEE], [50, 50, 50, 50]);
   // the home's mason's bench: a seventh station at the loom's licence
-  assert.deepEqual([DECOR_STATIONS.at(-2), DECOR_STATION_FEES.mason, DECOR_STATION_NAMES.mason], ['mason', 50_000, 'Mason\'s bench']);   // PIN MOVED (PROF10): the jeweller's bench an eighth after it
+  assert.deepEqual([DECOR_STATIONS.at(-3), DECOR_STATION_FEES.mason, DECOR_STATION_NAMES.mason], ['mason', 50_000, 'Mason\'s bench']);   // PIN MOVED (PROF10): the jeweller's bench an eighth after it; PIN MOVED (HOME-VENDOR): the hired trader a ninth
   assert.equal(decorPlaceOf({ pos: [0, 0, 0], rot: [0, 0, 0], scale: 1, paid: 120, station: 'mason' })?.station, 'mason');
   assert.equal(decorPlaceOf({ pos: [0, 0, 0], rot: [0, 0, 0], scale: 1, paid: 120, station: 'mason', storage: true }), null, 'one thing a piece does');
 });

@@ -17,7 +17,7 @@
 // account's part in it. What the relay could not check, this file bounds:
 // it holds no map, so a modified client could stand a serpent's fight at
 // a site that is not the day's (the relay keeps it apart - AUDIT SERPENT
-// S1); an account is counted ONE serpent a day (migration 0079's key),
+// S1); an account is counted ONE serpent a day (migration 0081's key),
 // and its Renown is charged to the account's hour, as every report is
 // (renownTracks.js). A receipt earned by standing the fight out is paid
 // SERPENT_STOOD_RENOWN of it.

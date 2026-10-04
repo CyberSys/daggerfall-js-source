@@ -59,6 +59,7 @@ import { MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_
 import { GUILD_WRITS_MAX, GUILD_STORES_MAX, COMMISSIONS_MAX, COMMISSIONS_FOR_MAX, WRIT_POSTS_MAX, WRIT_OPS_MAX, GUILD_CONTRACTS_MAX, CONTRACT_PAY_MAX, CONTRACT_DEEDS_MAX } from './writLaw.js';   // PROF6: the bounds its refusals name; SILVER-WAYS: a contract's
 import { RENOWN_TRACKS_MAX } from './renown.js';   // RENOWN1: the tracks' bound, in its refusal's own sentence (RENOWN-CHAR: back with the tracks)
 import { HERALDRY_CHANGE_DRAKES } from './heraldryLaw.js';   // GUILD1d: a change's cost, in its refusal's own sentence
+import { VENDOR_REFUSAL_WORDS } from './vendorLaw.js';   // HOME-VENDOR: a trader's refusals
 import { ARENA_TEXT } from '../systems/arenaText.js';   // ARENA4b: the arena's refusals, in its own frozen table
 
 /** WHERE THE SERVICE IS. Its own constant beside the relay's
@@ -191,6 +192,7 @@ export const REFUSALS = Object.freeze({
   // HOME1, the online homes (server-account/src/homes.js). A player meets these at a front door, beside the price.
   'homes-need-account': 'Owning a home needs a username and a password. Give this account one and you can buy one.',
   'home-taken': 'Somebody else owns this home now.',
+  'no-deed': 'Your house\'s deed is not in your saved game yet. It will be kept for you once the game has saved.',   // FIELD BUGS 2026-10-04d KNIGHT-HOUSE: the hold reads the deed off the realm record
   'home-update': 'This game is out of date. Reload it to buy a home.',   // WD3 (AUDIT WD3 B2): a build from before the town mods
   'home-towns': 'The towns could not be loaded as the other players here see them. Reload the game to buy a home.',   // WD3 (AUDIT WD3 B1): a town mod's pack did not load
   'home-layout': 'The town records here are still being read. Try again in a moment.',   // WD3: the town is built again as the room's (scenes/world.js hearHomeLayouts)
@@ -306,6 +308,7 @@ export const REFUSALS = Object.freeze({
   ...SIEGE_WHY,   // SEAT2a part three: the pass and the Honours
   ...ROYAL_WHY,   // CROWN1 part two: the Royal Tourney's pass and bouts
   ...FEALTY_WHY,   // CROWN2: fealty and Pacts
+  ...VENDOR_REFUSAL_WORDS,   // HOME-VENDOR
   // NOTICE1: the Notice Board (server-account/src/board.js)
   'board-need-account': 'Notes are pinned by registered accounts. Add a username to pin one.',
   'board-closed': 'The notice board is not open yet.',
@@ -1126,6 +1129,10 @@ export function accountHomes({ fetch, storage }) {
     arenaMove: ({ mapId, from, to, character, realm = null }) => post('/v1/homes/arena-move', { mapId, from, to, character, ...(realm ? { realm } : {}) }),
     arenaMoves: (character) => post('/v1/homes/arena-moves', { character }),
     arenaSeen: (mapId, from) => post('/v1/homes/arena-seen', { mapId, from }),
+    // FIELD BUGS 2026-10-04d KNIGHT-HOUSE: the building a deed the realm gave names (a Knightly Order's house), held off the
+    // character's record from anyone else's claim; and that hold given up as the deed sells at the bank
+    deed: ({ mapId, buildingKey, region, character, layout = null }) => post('/v1/homes/deed', { mapId, buildingKey, region, character, layout: layout || null }),
+    releaseDeed: (mapId, buildingKey) => post('/v1/homes/release', { mapId, buildingKey, deed: true }),
   };
 }
 
@@ -1337,6 +1344,10 @@ export function accountMarket({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) 
     fill: (req) => post('/v1/market/fill', req),
     unorder: (order, rid) => post('/v1/market/unorder', { order, rid }),
     // MARKET-ANY: a piece from a pack goes into the record - where it stands (`realm`) with it
+    // HOME-VENDOR: a home's trader's stock, and the region's traders
+    vendor: (vendor) => post('/v1/market/vendor', { vendor }),
+    vendors: (region, character = null) => post('/v1/market/vendors', { region, ...(character ? { character } : {}) }),   // HOME-VENDOR: each house's door, for this character
+    myVendors: (character) => post('/v1/market/myvendors', { character }),
     collect: (character, delivery, rid, realm = null) => post('/v1/market/collect', { character, delivery, rid, ...(realm ? { realm } : {}) }),
     report: (listing) => post('/v1/market/report', { listing }),
     remove: (listing) => post('/v1/market/remove', { listing }),

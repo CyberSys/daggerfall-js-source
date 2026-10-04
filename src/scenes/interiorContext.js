@@ -206,7 +206,7 @@ export function makeInteriorPersonHost(pn, hooks = {}) {
  *   enterMarkers, doors, collider, destroy()}}
  */
 export async function buildInteriorContext(deps, dfBlock, blockIndex, recordIndex, climateBase, season, origin = null, opts = {}) {
-  const { renderer, getGpuMesh, cpuModels, getTexture, uploadRecord, uploadRecordFrame, palette, getMachineryParts } = deps;
+  const { renderer, getGpuMesh, cpuModels, getTexture, uploadRecord, uploadRecordFrame, palette, getMachineryParts, placeHold = null } = deps;   // FIELD BUGS 2026-10-04d PLACE-LRU: `placeHold` - the building's hold on the shared caches (scenes/placeHolds.js), the three doors above its own; settled once built, released by destroy(). None from the standalone ?interior scene
   // P8: verbatim PlayerEnterExit.TransitionInterior parenting - the
   // interior sits at ownerPosition + buildingMatrix (the entered
   // building model's WORLD matrix), so every coordinate the context
@@ -342,7 +342,7 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
   for (const [pi, p] of interior.placements.entries()) {
     const matrix = parent(p.matrix);
     // NEVER TRAPS: getGpuMesh returns NULL for a model id this data set
-    // does not carry (dataPipeline.js:146, and it CACHES the null), and
+    // does not carry (dataPipeline.js:150, and it CACHES the null), and
     // cpuModels is written only on its success path - so an absent
     // model used to push a {mesh: null} draw entry AND then read
     // `cpu.positions` off undefined one line later. Every other builder
@@ -793,7 +793,7 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
     }
   } catch { automapArrow = null; }
   let automapScanT = SCAN_INTERVAL_S;   // the first tick probes at once (Automap.cs:993-1002's lazy-init scan)
-
+  placeHold?.settle();   // FIELD BUGS 2026-10-04d PLACE-LRU: built - the keep of this building's last visit goes
   return {
     drawList,
     get staticBatch() {   // PERF6: merged and uploaded once, on the first frame that asks
@@ -875,7 +875,7 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
       // AUDIT 23 (hosts-16): the ?voxelfolk per-race rigs mint real GPU
       // meshes per context - every interior exit leaked them.
       for (const rg of _raceMeshes?.values?.() ?? []) renderer.destroyMesh(rg.mesh);
-      _raceMeshes?.clear?.();
+      _raceMeshes?.clear?.(); placeHold?.release();   // FIELD BUGS 2026-10-04d PLACE-LRU: LAST, its own GL objects gone - what it shared is kept a few buildings' worth, then freed unless another place holds it
     },
   };
 }

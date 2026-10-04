@@ -1,6 +1,5 @@
-// FIELD BUGS 2026-10-02 - the three that are not the climb (test/fb1002_climb.test.js holds those):
-//   HUNT-FOES - Aru: "when an event occurs while traveling (Track a group of animals type stuff) and you press YES,
-//               enemies can attack you while the result loads" / "During this enemies can still attack you";
+// FIELD BUGS 2026-10-02 - the three that are not the climb (test/fb1002_climb.test.js holds those). The third,
+// HUNT-FOES (a foe come near the text hunt's box), retired with the hunt itself (2026-10-04); two stand:
 //   HELM-NET  - Cruor: "New fishing context pop up clashes with come sail away! Gets in the way especially when trying
 //               to aim bow guns";
 //   HELM-HUSH - (relayed) "audio cutting when taking helm of a ship".
@@ -9,89 +8,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { createHunting, HUNT_PENDING_NEAR_M } from '../src/scenes/hunting.js';
-import { HuntWindow, HUNT_PHASE } from '../src/ui/huntWindow.js';
-import { newSurvival } from '../src/systems/survival/needs.js';
-import { setPref, _resetForTests } from '../src/systems/uiPrefs.js';
 import { fishKind } from '../src/scenes/fishHost.js';
 import { setForagingHost } from '../src/systems/foragingInstall.js';
 import { scene } from './csaScene.mjs';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const seq = (...v) => { let i = 0; return () => v[Math.min(i++, v.length - 1)]; };
-const player = () => ({ isPlayer: true, level: 5, health: 30, maxHealth: 40, fatigue: 20 * 64, items: [], survival: newSurvival(1000), stats: { luck: 50 }, career: {} });
-const WILD = { minute: 10 * 60, luck: 50, winter: false, outdoors: true, inLocationRect: false, night: false, enemiesNear: false, resting: false, climateIndex: 232, hasBow: true, skills: { archery: 100, stealth: 100, criticalStrike: 100, climbing: 100 } };
-
-/** A hunt as surv6's composed pin builds it - the roll lands at the first tick - with a foe that can come near. */
-function hunt() {
-  _resetForTests(); setPref('survival', 'hard');
-  const advanced = [], spawned = [];
-  let foe = false;
-  const h = createHunting({
-    entity: player(), env: () => WILD, rolls: seq(0.029, 0.69, 0.5, 0.2, 0.5, 0.95, 0),
-    showOverlay: () => {}, advanceMinutes: (n) => advanced.push(n), spawnBeast: (b) => spawned.push(b), enemiesNear: () => foe,
-  });
-  const w = h.tick();
-  assert.ok(w instanceof HuntWindow, 'the hunt\'s box');
-  return { h, w, advanced, spawned, near: (v) => { foe = v; } };
-}
-
-test('HUNT-FOES: the report - a foe come near while the hunt\'s box asks closes it as a No: nothing searched, no minute passed, no beast, the hunter\'s hands back (mutants: the foe never asked; the ask not interrupted)', () => {
-  const s = hunt();
-  s.w.tick(0.1);
-  assert.equal(s.w.done, false, 'no foe: the box stays');
-  s.near(true);
-  s.w.tick(0.1);
-  assert.equal(s.w.done, true, 'a foe near: the box is gone');
-  assert.equal(s.h.window, null, 'the slot freed');
-  assert.deepEqual(s.advanced, [], 'no minute');
-  assert.deepEqual(s.spawned, [], 'no beast');
-});
-
-test('HUNT-FOES: Yes, then a foe come near on the busy page - the search ends unsearched; on the result page (the outcome given) it stays to be read', () => {
-  const s = hunt();
-  s.w.input('KeyY');
-  assert.equal(s.w.phase, HUNT_PHASE.Busy);
-  s.w.tick(0.5);
-  s.near(true);
-  s.w.tick(0.5);
-  assert.equal(s.w.done, true, 'the search ends');
-  assert.deepEqual(s.advanced, [], 'unsearched: no minute');
-  const r = hunt();
-  r.w.input('KeyY');
-  r.w.tick(100);
-  assert.equal(r.w.phase, HUNT_PHASE.Result);
-  r.near(true);
-  r.w.tick(0.1);
-  assert.equal(r.w.done, false, 'the result is the player\'s to read');
-});
-
-test('HUNT-FOES: the search\'s minutes pass as the box closes, not under it - offline their encounter tick stood a wanderer 10-20 m off, facing a hunter the result page held; a box taken from under the result still spends them (mutants: the minutes under the box again; the minutes lost with the slot)', () => {
-  const s = hunt();
-  s.w.input('KeyY');
-  s.w.tick(100);
-  assert.equal(s.w.phase, HUNT_PHASE.Result);
-  assert.deepEqual(s.advanced, [], 'nothing passes under the result page');
-  s.w.click(0, 0);
-  assert.equal(s.advanced.length, 1, 'the minutes at the close');
-  assert.equal(s.spawned.length, 1, 'and the beast');
-  const t = hunt();
-  t.w.input('KeyY');
-  t.w.tick(100);
-  t.w.dispose();   // a death screen takes the slot: the outcome was given, so its time was spent
-  assert.equal(t.advanced.length, 1, 'the minutes spent');
-  assert.deepEqual(t.spawned, [], 'no beast over a box dropped from under');
-});
-
-test('HUNT-FOES by source: the world host hands the hunt its foes - a foe that sees me, or one still loading - for the roll and the box', () => {
-  const world = src('src/scenes/world.js');
-  assert.match(world, /const huntFoesNear = \(\) => \{\n\s+if \(duelEnemyNear\(\) \|\| areEnemiesNearby\(exteriorFoePool\(\)\)\) return true;/);
-  assert.match(world, /return exteriorFoes\.pendingFeet\(\)\.some\(\(p\) => Math\.hypot\(p\[0\] - f\[0\], p\[2\] - f\[2\]\) <= HUNT_PENDING_NEAR_M\);/);
-  assert.equal(HUNT_PENDING_NEAR_M, 30);
-  assert.match(world, /enemiesNear: huntFoesNear\(\), resting:/);
-  assert.match(world, /enemiesNear: \(\) => huntFoesNear\(\),   \/\/ HUNT-FOES/);
-  assert.match(src('src/ui/huntWindow.js'), /if \(this\.done \|\| this\.phase === HUNT_PHASE\.Result\) return;/);
-});
 
 /** Fishing's kind at sea (the Ocean's climate: the net's water everywhere), `busy` the host's. */
 function seaNet(busy) {

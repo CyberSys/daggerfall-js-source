@@ -311,7 +311,7 @@ test('WIND3 the hosts: both exterior hosts read the one wind once a frame, feed 
     assert.ok(!/_lastNow|labWindSlider|Math\.sin\(tsec \* 0\.31\)/.test(s), `${host}: no copy of the mapping, no private rain clock`);
     const wisp = s.search(/if \(wisps && wd\.on && wispsOn\(\)(?: && !_dwAirOff)?\) \{/);   // DW-C: the world host's wisps are the distance fog's while it is on
     assert.ok(wisp > 0 && wisp > s.indexOf('precip.draw(precipShown, proj, view'), `${host}: the wisps after the rain`);
-    assert.ok(s.slice(wisp, wisp + 300).includes(`wisps.draw(wd, proj, view, new Float32Array(${eye}), now / 1000);\n      renderer.markForeignPass();`), `${host}: their own program is a foreign pass`);
+    assert.ok(/^\s+renderer\.markForeignPass\(\);/m.test(s.slice(wisp, wisp + 300).split(`wisps.draw(wd, proj, view, new Float32Array(${eye}), now / 1000);\n`)[1] ?? ''), `${host}: their own program is a foreign pass`);   // RAIN-OVER-GRASS: the world host's falling weather is one closure, indented once more
     one(/const wisps = sky\.enhanced \? new WindWispsRenderer\(renderer\.gl\) : null;/g, 'built on the enhanced lane at boot');
     one(/const windAudio = createWindAudio\(\);/g, 'the loop\'s driver');
     const amb = s.indexOf('ambience.update(dt, { playerPos:');

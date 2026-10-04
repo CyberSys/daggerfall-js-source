@@ -1,24 +1,28 @@
 // FORAGE4 (2026-09-28, Mac: "Continue! Remember, this is your baby"):
 // FORAGING'S ONLINE WAIT - bible/06-Systems/Foraging.md 13.1. Online the
 // shared clock is nobody's to move, so Quest Actions Extension's `raise
-// time by` is a wait on the hunt's busy page (THE ONE CONSTRUCTION SEAM:
-// its four new options, the hunt keeping its defaults), at C&C's 8 real
-// seconds a game hour; the page opens when the slot is free, holds the
-// quest's boxes behind it, ends early for a foe near with the rest
-// forgiven, and rides the save.
+// time by` is a wait on the wait page (ui/waitWindow.js - C&C's hunt page
+// until the text hunt was removed, 2026-10-04; its busy page is what
+// stayed), at 8 real seconds a game hour; the page opens when the slot is
+// free, holds the quest's boxes behind it, ends early for a foe near with
+// the rest forgiven, and rides the save.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 
-import { HuntWindow, HUNT_PHASE } from '../src/ui/huntWindow.js';
-import { createForagingWait, waitLine, saneWait, FORAGING_WAIT_MAX_SECONDS } from '../src/scenes/foragingWait.js';
-import { HUNT_WAIT_PER_HOUR } from '../src/systems/survival/hunting.js';
+import { WaitWindow, BUSY_DOTS } from '../src/ui/waitWindow.js';
+import { createForagingWait, waitLine, saneWait, FORAGING_WAIT_MAX_SECONDS, WAIT_PER_HOUR, waitRealSeconds } from '../src/scenes/foragingWait.js';
 import { RaiseTime, questActionsExtensionTemplates } from '../src/systems/quest/questActionsExtension.js';
 import { QuestMachine } from '../src/systems/quest/machine.js';
 import { loadQuestTables } from '../src/systems/quest/tables.js';
 import { QUEST_CTX_CONTRACT } from '../src/scenes/questBridge.js';
 import { FATIGUE_MULTIPLIER } from '../src/systems/statMods.js';
+// ENH-NOTICE3: the wait page is a parchment of its own and rides the enhanced notice panel
+import { enhancedNoticeKeys, destroyEnhancedNotice, ENHANCED_NOTICE_ID } from '../src/ui/enhancedNotice.js';
+import { withDom } from './invdrag.mjs';
+import { _setMessageBoxArtForTests } from '../src/ui/messageBox.js';
+import { createTownTalk } from '../src/scenes/townTalk.js';
 
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -36,50 +40,178 @@ function rig({ online = true } = {}) {
   const wait = createForagingWait({ entity, showOverlay: s.show, overlayActive: () => s.busy, enemiesNear: () => foe.near, online: () => online });
   return { entity, s, foe, wait };
 }
-const run = (win, seconds, step = 0.5) => { for (let t = 0; t < seconds; t += step) win.tick(step); };
 
-test('FORAGE4: the hunt page keeps its defaults - the ask first, Escape walks away, a result page', () => {
+test('FORAGE4: the wait page takes no key and no click - the wait is the cost; a second wait joins the one standing; the end closes it once', () => {
   const closed = [];
-  const w = new HuntWindow({ prompt: ['Tracks.'], seconds: 2, onSearched: () => ['Meat.'], onClosed: (s) => closed.push(s) });
-  assert.equal(w.phase, HUNT_PHASE.Ask);
-  w._begin();
-  w.input('Escape');
-  assert.deepEqual(closed, [false], 'Escape off the busy page walks away, as before');
-  const r = new HuntWindow({ seconds: 1, onSearched: () => ['Meat.'], onClosed: (s) => closed.push(s) });
-  r._begin();
-  run(r, 1.5);
-  assert.equal(r.phase, HUNT_PHASE.Result, 'and the wait turns to its result page');
-});
-
-test('FORAGE4: the four options - no ask, no Escape, a foe ends it unsearched, and no result page', () => {
-  const closed = [];
-  let searched = 0;
-  const w = new HuntWindow({ seconds: 3, ask: false, escape: false, result: false, onSearched: () => { searched++; return []; }, onClosed: (s) => closed.push(s) });
-  assert.equal(w.phase, HUNT_PHASE.Busy, 'ask: false opens on the busy page');
-  w.input('Escape');
-  assert.equal(w.done, false, 'escape: false - the wait is the cost');
+  const w = new WaitWindow({ busy: 'Chop and Gather Wood...', seconds: 3, onClosed: (s) => closed.push(s) });
+  for (const k of ['Escape', 'back', 'confirm', 'KeyY', 'KeyN']) w.input(k);
+  assert.equal(w.done, false, 'no key ends the wait - Escape, nor the action townTalk hands for it');
+  assert.equal(w.click(0, 0), true, 'a click is swallowed...');
+  assert.equal(w.done, false, '...and ends nothing');
   w.tick(1);
   assert.equal(w.remaining, 2);
   w.extend(2);
   assert.equal(w.remaining, 4, 'a second wait joins the one standing');
-  w.tick(4);
-  assert.deepEqual([w.done, searched, closed], [true, 1, [true]], 'result: false - the end closes the page, no result to click');
+  w.tick(3.99);
+  assert.equal(w.done, false, 'not a hair early');
+  w.tick(0.01);
+  assert.deepEqual([w.done, closed], [true, [true]], 'the end closes the page, finished');
+  w.tick(5); w.dispose();
+  assert.deepEqual(closed, [true], 'once - a tick or a dispose after the end tells nobody again');
+  w.extend(5);
+  assert.equal(w.remaining, 0, 'and a closed page takes no more time');
+  // AUDIT HUNT-OUT: the two guards - a page asked for no time still opens and ends, and a frame's dt that is no number
+  // (or runs backwards) moves nothing
+  const z = new WaitWindow({ seconds: 0 });
+  assert.equal(z.dots, '.', 'a zero wait draws its first dot, not NaN of them');
+  z.tick(0.01);
+  assert.equal(z.done, true, 'and ends at the next frame, not a second later');
+  const g = new WaitWindow({ seconds: 4 });
+  g.tick(NaN); g.tick(-5); g.tick(undefined);
+  assert.equal(g.remaining, 4, 'no dt, a NaN or a negative one spends nothing - a NaN would hold the wait for ever');
+});
+
+test('FORAGE4: a foe near ends the page early, unfinished; so does the slot taken from under it; the dots fill as it runs', () => {
+  const closed = [];
   let foe = false;
-  const f = new HuntWindow({ seconds: 10, ask: false, escape: false, result: false, interruptWhen: () => foe, onClosed: (s) => closed.push(s) });
+  const f = new WaitWindow({ seconds: 10, interruptWhen: () => foe, onClosed: (s) => closed.push(s) });
   f.tick(1);
   foe = true;
   f.tick(1);
   assert.equal(f.done, true);
-  assert.deepEqual(closed, [true, false], 'a foe near ends it unsearched');
+  assert.deepEqual(closed, [false], 'a foe near ends it, the rest forgiven');
+  const d = new WaitWindow({ seconds: 10, onClosed: (s) => closed.push(s) });
+  d.tick(2);
+  d.dispose();
+  assert.equal(d.done, true);
+  assert.deepEqual(closed, [false, false], 'a death screen, a transition: the page goes with the slot');
+  // the dots: the first at once, the last before the end
+  const dots = (t) => { const w = new WaitWindow({ seconds: 10 }); w.tick(t); return w.dots.length; };
+  assert.equal(dots(0.01), 1);
+  assert.equal(BUSY_DOTS, 12, 'twelve dots at the full wait');
+  assert.equal(dots(5), 7, 'halfway: the seventh dot is being drawn, not the sixth finished');
+  assert.equal(dots(9.99), BUSY_DOTS, 'the row fills before the page ends');
+});
+
+// ── ENH-NOTICE3: THE WAIT PAGE, ON THE PANEL ─────────────────────
+
+const recorder = () => ({ quads: [], drawScreenQuad(tex, rect) { this.quads.push({ tex, ...rect }); } });
+const WAIT_FONT = { fnt: { fixedHeight: 9, fixedWidth: 4, glyphWidth: () => 4 }, tex: 'tex:font', cols: 16, rows: 16, cw: 8, ch: 8 };
+const WAIT_CANVAS = { width: 640, height: 400 };
+
+/** The live notice panels' rows, read off the stack in `dom`. */
+const noticeTexts = (dom) => {
+  const live = new Set(enhancedNoticeKeys());
+  const stack = (dom.body.children ?? []).find((c) => c.id === ENHANCED_NOTICE_ID);
+  return (stack?.children ?? [])
+    .filter((c) => String(c.className).split(/\s+/).includes('notice') && live.has(c.dataset.owner))
+    .flatMap((panel) => (panel.children.find((c) => c.className === 'notice-body')?.children ?? [])
+      .filter((r) => r.style.display !== 'none').map((r) => r.textContent));
+};
+
+/** A running wait page on `skin`, over a document. */
+function waiting(skin, fn) {
+  const had = Object.hasOwn(globalThis, 'location') ? globalThis.location : undefined;
+  globalThis.location = { search: `?skin=${skin}` };
+  try {
+    return withDom((dom) => {
+      const closed = [];
+      const win = new WaitWindow({ busy: 'Chop and Gather Wood...', seconds: 4, onClosed: (finished) => closed.push(finished) });
+      return fn({ dom, win, closed, r: recorder() });
+    });
+  } finally {
+    if (had === undefined) delete globalThis.location; else globalThis.location = had;
+    destroyEnhancedNotice();
+  }
+}
+
+test('ENH-NOTICE3: the wait page is the notice panel, redrawn per frame, and released when it ends or is taken (mutants: WAIT-parchment-drawn-under-the-panel, WAIT-panel-painted-once-and-left-stale, WAIT-no-release-on-close)', () => {
+  waiting('enhanced', ({ dom, win, closed, r }) => {
+    win.draw(r, WAIT_CANVAS, WAIT_FONT);
+    assert.deepEqual(noticeTexts(dom), ['Chop and Gather Wood...', '.'], 'the wait\'s line and its first dot are the panel\'s');
+    assert.equal(win._box, null, 'mutants: the parchment laid out under the panel');
+    assert.equal(enhancedNoticeKeys().length, 1, 'one page, one panel');
+    assert.ok(win._noticeKey, 'the per-frame door minted this owner a key');
+    // A PER-FRAME DOOR, so the dots really move
+    win.tick(2);
+    win.draw(r, WAIT_CANVAS, WAIT_FONT);
+    assert.deepEqual(noticeTexts(dom), ['Chop and Gather Wood...', win.dots], 'mutants: the panel painted once and left stale while the wait runs');
+    assert.ok(win.dots.length > 1 && win.dots.length <= BUSY_DOTS);
+    // THE END: `_end` is this window's one close door, and the panel leaves with it
+    win.tick(2);
+    assert.deepEqual(closed, [true]);
+    assert.deepEqual(enhancedNoticeKeys(), [], 'mutants: _end not releasing - a panel left over the world');
+    assert.deepEqual(noticeTexts(dom), []);
+  });
+  // ...and the same through dispose(), the host taking the slot
+  waiting('enhanced', ({ win, r }) => {
+    win.draw(r, WAIT_CANVAS, WAIT_FONT);
+    win.dispose();
+    assert.deepEqual(enhancedNoticeKeys(), [], 'the slot taken from under the window takes the panel too');
+  });
+});
+
+test('ENH-NOTICE3: the classic skin keeps the wait\'s parchment, drawn, and builds no stack (mutants: WAIT-parchment-never-drawn)', () => {
+  waiting('classic', ({ dom, win, r }) => {
+    // AUDIT HUNT-OUT: with no art loaded drawMessageBox paints nothing, so a page that never drew passed - the art is
+    // handed in, and the parchment's own slices must reach the renderer
+    _setMessageBoxArtForTests({ slices: Array.from({ length: 9 }, (_, i) => `spop:${i}`), buttons: new Map() });
+    try { win.draw(r, WAIT_CANVAS, WAIT_FONT); } finally { _setMessageBoxArtForTests(null); }
+    assert.ok(r.quads.some((q) => String(q.tex).startsWith('spop:')), 'the parchment is painted');
+    assert.ok(win._box, 'the message-box layout is minted');
+    assert.deepEqual(win._box.rows.map((row) => row.text), ['Chop and Gather Wood...', '.'], 'with the wait\'s line and its dots');
+    assert.equal(win._noticeKey, undefined, 'mutants: a key minted on the classic skin');
+    assert.deepEqual(enhancedNoticeKeys(), [], 'no panel');
+    assert.equal((dom.body.children ?? []).some((c) => c.id === ENHANCED_NOTICE_ID), false, 'and no stack was ever built');
+  });
+});
+
+test('AUDIT HUNT-OUT C1: the real townTalk host takes the pointer\'s move and its release under the wait page - none reaches the look behind it (mutants: WAIT-hover-not-taken, WAIT-release-not-taken)', () => {
+  // townTalk answers "not mine" for a window with no `hover` / `release`, and the host then hands the move to the look
+  // (world.js's mousemove: `if (townTalk.hover(e) || modes?.hover?.(e)) return;`). The hunt's page had both; the wait
+  // page lost them at its split, so a look still locked in the relock grace after the page opened was banked under it.
+  const canvas = { width: 320, height: 200, getBoundingClientRect: () => ({ left: 0, top: 0, width: 320, height: 200 }) };
+  const tt = createTownTalk({
+    renderer: { uploadTexture: () => ({}) }, canvas,
+    fetchBytes: async () => { throw new Error('this pin loads no ARENA2'); },
+    playerEntity: { name: 'T', stats: { personality: 50 }, skills: 30, skillUses: [] }, regionIndex: 0,
+  });
+  const w = new WaitWindow({ busy: 'Chop and Gather Wood...', seconds: 4 });
+  tt.showOverlay(w);
+  assert.equal(tt.hover({ clientX: 40, clientY: 40 }), true, 'the move is the page\'s');
+  assert.equal(tt.pointer('up', { clientX: 40, clientY: 40, button: 0 }), true, 'and so is the release');
+  assert.equal(w.done, false, 'and neither ends the wait');
+  tt.closeOverlay(w);
+});
+
+test('ENH-NOTICE3 (AUDIT B2/B7): the wait\'s panel promises nothing - no caption on a page that takes no click and no key - and the release precedes the close hook', () => {
+  waiting('enhanced', ({ dom, win, r }) => {
+    win.draw(r, WAIT_CANVAS, WAIT_FONT);
+    assert.deepEqual(dom.doc.querySelectorAll('.notice-hint').map((n) => n.textContent), [],
+      'mutants: the default "click or press a key" on a page that takes neither');
+  });
+  // THE SLOT IS EMPTIED BEFORE THE OCCUPANT IS TOLD, in miniature: the
+  // close hook may raise the next box (the quest's, held behind the
+  // wait), and it must not find this window's panel still standing.
+  const seen = [];
+  waiting('enhanced', ({ win, r }) => {
+    win.draw(r, WAIT_CANVAS, WAIT_FONT);
+    win._onClosed = () => seen.push(enhancedNoticeKeys().length);
+    win.tick(4);
+    assert.deepEqual(seen, [0], 'mutant: the release after the hook, so the hook\'s own box lands under a panel that is leaving');
+  });
 });
 
 test('FORAGE4: a wait is its game time at 8 real seconds an hour - Food 8 s, Chop and Plants 12 s, Mining and Graves 16 s', () => {
-  assert.equal(HUNT_WAIT_PER_HOUR, 8);
+  assert.equal(WAIT_PER_HOUR, 8);
   for (const [gameSeconds, real] of [[3600, 8], [5400, 12], [7200, 16]]) {
     const { wait, entity } = rig();
     assert.equal(wait.add(gameSeconds, 'Chop and Gather Wood'), real);
     assert.deepEqual(entity.foragingWait, { seconds: real, label: 'Chop and Gather Wood', held: [] });
   }
+  // AUDIT HUNT-OUT: to the hundredth - seven minutes is 0.93 s, not 0.9333... nor 0.9
+  assert.equal(waitRealSeconds(7), 0.93);
+  assert.equal(rig().wait.add(420), 0.93, 'and the quest\'s seconds go through it');
   assert.equal(waitLine('Chop and Gather Wood'), 'Chop and Gather Wood...', 'the page says the quest\'s own DisplayName');
   assert.equal(waitLine(null), 'Time passes...');
 });
@@ -94,7 +226,7 @@ test('FORAGE4: the page opens only when the slot is free, writes its seconds lef
   const page = wait.tick();
   assert.equal(s.win, page);
   assert.equal(page.busy, 'Chop and Gather Wood...');
-  assert.equal(page.phase, HUNT_PHASE.Busy);
+  assert.ok(page instanceof WaitWindow);
   page.tick(5);
   wait.tick();
   assert.equal(entity.foragingWait.seconds, 7, 'what is left, for a save made now');
@@ -213,7 +345,7 @@ test('FORAGE4 done-when: online, the Wood-Axe\'s quest gives a 12-second wait an
 test('FORAGE4: the wiring - the streaming host builds the wait on its own slot and rest test, ticks it, holds its boxes, and the save carries it', () => {
   const w = rd('src/scenes/world.js');
   assert.match(w, /const foragingWait = createForagingWait\(\{\n\s*entity: playerEntity,\n\s*showOverlay: \(w\) => townTalk\.showOverlay\(w\),\n\s*overlayActive: \(\) => townTalk\.overlayActive \|\| !!modes\?\.overlayHeld,\n\s*enemiesNear: \(\) => duelEnemyNear\(\) \|\| areEnemiesNearby\(exteriorFoePool\(\), \{ resting: true \}\),\n\s*online: \(\) => sharedClockOn\(\),/);
-  assert.match(w, /hunting\.tick\(\);[^\n]*\n\s*foragingWait\.tick\(\);/, 'every frame, in every mode');
+  assert.match(w, /\n\s*foragingWait\.tick\(\);   \/\/ FORAGE4: online, a standing wait takes the slot when it is free/, 'every frame, in every mode');
   assert.match(w, /waitOnline: \(seconds, quest\) => \{ foragingWait\.add\(seconds, quest\?\.displayName \?\? null\); \},/);
   assert.match(w, /const showQuestBox = \(box\) => \{\n[^\n]*\n\s*if \(foragingWait\.holds\(\)\) \{ foragingWait\.hold\(\(\) => showQuestBox\(box\), keptBox\(box\)\); return; \}/);
   assert.match(w, /if \(foragingWait\.holds\(\)\) foragingWait\.hold\(\(\) => giveReward\(dfItem\), \{ reward: dfItem \}\);/, 'a reward\'s pile after its box, behind the wait - and kept in the save');

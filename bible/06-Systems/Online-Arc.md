@@ -4786,7 +4786,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:8003` read, on one physical line:
+`src/scenes/worldModes.js:8090` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4801,7 +4801,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5846`). With the property missing that call is a
+(`dungeonContext.js:5849`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4928,7 +4928,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:9433` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:9409` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:487`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7158,7 +7158,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1142`, `src/net/online.js:2511`):**
+**Now (`src/net/wire.js:1143`, `src/net/online.js:2514`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -10042,6 +10042,39 @@ home's alone - they are about other players.
 - Known limits: the lot is a box round the footprint (a building turned off the grid has a wider lot); yard pieces are
   not activation targets; the street's wandering folk are not steered round them.
 
+### KNIGHT-HOUSE - a house a Knightly Order gives is its knight's on every door (FIELD BUGS 2026-10-04d)
+
+The Discord: "Houses earned through Knightly Orders still possibly purchaseable? ... I don't want to risk my Knight
+House being bought out from under me" - at the knight's own door, "To Arde's residence", "Go in", "Buy it: 554330
+gold". The order's gift (KnightlyOrder.ReceiveHouse, `systems/banking.js` allocateHouseToPlayer) is Daggerfall's deed in
+the save and nothing else, and HOME1's offer read only the service's list: the knight was offered their own house, every
+other player the same - whose claim then took it (measured on the real service: 200) - and the knight's own claim paid
+for it again. Online the bank sells no house (HOME1), so the order's gift is the one deed made in the realm.
+
+- **The knight's door.** A building the character's own deed names - one the realm gave, standing in its layout
+  (`net/homeLaw.js` homeDeedOf, `systems/onlineHomes.js` realmDeedAt) - is never priced to it (`homeOfferPrice`). A deed
+  customs carried in is an offline house and stays HOME1's ("Stay offline only").
+- **Held from everyone else.** The account service HOLDS such a deed's building (`/v1/homes/deed`,
+  `server-account/src/homes.js` holdDeed, migration 0079 `homes.deed`): read off the character's realm record (the deed
+  must stand in it, to that building, in the layout the hold names), written as a claim's row marked `deed` - nothing
+  paid, outside the three homes a character may buy. Every other claim on it is `home-taken`; the owner's is a repeat
+  that pays nothing. To every other reader it is the knight's home, shut; the knight's own answer leaves it out (its
+  door, storage and bed are Daggerfall's, off the deed). The Seneschal holds the house it gives once the checkpoint
+  carrying it lands, waiting first for the room's town layouts (a building key names a building only in its layout); a
+  building taken meanwhile gives the gift back (the deed, the order's flag, the scene, the discovery). Every boot holds
+  the deeds from before.
+- **The market and the bank.** The houses for sale (the bank's and the Seneschal's, `banking.js` housesForSale `owned`)
+  leave out any building the town's answer names - a player's home or another knight's house. The deed's sale at the
+  bank gives the hold up first (`releaseDeed`); a deed the service never held sells as Daggerfall's.
+- **Deploy the account service first** (migration 0079, then the `acct77` Worker). A new client on an old service: the
+  holds answer 404 and the deed is kept - the knight's door is mended, nobody else is kept off until the service
+  lands. An old client on a new service: the knight's house is the knight's to everyone else; the knight's old build
+  still offers "Buy it", and its claim is answered as a repeat that pays nothing.
+- **Not reconciled:** a knight's house another player claimed before this stands theirs (the knight's hold answers
+  `home-taken`). Four hosts: `worldModes.js` (the door, the market, the Seneschal, the bank) and `world.js` (the boot's
+  holds) WIRED; `exterior.js` builds worldModes offline with no registry (Daggerfall's law stands); `dungeonContext.js`
+  has no house door. Pinned by `test/fb1004d_knight_house.test.js`; `tools/mutants/fb1004d_knight_house.json`.
+
 ### THE AUDIT (2026-09-30, asked: "let's do a nice audit on this. Just want to make sure it's perfect")
 
 Four lanes read the slices adversarially (the rent and its gold, the doors, the look and the yard, the merge and the
@@ -10090,6 +10123,36 @@ Pinned: `test/homedoors.test.js` (14), `test/homerent.test.js` (10), `test/homel
 `test/accountworker.test.js` (the tables), `test/renown_char.test.js` (the migrations after 0035), `test/decor1e.test.js`
 and `test/decor2b.test.js` (the sale's line, the tap under a flight) and the ACCOUNT_VERSION pins (`acct37`).
 
+
+### HOME-VENDOR (2026-10-03, Mac: "add the ability for players that own houses to buy npcs that sell goods for them when someone visits the house ... make the available npcs visible on the board with a tab and item search filter"; asked, "Yes only in the house and you should be able to set a waypoint where the trader is ... Selfplaced npcs should sell stuff waaaaay longer") - a hired trader in a home
+
+- **The law** (`net/vendorLaw.js`, both ends): a trader is a placed piece of a home's decor made the `vendor` station
+  (`net/decorLaw.js` DECOR_STATIONS, "Hired trader", a 25,000 gold licence paid once as every station's). Its STOCK is
+  market listings of pieces from the owner's pack, for gold (MARKET-ANY's route, `market.js` listGood), carried AT the
+  trader: they stand VENDOR_LISTING_S (thirty days, not the market's 72 hours) and are bought at that trader alone. A
+  vendor on the wire is `{ map, id }` - the home's town and the decor id. The directory is searched by EVERY word over
+  the item, the owner and the town (vendorSearch).
+- **The catalogue** (`systems/decorCatalogue.js`): the people Daggerfall stands in its rooms (`blockPeopleRecords`) are
+  catalogue pieces too, kind Vendors (Mac: "People category sounds wrong call it vendors") - placed, one is made the
+  trader.
+- **The service** (`server-account/src/market.js` over `migrations/0080_home_vendors.sql` - `market_listings.vendor_map`,
+  `vendor_id`; routes `/v1/market/vendor`, `/vendors`, `/myvendors`). A listing named at a trader is the owner's
+  character's own trader (`vendor-not-yours`), in the HOME's region whatever the client says; it is filtered out of the
+  goods view, so no regional board shows it. A buy of a trader's piece must name its own stall (`vendor-only`,
+  `vendor-not-here`) and the stall must still stand (`vendor-gone`). A stocked trader is neither removed nor unmade
+  (`decor.js` vendorStocked, `vendor-stocked`) and its house is not sold (`homes.js`, `home-vendor-stocked`). The
+  region's directory says each house's door as the town answer says it (entry, mine, guildmate, tenant); the client
+  keeps only the traders `homeMayEnter` lets the character in on. A guild's hall stands no trader.
+- **The client.** A trader pressed in its home (`scenes/worldModes.js` openHomeVendor -> `scenes/world.js`
+  openHomeVendorWindow) opens its stall in the Notice Board's window (`ui/noticeWindow.js` `traderOnly`,
+  `ui/vendorTab.js`): a visitor buys off the purse; the owner takes a piece back or puts one up from the pack. The
+  board's Vendors tab lists the region's reachable traders, searched, a row setting the WAYPOINT
+  (`systems/vendorWaypoint.js`) - a gold coin on both world maps (`ui/vendorMapMark.js`, apart from the map's one yellow
+  mark, which stays the player's), the house named on the town map, the compass on the town from the street, a mark in
+  the Overworld's travel view; walking into the house clears it. The Vendor page (`ui/vendorPage.js`) on the pause
+  window's Character rail under the Professions (Mac: "add a Vendor tab under professions (not in)") holds my traders,
+  their stock, what they sold and the takings, collected into the account of the region I stand in.
+- **Pinned** in `test/homevendor_service.test.js` and `test/homevendor_ui.test.js`; `tools/mutants/homevendor.json`.
 
 ## GUILD1 (2026-09-25, Mac: "future ownership for online guilds"; asked, founding takes "Gold and Renown", a guild is joined "Per character", its ranks are "Four, renamed by the guildmaster", and the treasury is the "Guildmaster only" to take from) - a guild the players found, and the service keeps
 
@@ -13738,7 +13801,8 @@ numbered, is one now:
 - **Main's own red, fixed here:** `test/tv6_dungeons.test.js` pinned travelViewWalkTo's options before TO-ROADS added
   `roads`.
 - **LIVED1 (#442, "your own time") came in last:** a character keeps its own clock online. Foraging's quest time
-  (FORAGE4's wait on the hunt's page) now also passes on that clock, as the hunt's minutes do after its page
+  (FORAGE4's wait on the hunt's page - the wait page alone since HUNT-OUT, 2026-10-04) now also passes on that clock,
+  after the page, as the hunt's minutes did
   (`systems/quest/questActionsExtension.js` RaiseTime: the wait online, the host's raiseTime - the character's time -
   in both lanes); MAC-LVL1's `restSimMinutes`, which LIVED1 retired, left the save's fields beside FORAGE4's
   `foragingWait`; DEATH-PENALTY's screen-loss pair rides the encounter loop's lift beside LIVED1's sky.
@@ -14426,6 +14490,28 @@ EVENT1's door, a second word on it: `/event sunbaby` (or `/event sunbaby on`) st
 
 **Records.** test/sunbaby1_event.test.js (12): the word and its relay row, a real Room staging it and saying it on a late welcome, the session's word gate, the command, the fade and the rise, the land's haze, light and water, the GLSL from the tables, the pass over a recording GL (nothing at 0, every state put back, every allocation freed), and the host seams in shared.js and world.js. tools/mutants/sunbaby1.json (20, all dead). EVENT1's pins moved where the host's text moved (the hub's `onEvent`, the light) and two were made to fail again: the word's gate stands before the frame's, so `EVENT1-session-old-relay-sent` and `EVENT1-session-off-hub-sent` SURVIVED until the old-relay pin asked the END of an event and the off-hub session was given a relay that knows its words (event1.json: 44, all dead). The cite shift applied. Deploying world163 drops every connected player once (the relay's own law).
 
+## PARTY-LEAD (2026-10-04, the player: "add a make person party leader option for the leader when in a party") - the lead handed on
+
+The party's lead moved only when its leader left (the longest-standing seat that is online took it - AUDIT PARTY8). Now
+the leader's Party tab offers **Make leader** beside Kick on every other seat (`src/ui/socialPanel.js`): an offline seat
+draws it dead and says "offline", and a member, my own seat and a hub that does not know the act draw none. The hub's
+`party.lead` act (`server/src/index.js` `_partyLead`) is the leader's alone, as a kick is; never oneself; a seated
+member; and online - a lead handed to an away seat would leave nobody able to kick (AUDIT PARTY8). Every member hears
+the `party.leader` note a leave already says ("You lead the party now" / "Ada leads the party now"), then the party as
+it stands; the old leader is a member, and the new one may hand it back.
+
+THE RELAY: world164 (world162 on its branch, renumbered past main's PRIMARCH and SUNBABY1 at the merge). `SOCIAL_ACTS`
+gains the kind, and an older hub's parser CLOSES the socket on an act it does not
+know (validSocialAct, CLOSE_POLICY) - so the client sends it only through world164 or later (`PARTY_LEAD_RELAY_MIN`,
+`OnlineSession.partyLeadOk` off the welcome, `sendSocial` refusing it otherwise), and the panel offers it only then,
+repainting when the hub's word changes. NOT YET DEPLOYED: the merge deploys the relay (`relay-deploy.yml`, keyed on
+RELAY_VERSION). Not DFU's - Daggerfall Unity has no parties.
+
+Pinned: `test/partylead.test.js` (3: the wire and the floor, the hub's refusals and the hand-over, the client's gate),
+`test/soc3_socialpanel.test.js` PARTY-LEAD (the button), `tools/mutants/partylead.json` (14, all dead). The relay pins
+moved to world164 (`test/relayversion.test.js` its row); soc1's S25 record aimed at the kick's own check (the lead asks
+the same first question), and relayversion's R1 at the hub's new last method.
+
 ## SERPENT1 (2026-10-04, Mac: "A new world event that requires players with a ship to meet up and take on a large scale sea serpent in the ocean"; "You make the decisions and online only") - the sea serpent
 
 The design and the record are `11-Multiplayer/Sea-Serpent.md`. What it asks of the online arc:
@@ -14435,13 +14521,13 @@ The design and the record are `11-Multiplayer/Sea-Serpent.md`. What it asks of t
   says a word down the socket of the cell named; `serpentReady(cell)` asks whether that socket's relay holds a serpent
   (`serpentOk`, from its welcome, carried through a halo's promotion). The cell's alarm is shared: the serpent's beat
   every 250 ms, the cell's own duties every 5 s and at their own firings.
-- **The `serpent` frame** (relay world164 - world162 on its branch, renumbered past PRIMARCH and SUNBABY1 at the merge; `net/wire.js` `validSerpentIn`, `validSerpentOut`, `serpentGate`,
+- **The `serpent` frame** (relay world165 - world162 on its branch, renumbered past PRIMARCH and SUNBABY1, then past PARTY-LEAD's world164, at the merges; `net/wire.js` `validSerpentIn`, `validSerpentOut`, `serpentGate`,
   `SERPENT_RELAY_MIN`). In: `in`, `hit`, `held`, `esc`. Out: the fight's sixteen words. The hub's only word is the
   kill, said to everyone online and to a hello while its day holds.
-- **The receipt** is `l1`, under the relay's one key, and the account service (acct76) counts it once a (day,
+- **The receipt** is `l1`, under the relay's one key, and the account service (acct78) counts it once a (day,
   account).
-- **When:** the relay first, then the service (migration 0078 first), then the client. A client on an older relay sees
-  the omen and no fight. Merging deploys world162 and acct76, which drops connected players once.
+- **When:** the relay first, then the service (migration 0081 first), then the client. A client on an older relay sees
+  the omen and no fight. Merging deploys world165 and acct78, which drops connected players once.
 - Pins: `test/serpent1_law.test.js`, `test/serpent1_relay.test.js`, `test/serpent1_client.test.js`. Mutants:
   `tools/mutants/serpent1.json` (43, all dead). Re-aimed by content: `auditrealm2_client.json` (2), `eventtip.json`,
   `gatekeys.json`, `gateux.json`, `raid4.json`, `seapeace.json`, `survtiers3.json` (2) and `wb12d.json`.
