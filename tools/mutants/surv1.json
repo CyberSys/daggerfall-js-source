@@ -92,8 +92,8 @@
   {
     "name": "SURV1-a-rough-rest-clears-the-whole-debt",
     "file": "src/systems/survival/needs.js",
-    "old": "      const floor = sleeping === 'rough' ? SLEEP_FLOOR_AT[rules.roughSleepFloor] ?? 0 : 0;",
-    "new": "      const floor = 0;",
+    "old": "  const floor = sleeping === 'rough' ? SLEEP_FLOOR_AT[rules.roughSleepFloor] ?? 0 : 0;",
+    "new": "  const floor = 0;",
     "tests": [
       "test/surv1_model.test.js"
     ]
