@@ -61,6 +61,11 @@ export class WaitWindow {
   input() {}
   /** No click is taken either - swallowed, so it reaches nothing under the page. */
   click() { return true; }
+  /** AUDIT HUNT-OUT C1: the pointer's move and its release are the page's too, taken and ignored - the hunt's page had
+   *  them, and townTalk answers "not mine" for a window without them, so a look still locked in the frames after the
+   *  page opened (the relock grace) was banked under it and turned the camera when the wait ended. */
+  hover() {}
+  release() {}
 
   draw(renderer, canvas, font) {
     const m = nativeMetrics(canvas);

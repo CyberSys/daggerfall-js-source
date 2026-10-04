@@ -8130,7 +8130,7 @@ hours and a legal rough rest took 480 health a night; the kit never
 reached a chargen character; a dungeon rest paid its night awake), the
 rest gate's handler leak, four camp doors, nine law bugs and a dozen
 surface faults - all fixed, recorded in `06-Systems/Climates-Calories.md`
-"The audit", pinned by `test/auditsurv.test.js` (8) and
+"The audit", pinned by `test/auditsurv.test.js` (8; 7 since HUNT-OUT took the hunt window's) and
 `tools/mutants/auditsurv.json`.
 
 ## CHARID1 - A CHARACTER IS AN ID, NOT A NAME (2026-09-21)

@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 
 import { WaitWindow, BUSY_DOTS } from '../src/ui/waitWindow.js';
-import { createForagingWait, waitLine, saneWait, FORAGING_WAIT_MAX_SECONDS, WAIT_PER_HOUR } from '../src/scenes/foragingWait.js';
+import { createForagingWait, waitLine, saneWait, FORAGING_WAIT_MAX_SECONDS, WAIT_PER_HOUR, waitRealSeconds } from '../src/scenes/foragingWait.js';
 import { RaiseTime, questActionsExtensionTemplates } from '../src/systems/quest/questActionsExtension.js';
 import { QuestMachine } from '../src/systems/quest/machine.js';
 import { loadQuestTables } from '../src/systems/quest/tables.js';
@@ -21,6 +21,8 @@ import { FATIGUE_MULTIPLIER } from '../src/systems/statMods.js';
 // ENH-NOTICE3: the wait page is a parchment of its own and rides the enhanced notice panel
 import { enhancedNoticeKeys, destroyEnhancedNotice, ENHANCED_NOTICE_ID } from '../src/ui/enhancedNotice.js';
 import { withDom } from './invdrag.mjs';
+import { _setMessageBoxArtForTests } from '../src/ui/messageBox.js';
+import { createTownTalk } from '../src/scenes/townTalk.js';
 
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -58,6 +60,15 @@ test('FORAGE4: the wait page takes no key and no click - the wait is the cost; a
   assert.deepEqual(closed, [true], 'once - a tick or a dispose after the end tells nobody again');
   w.extend(5);
   assert.equal(w.remaining, 0, 'and a closed page takes no more time');
+  // AUDIT HUNT-OUT: the two guards - a page asked for no time still opens and ends, and a frame's dt that is no number
+  // (or runs backwards) moves nothing
+  const z = new WaitWindow({ seconds: 0 });
+  assert.equal(z.dots, '.', 'a zero wait draws its first dot, not NaN of them');
+  z.tick(0.01);
+  assert.equal(z.done, true, 'and ends at the next frame, not a second later');
+  const g = new WaitWindow({ seconds: 4 });
+  g.tick(NaN); g.tick(-5); g.tick(undefined);
+  assert.equal(g.remaining, 4, 'no dt, a NaN or a negative one spends nothing - a NaN would hold the wait for ever');
 });
 
 test('FORAGE4: a foe near ends the page early, unfinished; so does the slot taken from under it; the dots fill as it runs', () => {
@@ -77,7 +88,8 @@ test('FORAGE4: a foe near ends the page early, unfinished; so does the slot take
   // the dots: the first at once, the last before the end
   const dots = (t) => { const w = new WaitWindow({ seconds: 10 }); w.tick(t); return w.dots.length; };
   assert.equal(dots(0.01), 1);
-  assert.equal(dots(5), BUSY_DOTS / 2 + 1, 'halfway: the seventh dot is being drawn, not the sixth finished');
+  assert.equal(BUSY_DOTS, 12, 'twelve dots at the full wait');
+  assert.equal(dots(5), 7, 'halfway: the seventh dot is being drawn, not the sixth finished');
   assert.equal(dots(9.99), BUSY_DOTS, 'the row fills before the page ends');
 });
 
@@ -113,7 +125,7 @@ function waiting(skin, fn) {
   }
 }
 
-test('ENH-NOTICE3: the wait page is the notice panel, redrawn per frame, and released when it ends or is taken (mutants: parchment-drawn-under-the-panel, panel-not-refreshed, no-release-on-close)', () => {
+test('ENH-NOTICE3: the wait page is the notice panel, redrawn per frame, and released when it ends or is taken (mutants: WAIT-parchment-drawn-under-the-panel, WAIT-panel-painted-once-and-left-stale, WAIT-no-release-on-close)', () => {
   waiting('enhanced', ({ dom, win, closed, r }) => {
     win.draw(r, WAIT_CANVAS, WAIT_FONT);
     assert.deepEqual(noticeTexts(dom), ['Chop and Gather Wood...', '.'], 'the wait\'s line and its first dot are the panel\'s');
@@ -139,15 +151,37 @@ test('ENH-NOTICE3: the wait page is the notice panel, redrawn per frame, and rel
   });
 });
 
-test('ENH-NOTICE3: the classic skin keeps the wait\'s parchment and builds no stack (mutants: panel-on-every-skin)', () => {
+test('ENH-NOTICE3: the classic skin keeps the wait\'s parchment, drawn, and builds no stack (mutants: WAIT-parchment-never-drawn)', () => {
   waiting('classic', ({ dom, win, r }) => {
-    win.draw(r, WAIT_CANVAS, WAIT_FONT);
+    // AUDIT HUNT-OUT: with no art loaded drawMessageBox paints nothing, so a page that never drew passed - the art is
+    // handed in, and the parchment's own slices must reach the renderer
+    _setMessageBoxArtForTests({ slices: Array.from({ length: 9 }, (_, i) => `spop:${i}`), buttons: new Map() });
+    try { win.draw(r, WAIT_CANVAS, WAIT_FONT); } finally { _setMessageBoxArtForTests(null); }
+    assert.ok(r.quads.some((q) => String(q.tex).startsWith('spop:')), 'the parchment is painted');
     assert.ok(win._box, 'the message-box layout is minted');
     assert.deepEqual(win._box.rows.map((row) => row.text), ['Chop and Gather Wood...', '.'], 'with the wait\'s line and its dots');
     assert.equal(win._noticeKey, undefined, 'mutants: a key minted on the classic skin');
     assert.deepEqual(enhancedNoticeKeys(), [], 'no panel');
     assert.equal((dom.body.children ?? []).some((c) => c.id === ENHANCED_NOTICE_ID), false, 'and no stack was ever built');
   });
+});
+
+test('AUDIT HUNT-OUT C1: the real townTalk host takes the pointer\'s move and its release under the wait page - none reaches the look behind it (mutants: WAIT-hover-not-taken, WAIT-release-not-taken)', () => {
+  // townTalk answers "not mine" for a window with no `hover` / `release`, and the host then hands the move to the look
+  // (world.js's mousemove: `if (townTalk.hover(e) || modes?.hover?.(e)) return;`). The hunt's page had both; the wait
+  // page lost them at its split, so a look still locked in the relock grace after the page opened was banked under it.
+  const canvas = { width: 320, height: 200, getBoundingClientRect: () => ({ left: 0, top: 0, width: 320, height: 200 }) };
+  const tt = createTownTalk({
+    renderer: { uploadTexture: () => ({}) }, canvas,
+    fetchBytes: async () => { throw new Error('this pin loads no ARENA2'); },
+    playerEntity: { name: 'T', stats: { personality: 50 }, skills: 30, skillUses: [] }, regionIndex: 0,
+  });
+  const w = new WaitWindow({ busy: 'Chop and Gather Wood...', seconds: 4 });
+  tt.showOverlay(w);
+  assert.equal(tt.hover({ clientX: 40, clientY: 40 }), true, 'the move is the page\'s');
+  assert.equal(tt.pointer('up', { clientX: 40, clientY: 40, button: 0 }), true, 'and so is the release');
+  assert.equal(w.done, false, 'and neither ends the wait');
+  tt.closeOverlay(w);
 });
 
 test('ENH-NOTICE3 (AUDIT B2/B7): the wait\'s panel promises nothing - no caption on a page that takes no click and no key - and the release precedes the close hook', () => {
@@ -175,6 +209,9 @@ test('FORAGE4: a wait is its game time at 8 real seconds an hour - Food 8 s, Cho
     assert.equal(wait.add(gameSeconds, 'Chop and Gather Wood'), real);
     assert.deepEqual(entity.foragingWait, { seconds: real, label: 'Chop and Gather Wood', held: [] });
   }
+  // AUDIT HUNT-OUT: to the hundredth - seven minutes is 0.93 s, not 0.9333... nor 0.9
+  assert.equal(waitRealSeconds(7), 0.93);
+  assert.equal(rig().wait.add(420), 0.93, 'and the quest\'s seconds go through it');
   assert.equal(waitLine('Chop and Gather Wood'), 'Chop and Gather Wood...', 'the page says the quest\'s own DisplayName');
   assert.equal(waitLine(null), 'Time passes...');
 });

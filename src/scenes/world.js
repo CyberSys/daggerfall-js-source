@@ -8687,8 +8687,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   // Fast travel resets the anchor (PreventEnemySpawns parity - DFU
   // suppresses the whole post-travel window).
   let _lastEncMinutes = null;
-  // `isResting` = "these minutes are a skip, not a walk": a rest window's sub-tick, but also the exhaustion collapse, a
-  // camp meal and a forage/hunt search (CAMP-REST, 2026-09-19). Only the GROUP roll reads it; lone wanderers still roll.
+  // `isResting` = "these minutes are a skip, not a walk": a rest window's sub-tick, but also the exhaustion collapse and
+  // a camp meal (CAMP-REST, 2026-09-19). Only the GROUP roll reads it; lone wanderers still roll.
   /** AUDIT LIVED1b P1: `spawns: false` walks the minutes with the wanderers' roll left out - a party mirror's night
    *  (PSCALE1 COUNT-1: the rester's roll is the party's), whose watch is still the follower's own. */
   function runEncounterTick(playerFeet, isResting = false, { spawns = true } = {}) {

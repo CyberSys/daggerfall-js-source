@@ -21,7 +21,7 @@ the manifest, the mod's item templates and sixteen of its item icons.
 > SURV-TENT describes HARD, the arc at full strength and unchanged to the
 > number (but for the laws both tiers share that the three AUDIT
 > SURV-TIERS passes fixed). CASUAL is the same world - every clock, stage, item, camp,
-> menu, hunt and word below - with five rules on what it COSTS: stamina
+> menu and word below (and the hunt, until HUNT-OUT - next note) - with five rules on what it COSTS: stamina
 > only, only at the stages the HUD paints red, lent down to half the pool
 > at most and repaid when the need is met, nothing refused, nothing
 > rolled against the player and nothing wasted. The design, the table,
@@ -68,7 +68,7 @@ carry, and everything static.
 | SURV5 | what the player is told: the HUD's needs strip, the status page's third box, the survival items' info box; the mod's regional tavern menus with the meal, the drink and the blackout | `survival/status.js`, `survival/tavernMenu.js`; `ui/enhancedHud.js` + `enhancedStyle.js`; `itemInfo.js`; `ui/tavernWindow.js` + the interior host's hooks; the four hosts' status chain |
 | SURV6 | RETIRED by HUNT-OUT (2026-10-04) - was: hunting, foraging and the water search as real-time events: the wilderness roll, the Yes/No box, the busy page, the finds and the harms, the hunted | DELETED: `survival/hunting.js`, `scenes/hunting.js`, `ui/huntWindow.js` (its busy page kept as `ui/waitWindow.js`, Foraging's wait), the overworld host's bag and tick |
 | SURV7 | the feed: the four hosts say where the player stands and the minute law runs in every mode; the rest gate on DFU's seam; the needs aligned at a load and an arrival; fast travel charged; the records | `survival/env.js` (the feed, the gate); `scenes/shared.js` createPlayerTicker's `survivalEnv`; the four hosts' readers; `save.js`'s load arm; `worldTick.js` tickPlayerMinutes' `survival` |
-| SURV-TIERS | Off, Casual (the default) and Hard on the one key: the tiers as data, every charging law reading its tier's rules, Off stored as the old switch's own `false`; AUDIT SURV-TIERS: the loan, a rest is a rest, the house's order, Off keeping the camps and the place, four laws Hard shares | `survival/difficulty.js` (the table, the stored values), `survival/switch.js` (`survivalTier`, `survivalRules`), the laws (`needs.js`, `rest.js`, `food.js`, `hunting.js`, `tavernMenu.js`, `temperature.js`), the compositions (`env.js`, `scenes/shared.js`, `scenes/hunting.js`, `scenes/camps.js`, `useItem.js`, both tavern windows), `encounters.js` (the asks), `uiPrefs.js` (the load), the four hosts' `restKind`, the Features row |
+| SURV-TIERS | Off, Casual (the default) and Hard on the one key: the tiers as data, every charging law reading its tier's rules, Off stored as the old switch's own `false`; AUDIT SURV-TIERS: the loan, a rest is a rest, the house's order, Off keeping the camps and the place, four laws Hard shares | `survival/difficulty.js` (the table, the stored values), `survival/switch.js` (`survivalTier`, `survivalRules`), the laws (`needs.js`, `rest.js`, `food.js`, `tavernMenu.js`, `temperature.js`; `hunting.js` until HUNT-OUT DELETED it), the compositions (`env.js`, `scenes/shared.js`, `scenes/hunting.js` until HUNT-OUT, `scenes/camps.js`, `useItem.js`, both tavern windows), `encounters.js` (the asks), `uiPrefs.js` (the load), the four hosts' `restKind`, the Features row |
 | SURV-OFFSIGHT | Off sees another player's camp - the flame, its light, the tent - and uses none of it; its own stay out of sight | `scenes/camps.js` (`seen`, the doors of sight, beside `shown`, the doors of use) |
 
 ### The temperature (SURV1)
@@ -1112,7 +1112,7 @@ world and fights whoever is near it.
 
 ### The pins
 
-`test/survtiers.test.js`, 30 tests: the row, the table and the shelf agree
+`test/survtiers.test.js`, 30 tests (29 since HUNT-OUT took the hunt's): the row, the table and the shelf agree
 (the segments write the table's stored values); the switch's reads; the
 shelf, through a real one (an old Off kept as `false`, the default stored
 as nothing, five junk values dropped at the load); Hard's table is the arc
@@ -1134,7 +1134,8 @@ Casual rest in a blizzard charged nothing, Off's place kept and priced as
 a bed, the asks and a count that is no number); the gate; the meal (and
 through the whole `useItem` ladder in each tier); the hunt (twelve
 thousand seeded searches, Casual equal to Hard with the twins swapped, and
-the host's own hunt composed in both tiers); the house through the
+the host's own hunt composed in both tiers - RETIRED with the hunt,
+HUNT-OUT 2026-10-04); the house through the
 classic window (the gold first, the pour and the kitchen, the boundaries
 of both, null rules); the enhanced tavern DRIVEN through a fake document,
 and before six; the composed ticker; the laws both tiers share (the hour,
