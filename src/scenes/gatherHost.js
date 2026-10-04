@@ -61,6 +61,7 @@ import { materialCountLabel } from '../systems/profItems.js';
 import { accountRefusalText } from '../net/accountClient.js';
 import { DEFAULT_ACTIVATION_DISTANCE } from '../player/activate.js';
 import { harvestHauls } from '../ui/haulCards.js';   // HAUL-CARDS: a harvest's goods and XP as one card, on the enhanced skin
+import { BAG_WORDS, goodsWhere } from '../net/bagLaw.js';   // BAG1: where the goods went
 import { nodeMarkCss } from '../ui/nodeMarks.js';   // GATHER-OW: a group's glyph in its profession's compass colour
 
 /** A node answers E within DFU's activation distance, and within this many degrees of the look. */
@@ -135,14 +136,29 @@ export function storesLine(d) {
   if (d.gem) { const g = materialCountLabel(d.gem, 1); goods.push(`${/^[aeiou]/i.test(g) ? 'an' : 'a'} ${g}`); }
   if (d.extra) { const n = Number(d.extraQty) || 1; goods.push(`${n > 1 ? `${n} ` : ''}${materialCountLabel(d.extra, n)}`); }
   const said = goods.length > 1 ? `${goods.slice(0, -1).join(', ')} and ${goods[goods.length - 1]}` : goods[0];
-  return `+${said} to your Stores`;
+  return `+${said} ${goodsWhere(d)}`;
 }
+/** AUDIT BAG1 B4: the material a kind's act names for its goods (`material`: a key, or one of the act's ground - a
+ *  herb's is its region's), or null where the service rolls it (the Basket's food, a boulder's stone). */
+export function actMaterial(a) {
+  const m = typeof a?.material === 'function' ? a.material(a.info) : a?.material;
+  return typeof m === 'string' && m ? m : null;
+}
+/** AUDIT BAG1 B9: what a carried harvest left where it was gathered, each material by its own name ("1 Ruby and 2 Oak
+ *  Logs"); a `put` from before the audit, which names none, as the harvest's own. */
+export function leftWords(d) {
+  const lost = Array.isArray(d?.put?.lost) && d.put.lost.length ? d.put.lost : [{ key: d?.material, n: d?.put?.left | 0 }];
+  const parts = lost.map((l) => `${l.n} ${materialCountLabel(l.key, l.n)}`);
+  return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0];
+}
+
 /** GATHER-SAID: where the Stores are, said with a session's first harvest - the goods are never in the pack.
  *  CLASSIC-PAGES: on either skin, by the Professions key the player has it bound to (`key`, its label; none bound, the
  *  pause menu's page). */
 // AUDIT HOLDINGS C7: the Stores page is on the pause menu's Holdings tab now - the Professions key lands on the Stats
 // tab's Professions page, and the line said it opened the Stores
-export const storesWhereLine = (key) => `Gathered goods go to your Stores, not your pack: the pause menu's Holdings > Stores${key ? ` (${key} opens your Professions)` : ''}.`;
+export const storesWhereLine = (key, carrying = false) => (carrying ? BAG_WORDS.where   // BAG1: into the bag, then the pack
+  : `Gathered goods go to your Stores, not your pack: the pause menu's Holdings > Stores${key ? ` (${key} opens your Professions)` : ''}.`);
 /** GATHER-SAID: an act that ended before its end - let go, walked off, a window over it, the dungeon left - nothing asked. */
 export const ACT_STOPPED_LINE = 'The gathering stopped before its end - nothing was taken.';
 /** A harvest the service did not answer, kept and asked again (net/profBook.js PROF_QUEUE_MS: ten minutes). */
@@ -559,6 +575,9 @@ export function createGatherHost(deps) {
     book.harvest({
       node: a.node.key, kind: a.harvest, climate: a.info?.climate ?? null, region: a.info?.region ?? null, act: report,   // PROF7: a body names no ground
       at: Math.floor(deps.nowMs() / 1000), ...((typeof a.ask === 'function' ? a.ask() : a.ask) ?? {}),   // AUDIT SILVER-WAYS D5: a kind's ask may be asked at the act's end
+      // AUDIT BAG1 B4: the material the act's goods are, where the kind knows it - the book reads what the bag and the pack
+      // hold of it (`held`); no kind named one, and no carried harvest ever cut the count to the pack
+      ...(actMaterial(a) ? { material: actMaterial(a) } : {}),
     }).then((r) => answered(a, r, before), () => {});
   }
   /** A harvest's answer said: the Stores, the XP, a gem, a rank's rise; a refusal in words; a kept one once. */
@@ -578,8 +597,11 @@ export function createGatherHost(deps) {
       let hauled = false;
       try { hauled = live && deps.haul?.(harvestHauls(d, { name: k?.haulName?.(d) ?? null, note })) === true; } catch { hauled = false; }
       if (!hauled) hud.toast(k?.storesLine ? k.storesLine(d) : storesLine(d), { keep: true });   // GATHER-SAID: the goods in one line, outlasting the rest; PROF4's Resin, PROF7's butchery in it; PROF8's species
-      if (!storesSaid) { storesSaid = true; hud.toast(storesWhereLine(deps.keyLabel?.('Professions') ?? '')); }
+      if (!storesSaid) { storesSaid = true; hud.toast(storesWhereLine(deps.keyLabel?.('Professions') ?? '', d.carry === true)); }
       if (!hauled) hud.toast(`+${d.xp} ${professionName(profession)} XP${note}`);
+      // BAG1: what found no room in the bag or the pack is said even where the card said the goods - the card counts what came
+      // AUDIT BAG1 B9: each by its own name - a gem or a second find left was said as the harvest's material
+      if (hauled && d.carry === true && (d.put?.left ?? 0) > 0) hud.toast(`${leftWords(d)} left where gathered: no room in your bag or pack.`);
       const after = d.track?.rank ?? before;
       if (after > before) {
         hud.toast(`${professionName(profession)} ${before} -> ${after}`);
@@ -814,7 +836,7 @@ export function createGatherHost(deps) {
       if (book.stale() && now >= refreshAt) {
         refreshAt = now + 30_000;
         // PROF5 (FOUND): a kept craft settles too, not only beside a kept withdrawal
-        book.refresh().then((r) => { if (r?.ok) { refreshAt = 0; restandAll(); if (book.pendingWithdrawals || book.pendingCrafts) deps.onSettle?.(); } }, () => {});
+        book.refresh().then((r) => { if (r?.ok) { refreshAt = 0; restandAll(); if (book.pendingWithdrawals || book.pendingCrafts || book.pendingDeposits) deps.onSettle?.(); } }, () => {});   // AUDIT2 BAG1 K3: and a kept deposit, at the next settle
       }
       const d = utcDayOfMs(now);
       if (d !== day) { day = d; restandAll(); }

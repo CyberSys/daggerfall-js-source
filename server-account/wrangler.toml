@@ -76,7 +76,7 @@ mode = "smart"
 [vars]
 # Answered by /health so a deploy that did not happen cannot look like
 # one that did. Kept in step with ACCOUNT_VERSION in src/service.js.
-ACCOUNT_VERSION = "acct72"
+ACCOUNT_VERSION = "acct74"
 # WB5b: THE RELAY'S PUBLIC HALF, GATE_PUBLIC_KEY - the key an Oblivion
 # Gate's kill receipts verify with (src/net/gateReceipt.js) - is NOT a
 # var here. GATE-KEYS (2026-09-26): the account deploy mints the pair
@@ -186,6 +186,14 @@ PENITENT_HANDLES = "Diggleborf"
 # (PATREON_TIERS below); a handle here grants the title and the glyph by
 # name, as every list above does. Empty: nobody by name yet.
 HERALD_HANDLES = ""
+# AEGIS (2026-10-03, the owner: "For the account named Sureme ... a title,
+# glyph and new custom aura for this user. Title: Aegis of Oblivion. Theme:
+# Purple"): Aegis of Oblivion - the violet title, the aegis glyph (three
+# pillars through a ring over the void's tendrils) and the Oblivion Ward,
+# a full ring of violet runes at the feet. The first list that grants an
+# AURA as well as a title and a glyph (titles.js TIER_AURA); taking the
+# handle off takes all three on the next token.
+AEGIS_HANDLES = "Sureme"
 # PATREON-LINK (2026-10-01, Mac: "With patron and having to manually hand
 # out titles. Im running into a workflow where its really hard to keep up
 # with it"; asked, "Patreon auto-link"): A PATRON'S TITLE FOLLOWS THEIR

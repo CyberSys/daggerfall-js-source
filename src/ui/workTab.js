@@ -123,11 +123,11 @@ export const paidText = (pay, tax) => `${marksText(pay)} struck to your account$
 /**
  * THE WORK TAB'S PROF6 SECTIONS.
  * @param {{
- *   writs: any, held: (material: string) => number, region: number, regionName: string, regionNameOf: (r: number) => string,
+ *   writs: any, held: (material: string) => number, carrying?: () => boolean, region: number, regionName: string, regionNameOf: (r: number) => string,
  *   countName: (key: string, n: number) => string,
  *   pieces: (c: any) => Array<{ item: any, where: string, name: string, quality?: number|null, take: () => boolean, putBack: (item: any, where: string) => void }>,
  *   reload: () => void,
- * }} w `writs` - net/writBook.js; `held` - the Stores' count of a material (the professions' book); `pieces` - the
+ * }} w `writs` - net/writBook.js; `held` - the Stores' count of a material (the professions' book) - BAG1: and what is carried, where `carrying`; `pieces` - the
  *   pieces in the save that answer a commission (the service's named ones where it named them, the least quality
  *   first); `reload` - the Work tab's list read again
  * @param {{ busy: () => boolean, run: (start: () => Promise<any>) => Promise<void>, rerender: () => void, nowS: () => number,
@@ -201,16 +201,18 @@ export function createWorkTab(w, ui) {
       n.min = '1'; n.max = String(most);
       const go = button('primary notice-take work-deliver', `Deliver ${count(units())}`, () => {
         const u = units();
-        return act(() => w.writs.supply({ region: w.region, writ: x.id, units: u }),
+        return act(() => w.writs.supply({ region: w.region, writ: x.id, units: u, material: x.material }),   // BAG1: the material, so what is carried goes in first
           (d) => `Delivered ${count(u)} ${w.countName(x.material, u)}: ${paidText(d?.fill?.pay ?? 0, d?.fill?.tax ?? 0)}.`);
       });
       why(go, busyWhy());
       n.oninput = () => { st.supply[x.id] = intOf(n.value, 1, most); go.textContent = `Deliver ${count(units())}`; };
       bar.append(labelled('Units', n), go);
     } else if (x.state === 'open') {
-      bar.append(el('span', 'work-none', held <= 0 ? 'Your Stores hold none of it.' : 'The guild\'s Stores can take no more of it.'));
+      // AUDIT BAG1: a carrying book's count is the Stores' and what is carried - said as such
+      bar.append(el('span', 'work-none', held > 0 ? 'The guild\'s Stores can take no more of it.'
+        : w.carrying?.() ? 'You hold none of it - in your Stores, your Materials Bag or your pack.' : 'Your Stores hold none of it.'));
     }
-    bar.append(el('span', null, `${count(held)} in your Stores`));
+    bar.append(el('span', null, `${count(held)} ${w.carrying?.() ? 'held' : 'in your Stores'}`));
     if (x.may) bar.append(withdrawWrit(x));
     li.append(bar, el('span', 'notice-seal', ''));
     return li;

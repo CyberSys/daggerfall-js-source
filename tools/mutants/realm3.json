@@ -38,8 +38,8 @@
   {
     "name": "REALM3-wagon-spared",
     "file": "src/systems/realmCustoms.js",
-    "old": "  for (const list of lists(snap.wagonItems, snap.items)) takeFrom(list);",
-    "new": "  for (const list of lists(snap.items)) takeFrom(list);",
+    "old": "  for (const list of lists(snap.wagonItems, snap.bagItems, snap.items)) takeFrom(list);",
+    "new": "  for (const list of lists(snap.bagItems, snap.items)) takeFrom(list);",
     "tests": [
       "test/realm3.test.js"
     ]

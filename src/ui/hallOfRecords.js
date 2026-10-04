@@ -60,10 +60,13 @@ export function hallOfRecordsRoll(rows, seat, armsOf = null) {
       .filter((g) => g && typeof g === 'object' && typeof g.tag === 'string' && typeof g.name === 'string' && line.includes(guildWords(g)))
       .sort((a, b) => line.indexOf(guildWords(a)) - line.indexOf(guildWords(b)));
     for (const g of named) {
-      if (seen.has(g.tag)) continue;
-      seen.add(g.tag);
-      const h = heraldryOf(armsOf(g.tag, g.name));
-      if (h) out.push(`${upper(guildWords(g))}: ${heraldryText(h)}.`);
+      // AUDIT2 GUILD2 G1: a guild renamed since is found as it is named now (the service's `now`), and said so
+      const now = g.now && typeof g.now.tag === 'string' && typeof g.now.name === 'string' ? g.now : null;
+      const tag = now?.tag ?? g.tag;
+      if (seen.has(tag)) continue;   // once a guild, by its tag now
+      seen.add(tag);
+      const h = heraldryOf(armsOf(tag, now?.name ?? g.name));
+      if (h) out.push(`${upper(guildWords(g))}${now ? ` (now ${guildWords(now)})` : ''}: ${heraldryText(h)}.`);
     }
   }
   return out;

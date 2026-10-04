@@ -972,8 +972,8 @@
   {
     "name": "PROF5-host-crafts-wait",
     "file": "src/ui/profPages.js",
-    "old": "  if ((book.pendingWithdrawals || book.pendingCrafts) && p.settle && Date.now() - _stores.settledAt > 30_000) {",
-    "new": "  if (book.pendingWithdrawals && p.settle && Date.now() - _stores.settledAt > 30_000) {",
+    "old": "  if ((book.pendingWithdrawals || book.pendingCrafts || book.pendingDeposits) && p.settle && Date.now() - _stores.settledAt > 30_000) {",
+    "new": "  if ((book.pendingWithdrawals || book.pendingDeposits) && p.settle && Date.now() - _stores.settledAt > 30_000) {",
     "tests": [
       "test/prof5_client.test.js",
       "test/audit29_host.test.js"

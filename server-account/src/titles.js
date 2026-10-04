@@ -28,6 +28,10 @@
 //   SHADOW FANG (SHADOW-FANG, 2026-09-26) the same, one player's own.
 //   PENITENT (PENITENT, 2026-09-29) the same, Diggleborf's own.
 //   HERALD (HERALD, 2026-10-01) the same, and the Patreon tier's.
+//   AEGIS OF OBLIVION (AEGIS, 2026-10-03) the same, Sureme's own - and
+//             the list grants an AURA beside the title and its glyph
+//             (TIER_AURA): the Oblivion Ward, held while the handle is
+//             listed, as the glyph is. The first aura not bought.
 //   GRAND CHAMPION, ARENA CHAMPION and THE LAUREL (ARENA4, 2026-10-02)
 //             the arena's rows (server-account/src/arena.js): a Grand
 //             Champion row the relay signed; the season's #1 of the
@@ -150,9 +154,17 @@ export const TIER_LISTS = Object.freeze({
   // Patreon tier between Disciple and Hierophant. Held by its pledge (PATREON_TIERS) like the tiers before it, and by
   // this list for a Herald Mac names.
   herald: 'HERALD_HANDLES',
+  // AEGIS (2026-10-03, the owner: "For the account named Sureme ... a title, glyph and new custom aura for this user.
+  // Title: Aegis of Oblivion. Theme: Purple"): a third title made for one player, granted the same way - and the first
+  // list to grant an aura with it (TIER_AURA, below).
+  aegis: 'AEGIS_HANDLES',
 });
 /** The glyph each of those titles carries, in the vocabulary's words. */
-export const TIER_GLYPH = Object.freeze({ dungeonmaster: 'dm', disciple: 'disciple', apostle: 'apostle', hierophant: 'hierophant', shadowfang: 'shadowfang', penitent: 'penitent', herald: 'herald' });
+export const TIER_GLYPH = Object.freeze({ dungeonmaster: 'dm', disciple: 'disciple', apostle: 'apostle', hierophant: 'hierophant', shadowfang: 'shadowfang', penitent: 'penitent', herald: 'herald', aegis: 'aegis' });
+/** AEGIS: THE AURA A LIST'S TITLE CARRIES, where it carries one - held while the handle is listed, exactly as its glyph
+ *  is, and gone on the next token once it is not. A grant like the glyph and unlike the Broker's: derived from the
+ *  config at every ask, never a sale recorded on the row. */
+export const TIER_AURA = Object.freeze({ aegis: 'oblivionward' });
 
 /** Does this player hold that list's title? A guest holds none, for the developer's reason. PATREON-LINK (2026-10-01,
  *  Mac: "having to manually hand out titles ... its really hard to keep up with it"): AND a Patreon tier's title is held
@@ -225,19 +237,26 @@ export function titlesHeld(player, env) {
   return held;
 }
 
-/** WB9g: THE AURAS THIS PLAYER HOLDS - the Broker's, bought (the row's `insignia`), in the offers' order. */
-export const aurasHeld = (player) => insigniaKeys(player?.insignia, 'aura');
-/** WB9g: the aura this player WEARS - the stored one, while they hold it (titleWorn's law). */
-export function auraWorn(player) {
+/** WB9g: THE AURAS THIS PLAYER HOLDS - the Broker's, bought (the row's `insignia`), in the offers' order. AEGIS: and,
+ *  first, the auras their listed titles carry (TIER_AURA), in TIER_LISTS' order - read off the config as the title is,
+ *  so `env` is owed wherever a list could grant one (a caller without it reads the Broker's alone, as before). */
+export function aurasHeld(player, env) {
+  const held = [];
+  for (const [t, a] of Object.entries(TIER_AURA)) if (holdsTier(t, player, env) && !held.includes(a)) held.push(a);
+  for (const a of insigniaKeys(player?.insignia, 'aura')) if (!held.includes(a)) held.push(a);
+  return held;
+}
+/** WB9g: the aura this player WEARS - the stored one, while they hold it (titleWorn's law). AEGIS: held by a list too. */
+export function auraWorn(player, env) {
   const a = player?.aura;
   if (typeof a !== 'string' || !a) return undefined;
-  return aurasHeld(player).includes(a) ? a : undefined;
+  return aurasHeld(player, env).includes(a) ? a : undefined;
 }
 /** WB9g: what a player may wear at their feet - the refusal word, or null; `null` (none) is always allowed. */
-export function auraRefusal(aura, player) {
+export function auraRefusal(aura, player, env) {
   if (aura === null) return null;
   if (typeof aura !== 'string' || !AURAS.includes(aura)) return 'no-aura';
-  return aurasHeld(player).includes(aura) ? null : 'not-held';
+  return aurasHeld(player, env).includes(aura) ? null : 'not-held';
 }
 
 /** THE GLYPHS THAT ARE TRUE OF THIS PLAYER, in a fixed order. GLYPH-WEAR: a player may take one off (glyphsHidden),
@@ -303,8 +322,8 @@ export const wardrobeOf = (player, env, nowS) => ({
   title: titleWorn(player, env) ?? null,
   glyphs: glyphsOf(player, env, nowS),
   ...glyphsOffOf(player, env, nowS),   // GLYPH-WEAR: the ones taken off, absent for none - `glyphs` stays all that is true
-  auras: aurasHeld(player),
-  aura: auraWorn(player) ?? null,
+  auras: aurasHeld(player, env),   // AEGIS: a list's aura beside the Broker's
+  aura: auraWorn(player, env) ?? null,
   insignia: insigniaHeld(player?.insignia),
 });
 

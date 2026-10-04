@@ -75,6 +75,9 @@
 //   POST /v1/prof/state { character }                                  -> { tracks, today, taken, stores, writs, caps, hunt }   (PROF7: the account's hides today)
 //   POST /v1/prof/pixels { character, pixels: [[x, y]...] }            -> { pixels: [{ x, y, state, climate?, region? }] }
 //   POST /v1/prof/harvest { character, node, kind, climate, region, act, at, rid, foe? } -> { ok, material, qty, xp, track, today, store, gem?, extra?, extraQty?, hunt? } | { repeat, ... }   (PROF7: a body's `foe`, no ground)
+//        BAG1: { carry: true, held, heldKey?, seen? } lands the goods in the carried count - `held` what the bag and pack
+//        hold of `heldKey`, the count cut to it only when `seen` (the count the client last heard) is the service's own,
+//        decided once a request (prof_carried_gate) - and a Motherlode's strike (PROF2b) the same  -> { ..., carry, carried }
 //   POST /v1/prof/spec { character, profession, rank, spec, rid }      -> { ok, track, marks?, balance? }
 //   POST /v1/prof/smelt { character, recipe, count, clean?, rid }      -> { ok, recipe, count, own, bought, xp, first?, clean?, track, stores } | { repeat, ... }   (PROF2; PROF4 the burns and saws; PROF7 the loom's cures and weave - a weave's `track` null; PROF11 the mason's bench's cut and mix - `clean` the chisel's, `first` its 500)
 //   POST /v1/prof/craft { character, recipe, clean, name?, heartwood?, dye?, cracked?, rid } -> { ok, recipe, quality, count, seed, maker, marked, xp, first, heartwood, dye, hand?, pieces, track, stores } | { repeat, ... }   (PROF3 the anvil; PROF4 the workbench; PROF7 the loom and a garment's `dye`; PROF11 the Sculptor's stone decor; PROF9 the fire's dishes and a dish's `hand`; PROF10 the jeweller's bench - a piece's `hand`, a Lapidary's `cracked` gem)
@@ -82,6 +85,8 @@
 //   POST /v1/prof/disenchant { character, provenance, rid, realm? } -> { ok, provenance, recipe, points, essence, origin, xp, track, store, realm? } | { repeat, ... } | { error: 'prof-no-piece', why? }   (PROF12: a crafted piece into Arcane Essence, gone; AUDIT PROF-541 B2: a realm character's out of its record - `realm` where it stands, `realm.seq` the record's new sequence, `why: 'disenchanted'` a piece this account's disenchant took)
 //   POST /v1/prof/stock { character, material, qty, rid }             -> { ok, ... } | { repeat, ... }   (PROF3 the smith's stock; PROF4 the furnisher's; PROF5 the Weavers')
 //   POST /v1/stores/withdraw { character, material, qty, rid }         -> { ok, material, qty, store } | { repeat, ... }
+//        BAG1: { carry: true, held, seen? } counts the units as carried -> { ..., carry, carried }
+//   POST /v1/stores/deposit { character, material, qty, held, order, rid, seen? } -> { ok, material, qty, own, bought, gold, store, carried } | { repeat, ... }   (BAG1: `order` 'all' or 'spend'; a deposit made is answered as made, for good - prof_deposits)
 //   POST /v1/writs/list { character, region }                          -> { region, day, endsAt, writs, today }
 //   POST /v1/writs/deliver { character, id, rid }                      -> { ok, writ, pay, balance, track, store, today, renown, order } | { repeat, ... }
 // RENOWN1, Renown. The caller's own character, by the id its
@@ -162,7 +167,9 @@ import { roomsOf, offerRoom, withdrawRoom, rentRoom, collectRent } from './rent.
 import {
   foundGuild, guildOf, invitesOf, inviteToGuild, answerInvite, leaveGuild, removeFromGuild, rankGuildMember, renameGuildRanks,
   depositToGuild, withdrawFromGuild, handOverGuild, disbandGuild, guildBadgeOf,
+  renameGuild,   // GUILD2a
 } from './guilds.js';   // GUILD1: the guilds' routes; GUILD1c: the guild a token carries
+import { vaultOf, vaultPut, vaultTake, vaultGrant } from './guildVault.js';   // GUILD2b: the guild's vault
 import { buyHall, sellHall, setHallEntry, setHeraldry } from './halls.js';   // GUILD1d: the guild hall and heraldry
 import { readGuildBoard, pinGuildNote, takeDownGuildNote } from './guildBoard.js';   // GUILD1e: a guild's own board
 import { listSeats, witnessSeat, strikeSeat, seatsOpenFor } from './townSeats.js';   // SEAT1a: the seats' witnessed registry
@@ -183,7 +190,7 @@ const withSeatTitles = async (ctx, player, env) => (seatsOpenFor(player, env) ? 
 import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase, yardsOf } from './decor.js';   // DECOR1: an online home's decor; BASE-HIDE: what its owner took out
 import { gateStrikeStatement, gateStrikeAnswer, raidStrikeStatement, combatStrikeAnswer, raidStrikeRid, deedStatements, deedAnswer, deedEvent, marksOf, marksCardOf, exchangeMarks, depositGuildMarks, withdrawGuildMarks, marksReport } from './marks.js';   // MARKS1: the server's currency; SILVER-WAYS: a raid's silver and a guild's deeds
 import { readBoard, pinNote, takeDownNote, reportNote, moderateNote, postNotice, removeNotice } from './board.js';   // NOTICE1: the Notice Board
-import { profState, profPixels, harvestNode, chooseSpec, withdrawStores, smeltAtForge, craftAtAnvil, buyStock, listWrits, deliverWrit } from './professions.js';   // PROF1: the professions; PROF2: the forge; PROF3: the anvil and the smith's stock
+import { profState, profPixels, harvestNode, chooseSpec, withdrawStores, depositStores, smeltAtForge, craftAtAnvil, buyStock, listWrits, deliverWrit } from './professions.js';   // BAG1: a deposit   // PROF1: the professions; PROF2: the forge; PROF3: the anvil and the smith's stock
 import { brewAtStation, disenchantPiece } from './alchemy.js';   // PROF12: Alchemy's brew, Enchanting's disenchant
 import {
   writBoard, postGuildWrit, supplyGuildWrit, withdrawGuildWrit, setWritBudget, postCommission, fulfilCommission, cancelCommission, declineCommission,
@@ -241,6 +248,7 @@ const REALM_STATUS = Object.freeze({
   'guild-master-leaves': 409,   // AUDIT REALM L1-F7: a guildmaster deleted hands the guild over first
   'guild-treasury': 409,   // AUDIT REALM2 S8: and a lone one empties the treasury first
   'guild-hall': 409,   // AUDIT GUILD1d S1: and sells its guild's hall first
+  'guild-vault': 409,   // AUDIT GUILD2 G2: and empties its guild's vault first
   'guild-seat': 409, 'guild-battle': 409,   // SEAT1c: and relinquishes its Charters, and fights the battle it is named in
   'realm-market-open': 409,   // PROF-DELETE: and one with market business open settles it first
   'home-tenants': 409, 'home-rent-due': 409,   // HOME-RENT: and one renting rooms out waits for its tenants and collects its rent
@@ -269,6 +277,12 @@ const GUILD_STATUS = Object.freeze({
   'home-layout': 409, 'home-update': 426,
   'heraldry-same': 409, 'heraldry-moved': 409, 'heraldry-drakes': 409, 'marks-closed': 403,
   'heraldry-siege': 409,   // AUDIT-SEATS S10 (Seats-Arc 8.1): a change in a week the guild fights for a seat
+  // GUILD2a: a new name - the same as the old, a word the filter refuses, too soon after the last, a siege week, the
+  // realm's gold short, moved under it; GUILD2b: the vault - the standing short, the day's limit, full, empty, moved,
+  // a piece the record does not hold or may not leave, a guild kept from going by its vault
+  'guild-rename-same': 409, 'guild-name-word': 400, 'guild-rename-soon': 409, 'guild-rename-siege': 409, 'guild-rename-gold': 409, 'guild-rename-moved': 409,
+  'guild-vault-rank': 403, 'guild-vault-limit': 409, 'guild-vault-full': 409, 'guild-vault-empty': 404, 'guild-vault-moved': 409, 'vault-goods': 409, 'guild-vault': 409,
+  'realm-only': 400, 'bad-vault-item': 400, 'bad-vault-count': 400, 'bad-vault-slot': 400, 'bad-vault-grant': 400,
   'guild-seat': 409, 'guild-battle': 409,   // SEAT1c: a guild holding a Charter, or named in a battle still to come, does not go
   // GUILD1e: the guild's board - the Notice Board's switch, a mute, no such note, the member's notes full, the hour spent
   'board-closed': 403, muted: 403, 'no-note': 404, 'notes-full': 409, 'board-rate': 429, 'board-ops-rate': 429,
@@ -333,6 +347,7 @@ const PROF_STATUS = Object.freeze({
   'prof-pixel': 409, 'prof-day': 409, 'prof-late': 409, 'prof-cap': 409, 'stores-full': 409, 'stores-short': 409,   // ANY-HOUR: no `prof-night` - no node keeps hours
   'prof-account-cap': 409, 'prof-deep-cap': 409, 'prof-spec-stale': 409, 'prof-spec-taken': 409,   // AUDIT 29
   'prof-no-pack-form': 409,   // PROF3: the smith's stock stays in the Stores until its professions' templates
+  'carried-full': 409, 'carried-short': 409,   // BAG1: a carried count at its bound, or holding fewer than a deposit asks
   'prof-later': 409,   // PROF4: a recipe whose slice is to come - the Ram Kit (PROF0 25)
   'prof-hunt-cap': 409, 'prof-hunt-high': 409, 'prof-foe': 400, 'prof-dye': 400,   // PROF7: Hunting's day (30 hides, 3 of tiers 5-6), a body no knife skins, a dye asked of what takes none
   'prof-fish-cap': 409,   // PROF8: Fishing's day (40 hauls an account)
@@ -676,7 +691,7 @@ const service = {
         const wardrobe = {
           ...seatT,
           g: [...glyphsOf(who.player, env, nowS), ...(seatBadge?.glyphs ?? [])],
-          au: auraWorn(who.player),   // WB9g: the aura worn, the title's law - absent for none
+          au: auraWorn(who.player, env),   // WB9g: the aura worn, the title's law - absent for none; AEGIS: a list's read off the config
           ...(rb ? { rb } : {}),
         };
         // GLYPH-WEAR: the glyphs taken off ride BESIDE `g`, never out of it - `g` is what is true and what the relay's
@@ -1035,12 +1050,19 @@ const service = {
           // GUILD1e: the guild's own board - its notes, its members' alone (guildBoard.js, the Notice Board's switch)
           '/v1/guilds/board': (c, p, b) => readGuildBoard(c, p, env, b), '/v1/guilds/board/pin': (c, p, b) => pinGuildNote(c, p, env, b),
           '/v1/guilds/board/take-down': (c, p, b) => takeDownGuildNote(c, p, env, b),
+          // GUILD2a: a new name, for a price; GUILD2b: the vault - a piece in and out on the realm record, the grants
+          '/v1/guilds/rename': renameGuild, '/v1/guilds/vault': vaultOf, '/v1/guilds/vault/put': vaultPut, '/v1/guilds/vault/take': vaultTake,
+          '/v1/guilds/vault/grant': vaultGrant,
         }[path];
         if (!act) return no('not-found', 404, origin);
         const r = await act({ ...ctx, env, bucket: env.SAVES }, who.player, body);   // REALM P2.2: a realm character's record is in R2; AUDIT 28 M5: the switch says whether the Marks show
         if (!('error' in r)) return json(await guildOrdersOf(r, who.player.id, env, subtle, nowS), 200, origin);
         if (r.error === 'seq') return json({ error: 'seq', seq: r.seq }, 409, origin);   // REALM P2.2: the service's own, as a checkpoint's
         if (r.error === 'home-layout') return json({ error: 'home-layout', layout: r.layout ?? null }, 409, origin);   // AUDIT PRE-MERGE 1003 WD1: the town's layout, as /v1/homes/claim answers it
+        // AUDIT2 GUILD2 S2/S7: the word the filter caught (`why`, the door's own field for a refusal's reason), and when the
+        // next new name may come - each dropped here, so the page could say neither
+        if (r.error === 'guild-name-word' && typeof r.word === 'string') return json({ error: r.error, why: r.word }, GUILD_STATUS[r.error], origin);
+        if (r.error === 'guild-rename-soon' && Number.isSafeInteger(r.at)) return json({ error: r.error, at: r.at }, GUILD_STATUS[r.error], origin);
         return no(r.error, GUILD_STATUS[r.error] ?? 400, origin);
       }
 
@@ -1160,6 +1182,7 @@ const service = {
           '/v1/prof/disenchant': () => disenchantPiece({ ...ctx, bucket: env.SAVES }, who.player, env, body),   // PROF12: an enchanting station's disenchant; AUDIT PROF-541 B2: a realm character's record, in R2
           '/v1/prof/stock': () => buyStock(ctx, who.player, env, body),   // PROF3: the smith's stock; PROF4: the furnisher's
           '/v1/stores/withdraw': () => withdrawStores(ctx, who.player, env, body),
+          '/v1/stores/deposit': () => depositStores(ctx, who.player, env, body),   // BAG1: what is carried, into the Stores
           // PROF6: the Court's writs, and beside them this board's guild writs and commissions (writs.js writBoard)
           '/v1/writs/list': async () => {
             const r = await listWrits(ctx, who.player, env, body);

@@ -569,7 +569,8 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
   if (s.rotMinutes >= ROT_DAY_MINUTES) {
     s.rotMinutes -= ROT_DAY_MINUTES;
     s.rotDays += 1;
-    const spoiled = rotFoodDay(deps.collections ?? [items, entity.wagonItems, entity.otherItems], s.rotDays, rolls);
+    // AUDIT BAG1 B7: and the Materials Bag's - food carried in it never rotted, a larder with no clock
+    const spoiled = rotFoodDay(deps.collections ?? [items, entity.wagonItems, entity.otherItems, entity.bagItems], s.rotDays, rolls);
     if (spoiled > 0) note(s, 'rot', now, say, SURVIVAL_TEXT.rot);
   }
 
