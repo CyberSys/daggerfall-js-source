@@ -58,6 +58,8 @@ import { dfuEffectKeyOf } from '../spellEffects.js';   // QG1: CastEffectDo's ke
 import { setLocationVariant, setNewLocationVariant, setBlockVariant, setBuildingVariant, makeLocationKey, NO_VARIANT } from '../worldDataVariants.js';   // RR3: WorldUpdate's registry
 import { ONLINE_GUARD_WINDOWS, guardWindowStep } from './onlineGuard.js';   // GUARD-ONLINE: a guarded quest's window online is its arrival's
 import { raisedSince } from './questStamps.js';   // TIME3: a wave's interval charges a raise whole
+import { stringHash } from '../../formats/netRuntime.js';   // VERMIN-SHARED: a shared copy's pick, seeded (a leaf)
+import { seededFirst } from '../wind.js';   // VERMIN-SHARED: the port's one seeded die (imports nothing)
 /** TIME3 (bible/06-Systems/Online-Time-Arc.md 6.3): the SKY a quest reads an hour, a date or a season on - its own
  *  seam, and the quest's clock where none is given (offline, a headless quest: DFU's one clock). */
 const skySecondsOf = (quest) => (quest?.skySeconds ?? quest?.nowSeconds)?.() ?? 0;
@@ -389,7 +391,17 @@ export class RemoveLogMessage extends ActionTemplate {
   }
 }
 
-/** PickOneOf.cs: "pick one of _a_ _b_ ..." - starts one at random. */
+/** VERMIN-SHARED (FIELD BUGS 2026-10-03b; Port-Ledger A, VERMIN-SHARED): the draw a `pick one of` takes in a copy of a
+ *  quest kept in step with the party - one uniform per share, task and action (the copy's `shareId`, the task's symbol
+ *  name, the action's place in it), the port's one string hash (formats/netRuntime.js) through its one seeded die
+ *  (systems/wind.js). Every copy draws the same number, so every copy starts the same task. Pure. */
+export const sharedPickRoll = (shareId, taskName, index) => seededFirst(stringHash(`${shareId}|${taskName}|${index}`));
+
+/** PickOneOf.cs: "pick one of _a_ _b_ ..." - starts one at random (UnityEngine.Random.Range: the quest's rolls).
+ *  VERMIN-SHARED: a copy kept in step with the party draws `sharedPickRoll` instead - each copy rolled its own, and a
+ *  resync (machine.updateSharedQuest) takes the partner's task flags whole while the pick stays complete, so the
+ *  copies held different picks and traded them at every crossing sync: The Exterminator's spiders in one copy, its
+ *  bats in the other. Solo and offline, DFU's roll. */
 export class PickOneOf extends ActionTemplate {
   static typeName = 'PickOneOf';
   get saveShape() { return [['taskSymbols', 'symArray']]; }
@@ -404,9 +416,12 @@ export class PickOneOf extends ActionTemplate {
     action.taskSymbols = symbols;
     return action;
   }
-  update(_caller) {
-    const roll = this.parentQuest.rolls ?? Math.random;
-    const selected = this.taskSymbols[Math.floor(roll() * this.taskSymbols.length)];
+  update(caller) {
+    const quest = this.parentQuest;
+    const u = quest.shareId && quest.hooks?.sharedCopy?.(quest)
+      ? sharedPickRoll(quest.shareId, caller?.symbol?.name ?? '', caller?.actions?.indexOf(this) ?? 0)   // VERMIN-SHARED
+      : (quest.rolls ?? Math.random)();
+    const selected = this.taskSymbols[Math.floor(u * this.taskSymbols.length)];
     const task = this.parentQuest.getTask(selected);
     if (task) task.start();
     else console.warn(`[quest] PickOneOf could not find task ${selected?.name}`);

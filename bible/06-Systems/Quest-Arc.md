@@ -5509,7 +5509,7 @@ other two engine-owning hosts wire (`world.js:8930-8931`,
 `CastSpellDo`'s two world reads — `getClassicSpellEffects` and the
 byte-folded `spellHasMatchForClassicEffect` (`world.js:15277-15280`),
 absent which the action self-completes at *parse*
-(`actions.js:2792`/`:2799`) and the task can never arm at all.
+(`actions.js:2807`/`:2814`) and the task can never arm at all.
 
 Pins: 5 in `test/qx1_exterior_host.test.js` (the placement law RUN over
 the real `placeFoeFreely` with a stubbed world — the FOV cone bounded on
@@ -6442,3 +6442,28 @@ holder's - AUDIT TIME), and an online save from before TIME3 moves onto the char
 whole seconds, where DFU samples `WorldTime.Now.ToSeconds()` - whole seconds of a clock that keeps its fraction - so
 every tick dropped its fraction: at ten ticks a real second a countdown ran a fifth to a third slow. It samples
 whole seconds now (`clock.js wholeSeconds`). Pins: `test/time3_quests.test.js`; mutants: `tools/mutants/time3.json`.
+
+## TOTEM-CAGE - a quest item rides its acting marker (2026-10-03, Discord, Shortstori: "the Totem of Tiber Septim isnt here")
+
+S0000008 places the Totem at `_daggerfall_ marker 5` (DaggerfallCastle2, the city's dungeon; "hidden in the treasury").
+DFU stands a quest item at its marker's layout point and then PARENTS it to the marker's scene object
+(GameObjectHelper.cs AddQuestItem :1144-1148, "This ensures mobile quest objects parented to action marker translates
+correctly"), because an RDB marker can carry an action of its own (RDBLayout.cs:403-406) - and GetDaggerfallMarker's
+note (:1165-1186) names the case: "raising treasure room cage for totem in Daggerfall castle". The port registered the
+acting marker as a moving flat and never moved the item with it, so the cage rose without the Totem; online the cage's
+pose is the castle room's memory (WORLD3/WORLD34) and never resets, so every player met a raised, empty cage.
+
+The parenting is data now (`sceneMount.js`): `sceneMarkerOf` is GetDaggerfallMarker's unique-or-null law over the laid
+dungeon's 199.11/18 markers by the ID both sides mint (block position + object position: the layout's `loadID`, the
+quest marker's `markerID`); `sceneMarkerMover` answers the ActionSystem mover registered for it (`objectAt`, the
+chain's own key), only when it moves; `rideSceneMarker` hands the stand the mover's live `offset` (its batch's origin
+uniform, now or at the fill); `questStandBox` puts the activation box where the stand is. The dungeon adapter's
+`standItem` rides `dungeonContext.questMarkerMover(marker.markerID)`. A building's quest item never rides: DFU adds
+DaggerfallMarker in RDBLayout alone, a building's quest marker carries MarkerID 0 (Place.cs:1503-1506), and an RMB flat
+has no action. Quest NPCs and foes are never parented in DFU either (AddQuestNPC, AddQuestFoe).
+
+The travel is read WHOLE from the marker's start, which is DFU's outcome on its entry and its load (the layout stands
+the item, the saved action state lands after it); online the room's word can land before a re-mount, and the whole
+travel is the only reading that agrees. The one difference: a quest that hot-places an item onto a marker that already
+moved this visit stands it on the marker, where DFU's reparent leaves it off by the travel.
+`test/fb1003b_totem.test.js`; `tools/mutants/fb1003b_totem.json`. `01-Overview/Field-Bugs-2026-10-03b.md` TOTEM-CAGE.

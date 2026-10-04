@@ -393,7 +393,7 @@ test('WD3 a record whose town stands in another layout is honoured, never misrea
 test('WD3 a quest\'s building site whose town stands in another layout is chosen AGAIN in it (AUDIT WD3 S5) - by the place\'s own law (its P2/P3), keeping what was assigned to it, stamped anew, its site link following; a site standing in its layout, a town site and one with no building of its kind are left as they are', async () => {
   const { QuestMachine } = await import('../src/systems/quest/machine.js');
   const { Place } = await import('../src/systems/quest/place.js');
-  const { SITE_TYPES } = await import('../src/systems/quest/place.js');
+  const { SITE_TYPES, Scopes } = await import('../src/systems/quest/place.js');
   const { loadQuestTables } = await import('../src/systems/quest/tables.js');
   const { readdirSync } = await import('node:fs');
   const T = new URL('../vendor/dfu-quests/Tables/', import.meta.url);
@@ -404,6 +404,7 @@ test('WD3 a quest\'s building site whose town stands in another layout is chosen
   m.startQuestImmediate(quest);
   const sym = (name) => ({ name, original: `_${name}_`, clone() { return sym(name); } });
   const place = new Place(quest); place.symbol = sym('house'); place.p1 = 0; place.p2 = 17; place.p3 = 0;
+  place.scope = Scopes.Remote;   // QUESTOR-MOVED: a DECLARED place (`Place _house_ remote house1`) - the parse's scope; a scope-less Place is a questor's hall, never chosen again by P2/P3
   const assigned = { targetResources: [{ original: '_victim_', name: 'victim' }] };
   place.siteDetails = { siteType: SITE_TYPES.Building, mapId: 1001, regionIndex: 17, locationName: 'Aldleigh', buildingKey: 0x10203, magicNumberIndex: 0, selectedMarker: assigned, layout: 'beautiful-villages@1.4.2' };
   quest.resources.set('house', place);

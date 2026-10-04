@@ -70,6 +70,7 @@ import { SOUND } from '../systems/soundClips.js';
 import {
   enchantDecision, applyEnchantments, enchantmentCostLabel, totalGoldCost,
   totalEnchantmentCost, itemEnchantmentPower, openPickerDecision, keptEnchantments, enchantmentListCost,
+  itemMakerRefuses,
 } from '../systems/enchanting.js';
 import { enchantGold } from '../net/alchemyLaw.js';   // PROF12: Enchanting's layer - the gold with the rank's share off
 import {
@@ -135,10 +136,13 @@ export const FORCED_TEXT_COLOR = [186 / 255, 207 / 255, 125 / 255, 1];
  *  AUDIT PROF10 J2 (DECIDED, Mac: "Item maker can add to it"): a
  *  CRAFTED piece of jewellery is taken with the enchantments it
  *  carries (enchanting.js keptEnchantments - a Masterwork's Rare
- *  roll); every other enchanted item is refused as DFU refuses it. */
+ *  roll); every other enchanted item is refused as DFU refuses it.
+ *  AETHERIC-MAKER (FIELD BUGS 2026-10-03b): an Aetheric piece carries
+ *  no DFU enchantment and is refused all the same (itemMakerRefuses). */
 export function itemMakerFilter(item, tabPage, selected = null) {
   if (!item || item === selected) return false;
   if (!keptEnchantments(item) || item.group === 'UselessItems2') return false;
+  if (itemMakerRefuses(item)) return false;   // AETHERIC-MAKER: an Aetheric piece is out of every tab
   if (item.potionRecipe !== undefined && item.potionRecipe !== null) return false;
   const isWeaponOrArmor = (item.group === 'Weapons' || item.group === 'Armor')
     && !(item.group === 'Weapons' && item.name === 'Arrow');

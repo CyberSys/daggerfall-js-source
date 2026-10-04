@@ -4786,7 +4786,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7920` read, on one physical line:
+`src/scenes/worldModes.js:7933` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -12216,6 +12216,8 @@ lock stands for everything but this (Multiplayer.md): a quest is still a copy ea
 - **Who stands them.** A receiver's copy stands no wave while the member who SHARED the quest (a fresh receipt's
   sender, `_questSharer`) is in its party and within 100 m (`partnerStandsQuestFoes`); the wave counts there as placed -
   its message and its count run on - and that member's copy stands it. Otherwise each copy stands its own, as before.
+  (VERMIN-SHARED, 2026-10-03: only while this copy's pool holds that member's live foe of the wave's own Foe - the two
+  copies are two quests, and a near sharer whose copy stood nothing of that Foe left the party nothing to fight.)
 - **What counts.** A member's copy counts what it sees on a partner's foe: the first blow it sees land is the injury
   (`Foe.setInjured`), the fall the kill (`Foe.incrementKills`, at `puppetDie`, the one door a puppet dies through). The
   resync's max merge (QUEST1) keeps the copies' counts equal after.
@@ -12292,7 +12294,8 @@ shared quest foe in a building - the palace's imp - stood a copy each, each memb
   building's door and at a death in it my live foes go to the players who stay (`handOverRoomFoes` - a shared quest's
   to a party member alone), and what nobody took goes with me.
 - **A wave indoors** (a quest's CreateFoe around the player) stands at the sharer alone while the sharer is in the room
-  and near, the open air's law, through a relay whose own lane carries it here.
+  and near, the open air's law, through a relay whose own lane carries it here (VERMIN-SHARED: while the sharer's foe
+  of that Foe stands in the room's pool; else the receiver's copy stands its own).
 - **A marker's foe stands once for the party.** A quest marker stands its foe in every copy of the quest at the same
   spot, so the frame flags a marker's foe (`qf`'s fourth word: 1 a marker's, 2 touched by a blow). My untouched copy
   stands down for a party member's live one that a blow has touched, or, both untouched, for the member with the lower
@@ -12325,7 +12328,8 @@ neither could strike the other's. The flag asked for both halves paid together; 
   party member who stays (`handOverRoomFoes`, `onDungeonLeave`); an owner gone without a word leaves them to the one the
   law names; the taker binds it to its own copy and its motor resumes from the pose (`adoptOwn`).
 - **A marker's foe stands once for the party** (`questMarkerYields`, 3b's law): the dungeon's marker stand is flagged.
-- **A wave underground** stands at the sharer alone while the sharer is in the room and near.
+- **A wave underground** stands at the sharer alone while the sharer is in the room and near (VERMIN-SHARED: and its foe
+  of that Foe stands here).
 - **The save and the loot are the owner's:** a party member's quest foe is in no save of mine (`collectWorld`), a load
   takes them down first so its indices are this pool's, and its body is not mine to loot (a quest's loot stays its
   host's).
