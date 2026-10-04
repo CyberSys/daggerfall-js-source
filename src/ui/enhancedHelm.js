@@ -85,10 +85,9 @@ export function helmPadPrompts(h) {
 export function helmButtons(h) {
   if (!h) return [];
   const out = [];
-  // HELM-KEYS: the sails' button presses what the arrows press - more sail to raise them, less to stow them - so its
-  // hint teaches the arrows; where the square sails are the player's own (the square button's), stowing is the mod's
-  // own toggle, which strikes all her canvas as its label says
-  if (h.hasSails) out.push({ act: 'sails', label: h.sailsUp ? 'Stow sails' : 'Raise sails', kind: 'tap', action: !h.sailsUp ? A.more : h.squareToggle ? A.sail : A.less });
+  // HELM-LADDER: the sails' button is the mod's own toggle (the End key's) - the arrows climb the oars' rungs first now,
+  // and the button raises or strikes all her canvas as its label says, from any rung
+  if (h.hasSails) out.push({ act: 'sails', label: h.sailsUp ? 'Stow sails' : 'Raise sails', kind: 'tap', action: A.sail });
   if (h.squareToggle) out.push({ act: 'square', label: h.squareUp ? 'Stow square sails' : 'Raise square sails', kind: 'tap', action: A.sail, withHeld: A.trimModifier });
   if (h.manualTrim && h.hasSails) {
     out.push({ act: 'trimLeft', label: '◀ Trim', kind: 'hold', action: A.trimLeft }, { act: 'trimRight', label: 'Trim ▶', kind: 'hold', action: A.trimRight });
@@ -287,22 +286,25 @@ export function drawEnhancedHelm(state = {}, hooks = {}, { doc = globalThis.docu
  * rows - under the responsive helm the rudder's keys first, AUDIT NAV2 F18); else, on a keyboard, the helm's whole
  * hand at a glance - the sails on the arrows, the rudder on the turn keys - and while the look holds the mouse, how to
  * free it for the buttons. A finger reads the buttons themselves. Every key is the one bound now (`keyOf`); one bound
- * to nothing is left out.
+ * to nothing is left out. HELM-LADDER (2026-10-04): the hand is the ladder's now - W, S and the up and down arrows her
+ * oars and her sails, A, D and the side arrows her rudder; in irons, one rung down strikes sail and puts her on her oars.
  * @param {any} h - helmPanelState() @param {{ touch?: boolean, mouseFree?: boolean, freeKey?: string, keyOf?: (a: string) => string }} state
  */
 export function helmHint(h, state = {}) {
   const key = (a) => (state.touch ? '' : (state.keyOf?.(a) ?? ''));
   if (h.inIrons) {
-    const strike = key(A.less), row = key('MoveForwards');
-    const oars = `strike sail${strike ? ` (${strike})` : ''} and row her round${row ? ` (${row})` : ''}`;
+    // HELM-LADDER: one rung down strikes the last of her sail and puts her on her oars, pulling ahead
+    const strike = [key('MoveBackwards'), key(A.less)].filter(Boolean).join(' ');
+    const oars = `strike sail${strike ? ` (${strike})` : ''} and row her round`;
     if (!h.responsive) return `In irons - ${oars}`;
     // AUDIT NAV2 F18: the responsive helm's rudder answers at rest (HELM-WAY) - the helm alone brings her off the wind
     const steer = [key('TurnLeft'), key('TurnRight')].filter(Boolean).join(' ');
     return `In irons - put the helm over${steer ? ` (${steer})` : ''}, or ${oars}`;
   }
   if (state.touch) return '';
-  const pair = (label, a, b) => (key(a) || key(b) ? `${label} ${[key(a), key(b)].filter(Boolean).join(' ')}` : '');
-  const parts = [h.hasSails ? pair('Sails', A.more, A.less) : '', pair('Steer', 'TurnLeft', 'TurnRight')];
+  const keys = (label, ...as) => { const ks = [...new Set(as.map(key).filter(Boolean))]; return ks.length ? `${label} ${ks.join(' ')}` : ''; };
+  // HELM-LADDER: W and the up arrow, S and the down arrow, one ladder - her oars, then her sails; A, D and the side arrows steer
+  const parts = [keys(h.hasSails ? 'Oars & sails' : 'Oars', 'MoveForwards', 'MoveBackwards', A.more, A.less), keys('Steer', 'MoveLeft', 'MoveRight', 'TurnLeft', 'TurnRight')];
   if (!state.mouseFree) parts.push(`Free the mouse (${state.freeKey || 'Y'}) to use these`);
   return parts.filter(Boolean).join(' · ');
 }

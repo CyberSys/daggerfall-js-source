@@ -87,6 +87,7 @@ function under(rocks, { sails = true } = {}) {
     const track = [];
     s.held.clear();
     for (const k of keys) s.held.add(k);
+    s.rt.state.oarThrottle = keys.includes('MoveForwards') ? 1 : keys.includes('MoveBackwards') ? -1 : 0;   // HELM-LADDER: the keys' rung
     for (let t = 0; t < seconds; t += 0.25) { s.frame(); track.push(boat.GameObject.position.slice()); }
     return track;
   };

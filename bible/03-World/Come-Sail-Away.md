@@ -1306,7 +1306,7 @@ and `BoatTimeScaleReset` - the mod's keypad minus and enter, and, for its
 keypad plus (Eye of the Beholder's AutoPerspective: one key, one action),
 the keypad's star beside it (`10-UI/Controls.md`). IncreaseTimeScale
 (6071-6082) refuses with enemies near - GameManager.AreEnemiesNearby(false,
-false), the port's `areEnemiesNearby` over the mode's foes: "There are
+false), the port's `areEnemiesNearby` over the mode's foes (WATER-FOES, below: never a foe in the water while aboard): "There are
 enemies nearby..." for a second and a half - and else takes one step up
 currentTimeScale's 1, 5, 10, 15, 30, to the fifth; DecreaseTimeScale one
 step down, never below the first; ResetTimeScale (CSA-D's) the step, or a
@@ -2215,10 +2215,35 @@ on the mod's own states (`bible/10-UI/Controls.md` HELM-KEYS has the keys):
   AUDIT NAV2 F18);
   `helmPanelState().inIrons` and `.responsive` put the right advice, with the
   keys, on the panel's line while it lasts (`ui/enhancedHelm.js helmHint`).
-- **The panel teaches the arrows**: its line is the helm's hand at a glance,
-  and its sails' button presses More sail to raise and Less sail to stow (the
-  mod's own toggle where the square sails are the player's, which strikes all
-  her canvas as its label says) - so its key hint is the arrow.
+- **The panel teaches the arrows**: its line is the helm's hand at a glance.
+  HELM-LADDER (below) moved its sails' button to the mod's own toggle.
+
+## One ladder for W, S and the arrows (HELM-LADDER, 2026-10-04 - DECLARED)
+
+From the field: "WASD and Arrow keys should function the same when controlling. Allowing you to lower and raise
+sails" - the throttle ladder chosen over a tap-or-hold split. HELM-KEYS had put the sails on the up and down arrows and
+left W and S the mod's oars, held: two pairs that did different things, W and S inert once the sails were up. Now W and
+the up arrow (`MoveForwards`, `BoatSailUp`) climb ONE ladder a rung a press, S and the down arrow (`MoveBackwards`,
+`BoatSailDown`) come down it (`systems/comeSailAway.js` `ladderUp`, `ladderDown`):
+
+- **The rungs**: the oars backing water (-1), the oars at rest (0), the oars pulling ahead (1), her sails (RaiseSails),
+  and - where her square sails are the player's own (`squareHandled`) - all her canvas (MoreSail's step). Each rung is
+  said ("Oars: backing water.", "Oars: at rest.", "Oars: pulling ahead.", the mod's own "Sail raised!"); the foot says
+  "She is already backing water.", the top what MoreSail says, a rowboat's top what ToggleSails says ("Boat does not
+  have any sail."). Down from her sails is LessSail's step, and from the last of them she PULLS AHEAD on her oars.
+- **The oars are a rung, not a held key**: `oarThrottle` is kept until a press moves it, a sail goes up (RaiseSails
+  ships them) or she leaves the helm (StartSailing and StopSailing set it at rest); never saved. The oars' stroke, its
+  rudder's RowZ, the oar acceleration and the helm's answer astern (backing water turns her the other way) all read the
+  rung where the mod read the held keys (Update 4301-4768, moveAccel 538-551, HasInput 582-613). `Run` with a side key
+  still sidesteps. A press takes the frame it is made in (read before the stroke, as a held key was).
+- **Unchanged**: A, D and the side arrows steer (HELM-KEYS); End still toggles all her canvas from any rung, and the
+  helm panel's sails button is that toggle now (its key hint End) - "Raise sails" raises them, never a rung of oars;
+  a journey's oars pull as the autorun does (OWS2), and under the travel view W and S stand down with the sail keys
+  (AUDIT NAV2 F17's gate). The panel's line reads "Oars & sails W S ↑ ↓ · Steer A D ← →" as bound; in irons, "strike sail
+  (S ↓) and row her round" - one rung down does both.
+
+The test harnesses (`test/csa_sailing.test.js`, `test/csaScene.mjs`) take a key going down as the press it is - one held
+as the helm is taken is pressed at the helm. `tools/mutants/helmladder.json`.
 
 ## The responsive helm (HELM-WAY, 2026-09-29 - DECLARED)
 
@@ -2620,6 +2645,38 @@ Pins: `test/galleonholdings.test.js` (4) - every docking hull's head within 0.25
 ship's half a metre over it (the mod's galleon's numbers on hers fail by 2.3 m); hers in her entry port, her bulwark
 either side; the host's plank from the build that stands; the Carpenter on all four hulls with a deck.
 `tools/mutants/galleonholdings.json` (13, all dead). Measured over Come Sail Away's real pool; not seen in a browser.
+
+## A foe in the water reaches no one aboard (WATER-FOES, 2026-10-04 - DEPARTURE)
+
+From the field: "Enemies in the water on a boat shouldn't slow down your ship or prevent you from resting when on
+board." Every "enemies nearby" the port asks is GameManager.AreEnemiesNearby (`systems/encounters.js`
+`areEnemiesNearby`): a hostile foe that sees the player, or stands in the classic spawn band - and outdoors that band has
+no height test (`enemyMotor.js` wouldBeSpawnedInClassic: 102.4 m flat). Deep Waters' foes are the street's
+(`exteriorFoes`), so a slaughterfish or a dreugh anywhere under the sea within it put the helm's time scale back to one
+and refused a step up ("There are enemies nearby...", above), stopped a Travel Options journey, slowed the Overworld's
+travel (OW6's threats), refused the travel view, a camp's placing and every rest aboard - though no foe in the water
+comes up onto a deck (Deep Waters even freezes its swimmers while the player is on a boat). The hull's own sweep never
+met them (`csaSphereCastAll` returns no entity): the "slowdown" was these gates.
+
+So the world host latches each foe's reach every exterior frame, once the street's foes, its watch and its raids have
+had their frame (`systems/foeReach.js` `markFoeReach`): ABOARD - `playerAfloat` (a helm, a deck, another player's boat, a sea ship's deck)
+and not swimming - a foe IN THE WATER (an aquatic one, EnemyMotor's `swims`, or one whose controller centre stands under
+the sea's top, `tvSeaY`) is `ai.unreachable`; else none is. `areEnemiesNearby` passes an unreachable foe over, strict
+and resting alike, so the one sweep answers the time scale, rest and its channel, a journey, the travel view, fast
+travel and a camp the same; the Overworld's threats (`travelThreat`'s list) skip it too. A boarder on her deck, a foe on
+the shore, and every foe while the player swims count as before. A departure: the mod asks AreEnemiesNearby(false,
+false) at its helm as ashore (Port-Ledger A, WATER-FOES). THE FOUR HOSTS: `scenes/world.js` latches it; a building
+(`worldModes.js`, a ship's cabin included) has no foe in the water, a dungeon's (`dungeonContext.js`) flooded halls carry
+no boat of the port's rest gate yet - FLAGGED - and the standalone street (`exterior.js`) no sea. `test/waterfoes.test.js`.
+
+## A camp on her deck rides her (DECK-CAMP, 2026-10-04 - OURS)
+
+From the field: "Campfires placed on a boat dont attach to a boat." A Campfire or a tent placed on a boat's deck carries
+her number and its point in her deck's frame, and is posed off her every frame - hidden with her, packed back into its
+owner's pack once she is gone, saved and said on the wire by its place on her. The whole law is the Rest arc's
+(`06-Systems/Rest-Arc.md`, As built, DECK-CAMP); the seams here are `world.js campDeckAt` (the boat under a spot, off
+her collider bucket) and `campDeckResolve` (where she is now), and `comeSailAwayPeers.js hasBoat` (whether another
+player's word still names her).
 
 ## What was already waiting in the port
 

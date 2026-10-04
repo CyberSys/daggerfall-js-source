@@ -163,8 +163,8 @@
  {
   "name": "AUDITREST-F12-the-save-drops-the-mark",
   "file": "src/scenes/camps.js",
-  "old": ", ...(r.fuel === true ? { fuel: true } : {}) });",
-  "new": ", });",
+  "old": ", ...(r.fuel === true ? { fuel: true } : {}), ...(deckAt ? { deck: deckAt } : {}) });",
+  "new": ", ...(deckAt ? { deck: deckAt } : {}) });",
   "tests": [
    "test/auditrest.test.js"
   ]

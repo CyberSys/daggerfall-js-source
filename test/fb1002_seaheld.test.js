@@ -58,8 +58,10 @@ function helmOn(p, { at = [100, 34, 200] } = {}) {
     const from = boat.GameObject.position.slice();
     s.held.clear();
     for (const k of keys) s.held.add(k);
+    s.rt.state.oarThrottle = keys.includes('MoveForwards') ? 1 : keys.includes('MoveBackwards') ? -1 : 0;   // HELM-LADDER: the keys' rung
     for (let i = 0; i < n; i++) s.frame();
     s.held.clear();
+    s.rt.state.oarThrottle = 0;
     const to = boat.GameObject.position;
     return { moved: Math.hypot(to[0] - from[0], to[2] - from[2]), dz: to[2] - from[2] };
   };
