@@ -200,6 +200,7 @@ import { skillValue } from '../systems/skills.js';   // SURV6: the hunter's four
 import { refreshMentor, mentorStatusText, effectiveLevel } from '../systems/mentorMode.js';
 import { setMasterSkillsGate, MASTER_SKILLS_DUNGEON_TEXT } from '../systems/masterSkills.js';   // SOFTCAP3
 import { isOnlinePage, ONLINE_LAND_TRAVEL_REFUSAL } from '../systems/onlineLane.js';   // SOFTCAP3: Master Skills is online only; AUDIT TRAVEL-ONLINE T7: the map's floor
+import { readImmersiveTravelSettings, immersiveTravelLoaded, IT_POPUP } from '../systems/immersiveTravel.js';   // IT1: Immersive Travel - a driver's map and its fast travel; AUDIT IT1 W4: the mod loaded for the game
 // SOFTCAP1: mentor mode, the party's overlay
 import { inflictDisease } from '../systems/diseases.js';   // SURV6: a foul pool's water
 import { createHunting, HUNT_PENDING_NEAR_M } from './hunting.js';   // SURV6: hunting, foraging and the water search as real-time events
@@ -226,6 +227,7 @@ import { fleetBook, fleetShip, titleDeed, knowShip, retitle, setShipPort, forget
 import { createFleetHost } from './fleetHost.js';   // HOLDINGS: the Fleet page's host half
 import { createQuayPool } from './quayPool.js';   // QUAYS: a harbour's quays, stood off its berths, and the gangways
 import { HARBOUR_REACH } from '../systems/naval/shipLife.js';   // AUDIT HOLDINGS O1: the harbour's scan reach, its pixels built before it is sounded
+import { createHarbourBook } from '../systems/naval/harbourBook.js';   // HARBOUR-BOOK: the harbours near the player, the quays' and the sea's
 import { withdrawIntoPack, materialLabel, materialCountLabel } from '../systems/profItems.js';   // PROF1: a Stores material as DFU's own item
 import { heldOf as bagHeldOf, roomFor as bagRoomFor, mintCarried, takeCarried, giveCarried, bagTakesOf, bagWeight, hasBag, emptyBagIntoPack } from '../systems/materialsBag.js';   // BAG1: the Materials Bag and the pack, the book's hands
 import { BAG_KG_LIMIT, madeWhere, movedFirstText } from '../net/bagLaw.js';   // AUDIT BAG1 B9: where a station's work went; AUDIT2 K8: what went in before a refusal
@@ -442,6 +444,7 @@ import { windWidgetFrameUrl as csaWindWidgetFrameUrl, waveDerivedUrl as csaWaveD
 import { WAVE_FRAME_COUNT as CSA_WAVE_FRAME_COUNT, waveDitherOf as csaWaveDitherOf } from '../systems/comeSailAwayWaves.js';   // CSA-F
 import { ComeSailAwayRenderer, softParticleTexture as csaSoftParticleTexture } from '../render/comeSailAwayRender.js';   // CSA-F: the waves' and the particles' passes
 import { createNavalHost, hullBoxOf as navalHullBoxOf, NAVAL_SAVE_VENDOR, NAVAL_TAG_RANGE } from './navalHost.js';   // NAV-H: the sea fight - the Iliac Bay's ships, the guns, boarding, the law and the word
+import { draftOf as navalDraftOf } from '../systems/naval/shipLife.js';   // AUDIT GN2-PF6: a hull's draft, hull 2's off her keel as she stands
 import { createNavalFlames } from './navalFlames.js';   // NAV-B: a burning ship's deck fires
 import { NavalRenderer } from '../render/navalRender.js';   // NAV-B: the smoke, the spray, the balls in flight and the aim
 import { drawNavalHud, navalTouchBrace, navalPadPrompts, drawNavalTags, drawCrewBars, CREW_BAR_RANGE, drawCrewLines, CREW_SAY_RANGE } from '../ui/navalHud.js';   // AUDIT NAV1 (#14): and the ships' tags - SHIPMATES: and the crew's bars - LIVING CREW: and their lines
@@ -467,7 +470,7 @@ import { toScreenOrder as csaToScreenOrder } from '../formats/color32Order.js'; 
 import { parseHexColor as csaParseHexColor } from '../ui/toolTip.js';   // CSA-E: the widget's colour setting, RRGGBBAA
 import { horseOffsetHeight as csaHorseOffsetHeight } from '../ui/hudLarge.js';   // CSA-E: OnGUI's LargeHUD lift   // CSA-C: the boats placed, kept and saved; CSA-D: sailed
 import { raycastColliders, rayBoxEntry, colliderPoses, invertAffine, BUILTIN_COLLIDER_MESHES, boxColliderTriangles } from '../world/prefabColliders.js';   // CSA-C: a boat's colliders under the ray; CSA-D: and in the world's collider
-import { DECK_STEP, DECK_HEADROOM, intoDeck, outOfDeck } from '../systems/naval/navalDeck.js';   // DECK-WALK: a body off her deck by more than a tread has left it; her deck's frame (AUDIT NAV2 F33: the headroom a deck point's ray starts under)
+import { DECK_STEP, DECK_HEADROOM, intoDeck, outOfDeck, mainLevel } from '../systems/naval/navalDeck.js';   // DECK-WALK: a body off her deck by more than a tread has left it; her deck's frame (AUDIT NAV2 F33: the headroom a deck point's ray starts under)
 import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame, raidAtSea as warmAshesRaidAtSea, raidRefusal as warmAshesRaidRefusal, raidUnderWay as warmAshesRaidUnderWay, WA_RAID_QUESTS, WA_SEA_REGION } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea; OWS3: its raid, seen coming; THE MERGE (NAV-D, OWS3): one raid at a time
 import { laneNetwork, laneWay, packetsAt, LANE_PATH_PX } from '../systems/naval/seaLanes.js';   // SEA-LANES: the Bay's packets
 import { raidersNear, raiderAt, raiderSight, chaseStep as raiderChaseStep, pixelOfNative, NATIVE_PIXEL as RAID_NATIVE_PIXEL, RAIDER_CONTACT_M, RAIDER_CONTACT_PLAY_M, RAIDER_CHASE_MPS, RAIDERS_WIRE_MAX, RAIDER_WORD_MS, raiderWordOf, validRaiderWord, raiderLifeOf, raiderNearMe, RAIDER_LABEL, RAIDER_LIFE_MS } from '../systems/seaRaiders.js';   // OWS3: Warm Ashes' raiders on the Overworld's sea
@@ -551,7 +554,7 @@ import { deriveTownSeats, seatAtMapId } from '../systems/townSeats.js';   // SEA
 import { createTownSeatBook, parseSeatCommand, parseSiegeCommand } from '../net/townSeatBook.js';   // SEAT1a: the seats open, confirmed, witnessed   // VOID: a moderator's /siege void
 import { seatArrivalLine, seatHallOf, seatBannerOf, boardTithePct } from '../net/townSeatLaw.js';   // SEAT1a: the seat's arrival line; SEAT-HALL: whose hall a palace is; CROWN-HALL: the throne room's banners; AUDIT SEATS-3 D3: a board's Tithe
 import { hallMay } from '../net/hallLaw.js';   // SEAT-HALL: a palace's keepers are a hall's
-import { createOnlineHomes, moveArenaHomes, homeSceneName } from '../systems/onlineHomes.js';   // HOME1: the account service's homes, one town at a time; ARENA4b: the ones the arena displaced, moved
+import { createOnlineHomes, moveArenaHomes, homeSceneName, homeTownBlocks } from '../systems/onlineHomes.js';   // HOME1: the account service's homes, one town at a time; ARENA4b: the ones the arena displaced, moved; HOME-PRICE: a town's size
 import { townBoardRows, townHomeRows } from '../ui/townMapMarks.js';   // TOWN-MARKS: the Notice Boards and the player housing on the town map
 import { setSigilOnline, setSigilRenown } from '../systems/sigil.js';   // SIGIL1: a weapon won online carries a sigil, woken by my Renown
 import { setSetsDueling, setsDueling, drinkWorn, setSetsWearer } from '../systems/sigilSets.js';   // SET2: the duel's word - sets sleep in one; SET4: the drink, whole; SET5: the wearer a tooltip reads
@@ -609,7 +612,7 @@ import { createSocialPanel, TRY_AGAIN_TEXT, NO_PARTY_TEXT, LETTERS_SIGNED_OUT_TE
 import { glyphMarks } from '../ui/playerBadge.js';   // PEER-PLAQUE1: a badge's plain-text marks, for the plaque's title
 import { TITLE_TEXT, AURA_TEXT, setSeatTitlePlaces } from '../ui/playerBadge.js';   // WB9g: the Broker's insignia, named in its rows; SEAT1c: the seat titles' places
 import { pickPeerInFront, SOCIAL_REACH, peerRayPick, peerIdOfKey, peerRelationText } from '../player/socialPick.js';   // SOC5: which body the ray struck, and how far "on their body" reaches; PEER-PLAQUE1: and the plaque's half of the same pick
-import { allyCastSpell, allyCastable, strangerCastable, allyReachFor, allyCastTargetLine, allyCastPlaqueLine } from '../systems/allyCast.js';
+import { allyCastSpell, allyCastable, strangerCastable, allyReachFor, allyCastTargetLine, allyCastPlaqueLine, createGiftLineGate } from '../systems/allyCast.js';
 import { composePartyFx } from '../net/partyBuffs.js';   // PARTY-BUFFS: my effects on the party pose   // ALLY-CAST: a beneficial spell at a party mate; SPELL-GIFT: and the stranger's list
 import { checkpointAllowed, checkpointDue, checkpointedTradePack, createSaveSoon } from '../systems/onlineCheckpoint.js';   // REALM P0.5: the character saved as it plays online; PROF-SAVE: and at once after a professions act
 import { createTradeManager, TRADE_RANGE_M, inTradeRange, tradeDistance } from '../net/tradeSession.js';   // TRADE1: the player-to-player trade's state machine (pure)
@@ -6356,6 +6359,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const deck = raycastColliders(pick.boat.GameObject, o, [0, -1, 0], 3, { triggers: true, geometry: csaColliderMesh });
     const d = deck && (!ground || deck.distance < ground.distance) ? deck.distance : ground ? ground.distance : null;
     csaSetPlayerPosition([c[0], alignControllerToGround(c[1], d, player.height ?? CAPSULE_HEIGHT, 3), c[2]]);
+    csaFinishBoarding();
     if (csaAboard.board(pick.boat, CSA_ABOARD_GRACE)) csaSyncColliders();
     cam.pos = player.eyeAt();
   }
@@ -6521,6 +6525,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   let _csaMovedPlayer = false;   // CSA-D: the helm wrote the player's transform this frame - the eye follows
   /** CSA-D: the PlayerObject's transform written - the controller's centre, the feet half a height below. */
   const csaSetPlayerPosition = (c) => { player.pinFeet(c[0], c[1] - player.height / 2, c[2]); _csaMovedPlayer = true; };
+  // Ladder boarding is a placement, unlike the continuous helm/deck carry.
+  // Drop the incoming fall and airborne drift after alignment to the deck.
+  const csaFinishBoarding = () => { player.spawn(...player.pos); };
   let _csaTime = 0;   // CSA-C: Time.time for the mod - the game's, held by a pause
   let _csaHour = null;   // CSA-E: WorldTime's lastHour, for OnNewHour
   // ── CSA-I: the position reading's host - its pause (a window in the mode's slot), the keys and the mouse as
@@ -6685,6 +6692,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     },
     helm: {
       setPlayerPosition: csaSetPlayerPosition,
+      finishBoarding: csaFinishBoarding,
       setFacing: (yawDeg, pitchDeg) => csaSetFacing(yawDeg, pitchDeg),   // PlayerMouseLook.SetFacing -> Init: the owed look dropped
       turnPlayer: (deg) => { cam.yaw += (deg * Math.PI) / 180; },   // the child's world yaw turned with its parent's
       freeze: (seconds) => { player.freezeMotor = seconds; },
@@ -7298,7 +7306,6 @@ export async function bootWorld(canvas, renderer, params, status) {
   // dungeon's and the ?exterior bench's own hosts (scenes/worldModes.js, scenes/dungeonContext.js, scenes/exterior.js)
   // have no broadside, and the naval host empties the sea whenever this host leaves the exterior (navalTransition).
   const navalOn = () => !!csaRuntime && csaOn() && getPref('naval') !== false;
-  const NAVAL_DRAFT = Object.freeze([0.8, 1.4, 2.2, 2.8, 3.2]);   // a hull's water under her keel (m), rowboat to carrack - how shoal a sea she can sail
   /** An action's bound key, as the HUD's hint names it - the player's own binding (primary, then secondary), in the
    *  words the Controls page shows it (AUDIT DEEP T1-12's reading, the travel view's hint); a pad's button is no key
    *  to print, so the hint names the action instead (CSA-L's helm panel, csaKeyLabel's law). */
@@ -7314,7 +7321,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     return c ? tagText(c) : null;
   };
   /** Open water deep enough for a hull at a scene point: a water tile of a built pixel - and, where Iliac Puddle No
-   *  More carved the sea, a floor at least that hull's draft under the surface (-1: the surface alone). */
+   *  More carved the sea, a floor at least that hull's draft under the surface (-1: the surface alone). AUDIT GN2-PF6:
+   *  the draft asked when it sounds (shipLife.js draftOf - hull 2's off the keel of the galleon that stands). */
   const navalIsWater = (x, z, hull = 0) => {
     const p = csaPixelAt(x, z);
     if (!p) return false;
@@ -7322,7 +7330,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!p.deepWaters && csaTileMapIndexAtPosition([x, 0, z], t) !== 0) return false;
     if (!p.deepWaters) return true;
     const floor = surfaceAt(x, z);
-    return Number.isFinite(floor) && floor < tvSeaY() - (hull < 0 ? 0.05 : NAVAL_DRAFT[Math.min(NAVAL_DRAFT.length - 1, hull | 0)]);
+    return Number.isFinite(floor) && floor < tvSeaY() - (hull < 0 ? 0.05 : navalDraftOf(hull));
   };
   let _navalCapitals = null;
   /** The three crowns' capitals' map pixels (navalShips.js crownOf reads the nearest as the waters' crown) - once. */
@@ -7379,6 +7387,14 @@ export async function bootWorld(canvas, renderer, params, status) {
     };
     return { key: `port:${t.id}`, name: t.name, rect, ready };   // SHIP-TAGS: her name, the words a ship bound there is read by
   };
+  // HARBOUR-BOOK (systems/naval/harbourBook.js; bible/03-World/Holdings.md section 7): THE HARBOURS NEAR THE PLAYER -
+  // this host's, sounded off the port near the player every exterior frame whatever runs on the water, moved with the
+  // floating origin and emptied at a transition, a jump and a load; the quays stand off it and the naval host reads it.
+  // It was the naval host's own and sounded only in its frame: with Naval Combat or Come Sail Away off, no port stood a quay.
+  const harbourBook = createHarbourBook({
+    harbourNear: navalHarbourNear,
+    isWater: navalIsWater,
+  });
   /** DECK-WALK: a point in a hull's deck frame (her mesh node's, systems/naval/navalDeck.js) to the world, where her
    *  node stands, rolls and pitches now - and back; into `out` when given. */
   const navalDeckToWorld = (boat, p, out) => outOfDeck(boat.MeshObject.worldMatrix(), p, out);
@@ -7396,7 +7412,10 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  body on it has. Its points are the leash's own, made once. AUDIT NAV2 F34: EACH ON THE PIECE IT STANDS ON - the
    *  floor under it nearest its own height (her deck, a stair's tread over it, her forecastle, her poop over her
    *  cabin), and one off every floor back onto the piece it last stood on: a body on her forecastle was dragged 2.5 m
-   *  down onto her main deck, one on her poop 3.2 m down and 4.3 m across - a player there out of every boarder's reach. */
+   *  down onto her main deck, one on her poop 3.2 m down and 4.3 m across - a player there out of every boarder's reach.
+   *  AUDIT GALLEON-2: MEASURED OFF THE FLOOR IT LAST STOOD ON (DK2: her open piece holds two levels in a cell, and the
+   *  body's height of the moment set the Carrack's walks 2-3 m between them), and a body on a shut cover or in a
+   *  doorway of hers let be (DK1, DK3: no boarder crossed her cargo doors or went through a door). */
   const _leashLocal = [0, 0, 0];
   function navalLeash() {
     for (const f of _deckBodies) {
@@ -7408,9 +7427,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (!feet || !deck?.count) continue;
       const local = navalWorldToDeck(boat, feet, _leashLocal);
       const floor = deck.heightAt(local[0], local[2], local[1]);
-      if (!(Math.abs(local[1] - floor) <= DECK_STEP)) {   // off her deck (NaN off its cells: never within)
-        const was = f.deckLocal;
-        if (Number.isNaN(floor)) deck.clamp(local[0], local[2], local, was ? deck.pieceAt(was[0], was[2], was[1]) : 0); else local[1] = floor;
+      if (!(Math.abs(local[1] - floor) <= DECK_STEP) && !(Math.abs(local[1] - deck.ajarAt(local[0], local[2], local[1])) <= DECK_STEP)) {   // off her deck (NaN off its cells: never within) - AUDIT GN2-DK1/DK3: and off what her parts that open stand over or in (a shut cover, a doorway: navalDeck.js ajarAt)
+        const was = f.deckLocal, piece = was ? deck.pieceAt(was[0], was[2], was[1], DECK_STEP) : 0;   // AUDIT GN-D1: the piece it last stood on - AUDIT GN2-DK3: -1, any, where it stood on none of hers (a cover, a doorway)
+        deck.keep(local[0], local[2], was ? was[1] : local[1], piece, local);   // AUDIT GN2-DK2: that piece's floor nearest the one it LAST stood on, else its cells at that level, else its edge (navalDeck.js keep) - NEVER ONTO ANOTHER PIECE'S FLOOR, NOR A LEVEL OF ITS OWN A FLIGHT OFF
         navalDeckToWorld(boat, local, feet);
       }
       const kept = f.deckLocal ??= [0, 0, 0];   // where the carry takes it from next frame
@@ -7453,7 +7472,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (deck?.count) {
       const mid = deck.nearest(0, 0);
       const out = [];
-      for (const at of deck.spots(n)) {
+      for (const at of deck.spots(n, mainLevel(deck))) {   // GALLEON: her main deck's - her castle up its flights her walk's, never a muster's
         const w = navalDeckToWorld(boat, at);
         const hit = raycastColliders(boat.GameObject, [w[0], w[1] + DECK_HEADROOM - 0.1, w[2]], [0, -1, 0], DECK_HEADROOM + 2.9, { triggers: false, geometry: csaColliderMesh });   // AUDIT NAV2 F33: from under the headroom her deck keeps (navalDeckPoint's)
         const c = mid ? navalDeckToWorld(boat, mid) : w;
@@ -7490,13 +7509,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     const c = navalDeckToWorld(boat, deck.nearest(0, 0));
     return [[w[0], (hit ? hit.point[1] : w[1]) + 0.05, w[2]], Math.atan2(c[0] - w[0], c[2] - w[2])];
   }
-  /** Where a boarder lands on her deck: its point nearest `feet` (over her rail across from where he stood, never her
-   *  middle a haul's length off), facing her middle; null with no deck. */
+  /** Where a boarder lands on her deck: her MAIN deck's point nearest `feet` (AUDIT GN-D2, navalDeck.js `land`) - over
+   *  her rail across from where he stood, never her middle a haul's length off - facing her middle; null with no deck. */
   function navalDeckLanding(boat, feet) {
     const deck = boat?.MeshObject && csa.deckOf?.(boat.hull, boat.variant ?? 0);
     if (!deck?.count || !feet) return null;
     const local = navalWorldToDeck(boat, feet);
-    return navalDeckPoint(boat, deck, deck.clamp(local[0], local[2]));
+    return navalDeckPoint(boat, deck, deck.land(local[0], local[2], local[1]));
   }
   /** `n` points along her rail on the side `toward` lies, spread fore and aft round the point across from it - where a
    *  party comes over, or my hands land - each facing her middle. AUDIT NAV2 F32: A CELL A POINT - her rail's point past
@@ -7507,7 +7526,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!deck?.count || !toward || !(n >= 1)) return [];
     const t = navalWorldToDeck(boat, toward), side = t[0] >= 0 ? 1 : -1, k = Math.floor(n), out = [], taken = new Set();
     for (let i = 0; i < k; i++) {
-      const at = deck.rail(side, t[2] + (i - (k - 1) / 2) * NAVAL_RAIL_GAP), cell = `${at[0]},${at[2]}`;
+      const at = deck.rail(side, t[2] + (i - (k - 1) / 2) * NAVAL_RAIL_GAP, undefined, mainLevel(deck)), cell = `${at[0]},${at[2]}`;   // AUDIT GN-D2: her MAIN deck's rail, as her muster's (abeam the new galleon's castle all eight stood on her flights and her roof)
       if (taken.has(cell)) continue;
       taken.add(cell);
       out.push(navalDeckPoint(boat, deck, at));
@@ -7553,13 +7572,19 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   /** The plunder window over the world, the hold's loot window between two of its presses (navalPlunderDoor.js). */
   function navalOpenPlunder(model) {
-    let why = 'close';
+    let why = 'close', hold = null;
     const win = createNavalPlunderOverlay({
       model, nameOf: (item) => itemLongName(item),
+      prepareHold: () => {
+        // DISC10-E L3: a beast's refusal is the pack door's own (its DFU box, said there) - never a host's copy; refused, it is null
+        if (!inventoryDoorReady()) return 'Inventory is still loading. Please try again.';
+        hold = makeInventoryWindow({ loot: { items: () => model.items, containerImage: () => CONTAINER_IMAGES.Chest, playerOwned: false } });
+        return hold ? null : 'The hold could not be opened.';
+      },
       onClose: (reason) => { why = reason; if (reason !== 'hold' && model.raid && !model.fated()) model.fate('sail'); if (reason === 'leave') model.leave?.(); },   // a voyage's raid never waits on a window shut; AUDIT NAV1 (B11): Leave her - back to my own helm
     });
     if (!win) return false;
-    townTalk.showOverlay(win, () => { if (why === 'hold') navalOpenHold(model); });
+    townTalk.showOverlay(win, () => { if (why === 'hold') navalOpenHold(model, hold); });
     return true;
   }
   /** AUDIT NAV1 (the helm): the shipwright's window over the world (navalPlunderDoor.js's yard door). */
@@ -7569,9 +7594,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     townTalk.showOverlay(win);
     return true;
   }
-  function navalOpenHold(model) {
-    const inv = inventoryDoorReady() ? makeInventoryWindow({ loot: { items: () => model.items, containerImage: () => CONTAINER_IMAGES.Chest, playerOwned: false } }) : null;
-    if (!inv) { navalOpenPlunder(model); return; }
+  // Reuse the inventory prepared before closing plunder; it owns the loot window's setup.
+  function navalOpenHold(model, inv) {
+    if (!inv) { townTalk.say('The hold could not be opened. Please try again.', 4); navalOpenPlunder(model); return; }
     townTalk.showOverlay(inv, () => { if (!model.fated()) navalOpenPlunder(model); });
   }
   const navalFlames = createNavalFlames({ renderer, getTexture, uploadRecordFrame });
@@ -7583,7 +7608,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     csa: () => (navalOn() ? csaRuntime : null),
     seaY: () => tvSeaY(),
     isWater: navalIsWater,
-    harbourNear: navalHarbourNear,   // SHIP-LIFE: the port town near the player, which the host finds a harbour off
+    harbourBook,   // SHIP-LIFE, HARBOUR-BOOK: the harbours near the player - this host sounds, moves and empties them
     shipName: (boat) => fleetHost?.nameOf(boat) ?? '',   // QUAYS: her name, in the gangway's word
     quayLaid: (key, index) => quays?.laid(key, index) ?? true,   // AUDIT HOLDINGS Q9: no gangway onto a quay not yet laid
     dockedPort: (boat, port) => { const r = boat?.uid ? fleetShip(boat.uid) : null; if (r && (r.port?.name ?? null) !== port) setShipPort(boat.uid, port == null ? null : { name: port }); },   // QUAYS: the Fleet's word of the port she lies made fast at
@@ -7717,7 +7742,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   });
   /** The sea emptied: a transition, a teleport, the arc switched off - its window with it. */
   const navalClear = () => { naval?.clear(); navalFlames.clear(); navalCrew.clear(); closeNavalPlunder(); closeNavalYard(); drawNavalHud(null); drawNavalTags([]); drawCrewBars([]); drawCrewLines([]); };
-  const navalTransition = () => navalClear();
+  const navalTransition = () => { harbourBook.clear(); navalClear(); };   // HARBOUR-BOOK: the harbours forgotten with the sea, found again where the world is next
   /** KEEP-PLUNDER: before a transition or a jump empties the sea, my crew stows what I left on it (navalHost
    *  stowPlunder) - ahead of Come Sail Away's own transition, while my boats still stand. Never on a load: the loaded
    *  save's hold is the one that stands. */
@@ -8178,7 +8203,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const ab = helm ? null : csaAboard.aboard;
     drawEnhancedHelm({
       helm, aboard: ab ? { hull: ab.boat.hull, owner: peerName(ab.owner) } : null,
-      covered: townTalk.hudCovered || (modes?.hudCovered ?? false) || gamePaused() || !hudRenderEnabled() || !!travelView?.active,   // AUDIT NAV2 F17: under the travel view a journey holds the helm - its hand sets her sails, the arrows turn the view
+      covered: townTalk.hudCovered || (modes?.hudCovered ?? false) || gamePaused() || !hudRenderEnabled() || !!travelView?.active || !!_travelUIHolder.ui?.isShowing,   // A first-person journey also owns the helm. AUDIT NAV2 F17: under the travel view a journey holds the helm - its hand sets her sails, the arrows turn the view
       touch: !!touch, mouseFree: cursorActive() || pointerSurfaces.size > 0 || !document.pointerLockElement,
       freeKey: csaKeyLabel('FreeMouse'), keyOf: csaKeyLabel,
     }, csaHelmHooks);
@@ -9347,6 +9372,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const _castSeen = new Map();   // SPELLFX1: peer id -> { cn, frame } - the last cast count seen and the frame it was seen on
   let _castFrame = 0;
   let _veilT = 0;   // INVIS-LOOK: the concealed peers' clock (seconds), for the shimmer - the foe pools keep their own
+  const _peerMapPoses = new Map();   // The same boat-adjusted positions used to render this frame.
   const _veils = new Map();   // INVIS-LOOK: peer id -> this frame's concealed draw (ECV1's visual), for every layer
   const _hiddenPeers = new Set();   // AUDIT (pre-merge) I-B: the peers the classic lane stands nowhere this frame - their teams with them
   const veilOf = (id) => _veils.get(id) ?? null;
@@ -9483,7 +9509,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:3067 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:7101
+  // that context through modes.dungeonCtx - so worldModes.js:7155
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -9807,7 +9833,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     renderer,
     prepare: async (model) => { for (const sm of model.subMeshes) { await getTexture(sm.textureArchive); uploadRecord(sm.textureArchive, sm.textureRecord, { opaque: true }); } },
     collider: () => collider,
-    harbours: () => (navalOn() ? naval?.harbourList?.() ?? [] : []),
+    harbours: () => harbourBook.list(),   // HARBOUR-BOOK: whatever runs on the water - a port's quays are its town's
     seaY: () => tvSeaY(),
     // AUDIT HOLDINGS Q6: a full-detail pixel's ground alone - a far pixel's coarse one (its stride past 1) planned a
     // jetty off a surface the refined pixel buries or leaves hanging, and two players planned it apart
@@ -13082,6 +13108,53 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  window, armed. Only this host answers, because only this host
    *  has a streaming world to land in; the interior arm reads it off
    *  `host` and a host without one refuses the service. */
+  /** IT1: PLAYERGPS FOR IMMERSIVE TRAVEL - what its laws ask of where the player stands: CurrentMapPixel (the live
+   *  pixel), CurrentMapID and CurrentLocationType (the location on it, 0 / None in the wild), CurrentRegionIndex (the
+   *  pixel's region - AUDIT IT1 L1: PlayerGPS.cs:165-186's, politic 64 the High Rock sea coast's 31, which the ship
+   *  rule's IsPlayerInTown asks for; the raw politic - 128 never answered it). */
+  function itHere() {
+    const px = playerTravelPixel();
+    return {
+      x: px.x, y: px.y,
+      mapId: _musicLoc?.mapTableData?.mapId ?? 0,
+      locationType: _musicLoc?.mapTableData?.locationType ?? LOCATION_TYPES.None,
+      regionIndex: maps.getRegionIndexAt(px.x, px.y),
+    };
+  }
+  /** IT1: the mod's settings while it is on, else null - the player's own map's DisableNormalTravel reads them. */
+  const immersiveSettingsIfOn = () => (immersiveTravelLoaded() ? readImmersiveTravelSettings() : null);   // AUDIT IT1 W4: loaded for the game
+  /** IT1: CARRIAGETRAVELSERVICE / SHIPTRAVELSERVICE'S PUSH (systems/immersiveTravel.js immersiveTravelService) - the
+   *  mod's own map, a driver's (`carriage`) or a captain's (`seafarer`), into the street's slot the merchant popup
+   *  stood in. It is pushed past DaggerfallUI's travel-map door: none of that door's refusals but the enemies the
+   *  service already asked (the sun, a quest's offer, a party's question) is the mod's. Its trips are DFU's fast
+   *  travel, priced by the mod - online too: fast travel over land (onlineLane.js IT1), never through the travel map's floor. A party is not
+   *  asked to ride along (PARTY-TRAVEL's round is the travel map's; a hired carriage is the hirer's). */
+  function openImmersiveMap(kind) {
+    // AUDIT IT1 W6: a map that does not open says why, as the travel map's door says its own - the popup had closed
+    // on nothing (a click that landed after the player stepped indoors, the classic art not loaded)
+    if ((modes?.mode ?? 'exterior') !== 'exterior') { townTalk.say(CANNOT_TRAVEL_INDOORS_TEXT); return null; }
+    if (!travelMapDoorReady()) { townTalk.say('(the travel map art is unavailable)'); return null; }
+    if (!immersiveTravelLoaded() || (kind !== IT_POPUP.carriage && kind !== IT_POPUP.seafarer)) return null;
+    // AUDIT IT1 W2: ONLINE, THE SUN. Offline a sun-averse traveller who rides by day lands after dark - fastTravelTo's
+    // arrival clamp (DaggerfallTravelPopUp.cs:350, "regardless of travel type") - so the mod asks nothing. Online the
+    // world's clock skips that clamp and the travel map's door refuses them by day instead (LIVED1); a driver's map,
+    // pushed past that door as the mod pushes it, refuses the same, said the same.
+    if (sharedClockOn()) {
+      const nowMin = Math.floor(skyMinutes());
+      if (careerSunDamage(playerEntity.career) && isDayFromMinutes(nowMin)) { sayWithNightfall(SUNLIGHT_TRAVEL_TEXT); return null; }
+      const ftb = racialFastTravelBlock(playerEntity, nowMin);
+      if (ftb) { sayWithNightfall(ftb.text); if (ftb.hint) townTalk.say(ftb.hint); return null; }
+    }
+    const settings = readImmersiveTravelSettings();
+    const win = buildTravelMapWindow({
+      immersive: { kind, settings },
+      travelOptions: () => null,   // the mod's map is DaggerfallTravelMapWindow's, not Travel Options'
+      onTravel: (pick, opts, computed) => { fastTravelTo(pick, { ...opts, immersive: opts?.immersive ?? kind }, computed); },
+    });
+    if (!win) return null;
+    townTalk.showOverlay(win);
+    return win;
+  }
   function openTeleportMap() {
     if (!travelMapDoorReady()) return null;
     let win = null;
@@ -13590,6 +13663,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       // the enum's own name is spaced out ("GeneralStore" -> "General
       // Store"). Recorded in bible/06-Systems/Travel-Options.md.
       buildingTypeName: (t) => (Object.keys(TALK_BUILDING_TYPES).find((k) => TALK_BUILDING_TYPES[k] === t) ?? String(t)).replace(/([a-z])([A-Z])/g, '$1 $2'),
+      // IT1: the mod's reads - its DisableNormalTravel over the player's own map, and PlayerGPS for its laws
+      immersiveSettings: immersiveSettingsIfOn,
+      itHere,
       // MAP3: THE MORROWIND HELD POSE. When the Morrowind arm is the
       // thing drawn on screen, the held map hands its sheet to the rig
       // (combat/fpArm.js holdPaper) and lays its ink over the sheet's
@@ -13603,7 +13679,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // TV1: the sheet's Overworld door - shown where the view can rise (the open air, the enhanced lane), and taken
       // once the sheet is down (the commit's own moment, AUDIT MAP-FIELD's one home)
       onTravelView: () => { travelView?.enter(); },
-      travelViewAllowed: () => !!travelView && travelViewAllowed().ok,
+      travelViewAllowed: () => !extra.immersive && !!travelView && travelViewAllowed().ok,   // IT1: a driver's map has no Overworld door
     });
   }
   /** AUDIT 63 F9: RevealGuildHallOnMap on this host (ThievesGuild.cs
@@ -15296,7 +15372,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10796-10860 -
+  // worldModes answers it in BOTH modes (worldModes.js:10850-10914 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -16418,11 +16494,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     // the hook never did it: `386, vengence` rang record INDEX 386
     // (MaleGasp) instead of the record whose id is 386, and the
     // table's out-of-range ids (`11146, halt`) rang nothing at all.
-    playSound: (id) => {
-      if (questAudioSource.isPlaying()) return false;
-      questAudioSource.playOneShotId(id);
-      return true;
-    },
+    // QUIET-VENGEANCE: the skip, the ID door and the quiet sounds are the source's one body (playQuestSound).
+    playSound: (id) => questAudioSource.playQuestSound(id),
     // PlaySong hands a MIDI.BSA record name; the SongFiles member was
     // resolved in the action (systems/songFiles.js), which is where
     // DaggerfallSongPlayer.Play does it. DFU's quest song plays ONCE
@@ -16751,6 +16824,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** AUDIT SPELL-GIFT B7: when each stranger's gift was last said, and how often a stranger's gift is said. */
   const _strangerCastSaid = new Map();
   const STRANGER_CAST_SAY_MS = 3000;
+  /** GIFT-QUIET (systems/allyCast.js): a party mate's gift said on my side at most once a window, line by line - a mate's
+   *  heal again and again said "Bran casts Heal on you." and "You are healed N points." a cast, which the notice stack's
+   *  repeat guard never merged. The heal's own line stays: alone, it merges. */
+  const _mateGiftGate = createGiftLineGate();
   let _partyRestJustStartedAt = -Infinity;   // PARTY-REST21: the last time MY OWN rest actually started (for real or via mirror) - see toggleRest's own doc comment for what this closes
   // PARTY-TRAVEL (2026-09-25): THE PARTY'S JOURNEY - systems/partyTravel.js's session over this host's seams (made beside
   // partyRestFollowTick, once every seam it reads is bound). Declared here, among the party's other state, so a reader
@@ -17509,7 +17586,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       const loud = mate || !(t - (_strangerCastSaid.get(id) ?? -Infinity) < STRANGER_CAST_SAY_MS);
       if (loud && !mate) _strangerCastSaid.set(id, t);
       const who = peerName(id) ?? (mate ? 'A party member' : 'Another player');
-      if (loud) townTalk.say(allyCastTargetLine(who, spell.name));
+      const targetLine = allyCastTargetLine(who, spell.name);
+      if (loud && (!mate || _mateGiftGate(targetLine))) townTalk.say(targetLine);   // GIFT-QUIET: a mate's, once a window
       const before = playerEntity.health;
       magic.applySpellToPlayer(spell, d.level, null, { allyCast: true, strangerCast: !mate });   // AUDIT SPELL-GIFT B6: a stranger's Cure leaves an infection be
       const healed = Math.max(0, Math.trunc(playerEntity.health - before));
@@ -21976,6 +22054,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     const peerEye = travelView?.eye ?? cam.pos, peerRight = [Math.cos(peerYaw), 0, -Math.sin(peerYaw)];
     const tvGrow = travelView?.active ? peerGrow : null;   // OW-PEERS: the others grown under the Overworld, as the traveller is
     const drawable = isCellRoom(online.room) && csaOn() ? csaAboard.glue(online.drawable(), { poseOf: (o, i) => csaPoseAhead(o, i, dt), toWire: campToWire, dt }) : online.drawable();   // CSA-K: a peer aboard a boat stands on its deck as it is drawn here - its owner's (mine among them) or the one led here - never a stride behind it
+    _peerMapPoses.clear();
+    for (const d of drawable) if (d?.shown) _peerMapPoses.set(d.id, d.shown);
     const visiblePeers = cabin ? drawable : drawable.filter((d) => !csaPeers.isBelowDeck(d.id));
     peerCastVisuals(visiblePeers);   // SPELLFX1: a peer's new cast, drawn once
     _veilT += dt > 0 ? dt : 0;
@@ -22458,7 +22538,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       return {
         buildings: px?.locBlocks ? locationBuildings(loc.exterior?.buildings ?? [], px.locBlocks, { locationIndex: loc.locationIndex ?? 0 }) : [],
         mapId: loc.mapTableData?.mapId ?? 0,
-        regionIndex: loc.regionIndex ?? 0,
+        regionIndex: loc.regionIndex ?? 0, townBlocks: homeTownBlocks(loc),   // AUDIT HOME-PRICE C1: the town's size prices a deed the bank buys back online
         locationName: loc.name ?? '',
         regionName: maps.getRegionName(loc.regionIndex ?? 0) ?? '',
         // H3: DFLocation.Exterior.ExteriorData.PortTownAndUnknown
@@ -22615,6 +22695,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     // its whole dependency list - maps, the player pixel, the climate
     // reader - is the world's.
     openTeleportMap,
+    // IT1: the Fast Travel service's two reads - a driver's or a captain's map (only this host has a world to travel
+    // in), and AreEnemiesNearby(false, false), the strict pool the travel map's own door asks
+    openImmersiveMap,
+    travelEnemiesNearby: () => duelEnemyNear() || areEnemiesNearby([...cityGuards.guards, ...exteriorFoes.foes]) || navalHostileNear(),
+    travelEnemiesText: CANNOT_TRAVEL_ENEMIES_TEXT,
     // G6: the knightly smith's gift needs THIS host's inventory
     // window in choose-one mode - one builder, one dependency list.
     makeInventory: (extra) => (inventoryDoorReady() ? makeInventoryWindow(extra) : null),
@@ -22904,7 +22989,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         position: [m[12] - p.locOrigin[0], m[13] - p.locOrigin[1], m[14] - p.locOrigin[2]],
       }, { locationIndex: dfLoc.locationIndex ?? 0 });
       if (!d) return null;
-      return { ...d, regionIndex: dfLoc.regionIndex, townMapId: (dfLoc.mapTableData?.mapId ?? 0) >>> 0, name: townTalk.directory.find((e) => e.buildingKey === d.buildingKey)?.name ?? '' };   // HOME1: the town the DOOR is in keys its home, not the one under the player
+      return { ...d, regionIndex: dfLoc.regionIndex, townMapId: (dfLoc.mapTableData?.mapId ?? 0) >>> 0, townBlocks: homeTownBlocks(dfLoc), name: townTalk.directory.find((e) => e.buildingKey === d.buildingKey)?.name ?? '' };   // HOME1: the town the DOOR is in keys its home, not the one under the player; HOME-PRICE: and its size prices it
     },
   });
   // AT2: AMBIENT TEXT CLAIMS ITS HOST. The mod is one GameObject made
@@ -23694,6 +23779,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (!boat || !csaRuntime.AllBoats.includes(boat)) return;
     const p = boat.GameObject.position, fw = csaQuatRotate(boat.GameObject.rotation, [0, 0, 1]);
     const base = Math.atan2(fw[0], fw[2]);
+    let placedAshore = false;
     ashore: for (let r = 2; r <= TV_SEA_ASHORE_M; r += 2) {
       for (const off of [0, 0.4, -0.4, 0.8, -0.8, 1.6, -1.6, Math.PI]) {
         const x = p[0] + Math.sin(base + off) * r, z = p[2] + Math.cos(base + off) * r;
@@ -23701,9 +23787,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         const h = heightAt(x, z);
         if (!Number.isFinite(h) || h < tvSeaY() + 0.2) continue;   // under the sea's top: not ashore
         player.spawn(x, h + 0.05, z);
+        placedAshore = true;
         break ashore;
       }
     }
+    if (!placedAshore) { tvSeaStop(TRAVEL_VIEW_TEXT.noShore); return; }
     if (tvSea.means?.again && boat.packable && csaPassengersOn(boat) === 0 && !csaRuntime.deedMissing(boat)) csaCall(() => csaRuntime.PackBoat(boat, true));   // "You store the boat in your inventory" - SHIP-PACK: a ship with her deed in the pack
     else {
       tvSay(TRAVEL_VIEW_TEXT.leftMoored);
@@ -24384,7 +24472,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // (`_hiddenPeers`) and the veiled (`_veils`) are never marked
     for (const d of online?.drawable?.() ?? []) {
       if (!d?.shown || _hiddenPeers.has(d.id) || _veils.has(d.id)) continue;
-      const f = onlineToScene(d.shown);
+      const f = onlineToScene(_peerMapPoses.get(d.id) ?? d.shown);
       // AUDIT NAMES N2-2: THE SWITCH HOLDS - a player who shares nothing with the region ("Show me to travellers" off)
       // and is not of my party is named only as close as play names them (NAME_RANGE from where I stand) and never held
       // at the edge; my party, and a player whose mark the region already has, are named wherever they stand
@@ -26041,6 +26129,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       hcc.offsetAll(r.offset);   // HCC: FloatingOrigin.OnPositionUpdate - every scene point the runtime holds, the peers' teams, the parked wagon's collider
       if (csaRuntime) csaCall(() => csaRuntime.OnPositionUpdate(r.offset)); else csa.offsetAll(r.offset);
       csaPeers.rebase(r.offset);   // CSA-J: the peers' eased places with the world
+      harbourBook.offsetAll(r.offset);   // HARBOUR-BOOK: the harbours' berths and mouths - before the sea and the quays read them
       naval?.offsetAll(r.offset); navalFlames.offsetAll(r.offset);   // NAV-H: the sea's ships, their shots, smoke and fires - before their buckets stand again below
       quays?.offsetAll();   // AUDIT HOLDINGS Q7: the quays' still colliders stood again where the berths (moved just above) lie
       csaSyncColliders(); yards?.rebase();   // CSA-D: the boats' buckets stand where the shift put them before any motor step meets them   // CSA-C: the mod's own FloatingOrigin.OnPositionUpdate (its kept bug: a boat out of sight stays behind)   // FB1001 YARD-RECENTRE: and the yards' pieces with their buckets, in place - their frame ran above the shift, and the draw is below (one line, so no line cite moves)
@@ -26437,6 +26526,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     try { if (gatePool?.frame(dt)) warmGateVeil(); } catch (e) { console.warn('[gate] pool', e?.message ?? e); }   // AUDIT WB D5: a gate stands - the step's veil is built ahead
     try { sigilBroker?.frame(dt); } catch (e) { console.warn('[broker] pool', e?.message ?? e); }   // SET7: the Broker stands where the clock stands her - BROKER-CAGE: in her cage at the faithful's circle
     try { riteHost?.frame(); } catch (e) { console.warn('[rite] host', e?.message ?? e); }   // WB12d: the faithful's circle, before the lights (its braziers light the ground)
+    try { if (_mode() === 'exterior' && !_loading) harbourBook.step(now / 1000); } catch (e) { console.warn('[harbours] book', e?.message ?? e); }   // HARBOUR-BOOK: the port near the player sounded, before its quays stand
     try { quays?.frame(); } catch (e) { console.warn('[quays] pool', e?.message ?? e); }   // QUAYS: the harbours' quays stood or taken down, before the lights (their lanterns) and the world pass
     // Lanterns on 17:00-08:00, flickering verbatim; pixel-local lights
     // placed under the current compensation, nearest 16 to the camera.

@@ -438,7 +438,13 @@ test('AUDIT ONESEAT C1: a claim speaks for CLAIM_TTL_MS - within it a retry stil
 test('AUDIT ONESEAT C4/T5: over the RUNTIME\'s BroadcastChannel (which delivers later, as a browser\'s does - the suite\'s fake delivered inside the post and hid it), two tabs that claim before either hears the other leave exactly one holding the seat; a press in the same millisecond still takes it; and a claim that crossed a newer one is answered, not obeyed (mutants: no stamp asked; the older not answered; the stamp the clock alone)', async () => {
   const BC = globalThis.BroadcastChannel;
   assert.equal(typeof BC, 'function');
-  const settle = () => new Promise((res) => setTimeout(res, 25));
+  // BroadcastChannel delivery has no 25 ms deadline, especially during the full parallel suite.
+  // Wait for the observed handoff, with a bounded failure if the protocol never converges.
+  const settle = async (ready) => {
+    const deadline = performance.now() + 2000;
+    while (!ready() && performance.now() < deadline) await new Promise((res) => setTimeout(res, 5));
+    assert.ok(ready(), 'BroadcastChannel seat handoff did not converge within 2 seconds');
+  };
   const opened = [];
   const lock = (name, nonce, lost, key) => { const l = createSeatLock({ Channel: BC, name, nonce, now: () => 5000, onLost: () => { lost[key]++; } }); opened.push(l); return l; };
   try {
@@ -446,23 +452,23 @@ test('AUDIT ONESEAT C4/T5: over the RUNTIME\'s BroadcastChannel (which delivers 
     let lost = { a: 0, b: 0 }, name = `dagger.test.seat.${process.pid}.1`;
     let a = lock(name, 'n-2', lost, 'a'), b = lock(name, 'n-1', lost, 'b');
     a.claim(); b.claim();
-    await settle();
+    await settle(() => Number(a.held) + Number(b.held) === 1 && lost.a + lost.b === 1);
     assert.equal(Number(a.held) + Number(b.held), 1, 'one tab holds the seat - two had given it up');
     assert.equal(lost.a + lost.b, 1);
     // Play online here in the tab that lost, in the same millisecond (the clock stands still): it takes the seat
     const [out, holder] = a.held ? [b, a] : [a, b];
     out.claim();
-    await settle();
+    await settle(() => out.held && !holder.held);
     assert.equal(out.held, true, 'the newer press holds');
     assert.equal(holder.held, false);
     // a tab whose channel opened after the holder's claim never heard it: the holder answers its claim with its own
     lost = { a: 0, b: 0 }; name = `dagger.test.seat.${process.pid}.2`;
     a = lock(name, 'n-2', lost, 'a');
     a.claim();
-    await settle();
+    // No listener existed when this claim was posted; a later channel cannot receive it.
     b = lock(name, 'n-1', lost, 'b');   // the same instant, a lower nonce: the tie is a's
     b.claim();
-    await settle();
+    await settle(() => a.held && !b.held);
     assert.deepEqual([a.held, b.held], [true, false], 'one seat, not two');
     assert.deepEqual(lost, { a: 0, b: 1 });
   } finally { for (const l of opened) l.close(); }

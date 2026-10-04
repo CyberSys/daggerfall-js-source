@@ -394,6 +394,12 @@ must be assigned there, never re-declared. Mutants
    teleportation (any Mages Guild rank) stays the player's dial.
    `test/travelonline.test.js` (3); `tools/mutants/travelonline.json`
    (all dead).
+   **IT1** (2026-10-04, the owner: instant travel online "as an option but with
+   a cost", then Immersive Travel 1:1): a carriage driver's trip is DFU's fast
+   travel with the mod's fare paid, from the driver's own map, which never meets
+   this floor (AUDIT IT1 W3, `06-Systems/Immersive-Travel.md`). Immersive
+   Travel's Disable Normal Travel is the room's and OFF, so every trip over land
+   from the map is still walked.
 10. **A message box over the journey PAUSES it rather than interrupting
     it** (AUDIT-TO1 H1). DFU's `DaggerfallUI.MessageBox` pushes a window,
     so the mod's own help (`:1005-1014`) trips the "any other window"
@@ -795,7 +801,7 @@ which `InitLocationRects` keeps refreshing the rects MID-journey
 (`:606-612`, `autopilot == null || destinationName != null`;
 `travelOptions.js:695-698`). A town's ring reaches into its neighbour
 pixels; the crossing fired `OnMapPixelChanged`, the host's
-`locationTileRect` answered null for the neighbour (world.js:13247 -
+`locationTileRect` answered null for the neighbour (world.js:13314 -
 null both for a pixel not yet built and for one with no location),
 `SetLocationRects` nulled both rects (`:602-604`), and the walk's own
 `OnArrival` (`circumnavigateLocation`, `:753-797`) read
@@ -1394,6 +1400,19 @@ SKILLS.Mercantile)` now, the same read every counter makes, so a worn Enhances S
 called faithful was; its haggle's Mercantile was not. Both maps and a party's fare bill through it (`travelFareDeps`),
 and the dials are the player's own online (all but the four TRAVEL-ONLINE gives the room), where MERC-CAP reads the skill no further than
 100. Offline, past 233 the mod's own call bills under nothing, as a room does - put to Mac with MERC-CAP.
+
+## TRAVEL-LAST-SPEED (2026-10-04) - the chosen rate outlives a path's half cap
+
+A departure from the mod, at the reporter's word (BUG-TRAVEL-LAST-SPEED-01, "Fast travel does not keep the last selected
+speed"; keep it active and remember it). The mod's `InitTravelUI` sets the clock from `TimeAcceleration` and only THEN
+pushes the panel, whose `OnPush` clamps `TimeAcceleration` into the limit in force and keeps the clamp. So a path
+(`HalfLimit`, 30 of a 60 limit) after a 60x trip showed 30 on the spinner while the clock ran 60, and the 60 was lost to
+every later trip. The port pushes the panel first (`travelOptions.js initTravelUI`), so spinner and clock agree, and the
+panel keeps the player's CHOSEN rate apart from the rate IN FORCE (`travelControlUI.js` `_preferredAcceleration` /
+`_timeAcceleration`): a cap lowers the one in force, and the next uncapped journey - or the Acceleration Limit dial
+opened in play (`setAccelerationLimit`) - brings it back. A journey already showing keeps its higher rate when a path
+replaces it, as the mod's does (no push, no clamp). `alwaysUseStartingAccel` still resets both. The session's alone:
+the mod saves no travel state (departure 8). Pins: `test/travel_speed_preference.test.js`, `tools/mutants/to1.json`.
 
 ## Pins
 

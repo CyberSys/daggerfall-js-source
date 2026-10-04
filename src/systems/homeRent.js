@@ -25,6 +25,7 @@ import {
   RENT_DAYS, RENT_DAYS_MAX, RENT_ROOMS_MAX, rentCost, rentPriceOk, rentRoomOk, rentAnchorOf, rentDaysLeft, rentUntil, RENT_PRICE_MIN, RENT_PRICE_MAX,
 } from '../net/homeLaw.js';
 import { ARENA_TEXT } from './arenaText.js';   // ARENA4b: a room the arena's move carried, named
+import { goldSum, EMPIRE_ACCOUNT_WORDS } from './homeWords.js';   // AUDIT HOME-PRICE E4: the door's sums and account, as the home's own lines say them
 
 /** The door's verb for a home with a room free to rent (onlineHomes.js HOME_VERB's own row). */
 export const RENT_VERB = 'home-rent';
@@ -34,21 +35,21 @@ export const RENT_PRICE_STEPS = Object.freeze([-100, -10, 10, 100]);
 export const RENT_PRICE_FIRST = 50;
 
 /** The door's row for a home with rooms free: the cheapest of them a day. */
-export const rentRowLabel = (from) => `Rent a room: from ${from} gold a day`;
+export const rentRowLabel = (from) => `Rent a room: from ${goldSum(from)} gold a day`;
 /** A tenant's row at the door: their own room, and how long it has left. */
 export const rentTenantLabel = (daysLeft) => `Your room: ${daysLeft} day${daysLeft === 1 ? '' : 's'} left - renew it`;
 /** What a tenant hears walking in. */
 export const rentWelcomeLine = (daysLeft) => `You rent a room here - ${daysLeft} day${daysLeft === 1 ? '' : 's'} left. You may rest here.`;
 /** The rent window's lines: the rooms to choose from. */
-export const rentPickLines = (owner) => [`Rooms to rent in ${owner}'s home.`, 'The rent is paid now, from your purse and this region\'s bank account.'];
+export const rentPickLines = (owner) => [`Rooms to rent in ${owner}'s home.`, `The rent is paid now, from your purse and ${EMPIRE_ACCOUNT_WORDS}.`];
 /** The rent window's lines: how many days, at a room's price. */
-export const rentDaysLines = (room, price) => [`Room ${room} - ${price} gold a day.`, 'For how many days? A day is a real day.'];
+export const rentDaysLines = (room, price) => [`Room ${room} - ${goldSum(price)} gold a day.`, 'For how many days? A day is a real day.'];
 /** The rent window's lines: the price asked, before it is paid. */
-export const rentConfirmLines = (room, days, price) => [`Rent room ${room} for ${days} day${days === 1 ? '' : 's'}?`, `It costs ${rentCost(price, days)} gold.`];
+export const rentConfirmLines = (room, days, price) => [`Rent room ${room} for ${days} day${days === 1 ? '' : 's'}?`, `It costs ${goldSum(rentCost(price, days))} gold.`];
 /** A room rented, said. */
 export const rentDoneLine = (room, days) => `Room ${room} is yours for ${days} day${days === 1 ? '' : 's'}. The door will open for you.`;
 /** The purse short of a rent. */
-export const rentShortLine = (cost) => `You need ${cost} gold, in your purse and this region's bank account together.`;
+export const rentShortLine = (cost) => `You need ${goldSum(cost)} gold, in your purse and ${EMPIRE_ACCOUNT_WORDS} together.`;
 /** No room free to rent, said at the door. */
 export const RENT_NONE_FREE = 'No room here is free to rent right now.';
 /** Renting asks an online character of the realm - said where there is none. */
@@ -185,7 +186,7 @@ export function rentRowSub(row, nowS) {
   if (!o) return row.offerable ? 'Not offered to rent' : `Only ${RENT_ROOMS_MAX} rooms can be offered`;
   if (o.taken) return `Rented by ${o.tenant ?? 'a tenant'} - ${rentDaysLeft(o.until, nowS)} day${rentDaysLeft(o.until, nowS) === 1 ? '' : 's'} left${o.listed ? '' : ' - offered to nobody after'}`;
   if (!o.listed) return 'No longer offered to rent';   // AUDIT: a room taken off the offer whose tenancy ran out (it said "Offered")
-  return `Offered at ${o.price} gold a day`;
+  return `Offered at ${goldSum(o.price)} gold a day`;
 }
 /** The anchor a found room is offered by: its flight's point, from the building's origin. */
 export const rentAnchorOfRoom = (room, origin) => rentAnchorOf([room.eye[0] - origin[0], room.eye[1] - origin[1], room.eye[2] - origin[2]]);

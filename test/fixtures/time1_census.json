@@ -473,9 +473,9 @@
   {
    "file": "src/scenes/world.js",
    "has": "const nowMin = Math.floor(skyMinutes());",
-   "count": 2,
+   "count": 3,
    "clock": "sky",
-   "why": "the sun's refusals - the career's, the curse's, the party's"
+   "why": "the sun's refusals - the career's, the curse's, the party's; and the driver's map's online (AUDIT IT1 W2)"
   },
   {
    "file": "src/scenes/world.js",

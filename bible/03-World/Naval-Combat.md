@@ -91,7 +91,7 @@ rail's height, the beam); the table is what each carries, a side at a time:
 |---|---|---|
 | Rowboat | 96 / 0 / 0 | none - it rams, it does not fight |
 | Large Boat | 240 / 96 / 0 | 3 swivels a side, 1 on the bow |
-| Small Ship | 672 / 256 / 24 | 6 long guns a side, 2 chain-shot chasers, a fire barrel over the stern |
+| Small Ship | 672 / 256 / 24 | 5 long guns a side (GALLEON: a gun a port of Mac's galleon - the mod's had 6), 2 chain-shot chasers, a fire barrel over the stern |
 | Large Galley | 832 / 144 / 60 | 4 long guns a side, 3 great guns on the bow - and the ram (GALLEY_RAM) |
 | Carrack | 896 / 352 / 30 | 7 long guns a side, 2 chain-shot chasers, a fire barrel over the stern |
 
@@ -580,7 +580,9 @@ graftColours, FLAG_DONOR_HULL). A hull hit's burst is grown for an eye far off (
 (`navalEffects.js` smolder, SMOLDER_RATE puffs a second at the worst) from the part the sea has not reached
 (`lineOver`); under DAMAGE_LIST_FROM a list to her going-down side (to DAMAGE_LIST_MAX, over DAMAGE_LIST_EASE_S; the
 sinking's own list takes it on); her canvas down with her sail share, her highest sails first (`sailsShown` - a sail
-node holds its skinned canvas alone, so her yards stand); and a ball into her hull sheds TIMBER_PER_HIT planks, laid
+node holds its skinned canvas alone, so her yards stand; AUDIT GALLEON-2 RG4: by the canvas's own height where a sail
+has a grid of bones, so the new galleon loses main topsail, fore topsail, jib, gaff, fore course - by node height she
+lost her course first; and RG2: each of her sheets under its own sail, gone with it); and a ball into her hull sheds TIMBER_PER_HIT planks, laid
 long on the sea (a particle's `aspect`), drifting, gone after TIMBER_LIFE or so. FAR SHIPS (#17): past NEAR_LIFE_M of
 the eye a ship's animators and particle systems step every FAR_LIFE_EVERY frames with the time they missed, each ship
 on her own frame of the stride; her animators found once; an idle particle system (stopped, nothing alive) returns
@@ -877,18 +879,20 @@ to 24% in 180 s, then cruised away).
 - **FIGHTING POWER** (`fightingPower`) - AUDIT NAV2 F25, Mac: "Model crew losses": a MEASURE of her (her hull and its
   hurts, her men and whether they load her guns, her gunners' skill, the range she fights at, her turn), and of two
   ships the ODDS (`odds`): how many times sooner one makes the other strike than the other makes her (`strikeTime`: her
-  hull to STRUCK_AT or - one that strikes when her hands are down - her last man, whichever her fire does first; a volley
-  each reload, slower as her men fall, TURN_PER_VOLLEY of her turn between; each ball striking at the other's size,
-  `hitShare`; nothing from a battery that cannot lay at the range the other fights at, `layMin`). The Lanchester
+  hull to STRUCK_AT or - one that strikes when her hands are down - her last man, whichever her fire does first; a
+  volley each reload, slower as her men fall, TURN_PER_VOLLEY of her turn between; each ball striking at the other's
+  size, `hitShare`; nothing from a battery that cannot lay at the range the other fights at, `layMin`). The Lanchester
   product it replaces (`metalOf` x the gunners' hit share x the crew's share x the hull left) counted the hull a salvo
   takes and never the men, while every hurt kills men and, since HELM-WAY, a ship with no hands strikes: its favourite
-  lost four of the eight navy-pirate matchups (a sloop beat a cutter 6 of 8, a war galley 7 of 8). Now wherever the
-  odds lean WARY_ODDS or better the favourite wins six of eight, and every duel is fought to a strike (the table:
+  lost four of the eight navy-pirate matchups (a sloop beat a cutter 6 of 8, a war galley 7 of 8). Now wherever the odds
+  lean WARY_ODDS or better the favourite wins six of eight, and every duel is fought to a strike (the table:
   `01-Overview/Audit-NAV2.md`). A player's boat is sized off her build, her hurts and her hands (`myPowerOf`; single-
-  handed without a crew node; a player's boat never strikes by her men), a peer's off their word's (`peerPowerOf`,
-  AUDIT NAV2 F2). So a wary brig leaves a Large Boat, a Small Ship and a Carrack, and takes a crewless Large Galley (1.31
-  to one) but not a crewed one (1.12); she takes a galleon or a merchant carrack, never a coaster; a wary sloop takes
-  any merchantman; a sloop no longer runs from a cutter (0.95).
+  handed without a crew node; a player's boat never strikes by her men), a peer's off their word's (`peerPowerOf`, AUDIT
+  NAV2 F2). So a wary brig leaves a sound Large Boat, Small Ship, Carrack or Large Galley - crewless (1.10 to one) or
+  crewed (0.94) - and takes a sound Rowboat (it has no gun to size her against); she takes a merchant galleon (1.49),
+  never a merchant carrack (1.10) or a coaster; a wary sloop takes any merchantman; a sloop no longer runs from a cutter
+  (0.84). (AUDIT GALLEON G10/T8: these are the five-gun galleon's odds - the brig took a crewless Large Galley at 1.31
+  and a merchant carrack at 1.32 while hull 2 carried the mod's six; What five guns moved, below.)
 - **THE STERN CHASE** (`engageCourse`): a quarry running from her - her way along the line of sight, away, over
   CHASE_AWAY of the pursuer's own pace - with the pursuer abaft her beam (past ABAFT_DEG off her bow) is run down dead
   astern (the intercept of the quarry herself: the chasers bear) and, within CHASE_SHEER of the pursuer's range, by a
@@ -1006,23 +1010,43 @@ the hull's box (one of the Small Ship's sixteen stood on her outer bow at 5.21 m
 Carrack's hold).
 
 - **THE DECK** (`systems/naval/navalDeck.js buildDeck`, baked once a hull by `comeSailAwayPool.js deckOf` while the
-  world loads - every rig of a hull shares her deck; AUDIT NAV2 F57: keyed by rig too, a Large Boat's rig first seen
-  was baked mid-voyage, 7-15 ms, and the rigs' colliders are proven equal): her colliders' triangles in her mesh node's frame on a DECK_CELL grid - the floors (within
-  DECK_FLAT of level) with DECK_HEADROOM clear above and no wall through the cell rising more than a tread off them (a
-  wall's footprint marks every cell its edges cross: a 0.4 m mast between two cells' centres, a gun's side, a cabin's),
-  joined to her main level cell to cell within DECK_STEP, a cell in from every edge, and of that her open deck alone -
-  the largest piece a walk joins. Measured: the Small Ship's 651 cells at 6.77 m (her poop cabin aft of 12.8 m walled
-  off), the Large Galley's 4013 at 10.25, the Carrack's 515 at 3.64 (her rooms under the half deck walled off); every
-  cell a floor her colliders stand under a head's height clear. AUDIT NAV2: EVERY FLOOR AT HER MAIN DECK OR OVER IT
-  (F34: one level a cell cut the Small Ship's forecastle stair at 8.55, and the leash dragged a body on her forecastle
-  2.5 m down - a player there was out of every boarder's reach): her floors join cell to cell within DECK_JOIN, the
-  motors' step; her open deck is the grid's `y`, a cell's highest floor, and her poop, her cabins and the room under
-  her forecastle are pieces beside it (`more`; `heightAt`, `pieceAt` and `clamp` answer per piece) - the Small Ship's
-  690 (her forecastle and its stair joined; her poop cabin 259, her poop 247 and under her forecastle 19 as pieces),
-  the Galley's 4013, the Carrack's 515 with 1586 floors in 31 pieces. NEVER INSET AGAINST A BENCH (F32: the Large
-  Boat's thwarts ate 18 of her waist's 30 cells - her deck 12 cells to 18 now, the Rowboat's 4 to 13), and no inset
-  that would cost half her deck. Under her main deck nothing is deck; every floor of hers at any level is what
-  standing aboard her is (`under`, SEA-PEACE above).
+  world loads - every rig of a hull shares her deck; AUDIT NAV2 F57: keyed by rig too, a Large Boat's rig first seen was
+  baked mid-voyage, 7-15 ms, and the rigs' colliders are proven equal): her colliders' triangles in her mesh node's
+  frame on a DECK_CELL grid - the floors (within DECK_FLAT of level) with DECK_HEADROOM clear above and no wall through
+  the cell rising more than a tread off them (a wall marks each cell it stands in with its own height there - a 0.4 m
+  mast between two cells' centres, a gun's side, a cabin's; AUDIT GALLEON D-wall: it marked every cell its edges crossed
+  with the whole triangle's height, so her deck hung on how a face was cut - Blender's cut of her castle front walled
+  her port flight's tread at 8.28 under a face 6.87 m high there, and her castle roof and upper flight, 168 cells, were
+  lost - and the deck is the same over either cut now, each wall clipped to each cell), joined to her main level cell to
+  cell within DECK_STEP, a cell in from every edge, and of that her open deck alone - the largest piece a walk joins.
+  Measured at AUDIT NAV1: the mod's galleon's 651 cells at 6.77 m (her poop cabin aft of 12.8 m walled off), the Large
+  Galley's 4013 at 10.25, the Carrack's 515 at 3.64 (her rooms under the half deck walled off); every cell a floor her
+  colliders stand under a head's height clear. AUDIT NAV2: EVERY FLOOR AT HER MAIN DECK OR OVER IT (F34: one level a
+  cell cut the Small Ship's forecastle stair at 8.55, and the leash dragged a body on her forecastle 2.5 m down - a
+  player there was out of every boarder's reach): her floors join cell to cell within DECK_JOIN, the motors' step; her
+  open deck is the grid's `y`, a cell's highest floor, and her poop, her cabins and the room under her forecastle are
+  pieces beside it (`more`; `heightAt`, `pieceAt` and `clamp` answer per piece) - the mod's galleon's 690 then (her
+  forecastle and its stair joined; her poop cabin 259, her poop 247 and under her forecastle 19 as pieces), the Galley's
+  4013, the Carrack's 515 with 1586 floors in 31 pieces. Now (AUDIT GALLEON, the walls marked as they stand): Mac's
+  galleon's 838 - her main deck 664 at 6.20, one cell further out at her entry ports where her side stands under her
+  deck there, and her castle and its flights 174 - the Large Galley's 4016, the Carrack's 511 (her main deck 465,
+  running under her half-deck stairs and into the room under her forecastle; her forecastle 39 and its stair 7), the
+  mod's galleon's 727 when she stands in (AUDIT GALLEON-2 DK4: 750 was measured over the new galleon's extent; 690
+  before D-wall); her hatchways no deck (D7: a part that opens and shuts is no floor), and her open deck one walk on
+  every hull. AUDIT GALLEON-2: what her parts that open stand over or in is baked beside her deck (`ajar`) - a shut
+  cover's top (DK1: the Carrack's cargo doors read 600 of their 1575 points ashore and held a boarder 2.48 m off a player
+  on them), and the floor a door's leaf alone walls with the inset's margin either side (DK3: no boarder went through
+  any door - 4.59 m off a player in the new galleon's great cabin). Standing aboard reads them and the leash lets a body
+  stand on them; never her walk, spots or a landing. Her deck's bake is unchanged on every hull. The deck cannot know a
+  part's state, so over an open hatchway a body is held while within a step of the cover's shut top, then set back at
+  its edge. THE LEASH (AUDIT GALLEON-2 DK2) measures off the floor the body last stood on - its piece's floor within
+  FLIGHT_JOIN of it, else that piece's nearest cell at that level, else its edge: since D-wall her open piece holds two
+  levels in a cell, and the body's height of the moment had set the Carrack's walks 2-3 m between her main deck and
+  forecastle (124 of 32904) and the mod's galleon's (43 of 19880). None now, never more than 0.57 m sideways. NEVER INSET AGAINST A BENCH (F32: the Large Boat's thwarts ate 18 of her waist's 30
+  cells - her deck 12 cells to 18 now, the Rowboat's 4 to 13), and no inset that would cost half her deck. Under her
+  main deck nothing is deck; every floor of hers that faces up, at any level, is what standing aboard her is (`under`,
+  SEA-PEACE above; AUDIT GALLEON D3 and D-wall: below a step under her main deck within the capsule's reach of the feet,
+  and never her bottom's underside - it read swimmers aboard round 1% of her hull).
 - **Her frame is her mesh node's** (`intoDeck`, `outOfDeck`): the swell rolls and pitches `Boat.MeshObject`, never her
   root, so a body on a rolled deck is read where it stands (the root's frame read it as off her deck).
 - **THE LEASH** (`scenes/world.js navalLeash`, after the foes move): a deck body whose step carried it off her cells (up
@@ -1163,10 +1187,16 @@ cruise to random waypoints; a port had no ships at all. `systems/naval/shipLife.
 
 - **THE HARBOUR OFF THE TERRAIN** (`findHarbour`). No dock data exists - a port town is a flag in its exterior data -
   so the world hands the host the port town within a pixel of the player and its footprint in the scene
-  (`world.js navalHarbourNear`: `locationWorldRect` through the floating origin's `localFromWorld`), and the host finds
-  its harbour once: the town's rect grown HARBOUR_REACH walked on a SHORE_STEP grid for water beside land; each shore
+  (`world.js navalHarbourNear`: `locationWorldRect` through the floating origin's `localFromWorld`), and its harbour is
+  found once (HARBOUR-BOOK: the world's book, `systems/naval/harbourBook.js`, sounded whatever runs on the water - the
+  host reads it; `03-World/Holdings.md` section 7): the town's rect grown HARBOUR_REACH walked on a SHORE_STEP grid for water beside land; each shore
   point stood off the land along the shore's normal by her half width and BERTH_MARGIN is a BERTH lying parallel to the
-  shore - kept only where her whole footprint (sized for BERTH_HULL, the Carrack) floats, and BERTH_SPACING of her
+  shore - kept only where her whole footprint (sized for BERTH_HULL, the Carrack) floats in the water of the deepest keel that
+  berths (AUDIT GALLEON-2 GN1: `deepestBerther` over BERTH_HULLS - sounded for the Carrack alone, every berth was land
+  to a hull 2 drawing 4.7 m, and her merchant galleons, navy cutters and pirate brigs froze at them for good; off Iliac
+  Puddle No More's carved shelf the berths lie some 92 m off the shore, 80 before - HARBOUR-BOOK corrected GN1's 40-52 and
+  16-28, which read the bathymetry's depth without the floor's shore fit: within SHORE_TERRAIN_FIT_METERS (180 m) of the
+  coast the floor is lifted toward the sea's own top, 3.2 m deep only ~69 m out and 4.7 m ~80), and BERTH_SPACING of her
   length from every other, the nearest the town first, HARBOUR_BERTHS at most. Each berth has its APPROACH, open water
   APPROACH_LENGTHS astern of it and APPROACH_OUT off the shore. The MOUTH is the first point out along the berths' mean
   normal with MOUTH_CLEAR of open water all round. A town with no shore, or a harbour with no way out, has none.
@@ -1320,7 +1350,7 @@ followers and Come Sail Away's crew never leaves the boat; all of this is the po
   further for the second). No foe to fight - or a fight that has drawn him past `FOLLOW_LEASH` - a companion turns and
   walks to the leader (`enemyMotor.js _followTicks`: the pursuit's own turn-then-walk, standing inside `stop`, off
   again past `stop + FOLLOW_SLACK`); the pathing motor routes it round walls on the navmesh (`enhancedMotor.js
-  _followGoal`, the route dropped as he turns between following and fighting). AUDIT CREW CC-B3/B4: he fights only a
+  _followGoal`, the route dropped as he turns between following and fighting). COMPANION-TRAIL (FIELD BUGS 2026-10-04b, `01-Overview/Field-Bugs-2026-10-04b.md`): out of sight of the leader he walks the leader's own trail - the crumbs the layer drops where the player walked (`crewAshore.js drop`), the newest in sight (`enemyMotor.js _trailGoal`) - and the pathing motor asks the trail before the navmesh; he walks on while he turns inside 30 degrees, and hurries past 8 m. AUDIT CREW CC-B3/B4: he fights only a
   foe within the leash of his LEADER that he can pursue; drawn past the leash he is RETURNING - every target dropped,
   the secondary one too - until he is home; a foe never seen, or given up on, leaves him following. Left `CATCH_UP_M`
   behind, or `CATCH_UP_DY` a floor away while the leader stands on one, he is stood behind the player again, his motor
@@ -1371,6 +1401,22 @@ followers; all of this is the port's own, over CREW-COMPANIONS.
   ready, a companion knocked out (`_knockedOut`, the frame before he is carried aboard), or another player's companion
   (a puppet - his effects are his owner's). His spells and his whole ride with him from place to place
   (`crewAshore.js`: each new body stands with the last one's live entries and its max health) - not through a save.
+- **GIFT-QUIET (2026-10-04: "sometimes theres notification spam when putting a spell on companion")**: a gift's lines
+  - the armed ready's ("Press button to fire spell." and `COMPANION_ARMED_LINE` / `ALLY_ARMED_LINE`), the caster's
+  ("You cast Heal on Hilda.", one or many, a companion's or a party mate's) and a party mate's on the receiving end
+  ("Bran casts Heal on you.", `world.js online.onCast`) - are said at most once in `allyCast.js GIFT_LINE_QUIET_S`
+  (10 s) of real time, through one gate (`createGiftLineGate`; `hostMagic.js sayGift`). Every cast near a companion
+  said three different lines, so the notice stack's repeat guard (`ui/hudText.js` NOTICE-SPAM, the back row only)
+  never caught them: six heals a second apart held eleven Enhanced plates at once, now three. THE AUDIT (2026-10-04):
+  the window is counted from when a line was SAID, never refreshed by asking - and on the real clock, not an engine's
+  frames, which stopped with the engine (the world's, under a dungeon) and stretched at a low frame rate; and an ARM
+  unlike the last ready's (`sayArm`: a mate's or my companion's, aimed or near, or none) is said whatever the window -
+  a heal armed near her, fired on the spot once she stepped off, then armed again as she came back, said nothing, and
+  readying again to find out held it silent. The classic ready line outside an arm (`readySpell`'s tail), a heal's
+  "You are healed" (alone, it merges at the back) and every other line are untouched. THE FOUR HOSTS: one route for
+  all of them, `say` -> `hudText.add` -> the Enhanced notice panel - `world.js`'s engine on the street and, through
+  `worldModes.js`, in a building; `dungeonContext.js`'s own underground; `exterior.js`'s hands no companion or mate
+  seam, so no gift line is said there. `test/giftquiet.test.js`; `tools/mutants/giftquiet.json`: 17 mutants, all dead.
 - **The pack** (`crewCompanions.js` - each companion's live `items`, saved with the party through the host's item
   codec, `packedItemsCodec`, the cargo's own). Activating my companion in Info, Grab or Talk within
   `TREASURE_ACTIVATION_DISTANCE` (else "You are too far away", as any storage) opens it (`player/
@@ -1907,6 +1953,50 @@ SHIPS OF THE BAY's (2026-10-02) - `test/shipnames.test.js`, `shipstance`, `shipf
 (`tools/mutants/shipnames.json`, `shipstance.json`, `shipfade.json`, `sealanes.json`) are recorded in its section above;
 AUDIT BAY's - `test/auditbay_lanes.test.js`, `auditbay_render` and `tools/mutants/auditbay.json` - are the audit's
 record's (`01-Overview/Audit-Ships-of-the-Bay.md`).
+
+## GALLEON (2026-10-01) - Mac's galleon, her guns out of her ports - OURS
+
+Hull 2 is Mac's own galleon now (`03-World/Come-Sail-Away.md` The new galleon; the Port-Ledger's GALLEON row), and the
+Small Ship's build is measured off her (`navalShips.js` HULL_BUILDS, `world/galleonModel.js` GALLEON_BATTERIES): five
+long guns a side, a gun a port, each muzzle at its port's middle a hair outside her planking (5.95 m out, 2.24 m over
+the sea - her gun deck at 1.083), so a broadside leaves her through the holes it is fired from; two chain chasers on
+swivels over her bow rail (7.45 m); her barrels under her castle astern. Her box is her MeshCollider's bounds - her
+hull's planking and her castle's (stem 21.93, stern -19.91, half beam 5.86, keel -4.64 - GALLEON-2, Mac's second
+export's deeper V, -3.89 on his first - roof 12.3); her rig seven boxes of her set canvas (AUDIT GALLEON R5/G9): four
+riding the booms that set them, each turned with its boom about the mast as she is trimmed (the fore topsail, the main
+topsail and the gaff in the slots the old boxes held, and the fore course), and three askew along the jib's luff, leech
+and foot - every point of her set canvas, at every trim and every wind, inside one, each three quarters canvas across
+its face. Where her canvas lies inside her hull's box (the course but its outer clews, the gaff sail's foot, the jib
+under her roof) a ball strikes her hull first; out of it, it tears. `rigBand` reads her rig from her roof up.
+
+**Her gun deck works** (`systems/naval/galleonGunDeck.js`, stepped by the host for every ship of hers in play, at the
+clock's own step - AUDIT GN-G7): a battery laid - my look at her helm while it is loaded (AUDIT GN-G8), a captain's
+run-out tell, another player's word while it is fresh (her `g`, PEER_LAY_S - AUDIT GN-G3) - opens that side's shutters
+and runs its guns out; each gun kicks RECOIL inboard as its own ball leaves (`muzzle`, its index the port's) and is
+hauled out over HAUL_S, and a gun fired before it is out - a quick click, a word read late - stands out at its shot with
+its shutter snapped open (AUDIT GN-G2): a ball leaves only through an open port, from her port as she heels (AUDIT
+GN-G5). HOLD_S past the last word they run in to load and the shutters close. Each side's shutters are their own mesh
+and clip, the port side's the starboard's mirrored (AUDIT GN-G1). `scenes/navalHost.js gunDeckOf` reads it.
+
+**What five guns moved.** Every hull-2 class (the pirate brig, the merchant galleon, the navy cutter) is a sixth lighter
+at the guns. The pins that stood on the six moved to the five's truth: a wary brig outguns no sound armed boat of the
+player's now (a crewless Large Galley 1.10 to one, where it was her prize at 1.31; a Rowboat carries no gun and is any
+pirate's prize, as it was) - the wary sloop's prize is the Large Galley, which cannot lay on her, and the brig's a Small
+Ship hurt to four fifths and alone at her guns (1.37); a crewless Carrack is the brig's once under 57% of her hull
+(63.5% with six); the navy cutter on the corsair galley 1.23 to one (1.47), fought four to four, so Mac's bar (AUDIT
+NAV2 F25) calls one of the cutter's four duels where it called two. AUDIT GALLEON G10: the AI's own choices moved with
+the odds (the merge-base's against the head's, `classPower`): a wary brig no longer takes a merchant carrack (1.10, was
+1.32), so from level 5 the director's plunders pair her with the merchant galleon alone; a wary corsair galley takes a
+merchant galleon (1.29, was 1.08), so from level 7 the plunder roll that draws her - 18% of them - launches an encounter
+where it launched none; a war galley outguns a brig (1.06, was 0.89), so a wary brig runs from one, and their duels go
+seven to one for the galley (five to three with six); a crewed Large Galley of the player's outguns a wary brig too
+(1.06): she runs from it. Her low gun deck brought the aboard reach to a step under her main deck on every hull
+(mainLevel - DECK_STEP; under it a capsule's reach of the feet - AUDIT GALLEON D3 - for her gun deck lies 1.08 m over
+the sea: a metre's reach of it read a swimmer against her side aboard); a boarding comes in on a sounded berth unswung
+by the lookout (`boardCourse` `berthing`: LOOKAHEAD_MIN held her 60 m off a prize lying 31 m from a spit, her narrower
+hull needing to close 5 m nearer than the mod's to grapple) and sounds a berth as wide as the legs that reach it
+(`berthOpen`). Pins: `test/galleon_model.test.js`; the moved pins in `nav_a_guns`, `nav_h_host`, `navaudit_*`,
+`auditnav2_*`, `seapeace`, `deckwalk`, `livingcrew`, `fb1001b_peerboats`.
 
 ## THE MERGE with main (2026-09-28)
 

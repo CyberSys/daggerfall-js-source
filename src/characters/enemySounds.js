@@ -55,6 +55,11 @@ export const OCCLUDED_VOLUME_SCALE = 0.25;
 export const MOVE_SOUND_THRESHOLD = 0.8;
 /** :108 - "Play attack sound only about half the time". */
 export const ATTACK_SOUND_THRESHOLD = 0.5;
+/** QUIET-COMPANIONS (FIELD BUGS 2026-10-04b, Mac: "Reduce companion noises, they are way too persistant"): a
+ *  companion's attract wait, as a multiple of the one it rolled - 18 to 54 s where DFU's foe waits 3 to 9. DFU's
+ *  cadence is a foe announcing itself while it is near you, and a companion is near you always: a sworn revenant
+ *  barked every six seconds on average for as long as it walked with the player. Its attack sound is DFU's. */
+export const COMPANION_ATTRACT_SCALE = 6;
 
 /**
  * IgnoreHumanSounds (:219-226), verbatim:
@@ -108,11 +113,14 @@ export class EnemySoundSource {
    * says why: "Keep stepping even when player not in attract radius.
    * This means the player will get audio feedback the moment an enemy
    * is near." Walk up to a sleeping dungeon and it greets you at once.
+   * QUIET-COMPANIONS: `companion` - the host's foe is the player's companion - waits COMPANION_ATTRACT_SCALE times
+   * its roll (read here, so a body that turns companion after its first roll is quiet from that tick).
    */
-  tick(dt, dist, isOccluded = () => false) {
+  tick(dt, dist, isOccluded = () => false, { companion = false } = {}) {
     this.waitCounter += dt > 0 ? dt : 0;
     const inRadius = dist < ATTRACT_RADIUS;
-    if (!(this.waitCounter > this.waitTime) || !inRadius) return null;
+    const wait = companion ? this.waitTime * COMPANION_ATTRACT_SCALE : this.waitTime;
+    if (!(this.waitCounter > wait) || !inRadius) return null;
     const out = this._attract(isOccluded);
     // StartWaiting() runs whether or not the sound was actually played
     // - IgnoreHumanSounds returns from inside PlayAttractSound, after

@@ -69,8 +69,9 @@ const piecesBackOf = async (db, mapId, buildingKey) => db.prepare(`SELECT COUNT(
 
 /**
  * BUY A HALL - the guildmaster's, for a guild that holds none, at a building nobody owns: the treasury pays the home's
- * price and half again out of what records paid in, in the claim's own batch. `price` is the home's own (Daggerfall's
- * bank's, the client's word as a home's claim takes it - HOME1); the hall costs guildHallPrice of it. A claim sent again
+ * price and half again out of what records paid in, in the claim's own batch. `price` is the home's own online price
+ * (HOME-PRICE: the client's word inside homePriceOk's range, as a home's claim takes it); the hall costs guildHallPrice
+ * of it. A claim sent again
  * after a lost answer finds the building already this guild's hall and is answered as the claim.
  * AUDIT PRE-MERGE 1003 WD1: `layout`, the layout the buyer's town stands in (null: Daggerfall's own) - a hall is a home
  * (a row of `homes`), and a building key names a building only in one layout of its town, so a hall is bought as a
@@ -86,7 +87,8 @@ export async function buyHall(ctx, player, body = {}) {
   const a = await guildActorOf(db, player, character);
   if ('error' in a) return a;
   if (!hallMay(a.me.rank, 'hall')) return { error: 'guild-rank' };
-  if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey) || !homeRegionOk(region) || !homePriceOk(price)) return { error: 'bad-home' };
+  if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey) || !homeRegionOk(region) || !Number.isSafeInteger(price) || !(price > 0)) return { error: 'bad-home' };
+  if (!homePriceOk(price)) return { error: 'home-update' };   // HOME-PRICE: a build from before the online price (homes.js claimHome)
   if (!homeLayoutOk(layout)) return { error: 'bad-home' };   // AUDIT PRE-MERGE 1003 WD1: the layout the buyer's town stands in
   if (homeInArenaCell(mapId, buildingKey)) return { error: 'home-arena' };   // ARENA4b: the arena stands there - a build from before it still stands GEMSAL03 (homes.js claimHome's guard)
   if (!Object.hasOwn(body ?? {}, 'layout')) return { error: 'home-update' };   // AUDIT PRE-MERGE 1003 WD1: a build from before the town mods (AUDIT WD3 B2)

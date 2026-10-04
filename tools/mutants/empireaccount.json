@@ -218,11 +218,12 @@
   {
     "name": "EMPIRE-ACCOUNT-house-sold-to-the-branch",
     "file": "src/systems/banking.js",
-    "old": "  const price = houseSellPrice(meshRadius);\n  accounts[goldRegion(accounts, regionIndex, online)].accountGold += price;",
-    "new": "  const price = houseSellPrice(meshRadius);\n  accounts[regionIndex].accountGold += price;",
+    "old": "(scenes/worldModes.js deedSellPrice)\n  accounts[goldRegion(accounts, regionIndex, online)].accountGold += price;",
+    "new": "(scenes/worldModes.js deedSellPrice)\n  accounts[regionIndex].accountGold += price;",
     "tests": [
       "test/empireaccount.test.js"
-    ]
+    ],
+    "note": "AUDIT HOME-PRICE (PIN MOVED, re-aimed by content): the sale's price is its caller's to name now (C1), the line above it a comment."
   },
   {
     "name": "EMPIRE-ACCOUNT-marks-to-the-branch",

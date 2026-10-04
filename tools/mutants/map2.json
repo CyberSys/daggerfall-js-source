@@ -139,29 +139,32 @@
   {
     "name": "coords-without-setting",
     "file": "src/ui/heldMap.js",
-    "old": "    return !!this._to?.settings?.targetCoordsAllowed && (this.deps.coordsAllowed?.() ?? true) && !this.teleportationTravel;",
-    "new": "    return !!this._to && (this.deps.coordsAllowed?.() ?? true) && !this.teleportationTravel;",
+    "old": "    return !this._it && !!this._to?.settings?.targetCoordsAllowed && (this.deps.coordsAllowed?.() ?? true) && !this.teleportationTravel;",
+    "new": "    return !this._it && !!this._to && (this.deps.coordsAllowed?.() ?? true) && !this.teleportationTravel;",
     "tests": [
       "test/heldmap.test.js"
-    ]
+    ],
+    "note": "IT1 (PIN MOVED): re-aimed by content - Immersive Travel’s arm sits beside the line this record mutates."
   },
   {
     "name": "coords-online",
     "file": "src/ui/heldMap.js",
-    "old": "    return !!this._to?.settings?.targetCoordsAllowed && (this.deps.coordsAllowed?.() ?? true) && !this.teleportationTravel;",
-    "new": "    return !!this._to?.settings?.targetCoordsAllowed && !this.teleportationTravel;",
+    "old": "    return !this._it && !!this._to?.settings?.targetCoordsAllowed && (this.deps.coordsAllowed?.() ?? true) && !this.teleportationTravel;",
+    "new": "    return !this._it && !!this._to?.settings?.targetCoordsAllowed && !this.teleportationTravel;",
     "tests": [
       "test/heldmap.test.js"
-    ]
+    ],
+    "note": "IT1 (PIN MOVED): re-aimed by content - Immersive Travel’s arm sits beside the line this record mutates."
   },
   {
     "name": "coords-on-teleport",
     "file": "src/ui/heldMap.js",
-    "old": "    return !!this._to?.settings?.targetCoordsAllowed && (this.deps.coordsAllowed?.() ?? true) && !this.teleportationTravel;",
-    "new": "    return !!this._to?.settings?.targetCoordsAllowed && (this.deps.coordsAllowed?.() ?? true);",
+    "old": "    return !this._it && !!this._to?.settings?.targetCoordsAllowed && (this.deps.coordsAllowed?.() ?? true) && !this.teleportationTravel;",
+    "new": "    return !this._it && !!this._to?.settings?.targetCoordsAllowed && (this.deps.coordsAllowed?.() ?? true);",
     "tests": [
       "test/heldmap.test.js"
-    ]
+    ],
+    "note": "IT1 (PIN MOVED): re-aimed by content - Immersive Travel’s arm sits beside the line this record mutates."
   },
   {
     "name": "coords-pays-fare",

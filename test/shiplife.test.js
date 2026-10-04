@@ -207,7 +207,9 @@ test('SHIP-LIFE A STALL: a ship coming in whose way a struck hulk lies across - 
     if (hd < 30) { ship.pos[0] = was[0]; ship.pos[2] = was[2]; ship.speed = 0; }
     const det = ship.errand?.detour ?? null;
     if (det) detoured = true;
-    // a detour that held her gives way to one on the other side
+    // a detour that held her gives way to one on the other side. PIN MOVED (AUDIT GALLEON T2): the new galleon's first
+    // detour clears this hulk, so none holds her here - the law, and the arrival's shortened sail, are pinned on their own
+    // in auditgalleon_sea.test.js
     if (prev && det && det !== prev.det && prev.det) { if (ship.errand.side === prev.side) sameSide++; }
     prev = det ? { det, side: ship.errand.side } : prev && !det ? null : prev;
     moored = ship.errand?.kind === 'moored';

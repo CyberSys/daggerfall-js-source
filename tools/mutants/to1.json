@@ -600,8 +600,8 @@
   {
     "name": "show-does-not-clamp",
     "file": "src/ui/travelControlUI.js",
-    "old": "    this.timeAcceleration = Math.max(1, Math.min(this.accelerationLimit(), this.timeAcceleration));",
-    "new": "    this.timeAcceleration = Math.max(1, this.timeAcceleration);",
+    "old": "    this._timeAcceleration = Math.max(1, Math.min(this.accelerationLimit(), this._preferredAcceleration));",
+    "new": "    this._timeAcceleration = Math.max(1, this._preferredAcceleration);",
     "tests": [
       "test/to1_travelOptions.test.js"
     ]
@@ -834,12 +834,13 @@
   {
     "name": "c1-enhanced-map-never-player-controlled",
     "file": "src/ui/heldMap.js",
-    "old": "      playerControlled: isPlayerControlledTravel(st.to?.settings, st.opts),",
+    "old": "      playerControlled: st.it ? false : isPlayerControlledTravel(st.to?.settings, st.opts),",
     "new": "      playerControlled: false,",
     "tests": [
       "test/to1_travelOptions.test.js",
       "test/heldmap.test.js"
-    ]
+    ],
+    "note": "IT1 (PIN MOVED): re-aimed by content - Immersive Travel’s arm sits beside the line this record mutates."
   },
   {
     "name": "g4-mark-per-window-again",

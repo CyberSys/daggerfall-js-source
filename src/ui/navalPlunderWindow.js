@@ -154,7 +154,7 @@ export function injectNavalWindowStyle(doc = document) {
 /**
  * Mount the window in the door's host.
  * @param {HTMLElement} host
- * @param {{ model: any, nameOf?: (item: any) => string, onExit?: ((reason?: string) => void) | null }} deps
+ * @param {{ model: any, nameOf?: (item: any) => string, prepareHold?: () => string | null, onExit?: ((reason?: string) => void) | null }} deps
  * @returns {{ repaint: () => void, unmount: () => void }}
  */
 export function mountNavalPlunderWindow(host, deps) {
@@ -199,9 +199,17 @@ export function mountNavalPlunderWindow(host, deps) {
     note = { text: takenText(r, m.mine?.()?.name ?? null), warn: !r || r.left > 0 };
     render();
   });
-  const openHold = button('Open her hold', 'dfnaval-btn dfnaval-open', () => exit('hold'));
+  const openHold = button('Open her hold', 'dfnaval-btn dfnaval-open', () => {
+    const refusal = deps.prepareHold?.();
+    if (refusal) { note = { text: refusal, warn: true }; render(); return; }
+    exit('hold');
+  });
   holdActs.append(takeAll, openHold);
   holdSec.append(holdHead, holdList, holdActs);
+  const settle = (fate) => {
+    if (m.fate?.(fate) === false) { note = { text: 'No safe return deck is available. Keep her here or claim her first.', warn: true }; render(); return; }
+    exit('fate');
+  };
   // the choice
   const choiceSec = el('section', 'dfnaval-sec');
   const choiceHead = el('h3', 'dfnaval-sechead');
@@ -217,8 +225,8 @@ export function mountNavalPlunderWindow(host, deps) {
   if (sail) fateActs.append(sail);
   else {
     fateActs.append(
-      button('Scuttle her', 'dfnaval-btn dfnaval-scuttle', () => { m.fate?.('scuttle'); exit('fate'); }),
-      button('Cast her adrift', 'dfnaval-btn dfnaval-adrift', () => { m.fate?.('adrift'); exit('fate'); }),
+      button('Scuttle her', 'dfnaval-btn dfnaval-scuttle', () => settle('scuttle')),
+      button('Cast her adrift', 'dfnaval-btn dfnaval-adrift', () => settle('adrift')),
     );
   }
   // SHIP-CLAIM: the third beside them - never a raid's (its one way on is Sail on). The host's answer decides it: a

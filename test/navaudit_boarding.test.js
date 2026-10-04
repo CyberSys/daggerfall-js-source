@@ -433,9 +433,12 @@ test('AUDIT NAV1 (B11) BACK AT THE HELM: her fate decided, "Leave her" pressed, 
   const m = h.log.plunder.at(-1);
   assert.deepEqual(h.log.helm, [], 'on her deck while her window stands');
   m.leave();
-  assert.deepEqual(h.log.helm, [h.boat], 'Leave her: my wheel');
+  // Count and identity keep failure diagnostics bounded: a boat carries its whole cyclic render graph.
+  assert.equal(h.log.helm.length, 1, 'Leave her takes the wheel once');
+  assert.ok(h.log.helm[0] === h.boat, 'Leave her: my wheel');
   m.fate('adrift');
-  assert.deepEqual(h.log.helm, [h.boat, h.boat], 'her fate decided: my wheel');
+  assert.equal(h.log.helm.length, 2, 'settling her fate takes the wheel once more');
+  assert.ok(h.log.helm.every((boat) => boat === h.boat), 'her fate decided: my wheel');
   assert.equal(h.runtime.sailing, true);
   assert.match(WORLD, /if \(reason === 'leave'\) model\.leave\?\.\(\);/, 'the door\'s Leave her reaches the model');
   assert.match(WORLD, /takeHelm: \(boat\) => \{ if \(boat && csaRuntime\) csaCall\(\(\) => csaRuntime\.StartSailing\(boat\)\); \},/);

@@ -2,8 +2,8 @@
   {
     "name": "AUDITDISC28-TM1-an-absence-pays-both-ways",
     "file": "src/systems/worldTick.js",
-    "old": "k < Math.min(n, NORMALIZE_ACROSS_MAX); k++) normalizeReputations(entity, entity.factionRep ?? null, { recoveryOnly: true });",
-    "new": "k < Math.min(n, NORMALIZE_ACROSS_MAX); k++) normalizeReputations(entity, entity.factionRep ?? null);",
+    "old": "k < steps; k++) normalizeReputations(entity, entity.factionRep ?? null, { recoveryOnly: true });",
+    "new": "k < steps; k++) normalizeReputations(entity, entity.factionRep ?? null);",
     "tests": [
       "test/auditdisc28_time.test.js",
       "test/disc28_fatigue.test.js"

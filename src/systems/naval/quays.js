@@ -13,7 +13,10 @@
 // PILE_STEP down to the bed (PILE_DEPTH at most). Behind it the shore is walked (`planQuay`) along +x in JETTY_STEP: a
 // bank that meets the deck within STEP_M takes a JETTY of JETTY_WIDTH onto it, JETTY_LAND in; dry ground under the deck
 // takes the jetty to it and a RAMP down to the ground at RAMP_SLOPE (RAMP_MAX at most); no land within JETTY_MAX, a
-// quay that stands alone (a sandbar's). Bollards stand on its face by her bow, her waist and her stern, a lantern post
+// quay that stands alone (a sandbar's). HARBOUR-BOOK: the jetty is a PIER as long as the shelf asks - a berth is sounded
+// where the deepest keel floats, which Iliac Puddle's Deep Waters (its floor lifted to the sea's top at the coast and
+// carved full depth only SHORE_TERRAIN_FIT_METERS out) puts some 80 m off the land; a 40 m walk stood every such quay
+// alone out on the water, and a player in the town saw no dock. Bollards stand on its face by her bow, her waist and her stern, a lantern post
 // at each landward corner (lit in the lanterns' hours), and the port's cargo on its back - crates and barrels, off the
 // harbour's key and the berth's number on QUAY_SALT, so every player in the port sees the same quay.
 //
@@ -23,8 +26,10 @@
 // FAST_M and FAST_DEG of it she lies MADE FAST: a gangway runs from the quay's face to her rail (`gangwayOf`).
 
 import { alongside, hullSize, BERTH_HULL } from './shipLife.js';
+import { hullBuild, MOD_SMALL_SHIP_BUILD } from './navalShips.js';   // GALLEON-HOLDINGS: hull 2's gangway follows the build that stands
 import { hash32 } from '../../world/spawnedDungeons.js';
 import { mulberry32 } from '../../combat/bloodArt.js';
+import { SHORE_TERRAIN_FIT_METERS } from '../../world/deepWaterFloor.js';   // HARBOUR-BOOK: the shelf a pier crosses
 
 /** The water between her widest and the quay's face (m) - the fenders' room. */
 export const QUAY_GAP = 0.8;
@@ -39,10 +44,14 @@ export const QUAY_ENDS = 3;
 export const PILE_STEP = 4;
 export const PILE_R = 0.22;
 export const PILE_DEPTH = 6;
-/** The jetty to the shore: its width, the walk's step and its reach from the quay's back, and how far onto a bank (m). */
+/** The jetty to the shore: its width, the walk's step and its reach from the quay's back, and how far onto a bank (m).
+ *  HARBOUR-BOOK: its reach the Deep Waters shelf's whole shore fit - past it the floor is carved full depth (no shallower
+ *  than min(11.2 m, Water Depth), deepBathymetry.js), so the deepest keel's berth lies within it - and JETTY_BEACH more
+ *  over a beach standing under DRY_M at the water's edge. */
 export const JETTY_WIDTH = 3;
 export const JETTY_STEP = 1;
-export const JETTY_MAX = 40;
+export const JETTY_BEACH = 20;
+export const JETTY_MAX = SHORE_TERRAIN_FIT_METERS + JETTY_BEACH;
 export const JETTY_LAND = 2;
 /** Ground this far over the sea's top is dry land; within STEP_M of the deck it meets the deck (m). */
 export const DRY_M = 0.1;
@@ -92,14 +101,23 @@ export const QUAY_KERB_H = 0.15;
  * AUDIT HOLDINGS Q1: WHERE A GANGWAY MEETS HER, by hull - `[x, y]` in her frame at her waist, measured off her own
  * colliders (the plank laid to her innermost rail cell climbed into her side under her deck on every hull but the
  * Rowboat's): a ship's at her main deck's entry port, just off her side; a boat's on her gunwale, the plank resting on it.
+ * GALLEON-HOLDINGS: the Small Ship's is Mac's galleon's (QUAYS measured the mod's, which left her plank 2.3 m off
+ * her side and 2.6 m under her main deck) - read through `gangwaySide`, which keeps the mod's galleon's while she
+ * stands in.
  */
 export const GANGWAY_SIDE = Object.freeze([
   Object.freeze([0.95, 0.7]),    // 0 Rowboat - on her gunwale (0.63 m up at 0.9 m out)
   Object.freeze([1.75, 1.36]),   // 1 Large Boat - on her gunwale (1.27 m up at 1.7-1.8 m out)
-  Object.freeze([7.65, 4.14]),   // 2 Small Ship - her main deck's port, her side 7.5-7.55 m out there
+  Object.freeze([5.45, 6.7]),    // 2 Small Ship - Mac's galleon: the entry port in her waist's bulwark, her side 5.33 m out there
   Object.freeze([9.2, 10.75]),   // 3 Large Galley - her upper deck (she never docks - DOCK_REFUSED)
   Object.freeze([7.65, 4.14]),   // 4 Carrack - her main deck's port, her side 7.45-7.5 m out there
 ]);
+/** GALLEON-HOLDINGS: the mod's own Small Ship's - her main deck's port, her side 7.5-7.55 m out there - hull 2's
+ *  while she stands in for Mac's galleon (navalShips.js MOD_SMALL_SHIP_BUILD, AUDIT GN-G4). */
+export const MOD_SMALL_SHIP_GANGWAY = Object.freeze([7.65, 4.14]);
+/** GALLEON-HOLDINGS: where a gangway meets `hull` - GANGWAY_SIDE's, but the mod's galleon's wherever hers is the
+ *  build that stands. */
+export const gangwaySide = (hull) => (hullBuild(hull) === MOD_SMALL_SHIP_BUILD ? MOD_SMALL_SHIP_GANGWAY : GANGWAY_SIDE[hull] ?? GANGWAY_SIDE[0]);
 /** AUDIT HOLDINGS Q2: the hulls no quay takes - a Large Galley (93 m) is half again a Carrack's berth, and rows in and
  *  out as the sea's own never moor (shipLife.js). */
 export const DOCK_REFUSED = Object.freeze([3]);

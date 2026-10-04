@@ -56,6 +56,12 @@ const homeOf = (row) => ({
   ...(row.layout ? { layout: row.layout } : {}),   // WD3: the layout the town keeps - none where it is Daggerfall's own
 });
 
+/** HOME-PRICE: WHAT SELLING A REALM CHARACTER'S OWN HOME PAYS, as realmRelease pays it - `{ refund }`, the deed share of
+ *  what its record `paid`, or `{ crossed: true }` for one no record paid for (HOME-CROSSED: no sale). Told only to that
+ *  character (AUDIT HOME-PRICE L3: a home from before the realm, or another character's of the account, is no sale this
+ *  character's door can make - realmRelease's DELETE names the acting record). */
+const realmSaleOf = (row) => (Number(row.paid) > 0 ? { refund: homeSaleRefund(Number(row.paid)) } : { crossed: true });
+
 /** THE CLAIM'S ONE WRITE: the house the character's, while it is nobody's and the character holds fewer than its cap.
  *  `paid` (AUDIT REALM L1-F3, migration 0020): the gold a realm record paid for it - the price, for a realm character's
  *  claim; nothing for any other character's, whose client paid (or did not) out of a save the service never sees. */
@@ -77,7 +83,9 @@ const claimStatement = (db, player, { mapId, buildingKey, region, character, pri
 async function realmClaim(ctx, player, at, claim) {
   const { db, bucket, nowS } = ctx;
   const held = await db.prepare('SELECT * FROM homes WHERE map_id = ? AND building_key = ?').bind(claim.mapId, claim.buildingKey).first();
-  if (held) return held.player === player.id && held.char_id === claim.character ? { ok: true, repeat: true, home: homeOf(held), realm: { seq: at.seq } } : { error: 'home-taken' };
+  // AUDIT HOME-PRICE C2: a claim answered as mine already says what its sale pays (or that it is crossed) - the client's
+  // row is written from this answer, and the price is not what was paid for a home customs carried in
+  if (held) return held.player === player.id && held.char_id === claim.character ? { ok: true, repeat: true, home: homeOf(held), ...realmSaleOf(held), realm: { seq: at.seq } } : { error: 'home-taken' };
   // WD3 (AUDIT WD3 O1): A TOWN THAT HOLDS HOMES KEEPS ITS LAYOUT, and a building key names a building only in one layout -
   // a claim made in another (a client that has not heard the towns' layouts, an old build) names another building, so it
   // is refused, never stored under the town's layout; the answer says which layout the town keeps
@@ -98,7 +106,7 @@ async function realmClaim(ctx, player, at, claim) {
   }
   await dropObjects(bucket, [prep.prev]);
   const row = await db.prepare('SELECT * FROM homes WHERE map_id = ? AND building_key = ?').bind(claim.mapId, claim.buildingKey).first();
-  return { ok: true, home: homeOf(row), realm: { seq: prep.seq } };
+  return { ok: true, home: homeOf(row), ...realmSaleOf(row), realm: { seq: prep.seq } };   // AUDIT HOME-PRICE C2
 }
 
 /**
@@ -112,7 +120,10 @@ export async function claimHome(ctx, player, body = {}) {
   const { mapId, buildingKey, region, character, price, realm = null, layout = null } = body ?? {};
   const { db, nowS } = ctx;
   if (accountKind(player) !== 'linked') return { error: 'homes-need-account' };
-  if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey) || !homeRegionOk(region) || !homePriceOk(price)) return { error: 'bad-home' };
+  if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey) || !homeRegionOk(region) || !Number.isSafeInteger(price) || !(price > 0)) return { error: 'bad-home' };
+  // HOME-PRICE: a price outside the range a home costs online is a build from before it, asking Daggerfall's (its model's
+  // radius x 1280) - asked to update, never seated at it
+  if (!homePriceOk(price)) return { error: 'home-update' };
   if (!homeLayoutOk(layout)) return { error: 'bad-home' };   // WD3: the layout the claimant's town stands in (null: Daggerfall's)
   // ARENA4b: THE ARENA STANDS THERE. No building of Daggerfall's cell (4,3) has a key since ARENA1, but a build from
   // before the arena still stands GEMSAL03 and could buy one of its houses - a home keyed to nothing. Refused by the key,
@@ -150,8 +161,9 @@ const realmDecorBackStatement = (db, mapId, buildingKey) => db.prepare(`SELECT C
 
 /**
  * REALM P2.2b: A HOME A REALM CHARACTER SELLS - the house given up and the record paid back in ONE batch: Daggerfall's
- * deed share of what the house cost (homeLaw.js homeSaleRefund) and half of what its placed pieces cost, into the bank
- * account of the house's region, as the client's sale pays. The record asked first, as a claim asks it.
+ * deed share of what the house cost (homeLaw.js homeSaleRefund) and half of what its placed pieces cost, into the
+ * record's Empire account (realmGoldLaw.js creditSave - EMPIRE-ACCOUNT), as the client's sale pays. The record asked
+ * first, as a claim asks it.
  * AUDIT REALM L1-F3: THE CHARACTER'S OWN HOUSE, AND ONLY WHAT A RECORD PAID FOR IT. The sale read any house of the
  * account and credited its client-named price - a claim at the ten-million cap by a character no record stands behind,
  * sold by the realm character's record, made 8,500,000; a house customs carried in from before the realm, the same. The
@@ -264,7 +276,10 @@ const lookOfRow = (h) => { const look = h.look ? homeLookOf(h.look) : null; retu
 
 /**
  * A TOWN'S HOMES, for everyone standing in it - guests too: whose each is (the handle the relay signs), who may walk
- * in, and which are the caller's own. Never the price, never another account's character.
+ * in, and which are the caller's own. Never another account's price, never another account's character. HOME-PRICE: the
+ * named character's own home says what selling it pays back (`refund`, realmRelease's deed share of what its record
+ * `paid`) and the rent held on it (`rentDue`), so the door asks the sale at what it will pay - and no other home says
+ * either (AUDIT HOME-PRICE L3: a home from before the realm, or another character's, is no sale this door can make).
  * @param {{db: any}} ctx
  */
 export async function homesInTown({ db, nowS = Math.floor(Date.now() / 1000) }, player, { mapId, character = null } = {}, { seats = false } = {}) {
@@ -277,7 +292,7 @@ export async function homesInTown({ db, nowS = Math.floor(Date.now() / 1000) }, 
   const me = typeof character === 'string' && CHAR_ID_RE.test(character) ? character : '';
   // GUILD1d: a hall's guild (its name, tag and heraldry) and the named character's rank in it; a home whose owner opened
   // it to their guild, whether the named character is in that guild with them
-  const { results = [] } = await db.prepare(`SELECT h.building_key, h.player, h.char_id, h.owner_name, h.entry, h.paid, h.look, h.guild_id,
+  const { results = [] } = await db.prepare(`SELECT h.building_key, h.player, h.char_id, h.owner_name, h.entry, h.paid, h.rent_due, h.look, h.guild_id,
       g.name AS guild_name, g.tag AS guild_tag, g.heraldry AS guild_heraldry,
       (SELECT COUNT(*) FROM home_rooms r WHERE r.map_id = h.map_id AND r.building_key = h.building_key AND r.listed = 1 AND (r.tenant IS NULL OR r.until <= ?1)) AS vacant,
       (SELECT MIN(r.price) FROM home_rooms r WHERE r.map_id = h.map_id AND r.building_key = h.building_key AND r.listed = 1 AND (r.tenant IS NULL OR r.until <= ?1)) AS rent_from,
@@ -307,9 +322,14 @@ export async function homesInTown({ db, nowS = Math.floor(Date.now() / 1000) }, 
       }
       const mine = h.player === player.id;
       // HOME-CROSSED: my own realm character's house no record paid for is `crossed` - its door asks no price
-      const crossed = mine && REALM_ID_RE.test(String(h.char_id)) && !(Number(h.paid) > 0);
+      const realmHome = REALM_ID_RE.test(String(h.char_id));
+      const crossed = mine && realmHome && !(Number(h.paid) > 0);
+      // HOME-PRICE: what its sale pays back, as realmRelease pays it, to the character named - the only one whose door
+      // can sell it (AUDIT HOME-PRICE L3); and (C3) the rent held on it, which the sale pays with it
+      const sale = mine && realmHome && !crossed && h.char_id === me ? { ...realmSaleOf(h), ...(Number(h.rent_due) > 0 ? { rentDue: Number(h.rent_due) } : {}) } : {};
       return {
         buildingKey: h.building_key, owner: h.owner_name, entry: open && !mine ? 'public' : h.entry, mine, ...(mine ? { character: h.char_id } : {}), ...(crossed ? { crossed } : {}),
+        ...sale,
         ...(Number(h.vacant) > 0 ? { rent: { vacant: Number(h.vacant), from: Number(h.rent_from) } } : {}),
         ...(Number.isSafeInteger(h.tenancy) && h.tenancy > nowS ? { tenant: h.tenancy } : {}),
         ...lookOfRow(h),   // HOME-LOOK: how its owner painted it

@@ -360,7 +360,7 @@ It keeps the day's kills one a site (`serpentfells`, `SERPENT_FELLS_MAX` 8) and 
 to every hello while its day holds - never an older day's than it keeps, never once its day is over (S12). A client
 hears its own site's.
 
-**The books** (`server-account/src/serpents.js`, migration `0078_serpent_kills.sql`, `ACCOUNT_VERSION` acct75,
+**The books** (`server-account/src/serpents.js`, migration `0078_serpent_kills.sql`, `ACCOUNT_VERSION` acct76,
 route `/v1/serpent/claim`):
 - The session is the claimant, never the body.
 - Each kill is one row per (day, account) in `serpent_kills`, paying the character that fought it
@@ -437,8 +437,8 @@ After the kill the bar holds a moment and fades.
   `SERPENT_RELAY_MIN`). `serpentLaw.js`, `serpentBrain.js`, `serpentBody.js` and `serpentReceipt.js` join the bundle.
   A relay before it closes the socket on the frame, so a client sends one only to a relay that welcomed it with 162
   or later (`serpentOk`).
-- **The account service: `acct75`.** Apply migration `0078_serpent_kills.sql`, then deploy (the deploy's path filter
-  carries `src/net/serpentReceipt.js`). Before acct75 the route answers nothing and a receipt waits on the device for
+- **The account service: `acct76`** (acct75 on its branch, renumbered past main's HOME-PRICE at the merge). Apply migration `0078_serpent_kills.sql`, then deploy (the deploy's path filter
+  carries `src/net/serpentReceipt.js`). Before acct76 the route answers nothing and a receipt waits on the device for
   its week.
 - **The order:** the relay first (it signs), then the service (it counts), then the client. A client on an older
   relay sees the omen and no fight.

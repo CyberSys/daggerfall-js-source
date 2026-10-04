@@ -14,6 +14,7 @@ import {
 } from '../src/systems/naval/quays.js';
 import { findHarbour, hullSize, alongside, offsetHarbour, BERTH_HULL } from '../src/systems/naval/shipLife.js';
 import { quatOfYaw } from '../src/systems/naval/navalAI.js';
+import { setGalleonStanding } from '../src/systems/naval/navalShips.js';   // GALLEON-HOLDINGS: the mod's galleon as wide as the Carrack
 import { outOfDeck } from '../src/systems/naval/navalDeck.js';
 import { buildQuayModel, buildGangwayModel } from '../src/world/quayModel.js';
 const JETTY_STEP_T = 1;   // quays.js JETTY_STEP: the shore walked a metre at a time
@@ -173,7 +174,12 @@ test('QUAYS ALONGSIDE: every hull lies with her side QUAY_GAP off the quay\'s fa
     assert.ok(Math.abs(toFace - (hullSize(hull).halfWidth + QUAY_GAP)) < 1e-9, `hull ${hull}: her side the gap off the face`);
   }
   assert.deepEqual(alongside(b, 4, HARBOUR.hull), b.pos, 'the Carrack at the berth\'s point');
-  assert.deepEqual(alongside(b, 2), b.pos, 'the Small Ship as wide');
+  // PIN MOVED (GALLEON-HOLDINGS): the Small Ship is Mac's galleon, 5.86 m a side to the Carrack's 8.43 - she lies 2.57 m in
+  // toward the quay from the berth's point; the mod's galleon, as wide as the Carrack, lies at it where she stands in
+  const at2 = alongside(b, 2);
+  assert.ok(Math.abs(Math.hypot(at2[0] - b.pos[0], at2[1] - b.pos[1]) - 2.57) < 1e-9, 'Mac\'s galleon 2.57 m in');
+  setGalleonStanding(false);
+  try { assert.deepEqual(alongside(b, 2), b.pos, 'the mod\'s galleon as wide'); } finally { setGalleonStanding(true); }
   assert.deepEqual(alongside(b, 4, undefined), b.pos, 'a harbour with no hull is BERTH_HULL\'s');
 });
 
@@ -460,7 +466,10 @@ test('QUAYS THE GANGWAY, by the real host: run out square to her side at her wai
   const [hx, hz] = sceneToQuay(f, g.head[0], g.head[2]);
   assert.ok(hx < fx && hx > 0, 'its head on her side toward the quay');
   assert.ok(Math.abs(hz - fz) < 1e-9, 'square to her');
-  assert.ok(Math.abs(Math.atan2(g.head[1] - g.foot[1], fx - hx) / DEG - GANGWAY_SLOPE) < 1e-6, 'up at GANGWAY_SLOPE');
+  // PIN MOVED (GALLEON-HOLDINGS): her head stands too high for GANGWAY_SLOPE on the quay (Mac's galleon's main deck, 6.2 m
+  // up: 8.8 m of run on a 4.5 m quay) - it stops GANGWAY_BACK short of its back, steeper
+  const back = f.halfWidth + QUAY_GAP + QUAY_WIDTH - GANGWAY_BACK;
+  assert.ok(Math.abs(fx - back) < 1e-9 && Math.atan2(g.head[1] - g.foot[1], fx - hx) / DEG > GANGWAY_SLOPE, 'up from GANGWAY_BACK, steeper than GANGWAY_SLOPE');
   assert.ok(fx > f.halfWidth + QUAY_GAP + GANGWAY_CLEAR - 1e-9 && fx < f.halfWidth + QUAY_GAP + QUAY_WIDTH - GANGWAY_BACK + 1e-9, 'in on the quay\'s deck');
   const toShip = [-g.landward[0], 0, -g.landward[1]];
   // on the quay at its foot, looking at her
@@ -548,9 +557,9 @@ test('QUAYS THE FLEET\'S WORD: a ship shown made fast at a port\'s quay reads so
   assert.match(src, /const berth = n\?\.freeBerth\?\.\(rec\.hull\) \?\? null;/);
 });
 
-test('QUAYS THE WORLD\'S WIRING: the pool made beside the farms over the naval host\'s harbours and gangways, the sea\'s top and the ground; stood each frame before the lights, drawn in the world pass, its lanterns in the lanterns\' hours, down with a re-anchor and a load; Come Sail Away handed the warp, the naval host the Fleet\'s word and her name - THE FOUR HOSTS: a building\'s and a dungeon\'s frames have no sea, the standalone street no naval host', () => {
+test('QUAYS THE WORLD\'S WIRING: the pool made beside the farms over the world\'s harbours (HARBOUR-BOOK - whatever runs on the water) and the naval host\'s gangways, the sea\'s top and the ground; stood each frame before the lights, drawn in the world pass, its lanterns in the lanterns\' hours, down with a re-anchor and a load; Come Sail Away handed the warp, the naval host the Fleet\'s word and her name - THE FOUR HOSTS: a building\'s and a dungeon\'s frames have no sea, the standalone street no naval host', () => {
   const w = read('src/scenes/world.js');
-  assert.match(w, /quays = createQuayPool\(\{\n    renderer,\n    prepare: async \(model\) => \{ for \(const sm of model\.subMeshes\) \{ await getTexture\(sm\.textureArchive\); uploadRecord\(sm\.textureArchive, sm\.textureRecord, \{ opaque: true \}\); \} \},\n    collider: \(\) => collider,\n    harbours: \(\) => \(navalOn\(\) \? naval\?\.harbourList\?\.\(\) \?\? \[\] : \[\]\),\n    seaY: \(\) => tvSeaY\(\),/);
+  assert.match(w, /quays = createQuayPool\(\{\n    renderer,\n    prepare: async \(model\) => \{ for \(const sm of model\.subMeshes\) \{ await getTexture\(sm\.textureArchive\); uploadRecord\(sm\.textureArchive, sm\.textureRecord, \{ opaque: true \}\); \} \},\n    collider: \(\) => collider,\n    harbours: \(\) => harbourBook\.list\(\),   \/\/ HARBOUR-BOOK: whatever runs on the water - a port's quays are its town's\n    seaY: \(\) => tvSeaY\(\),/);
   // AUDIT HOLDINGS Q6: a full-detail pixel's ground alone
   assert.match(w, /groundAt: \(x, z\) => \{ const p = csaPixelAt\(x, z\); return p && \(p\._stride \?\? 1\) === 1 \? surfaceAt\(x, z\) : NaN; \},/);
   assert.match(w, /quays\?\.offsetAll\(\);/);

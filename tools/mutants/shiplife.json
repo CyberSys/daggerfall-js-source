@@ -149,7 +149,8 @@
     "old": "      const sides = e.detour ? [-(e.side ?? 1), e.side ?? 1] : [1, -1];",
     "new": "      const sides = [1, -1];",
     "tests": [
-      "test/shiplife.test.js"
+      "test/shiplife.test.js",
+      "test/auditgalleon_sea.test.js"
     ]
   },
   {
@@ -158,7 +159,8 @@
     "old": "      const sails = left >= ARRIVE_EASE_M ? 1 : Math.max(ARRIVE_SAILS, left / ARRIVE_EASE_M);",
     "new": "      const sails = 1;",
     "tests": [
-      "test/shiplife.test.js"
+      "test/shiplife.test.js",
+      "test/auditgalleon_sea.test.js"
     ]
   },
   {
@@ -210,7 +212,7 @@
   {
     "name": "SHIPLIFE-HOST-moored-kept-far",
     "file": "src/scenes/navalHost.js",
-    "old": "        if (h.rolled) for (const e of [...sea.values()]) if (!e.owner && e.fromHarbour === h.key && e.ship.errand?.kind === 'moored') retire(e);   // SHIP-FADE",
+    "old": "        if (rolled.has(h.harbour)) for (const e of [...sea.values()]) if (!e.owner && e.fromHarbour === h.key && e.ship.errand?.kind === 'moored') retire(e);   // SHIP-FADE",
     "new": "        if (false) for (const e of [...sea.values()]) if (!e.owner && e.fromHarbour === h.key && e.ship.errand?.kind === 'moored') retire(e);   // SHIP-FADE",
     "tests": [
       "test/shiplife.test.js",
@@ -257,9 +259,9 @@
   },
   {
     "name": "SHIPLIFE-HOST-harbour-left-behind",
-    "file": "src/scenes/navalHost.js",
-    "old": "    for (const h of harbours.values()) offsetHarbour(h.harbour, o);",
-    "new": "    for (const h of []) offsetHarbour(h.harbour, o);",
+    "file": "src/systems/naval/harbourBook.js",
+    "old": "  function offsetAll(o) { for (const h of book.values()) offsetHarbour(h.harbour, o); }",
+    "new": "  function offsetAll(o) { for (const h of []) offsetHarbour(h.harbour, o); }",
     "tests": [
       "test/shiplife.test.js"
     ]
@@ -285,8 +287,8 @@
   {
     "name": "SHIPLIFE-WORLD-no-harbour-door",
     "file": "src/scenes/world.js",
-    "old": "    harbourNear: navalHarbourNear,   // SHIP-LIFE",
-    "new": "    harbourNearX: navalHarbourNear,   // SHIP-LIFE",
+    "old": "    harbourNear: navalHarbourNear,\n    isWater: navalIsWater,\n  });",
+    "new": "    harbourNearX: navalHarbourNear,\n    isWater: navalIsWater,\n  });",
     "tests": [
       "test/shiplife.test.js"
     ]

@@ -17,7 +17,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import { buildDeck, deckOf as deckGrid, intoDeck, outOfDeck, DECK_CELL, DECK_STEP, DECK_HEADROOM, DECK_INSET } from '../src/systems/naval/navalDeck.js';
+import { buildDeck, deckOf as deckGrid, intoDeck, outOfDeck, mainLevel, DECK_CELL, DECK_STEP, DECK_HEADROOM, DECK_INSET } from '../src/systems/naval/navalDeck.js';
 import { createComeSailAwayPool } from '../src/scenes/comeSailAwayPool.js';
 import { Boat, spawnBoat } from '../src/systems/comeSailAwayBoat.js';
 import { raycastColliders, boxColliderTriangles } from '../src/world/prefabColliders.js';
@@ -216,16 +216,24 @@ const geometry = (c) => (c.m_Mesh?.mesh ? MODELS.geometry(c.m_Mesh.mesh) : null)
 /** The hull stood at rest - her colliders to cast at. */
 const standing = (hull) => { const b = new Boat(hull, 0); spawnBoat(b, ctxFor({ position: [0, 0, 0], rotation: [0, 0, 0, 1] })); return b; };
 
-test('DECK-WALK THE REAL HULLS: the Small Ship\'s main deck at 6.77 m, the Large Galley\'s at 10.25, the Carrack\'s at 3.64 - each cell a floor her own colliders stand under a head\'s height clear (a ray down from DECK_HEADROOM over it meets her deck and nothing first), none on a rail; her open deck alone (the Small Ship\'s poop cabin aft of 12.8 m and the Carrack\'s rooms under her half deck no deck); sixteen spots all on it, where the box\'s blind rays stood one on the Galleon\'s outer bow (mutants: the frame unread, the pieces kept, the headroom unread)', async () => {
+test('DECK-WALK THE REAL HULLS: the Small Ship\'s main deck at 6.20 m, the Large Galley\'s at 10.25, the Carrack\'s at 3.64 - each cell a floor her own colliders stand under a head\'s height clear (a ray down from DECK_HEADROOM over it meets her deck and nothing first), none on a rail; her open deck alone (the Small Ship\'s great cabin under her castle aft of 10.3 m and the Carrack\'s rooms under her half deck no deck - PIN MOVED, GALLEON 2026-10-01: the Small Ship is the new galleon, her castle\'s roof up its flights her deck as the Carrack\'s forecastle up its stair is hers); sixteen spots all on it, where the box\'s blind rays stood one on the Galleon\'s outer bow (mutants: the frame unread, the pieces kept, the headroom unread)', async () => {
   const p = await pool();
-  for (const [hull, level, aftOf] of [[2, 6.77, -12.8], [3, 10.25, null], [4, 3.64, -6.5]]) {
+  // PIN MOVED (AUDIT GALLEON D7, 2026-10-02): her hatchways no deck (a part that opens is no floor of hers) - the
+  // galleon's main deck 654 of her 828 cells (79%: her hatchways' 82 out of it), her castle and flights the 174 they
+  // were (21%); the Carrack's 400 of 433 (her cargo hatch out), her forecastle's 33 (8%). PIN MOVED (AUDIT GALLEON
+  // D-wall, 2026-10-02): a wall marks a cell with its own height there - the galleon's main deck 664 of 838 (her entry
+  // ports and her bow to her side, 10 more), her castle and flights the 174 they were; the Carrack's 465 of 511 (the
+  // ground under her half deck's stairs and the room under her forecastle), her forecastle 39 and her stair 7 (9%)
+  for (const [hull, level, aftOf, raised, share] of [[2, 6.2, -10.3, 0.208, 0.792], [3, 10.25, null, 0, 0.8], [4, 3.64, -6.5, 0.091, 0.909]]) {
     const d = p.deckOf(hull, 0);
     assert.equal(p.deckOf(hull, 0), d, 'baked once');
     assert.ok(d.count > 300, `hull ${hull}: ${d.count} cells`);
     const all = cells(d);
-    const main = all.filter((c) => Math.abs(c[1] - level) < 0.15).length;
-    assert.ok(main / all.length > 0.9, `hull ${hull}: her main deck (${main} of ${all.length})`);
-    if (aftOf != null) assert.ok(all.every((c) => c[2] > aftOf), `hull ${hull}: nothing aft of ${aftOf}`);
+    const main = all.filter((c) => Math.abs(c[1] - level) <= DECK_STEP).length;
+    // her main deck, and her raised deck up its flights no more than `raised` of it (the Small Ship's castle, the
+    // Carrack's forecastle)
+    assert.ok(main / all.length > share && all.filter((c) => c[1] > level + DECK_STEP).length <= raised * all.length + 1e-9, `hull ${hull}: her main deck (${main} of ${all.length})`);
+    if (aftOf != null) assert.ok(all.every((c) => c[2] > aftOf || c[1] > level + DECK_STEP), `hull ${hull}: nothing of her main deck aft of ${aftOf}`);
     const b = standing(hull);
     for (let i = 0; i < all.length; i += 9) {
       const c = all[i];
@@ -233,8 +241,10 @@ test('DECK-WALK THE REAL HULLS: the Small Ship\'s main deck at 6.77 m, the Large
       assert.ok(hit && Math.abs(hit.point[1] - c[1]) < 0.12, `hull ${hull} at (${c[0]}, ${c[2]}): her floor under a head's height clear (${hit?.point[1]} for ${c[1]})`);
     }
     // PIN MOVED (AUDIT NAV2 F34): her forecastle, 2.49 m up her stair, is her deck now - a spot never under her main deck
-    // (her hold, her lower deck), and no higher than a raised deck of hers
-    for (const s of d.spots(16)) assert.ok(d.walkable(s[0], s[2]) && s[1] > level - DECK_STEP && s[1] < level + 2 * DECK_HEADROOM, `hull ${hull}: a spot on her deck ${s}`);
+    // (her hold, her lower deck), and a floor of hers where it stands (GALLEON: the new galleon's castle 4.8 m up)
+    for (const s of d.spots(16)) assert.ok(d.walkable(s[0], s[2]) && s[1] > level - DECK_STEP && Math.abs(d.heightAt(s[0], s[2]) - s[1]) < 1e-6, `hull ${hull}: a spot on her deck ${s}`);
+    // GALLEON: her hands' and her musters' spots her main deck's alone
+    for (const s of d.spots(16, mainLevel(d))) assert.ok(Math.abs(s[1] - mainLevel(d)) <= DECK_STEP, `hull ${hull}: a spot on her main deck ${s}`);
   }
   // HER MESH NODE'S FRAME: the Large Boat's node stands 0.1 m up her root - her deck's heights are the node's, a ray in
   // the world (her root at the origin) meeting it 0.1 m higher
@@ -247,7 +257,10 @@ test('DECK-WALK THE REAL HULLS: the Small Ship\'s main deck at 6.77 m, the Large
   // the Carrack's rail at 5 m forward: its top 4.67 m at 6.5 m out, over her deck at 3.64
   const carrack = p.deckOf(4, 0);
   assert.equal(carrack.walkable(6.5, 5), false, 'her rail');
-  assert.equal(carrack.walkable(0, 5), true, 'her waist');
+  // PIN MOVED (AUDIT GALLEON D7, 2026-10-02): her waist at 5 m forward is her cargo hatch (x -2 to 2) - no deck, its
+  // doors open onto her hold - so her waist beside it, and the hatch itself none
+  assert.equal(carrack.walkable(3, 5), true, 'her waist, beside her cargo hatch');
+  assert.equal(carrack.walkable(0, 5), false, 'her cargo hatch');
   const back = carrack.clamp(6.5, 5);
   assert.ok(back[0] < 5.5 && carrack.walkable(back[0], back[2]) && Math.abs(back[1] - 3.64) < 0.15, `off the rail onto her deck: ${back}`);
 });

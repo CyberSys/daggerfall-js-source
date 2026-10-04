@@ -84,6 +84,7 @@ import { createDecorRooms } from '../systems/decorRooms.js';   // DECOR-ROOMS: a
 import { createDecorDoorways, decorDoorwaysFree, decorDoorwayAimed, decorDoorFit, decorDoorwayQuad, decorIsDoor } from '../systems/decorDoorways.js';   // HOME-DOORS
 import { writeDecalQuad, clearDecalQuad, DECAL_FLOATS } from '../combat/bloodDecals.js';   // HOME-DOORS: the doorways' marks, on the decal pass
 import { rentRoomsView, rentAnchorOfRoom } from '../systems/homeRent.js';   // HOME-RENT: the owner's rooms, offered to rent
+import { goldSum, EMPIRE_ACCOUNT_WORDS } from '../systems/homeWords.js';   // AUDIT HOME-PRICE E4: the rent's sums and account, as the door says them
 import { createDecorPlacer, DECOR_TURN_STEP, DECOR_TURN_FINE, DECOR_RAISE_STEP, DECOR_RAISE_FINE } from '../systems/decorPlacer.js';
 import { createDecorButton, createDecorPanel, createDecorBar, decorWhyNot } from '../ui/decorPanel.js';
 import { DECOR_CAP, DECOR_PRICE_PER_METRE, DECOR_HIDDEN_CAP, decorPrice, decorPieceOf, decorRefund, decorRescale, mintDecorId, DECOR_STATIONS, DECOR_STATION_FEES, DECOR_STATION_NAMES } from '../net/decorLaw.js';
@@ -715,14 +716,14 @@ export function createDecorTool(deps) {
         const anchor = row?.eye ? rentAnchorOfRoom(row, deps.origin?.() ?? [0, 0, 0]) : null;
         if (!anchor || !row.offerable) return false;
         res = await door.offer({ room: row.number, anchor, price });   // AUDIT: its offer's own number (homeRent.js rentRoomsView), never the finder's
-        if (res?.ok) deps.say?.(`${row.name} is offered to rent at ${price} gold a day.`);
+        if (res?.ok) deps.say?.(`${row.name} is offered to rent at ${goldSum(price)} gold a day.`);
       } else if (what === 'withdraw') {
         if (!row?.offer || (!row.offer.listed && row.offer.taken)) return false;
         res = await door.withdraw({ room: row.offer.room });
         if (res?.ok) deps.say?.(res.data?.gone === false ? `Room ${row.offer.room} is still rented - offered to nobody once its days run out.` : `Room ${row.offer.room} is no longer offered to rent.`);
       } else if (what === 'collect') {
         res = await door.collect();
-        if (res?.ok) deps.say?.(`You collected ${res.gold} gold in rent. It went to this region's bank account.`);
+        if (res?.ok) deps.say?.(`You collected ${goldSum(res.gold)} gold in rent. It went to ${EMPIRE_ACCOUNT_WORDS}.`);
       }
       if (!res?.ok) { if (res) deps.say?.(deps.refusal?.(res.error) ?? 'The room could not be changed.'); return false; }
       door.changed?.();

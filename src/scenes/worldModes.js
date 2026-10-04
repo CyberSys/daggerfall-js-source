@@ -279,12 +279,12 @@ import { freeTavernRooms } from '../systems/guildServices.js';
 import { BankWindow, preloadBankArt, bankArtLoaded, BANK_RECTS, BANK_PANEL_X, BANK_PANEL_Y } from '../ui/bankWindow.js';
 import { BankPurchaseWindow, preloadPurchaseArt, purchaseArtLoaded } from '../ui/bankPurchaseWindow.js';   // H2
 import { titleDeed, shipLabel, creditShip, BOAT_DEED_TEMPLATE as FLEET_DEED_TEMPLATE, BOAT_PARTS_TEMPLATE as FLEET_PARTS_TEMPLATE } from '../systems/fleet.js';   // HOLDINGS: a bought deed into the Fleet's book; AUDIT HOLDINGS F5: bought parts' claim
-import { createBankAccounts, createHouses, BANK_REGION_COUNT, TRANSACTION_RESULT, ownsHouse, isHouseOwned, deedStands, ownedHouseKey, houseSellPrice, housesForSale, allocateHouseToPlayer, purchaseHouse, ownsShip, ownedShipType, purchaseShip, sellShip, sellHouse, SHIP_COORDS, SHIP_INTERIOR_MAP_IDS, housePrice, creditMarksSale, marksSaleCredit, crossedDeedLines, goldRegion, creditDecision, takeCredit, empireRefusalLines } from '../systems/banking.js';   // H1/H2   // H3: the two leaves - the sell price and the ship
+import { createBankAccounts, createHouses, BANK_REGION_COUNT, TRANSACTION_RESULT, ownsHouse, isHouseOwned, deedStands, ownedHouseKey, houseSellPrice, housesForSale, allocateHouseToPlayer, purchaseHouse, ownsShip, ownedShipType, purchaseShip, sellShip, sellHouse, SHIP_COORDS, SHIP_INTERIOR_MAP_IDS, creditMarksSale, marksSaleCredit, crossedDeedLines, goldRegion, creditDecision, takeCredit, empireRefusalLines } from '../systems/banking.js';   // H1/H2   // H3: the two leaves - the sell price and the ship
 // HOME1: the online homes - the door's one answer, the offer, the owner's menu, and an owned home's own scene
 import {
   homeCandidate, homePurchasable, homeSceneName, homeDoorAnswer, homeDoorTitle, homeLockedLine, homeBelongsLine,
   homeForSaleLine, homeOfferLines, HOME_BOUGHT_LINE, homeShortLine, homeOwnerLines, homeEntryLine, homeSaleLines, HOME_CROSSED_LINES, HOME_SALE_OUT,
-  homeSoldLine, homeRefund, HOME_ENTRY_WORDS, HOME_BANK_LINES, buyOnlineHome, sellOnlineHome, HOME_BUY_BUSY, homeDoorPrompt,
+  homeSoldLine, homeSaleOffer, homeRefund, HOME_ENTRY_WORDS, HOME_BANK_LINES, buyOnlineHome, sellOnlineHome, HOME_BUY_BUSY, homeDoorPrompt,
   HOME_BUY_ARM_MS, HOME_VERB, homeBuyRows, homeOwnerRows, homeNextEntry, HOME_OFFER_BUY, HOME_OFFER_PASS,   // HOME2
   homeVisitorRows,   // HOME-RENT: a tenant's rows, and a home's with a room to rent
   HALL_VERB, homeHallBuyRow, hallNextEntry, hallBoughtLine, hallShortLine, hallOldGoldLine, HALL_CHEST_SHUT, hallEntryTurnable,   // GUILD1d: a guild's hall; AUDIT PROF-541 R2-H1: its door's gate
@@ -293,13 +293,15 @@ import {
   HALL_OF_RECORDS_TEXT, HALL_OF_RECORDS_SHUT,   // SEASON1 part three: a seat's Hall of Records
   homeDoorName,   // FIELD BUGS 2026-09-30b HOME-PLAQUE: a nameless house with verbs is a Residence
   homeClaimLayout,   // AUDIT PRE-MERGE 1003 WD1: a hall is bought in its town's layout, as a home is
+  homeFootprintM2,   // HOME-PRICE: the ground a house stands on
 } from '../systems/onlineHomes.js';
+import { goldSum, accountWords } from '../systems/homeWords.js';   // AUDIT HOME-PRICE E4: a home's sums and the account they moved in
 import { guildHallPrice, GUILD_HALL_ENTRY_WORDS } from '../net/hallLaw.js';   // GUILD1d: what a hall costs, in its refusal's words; who may walk in
 import { SEAT_HALL_DECOR_CAP, SEAT_HALL_CLEAR_M, SEAT_HALL_TEXT } from '../net/townSeatLaw.js';   // SEAT-HALL: the palace as the holder's hall
 import { crownRulerFactionId, crownRulerHere, crownHallPlan, CROWN_HALL_TEXT } from '../systems/crownHall.js';   // CROWN-HALL: the castle as the crown's holder's hall
 import { hallPlaquePlan, PLAQUE_MODEL, PLAQUE_BARE_MODEL } from '../world/arenaPlaques.js';   // ARENA5: the Hall of Champions' plaque wall
 import { bannerKeyOf } from './hallBanners.js';   // CROWN-HALL: the throne room's cloth, keyed as the street's
-import { HOME_ENTRIES, homePriceOk, rentCost, rentDaysLeft } from '../net/homeLaw.js';
+import { HOME_ENTRIES, homePriceOk, homeOnlinePrice, rentCost, rentDaysLeft } from '../net/homeLaw.js';   // HOME-PRICE: what a home costs online
 // HOME-RENT: a home's rooms, rented at its door and offered, priced and collected in its owner's decorator
 import {
   homeRooms, rentable, rentHomeRoom, collectHomeRent, rentPickLines, rentDaysLines, rentConfirmLines, rentDoneLine, rentShortLine,
@@ -544,7 +546,7 @@ export function createWorldModes(host) {
    *
    * AUDIT-WH H5. Three hover arms wrote `.Name` - the C# property, as
    * the mod's own source spells it (.cs:764, :725, :777) - and the
-   * record these hosts mint spells it `name` (exterior.js:4043 hands
+   * record these hosts mint spells it `name` (exterior.js:4041 hands
    * `dfLocation`, world.js hands `_questLoc()`; both are the port's
    * location record). `.Name` on it is `undefined`, so all three arms
    * fell to `''`, and `staticDoorName` answers NULL on an empty
@@ -2473,7 +2475,14 @@ export function createWorldModes(host) {
   function openCustomMerchantService(service) {
     const b = interiorBuilding ?? {};
     service({
-      messageBox: (text) => mountInterior(new ActionTextBox([text])),
+      // IT1: a street merchant's box stands in the street's slot (mountServiceWindow's exterior arm), where the
+      // interior's would never be drawn
+      messageBox: (text) => (mode === 'interior' ? mountInterior(new ActionTextBox([text])) : mountServiceWindow(new ActionTextBox([text]))),
+      // IT1: Immersive Travel's Fast Travel - AreEnemiesNearby(false, false) and the driver's or the captain's map,
+      // both the streaming host's (scenes/world.js openImmersiveMap); a host without them answers no map
+      enemiesNearby: () => !!host.travelEnemiesNearby?.(),
+      enemiesText: host.travelEnemiesText,
+      openImmersiveMap: (kind) => host.openImmersiveMap?.(kind) ?? null,
       openBuy: (items) => {
         if (!tradeDoorReady() || (!isEnhanced() && !_shopFont)) return false;   // the one gate both skins answer to (openMerchantSell's)
         const win = openTradeWindow({ items }, b, 'Buy');
@@ -2702,7 +2711,7 @@ export function createWorldModes(host) {
       // The proceeds were weighed before they were paid: a purse that
       // would push the player past MaxEncumbrance becomes a letter of
       // credit instead. B2 gave it its destination - DepositAll_LOC
-      // (banking.js:742, DaggerfallBankingWindow :377-389) takes EVERY
+      // (banking.js:743, DaggerfallBankingWindow :377-389) takes EVERY
       // letter in the pack at face value - so the note that once stood
       // here saying there was nowhere to cash one is retired.
       if (proceeds?.kind === 'letterOfCredit') {
@@ -3211,13 +3220,22 @@ export function createWorldModes(host) {
     // GNRC01I0 panel, and the SERVICE BUTTON opens the window
     // (:104-108). The port jumped straight to the window, so the
     // merchant's own panel, and its Talk row, never appeared.
+    // IT1: A STREET MERCHANT WITH A MOD'S SERVICE - Immersive Travel's driver at the gate. The popup's art rides a
+    // building's entry (ensureInteriorWindowArt), so a first click in the street can come before it: the art is loaded
+    // and the click lands once it has (ASYNC NEVER DROPS), as talk if it never does
+    if (!forceTalk && route.kind === 'merchant' && mode !== 'interior' && getCustomMerchantService(pn.factionID) && !merchantServiceDoorReady()) {
+      preloadMerchantServiceArt({ renderer, fetchBytes, palette })
+        .catch(() => {})
+        .then(() => openStaticNpc(pn, { forceTalk: !merchantServiceDoorReady() }));
+      return;
+    }
     if (!forceTalk && route.kind === 'merchant'
       && (route.service === 'banking' || route.service === 'sell')
-      && merchantServiceDoorReady() && (isEnhanced() || _shopFont)) {
+      && merchantServiceDoorReady() && (isEnhanced() || _shopFont || (mode !== 'interior' && getCustomMerchantService(pn.factionID)))) {   // IT1: outdoors the street's slot draws with its own face
       const banking = route.service === 'banking';
       // RR3: a registered custom merchant service (DaggerfallMerchantServicePopupWindow.cs:112-115, :149-151) - its own label on the button, its own body on the click
       const custom = getCustomMerchantService(pn.factionID);
-      mountInterior(createMerchantServiceWindow({
+      (mode === 'interior' ? mountInterior : mountServiceWindow)(createMerchantServiceWindow({   // IT1: a street merchant's popup in the street's slot
         service: banking ? 'Banking' : 'Sell',
         label: custom ? getCustomMerchantServiceLabel(pn.factionID) : undefined,
         onTalk: () => openStaticNpc(pn, { forceTalk: true }),
@@ -3371,6 +3389,27 @@ export function createWorldModes(host) {
       if (rec == null || rec < 0) return 0;
       return arch.getMesh(rec)?.radius ?? 0;
     } catch { return 0; }
+  }
+  /** HOME-PRICE: the ground a building's own model stands on, in square metres (its ARCH3D box, as houseMeshRadius reads
+   *  the radius) - 0 for a model the reader cannot resolve. */
+  function houseFootprintM2(building) {
+    const id = building?.modelIdNum;
+    if (id == null) return 0;
+    try {
+      const rec = arch?.getRecordIndex?.(id);
+      if (rec == null || rec < 0) return 0;
+      return homeFootprintM2(arch.getMesh(rec)?.size, GLOBAL_SCALE);
+    } catch { return 0; }
+  }
+  /** AUDIT HOME-PRICE C1: WHAT THE BANK PAYS FOR THIS REGION'S DEED. Online, the deed share of that house's ONLINE price
+   *  (homeListPrice: the ground and the town's size, the directory's `townBlocks`) - one house price online. The deed an
+   *  online character holds is a knightly order's free house (the bank sells none online - HOME_BANK_LINES - and customs'
+   *  are `crossed`), and Daggerfall's radius x 1280 bought it back for up to a million, four times the dearest home.
+   *  Offline Daggerfall's own (GetHouseSellPrice). */
+  function deedSellPrice(owned) {
+    if (!owned) return 0;
+    if (!isOnlinePage()) return houseSellPrice(houseMeshRadius(owned));
+    return homeRefund(homeListPrice({ ...owned, townBlocks: buildingDirectory?.()?.townBlocks ?? 0 }));
   }
   /** The market, priced. */
   const pricedHousesForSale = () => currentHousesForSale()
@@ -3945,7 +3984,8 @@ export function createWorldModes(host) {
     const back = decorSaleBack(pieces);
     const account = homeAccount(region);
     if (account && back > 0) account.accountGold += back;
-    say(`Its ${pieces.length} placed piece${pieces.length === 1 ? '' : 's'} went with it: ${back} gold to this region's bank account.`);
+    // AUDIT HOME-PRICE E4: the account the half went into, said as it is - online the Empire's (EMPIRE-ACCOUNT)
+    say(`Its ${pieces.length} placed piece${pieces.length === 1 ? '' : 's'} went with it: ${goldSum(back)} gold to ${accountWords(goldRegion(playerEntity.bankAccounts, region) !== region)}.`);
     return back;
   }
   /** DECOR2a: ONE OF THE PLAYER'S OWN THINGS OUT OF THE PACK, to stand in a room - one of a stack, moved as a drop
@@ -4207,10 +4247,7 @@ export function createWorldModes(host) {
       // `houseMeshRadius` already reads exactly that for the market
       // list, and the location directory already carries `modelIdNum`
       // on every building - the owned one just had to be found in it.
-      houseSellPrice: () => {
-        const owned = ownedHouseSummary();
-        return owned ? houseSellPrice(houseMeshRadius(owned)) : 0;
-      },
+      houseSellPrice: () => deedSellPrice(ownedHouseSummary()),   // AUDIT HOME-PRICE C1: online, the online price's share
       // AUDIT 64 F26: SellHouseButton_OnMouseClick raises SELL_HOUSE_OFFER
       // ONLY inside the two nested successes (DaggerfallBankingWindow
       // .cs:443-451) and has no else, so an owned-but-unresolved house
@@ -4230,7 +4267,7 @@ export function createWorldModes(host) {
         // .cs:452-462) rather than a sale at a price of zero.
         const owned = ownedHouseSummary();
         return sellHouse(playerEntity.bankAccounts, playerEntity.houses, region,
-          { meshRadius: owned ? houseMeshRadius(owned) : 0, found: owned !== null }, {
+          { meshRadius: owned ? houseMeshRadius(owned) : 0, found: owned !== null, price: deedSellPrice(owned) }, {   // AUDIT HOME-PRICE C1
             removePermanentScene: (mapId, k) => { decorSold(interiorSceneName(mapId, k), region); removePermanentScene(sceneCache(), interiorSceneName(mapId, k)); },   // DECOR1e: its placed pieces' half first
             // the deed named the building "<player>'s residence"; selling
             // takes that name back off the map
@@ -5046,9 +5083,16 @@ export function createWorldModes(host) {
       const region = b?.regionIndex ?? 0;
       playerEntity.houses ??= createHouses(playerEntity.bankAccounts?.length || BANK_REGION_COUNT);
       const dir = buildingDirectory?.();
+      // AUDIT HOME-PRICE C1: online, never a building that is a player's home (HOME1: one owner a building) - and the
+      // town's homes must be known to say which are; the registry is asked, and the order asks again in a moment
+      const homes = host.onlineHomes;
+      if (homes && !homes.known(dir?.mapId ?? 0)) {
+        void homes.ensure(dir?.mapId ?? 0);
+        return { rows: [{ text: accountRefusalText('home-layout'), center: true }] };
+      }
       const decision = receiveHouseDecision(membership, {
         ownsHouse: ownsHouse(playerEntity.houses, region),
-        housesForSale: currentHousesForSale(),
+        housesForSale: homes ? currentHousesForSale().filter((h) => !homes.homeAt(dir?.mapId ?? 0, h.buildingKey)) : currentHousesForSale(),
         alreadyOwnResult: TRANSACTION_RESULT.ALREADY_OWN_HOUSE,
         noneForSaleResult: TRANSACTION_RESULT.NO_HOUSES_FOR_SALE,
       });
@@ -6015,14 +6059,20 @@ export function createWorldModes(host) {
   }
   /** What a home's door does for me (homeDoorAnswer): my party's handles, and my quest's rung. */
   const homeDoorFor = (b, home) => homeDoorAnswer(home, { partyNames: host.partyNames?.() ?? [], questSite: questSiteHere(b) });
-  /** What a house I could buy costs - online, its town known, nobody's home, for sale (no quest in it) - priced as
-   *  Daggerfall prices a house, off its model's radius (housePrice); 0 for none, or for a model nobody can value. */
+  /** HOME-PRICE (net/homeLaw.js homeOnlinePrice): what a house costs online - the ground its model stands on, raised by
+   *  its town's size (the door's `townBlocks`), never Daggerfall's radius x 1280 (the bank's, offline). 0 for a model
+   *  nobody can measure. */
+  function homeListPrice(bd) {
+    const price = homeOnlinePrice(houseFootprintM2(bd), bd?.townBlocks ?? 0);
+    return homePriceOk(price) ? price : 0;
+  }
+  /** What a house I could buy costs - online, its town known, nobody's home, for sale (no quest in it) - at its online
+   *  price (homeListPrice); 0 for none. */
   function homeOfferPrice(bd) {
     const homes = host.onlineHomes;
     if (!homes || !homeCandidate(bd) || !homes.known(homeTownOf(bd)) || homeOf(bd)) return 0;
     if (!homePurchasable(bd, { isActiveQuestBuilding: questSiteHere })) return 0;
-    const price = housePrice(houseMeshRadius(bd));
-    return homePriceOk(price) ? price : 0;
+    return homeListPrice(bd);
   }
   /** The hover's line under a house I could buy. */
   function homeSaleHover(bd) {
@@ -6477,8 +6527,9 @@ export function createWorldModes(host) {
   /** HOME-OFFER: the houses this player said No to ("just go in", HOME2's word) this session - where the plaque lists no
    *  rows the click asks once a house outside Info, and always in Info. A house is its own town's building (homeIdOf). */
   const _homeDeclined = new Set();
-  /** The purse seam's two halves a home is paid from: the purse (letters of credit too - GetGoldAmount) and the
-   *  building's own region's bank account, minted on first use as the bank window mints it. */
+  /** The purse seam's two halves a home is paid from: the purse (letters of credit too - GetGoldAmount) and the bank
+   *  account its gold moves in - online the Empire's (EMPIRE-ACCOUNT, goldRegion), minted on first use as the bank window
+   *  mints it. */
   function homeAccount(region) {
     playerEntity.bankAccounts ??= createBankAccounts(BANK_REGION_COUNT);
     return playerEntity.bankAccounts[goldRegion(playerEntity.bankAccounts, region)] ?? null;   // EMPIRE-ACCOUNT: online, the Empire's account
@@ -6545,7 +6596,7 @@ export function createWorldModes(host) {
   // lists "Rent a room" on its door (or asks on a click where it would shut me out): which room, for how many days,
   // and the price asked before it is paid - on my record, in the rent's own write (the service's), the purse paying at
   // once and getting it back on a refusal. A tenant's own room is renewed the same way.
-  /** The purse and this building's region's account, as a home is paid (buyHomeAt's order) - given back to the account. */
+  /** The purse and the Empire's account (homeAccount), as a home is paid (buyHomeAt's order) - given back to the account. */
   function homeWallet(region) {
     const purse = bankPurse();
     const a = homeAccount(region);
@@ -6567,7 +6618,7 @@ export function createWorldModes(host) {
       lines: rentPickLines(got.owner || home.owner),
       options: [
         ...list.map((r, i) => ({
-          code: `Digit${i + 1}`, label: `${i + 1} - Room ${r.room}: ${r.price} gold a day${r.yours ? ' (yours - renew it)' : ''}`,
+          code: `Digit${i + 1}`, label: `${i + 1} - Room ${r.room}: ${goldSum(r.price)} gold a day${r.yours ? ' (yours - renew it)' : ''}`,
           action: () => { const days = rentDayRows(r, nowS); if (days.length) openHomeRentDays(bd, r, days); else townTalk?.say?.(RENT_FULL_LINE); },   // RENT-RENEW: only the days the service takes - none left, said
         })),
         { code: 'Escape', label: 'Esc - close', action: () => {} },
@@ -6580,7 +6631,7 @@ export function createWorldModes(host) {
       lines: rentDaysLines(room.room, room.price),
       options: [
         ...days.map((d, i) => ({
-          code: `Digit${i + 1}`, label: `${i + 1} - ${d} day${d === 1 ? '' : 's'}: ${rentCost(room.price, d)} gold`,
+          code: `Digit${i + 1}`, label: `${i + 1} - ${d} day${d === 1 ? '' : 's'}: ${goldSum(rentCost(room.price, d))} gold`,
           action: () => openHomeRentConfirm(bd, room, d),
         })),
         { code: 'Escape', label: 'Esc - close', action: () => {} },
@@ -6653,15 +6704,18 @@ export function createWorldModes(host) {
       ],
     }));
   }
-  /** Sell it back - asked first, at the share Daggerfall pays for a deed of what this house costs. */
+  /** Sell it back - asked first, at what the sale pays: the service's deed share of what was PAID, and the rent held on it
+   *  (homeSaleOffer; AUDIT HOME-PRICE C3). */
   function openHomeSale(bd) {
     // HOME-CROSSED (FIELD BUGS 2026-09-30): a home customs carried in is never bought back online - the door says so
     // and asks no price (it asked 600,100 of Seanobi's, and the service paid its deed share of nothing and took it)
     const home = homeOf(bd);
     if (home?.crossed && host.realmAct) { townTalk?.showOverlay?.(new ChoiceWindow({ lines: HOME_CROSSED_LINES, options: [{ code: 'Escape', label: 'Esc - close', action: () => {} }] })); return; }
-    const refund = homeRefund(housePrice(houseMeshRadius(bd)));
+    // HOME-PRICE: what the sale will pay - the service's own sum (its deed share of what was PAID), never this client's
+    // share of the house's price now, which a home bought before HOME-PRICE was never bought at
+    const refund = homeSaleOffer(home, homeListPrice(bd));
     townTalk?.showOverlay?.(new ChoiceWindow({
-      lines: homeSaleLines(refund),
+      lines: homeSaleLines(refund, home?.rentDue ?? 0),   // AUDIT HOME-PRICE C3: and the rent held on it
       options: [
         { code: 'KeyY', label: 'Y - yes', action: () => { sellHomeAt(bd).catch((e) => console.error(e)); } },
         { code: 'KeyN', label: 'N - no', action: () => {} },
@@ -6669,7 +6723,7 @@ export function createWorldModes(host) {
     }));
   }
   /** The sale (sellOnlineHome: released first, credited once the service agrees, at its own record of the price),
-   *  paid into the region's bank account as Daggerfall pays a deed, and the home's scene no longer kept - what was
+   *  paid into the Empire's account as Daggerfall pays a deed into a bank, and the home's scene no longer kept - what was
    *  left in it goes with the next clearing of the scene cache, as a sold house's does. */
   async function sellHomeAt(bd) {
     const homes = host.onlineHomes;
@@ -9200,7 +9254,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:16235's own wave-46 note); the interior
+          // a blow (world.js:16305's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -10142,7 +10196,7 @@ export function createWorldModes(host) {
   addEventListener('mousedown', (e) => {
     // AUDIT-MACK F2: THIS HOST DOES NOT FEED THE HELD SET, and MAC-K1
     // briefly made it. `keys` is not this host's - it arrives on the
-    // host bag (`exterior.js:4105`, `world.js`'s twin), and the OUTER
+    // host bag (`exterior.js:4103`, `world.js`'s twin), and the OUTER
     // host's own mousedown writes `keys.add(mouseCode(e.button))`
     // UNGATED, before any mode test, on a listener that is never
     // removed. So the three button codes were already in the Set while
@@ -11925,9 +11979,9 @@ export function createWorldModes(host) {
      *  .cs:175-176 writes `weaponDrawn`/`usingLeftHand` off it,
      *  :420-421 restores them onto it. The port has FOUR PlayerWeapons
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
-     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3648-3670), and IS1 routed the inside-a-building save to
+     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3649-3671), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:12203). So an F9 pressed in a shop
+     *  unconditionally (world.js:12223). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11966,7 +12020,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:12532)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:12552)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11976,7 +12030,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:11108`
+     *  HARD2c: this used to spell them out, and named `world.js:11128`
      *  and `dungeonContext.js:8447` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */

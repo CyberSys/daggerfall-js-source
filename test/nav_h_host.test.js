@@ -103,11 +103,11 @@ test('NAV-H at an armed helm the attack is the broadside\'s: look to a side and 
   assert.ok(host.drawFrame().aim.arcs.length > 0, 'the arcs drawn');
   assert.equal(host.attackInput(false), true);
   assert.equal(host.aiming, false);
-  assert.ok(host._shots.inFlight >= 6, 'the whole broadside');
+  assert.ok(host._shots.inFlight >= 5, 'the whole broadside');   // PIN MOVED (GALLEON, 2026-10-01): five ports a side
   assert.deepEqual(log.shake, [], 'AUDIT NAV1 (the presentation): no kick at the release - each gun kicks as it goes');
   run(host, 0.6);
   const booms = log.sounds.filter(([k]) => k === NAVAL_SFX.cannon);
-  assert.ok(booms.length >= 6, 'each gun heard');
+  assert.ok(booms.length >= 5, 'each gun heard');
   assert.equal(booms[0][1].refDistance, 30, 'over a long gun\'s own range');
   assert.equal(log.sounds.some(([k]) => k === NAVAL_SFX.cannonFar), false, 'my own guns, near: no far roll');
   assert.ok(NEAR_BOOM_M > 0);
@@ -433,7 +433,8 @@ test('NAV-H the world host: one naval host on Come Sail Away\'s pool, its record
   assert.match(w, /else if \(!_race\.loot && !_race\.drop && naval\?\.activate\(\{ boatTrigger: !!_race\.boatWins \}\)\) \{/);   // PIN MOVED (AUDIT HOLDINGS Q4): her own trigger under the ray named, the gangway yielding to it
   assert.match(w, /csaDrawParticlesBlended\(\);[^\n]*\n(?:[^\n]*\n){0,3}\s*if \(naval\?\.enabled\) navalRender\.draw\(naval\.drawFrame\(\)\);/);
   assert.equal((w.match(/thunderlockMuzzleLight\(playerEntity, player\.feetAt\(\), cam\.yaw\), \.\.\.\(naval\?\.enabled \? naval\.lights\(\) : \[\]\), \.\.\.peerTorchLights\(\)/g) ?? []).length, 2, 'both light lists');
-  assert.match(w, /csaPeers\.rebase\(r\.offset\);[^\n]*\n\s+naval\?\.offsetAll\(r\.offset\); navalFlames\.offsetAll\(r\.offset\);/);
+  // PIN MOVED (HARBOUR-BOOK): the world's harbours moved first, then the sea that reads them
+  assert.match(w, /csaPeers\.rebase\(r\.offset\);[^\n]*\n\s+harbourBook\.offsetAll\(r\.offset\);[^\n]*\n\s+naval\?\.offsetAll\(r\.offset\); navalFlames\.offsetAll\(r\.offset\);/);
   assert.ok((w.match(/navalTransition\(\);/g) ?? []).length >= 4, 'every transition empties the sea');
   assert.match(w, /naval\?\.placeQuestFoe\(handle\.foe\?\.parentQuest \?\? null, /);   // AUDIT NAV1 (B10): and the held spots passed over (test/navaudit_boarding.test.js)
   assert.match(w, /naval\?\.raidEnded\(q\);/);

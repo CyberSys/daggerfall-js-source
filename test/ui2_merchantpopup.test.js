@@ -73,7 +73,7 @@ test('UI2: the accelerators - Escape/Enter/E exit, T talks, S takes the service'
 
 test('UI2: the host raises the popup for BOTH services, and the direct arms are the art-less fallback', () => {
   const s = read('src/scenes/worldModes.js');
-  assert.match(s, /if \(!forceTalk && route\.kind === 'merchant'\s*\n\s*&& \(route\.service === 'banking' \|\| route\.service === 'sell'\)\s*\n\s*&& merchantServiceDoorReady\(\) && \(isEnhanced\(\) \|\| _shopFont\)\) \{/);
+  assert.match(s, /if \(!forceTalk && route\.kind === 'merchant'\s*\n\s*&& \(route\.service === 'banking' \|\| route\.service === 'sell'\)\s*\n\s*&& merchantServiceDoorReady\(\) && \(isEnhanced\(\) \|\| _shopFont \|\| \(mode !== 'interior' && getCustomMerchantService\(pn\.factionID\)\)\)\) \{/);   // IT1 (PIN MOVED): outdoors a mod's service (Immersive Travel's driver) draws in the street's slot
   assert.match(s, /service: banking \? 'Banking' : 'Sell',/);
   assert.match(s, /onTalk: \(\) => openStaticNpc\(pn, \{ forceTalk: true \}\),/, 'the Talk row DFU has and the port had lost');
   // RR3: the custom-service arm (DaggerfallMerchantServicePopupWindow.cs:149-151) stands in front of the two

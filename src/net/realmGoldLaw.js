@@ -185,10 +185,12 @@ export function stashedItemLists(snap) {
  *  stashes, then the wagon, then the pack. (The banks and the purse are counts, not lists.) */
 export const carriedItemLists = (/** @type {any} */ snap) => [...stashedItemLists(snap), ...lists(snap?.wagonItems), ...lists(snap?.bagItems), ...lists(snap?.items)];   // BAG1: the Materials Bag's, between the wagon and the pack
 
-/** OPEN (AUDIT REALM2 T3), as the allowance is: the price customs counts a Daggerfall house at. The realm's bank buys a
- *  house back at the deed's share of its building's model radius x 1280 (banking.js houseSellPrice), a measure no save
- *  carries - the bank reads it off the building at its counter - and a Daggerfall house costs tens of thousands
- *  (net/homeLaw.js, HOME_PRICE_MAX's note), so every house counts at the deed's share of the top of that range. */
+/** OPEN (AUDIT REALM2 T3), as the allowance is: the price customs counts a Daggerfall house at. A save carries no measure
+ *  of its house - the bank reads it off the building at its counter - so customs counts every deed at one figure.
+ *  Daggerfall's own price (banking.js housePrice, the model's radius x 1280) runs from a few thousand to over 800,000
+ *  (FIELD BUGS 2026-09-30b, 2026-10-03), and the realm's bank buys a deed back online at the deed share of the house's
+ *  online price (net/homeLaw.js homeOnlinePrice, at most 212,500 - AUDIT HOME-PRICE C1, L4); 100,000 sits inside
+ *  both. */
 export const CUSTOMS_HOUSE_PRICE = 100_000;
 /** The realm's bank's buy-back and where it files a ship's room, as the game has them - systems/banking.js DEED_SELL_MULT,
  *  SHIP_PRICES, shipSellPrice, ownedShipType, ownsShip and SHIP_INTERIOR_MAP_IDS, talkTopics.js BUILDING_KEY_0 (the

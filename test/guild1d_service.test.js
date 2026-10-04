@@ -7,7 +7,7 @@ import { standService, T0 } from './accountDb.mjs';
 import { seatRealm, realmAt } from './realmSeat.mjs';
 import { GUILD_FOUND_GOLD } from '../src/net/guildLaw.js';
 import { guildHallPrice, guildHallOwner } from '../src/net/hallLaw.js';
-import { homeSaleRefund, homeMayEnter } from '../src/net/homeLaw.js';
+import { homeSaleRefund, homeMayEnter, HOME_PRICE_MAX } from '../src/net/homeLaw.js';
 import { HERALDRY_CHANGE_DRAKES } from '../src/net/heraldryLaw.js';
 
 const HALL = { mapId: 7, buildingKey: 300, region: 17, price: 20_000, layout: null };   // AUDIT PRE-MERGE 1003 WD1: a hall says its town's layout (none: an old build's, 426)
@@ -84,9 +84,15 @@ test('GUILD1d a hall BOUGHT: the guildmaster\'s, from what realm records paid in
   assert.equal((await svc.seatHome(other, { mapId: 7, buildingKey: 302, region: 17, price: 5000 })).status, 200);
   assert.equal((await buy(gm, { buildingKey: 302 })).body.error, 'home-taken');
   // short: the treasury, then the part of it realm records paid in
-  assert.equal((await buy(gm, { buildingKey: 303, price: 9_000_000 })).body.error, 'guild-treasury-short');
+  assert.equal((await buy(gm, { buildingKey: 303, price: HOME_PRICE_MAX })).body.error, 'guild-treasury-short');   // HOME-PRICE (PIN MOVED): the dearest home online, where it was 9,000,000
   raw.prepare('UPDATE guilds SET realm_gold = 1000').run();
   assert.equal((await buy(gm, { buildingKey: 303 })).body.error, 'guild-treasury-old', 'gold no record paid in buys no hall');
+  // AUDIT HOME-PRICE D4: a hall's price is a home's, held to the online range on the service - a build asking Daggerfall's
+  // radius x 1280 is asked to update, and the treasury moves nothing
+  const held = (await view()).treasury;
+  assert.equal((await buy(gm, { buildingKey: 304, price: 600_100 })).body.error, 'home-update');
+  assert.equal((await buy(gm, { buildingKey: 304, price: 20_050 })).body.error, 'home-update', 'off the hundreds');
+  assert.equal((await view()).treasury, held);
   assert.equal(raw.prepare('SELECT COUNT(*) AS n FROM homes WHERE guild_id IS NOT NULL').get().n, 0, 'a refused hall leaves nothing');
 });
 

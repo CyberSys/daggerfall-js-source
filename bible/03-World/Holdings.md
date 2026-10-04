@@ -189,7 +189,9 @@ stern, QUAY_WIDTH (4.5 m) deep, its plank deck QUAY_DECK_UP (1.6 m) over the sea
 down to the bed (PILE_DEPTH, 6 m, at most), none where the ground stands at the deck. Behind it the shore is walked at her
 waist in JETTY_STEP (1 m): a bank that meets the deck within STEP_M takes a railed JETTY of JETTY_WIDTH (3 m) JETTY_LAND
 (2 m) onto it; dry ground under the deck (a beach) the jetty to it and a RAMP down to the ground at RAMP_SLOPE (0.45) at
-most, RAMP_MAX (10 m) long; no land within JETTY_MAX (40 m), no jetty - the quay stands alone, a stage moored to a bar.
+most, RAMP_MAX (10 m) long; no land within JETTY_MAX, no jetty - the quay stands alone, a stage moored to a bar.
+JETTY_MAX is Iliac Puddle's whole shore fit (SHORE_TERRAIN_FIT_METERS, 180 m) and JETTY_BEACH (20 m) - HARBOUR-BOOK,
+below: the jetty is a pier as long as the shelf asks.
 On it: a kerb along its face, three iron bollards by her stern, her waist and her bow, a lantern post at each landward
 corner with its lantern hung out over the quay, and the port's cargo on its back - crates (some two high) and barrels,
 drawn off the harbour's key and the berth's number on QUAY_SALT, clear of the jetty's mouth, the gangway's lane at her
@@ -202,13 +204,14 @@ off - two players with it set differently find different berths and stand differ
 darker plank 67_8, iron 0_79, a lamp's glass 0_10) out of the player's ARENA2. A ground not built yet lays nothing; the
 berth is laid again QUAY_RETRY_S (2 s) later.
 
-**THE POOL** (`scenes/quayPool.js`, the world host's): a harbour the sea fight knows (`navalHost.js` `harbourList`) stands
+**THE POOL** (`scenes/quayPool.js`, the world host's): a harbour the world's book holds (`systems/naval/harbourBook.js`
+`list` - HARBOUR-BOOK, below) stands
 its quays while its mouth is within QUAY_STAND_M (1,600 m) of the player - so they are there as a ship sails in, before
 she makes her berth - and comes down past QUAY_LEAVE_M (2,000 m), when the harbour is forgotten or found again (a
 transition, a fast travel), indoors, at a re-anchor and at a load. A quay a berth: its mesh drawn in the world pass, its
 collider a still bucket of its own - its triangles baked where its berth lies on the sea's top (AUDIT HOLDINGS Q7: a
 mover's bucket is never filed in the broadphase, so every ray and sweep asked each quay), stood again where the berth lies
-after a recentre (`offsetAll`, after the naval host's); the player walks its deck, its jetty and its ramp, and a hull
+after a recentre (`offsetAll`, after the book's and the naval host's); the player walks its deck, its jetty and its ramp, and a hull
 swept against its piles is stopped by them as by a rock. A quay whose mesh would not build is laid again QUAY_RETRY_S
 later (Q9). In the lanterns' hours (17:00-08:00) the nearest QUAY_LIGHTS_MAX (6) lanterns within QUAY_LIGHT_REACH
 (120 m) light the quay (QUAY_LIGHT_RANGE, 14 m) - scene lights in the boats' own selection (`csaLit`), never the
@@ -242,7 +245,9 @@ off as she gathers way.
 plank with its lines runs SQUARE to her side at her waist - from where GANGWAY_SIDE says it meets her, measured off her
 own colliders: a ship's at her main deck's entry port just off her side, down to the quay's deck in from its face as
 far as a climb of GANGWAY_SLOPE (30 degrees) asks, never nearer the face than GANGWAY_CLEAR (2 m - over its kerb and the
-bollard at her waist) nor its back than GANGWAY_BACK (1 m); a boat's from the kerb's outer edge down over the water onto
+bollard at her waist) nor its back than GANGWAY_BACK (1 m) - Mac's galleon's, whose main deck stands 6.2 m up, stops
+there and climbs 47.3 degrees (GALLEON-HOLDINGS, `03-World/Come-Sail-Away.md`; `gangwaySide` keeps the mod's galleon's
+while she stands in); a boat's from the kerb's outer edge down over the water onto
 her gunwale (a Rowboat's lies 1.1 m under the quay: some 49 degrees). Every edge, face and rope of it clears her colliders
 and the quay's (AUDIT HOLDINGS Q1: laid to her innermost rail cell, it climbed into her side under her deck on every hull
 but the Rowboat's). On foot within GANGWAY_REACH (3 m) of its foot, looking at her, **Activate goes aboard** - over her
@@ -264,8 +269,28 @@ hidden under its owner at its helm (`comeSailAwayPeers.js` O4: it stands nowhere
 sea's errands, Summon (`freeBerth`) and the warp (`dockFree`) through `boatAtBerth`. The shots, the fires and the crew
 still read the shown ones. `test/berthhidden.test.js`, `tools/mutants/berthhidden.json`.
 
-THE FOUR HOSTS: `scenes/world.js` stands the quays and hands the warp; a building's frame (`worldModes.js`) and a
-dungeon's (`dungeonContext.js`) have no sea, and the standalone street (`exterior.js`) no naval host to find a harbour.
+**THE DOCKS WERE MISSING** (HARBOUR-BOOK, 2026-10-04 - from the field: players reporting the port towns' new docks
+missing). Two causes, both fixed at the root. (1) THE HARBOURS WERE THE SEA FIGHT'S: the naval host kept them and sounded
+them in its frame alone, which runs only while Come Sail Away and Naval Combat do (`world.js navalOn`) - a player with
+either off stood no quay in any port. The harbours are the world's now (`systems/naval/harbourBook.js`
+`createHarbourBook`, made once in `world.js` off `navalHarbourNear` and `navalIsWater`): sounded every exterior frame
+before the quays stand, whatever runs on the water, moved with the floating origin before the sea and the quays read them,
+emptied with the sea at a transition, a jump and a load (`navalTransition`); the pool stands off its `list`, and the naval
+host is handed it (`deps.harbourBook`) and reads it - its moored ships, its docking, its errands - never sounding,
+moving or emptying it; its own clear forgets which harbours it rolled (their ships went with it), so they stand again.
+A naval host made without a book (the suites' sea) keeps one of its own and steps, moves and empties it as before.
+(2) THE QUAYS STOOD OUT ON THE WATER: a berth is sounded where the deepest keel floats (4.7 m, GALLEON-2 GN1), and under
+Iliac Puddle's Deep Waters - on by default - the floor is lifted toward the sea's top for SHORE_TERRAIN_FIT_METERS
+(180 m) off the coast: 3.2 m of water only ~69 m out, 4.7 m ~80. Every berth lay ~92 m off the land, its quay's back ~79,
+and the 40 m walk found no shore - every quay a stage alone out on the water, nothing at the town's waterfront (GN1's
+40-52 m read the depth without the fit; `03-World/Naval-Combat.md`). JETTY_MAX spans the whole fit now: past it the floor
+is carved no shallower than min(11.2 m, Water Depth) (`deepBathymetry.js`), so the deepest keel's berth lies within it at
+any Water Depth over her draft. Measured off the real bathymetry and the floor's fit on a straight coast at Water Depth
+5-250 m and four bearings: every port a harbour, every quay a pier to the land, the longest 166 m; Deep Waters off, a
+9 m jetty as before. `test/harbourbook.test.js`, `tools/mutants/harbourbook.json`.
+
+THE FOUR HOSTS: `scenes/world.js` keeps the harbours, stands the quays and hands the warp; a building's frame
+(`worldModes.js`) and a dungeon's (`dungeonContext.js`) have no sea, and the standalone street (`exterior.js`) no harbour.
 
 ## 8. Crew roles
 
@@ -305,12 +330,13 @@ and her orders' answers; with none aboard, her first hand aboard as before.
 ## 9. Files, tests
 
 `systems/fleet.js`, `scenes/fleetHost.js`, `ui/holdingsPages.js`, `ui/fleetPage.js`, `systems/naval/quays.js`,
-`world/quayModel.js`, `scenes/quayPool.js`; seams in `systems/horseCart.js`,
+`world/quayModel.js`, `scenes/quayPool.js`, `systems/naval/harbourBook.js`; seams in `systems/horseCart.js`,
 `systems/comeSailAway.js` (SummonBoat, LayUpBoat, laidUpHold, the book's seams, the refits' reads),
 `systems/comeSailAwayWire.js`, `scenes/navalHost.js` (fleetStatus, repairAway, refitBoat, freeBerth, the refits' reads),
 `scenes/world.js`, `scenes/exterior.js`, `scenes/worldModes.js`, `ui/enhancedMenu.js`, `ui/enhancedFrame.js`; the quays'
-in `systems/naval/shipLife.js` (`alongside`), `systems/comeSailAway.js` (`warp`) and `scenes/navalHost.js` (`harbourList`,
-the docking, the gangways).
+in `systems/naval/shipLife.js` (`alongside`), `systems/comeSailAway.js` (`warp`), `world/deepWaterFloor.js`
+(`SHORE_TERRAIN_FIT_METERS`, exported for JETTY_MAX) and `scenes/navalHost.js` (the book read, the docking, the
+gangways).
 
 `test/holdings.test.js` (the tab, the Stable, the runtime's summon and send away), `test/fleet.test.js` (the ledger, the
 book under Come Sail Away's real runtime, the refits on the helm and the sea, the away repairs, the host half's every act
@@ -319,5 +345,6 @@ crew keeping them against a no-roles control, the First Mate's voice, the Crew p
 berth, the shore walked, what stands on it, its model, alongside, docking's law, the pool, the real host's docking and
 gangway, Come Sail Away's seam, the Fleet's word, the world's wiring), `test/auditholdings.test.js` (AUDIT HOLDINGS,
 `01-Overview/Audit-Holdings.md`: a pin a finding), `test/berthhidden.test.js` (BERTH-HIDDEN: a ship out of sight keeps
-her berth); `tools/mutants/holdings.json`, `tools/mutants/quays.json`, `tools/mutants/auditholdings.json`,
-`tools/mutants/berthhidden.json`.
+her berth), `test/harbourbook.test.js` (HARBOUR-BOOK: the book, the sea reading the world's, the pier across the shelf,
+the world's wiring); `tools/mutants/holdings.json`, `tools/mutants/quays.json`, `tools/mutants/auditholdings.json`,
+`tools/mutants/berthhidden.json`, `tools/mutants/harbourbook.json`.

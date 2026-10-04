@@ -37,6 +37,7 @@ import { readFileSync } from 'node:fs';
 import { Collider } from '../src/player/collider.js';
 import { boxColliderTriangles } from '../src/world/prefabColliders.js';
 import { HULL_NAMES } from '../src/systems/comeSailAwayBoat.js';
+import { hullBuild } from '../src/systems/naval/navalShips.js';
 import { scene } from './csaScene.mjs';
 
 const WORLD = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
@@ -92,9 +93,10 @@ function under(rocks, { sails = true } = {}) {
   return { s, boat, sail };
 }
 
-/** A shelf 4 m under the sea's line - under her keel (her collider's box's foot, 3.35 m down) - under her where she
- *  starts and running on under the rock ahead (its foot). */
-const LEDGE = { min: [60, 20, 150], max: [140, 30, 300] };
+/** A shelf under the sea's line 0.65 m under her keel (her collider's box's foot) - under her where she starts and
+ *  running on under the rock ahead (its foot). PIN MOVED (AUDIT GALLEON, the merge with main, 2026-10-02): the Small
+ *  Ship is Mac's galleon, her keel 4.64 m down where the mod's galleon's was 3.35 - at 4 m the shelf stood over it. */
+const LEDGE = { min: [60, 20, 150], max: [140, 34 + hullBuild(SMALL_SHIP).keel - 0.65, 300] };
 /** A rock ahead, standing out of the sea. */
 const ROCK = { min: [70, 0, 280], max: [130, 80, 320] };
 
@@ -125,11 +127,14 @@ test('ROCK-FREE OUT OF THE ROCK: a hull standing inside a rock - a closed one, o
 });
 
 test('ROCK-AWAY: what she met takes only her way INTO it - a rock astern of her under sail, and a rock ahead of her backing off it at the oars, each leave her the way open water does (each held her to the push\'s one metre a second for as long as it lay in her sweep); at rest, or rowing into it, the C#\'s push', () => {
-  // a rock just inside her stern's sphere (her sweep astern reaches 175.75 m), and she sails away from it
-  const astern = { min: [70, 0, 140], max: [130, 80, 176.5] };
+  // a rock just inside her stern's sphere (her sweep astern reaches her box's after end), and she sails away from it.
+  // PIN MOVED (AUDIT GALLEON, the merge with main, 2026-10-02): the Small Ship is Mac's galleon - her box's ends her own
+  // (stern -19.91, bow 21.93, where the mod's galleon's stood at -24.25 and 19.88), each rock as far inside them as it was
+  const { aftZ, bowZ } = hullBuild(SMALL_SHIP);
+  const astern = { min: [70, 0, 140], max: [130, 80, 200 + aftZ + 0.75] };
   assert.deepEqual(under([astern]).sail(60), under([]).sail(60), 'under sail away from it: open water\'s track');
-  // a rock just inside her bow's sphere (her sweep ahead reaches 219.87 m); at the oars she backs off it
-  const ahead = { min: [70, 0, 219], max: [130, 80, 260] };
+  // a rock just inside her bow's sphere (her sweep ahead reaches her box's fore end); at the oars she backs off it
+  const ahead = { min: [70, 0, 200 + bowZ - 0.87], max: [130, 80, 260] };
   const backing = under([ahead], { sails: false });
   const rowed = backing.sail(20, ['MoveBackwards']);
   assert.deepEqual(rowed, under([], { sails: false }).sail(20, ['MoveBackwards']), 'backing off it: open water\'s track');

@@ -17,6 +17,8 @@ import { NAVY_HUNTS, WRECK_SPARE_S } from '../src/systems/naval/navalAI.js';
 import { NAVAL_SFX } from '../src/systems/naval/navalSounds.js';
 import { BARREL_ARM, BALL_STEP_S, createShotField } from '../src/systems/naval/navalShots.js';
 import { shotPosition } from '../src/systems/naval/navalBallistics.js';
+import { stowSail } from '../src/systems/comeSailAway.js';   // AUDIT GALLEON-2 RG3: her canvas set, where her rig's boxes stand
+import { animatorOf } from '../src/systems/comeSailAwayBoat.js';
 
 const bySeed = (c, seed) => [...c.s.host._sea.values()].find((e) => e.ship.seed === seed) ?? null;
 const flat = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
@@ -454,6 +456,7 @@ test('AUDIT NAV1 (online) ANOTHER PLAYER\'S BOAT STOPS A SHIP\'S BALL on the sta
   moor(A, [0, 0, -700]);
   moor(B, [0, 0, 250]);
   const brig = stand(A, 'pirateBrig', [300, 0, 600]);
+  for (const sail of B.s.boat.Sails) stowSail(animatorOf(sail), false);   // PIN MOVED (AUDIT GALLEON-2 RG3): her canvas set - furled, no box stands
   r.run(0.5);
   const c = hullBoxOf(B.s.boat, A.s.pool.models).c, canvas = rigBoxesOf(B.s.boat)[0].c;
   const shots = A.s.host._shots;

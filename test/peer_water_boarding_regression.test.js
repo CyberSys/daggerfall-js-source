@@ -127,7 +127,7 @@ function boardViaWorld(r, ladder) {
   const scope = { csaAboard:r.aboard, csaSetPlayerPosition, csaSetFacing:(yaw,pitch)=>{r.cam.yaw=yaw*Math.PI/180;r.cam.pitch=pitch*Math.PI/180;},
     dwPlayerObjectPosition, csaRaycast:()=>null, raycastColliders, csaColliderMesh:r.geometry,
     alignControllerToGround, player, CAPSULE_HEIGHT, CSA_ABOARD_GRACE, csaSyncColliders:r.w.sync, cam:r.cam };
-  const go = new Function(...Object.keys(scope), `${cut(WORLD,'  function csaBoardPeer(pick) {')}\nreturn csaBoardPeer;`)(...Object.values(scope));
+  const go = new Function(...Object.keys(scope), `${cutLine(WORLD, '  const csaFinishBoarding =')}${cut(WORLD,'  function csaBoardPeer(pick) {')}\nreturn csaBoardPeer;`)(...Object.values(scope));
   go({boat:r.hers,hit:{node:ladder}});
 }
 

@@ -15,6 +15,8 @@ import { modSetting, latchModLoaded, modLatchedOn } from '../systems/modSettings
 import { configureLayoutPins, vendorsPinnedIn } from '../systems/layoutPins.js';   // WD3: the layout a save's towns were made in
 import { installTownStandIns } from '../world/townStandIns.js';   // WD3: the peer mods' pieces the town packs place, the port's own
 import { installArena } from '../world/arenaCity.js';   // ARENA1: the Arena of Daggerfall - the port's own block, the city's edit and the colosseum
+import { installImmersiveTravelGates } from '../world/immersiveTravelGates.js';   // IT1: the carriages, on whichever gate is served
+import { IMMERSIVE_TRAVEL_VENDOR, immersiveTravelLoaded } from '../systems/immersiveTravel.js';   // AUDIT IT1 G3: the mod loaded for the game
 
 // The glob sits INSIDE the loader (Vite rewrites it wherever it stands),
 // so a node test that imports a host reaching this module does not trip
@@ -54,10 +56,19 @@ export async function loadModWorldData() {
       const json = await load();
       if (registerWorldDataAsset(baseName(path), json, () => modSetting(vendor, 'Enabled') === true)) n++;
     }));
+    const itPatches = [], itOwn = [];   // IT1: Immersive Travel's gate patches and what they rebuilt - its layer's
     await Promise.all(Object.entries(globPatches()).map(async ([path, load]) => {
       const vendor = vendorOf(path);
-      if (await registerWorldDataPatch(await load(), () => modSetting(vendor, 'Enabled') === true)) n++;
+      const patch = await load();
+      const onServed = vendor === 'immersive-travel' ? (json) => { itPatches.push(patch); itOwn.push(json); } : null;
+      // AUDIT IT1 G3: Immersive Travel's gates ask the mod LOADED FOR THE GAME (its Init's latch), not the switch as it
+      // stands - a switch flipped mid-game moved carriages under cached, pinned and unread towns three different ways
+      const isOn = vendor === IMMERSIVE_TRAVEL_VENDOR ? immersiveTravelLoaded : () => modSetting(vendor, 'Enabled') === true;
+      if (await registerWorldDataPatch(patch, isOn, { onServed })) n++;
     }));
+    // IT1: the carriages laid onto whichever gate the door serves - Beautiful Cities' too (world/immersiveTravelGates.js).
+    // AUDIT IT1 G2: guarded - a world loads whatever the layer's patches say (this sits in every host's load)
+    try { installImmersiveTravelGates(itPatches, itOwn, immersiveTravelLoaded); } catch (e) { console.error(`[worlddata] immersive travel's gate layer: ${e?.message ?? e}`); }
     // WD3: a packed mod is loaded for the game or not at all - its switch is read here, once, and latched, so a switch
     // flipped mid-game moves no town under the player's feet (the Features row: "Takes effect when the game is next started");
     // the layout pins stamp a save's records with what is loaded (systems/layoutPins.js)
@@ -167,12 +178,14 @@ function spotCheck(vendor) {
  * A patch whose ops do not land is said and not served.
  * @returns {Promise<boolean>}
  */
-export async function registerWorldDataPatch(patch, isOn) {
+export async function registerWorldDataPatch(patch, isOn, { onServed = null } = {}) {
   const blocks = boundWorldDataBlocks();
   if (!blocks) { console.warn(`[worlddata] ${patch?.rebuilds}: no BLOCKS.BSA bound - patch not rebuilt`); return false; }
   let json;
   try { json = rebuildWorldDataPatch(patch, blocks); } catch (e) { console.error(`[worlddata] ${patch?.rebuilds}: ${e?.message ?? e}`); return false; }
   const sha = await canonicalSha256(json);
   if (sha !== patch.sha256) console.warn(`[worlddata] ${patch.rebuilds}: rebuilt from this BLOCKS.BSA, but not to the author's file (sha256 ${sha.slice(0, 12)}, the patch records ${String(patch.sha256).slice(0, 12)})`);
-  return registerWorldDataAsset(patch.rebuilds, json, isOn);
+  const ok = registerWorldDataAsset(patch.rebuilds, json, isOn);
+  if (ok) onServed?.(json);   // IT1: the document the door now serves under the patch's name - a layer's own
+  return ok;
 }
