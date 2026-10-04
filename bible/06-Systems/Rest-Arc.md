@@ -850,6 +850,27 @@ Mac: "Go" - every recommendation of section 15 taken. Slices REST1-REST6 and RES
 - **REST7 - crafting: NOT BUILT, deliberately.** The recipes are a source like the shelves, so they could not open
   before `REST_ITEMS_ONLINE` does; adding them now changes the account service's bundle (an `acct` bump) for rows that
   stay shut. They ride the release that turns the switch on, with the shelves.
+- **DECK-CAMP (2026-10-04, from the field: "Campfires placed on a boat dont attach to a boat")** - a Campfire or a tent
+  placed on a boat's deck rides her. Come Sail Away's boats stand in the world's collider, so the placing's probe found
+  her deck - and the camp kept the scene point it was stood at as she sailed on. Now the host reads the boat under the
+  spot off the collider's surface probe (`world.js campDeckAt`: her bucket; mine by her number, another player's by
+  theirs and hers; a sea ship or a boat with no number takes none) and the record carries `deck` - which boat, the point
+  in her deck's frame (`navalDeck.js intoDeck`, the swell's roll and pitch with it) and the heading on her
+  (`survival/camp.js validDeck`). Each exterior frame, after the boats move and before the lights and the world pass,
+  the pool poses every deck camp off her (`scenes/camps.js ride`): its point, its heading, the flame's batch (built
+  about its foot, moved by its origin - never rebuilt), its light, its box and its tent (laid by her rotation alone,
+  never her model's scale). Out of sight (Come Sail Away hides her past a pixel and indoors), or while a load's boats
+  are still standing, it is hidden with her and kept. Once she is GONE - mine packed, laid up or purged with the boats
+  settled (`campDeckResolve`: no load, no restore pending), another player's no longer in her owner's word or her owner
+  gone - a camp of mine is struck after DECK_GONE_S (2 s) and its gear packed back with its charges ("Your camp aboard
+  was struck and stowed in your pack."); a peer's waits on its owner's word. The save keeps the address (a restored camp
+  waits hidden for her), the streaming sweep never takes a deck's camp (no pixel), a floating-origin move moves its
+  flame, and the wire says `d` - [her owner ('' the sender's own), her number, the point, the heading] - read back from
+  where each player stands (`campFromWire`: the sender's own boat is that peer's, one named by my id mine); a peer's
+  word that only moves her keeps its camp standing. A camp on a deck is a fire to rest at and cook by like any other.
+  THE FOUR HOSTS: `scenes/world.js` hands the boats; a building (`worldModes.js`) and a dungeon (`dungeonContext.js`)
+  stand no boat of the camps', the standalone street (`exterior.js`) no Come Sail Away. `test/deckcamp.test.js`,
+  `tools/mutants/deckcamp.json` (20, all dead).
 
 ## Record
 

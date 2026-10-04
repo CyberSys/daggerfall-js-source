@@ -190,6 +190,7 @@ import { placeFoeFreely, PLACE_FOE_DEFAULTS } from '../systems/quest/sceneMount.
 import { PLAYED_STEP_MAX_SECONDS } from '../systems/quest/clock.js';   // WORLD7: the quest clocks' played step online
 import { mintQuestFoeWave, placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour, heldSpots, holdSpotWhile, questBoxHoldsFoes, questShareTag, sharedQuestFoe, partnerStandsQuestFoes, questBehaviourFor, adoptsOrphanQuestFoe, isPrivateQuestFoe, KeptKillLedger, creditKeptKills } from './questFoeHost.js';   // B1   // AUDIT 63r F24: SerializableEnemy.cs:206-217's quest-link arm, the one home both hosts use
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag
+import { markFoeReach } from '../systems/foeReach.js';   // WATER-FOES: a foe in the water reaches no one aboard
 import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, foeHostile, quietNights } from '../systems/encounters.js';   // OW6: foeHostile, the one hostility gate   // REST5: a carried night wakes to no ambush
 import { nightDue, setNightListener, nightStamp, nightKindOf, isNightStamp, carriedNightEnd, REST_ACT_TEXT } from '../systems/restAct.js';   // REST5: the party's night   // AUDIT REST-PARTY: and where it was slept   // AUDIT REST II: the mark asked lazily (P5), and what a carried night says (P3)
 import { createNightWatch, carriedNightAction, carriedRestKind } from '../systems/partyRestLaw.js';   // AUDIT REST-PARTY: the party's night, pinned by execution   // AUDIT REST II P1/P2: its watch
@@ -537,7 +538,7 @@ import { Collider } from '../player/collider.js';
 import { createDataPipeline } from './dataPipeline.js';
 import { createWorldModes } from './worldModes.js';
 import { setAmbientTextHost, tickAmbientText } from '../systems/ambientText.js';   // AT2: Ambient Text's one component - this host claims it and feeds it the frame
-import { OnlineSession, roomKeyFor, DEFAULT_SERVER, WORLD_PUBLISH_MS, FOES_MS, FOES_FULL_MS, FOES_STALE_MS } from '../net/online.js';   // ONLINE1: the session; WORLD1: the room's memory
+import { OnlineSession, roomKeyFor, DEFAULT_SERVER, WORLD_PUBLISH_MS, WORLD_REPUBLISH_MS, FOES_MS, FOES_FULL_MS, FOES_STALE_MS } from '../net/online.js';   // ONLINE1: the session; WORLD1: the room's memory
 import { createSeatLock, SEAT_NOTICE, SEAT_MID_TEXT, PLAY_HERE_LABEL } from '../net/oneSeat.js';   // ONE-SEAT: one tab of a player online - the browser's arm, beside the hub's
 import { readAccount, buyInsignia, equipTitle, equipAura, adoptIdentity as adoptSessionIdentity } from '../net/accountClient.js';   // WB9g: the Broker's insignia - the account's wardrobe, its sale and its wearing, and my own screen's word of it
 import { ownAura } from '../systems/ownGlyphs.js';   // WB9g: the aura at my own feet - the service's last word, kept on the stored session
@@ -705,6 +706,8 @@ import { createStormLights } from '../systems/lightning.js';   // BOLT: the stri
 import { LightningBoltsRenderer } from '../render/lightningBolts.js';   // BOLT: the channels, drawn
 import { createDread, createDreadStorm, dreadLight, dreadCloudGlow, DREAD_KEY_DIM, DREAD_FLASH_COLOR } from '../world/dreadSky.js';   // EVENT1: the live event's sky and its red storm
 import { parseEventCommand } from '../net/chatCommands.js';   // EVENT1: /event, a dev's live event
+import { createSunbaby, sunbabyLight, SUNBABY_WEATHER } from '../world/sunbabySky.js';   // SUNBABY1: the sun baby's sky of flowers, the clear day and the light under it
+import { relayKnowsLiveEvent } from '../net/wire.js';   // SUNBABY1: a word staged only on a relay that knows it
 import { createStaffTeleportClient, validStaffDestination, staffDestinationKey, followStaffPlayer } from '../net/staffTeleport.js';
 import { privateInteriorPrefix, privateInteriorRoom, privateBoatRoom, privateInteriorOf } from '../net/privateInterior.js';
 import { isStaff, parseStaffCommand, STAFF_HELP_LINES, findPlace } from '../net/staffCommands.js';   // STAFF1: the staff's own commands
@@ -1970,6 +1973,11 @@ export async function bootWorld(canvas, renderer, params, status) {
   // EVENT1: THE LIVE EVENT - the hub link's word (chatStart: onEvent) walked into a weight each exterior frame, and the
   // red storm it brings. Offline there is no hub link, nothing sets it, and the weight stays 0: nothing below changes.
   const dread = createDread();
+  // SUNBABY1: THE SUN BABY - the same hub word walked into a weight each exterior frame (its flower sky, the land's haze
+  // and light), and while it is staged the land wears the clear day: the SHOWN weather, never the sim's, which is the
+  // world's (rolled, shared on the weather map, saved) and comes back the frame the event ends. Offline nothing sets it.
+  const sunbaby = createSunbaby();
+  const shownWeather = () => (sunbaby.on ? SUNBABY_WEATHER : currentWeather());
   const dreadStorm = createDreadStorm();
   // WBX8: THE SKY OVER A GATE - the dread's grade and a red storm of its own, gathered over the gate's site (the omen's
   // `sky`, read each exterior frame); the site's translation into a scratch of its own
@@ -5917,6 +5925,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     advanceMinutes: (n) => { playerTicker.advance(n); runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, true); },   // the cook's minutes pass - online on the character's own clock (LIVED1)   // CAMP-REST: spent through the tick as a skip, never replayed as walking time (no group roll)
     selfId: () => online?.id ?? null, onChanged: () => { _foesFullAt = -Infinity; },   // a change asks for a full frame, which carries the camps
     fieldCook: () => fieldCookNow(),   // PROF9: a Field Cook's own Campfire keeps its fuel
+    deck: { at: (pos) => campDeckAt(pos), resolve: (ref) => campDeckResolve(ref) },   // DECK-CAMP: a camp on a boat's deck rides her
   });
   /** PROF9 (bible/06-Systems/Professions-Arc.md 3.3): whether the player stands as a Field Cook - online, the professions
    *  the account's, Cooking's choice at 50 - so a night at their own Campfire spends no fuel (survival/camp.js spendCampNight). */
@@ -6390,6 +6399,32 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   /** BOAT-MENU: whether I stand on this boat's deck - the ground under me one of its buckets (the wake's own test). */
   const csaStandsOn = (boat) => !!player.grounded && typeof player.groundKey === 'string' && player.groundKey.startsWith(`csaBoat:${csaBoatId(boat)}:`);
+  /** DECK-CAMP (systems/survival/camp.js, scenes/camps.js ride): THE BOAT UNDER A CAMP'S SPOT - her bucket off the
+   *  collider's surface probe, read down from just over the spot (the camp's ground was hers) - as `{ ref, m }`: one of
+   *  mine by her number, or another player's by theirs and hers; none for a sea ship or a boat with no number. */
+  const campDeckAt = (pos) => {
+    const hit = collider?.surfaceHit?.([pos[0], pos[1] + 0.5, pos[2]], [0, -1, 0], 1.5);
+    const boat = typeof hit?.key === 'string' && hit.key.startsWith('csaBoat:') ? _csaBuckets.get(hit.key)?.boat ?? null : null;
+    if (!boat?.MeshObject || !(boat.uid > 0)) return null;
+    if (csaRuntime?.AllBoats?.includes(boat)) return { ref: { mine: true, uid: boat.uid }, m: boat.MeshObject.worldMatrix() };
+    const at = csaPeers.placeOf(boat);
+    return at ? { ref: { peer: at.owner, uid: boat.uid }, m: boat.MeshObject.worldMatrix() } : null;
+  };
+  /** DECK-CAMP: where a camp's boat is now - `{ m }` (her node's world matrix) while she stands to be seen, `{ hidden }`
+   *  while she is out of sight (Come Sail Away hides her past a pixel and indoors) or not known yet (a load's boats still
+   *  standing: its restore pending), `{ gone }` once she is no more - mine packed, laid up or purged (the boats settled),
+   *  another's no longer in her owner's word, or her owner gone from the room. */
+  const campDeckResolve = (ref) => {
+    const standing = (boat) => (boat.GameObject?.activeSelf && boat.MeshObject ? { m: boat.MeshObject.worldMatrix() } : { hidden: true });
+    if (ref?.mine) {
+      const boat = csaRuntime?.AllBoats?.find((b) => b.uid === ref.uid) ?? null;
+      if (boat) return standing(boat);
+      return !csaRuntime || (!_loading && !csaRuntime.pendingRestore) ? { gone: true } : { hidden: true };
+    }
+    const boat = ref?.peer ? csaPeers.boatByUid(ref.peer, ref.uid) : null;
+    if (boat) return standing(boat);
+    return ref?.peer && csaPeers.hasBoat(ref.peer, ref.uid) ? { hidden: true } : { gone: true };
+  };
   const sailingCabins = createSailingCabinAccess({
     available: () => !!csaRuntime && csaOn(),
     boats: () => csaRuntime?.AllBoats ?? [], mode: () => modes?.mode ?? 'exterior', busy: () => worldMoveBusy(),
@@ -6683,7 +6718,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     setting: (key) => { try { return modSetting(COME_SAIL_AWAY_VENDOR, key); } catch { return undefined; } },
     input: {
       has: (action) => held(keys, action) || csaHelmInput.held.has(action) || csaHelmInput.chord.has(action) || csaJourneyHelm.held.has(action) || (!!HELM_RUDDER_ACTIONS[action] && helmTurnKeys() && held(keys, HELM_RUDDER_ACTIONS[action])),   // InputManager.HasAction: the registry's held read (the mod's keys answer only while it is on); CSA-L: and the helm panel's holds; OWS2: and a journey's; HELM-KEYS: at a helm the turn keys are the rudder's
-      started: (action) => (pressed(latch.edge, keys, action) && !(travelView?.active && [CSA_BOAT_ACTIONS.sailUp, CSA_BOAT_ACTIONS.sailDown, CSA_BOAT_ACTIONS.toggleSail].includes(action))) || csaHelmInput.edges.has(action),   // ActionStarted, and GetKeyDown on the mod's registry actions: the frame's down ring; CSA-L: and the helm panel's taps; AUDIT NAV2 F17: the sail keys stand down under the travel view, as the turn keys do (helmTurnKeys) - a journey holds the helm there, and its own press sets her sails
+      started: (action) => (pressed(latch.edge, keys, action) && !(travelView?.active && [CSA_BOAT_ACTIONS.sailUp, CSA_BOAT_ACTIONS.sailDown, CSA_BOAT_ACTIONS.toggleSail, 'MoveForwards', 'MoveBackwards'].includes(action))) || csaHelmInput.edges.has(action),   // ActionStarted, and GetKeyDown on the mod's registry actions: the frame's down ring; CSA-L: and the helm panel's taps; AUDIT NAV2 F17: the sail keys stand down under the travel view, as the turn keys do (helmTurnKeys) - a journey holds the helm there, and its own press sets her sails; HELM-LADDER: W and S climb the same ladder, so they stand down there too
       horizontal: () => (helmTurnKeys() ? Math.max(-1, Math.min(1, _csaAxes.h + (held(keys, 'TurnRight') ? 1 : 0) - (held(keys, 'TurnLeft') ? 1 : 0))) : _csaAxes.h),   // HELM-KEYS: the rudder's swing answers the turn keys too
       vertical: () => _csaAxes.v,
       get toggleAutorun() { return !!player.toggleAutorun || csaJourneyHelm.row; },   // OWS2: a journey's oars pull as the autorun does
@@ -11625,7 +11660,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         { reposition: REPOSITION.RandomStartMarker });
       if (!weatherOverride) {
         applyClimateWeather(maps.getClimateIndex(pick.pixel.x, pick.pixel.y), Math.floor(playerTicker.classicMinutes), fieldXZ(), climateAt);   // WEATHER2a: over the ground the arrival lands on; WEATHER2b: the field's word there
-        if (currentWeather() !== weather) applyWeather(currentWeather());
+        if (shownWeather() !== weather) applyWeather(shownWeather());
       }
       surfacePlayer();
       // D4 - TeleportAway's last line (:150). The window smashed the
@@ -11677,7 +11712,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // and respawns, not fast travel (OnInitWorld's array slot) and
     // not quickload (the restored weather stands).
     if (!weatherOverride && weatherRespawn(Math.floor(playerTicker.classicMinutes), maps.getClimateIndex(px.x, px.y), Math.random, fieldXZ(), climateAt)) {   // WEATHER2b: the field's word at the destination on the lane
-      applyWeather(currentWeather());
+      applyWeather(shownWeather());
     }
     // insideDungeon TRUE always (TeleportPc.cs:116) - never a site-type
     // dispatch; the entrance failing IS the exterior fallback.
@@ -12101,7 +12136,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (!weatherOverride) {
         tickWeather(Math.floor(playerTicker.classicMinutes), maps.getClimateIndex(pick.pixel.x, pick.pixel.y));
         applyClimateWeather(maps.getClimateIndex(pick.pixel.x, pick.pixel.y), Math.floor(playerTicker.classicMinutes), fieldXZ(), climateAt);   // WEATHER2a: over the ground the arrival lands on; WEATHER2b: the field's word there
-        if (currentWeather() !== weather) applyWeather(currentWeather());
+        if (shownWeather() !== weather) applyWeather(shownWeather());
       }
       const clamp = arrivalClampMinutes(playerTicker.classicMinutes, {
         speedCautious: opts.speedCautious,
@@ -16904,14 +16939,23 @@ export async function bootWorld(canvas, renderer, params, status) {
   // AUDIT WORLD: into the dungeon's own room alone (B8: during the room hold the socket still sits in the cell's
   // room, which discards it); a forced publish is a FAREWELL - the relay admits one per socket inside its floor
   // (B5); a refusal is said once and not retried at frame rate (B9)
+  // SCALE2b (Scale-Arc "Rooms that never sleep"): A MEMORY THAT DID NOT CHANGE IS NOT SAID AGAIN. Every publish went
+  // out whatever it held - a lone player in a quiet dungeon wrote the room's whole memory to its storage every fifteen
+  // seconds and kept the object awake for it. The same memory is skipped now, the room's copy being that memory; it
+  // goes again at once on a change, on a farewell, after a welcome or a host change (the room's copy may not be mine),
+  // and every WORLD_REPUBLISH_MS whatever (a publish the relay's floor dropped still read as sent here).
+  let _worldSaid = null, _worldSaidAt = -Infinity, _worldSaidKey = null;
   const worldPublish = (now, force = false) => {
     if (!online || !online.isHost() || online.status !== 'open' || !isWorldRoom(online.room)) return false;
     if (!force && now - _worldPublishedAt < WORLD_PUBLISH_MS) return false;
     const shared = modes?.placeSharedWorld?.();   // WORLD6a: the standing PLACE's - a dungeon's or a building's
     if (!shared) return false;
     _worldPublishedAt = now;
+    const said = JSON.stringify(shared), key = `${online.room}|${online.welcomes}|${online.host ?? ''}`;
+    if (!force && said === _worldSaid && key === _worldSaidKey && now - _worldSaidAt < WORLD_REPUBLISH_MS) return false;   // SCALE2b: the room holds it already
     const ok = online.sendWorld(shared, { final: force });
     if (!ok) console.warn('[online] the room\'s memory did not go');
+    else { _worldSaid = said; _worldSaidAt = now; _worldSaidKey = key; }
     return ok;
   };
   // WORLD2: ONE SIMULATION PER ROOM. While I host a world room the dungeon's layout foes are mine to step and I
@@ -16960,6 +17004,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     // WORLD6b: in a CELL everyone streams their own foes; in a world room the host alone
     const cell = isCellRoom(online.room);
     if (!cell && (!online.isHost() || !isWorldRoom(online.room))) return false;
+    // SCALE2b (Scale-Arc "Rooms that never sleep"): NOBODY TO HEAR, NOTHING SAID. A full frame went every FOES_FULL_MS
+    // to a room with nobody else in it, and the relay fanned it to no one - but the frame woke the object, so a room
+    // with one player never slept. Alone, the stream is quiet and its next frame is owed FULL, so the first one after
+    // a joiner's arrival (their join makes them a member here, FOES_MS before the next tick) carries every foe - well
+    // inside their FOES_STALE_MS of patience. Nothing is spent: an unbuilt frame commits no delta.
+    if (online.othersHere === 0) { _foesFullAt = -Infinity; return false; }
     if (now - _foesSentAt < FOES_MS) return false;
     _foesSentAt = now;   // AUDIT WORLD2 B11: the clock re-arms whether or not anything changed - a quiet room asked every frame
     const full = now - _foesFullAt >= FOES_FULL_MS;
@@ -16982,6 +17032,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!online || online.status !== 'open' || !online.ownOk || !isWorldRoom(online.room)) return false;
     const m = modes?.mode ?? 'exterior';
     if (m !== 'interior' && m !== 'dungeon') return false;
+    if (online.othersHere === 0) { _ownFullAt = -Infinity; return false; }   // SCALE2b: nobody to hear - the foes stream's law
     if (now - _ownSentAt < FOES_MS) return false;
     _ownSentAt = now;
     const full = now - _ownFullAt >= FOES_FULL_MS;
@@ -17803,7 +17854,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // EVERY link, not the hub's alone - a close that marks the Region link (this tab's id taken in its channel) left
       // it shut for the page's life, with no Play online here to open it again
       link.onSuperseded = () => seatLostNow();
-      if (tab.room === SOCIAL_ROOM) link.onEvent = (ev, o) => dread.set(ev, o);   // EVENT1: the hub - the one room every online player holds - says the live event
+      if (tab.room === SOCIAL_ROOM) link.onEvent = (ev, o) => { dread.set(ev, o); sunbaby.set(ev, o); };   // SUNBABY1: and the sun baby   // EVENT1: the hub - the one room every online player holds - says the live event
     }
     // SRV-N: the PRESENCE session hears the relay too, and it is usually
     // the first back after a deploy. Both arms run the same detector,
@@ -17862,6 +17913,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           if ('error' in staged) return say(staged.error);
           const hub = chatLinks.get('world');
           if (!hub?.eventOk) return say('The server cannot stage live events yet.');
+          if (staged.kind && !relayKnowsLiveEvent(hub.eventV, staged.kind)) return say('The server cannot stage that event yet.');   // SUNBABY1: an older relay closes the socket on a word it does not know
           return hub.sendStage(staged.kind);
         }   // CHAT-CHAN: from any tab, on the World channel - the one room every player online is in
         // AUDIT-SEATS C1: `/leave` - out of the battle or the Royal Tourney entered (its own word said in the town's talk)
@@ -21072,7 +21124,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const _partyMapSender = createPartyMapSender();
   const partyMapFrame = (nowMs) => {
     const k = (modes?.mode ?? 'exterior') === 'dungeon' ? liveDungeonAutomapKey() : null;
-    const f = _partyMapSender.next({ active: hasSharedCartography(playerEntity), inDungeon: !!k, partied: !!social?.party,
+    const f = _partyMapSender.next({ active: hasSharedCartography(playerEntity), inDungeon: !!k, partied: !!social?.party?.members?.some((m) => m.online && m.acct !== social.acct),   // SCALE2b: a party with a mate ONLINE - the map and its minute's resync go to nobody otherwise
       key: k, rec: k ? getDungeonAutomap(k) : null, nowMs });
     if (f && socialLink()?.shareAutomap(f.k, f.r)) _partyMapSender.commit(f, nowMs);
   };
@@ -21874,7 +21926,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       peerBodies.destroy(); remotePlayers.sync([], onlineToScene); peerRiders?.destroy(); peerWalkers?.destroy(); peerCandlesFrame([], dt); return;   // PEERLIGHT2: and no candle hangs over the dead; AUDIT RIDE: and no rider stands frozen over it either
     }   // AUDIT WORLD B6: the dungeon's and the building's death screens stand in the mode's slot   // AUDIT MWBODY B7: and no body stands frozen over the death screen
     _rezSeen = null;   // AUDIT CONTRIB A6: alive - the next death takes its own snapshot of what the party's poses say
-    if (checkpointDue(now, _checkpointAt)) onlineCheckpoint();   // REALM P0.5: every two real minutes, alive and in the seat (the first such frame persists the join's call-in)
+    if (checkpointDue(now, _checkpointAt)) { if (realmSession?.idle) realmSession.idle(() => onlineCheckpoint()); else onlineCheckpoint(); }   // SCALE2b: the periodic one may be answered by the save the service holds (realmSaves.js idle)   // REALM P0.5: every two real minutes, alive and in the seat (the first such frame persists the join's call-in)
     const mode = modes?.mode ?? 'exterior';   // audit24_wave37: guarded on the OBJECT above its own declaration (the frame runs after it)
     const cabin = modes?.sailingCabin;
     const overworld = mode === 'exterior';
@@ -24819,7 +24871,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       for (const c of tvRaid.chase.values()) { const [dx, dz] = rel(c.pos.x, c.pos.z); out.push({ dx, dz, reach: RAIDER_CONTACT_M, chasing: true, mps: RAIDER_CHASE_MPS }); }
     }
     for (const f of exteriorFoes.foes) {
-      if (!foeHostile(f) || !f.ai.feet) continue;
+      if (!foeHostile(f) || !f.ai.feet || f.ai.unreachable) continue;   // WATER-FOES: nor a foe in the water while I am aboard
       if (_tvAttack?.kind === 'camp' && foeCampKey(f) === _tvAttack.id) continue;   // OW-ATTACK: the camp I go to fight, every member
       out.push({ dx: f.ai.feet[0] - fx[0], dz: f.ai.feet[2] - fx[2], reach: f.ai.sightRadius ?? SIGHT_RADIUS });   // CAMP-SIGHT: a camp's sixty metres
     }
@@ -26354,7 +26406,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       sampleWeatherField(Math.floor(playerTicker.classicMinutes), maps.getClimateIndex(_pp.x, _pp.y), fieldXZ(), climateAt, drained ? 'drain' : 'live');
       // drift-aware: a dungeon-side quickload restores the SIM but not
       // this host's derived lets - re-derive whenever they disagree
-      if (currentWeather() !== weather) applyWeather(currentWeather());
+      if (shownWeather() !== weather) applyWeather(shownWeather());
     }
     // WX2: the front's word for this frame. Under the enhanced sky the
     // arrival is WIND1's front, read off the controller; under the
@@ -26402,6 +26454,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // EVENT1: the live event's weight this frame (0 offline, and with no event) - the sky, the fog, the key light and
     // the red storm below all read this one number
     const dreadW = dread.tick(dt);
+    const sunbabyW = sunbaby.tick(dt);   // SUNBABY1: the sun baby's - the flower sky, the land's haze and its light
     // WBX8 (Mac: "Improve the sky effect to be more like the /event dread command" - the overworld's, "not the inside"):
     // THE SKY OVER A GATE BURNS, as the omen has always said it does - its weight by the gate's life and this eye's
     // distance from it (systems/gateOmen.js gateSkyWeight); the sky, its fog and the land's light take the greater of it
@@ -26429,7 +26482,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (jump || weatherArrivalStamp() !== seenArrival) { distantStorms.reset(); stormLights.reset(); }   // AUDIT WEATHER3 R5: any landing, the word moved or not; BOLT: the strikes burning were the old place's
     seenArrival = weatherArrivalStamp();
     const struckFar = [];   // BOLT: the distant strikes fired this frame, in host metres
-    if (isEnhanced() && !weatherOverride) {
+    if (isEnhanced() && !weatherOverride && !sunbaby.on) {   // SUNBABY1: no storm anywhere under the sun baby
       const ds = distantStorms.tick({ systems: currentMapSystems(), at: fieldXZ(), minutes: playerTicker.classicMinutes, seconds: now / 1000, ground: mapGroundHere });
       const hostOf = (x, z) => { const n = nativeFromField(x, z); return state.localFromWorld(n[0], n[1]); };
       const bh = ds.bolt && hostOf(ds.bolt.x, ds.bolt.z);
@@ -26461,13 +26514,14 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     boltFrame = isEnhanced()
       ? stormLights.frame({ seconds: now / 1000, eye: tvf ? cam.pos : mwv.eye, distant: struckFar, player: lightning, shown: !!lightningShown, test: Number(params.get('bolttest')) || 0 })   // TV4: a strike's column stands on the traveller's ground, not 448 m under the raised eye
       : { bolts: [], flash: null };
+    sky.setSunbaby(sunbabyW, sunbaby.on);   // SUNBABY1: its flower sky, and the clear day the sky wears while it is staged
     sky.setDread(skyDreadW, dreadCloudGlow(boltFrame.bolts));   // EVENT1: the sky's grade, and the red strikes' glow in its deck; WBX8: the gate's, where it is the greater
     // EV5: the moons light the night - the masser as a second key, the
     // secunda folded into the ambient. null by day and under classic.
     const moonNow = sky.moonlight();
     renderer.setMoonlight(moonNow);
     renderer.setLighting(
-      dreadLight(withMoonAmbient(exteriorAmbient(minute, getFloat('Enhancements', 'NightAmbientLightScale', 0, 1), wxNow.sun), moonNow), skyDreadW), sunScale(minute) * wxNow.sun * flash * sky.sunFactor() * (1 - DREAD_KEY_DIM * skyDreadW),   // EVENT1: the land under the dread's light   // ES1d: the cloud in front of the sun takes the KEY light (never the ambient - the sky still lights the ground); WX2: the scale is the front's
+      sunbabyLight(dreadLight(withMoonAmbient(exteriorAmbient(minute, getFloat('Enhancements', 'NightAmbientLightScale', 0, 1), wxNow.sun), moonNow), skyDreadW), sunbabyW), sunScale(minute) * wxNow.sun * flash * sky.sunFactor() * (1 - DREAD_KEY_DIM * skyDreadW),   // EVENT1: the land under the dread's light; SUNBABY1: lifted toward noon's under the sun baby   // ES1d: the cloud in front of the sun takes the KEY light (never the ambient - the sky still lights the ground); WX2: the scale is the front's
       dreadLight(SUN_RIG_COLOR, skyDreadW));
     // DW-C: the distance fog's own "under" (UnderwaterDistanceFog.TryGetUnderwaterPresentation) - the surfaces'
     // _DeepWatersUnderwater and UnderwaterPresentationEffects' light suppression read it too, so it is taken
@@ -26527,6 +26581,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     try { sigilBroker?.frame(dt); } catch (e) { console.warn('[broker] pool', e?.message ?? e); }   // SET7: the Broker stands where the clock stands her - BROKER-CAGE: in her cage at the faithful's circle
     try { riteHost?.frame(); } catch (e) { console.warn('[rite] host', e?.message ?? e); }   // WB12d: the faithful's circle, before the lights (its braziers light the ground)
     try { if (_mode() === 'exterior' && !_loading) harbourBook.step(now / 1000); } catch (e) { console.warn('[harbours] book', e?.message ?? e); }   // HARBOUR-BOOK: the port near the player sounded, before its quays stand
+    if (_mode() === 'exterior') camps.ride(dt);   // DECK-CAMP: the camps on a boat's deck posed off her - after she moved, before the lights (a fire's) and the world pass
     try { quays?.frame(); } catch (e) { console.warn('[quays] pool', e?.message ?? e); }   // QUAYS: the harbours' quays stood or taken down, before the lights (their lanterns) and the world pass
     // Lanterns on 17:00-08:00, flickering verbatim; pixel-local lights
     // placed under the current compensation, nearest 16 to the camera.
@@ -27062,6 +27117,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       livePersonBatches.push(...exteriorFoes.batches(), ...navalCrew.batches());
       if (playerSpawned) _townWatchFrame(foeDt);   // DISC19-F: the town's answer to what the pools just did
       if (playerSpawned) raidingPartiesFrame(gamePaused() ? 0 : foeDt);   // RAID1: the raids' Update - after the pools moved (a death counts on the frame it falls) and the watch answered, its clocks held by a pause (fix 7)
+      markFoeReach([...cityGuards.guards, ...exteriorFoes.foes], { aboard: playerAfloat() && !(walkMode && playerSpawned && player.isPlayerSwimming), seaY: tvSeaY() });   // WATER-FOES: aboard and dry, a foe in the water reaches no one - no enemy nearby (the pools, the watch and the raids done)
     }
     droppedLoot.tickFlats(dt);   // FA1 slice 3
     livePersonBatches.push(...droppedLoot.batches());   // U8e: the ground piles

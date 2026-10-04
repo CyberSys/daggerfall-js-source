@@ -302,6 +302,21 @@ export const IRONS_TELL_WAY = 0.4;
 export const IRONS_TELL_S = 2;
 export const IRONS_TEXT = 'In irons - the wind is dead ahead. Strike sail and row her round.';
 export const IRONS_HELM_TEXT = 'In irons - the wind is dead ahead. Put the helm over, or strike sail and row her round.';
+/**
+ * HELM-LADDER (2026-10-04, from the field: "WASD and Arrow keys should function the same when controlling. Allowing you
+ * to lower and raise sails" - the throttle ladder chosen; DECLARED, the Port-Ledger's Come Sail Away row): THE HELM'S
+ * ONE LADDER. W and the up arrow climb it a rung a press, S and the down arrow come down it (`MoveForwards` or
+ * `BoatSailUp`, `MoveBackwards` or `BoatSailDown`), A, D and the side arrows steer: the oars backing water (-1), the oars
+ * at rest (0), the oars pulling ahead (1), then her sails - RaiseSails, and where her square sails are the player's own
+ * (`squareHandled`), all her canvas (MoreSail's step). Down from her sails comes LessSail's step, and from the last of
+ * them she pulls on her oars (1). The oars are no longer held: the rung is kept (`oarThrottle`) until a press moves it, a
+ * sail goes up or she leaves the helm. The mod read the held keys (Update 4301-4768: HasAction MoveForwards and
+ * MoveBackwards for the oars, the toggle alone for the sails, W and S inert under sail). A rowboat, with no sail, stops
+ * at her oars. The sail toggle (`BoatToggleSail`, End) and the helm panel's buttons are as they were; a journey's oars
+ * pull as the autorun does (OWS2).
+ */
+export const OAR_RUNG_TEXT = Object.freeze({ '-1': 'Oars: backing water.', 0: 'Oars: at rest.', 1: 'Oars: pulling ahead.' });
+export const OAR_ASTERN_TEXT = 'She is already backing water.';
 /** The C#'s field initializers (262-276): the oars' and the sails' speeds, accelerations and turns. */
 export const HANDLING = Object.freeze({
   moveSpeedOar: 2, moveSpeedSail: 2, moveAccelOar: 1, moveAccelSail: f(0.2),
@@ -520,6 +535,8 @@ export function createComeSailAwayRuntime(deps) {
     /** @type {{ position:number[], label:string, color:any }[]} */ mapMarkers: [],
     TemporaryShip: false,
     sailPosition: 0,
+    /** HELM-LADDER: the oars' rung - -1 backing water, 0 at rest, 1 pulling ahead (the helm session's, never saved). */
+    oarThrottle: 0,
     MoveVectorCurrent: [0, 0, 0],
     MoveVectorTarget: [0, 0, 0],
     windVectorTarget: [0, 0, 1],
@@ -660,7 +677,7 @@ export function createComeSailAwayRuntime(deps) {
    *  under the responsive helm the sails' way comes on at HELM_WAY.sailAccel of it and a coast at HELM_WAY.coast. */
   function moveAccelOwn() {
     const b = cur();
-    if (state.sailPosition === 0 && (has('MoveForwards') || has('MoveBackwards') || (has('Run') && (has('MoveRight') || has('MoveLeft'))))) {
+    if (state.sailPosition === 0 && (state.oarThrottle !== 0 || (has('Run') && (has('MoveRight') || has('MoveLeft'))))) {   // HELM-LADDER: the oars' rung, not a held key
       return f(f(f(HANDLING.moveAccelOar * handlingMod('OarMoveAcceleration')) * state.boatCargoMod) * f(b.modifierMoveAccelerationOar));
     }
     if (state.sailPosition === 1) {
@@ -685,11 +702,12 @@ export function createComeSailAwayRuntime(deps) {
   /** wakeThreshold (504): moveSpeedSail * 0.25. */
   const wakeThreshold = () => f(HANDLING.moveSpeedSail * f(0.25));
   /** HasInput and inputTarget (582-613). */
-  const hasInput = () => f(deps.input?.vertical?.() ?? 0) !== 0 || f(deps.input?.horizontal?.() ?? 0) !== 0 || !!deps.input?.toggleAutorun;
+  // HELM-LADDER: the oars' stroke is the rung's - the vertical axis (W and S held) pulls no oar now
+  const hasInput = () => state.oarThrottle !== 0 || f(deps.input?.horizontal?.() ?? 0) !== 0 || !!deps.input?.toggleAutorun;
   function inputTarget() {
     if (!hasInput()) return [0, 0];
     const h = f(deps.input?.horizontal?.() ?? 0);
-    return deps.input?.toggleAutorun ? [h, 1] : [h, f(deps.input?.vertical?.() ?? 0)];
+    return deps.input?.toggleAutorun ? [h, 1] : [h, state.oarThrottle];
   }
   /** combinedCollisionDirection (650-667). */
   function combinedCollisionDirection() {
@@ -875,6 +893,7 @@ export function createComeSailAwayRuntime(deps) {
   function StartSailing(boat) {
     deps.hudText('You control the boat!');
     state.CurrentBoat = boat;
+    state.oarThrottle = 0;   // HELM-LADDER: a helm taken with her oars at rest
     if (!deps.transport?.isFoot?.()) deps.transport?.setFoot?.();
     if (boat.crewed && !deps.ship?.owns?.()) {
       state.TemporaryShip = true;
@@ -943,6 +962,7 @@ export function createComeSailAwayRuntime(deps) {
   /** StopSailing past its head: the player set down at the helm, the freeze lifted, OnUpdateSailing(false). */
   function stopSailingTail(currentBoat) {
     state.CurrentBoat = null;
+    state.oarThrottle = 0;   // HELM-LADDER: the oars shipped with the helm left
     unparentPlayer();
     deps.helm.setPlayerPosition(currentBoat.DrivePosition.position);
     deps.helm.freeze(0);
@@ -1093,6 +1113,7 @@ export function createComeSailAwayRuntime(deps) {
       }
     }
     state.sailPosition = 1;
+    state.oarThrottle = 0;   // HELM-LADDER: under sail the oars are shipped
     deps.audio?.dfOneShot?.(nodeOf(b.GameObject, b.DFAudioSource), 380, 1, loopVolume());   // DFAudioSource.PlayOneShot((SoundClips)380, 1f, SoundVolume * sfxVolume)
     rudderOf(b)?.SetBool('Sailing', true);
   }
@@ -1155,6 +1176,25 @@ export function createComeSailAwayRuntime(deps) {
     if (state.sailPosition === 0) { deps.hudText('The sails are stowed.'); return; }
     if (squareHandled(b) && !squareStowed(b)) { ToggleSquareSails(); return; }
     LowerSails();
+  }
+  /** HELM-LADDER: one rung up - the oars from backing water to at rest to pulling ahead, then her sails (MoreSail's
+   *  steps: raised, then all her canvas where the square sails are the player's own). A boat with no sail stops at her
+   *  oars. */
+  function ladderUp(b) {
+    if (state.sailPosition > 0) { MoreSail(b); return; }
+    if (state.oarThrottle < 1) { state.oarThrottle += 1; deps.hudText(OAR_RUNG_TEXT[state.oarThrottle]); return; }
+    MoreSail(b);   // pulling ahead: her sails go up (and ship the oars), or a sailless boat says so
+  }
+  /** HELM-LADDER: one rung down - her canvas taken in a step at a time (LessSail's), and from the last of it she pulls
+   *  ahead on her oars; then the oars to at rest, then backing water. */
+  function ladderDown(b) {
+    if (state.sailPosition > 0) {
+      LessSail(b);
+      if (state.sailPosition === 0) { state.oarThrottle = 1; deps.hudText(OAR_RUNG_TEXT[1]); }
+      return;
+    }
+    if (state.oarThrottle > -1) { state.oarThrottle -= 1; deps.hudText(OAR_RUNG_TEXT[state.oarThrottle]); return; }
+    deps.hudText(OAR_ASTERN_TEXT);
   }
   /** HELM-KEYS: whether her helm is in irons (IRONS_TELL_DEG, IRONS_TELL_WAY) - her sails up and the wind's eye dead ahead. */
   function inIrons(b) {
@@ -1320,6 +1360,10 @@ export function createComeSailAwayRuntime(deps) {
       deps.midScreenText('There are enemies nearby...', f(1.5));
       ResetTimeScale(false);
     }
+    // HELM-LADDER (the port's, DECLARED): W and the up arrow climb the ladder, S and the down arrow come down it - before the
+    // stroke is read, so a press takes the frame it is made in, as a held key did
+    if (deps.input?.started?.('MoveForwards') || deps.input?.started?.(BOAT_ACTIONS.sailUp)) ladderUp(boat);
+    else if (deps.input?.started?.('MoveBackwards') || deps.input?.started?.(BOAT_ACTIONS.sailDown)) ladderDown(boat);
     state.inputCurrent = vMoveTowards(state.inputCurrent, inputTarget(), f(f(boat.modifierAnimation) * f(1 * dt())));
     if (windDirectionWidget()) state.windWidgetFrame = windWidgetFrameOf(vSignedAngle(playerForward(), state.windVectorCurrent, V_UP));
     const drive = boat.DrivePosition.position;
@@ -1329,9 +1373,6 @@ export function createComeSailAwayRuntime(deps) {
       if (state.sailPosition > 0 && boat.SailsSquare.length > 0 && !trimAutoSquareUpwind() && has(BOAT_ACTIONS.trimModifier) && (boat.SailsLateen.length > 0 || boat.SailsGaff.length > 0)) ToggleSquareSails();
       else ToggleSails();
     }
-    // HELM-KEYS (the port's, DECLARED): the arrows' more and less sail
-    if (deps.input?.started?.(BOAT_ACTIONS.sailUp)) MoreSail(boat);
-    if (deps.input?.started?.(BOAT_ACTIONS.sailDown)) LessSail(boat);
     // HELM-KEYS: in irons IRONS_TELL_S running, the helm told once how she comes out (again once she has been out of them)
     const irons = inIrons(boat);
     state.ironsFor = irons ? f(state.ironsFor + dt()) : 0;
@@ -1351,12 +1392,13 @@ export function createComeSailAwayRuntime(deps) {
       // the nodes the C# asks: forward the CENTRE's, back the bow's, right the stern's, left the starboard's (kept, but
       // for one). FIELD BUGS 2026-10-02 ASTERN (a departure): back asks the STERN's, the water she backs into - asking the
       // bow's, a bow run onto a shoal or a rock's foot refused the one way off it, and the centre's water let her row on in
-      if ((has('MoveForwards') || deps.input?.toggleAutorun) && IsNodeOnWater(boat, 0)) num3 = 1;
-      else if (has('MoveBackwards') && IsNodeOnWater(boat, 2)) num3 = -1;
+      // HELM-LADDER: the oars pull at their rung (a journey's as the autorun does), not while a key is held
+      if ((state.oarThrottle > 0 || deps.input?.toggleAutorun) && IsNodeOnWater(boat, 0)) num3 = 1;
+      else if (state.oarThrottle < 0 && IsNodeOnWater(boat, 2)) num3 = -1;
       if (has('Run')) {
         if (has('MoveRight') && IsNodeOnWater(boat, 2)) num4 = 0.5;
         else if (has('MoveLeft') && IsNodeOnWater(boat, 3)) num4 = -0.5;
-      } else if (has('MoveBackwards')) {
+      } else if (state.oarThrottle < 0) {   // backing water, the helm answers the other way
         if (has('MoveRight')) num5 = -1;
         else if (has('MoveLeft')) num5 = 1;
       } else if (has('MoveRight')) num5 = 1;

@@ -119,11 +119,17 @@ function networkRig() {
     receive: (...v) => received.push(v), sweep: (...v) => sweeps.push(v) });
   const pixel = { x: 10, y: 20 }, cell = roomKeyFor({ host: 'world', mode: 'exterior', mapPixel: pixel });
   const tick = (ms = 0, saved = cabin) => { now += ms; link.tick(main, saved, pixel, now); };
-  const open = () => { for (const ws of sockets.filter((s) => !s.closed)) { ws.open(); ws.receive({ t: 'welcome', id: 'peer-owner', peers: [], n: 1, v: RELAY_VERSION }); } };
+  // SCALE2b: a deck cell with somebody else in it - the boat's record is said to a cell where someone can see it, and
+  // held back from an empty one (`alone`)
+  const guest = { id: 'peer-guest', name: 'Guest', look: null, pose: { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, mv: 0 } };
+  const open = (alone = false) => { for (const ws of sockets.filter((s) => !s.closed)) { ws.open(); ws.receive({ t: 'welcome', id: 'peer-owner', peers: alone ? [] : [guest], n: alone ? 1 : 2, v: RELAY_VERSION }); } };
   return { main, link, sockets, received, sweeps, cell, tick, open };
 }
 
 test('cabin connection: real OnlineSession keeps indoor pose private and sends exterior fleet heartbeats with the exterior room key', () => {
+  const lone = networkRig(); lone.tick(); lone.open(true); lone.tick(); lone.tick(1000); lone.tick(1000);
+  assert.equal(lone.sockets.find((ws) => ws.url.includes(lone.cell)).sent.map(JSON.parse).filter((m) => m.t === 'foes').length, 0, 'SCALE2b: a deck cell nobody else is in hears no fleet record');
+  lone.link.close(); lone.main.leave();
   const r = networkRig(); r.tick(); r.open(); r.tick();
   const deck = r.sockets.find((ws) => ws.url.includes(r.cell)); assert.ok(deck);
   const hello = deck.sent.map(JSON.parse).find((m) => m.t === 'hello');

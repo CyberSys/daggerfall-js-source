@@ -193,11 +193,12 @@
   {
     "name": "SERPENT1-wire-relay-min",
     "file": "src/net/wire.js",
-    "old": "export const SERPENT_RELAY_MIN = 162;",
-    "new": "export const SERPENT_RELAY_MIN = 161;",
+    "old": "export const SERPENT_RELAY_MIN = 164;",
+    "new": "export const SERPENT_RELAY_MIN = 163;",
     "tests": [
       "test/serpent1_relay.test.js"
-    ]
+    ],
+    "note": "PIN MOVED at the merge of main's #598 and #599: the first serpent relay is world164 (world162 on its branch, past PRIMARCH and SUNBABY1)."
   },
   {
     "name": "SERPENT1-renown-serpent-worth",

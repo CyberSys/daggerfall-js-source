@@ -200,7 +200,7 @@ test('PARTY-MAP sender: only while the buff is live, in a dungeon, in a party - 
 
 test('PARTY-MAP sender by source: world.js feeds it the buff, the dungeon and the party each frame, commits only a send the link took, and merges a mate\'s rows for a party seat alone', () => {
   const w = rd('src/scenes/world.js');
-  assert.match(w, /const f = _partyMapSender\.next\(\{ active: hasSharedCartography\(playerEntity\), inDungeon: !!k, partied: !!social\?\.party,/);
+  assert.match(w, /const f = _partyMapSender\.next\(\{ active: hasSharedCartography\(playerEntity\), inDungeon: !!k, partied: !!social\?\.party\?\.members\?\.some\(\(m\) => m\.online && m\.acct !== social\.acct\),/);   // SCALE2b: a mate online
   assert.match(w, /if \(f && socialLink\(\)\?\.shareAutomap\(f\.k, f\.r\)\) _partyMapSender\.commit\(f, nowMs\);/);
   assert.match(w, /link\.onAmap = \(acct, _name, k, r\) => \{ if \(social\.inMyParty\(acct\)\) mergePartyAutomap\(k, r\); \};/);
   assert.match(w, /partyMapFrame\(nowMs\);   \/\/ PARTY-MAP/);

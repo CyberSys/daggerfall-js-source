@@ -172,8 +172,8 @@
   {
     "name": "OW6-S-friends-too",
     "file": "src/scenes/world.js",
-    "old": "      if (!foeHostile(f) || !f.ai.feet) continue;",
-    "new": "      if (!f.ai?.feet) continue;",
+    "old": "      if (!foeHostile(f) || !f.ai.feet || f.ai.unreachable) continue;",
+    "new": "      if (!f.ai?.feet || f.ai.unreachable) continue;",
     "tests": [
       "test/ow6_slowdown.test.js"
     ],

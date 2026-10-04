@@ -174,12 +174,12 @@
   {
     "name": "PENITENT-glyph-without-the-title",
     "file": "server-account/src/titles.js",
-    "old": "penitent: 'penitent', herald: 'herald', aegis: 'aegis' });",
-    "new": "penitent: 'shadowfang', herald: 'herald', aegis: 'aegis' });",
+    "old": "penitent: 'penitent', herald: 'herald', aegis: 'aegis', primarch: 'primarch' });",
+    "new": "penitent: 'shadowfang', herald: 'herald', aegis: 'aegis', primarch: 'primarch' });",
     "tests": [
       "test/penitent.test.js"
     ],
-    "note": "HERALD (RE-AIMED by content: the lists end with herald now). AEGIS (re-aimed by content): the line gained Sureme's aegis."
+    "note": "HERALD (RE-AIMED by content: the lists end with herald now). AEGIS (re-aimed by content): the line gained Sureme's aegis. PRIMARCH (re-aimed by content): the line gained GA00250's primarch."
   },
   {
     "name": "PENITENT-granted-to-another-account",

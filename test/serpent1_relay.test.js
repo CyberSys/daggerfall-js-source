@@ -106,10 +106,10 @@ test('SERPENT1 wire: the client says five things - `in` with its day, law, level
   assert.deepEqual(parseClient(JSON.stringify({ t: 'serpent', ...IN }), { hasHello: true }), { t: 'serpent', ...IN });
   assert.equal(parseClient(JSON.stringify({ t: 'serpent', ...IN }), { hasHello: false }).error, 'serpent before hello');
   assert.equal(parseClient(JSON.stringify({ t: 'serpent', k: 'hit', d: -1, z: 0 }), { hasHello: true }).error, 'bad serpent');
-  assert.equal(SERPENT_RELAY_MIN, 162);
+  assert.equal(SERPENT_RELAY_MIN, 164);
   assert.ok(relayVersionAtLeast(SERPENT_RELAY_MIN), 'the relay this tree builds holds a serpent');
-  assert.equal(RELAY_VERSION, 'world162');
-  assert.ok(relaySupportsSerpent('world162') && !relaySupportsSerpent('world161') && !relaySupportsSerpent(undefined));
+  assert.equal(RELAY_VERSION, 'world164');
+  assert.ok(relaySupportsSerpent('world164') && !relaySupportsSerpent('world163') && !relaySupportsSerpent(undefined));
   let b = null, pass = 0;
   for (let i = 0; i < 40; i++) { const g = serpentGate(b, 1000); b = g.bucket; if (g.pass) pass++; }
   assert.equal(pass, SERPENT_HZ_MAX, 'the frames\' own bucket');
