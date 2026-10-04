@@ -296,7 +296,7 @@ test('REALM P2.2: an answer that was lost is asked again - the record one ahead 
 
 test('REALM P2.2 by source: the world host\'s Guild book acts on the record for a realm character, its wallet naming the region the record pays from', () => {
   const w = src('src/scenes/world.js');
-  assert.match(w, /realm: realmSession \? \{ act: \(o\) => realmGoldAct\(\{ session: realmSession, checkpoint: \(\) => onlineCheckpoint\(\), \.\.\.o \}\) \} : null,/);
+  assert.match(w, /realm: realmSession \? \{ act: \(o\) => realmGoldAct\(\{ session: realmSession, checkpoint: \(\) => onlineCheckpoint\(\), \.\.\.o \}\), abandon: \(why\) => realmSession\.abandon\(why\) \} : null,/);   // PIN MOVED (AUDIT2 GUILD2 K1): and `abandon`, where a vault take's answer is lost
   assert.match(w, /region: \(\) => _questRegionIndex\(\) \?\? 0,   \/\/ REALM P2\.2/);
   const g = src('server-account/src/guilds.js');
   // AUDIT REALM L1-F2: each asks where the record stands FIRST (realm.js realmActFirst) - before the rate, the rank and the membership

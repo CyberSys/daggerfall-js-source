@@ -81,6 +81,7 @@ import { stationSteps } from '../../src/net/fortLaw.js';   // SEAT2b part two (7
 import { fortTiersOf } from './seatForts.js';   // SEAT2b part two: the halls standing at the seat
 import { RAM_KIT } from '../../src/net/professionLaw.js';   // SEAT2b part two: a siege work's place in the Stores
 import { SIEGE_GEM } from '../../src/net/professionLaw.js';   // PROF10: a Lapidary's Siege-cracked Gem, spent for a piece's gem
+import { CARRIED_MAX, DEPOSIT_MAX, CLAMP_ORDER, DEPOSIT_ORDERS, CARRIED_ROW_DAYS, heldOk, seenOk, depositOrderOk } from '../../src/net/bagLaw.js';   // BAG1: what a character carries, counted
 
 const DAY_S = 86_400;
 /** The pixels one read may ask after - a streamed 5 x 5. */
@@ -139,6 +140,46 @@ export async function storeOf(db, player, character, key) {
   for (const r of results) out[originOf(r.origin)] = Number(r.qty);
   return withGold(out);
 }
+/** BAG1: ONE MATERIAL'S CARRIED COUNT - every unit the service handed to the character's bag or pack and has not had back
+ *  by a deposit (bagLaw.js), own, bought and gold - in the Stores' own shape. A bound, never an inventory: the items are
+ *  the save's. */
+export async function carriedOf(db, player, character, key) {
+  const { results = [] } = await db.prepare('SELECT origin, qty FROM prof_carried WHERE player = ?1 AND char_id = ?2 AND material = ?3')
+    .bind(player, character, key).all();
+  const out = { material: key, own: 0, bought: 0, gold: 0 };
+  for (const r of results) out[originOf(r.origin)] = Number(r.qty);
+  return withGold(out);
+}
+/** BAG1: THE COUNT CUT TO WHAT THE CLIENT SAYS IT HOLDS - bagLaw.js clampCarried in SQL: a statement an origin in
+ *  CLAMP_ORDER (gold's first, own last), each cutting what the total still stands over the held count, read afresh so
+ *  the cuts before it count; the rows left at 0 deleted. Never raised: a pack holding more than the count adds nothing.
+ *  The unbruised count follows the own units it counts (unbruisedClamp).
+ *  AUDIT BAG1 B2 (bible/06-Systems/Materials-Bag.md, the audit): ONLY WHERE THE CLIENT'S `held` IS CURRENT. A held count
+ *  is read against the count the client last heard (`seen`, the total of every origin); when the service's count has moved
+ *  since - a kept harvest or a withdrawal whose answer was lost, an act of a second request in flight - the pack does not
+ *  yet hold units the count already has, and cutting to it lost them for good (the auditors' repro: three herbs gathered
+ *  offline, pumped, counted 1 of 4). The decision is taken ONCE, before any origin moves, into a gate row of the request's
+ *  own id (`prof_carried_gate`, made and cleared in this batch) - each origin's statement moves the total the next reads,
+ *  so a per-statement test of the total could never agree with itself. `twin`: the act's own row not yet written (AUDIT
+ *  BAG1 B3 - a duplicate of a landed harvest cut the count back under the units the first one counted). `seen` null: an
+ *  older client, believed as before. Binds: ?1 the player, ?2 the character, ?3 the material, ?4 held, ?5 the request id,
+ *  ?6 seen. */
+export function clampStatements(db, { player, character, material, held, rid, seen = null, twin = '1' }) {
+  const total = 'COALESCE((SELECT SUM(t.qty) FROM prof_carried t WHERE t.player = ?1 AND t.char_id = ?2 AND t.material = ?3), 0)';
+  const open = 'EXISTS (SELECT 1 FROM prof_carried_gate g WHERE g.player = ?1 AND g.rid = ?5)';
+  return [
+    db.prepare(`INSERT OR IGNORE INTO prof_carried_gate (player, rid) SELECT ?1, ?5
+      WHERE ${twin} AND ?4 >= 0 AND (?6 IS NULL OR ${total} = ?6)`).bind(player, character, material, held, rid, seen),
+    ...CLAMP_ORDER.map((o) => db.prepare(`UPDATE prof_carried SET qty = qty - MIN(qty, MAX(0, ${total} - ?4))
+      WHERE player = ?1 AND char_id = ?2 AND material = ?3 AND origin = '${o}' AND ${open}`).bind(player, character, material, held, rid)),
+    db.prepare('DELETE FROM prof_carried WHERE player = ?1 AND char_id = ?2 AND qty = 0').bind(player, character),
+    // the held count at ?4 is named, so the statement's parameters reach every bind (SQLite refuses a bind past the last)
+    unbruisedClamp(db, { player, character, materialSql: '?3', guard: `${open} AND ?4 >= 0`, binds: [material, held, rid] }),
+    db.prepare('DELETE FROM prof_carried_gate WHERE player = ?1 AND rid = ?2').bind(player, rid),
+  ];
+}
+/** BAG1: a count's total in SQL, every origin - `m` the material's SQL, `p` and `c` the player's and the character's. */
+const carriedSql = (p, c, m) => `COALESCE((SELECT SUM(qty) FROM prof_carried WHERE player = ${p} AND char_id = ${c} AND material = ${m}), 0)`;
 /** GOLD-MARKET: THE UNITS A STATION, A CRAFT, A WRIT OR A DRAKES ACT MAY SPEND of a material in SQL - own and bought,
  *  never bought with gold (the wall: gold's goods go to the pack or back on the market for gold, nowhere else). `m` the
  *  material's SQL, `p` and `c` the player's and the character's. */
@@ -160,8 +201,14 @@ export async function profState({ db, nowS }, player, env, { character } = {}) {
   const refused = asks(player, { character, needRid: false }) ?? shut(player, env);
   if (refused) return refused;
   const day = utcDay(nowS);
-  // PROF0 20: a day's harvests are kept two days - a bounded sweep on the state's own read
-  await db.prepare('DELETE FROM node_harvests WHERE rowid IN (SELECT rowid FROM node_harvests WHERE day < ? LIMIT 500)').bind(day - 1).run();
+  // PROF0 20: a day's harvests are kept two days - a bounded sweep on the state's own read. AUDIT2 BAG1 S1: a CARRIED one
+  // CARRIED_ROW_DAYS: its row is the answer a kept harvest asked again is given, and only that answer mints its items - swept
+  // at two days, a harvest whose answer was lost (or heard under another character) was refused `prof-day` and its counted
+  // units never came
+  await db.batch([
+    db.prepare('DELETE FROM node_harvests WHERE rowid IN (SELECT rowid FROM node_harvests WHERE carry = 0 AND day < ? LIMIT 500)').bind(day - 1),
+    db.prepare('DELETE FROM node_harvests WHERE rowid IN (SELECT rowid FROM node_harvests WHERE carry = 1 AND day < ? LIMIT 500)').bind(day - CARRIED_ROW_DAYS),
+  ]);
   const { results: rows = [] } = await db.prepare('SELECT * FROM prof_tracks WHERE player = ?1 AND char_id = ?2').bind(player.id, character).all();
   const byProf = new Map(rows.map((r) => [r.profession, r]));
   const { results: stores = [] } = await db.prepare('SELECT material, origin, qty FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND qty > 0 ORDER BY material')
@@ -174,12 +221,22 @@ export async function profState({ db, nowS }, player, env, { character } = {}) {
   }
   const { results: taken = [] } = await db.prepare('SELECT node, kind FROM node_harvests WHERE player = ?1 AND char_id = ?2 AND day = ?3')
     .bind(player.id, character, day).all();
+  // BAG1: what the service counts the character as carrying, in the Stores' shape
+  const { results: carriedRows = [] } = await db.prepare('SELECT material, origin, qty FROM prof_carried WHERE player = ?1 AND char_id = ?2 AND qty > 0 ORDER BY material')
+    .bind(player.id, character).all();
+  const carried = new Map();
+  for (const r of carriedRows) {
+    const c = carried.get(r.material) ?? { material: r.material, own: 0, bought: 0, gold: 0 };
+    c[originOf(r.origin)] = Number(r.qty);
+    carried.set(r.material, c);
+  }
   return {
     character, day,
     tracks: PROFESSIONS.map((p) => trackView(byProf.get(p.id), p.id, nowS)),
     today: await todayOf(db, player.id, character, day),
     taken: taken.map((t) => `${t.node}|${t.kind}`),
     stores: [...held.values()].map(withGold),
+    carried: [...carried.values()].map(withGold),
     writs: { today: await writsToday(db, player.id, day), max: COURT_WRITS_PER_DAY },
     hunt: await huntToday(db, player.id, day),   // PROF7: the account's hides today (PROF0 6)
     hauls: await haulsToday(db, player.id, day),   // PROF8: the account's hauls today (PROF0 6)
@@ -240,6 +297,13 @@ async function harvestAnswer(db, row, nowS, extra, rankBefore = null) {
     store: await storeOf(db, row.player, row.char_id, row.material),
     ...(row.gem ? { gem: row.gem, gemStore: await storeOf(db, row.player, row.char_id, row.gem) } : {}),
     ...(row.extra ? { extra: row.extra, extraQty: Number(row.extra_qty ?? 1), extraStore: await storeOf(db, row.player, row.char_id, row.extra) } : {}),   // PROF4: a tree's Resin; PROF7: a body's butchery
+    // BAG1: a carried harvest says so, and what the service now counts the character carrying of each thing it gave - the
+    // client mints the items into the bag or the pack, once, as the answer that lets the kept harvest go
+    ...(Number(row.carry) === 1 ? {
+      carry: true, carried: await carriedOf(db, row.player, row.char_id, row.material),
+      ...(row.gem ? { gemCarried: await carriedOf(db, row.player, row.char_id, row.gem) } : {}),
+      ...(row.extra ? { extraCarried: await carriedOf(db, row.player, row.char_id, row.extra) } : {}),
+    } : {}),
     ...(row.profession === 'hunting' ? { hunt: await huntToday(db, row.player, Number(row.day)) } : {}),   // PROF7: the account's hides today
     ...(row.profession === 'fishing' ? { hauls: await haulsToday(db, row.player, Number(row.day)) } : {}),   // PROF8: the account's hauls today
     ...(Number(row.trophy) === 1 ? { trophy: true } : {}),   // PROF8: a trophy the client puts in the pack
@@ -328,6 +392,13 @@ export async function harvestNode(ctx, player, env, body = {}) {
   const { character, node, kind, climate, region, act, at, rid, foe } = body ?? {};
   const refused = asks(player, { character, rid });
   if (refused) return refused;
+  // BAG1: A CARRYING CLIENT's harvest lands in its bag or pack - the carried count (bagLaw.js) - never the Stores; `held`
+  // what it holds of the material now, the count first cut to it. An older client's lands in the Stores, as before.
+  const carry = body?.carry === true;
+  const heldNow = carry && heldOk(body?.held) ? body.held : null;
+  const seen = seenOk(body?.seen) ? body.seen : null;   // AUDIT BAG1 B2: the count the client last heard
+  const T = carry ? 'prof_carried' : 'prof_stores';
+  const ROOM = carry ? CARRIED_MAX : STORES_MAX;
   const prior = await db.prepare('SELECT * FROM node_harvests WHERE player = ?1 AND rid = ?2').bind(player.id, rid).first();
   if (prior) return harvestAnswer(db, prior, nowS, { repeat: true });   // before the switch: a harvest made is a harvest answered
   const closed = shut(player, env);
@@ -479,51 +550,56 @@ export async function harvestNode(ctx, player, env, body = {}) {
   const kept = qty - levy;
   const deepUnconfirmed = deep && !confirmed ? 1 : 0;
   const mine = 'player = ?1 AND rid = ?2 AND n = ?3';
-  const stored = 'COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?4 AND material = ?5), 0)';
-  const storedExtra = 'COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?4 AND material = ?20), 0)';
+  const stored = `COALESCE((SELECT SUM(qty) FROM ${T} WHERE player = ?1 AND char_id = ?4 AND material = ?5), 0)`;   // BAG1: the count it lands in
+  const storedExtra = `COALESCE((SELECT SUM(qty) FROM ${T} WHERE player = ?1 AND char_id = ?4 AND material = ?20), 0)`;
   // PROF7: Hunting's day, in hides (AUDIT 32 L2) - the account's, and its tiers 5-6
   const hunted = "COALESCE((SELECT SUM(qty) FROM node_harvests WHERE player = ?1 AND profession = 'hunting' AND day = ?6), 0)";
   const huntedHigh = "COALESCE((SELECT SUM(qty) FROM node_harvests WHERE player = ?1 AND profession = 'hunting' AND day = ?6 AND tier >= ?23), 0)";
   // PROF8: Fishing's day - the account's hauls, a row each (PROF0 6: 40)
   const hauled = "(SELECT COUNT(*) FROM node_harvests WHERE player = ?1 AND profession = 'fishing' AND day = ?6)";
   await db.batch([
+    // BAG1: the carried count cut to what the pack and the bag hold of it, before the decision reads its room
+    // AUDIT BAG1 B2/B3: and only the material the held count is of (`heldKey` - a herb, a log, a hide: the client names
+    // the node's own; the Basket's roll is the service's, named nowhere), while the client's view is current, before a twin
+    ...(heldNow != null && body?.heldKey === key2 ? clampStatements(db, { player: player.id, character, material: key2, held: heldNow, rid, seen,
+      twin: 'NOT EXISTS (SELECT 1 FROM node_harvests WHERE player = ?1 AND rid = ?5)' }) : []),
     // THE DECISION: today's cap for the profession (the character's, and the account's - AUDIT 29 A3), a dungeon nobody
     // vouched for within its four (A5), PROF7: Hunting's day for the account - 30 hides, 3 of tiers 5-6 (PROF0 6), the
     // hide cut to the day's room as to the Stores' (AUDIT 32 L2) - the node not yet taken (the key), room in the Stores -
     // the yield cut to it, the XP to what the track can take (A14: the answer says what was credited); the second find
     // kept where one of it fits, its count cut to its room (AUDIT 32 S3: a Butcher's two at 4,999 were both lost)
-    db.prepare(`INSERT OR IGNORE INTO node_harvests (day, node, kind, player, char_id, profession, material, qty, xp, gem, at, rid, n, deep_unconfirmed, extra, tier, extra_qty, trophy)
+    db.prepare(`INSERT OR IGNORE INTO node_harvests (day, node, kind, player, char_id, profession, material, qty, xp, gem, at, rid, n, deep_unconfirmed, extra, tier, extra_qty, trophy, carry)
       SELECT ?6, ?7, ?8, ?1, ?4, ?9, ?5, MIN(?10, ?11 - ${stored},
           CASE WHEN ?9 = 'hunting' THEN ?21 - ${hunted} ELSE ?10 END, CASE WHEN ?9 = 'hunting' AND ?22 >= ?23 THEN ?24 - ${huntedHigh} ELSE ?10 END),
         MAX(0, MIN(?12, ?19 - COALESCE((SELECT xp FROM prof_tracks WHERE player = ?1 AND char_id = ?4 AND profession = ?9), 0))),
-        CASE WHEN COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?4 AND material = ?15), 0) < ?11 THEN ?15 END, ?13, ?2, ?3, ?17,
-        CASE WHEN ${storedExtra} < ?11 THEN ?20 END, ?22, CASE WHEN ${storedExtra} < ?11 THEN MIN(?25, ?11 - ${storedExtra}) ELSE 1 END, ?27
+        CASE WHEN COALESCE((SELECT SUM(qty) FROM ${T} WHERE player = ?1 AND char_id = ?4 AND material = ?15), 0) < ?11 THEN ?15 END, ?13, ?2, ?3, ?17,
+        CASE WHEN ${storedExtra} < ?11 THEN ?20 END, ?22, CASE WHEN ${storedExtra} < ?11 THEN MIN(?25, ?11 - ${storedExtra}) ELSE 1 END, ?27, ?28
       WHERE (SELECT COUNT(*) FROM node_harvests WHERE player = ?1 AND char_id = ?4 AND profession = ?9 AND day = ?6) < ?14
         AND (SELECT COUNT(*) FROM node_harvests WHERE player = ?1 AND profession = ?9 AND day = ?6) < ?16
         AND (?17 = 0 OR (SELECT COUNT(*) FROM node_harvests WHERE player = ?1 AND day = ?6 AND deep_unconfirmed = 1) < ?18)
         AND (?9 <> 'hunting' OR (${hunted} < ?21 AND (?22 < ?23 OR ${huntedHigh} < ?24)))
         AND (?9 <> 'fishing' OR ${hauled} < ?26)   -- PROF8: the account's forty hauls
         AND ?11 - ${stored} >= 1`)
-      .bind(player.id, rid, nonce, character, key2, day, node, kind, profession, kept, STORES_MAX, xp, at, HARVESTS_PER_DAY, gem,
+      .bind(player.id, rid, nonce, character, key2, day, node, kind, profession, kept, ROOM, xp, at, HARVESTS_PER_DAY, gem,
         HARVESTS_PER_ACCOUNT_DAY, deepUnconfirmed, DEEP_UNCONFIRMED_PER_DAY, PROF_XP_MAX, extra,
-        HIDES_PER_DAY, tier, HIGH_HIDE_TIER, HIGH_HIDES_PER_DAY, extraQty, HAULS_PER_DAY, trophy),
-    db.prepare(`INSERT INTO prof_stores (player, char_id, material, origin, qty)
+        HIDES_PER_DAY, tier, HIGH_HIDE_TIER, HIGH_HIDES_PER_DAY, extraQty, HAULS_PER_DAY, trophy, carry ? 1 : 0),
+    db.prepare(`INSERT INTO ${T} (player, char_id, material, origin, qty)
       SELECT player, char_id, material, 'own', qty FROM node_harvests WHERE ${mine}
-      ON CONFLICT (player, char_id, material, origin) DO UPDATE SET qty = prof_stores.qty + excluded.qty`).bind(player.id, rid, nonce),
+      ON CONFLICT (player, char_id, material, origin) DO UPDATE SET qty = ${T}.qty + excluded.qty`).bind(player.id, rid, nonce),
     // PROF12 (PROF0 4.3, 5.2, 9.3: "an unbruised herb (+5% Alchemy Potent chance each)"): an herb picked UNBRUISED - an
     // uncommon or rare herb's steady hand clean, every one an Apothecary's Friend's - counted beside the Stores (which keep
     // no unit's bruise), its units the brewing act's (alchemy.js brewAtStation), at most the Stores' bound
     ...(kind === 'herbs' && clean === true ? [db.prepare(`INSERT INTO prof_unbruised (player, char_id, material, qty)
       SELECT player, char_id, material, qty FROM node_harvests WHERE ${mine}
-      ON CONFLICT (player, char_id, material) DO UPDATE SET qty = MIN(?4, prof_unbruised.qty + excluded.qty)`).bind(player.id, rid, nonce, STORES_MAX)] : []),
+      ON CONFLICT (player, char_id, material) DO UPDATE SET qty = MIN(?4, prof_unbruised.qty + excluded.qty)`).bind(player.id, rid, nonce, ROOM)] : []),
     // the gem beside it - the decision kept it only where its own material had room
-    db.prepare(`INSERT INTO prof_stores (player, char_id, material, origin, qty)
+    db.prepare(`INSERT INTO ${T} (player, char_id, material, origin, qty)
       SELECT player, char_id, gem, 'own', 1 FROM node_harvests WHERE ${mine} AND gem IS NOT NULL
-      ON CONFLICT (player, char_id, material, origin) DO UPDATE SET qty = prof_stores.qty + excluded.qty`).bind(player.id, rid, nonce),
+      ON CONFLICT (player, char_id, material, origin) DO UPDATE SET qty = ${T}.qty + excluded.qty`).bind(player.id, rid, nonce),
     // PROF4: a tree's Resin beside the logs, kept the same way; PROF7: a body's butchery, its count (a Butcher's two)
-    db.prepare(`INSERT INTO prof_stores (player, char_id, material, origin, qty)
+    db.prepare(`INSERT INTO ${T} (player, char_id, material, origin, qty)
       SELECT player, char_id, extra, 'own', extra_qty FROM node_harvests WHERE ${mine} AND extra IS NOT NULL
-      ON CONFLICT (player, char_id, material, origin) DO UPDATE SET qty = prof_stores.qty + excluded.qty`).bind(player.id, rid, nonce),
+      ON CONFLICT (player, char_id, material, origin) DO UPDATE SET qty = ${T}.qty + excluded.qty`).bind(player.id, rid, nonce),
     // SEAT1d: the Levy's units to the seat's stockpile, beside the harvest that paid them - once (the request's own row)
     ...(levy > 0 ? [
       db.prepare(`INSERT OR IGNORE INTO town_seat_levies (player, rid, key, week, material, qty, at)
@@ -559,7 +635,7 @@ export async function harvestNode(ctx, player, env, body = {}) {
     const d = await db.prepare('SELECT COUNT(*) AS n FROM node_harvests WHERE player = ?1 AND day = ?2 AND deep_unconfirmed = 1').bind(player.id, day).first();
     if (Number(d?.n ?? 0) >= DEEP_UNCONFIRMED_PER_DAY) return { error: 'prof-deep-cap' };
   }
-  return { error: 'stores-full', material: key2 };
+  return { error: carry ? 'carried-full' : 'stores-full', material: key2 };   // BAG1: a carried count at its bound says so
 }
 
 // ─── A SPECIALISATION (PROF0 3.3) ────────────────────────────────────
@@ -650,8 +726,11 @@ export async function chooseSpec(ctx, player, env, { character, profession, rank
  *  `guard` holds. Only a brew lowered it, so an unbruised herb withdrawn or sold left its count standing, and a later
  *  bruised own herb was reckoned unbruised (+5% Potent). The brew lowers its own reckoning before its spends. */
 export function unbruisedClamp(db, { player, character, materialSql, guard, binds }) {
+  // BAG1: the own units it counts are the Stores' and the carried count's together - a harvest into the bag is counted
+  // there, and a deposit moves it into the Stores without changing what is own
   return db.prepare(`UPDATE prof_unbruised SET qty = MIN(qty, COALESCE((SELECT s.qty FROM prof_stores s
-      WHERE s.player = ?1 AND s.char_id = ?2 AND s.material = ${materialSql} AND s.origin = 'own'), 0))
+      WHERE s.player = ?1 AND s.char_id = ?2 AND s.material = ${materialSql} AND s.origin = 'own'), 0)
+      + COALESCE((SELECT c.qty FROM prof_carried c WHERE c.player = ?1 AND c.char_id = ?2 AND c.material = ${materialSql} AND c.origin = 'own'), 0))
     WHERE player = ?1 AND char_id = ?2 AND material = ${materialSql} AND ${guard}`).bind(player, character, ...binds);
 }
 
@@ -690,13 +769,19 @@ export function spendOrigins(db, { player, character, materialSql, qtySql, guard
 
 /**
  * WITHDRAW TO PACK: `{ character, material, qty, rid }` - `qty` units out of the Stores, bought first, for the client to
- * mint as the items the law names (professionLaw materialOf). They never come back (law 3).
+ * mint as the items the law names (professionLaw materialOf). On the old door they never come back (law 3, as it stood).
+ * BAG1: `carry` true (and `held`, what the bag and the pack hold of it now) - THE UNITS ARE COUNTED AS CARRIED, each under
+ * the origin it left the Stores as (gold's first, bought, own: the spend order), so a deposit can bring them back and
+ * nothing else can. The count is cut to `held` first; a count at its bound refuses (`carried-full`).
  */
-export async function withdrawStores(ctx, player, env, { character, material: key, qty, rid } = {}) {
+export async function withdrawStores(ctx, player, env, { character, material: key, qty, rid, carry = false, held = null, seen = null } = {}) {
   const { db, nowS, rand } = ctx;
   const refused = asks(player, { character, rid });
   if (refused) return refused;
-  const answer = async (row, extra = {}) => ({ ok: true, ...extra, material: row.material, qty: Number(row.qty), store: await storeOf(db, player.id, row.char_id, row.material) });
+  const answer = async (row, extra = {}) => ({
+    ok: true, ...extra, material: row.material, qty: Number(row.qty), store: await storeOf(db, player.id, row.char_id, row.material),
+    ...(Number(row.carry) === 1 ? { carry: true, carried: await carriedOf(db, player.id, row.char_id, row.material) } : {}),   // BAG1
+  });
   const prior = await db.prepare('SELECT * FROM prof_withdrawals WHERE player = ?1 AND rid = ?2').bind(player.id, rid).first();
   if (prior) return answer(prior, { repeat: true });
   const closed = shut(player, env);
@@ -704,13 +789,29 @@ export async function withdrawStores(ctx, player, env, { character, material: ke
   if (!material(key)) return { error: 'bad-material' };
   if (!withdrawable(key)) return { error: 'prof-no-pack-form' };   // PROF3: the smith's stock waits for its professions' templates
   if (!Number.isSafeInteger(qty) || qty < 1 || qty > WITHDRAW_MAX) return { error: 'bad-qty' };
+  const carrying = carry === true;
+  if (carrying && !heldOk(held)) return { error: 'bad-held' };   // BAG1: a carrying client says what it holds
   if (await overRate(ctx, `prof:${player.id}`, PROF_OPS_MAX, PROF_OPS_WINDOW_S)) return { error: 'prof-rate' };
   const nonce = mintId(rand);
+  const originHeld = (o) => `COALESCE((SELECT qty FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = ?4 AND origin = '${o}'), 0)`;
   await db.batch([
-    db.prepare(`INSERT OR IGNORE INTO prof_withdrawals (player, rid, char_id, material, qty, at, n)
-      SELECT ?1, ?3, ?2, ?4, ?5, ?6, ?7
-      WHERE COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = ?4), 0) >= ?5`)
-      .bind(player.id, character, rid, key, qty, nowS, nonce),
+    // BAG1: the carried count cut to what the client holds - only while this request has made nothing (a racing twin of a
+    // landed withdrawal holds the same `held`, and would cut away the units the first one counted)
+    ...(carrying ? clampStatements(db, { player: player.id, character, material: key, held, rid, seen: seenOk(seen) ? seen : null,
+      twin: 'NOT EXISTS (SELECT 1 FROM prof_withdrawals WHERE player = ?1 AND rid = ?5)' }) : []),
+    // THE DECISION: the Stores hold the units; BAG1: what it takes of each origin, read in the spend order (gold's, then
+    // bought, then own); and, carrying, room in the carried count
+    db.prepare(`INSERT OR IGNORE INTO prof_withdrawals (player, rid, char_id, material, qty, at, n, carry, own, bought, gold)
+      SELECT ?1, ?3, ?2, ?4, ?5, ?6, ?7, ?8, ?5 - g - b, b, g
+      FROM (SELECT MIN(?5, ${originHeld('gold')}) AS g, MIN(?5 - MIN(?5, ${originHeld('gold')}), ${originHeld('bought')}) AS b)
+      WHERE COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = ?4), 0) >= ?5
+        AND (?8 = 0 OR ${carriedSql('?1', '?2', '?4')} + ?5 <= ?9)`)
+      .bind(player.id, character, rid, key, qty, nowS, nonce, carrying ? 1 : 0, CARRIED_MAX),
+    // BAG1: counted as carried, each origin as it left - BEFORE the spend, whose unbruised clamp reads the own units the
+    // Stores and the count hold together: counted after it, a withdrawn unbruised herb lost its count at the spend
+    ...(carrying ? ['own', 'bought', 'gold'].map((o) => db.prepare(`INSERT INTO prof_carried (player, char_id, material, origin, qty)
+      SELECT player, char_id, material, '${o}', ${o} FROM prof_withdrawals WHERE player = ?1 AND rid = ?2 AND n = ?3 AND carry = 1 AND ${o} > 0
+      ON CONFLICT (player, char_id, material, origin) DO UPDATE SET qty = prof_carried.qty + excluded.qty`).bind(player.id, rid, nonce)) : []),
     // GOLD-MARKET: every origin goes to the pack - gold's first (the goods the wall keeps out of everything else)
     ...spendOrigins(db, {
       player: player.id, character, materialSql: '?3', qtySql: '?4',
@@ -721,7 +822,82 @@ export async function withdrawStores(ctx, player, env, { character, material: ke
   const made = await db.prepare('SELECT * FROM prof_withdrawals WHERE player = ?1 AND rid = ?2').bind(player.id, rid).first();
   if (made?.n === nonce) return answer(made);
   if (made) return answer(made, { repeat: true });
+  if (carrying) {
+    const s = await storeOf(db, player.id, character, key);
+    if ((s.own + s.bought + (s.gold ?? 0)) >= qty) return { error: 'carried-full', material: key };
+  }
   return { error: 'stores-short' };
+}
+
+// ─── BAG1: A DEPOSIT - WHAT IS CARRIED, INTO THE STORES ─────────────
+
+/**
+ * PUT IN: `{ character, material, qty, held, order, rid }` - `qty` carried units of a material into the Stores, each
+ * origin as it was (bagLaw.js). The client takes the items out of its bag and pack before it asks, and gives them back
+ * on a refusal. `held` is what it held of them BEFORE it took them out: the carried count is first cut to it (never
+ * raised), so a pack that holds fewer than the count says - an herb brewed, a log sold to a shop - is believed at
+ * once, and a pack that holds more than the count adds nothing: law 3's guarantee, the door open this one way.
+ * `order` which origins move first: `all` (the Stores page - gold's, bought, own) or `spend` (a station's shortfall,
+ * put in just before it spends - bought, own, never gold's). Refused `carried-short` past what the count holds after
+ * the cut, `stores-full` past the Stores' 5,000.
+ */
+export async function depositStores(ctx, player, env, { character, material: key, qty, held, order = 'all', rid, seen = null } = {}) {
+  const { db, nowS, rand } = ctx;
+  const refused = asks(player, { character, rid });
+  if (refused) return refused;
+  const answer = async (row, extra = {}) => ({
+    ok: true, ...extra, material: row.material, qty: Number(row.qty), own: Number(row.own), bought: Number(row.bought), gold: Number(row.gold),
+    store: await storeOf(db, player.id, row.char_id, row.material), carried: await carriedOf(db, player.id, row.char_id, row.material),
+  });
+  const prior = await db.prepare('SELECT * FROM prof_deposits WHERE player = ?1 AND rid = ?2').bind(player.id, rid).first();
+  if (prior) return answer(prior, { repeat: true });   // before the switch: a deposit made is a deposit answered
+  const closed = shut(player, env);
+  if (closed) return closed;
+  if (!material(key) || !withdrawable(key)) return { error: 'bad-material' };   // a thing with no pack form is never carried
+  if (!Number.isSafeInteger(qty) || qty < 1 || qty > DEPOSIT_MAX) return { error: 'bad-qty' };
+  if (!heldOk(held)) return { error: 'bad-held' };
+  if (!depositOrderOk(order)) return { error: 'bad-deposit-order' };   // the market's `bad-order` is an order's id
+  if (await overRate(ctx, `prof:${player.id}`, PROF_OPS_MAX, PROF_OPS_WINDOW_S)) return { error: 'prof-rate' };
+  const nonce = mintId(rand);
+  const seq = DEPOSIT_ORDERS[order];
+  const cHeld = (o) => `COALESCE((SELECT qty FROM prof_carried WHERE player = ?1 AND char_id = ?2 AND material = ?4 AND origin = '${o}'), 0)`;
+  // what moves of each origin, first to last: each takes what the ones before it left of the deposit
+  const take = {};
+  let before = '0';
+  for (const o of seq) {
+    take[o] = `MIN(MAX(0, ?5 - (${before})), ${cHeld(o)})`;
+    before = `${before} + ${take[o]}`;
+  }
+  const of = (o) => take[o] ?? '0';
+  const movable = seq.map(cHeld).join(' + ');
+  const mine = 'EXISTS (SELECT 1 FROM prof_deposits WHERE player = ?1 AND rid = ?2 AND n = ?3)';
+  await db.batch([
+    // the count cut to what the client held - only while this request has made nothing (a racing twin of a landed deposit
+    // holds the same `held`, and would cut what the first one left)
+    ...clampStatements(db, { player: player.id, character, material: key, held, rid, seen: seenOk(seen) ? seen : null,
+      twin: 'NOT EXISTS (SELECT 1 FROM prof_deposits WHERE player = ?1 AND rid = ?5)' }),
+    // THE DECISION: the count holds the units in the order's origins; the Stores have room; what moves of each, read now
+    db.prepare(`INSERT OR IGNORE INTO prof_deposits (player, rid, char_id, material, qty, own, bought, gold, at, n)
+      SELECT ?1, ?3, ?2, ?4, ?5, ${of('own')}, ${of('bought')}, ${of('gold')}, ?6, ?7
+      WHERE ${movable} >= ?5
+        AND COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = ?4), 0) + ?5 <= ?8`)
+      .bind(player.id, character, rid, key, qty, nowS, nonce, STORES_MAX),
+    // the units out of the count and into the Stores, each origin as the decision read it
+    ...['own', 'bought', 'gold'].flatMap((o) => [
+      db.prepare(`UPDATE prof_carried SET qty = qty - (SELECT ${o} FROM prof_deposits WHERE player = ?1 AND rid = ?2 AND n = ?3)
+        WHERE player = ?1 AND char_id = ?4 AND material = ?5 AND origin = '${o}' AND ${mine}`).bind(player.id, rid, nonce, character, key),
+      db.prepare(`INSERT INTO prof_stores (player, char_id, material, origin, qty)
+        SELECT player, char_id, material, '${o}', ${o} FROM prof_deposits WHERE player = ?1 AND rid = ?2 AND n = ?3 AND ${o} > 0
+        ON CONFLICT (player, char_id, material, origin) DO UPDATE SET qty = prof_stores.qty + excluded.qty`).bind(player.id, rid, nonce),
+    ]),
+    db.prepare('DELETE FROM prof_carried WHERE player = ?1 AND char_id = ?2 AND qty = 0').bind(player.id, character),
+  ]);
+  const made = await db.prepare('SELECT * FROM prof_deposits WHERE player = ?1 AND rid = ?2').bind(player.id, rid).first();
+  if (made?.n === nonce) return answer(made);
+  if (made) return answer(made, { repeat: true });
+  const c = await carriedOf(db, player.id, character, key);
+  const could = seq.reduce((n, o) => n + (c[o] ?? 0), 0);
+  return could < qty ? { error: 'carried-short', material: key, carried: c } : { error: 'stores-full', material: key };
 }
 
 // ─── A SMELT AT A FORGE (PROF0 4.1, 23) ──────────────────────────────

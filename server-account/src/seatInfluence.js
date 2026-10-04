@@ -611,8 +611,53 @@ export async function battlesOf(db, week) {
 /** A seat's Chronicle, newest first - `{ kind, week, data }`, at most `max` (SEAT_CHRONICLE_SHOWN, the Seat tab's).
  *  STANDING-TREND: never the Turning's Standing rows (they are the trend's, standingWas). */
 async function chronicleOf(db, key, max = SEAT_CHRONICLE_SHOWN) {
-  const { results = [] } = await db.prepare("SELECT kind, week, data FROM town_seat_history WHERE key = ? AND kind <> 'standing' ORDER BY seq DESC LIMIT ?").bind(key, max).all();
-  return results.map((r) => { let data = {}; try { data = JSON.parse(r.data); } catch { /* none */ } return { kind: r.kind, week: Number(r.week), data }; });
+  const { results = [] } = await db.prepare("SELECT kind, week, data, at FROM town_seat_history WHERE key = ? AND kind <> 'standing' ORDER BY seq DESC LIMIT ?").bind(key, max).all();
+  const rows = results.map((r) => { let data = {}; try { data = JSON.parse(r.data); } catch { /* none */ } return { kind: r.kind, week: Number(r.week), data, at: Number(r.at) }; });
+  await renamedSince(db, rows);
+  return rows.map(({ kind, week, data }) => ({ kind, week, data }));
+}
+
+/** D1's bound on a statement's parameters, less a margin. */
+const IN_CHUNK = 90;
+/**
+ * AUDIT2 GUILD2 G1: A CHRONICLE ROW'S GUILD AS IT IS NOW. A row names each guild as it was that day (`{ name, tag }`), and
+ * the client finds a guild's arms by its tag and name now (net/heraldryIndex.js armsNamed) - so a guild renamed since
+ * (GUILD2a) lost its shield on every line before the rename, and a new guild founded with the old name and tag wore
+ * them. Each such guild is given `now`, its name and tag today: the guild that bore that name and tag at the row's
+ * moment is the one whose first rename away from them came at or after it (guild_renames). The line's own words stay
+ * as they were. A guild that never took another name, or one disbanded since, is left as it was.
+ */
+async function renamedSince(db, rows) {
+  const named = [];
+  for (const r of rows) {
+    for (const g of Object.values(r.data ?? {})) {
+      if (g && typeof g === 'object' && typeof g.tag === 'string' && g.tag && typeof g.name === 'string') named.push([r, g]);
+    }
+  }
+  const tags = [...new Set(named.map(([, g]) => g.tag))];
+  const renames = [];
+  for (let i = 0; i < tags.length; i += IN_CHUNK) {
+    const part = tags.slice(i, i + IN_CHUNK);
+    const { results = [] } = await db.prepare(`SELECT guild_id, at, old_name, old_tag FROM guild_renames WHERE old_tag IN (${part.map(() => '?').join(', ')}) ORDER BY at, seq`).bind(...part).all();
+    renames.push(...results);
+  }
+  if (!renames.length) return;
+  const whose = new Map();
+  for (const [r, g] of named) {
+    const hit = renames.find((x) => x.old_tag === g.tag && x.old_name === g.name && Number(x.at) >= r.at);
+    if (hit) whose.set(g, hit.guild_id);
+  }
+  const ids = [...new Set(whose.values())];
+  const byId = new Map();
+  for (let i = 0; i < ids.length; i += IN_CHUNK) {
+    const part = ids.slice(i, i + IN_CHUNK);
+    const { results = [] } = await db.prepare(`SELECT id, name, tag FROM guilds WHERE id IN (${part.map(() => '?').join(', ')})`).bind(...part).all();
+    for (const x of results) byId.set(x.id, x);
+  }
+  for (const [g, id] of whose) {
+    const n = byId.get(id);
+    if (n && (n.name !== g.name || n.tag !== g.tag)) g.now = { name: n.name, tag: n.tag };
+  }
 }
 
 /**

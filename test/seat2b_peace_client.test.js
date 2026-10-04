@@ -133,5 +133,8 @@ test('SEAT2b part two THE HOST\'S SEAMS: a members\' Harbour is the travel map\'
   assert.equal(storedText('Ram Kit', 2), 'You made 2 Ram Kits - they wait in your Stores');
   assert.notEqual(SIEGE_STAYS_LINE, STOCK_STAYS_LINE);
   assert.match(SIEGE_STAYS_LINE, /Siege Camp/);
-  assert.match(readFileSync(new URL('../src/ui/profPages.js', import.meta.url), 'utf8'), /: pick\.family === 'siege' \? SIEGE_STAYS_LINE : STOCK_STAYS_LINE\)\);/);
+  // BAG1 (PIN MOVED): one law for the Stores page and the bag's page - the line chosen in `staysLine`, which both call
+  const pp = readFileSync(new URL('../src/ui/profPages.js', import.meta.url), 'utf8');
+  assert.match(pp, /: pick\.family === 'siege' \? SIEGE_STAYS_LINE : STOCK_STAYS_LINE\);/);
+  assert.equal(pp.match(/: staysLine\(pick\)\)\);/g)?.length, 2, 'both pages say it');
 });

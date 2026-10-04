@@ -49,6 +49,8 @@ export const GUILD_POWERS = Object.freeze({
   renameRanks: Object.freeze([0]),
   handOver: Object.freeze([0]),
   disband: Object.freeze([0]),
+  rename: Object.freeze([0]),          // GUILD2a: the guild's own name and tag - the guildmaster's, for a price
+  vaultGrant: Object.freeze([0]),      // GUILD2b: who may put in and take out of the guild's vault - the leader's to grant and revoke
 });
 /** One deposit or withdrawal, and the most a treasury holds. */
 export const GUILD_MOVE_MAX = 1_000_000;
@@ -112,6 +114,22 @@ export function guildRankNamesOf(raw) {
   const ok = out.every((n) => n.length >= 1 && n.length <= GUILD_RANK_NAME_MAX && /^[A-Za-z0-9 '\-]+$/.test(n));
   return ok && new Set(out.map((n) => n.toLowerCase())).size === out.length ? out : null;
 }
+
+// ─── GUILD2a (2026-10-03): A NEW NAME, FOR A PRICE ─────────────────────────────────────────────────────────────────
+// Asked: "A way to change your guild name for a price." The guildmaster renames the guild - its name, its tag, or both -
+// paying from the treasury: gold the guild's realm characters put in (the part a hall is bought with, HALL-GOLD), a sink a
+// guild chooses (Economy-Arc: "a sink that scales with wealth is a prestige one a player chooses"). Never sooner than
+// GUILD_RENAME_COOLDOWN_S after the last, so a name is not a costume changed by the hour; the old one is free at once for
+// any founder. bible/11-Multiplayer/Guild-Overhaul.md.
+
+/** What a rename costs, in gold from the treasury - two and a half foundings. */
+export const GUILD_RENAME_GOLD = 25_000;
+/** How long a guild keeps a name before it may change it again, in seconds - a fortnight. */
+export const GUILD_RENAME_COOLDOWN_S = 14 * 24 * 3600;
+/** When a guild renamed at `renamedAt` (epoch seconds, or null for never) may rename again - null for now. */
+export const guildRenameAt = (renamedAt) => (Number.isSafeInteger(renamedAt) && renamedAt > 0 ? renamedAt + GUILD_RENAME_COOLDOWN_S : null);
+/** Whether a guild renamed at `renamedAt` may rename at `nowS`. */
+export const guildRenameOpen = (renamedAt, nowS) => { const at = guildRenameAt(renamedAt); return at === null || nowS >= at; };
 
 /** A treasury movement: a whole number of gold, at least one, at most GUILD_MOVE_MAX. */
 export const guildGoldOk = (n) => Number.isSafeInteger(n) && n >= 1 && n <= GUILD_MOVE_MAX;

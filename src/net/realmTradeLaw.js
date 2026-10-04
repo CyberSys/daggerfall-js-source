@@ -41,6 +41,7 @@
 
 import { canon } from './canon.js';
 import { TRADE_ITEMS_MAX, TRADE_GOLD_MAX } from './wire.js';
+import { isBagItem } from './bagLaw.js';   // BAG1
 
 /** A trade's id: the peers' own sid (wire.js validTradeData's TRADE_SID_RE, which the wire keeps to itself). */
 export const REALM_TRADE_SID_RE = /^[A-Za-z0-9]{6,16}$/;
@@ -125,6 +126,7 @@ export function tradeableRecord(/** @type {any} */ rec) {
   if (boundRecord(rec)) return false;                            // bound (itemBound.js isBound): its mark or its row's - AUDIT REALM F1
   if (rec.group === 'Currency' && rec.templateIndex === GOLD_PIECES_TEMPLATE) return false;   // gold (inventory.js isGoldPieces)
   if (BOAT_TEMPLATES.includes(rec.templateIndex)) return false;  // a boat's parts or deed: what it stands for stays in the giver's save - AUDIT REALM2 T1
+  if (isBagItem(rec)) return false;   // BAG1: a Materials Bag - its list stays in the giver's save (tradePack.js)
   return true;
 }
 

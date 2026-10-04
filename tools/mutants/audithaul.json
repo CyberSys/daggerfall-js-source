@@ -20,8 +20,8 @@
   {
     "name": "AUDIT-HAUL-CARDS-B3-gem-count-unread",
     "file": "src/ui/haulCards.js",
-    "old": "storesHaul(d.gem, 1, { held: heldOf(d.gemStore),",
-    "new": "storesHaul(d.gem, 1, { held: null,",
+    "old": "storesHaul(d.gem, came(d.gem, 1), { held: heldOf(carried ? d.gemCarried : d.gemStore),",
+    "new": "storesHaul(d.gem, came(d.gem, 1), { held: null,",
     "tests": [
       "test/haulcards.test.js"
     ]
@@ -29,8 +29,8 @@
   {
     "name": "AUDIT-HAUL-CARDS-B3-extra-count-unread",
     "file": "src/ui/haulCards.js",
-    "old": "{ held: heldOf(d.extraStore) }",
-    "new": "{ held: null }",
+    "old": "{ held: heldOf(carried ? d.extraCarried : d.extraStore), where }",
+    "new": "{ held: null, where }",
     "tests": [
       "test/haulcards.test.js"
     ]

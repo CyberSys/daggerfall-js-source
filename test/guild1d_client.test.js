@@ -31,11 +31,13 @@ import {
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const WOLF = { field: 'azure', border: 'gold', device: 'wolf' };
 
-test('GUILD1d the heraldry\'s law: sixteen colours in the record\'s order with its colours, twenty-four devices, Ash never the field, the two colours different; the words (mutants: Ash as a field; the same colour twice; a device off the list)', () => {
+test('GUILD1d the heraldry\'s law: sixteen colours in the record\'s order with its colours, twenty-four devices (forty since GUILD2c, the first twenty-four in their place), Ash never the field, the two colours different; the words (mutants: Ash as a field; the same colour twice; a device off the list)', () => {
   assert.deepEqual(HERALDRY_COLOURS.map((c) => c.name), ['Azure', 'Crimson', 'Gold', 'Argent', 'Sable', 'Vert', 'Purpure', 'Tenné', 'Sanguine', 'Celeste', 'Murrey', 'Ochre', 'Teal', 'Rose', 'Ash', 'Umber']);
   assert.equal(heraldryColourOf('azure').hex, '#3b6fd8');
   assert.equal(heraldryColourOf('umber').hex, '#5a3e22');
-  assert.equal(HERALDRY_DEVICES.length, 24);
+  assert.equal(HERALDRY_DEVICES.length, 40, 'GUILD2c (PIN MOVED): GUILD1d\'s twenty-four, then sixteen more');
+  assert.deepEqual(HERALDRY_DEVICES.slice(0, 24), ['wolf', 'bear', 'boar', 'stag', 'lion', 'eagle', 'raven', 'dragon', 'serpent', 'fish', 'tower', 'gate',
+    'crown', 'sword', 'axe', 'hammer', 'bow', 'shield', 'sun', 'moon', 'star', 'eye', 'rose', 'tree'], 'the first twenty-four in their order - every stored device keeps its place');
   assert.deepEqual(HERALDRY_DEVICES.slice(0, 4), ['wolf', 'bear', 'boar', 'stag']);
   assert.equal(HERALDRY_UNHELD, 'ash');
   assert.equal(HERALDRY_CHANGE_DRAKES, 500);
@@ -243,12 +245,14 @@ const view = (over = {}) => ({
   id: 'g0123456789', name: 'The Hand', tag: 'HND', ranks: [...GUILD_RANK_NAMES], treasury: 0, foundedAt: 1, rank: 0,
   members: [{ member: 'm1', name: 'Aldric', rank: 0, joinedAt: 1, you: true }], invites: [], ledger: [], hall: null, heraldry: null, ...over,
 });
-async function tabRig(guild) {
+// GUILD2 (PIN MOVED): the Guild tab is pages - the hall on the Overview, the ledger on Treasury, the arms on Arms, leaving
+// on Settings; `go` turns to one
+async function tabRig(guild, page = null) {
   const { book, calls } = hallBook(guild);
   const panel = createSocialPanel({ social: new SocialState({ acct: 'a' }), guild: book, doc: fakeDocument(), win: { addEventListener() {}, removeEventListener() {} }, overlay: () => false, touch: false });
-  panel.openGuild();
-  await settle(); await settle(); panel.render();
-  return { panel, calls, book };
+  const go = async (p) => { panel.openGuild(p); await settle(); await settle(); panel.render(); };
+  await go(page);
+  return { panel, calls, book, go };
 }
 
 test('GUILD1d the Guild tab: with no hall how one is bought; with one where it stands, who may walk in (an Officer\'s to turn) and its sale the guildmaster\'s, pressed twice; the banner every member\'s to see, its choice the guildmaster\'s - the first free, a change costing Drakes; the ledger\'s hall lines; leaving and disbanding held by the hall (mutants: the sale one press; a Recruit offered the entry; the change enabled with no Drakes; the ledger\'s kinds unread)', async () => {
@@ -256,7 +260,8 @@ test('GUILD1d the Guild tab: with no hall how one is bought; with one where it s
   const t0 = texts(none.panel.root);
   assert.ok(t0.includes(GUILD_HALL_NONE_TEXT), 'how a hall is bought');
   assert.ok(t0.includes(GUILD_HERALDRY_NONE_TEXT));
-  assert.ok(t0.includes('The first choice is free.'));
+  await none.go('arms');
+  assert.ok(texts(none.panel.root).includes('The first choice is free.'));
   assert.equal(button(none.panel.root, 'Raise it').disabled, false, 'the default draft is a heraldry');
   button(none.panel.root, 'Raise it').fire('click');
   await settle();
@@ -266,10 +271,14 @@ test('GUILD1d the Guild tab: with no hall how one is bought; with one where it s
   const gm = await tabRig(view({ hall, heraldry: WOLF, ledger, treasury: 5, marks: 100 }));
   const t1 = texts(gm.panel.root);
   assert.ok(t1.includes(guildHallWhereText(hall)));
-  assert.ok(t1.includes(`Aldric ${GUILD_LEDGER_WORDS.hall} 30,000`));
-  assert.ok(t1.includes(`Aldric ${GUILD_LEDGER_WORDS['hall-piece']} 60`));
   assert.ok(t1.includes('Azure bordered Gold, a Wolf'));
+  await gm.go('treasury');
+  const tl = texts(gm.panel.root);
+  assert.ok(tl.includes(`Aldric ${GUILD_LEDGER_WORDS.hall} 30,000`));
+  assert.ok(tl.includes(`Aldric ${GUILD_LEDGER_WORDS['hall-piece']} 60`));
+  await gm.go('arms');
   assert.equal(button(gm.panel.root, 'Change it').disabled, true, 'the same heraldry');
+  await gm.go('overview');
   assert.ok(button(gm.panel.root, 'Sell the hall'));
   button(gm.panel.root, 'Sell the hall').fire('click');
   gm.panel.render();
@@ -280,20 +289,24 @@ test('GUILD1d the Guild tab: with no hall how one is bought; with one where it s
   button(gm.panel.root, 'Open it to anyone').fire('click');
   await settle();
   assert.deepEqual(gm.calls.find((c) => c[0] === 'hallEntry').slice(1), ['rabc', 'public']);
+  await gm.go('settings');
   assert.equal(button(gm.panel.root, 'Leave').disabled, true);
   assert.equal(button(gm.panel.root, 'Disband').disabled, true, 'sell the hall first');
-  // a change short of Drakes
-  const [field] = find(gm.panel.root, 'dfsocial-field').filter((f) => f.attrs['aria-label'] === 'The field');
-  field.value = 'crimson'; field.fire('change'); gm.panel.render();
+  // a change short of Drakes - GUILD2c: the field's colour a swatch now, not a select (PIN MOVED)
+  await gm.go('arms');
+  const crimson = find(gm.panel.root, 'dfsocial-swatch').find((b) => b.attrs['aria-label'] === 'Field colour: Crimson');
+  crimson.fire('click');
   assert.equal(button(gm.panel.root, 'Change it').disabled, true, `${HERALDRY_CHANGE_DRAKES} Drakes wanted, 100 held`);
   const recruit = await tabRig(view({ rank: 3, hall, heraldry: WOLF, members: [{ member: 'm2', name: 'Rhea', rank: 3, joinedAt: 1, you: true }] }));
   const t3 = texts(recruit.panel.root);
   assert.ok(t3.includes('Azure bordered Gold, a Wolf'), 'every member sees the banner');
   assert.equal(button(recruit.panel.root, 'Open it to anyone'), undefined);
   assert.equal(button(recruit.panel.root, 'Sell the hall'), undefined);
+  await recruit.go('arms');
   assert.equal(button(recruit.panel.root, 'Change it'), undefined);
-  const [banner] = find(recruit.panel.root, 'dfsocial-banner');
-  assert.ok(banner.children[0].src.startsWith('data:image/svg+xml') && banner.children[0].src.includes(encodeURIComponent('#3b6fd8')), 'the banner a picture of its own drawing, never markup');
+  // GUILD2: the banner stands in the guild's header over every page
+  const [head] = find(recruit.panel.root, 'dfsocial-guildhead');
+  assert.ok(head.children[0].src.startsWith('data:image/svg+xml') && head.children[0].src.includes(encodeURIComponent('#3b6fd8')), 'the banner a picture of its own drawing, never markup');
 });
 
 test('GUILD1d the banners\' anchors: a door\'s corners through its building\'s matrix; two cloths beside it, each past a jamb, hanging off its face away from the building\'s middle, their tops over its foot (mutants: the face toward the building; one banner; the gap dropped; the foot the top corner)', () => {
@@ -369,7 +382,7 @@ test('GUILD1d wired: the building host - the hall\'s rows and its buy, the chest
   assert.match(w, /if \(hf && !hf\.door\) hf\.door = doorCornersOf\(cpu\.doors\[0\], local\);/);
   assert.match(w, /const hallBanners = onlineHomes && bannerPass \? createHallBanners\(\{/);
   assert.ok(w.indexOf('const hung = bannersHung();') < w.indexOf('    drawVeiledPeerBodies();   // INVIS-LOOK'), 'before every glow (AUDIT GUILD1d R3; SEAT1a: the seats\' banners with the halls\')');
-  assert.match(w, /openStores: \(\) => socialPanel\?\.openGuild\?\.\(\) === true,/);
+  assert.match(w, /openStores: \(\) => socialPanel\?\.openGuild\?\.\('vault'\) === true,/);   // PIN MOVED (GUILD2b): the chest opens the vault's page
   assert.match(w, /onHall: \(mapId\) => \{ onlineHomes\?\.ensure\?\.\(mapId, \{ force: true \}\); \},/);
   const dt = src('src/scenes/decorTool.js');
   assert.match(dt, /own: r\?\.hall \? \[\] : ownEntries\(\),/);

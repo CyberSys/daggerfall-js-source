@@ -61,19 +61,20 @@ const button = (root, label) => find(root, 'dfsocial-btn').find((b) => b.textCon
 const settle = () => new Promise((r) => setImmediate(r));
 const field = (root, label) => find(root, 'dfsocial-field').find((f) => f.attrs['aria-label'] === label);
 
-async function rig(guild = view(), invites = []) {
+// GUILD2 (PIN MOVED): the Guild tab is pages - a rig opens the one its test reads ('treasury', 'members'...)
+async function rig(guild = view(), invites = [], page = null) {
   const door = fakeDoor();
   door.mineGuild = guild; door.inviteList = invites;
   const w = { gold: 50_000 };
   const book = new GuildBook({ door, character: () => 'char-a', wallet: () => ({ gold: () => w.gold, pay: (n) => { w.gold -= n; }, credit: (n) => { w.gold += n; } }), now: () => 1_000_000 });
   const panel = createSocialPanel({ social: new SocialState({ acct: 'acct-a' }), guild: book, doc: fakeDocument(), win: { addEventListener() {}, removeEventListener() {} }, overlay: () => false, touch: false });
   const frame = async () => { await settle(); await settle(); panel.render(); };
-  panel.openGuild(); await frame();
+  panel.openGuild(page); await frame();
   return { door, panel, frame };
 }
 
 test('GUILD-LIVE: an amount typed brings Deposit alive at the keystroke - no repaint, no reopen - and the press puts in what is typed at the press; emptied, it is dead again and says why (mutants: the state read at the build alone; the amount captured at the build; a dead press acting)', async () => {
-  const { door, panel } = await rig();
+  const { door, panel } = await rig(view(), [], 'treasury');
   const deposit = button(panel.root, 'Deposit');
   assert.equal(deposit.disabled, true, 'no amount, no deposit');
   const gold = field(panel.root, 'Gold');
@@ -85,7 +86,7 @@ test('GUILD-LIVE: an amount typed brings Deposit alive at the keystroke - no rep
   deposit.fire('click');
   await settle();
   assert.deepEqual(door.calls.find((c) => c[0] === 'deposit'), ['deposit', 'char-a', 300], 'the amount at the press');
-  const again = await rig();
+  const again = await rig(view(), [], 'treasury');
   const g2 = field(again.panel.root, 'Gold');
   g2.value = '5'; g2.fire('input');
   g2.value = ''; g2.fire('input');
@@ -97,7 +98,7 @@ test('GUILD-LIVE: an amount typed brings Deposit alive at the keystroke - no rep
   assert.equal(again.door.calls.some((c) => c[0] === 'deposit'), false, 'a dead button does nothing');
   // and one whose press WOULD act: a member's Withdraw, an amount typed, is the guildmaster's alone - dead, and its press
   // reaches no service
-  const member = await rig(view({ rank: 2, members: [{ member: 'm1', name: 'Aldric', rank: 2, joinedAt: 1, you: true }] }));
+  const member = await rig(view({ rank: 2, members: [{ member: 'm1', name: 'Aldric', rank: 2, joinedAt: 1, you: true }] }), [], 'treasury');
   const mg = field(member.panel.root, 'Gold');
   mg.value = '10'; mg.fire('input');
   const w2 = button(member.panel.root, 'Withdraw');
@@ -117,11 +118,12 @@ test('GUILD-LIVE: a field\'s value is the draft only through its keystroke (a fr
   assert.equal(found.disabled, true, 'a draft is written by its keystroke, and none came');
   name.fire('input'); tag.fire('input');
   assert.equal(found.disabled, false);
-  const master = await rig(view({ members: [{ member: 'm1', name: 'Aldric', rank: 0, joinedAt: 1, you: true }] }));
+  const master = await rig(view({ members: [{ member: 'm1', name: 'Aldric', rank: 0, joinedAt: 1, you: true }] }), [], 'members');
   const invite = button(master.panel.root, 'Invite');
   const handle = field(master.panel.root, 'Username');
   handle.value = 'Mara'; handle.fire('input');
   assert.equal(invite.disabled, false);
+  master.panel.openGuild('treasury'); await master.frame();
   const withdraw = button(master.panel.root, 'Withdraw');
   const gold = field(master.panel.root, 'Gold');
   gold.value = '10'; gold.fire('input');
@@ -139,7 +141,7 @@ test('GUILD-WRAP: a roster row\'s acts are one wrapping group, a guildmaster\'s 
     { member: 'm1', name: 'Aldric', rank: 0, joinedAt: 1, you: true },
     { member: 'm2', name: 'Maraliandrelle', rank: 2, joinedAt: 2, you: false },
   ];
-  const { panel } = await rig(view({ members }));
+  const { panel } = await rig(view({ members }), [], 'members');
   const rowOf = (n) => find(panel.root, 'dfsocial-row').find((r) => texts(r).includes(n));
   const mara = rowOf('Maraliandrelle');
   assert.ok(mara.className.split(/\s+/).includes('wrap'));
