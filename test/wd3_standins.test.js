@@ -10,7 +10,8 @@
 // paintings (sixty-two ids, each hung as its placements stand - its face's normal and its picture's top), Rosy's
 // hangings and rugs, the RMB Resource Pack's rocks, hills, stalls, platform, foundation, domes and docks (every mesh
 // sound - each face facing its normal, every index landing, Daggerfall's textures or the port's drawn cloth - and each
-// the size it was measured); the drawn cloth (48 pictures, opaque) and sprites (a clear ground, binary alpha); the crop
+// the size it was measured; its city-wall piece, cut out of the player's 445, in test/fb1003c_citywall.test.js); the
+// drawn cloth (48 pictures, opaque) and sprites (a clear ground, binary alpha); the crop
 // fields (the climate's plant, a grid of 484, the same every visit, sown only where a block's nature is known); the
 // table clutter and the temple gardens (classic records); the install (once, every piece behind its switch, DET's and
 // Cliffworms' shared with Detailed Ships by either switch); the pipeline's hole (a record no picture is for draws
@@ -424,7 +425,7 @@ function loadArena2() {
 
 /** What neither the port nor Daggerfall stands, and why (bible/03-World/Beautiful-Towns.md, "Not stood in"). */
 const NOT_STOOD_IN = Object.freeze({
-  models: [43756, 45179, 45181, 45198, 45205, 45206, 52991, 53129, 53130, 53132, 53134, 53210, 69465],
+  models: [43756, 45179, 45181, 45198, 45205, 45206, 52991, 53129, 53130, 53132, 53134, 69465],
   flats: ['10025_1', '1200_4', '1200_9', '1210_13', '1210_16', '1210_24', '1230_11', '1230_15', '1230_2', '1230_22', '1230_3', '1230_5', '1230_6', '1230_9'],
 });
 
@@ -441,11 +442,11 @@ test('WD3 with ARENA2: every model and flat the two packs place is Daggerfall\'s
   });
   const count = { classic: 0, standIn: 0 }, missing = [];
   for (const id of models.keys()) {
-    if (customAliasFor(id) || customModelFor(id) || flatFieldFor(id)) count.standIn++;
+    if (customAliasFor(id) || hasCustomModel(id) || flatFieldFor(id)) count.standIn++;   // CITY-WALL: registered - the wall piece is built only once the pipeline hands it the 445
     else if (arch.getRecordIndex(id) >= 0) count.classic++;
     else missing.push(id);
   }
-  assert.deepEqual([models.size, count.classic, count.standIn], [2014, 1777, 224]);
+  assert.deepEqual([models.size, count.classic, count.standIn], [2014, 1777, 225]);
   assert.deepEqual(missing.sort((a, b) => a - b), NOT_STOOD_IN.models);
   const fcount = { classic: 0, standIn: 0 }, fmissing = [];
   for (const k of flats.keys()) {
@@ -489,9 +490,10 @@ test('WD3 with ARENA2: no stand-in walls up a door - every exterior door of both
     if (!doorsOf.has(id)) { const i = arch.getRecordIndex(id); doorsOf.set(id, i < 0 ? [] : (dfMeshToModel(arch.getMesh(i), () => ({ width: 64, height: 64 })).doors ?? [])); }
     return doorsOf.get(id);
   };
+  const classicModel = (id) => { const i = arch.getRecordIndex(id); return i < 0 ? null : dfMeshToModel(arch.getMesh(i), () => ({ width: 64, height: 64 })); };   // CITY-WALL: the wall piece is cut out of the 445
   const box = (id) => {
     if (!boxOf.has(id)) {
-      const m = customModelFor(id);
+      const m = customModelFor(id, { classicModel });
       if (!m) boxOf.set(id, null);
       else { const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity]; for (let i = 0; i < m.positions.length; i += 3) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], m.positions[i + k]); hi[k] = Math.max(hi[k], m.positions[i + k]); } boxOf.set(id, { lo, hi }); }
     }

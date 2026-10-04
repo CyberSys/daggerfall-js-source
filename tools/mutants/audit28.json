@@ -365,7 +365,7 @@
     ]
   },
   {
-    "name": "AUDIT28-B5-the-respawn-takes-a-quarter-of-now",
+    "name": "AUDIT28-B5-the-respawn-takes-a-share-of-now",
     "file": "src/systems/deathPenalty.js",
     "old": "  const lost = Math.max(0, Math.min(purse, _stated ?? deathGoldLoss(purse)));",
     "new": "  const lost = deathGoldLoss(purse);",
