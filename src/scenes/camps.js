@@ -179,21 +179,23 @@ export function createCamps({
   // REST2 (bible/06-Systems/Rest-Arc.md section 3): ONLINE THE FIRES ARE EVERYONE'S. A rest online is an act at a fire
   // or a bed (systems/restAct.js), so the Campfire, the camps it stands and the world's braziers are the rest's, not the
   // arc's alone: online every door below opens with the arc Off too. Offline Off is SURV-OFFSIGHT's, unchanged.
+  // ENDLESS PROVISIONS (2026-10-04, Mac: the Campfire Kit and Rations for everyone - "i can use and find all those without
+  // climates and calories"): A CAMP IS EVERY TIER'S. It is placed, seen, named, rested at, cooked at, stoked and packed with
+  // the arc Off, offline too - `seen` is every camp, and the ray, the menu and the click read it. What stays the arc's offline
+  // is the WARMTH: `shown` (byFire, the felt temperature's fire) and a world hearth's menu - there is no felt temperature
+  // to warm. This supersedes SURV-OFFSIGHT's "Off sees, never uses".
   const usable = () => survivalOn() || sharedClockOn();
   // DECK-CAMP: a camp on a boat out of sight (Come Sail Away hides her past a pixel, and indoors) is out of sight with her
   const visible = (c) => !c.hidden;
   const shown = () => (usable() ? camps.filter(visible) : NO_CAMPS);
-  const seen = () => (usable() ? camps.filter(visible) : camps.filter((c) => !mine(c) && visible(c)));
+  const seen = () => camps.filter(visible);
 
   /** THE PLACING: the pack's use of Camping Equipment or a Campfire Kit lands here (useItem's 'pitchCamp' / 'placeFire'). */
   function placeItem(item, list) {
     // REST6: the Bedroll and Firewood are uses, not camps - the Bedroll's spot and its rest, Firewood's fire
     if (isFirewood(item)) return feedFire(item, list);
     if (isBedroll(item)) return layBedroll(item, list);
-    // AUDIT SURV-TIERS: a player's own camp stood with the arc off could be
-    // neither seen nor used (`seen`, `shown`, above) - so it is not stood,
-    // and the refusal says what would change it (CAMP-SILENT, below).
-    if (!survivalOn() && !(sharedClockOn() && (isCampfireKit(item) || isEmberJar(item)))) { say(CAMP_TEXT.arcOff); return false; }   // REST2: online a Campfire with the arc Off too; REST6: and an Ember Jar
+    // ENDLESS PROVISIONS: no arc gate - a camp is stood in every tier (`seen`, above); the camp law's own checks below
     // CAMP-SILENT (2026-09-22, DragynDance on Discord: "camp kits don't
     // work for me"). USING AN ITEM ALWAYS SAYS SOMETHING. Every other
     // arm below refuses with words - in town, indoors, foes near, no
@@ -353,7 +355,7 @@ export function createCamps({
    * kit's fire cannot be stoked, as ever, and with the arc Off nothing is tended (nothing of it is used).
    */
   function tendWhileResting(t) {
-    if (!survivalOn() || !entity?.isResting || entity.restKind !== REST_KIND.Camp) return;
+    if (!entity?.isResting || entity.restKind !== REST_KIND.Camp) return;   // ENDLESS PROVISIONS: a camp used in every tier is tended in every tier
     const feet = camera?.()?.feet;
     if (!feet) return;
     for (const c of camps) {
@@ -467,7 +469,7 @@ export function createCamps({
     const jar = c.rec.kind === CAMP_KIND.Fire && !!c.rec.jar;
     const out = { title: c.rec.kind === CAMP_KIND.Tent ? 'Camp' : jar ? (mine(c) ? 'Your Ember Jar fire' : 'Ember Jar fire') : mine(c) ? 'Your Campfire' : 'Campfire' };
     if (c.rec.kind === CAMP_KIND.Fire && mine(c) && !jar) out.subs = [CAMP_TEXT.fuelLeft(c.rec.wear | 0)];
-    if (usable()) out.actions = campMenu(c.rec, now(), mine(c), { online: sharedClockOn() }).map((r) => ({ id: r.key, label: r.text }));
+    out.actions = campMenu(c.rec, now(), mine(c), { online: sharedClockOn() }).map((r) => ({ id: r.key, label: r.text }));   // ENDLESS PROVISIONS: every tier's
     return out;
   }
   /** Info and Talk name it; Grab and Steal open the menu. REST2: `lit` is the plaque's lit row (quickLoot.js
@@ -488,7 +490,6 @@ export function createCamps({
     const c = forKey(key);
     if (!c) return false;
     if (mode === 'info' || mode === 'dialogue') { say(campInfoText(c.rec, now(), mine(c))); return true; }
-    if (!usable()) return true;   // SURV-OFFSIGHT (the third pass): with the arc Off the click is taken and opens nothing - REST2: offline
     if (lit && campMenu(c.rec, now(), mine(c), { online: sharedClockOn() }).some((r) => r.key === lit)) { act(c, lit); return true; }
     openMenu(c);
     return true;

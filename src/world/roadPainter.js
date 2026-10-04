@@ -116,8 +116,21 @@ export function paintRoads(tileData, tilemap, roadMask, trackMask, locationRect 
   const anyCorner = corners.road || corners.track || (water && (corners.river || corners.stream));
   if (!masks.road && !masks.track && !(water && (masks.river || masks.stream)) && !anyCorner) return 0;
   let painted = 0;
+  // FAST-SUITE: ONE context for the pixel's 16,384 tiles, its place moved tile to tile - the painters only read it, and
+  // none keeps it past its call - where a fresh object a tile made the garbage a terrain build swept
+  const ctx = { tilemap, i: 0, x: 0, y: 0, ground: 0, rect: locationRect, paths };
   for (let y = 0; y < DIM; y++) {
     for (let x = 0; x < DIM; x++) {
+      // FAST-SUITE: A TILE NO PAINTER CAN REACH is passed by. Every arm, cap, ring, gap, elbow and river join below
+      // lies on the pixel's centre cross (x or y within MID_LO-1..MID_HI+1 - a river join two out, at MID_LO-2 or
+      // MID_HI+2, has its other coordinate on the cross), on its two diagonals (x-y, or the mirror's, within 2 - the
+      // pixel corners among them), or inside the location rect (the road's paving); a tile off all of them fails every
+      // condition, so skipping it changes no byte - and spares some 14,000 of the 16,384 the ladder ran (2,224 stay, and a
+      // location's rect). Proven against the ladder alone over every road, track, river and stream pixel of the shipped
+      // map, water on and off: `node tools/roadGuardProof.mjs` (103,487 real-map cases, none differing).
+      if (!(x >= MID_LO - 1 && x <= MID_HI + 1) && !(y >= MID_LO - 1 && y <= MID_HI + 1)
+        && Math.abs(x - y) > 2 && Math.abs(DIM - 1 - x - y) > 2
+        && !(locationRect && x > locationRect.xMin && x < locationRect.xMax && y > locationRect.yMin && y < locationRect.yMax)) continue;
       const i = y * DIM + x;
       if (tilemap[i] !== 0) continue;   // a location's own tile, or already painted
       // AUDIT 51: NO RECT SKIP. The mod does not skip the location rect;
@@ -126,7 +139,7 @@ export function paintRoads(tileData, tilemap, roadMask, trackMask, locationRect 
       // cross it, and a road then fills what is left of it (below).
       let ground = tileData[y * tdDim + x];
       if (ground > TILE.stone) ground = TILE.grass;
-      const ctx = { tilemap, i, x, y, ground, rect: locationRect, paths };
+      ctx.i = i; ctx.x = x; ctx.y = y; ctx.ground = ground;
       if (paintPath(ctx, ROAD_TILES, masks.road, corners.road)) { painted++; continue; }
       if (water && paintPathWithSubPathJoins(ctx, RIVER_TILES, masks.river, corners.river, masks.stream)) { painted++; continue; }
       if (water && paintPath(ctx, STREAM_TILES, masks.stream, corners.stream)) { painted++; continue; }
