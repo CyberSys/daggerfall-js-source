@@ -24,7 +24,7 @@ jobs:
       WRANGLER: npx --yes wrangler@4
     defaults:
       run:
-        working-directory: server-account
+        working-directory: /tmp
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -40,5 +40,6 @@ jobs:
           for by in time reads writes count; do
             echo "=== top by $by (sum) ==="
             $WRANGLER d1 insights daggerfall-accounts --sort-by "$by" --sort-type sum --limit 12 --json > /tmp/ins.json 2>/tmp/ins.err || true
-            jq -c '.[]' /tmp/ins.json 2>/dev/null | cut -c1-700 || { head -c 3000 /tmp/ins.json; head -c 1500 /tmp/ins.err; }
+            jq -c '.[]' /tmp/ins.json 2>/dev/null | cut -c1-700
+            grep -v -i 'telemetry' /tmp/ins.err | head -c 1500
           done
