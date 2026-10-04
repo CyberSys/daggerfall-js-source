@@ -99,7 +99,7 @@ test('U53: encumbrance is the same expression the sheet and the classic window u
     'LIVE strength - a drained player must not be told they can carry the undrained amount');
   // ...and the OTHER half. PlayerEntity.CarriedWeight (:184) is the
   // items PLUS the gold counter's weight, and the pane composes it by
-  // hand (enhancedInventory.js:234-256) because it is handed the list
+  // hand (enhancedInventory.js:235-257) because it is handed the list
   // and not the entity - so it must still land on inventory
   // .carriedWeight's answer.
   assert.equal(m.encumbrance.now, Math.trunc(carriedWeight(e)));
@@ -772,12 +772,13 @@ test('U58 + AUDIT 26: only the REMOTE list sends the click to the quest system',
   const from = src.indexOf('function itemRow(item, from');
   assert.ok(from > 0, 'the row builder is gone');
   const body = src.slice(from, src.indexOf('\nfunction ', from + 20));
-  assert.match(body, /setPlayerClicked\(\)/, 'the pane never tells the quest system');
-  assert.match(body, /from === 'remote' && item\.questItem/,
-    'the local list is sending clicks the classic window does not send');
+  // WHERE-ROBES: through the one home every remote door shares (itemTransfer.js sendQuestItemClick, driven in
+  // test/fb1004c_robes.test.js) - the side guard is still the row's
+  assert.match(body, /if \(from === 'remote'\) sendQuestItemClick\(item, deps\.getQuest \?\? null\);/,
+    'the pane never tells the quest system, or the local list is sending clicks the classic window does not send');
   // and it happens on the CLICK, before the pick - a player who looks
   // and does not take has still clicked
-  assert.ok(body.indexOf('setPlayerClicked()') < body.indexOf('picked = wasPicked'),
+  assert.ok(body.indexOf('sendQuestItemClick(') < body.indexOf('picked = wasPicked'),
     'the click reaches the quest system only after the selection changes');
 });
 
@@ -1386,7 +1387,7 @@ test('IG7: a LOOT-SIDE click takes, immediately - the pick-and-confirm card was 
   // looking at a quest item in a pile counts, taking it doubly so) and
   // BEFORE the pick that would raise the card.
   const click = src.slice(src.indexOf('function itemRow('), src.indexOf('function remoteCol('));
-  const iQuest = click.indexOf('setPlayerClicked');
+  const iQuest = click.indexOf('sendQuestItemClick(');   // WHERE-ROBES: the one home
   const iTake = click.indexOf("remote.kind !== 'reward'");
   const iPick = click.indexOf('picked = wasPicked');
   assert.ok(iQuest > -1 && iQuest < iTake && iTake < iPick,
@@ -2356,7 +2357,7 @@ test('ENH-NOTICE3 (AUDIT B/F5): a refusal raised over a LOOT PILE with the pack 
       const host = dom.mk('div');
       dom.body.append(host);
       const e = hero();
-      e.goldPieces = 2000000;   // CanCarryAmount's own gate: the coin weight alone fills the load (itemTransfer.js:311)
+      e.goldPieces = 2000000;   // CanCarryAmount's own gate: the coin weight alone fills the load (itemTransfer.js:339)
       const pile = [mk('Claymore')];
       const view = mountEnhancedInventory(host, {
         entity: e, items: () => e.items, loot: { items: () => pile }, onExit: () => {},

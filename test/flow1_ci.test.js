@@ -77,7 +77,7 @@ test('FLOW1 the workflows: verify.yml is the one check - lint and the types, eve
   assert.ok(d.indexOf('actions/deploy-pages') > d.indexOf('\n  deploy:\n'), 'the deploy step lives in the job that waits for the verification');
   // the local check is the whole check still, and the loop's scripts are there
   const pkg = JSON.parse(read('package.json'));
-  assert.equal(pkg.scripts.test, 'node --test "test/*.test.js"');
+  assert.equal(pkg.scripts.test, 'node tools/testShards.mjs 1/1', 'FAST-SUITE: the whole suite is one shard of one - every file, longest first, every core (runTests)');
   assert.match(pkg.scripts.check, /npm run lint && npm run types && npm test && npm run build/);
   assert.equal(pkg.scripts['test:changed'], 'node tools/testChanged.mjs');
   assert.equal(pkg.scripts['test:shard'], 'node tools/testShards.mjs');

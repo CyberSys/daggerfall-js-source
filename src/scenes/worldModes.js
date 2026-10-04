@@ -158,7 +158,7 @@ import { raceWinner } from '../player/activationRace.js';   // WORLD-HOVER: the 
 import { worldHoverFrame, hideWorldPlaque, destroyWorldPlaque } from '../ui/worldPlaque.js';   // WORLD-HOVER: the one seam each host calls, and the hide door for the branches that return above it
 import { quickLootTake, quickLootSpend, plaqueActionFor } from '../systems/quickLoot.js'; import { showPickups } from '../ui/pickupFeed.js';   // QUICK-LOOT B4: the take, through the window's own door; HOME2: the verb the plaque lit over a door; PICKUP-FEED: what a take moved, as cards (the take's `took`)
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
-import { staticDoorName, npcHoverName, questResourceName, worldTooltipsOn, hideInteractTooltip,
+import { staticDoorName, npcHoverName, questResourceName, questStandItem, worldTooltipsOn, hideInteractTooltip,
   houseContainerName, houseContainerHover, actionName, actionDoorName, lootPileName,
   BOOKSHELF_TEXT, SHOP_SHELF_TEXT, LADDER_TEXT, BULLETIN_BOARD_TEXT, mobileEntityName, liveEntityName } from '../systems/worldTooltips.js';   // WORLD-HOVER: the mod's ladder for the families THIS host stands   // WORLD-HOVER: the mod's ladder for the families THIS host stands
 import { LOCATION_TYPES, REGION_NAMES } from '../formats/mapsFile.js';   // WORLD-HOVER: .cs:777-782 - a dungeon exit names its town, or the region   // WORLD-HOVER: the texture record is DERIVED at its one reader, off the stored model id
@@ -2162,15 +2162,16 @@ export function createWorldModes(host) {
     // simply dropped them and said nothing.
     interiorCtx.containers.forEach((c, i) => {
       if (c.hidden) return;   // BASE-HIDE: taken out of the room
-      targets.push({ key: `container:${i}`, aabb: worldAabb(c.cpu.positions, c.matrix), distance: RAY_DISTANCE, reach: TREASURE_ACTIVATION_DISTANCE });   // S2b
+      targets.push({ key: `container:${i}`, aabb: worldAabb(c.cpu.positions, c.matrix), distance: RAY_DISTANCE, reach: TREASURE_ACTIVATION_DISTANCE, surface: true });   // S2b; WHERE-ROBES: struck at its mesh (activate.js), so what stands on it is reached
     });
     if (bedSleepingOn()) interiorCtx.beds?.forEach((bd, i) => {   // RR1: RegisterCustomActivation(41000..41002, BedActivation) - a target only while the module is on
       if (bd.hidden) return;   // BASE-HIDE
-      targets.push({ key: `bed:${i}`, aabb: worldAabb(bd.cpu.positions, bd.matrix), distance: RAY_DISTANCE, reach: DEFAULT_ACTIVATION_DISTANCE });
+      targets.push({ key: `bed:${i}`, aabb: worldAabb(bd.cpu.positions, bd.matrix), distance: RAY_DISTANCE, reach: DEFAULT_ACTIVATION_DISTANCE, surface: true });   // WHERE-ROBES: the mattress, not the air under the headboard
     });
-    interiorCtx.shelves.forEach((s, i) => {
+    // WHERE-ROBES: a shelf that does nothing is geometry, not a target
+    if (shelvesAct(interiorBuilding)) interiorCtx.shelves.forEach((s, i) => {
       if (s.hidden) return;   // BASE-HIDE
-      targets.push({ key: `shelf:${i}`, aabb: worldAabb(s.cpu.positions, s.matrix), distance: RAY_DISTANCE, reach: DEFAULT_ACTIVATION_DISTANCE });   // E2; :850-853 for the Library/Guild/Temple bookshelf, :868-873 for a shop's ShopShelves - both 128 units
+      targets.push({ key: `shelf:${i}`, aabb: worldAabb(s.cpu.positions, s.matrix), distance: RAY_DISTANCE, reach: DEFAULT_ACTIVATION_DISTANCE, surface: true });   // WHERE-ROBES: its boards, not its open front; E2; :850-853 for the Library/Guild/Temple bookshelf, :868-873 for a shop's ShopShelves - both 128 units
     });
     // AUDIT 63 F43 (review round): the dungeon arm's ONE helper
     // (activationTargets, below at the dungeon ray) - this loop was a
@@ -2347,7 +2348,7 @@ export function createWorldModes(host) {
         const st = questFlats[Number(key.split(':')[1])];
         const res = st?.behaviour?.targetResource ?? null;
         if (!res || res.isPerson === true || res.isFoe === true) return null;
-        const t = questResourceName(res.daggerfallItem ?? res.item ?? null, { archive: st.archive ?? -1, record: st.record ?? -1 });
+        const t = questResourceName(questStandItem(res), { archive: st.archive ?? -1, record: st.record ?? -1, getQuest: (uid) => questBridge?.machine.getQuest(uid) ?? null });   // WHERE-ROBES: the Item's own item; AUDIT N1: a letter's signoff
         return t ? { title: t } : null;
       }
       return null;
@@ -2400,6 +2401,14 @@ export function createWorldModes(host) {
   function shelfLootSpawned(items, b) {
     return raiseContainerLootSpawned({ containerType: LOOT_CONTAINER_TYPES.ShopShelves, items, buildingType: b?.buildingType, quality: b?.quality, luck: liveStat(playerEntity, 'luck') });
   }
+  /** WHERE-ROBES (FIELD BUGS 2026-10-04c): does a shelf-set model in this building ACT? AddFurnitureAction
+   *  (DaggerfallInterior.cs:791-819) gives one a component in a shop (ShopShelves), a Library, GuildHall or Temple
+   *  (DaggerfallBookshelf) and an owned house (a house container - HC1 births that one a container, never a shelf), and
+   *  the port's Hall of Records is a seat palace's (SEASON1); in a plain residence it gets NOTHING and is geometry. The
+   *  port made it a target anyway, and openShelf below answered its press with a silent return - while its whole box
+   *  raced the ray, so a quest item standing on it (O0A0AL00's robes on a house's shelf) lost every press to a shelf
+   *  that did nothing. openShelf's three arms, asked as one question. */
+  const shelvesAct = (b) => !!b && (hallOfRecordsHere(b) || isShop(b.buildingType) || isBookshelfBuilding(b.buildingType));
   function openShelf(i) {
     const b = interiorBuilding;
     const shelf = interiorCtx?.shelves[i];
@@ -7940,6 +7949,7 @@ export function createWorldModes(host) {
           // match over the raw line is exactly what failed to catch it.
           onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
           questShare: () => host.foesQuestShare?.() ?? null,   // QUEST-PARTY phase 3c: the party's law for the dungeon's shared quest foes
+          castleRecordsHere: () => castleRecordsHere(),   // AUDIT WHERE-ROBES P1: a castle's shelf is its Hall of Records, not a search, while the seats are open
           lateWorldDraw: () => host.drawVeiledPeerBodies?.(),   // INVIS-LOOK: the concealed peers' bodies, translucent - after the foes' flats, before the water and the first screen quad
           gateBoss: () => host.gateBoss?.() ?? null,   // WB4b: the Burning Court's boss as a body my blows meet (none outside the court)
           onBossHit: (hit) => !!host.onBossHit?.(hit),   // WB4b: and the door a blow's number leaves him through
@@ -8006,7 +8016,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:8435), so the OUTER host's one rides in.
+          // (dungeonContext.js:8442), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:847 -> the
@@ -8131,7 +8141,7 @@ export function createWorldModes(host) {
         const st = dungeonQuestFlats[Number(key.split(':')[1])];
         const res = st?.behaviour?.targetResource ?? null;
         if (!res || res.isPerson === true || res.isFoe === true) return null;
-        const t = questResourceName(res.daggerfallItem ?? res.item ?? null, { archive: st.archive ?? -1, record: st.record ?? -1 });
+        const t = questResourceName(questStandItem(res), { archive: st.archive ?? -1, record: st.record ?? -1, getQuest: (uid) => questBridge?.machine.getQuest(uid) ?? null });   // WHERE-ROBES: the Item's own item; AUDIT N1: a letter's signoff
         return t ? { title: t } : null;
       });
       _dungeonAuthority = host.dungeonAuthority?.() ?? true; ctx.setAuthority?.(_dungeonAuthority);   // WORLD2: a dungeon built while another hosts starts as puppets
@@ -12031,7 +12041,7 @@ export function createWorldModes(host) {
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
      *  HARD2c: this used to spell them out, and named `world.js:11113`
-     *  and `dungeonContext.js:8447` for its two sibling copies - lines
+     *  and `dungeonContext.js:8454` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

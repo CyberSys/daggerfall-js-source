@@ -711,8 +711,8 @@
   {
     "name": "WORLD-HOVER-a-quest-plant-stand-differentiates-again",
     "file": "src/systems/worldTooltips.js",
-    "old": "  return itemLongName(item, { differentiatePlantIngredients: false }) || null;",
-    "new": "  return itemLongName(item) || null;",
+    "old": "  return itemLongName(item, { differentiatePlantIngredients: false, getQuest }) || null;",
+    "new": "  return itemLongName(item, { getQuest }) || null;",
     "tests": [
       "test/worldhover.test.js"
     ]
