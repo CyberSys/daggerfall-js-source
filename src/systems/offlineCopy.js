@@ -64,6 +64,15 @@ function rebaseWorldStamps(copy, delta, days, { questOwn = false } = {}) {
     if (c && Number.isFinite(c.litUntil)) c.litUntil += delta;
     if (c && Number.isFinite(c.placedAt)) c.placedAt += delta;
   }
+  // AUDIT REST III D1: A HELD BOUNTY'S DAY is the world's online (bountyHost.js reads the shared clock) and the
+  // character's offline, so it moves with the lane as a camp's fire does - Bring online lapsed every bounty a ledger of
+  // this build held on its first online tick, kills and all (AUDIT REST II Q3's re-stamp is the older ledgers' alone,
+  // and the world runs months ahead of a new offline calendar); and the minute each was paid, which a mate's clear is
+  // read against (bountyClearPays). Never below the calendar's start.
+  const ledger = copy.modData?.[BOUNTY_RECORD_VENDOR];
+  for (const h of Array.isArray(ledger?.held) ? ledger.held : []) if (h && Number.isFinite(h.takenAt)) h.takenAt = Math.max(0, h.takenAt + delta);
+  const paidAt = ledger?.paidAt && typeof ledger.paidAt === 'object' ? ledger.paidAt : {};
+  for (const k of Object.keys(paidAt)) if (Number.isSafeInteger(paidAt[k])) paidAt[k] = Math.max(0, paidAt[k] + delta);
   if (days) {
     for (const scene of copy.sceneCache?.scenes ?? []) {
       for (const c of scene?.lootContainers ?? []) {
@@ -83,6 +92,9 @@ const daysBetween = (to, from) => Math.floor(Math.floor(to) / 1440) - Math.floor
  *  caught the world's. The world's schedule has no meaning on another clock, so the copy takes the mod's NewSaveData
  *  (the load hands a mod with no record its new one - modSaveData.js restoreModSaveRecords) and rolls its own. */
 export const RAID_RECORD_VENDOR = 'world-events-raiding-parties';
+/** AUDIT REST III D1: the bounty board's record (bountyBoard.js BOUNTY_VENDOR - pinned equal, test/auditrest3.test.js;
+ *  this module stays off the board's graph, as it does off the raid mod's). */
+export const BOUNTY_RECORD_VENDOR = 'bountyBoard';
 
 /** The copy an offline slot keeps: the world's stamps rebased onto the character's clock, `worldMinutes` dropped. */
 export function offlineCopyOf(snap) {

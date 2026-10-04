@@ -429,12 +429,18 @@ export function questBoardIndices(boards) {
  * A hunter's bounties: the ones held, and the slots already paid (a slot paid is not posted to that hunter again
  * that day). Plain data - it is the save record as it stands.
  * @typedef {{ id:string, takenAt:number, killed:number, shared?:boolean, from?:string }} HeldBounty
- * @typedef {{ held: HeldBounty[], paid: string[], dropped: string[], paidAt?: Record<string, number>, droppedKilled?: Record<string, number> }} BountyLedger
+ * @typedef {{ held: HeldBounty[], paid: string[], dropped: string[], paidAt?: Record<string, number>, droppedKilled?: Record<string, number>, v?: number }} BountyLedger
  */
 /** AUDIT 28 B1/B2: `paidAt` - slotKey -> the minute it was paid (a mate's clear pays only a bounty held before it);
  *  `droppedKilled` - slotKey -> the kills a bounty given up had (taken again, it goes on from them). */
+/** AUDIT REST II Q3: THE LEDGER'S VERSION, saved with it as `v`. 1 - every ledger written before the mark (it is
+ *  absent): under TIMEFREE (app-v0.1.5694, `Online-Time-Arc.md` 6.3b) a held bounty never lapsed online, so a row held
+ *  through that build can carry a `takenAt` days behind the world's clock, and QCLOCK-WORLD's lapse sweep, back, took
+ *  every such row - and its kills - on the first tick after the update. 2 - a ledger this build wrote, whose rows ran
+ *  under a lapse sweep online. */
+export const BOUNTY_LEDGER_VERSION = 2;
 /** @returns {BountyLedger} */
-export const newBountyLedger = () => ({ held: [], paid: [], dropped: [], paidAt: /** @type {Record<string, number>} */ ({}), droppedKilled: /** @type {Record<string, number>} */ ({}) });
+export const newBountyLedger = () => ({ held: [], paid: [], dropped: [], paidAt: /** @type {Record<string, number>} */ ({}), droppedKilled: /** @type {Record<string, number>} */ ({}), v: BOUNTY_LEDGER_VERSION });
 
 /** A save record, read defensively - anything malformed is dropped rather than trusted. */
 export function readBountyLedger(rec) {
@@ -451,7 +457,20 @@ export function readBountyLedger(rec) {
     const into = /** @type {Record<string, number>} */ (out[k]);
     for (const [slot, v] of Object.entries(src)) if (slot.length <= 40 && Number.isSafeInteger(v) && v >= 0) into[slot] = v;
   }
+  out.v = Number.isSafeInteger(rec.v) && rec.v >= 1 ? rec.v : 1;   // AUDIT REST II Q3: no mark - a ledger from before it
   return out;
+}
+
+/** AUDIT REST II Q3: a ledger written before the version mark, first played online: every bounty it holds runs from
+ *  `nowMinutes` - ONCE (the mark is set, and saved with the ledger). The never-lapse build kept no time for them, so a
+ *  row held through it lapses a day after the update, never on its first tick with its kills. The host asks it online
+ *  alone: offline a held bounty lapsed under that build too, and the mark waits for the first online tick. Answers the
+ *  rows re-stamped. */
+export function restampNeverLapsed(ledger, nowMinutes) {
+  if ((ledger.v ?? 1) >= BOUNTY_LEDGER_VERSION) return [];
+  for (const h of ledger.held) h.takenAt = nowMinutes;
+  ledger.v = BOUNTY_LEDGER_VERSION;
+  return ledger.held.slice();
 }
 
 const heldSlot = (ledger, slotKey) => ledger.held.find((h) => parseBountyId(h.id)?.slotKey === slotKey) ?? null;

@@ -154,8 +154,12 @@ export function rentRoom(rooms, { room, days, nowMinutes, mapId, buildingKey, na
   if (sceneCache) {
     addPermanentScene(sceneCache, interiorSceneName(mapId ?? room?.mapId, buildingKey ?? room?.buildingKey));
   }
+  // AUDIT REST II P6 (bible/06-Systems/Rest-Arc.md section 5, OPEN 10): online a room counts NIGHTS - the days rented,
+  // and an extension's days on top (restAct.js spendRoomNight spends them; the expiry is still the days lived, DFU's).
+  // Offline nothing reads the count: DFU's rest window counts the hours down, as it always has.
   if (room) {
     room.expiryMinutes += 24 * 60 * days;
+    if (Number.isFinite(room.nights)) room.nights += days;   // an old save's room (no count) reads its nights off its hours at its next night
     return room;
   }
   const fresh = {
@@ -164,6 +168,7 @@ export function rentRoom(rooms, { room, days, nowMinutes, mapId, buildingKey, na
     buildingKey,
     allocatedBedIndex: Math.floor(rolls() * Math.max(1, bedCount)),
     expiryMinutes: nowMinutes + 24 * 60 * days,
+    nights: days,
   };
   stampLayout(fresh, layoutStampOfMapId(mapId));   // WD3: the inn's town's layout (systems/layoutPins.js)
   rooms.push(fresh);
@@ -209,11 +214,11 @@ export function eatOrDrink(index, { gold = 0, gameMinutes = 0, online = undefine
 
 // The three clauses that stood here are all closed:
 //  - (RETIRED by TK-iv: the TALK button. tavernWindow.js:371, and the
-//    KeyT arm at :343, fire hooks.onTalk; worldModes.js:4329 supplies
+//    KeyT arm at :343, fire hooks.onTalk; worldModes.js:4334 supplies
 //    it as openStaticNpc(pn, { forceTalk: true }), which reaches
-//    npcSession.talkToStaticNPC at worldModes.js:3247 - TalkManager.
+//    npcSession.talkToStaticNPC at worldModes.js:3252 - TalkManager.
 //    TalkToStaticNPC (TalkManager.cs:752-770). The guild popup's TALK
-//    button shares that door at worldModes.js:4436, popupTalkToStaticNpc.)
+//    button shares that door at worldModes.js:4441, popupTalkToStaticNpc.)
 //  - (RETIRED by P1: AddPermanentScene (:246) keeps a rented room's
 //    interior loaded across a save. The port now has a permanent-scene
 //    set, and rentRoom names the scene it should hold.)

@@ -26,6 +26,7 @@ import { withPlayerLights, CANDLE } from '../src/scenes/magicCandle.js';
 import { peerTorchLight, torchPoseByte } from '../src/systems/playerTorch.js';
 import { effectiveLevel } from '../src/systems/mentorMode.js';   // SOFTCAP2: the mentor's level the spawn sites read (a free name there, the module's own import)
 import { applyChampion } from '../src/systems/champions.js';   // LOOT7: applyEliteScaling stands a layout champion (a free name there, the module's own import)
+import { inFireWard } from '../src/world/dungeonFires.js';   // REST3: the spawn's ward (a free name there, the module's own import)
 
 function sliced(path) {
   const S = readFileSync(new URL(path, import.meta.url), 'utf8');
@@ -82,9 +83,11 @@ const FNS = ['fitMaxima', 'buildFoeAt', 'applySpawnAlliance', 'applyEliteScaling
 const DECLS = ['isRoomFoe', 'onlineRoom', 'questPoolOps', 'abyssFoeView', 'ENCOUNTER_PLACE_ATTEMPTS', 'GENDER_BIT', 'q2', 'q3', 'canStandFoe',
   'SHARED_FOES_MAX', 'KILLED_BY_MS', 'FOES_FRAME_SLACK', 'ownLoose', 'ownQuestTag', 'ownShare', 'questTouched', 'ownPupKey', 'ownHeirIsMe', 'ownHeirElse',
   'foeMaxOf', 'FOE_MAX_PER_FRAME', '_maxLeft'];   // THE MERGE: AUDIT SETS M1's own lane pays a foe's maximum through these
+// AUDIT REST II F1 (RE-AIMED): the rest encounter's spot is one home now - encounterSpot, which _spawnEncounter calls
+// and a joiner's ask reads too - so it joins the optional helpers below
 const CTX_BODY = `
   ${DECLS.map(DC.declSrc).join('\n')}
-  ${['isPuppetFoe', 'runByAnother', 'takeRoomPlace'].map(DC.optional).join('\n')}
+  ${['isPuppetFoe', 'runByAnother', 'takeRoomPlace', 'encounterSpot'].map(DC.optional).join('\n')}
   ${FNS.map(DC.fnSrc).join('\n')}
   const abyss = ${DC.propSrc('api', 'abyss')};
   return { buildFoeAt, retypeFoe, _spawnEncounter, standSharedPuppet, applySharedRecords, foesFrame, isRoomFoe, spawnLooseFoe, ownLoose, ownFrame, standOwnPuppet, abyss };
@@ -122,6 +125,8 @@ function context({ authority, self }) {
     renownFoeDied: () => {}, reportPlayerKill: () => {}, addCorpseFood: () => {}, stampWonWeapons: () => {}, spawnCorpse: (f) => { f.corpse = true; },
     playerEntity: {}, _wallNow: () => 1000, _sharedFoe: () => false, fightN: () => 1,
     placeFoeEnv: (o) => o, entityOccupancy: () => () => false, fieldOfView: () => 1.2, placeFoeFreely: () => ({ x: 6, y: 0, z: 6 }),
+    inFireWard, dungeonFires: [],   // REST3: the spawn's ward (a free name there, the law's own import), no fire placed here
+    sharedClockOn: () => false, ambushNight: () => false,   // AUDIT REST-PARTY C1/A1: the ward online's alone, and a night running told of the stand - free names there too
     performance: { now: () => 0 },
   };
   const api = mount(CTX_BODY, state);
