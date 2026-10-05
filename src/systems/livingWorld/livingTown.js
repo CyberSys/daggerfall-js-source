@@ -44,7 +44,8 @@ import { dayPlan, entryAt, isOutdoor, DAY_START_MIN, DAY_MIN } from './dayPlan.j
 import { BUILDING_TYPES } from '../../world/buildingNames.js';
 import { createPathBook, pointAlong } from './townPaths.js';
 import { spotCircles, circleLine, circleStands, aloneStand, ROUND_S, lineMinutes } from './meetups.js';
-import { LIVING_GREETINGS, fillLine, firstNameOf } from './lines.js';
+import { LIVING_GREETINGS, LIVING_KEEPSAKE, fillLine, firstNameOf } from './lines.js';
+import { keepsakeFor } from './keepsake.js';
 import { lwSeed, textSeed } from './seed.js';
 import { placeKeyOf } from './lives.js';
 import { NEWS_DAYS } from './trips.js';
@@ -117,7 +118,10 @@ export class LivingTown {
    *   deadAt?: (res: Resident, t: number) => boolean,
    *   slay?: (res: Resident, t: number, seen: boolean) => void,
    *   sees?: (from: number[], to: number[]) => boolean,
-   * }} o - `tripsOf(day)` the roads' word on the town for a day (trips.js through the host's book: who of it is away
+   *   keepsakes?: () => readonly any[],
+   *   takeKeepsake?: (item: any) => void,
+   * }} o - LW6c: `keepsakes()` what the player carries (a keepsake carried home), `takeKeepsake(item)` it handed over.
+   *   `tripsOf(day)` the roads' word on the town for a day (trips.js through the host's book: who of it is away
    *   when, who of elsewhere stays here), undefined while its ways are still being asked; `armOf(res)` a resident's
    *   class sprite once its art is loaded, else null - `clock` the sky's minute (worldTick.js skyMinutes); `rate` the clock's minutes a real second now (a
    *   journey's scale in it); `mpm` the walking pace in the clock's metres a minute (LW0 decision 3). LW5: `ashore(res)`
@@ -714,6 +718,26 @@ export class LivingTown {
       }
     }
     return out.sort((a, b) => b.t - a.t);
+  }
+
+  /**
+   * LW6c: CARRIED HOME - the player speaking with one of a household while carrying the keepsake of one of theirs the
+   * deep kept (keepsake.js): it is handed over (`o.takeKeepsake`), the one spoken with remembers it (`saved`) and the
+   * rest of the household too (`helped`), and theirs are the moment's words (LIVING_KEEPSAKE). Answers the words, or null.
+   * @param {any} person @returns {string[]|null}
+   */
+  moment(person) {
+    const res = person?.living?.res;
+    if (!res) return null;
+    const item = keepsakeFor(this.o.keepsakes?.() ?? [], this.o.town.mapId, res.home, res.id);
+    if (!item) return null;
+    this.o.takeKeepsake?.(item);
+    const rel = this.o.relations?.();
+    const day = this.dayOf(this._now);
+    rel?.note(res.id, 'saved', day);
+    for (const k of this.kinOf(res)) rel?.note(k.id, 'helped', day);
+    const words = LIVING_KEEPSAKE[lwSeed(textSeed(res.id), textSeed(item.livingKeepsake.id)) % LIVING_KEEPSAKE.length];
+    return words.map((w) => fillLine(w, { who: firstNameOf(item.livingKeepsake.name), player: this.o.playerName?.() ?? '' }));
   }
 
   /** What a body's resident says instead of talking, when they count the player an enemy - else null. */

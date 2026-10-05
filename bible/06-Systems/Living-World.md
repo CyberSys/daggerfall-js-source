@@ -80,7 +80,7 @@ Taken at the design, in the request's own order; each is Mac's to overrule.
 - LW3 - the roads: trips, caravans, camps, the gear; the wilderness and the Overworld.
 - LW4 - trouble on the road; LW4b - the fight stood live, the player's to turn.
 - LW5 - the ports; LW5b - the passage by sea.
-- LW6 - the deep; LW6b - the fallen in the deep.
+- LW6 - the deep; LW6b - the fallen in the deep; LW6c - carried home.
 - LW7 - the deeds; LW7b - friends and enemies beyond the walls; LW7c - the people who know you.
 - LW8 - the doors open; LW8b - the room's talk.
 
@@ -430,7 +430,25 @@ leaves its dead below, and the town says so (DIVE_NEWS); now a player can go dow
   is); one the deep takes while the player is below lies where the player is not (beyond `DEEP_LAY_M`, 15 m).
 - **Found**: the player coming within `DEEP_NOTICE_M` (4 m) of remains still lying there hears whose they are ("The
   remains of Ada Lark, of Wayrest.") - once a visit.
-- **Not yet:** their kin told of it (a word to the household, a keepsake carried home).
+- **Not yet:** their kin told of it - LW6c's.
+
+## LW6c - carried home (2026-10-05)
+
+`systems/livingWorld/keepsake.js` (`mintKeepsake`, `isKeepsake`, `keepsakeFor`, `KEEPSAKE_TEMPLATE`, `KEEPSAKE_KINDS`),
+`lines.js LIVING_KEEPSAKE`, `livingTown.js moment`, the talk's door (`scenes/townTalk.js`: `livingTalk.moment`) and the
+host's (`scenes/world.js`: the door, the town's `keepsakes`/`takeKeepsake`, the remains' keepsake). Mac: "make friends or
+enemies, and explore a dynamic world" - what the deep kept can be carried home.
+
+- **The keepsake.** Each of the fallen of a dive carries one, laid with their remains (LW6b): a locket, a ring, a brooch
+  or a charm - their own, by their id (`KEEPSAKE_KINDS`) - an item of the port's own (DECLARED: template 1800, a custom
+  row registered at import as the port's others are; worth nothing to a merchant, on no shelf, no stack), named for
+  them ("Ada Lark's locket") and marking whose it was (`livingKeepsake`: their id, name, town and home).
+- **Carried home** (`moment`). The player speaking with one of the household the fallen lived with (their town, their
+  home - never one holding the fallen's own place, a newcomer among them) while carrying it: before any words (and a
+  refusal first - an enemy takes nothing from the player) it is handed over (`takeKeepsake`), the one spoken with
+  remembers it (`saved`) and the rest of the household too (`helped`), and their words stand on the parchment
+  (`LIVING_KEEPSAKE`, the fallen's first name and the player's; an ActionTextBox, the talk's own) - the conversation
+  another time.
 
 ## LW7 - the deeds (2026-10-05)
 

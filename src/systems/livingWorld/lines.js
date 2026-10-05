@@ -145,6 +145,14 @@ export const NIGHT_TALKS = Object.freeze([
   S('Did you hear something?', 'Just the wind.', '...I hope.'),
 ]);
 
+/** LW6c: the words of one of a household handed home the keepsake of one of theirs the deep kept (livingTown.js moment) -
+ *  `{who}` the fallen's first name, `{player}` the player's. */
+export const LIVING_KEEPSAKE = Object.freeze([
+  S('This is {who}\'s.', 'You found {who}? Down there?', 'We had given up hope of anything coming home. Thank you.'),
+  S('Where did you get this?', '...So that is where {who} lies.', 'Thank you for bringing it home. We will not forget it.'),
+  S('{who}\'s. I would know it anywhere.', 'You are welcome in this house, {player}. Always.'),
+]);
+
 /** LW8b: THE ROOM'S OWN TALK - two or three met inside a building, by the room's kind (`roomKindOf`): the tavern's, the
  *  temple's, a shop's, the guild hall's, the palace's, a home's. */
 export const ROOM_TALKS = Object.freeze({

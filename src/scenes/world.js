@@ -121,6 +121,7 @@ import { createDeepRemains } from './deepRemains.js';   // LW6b: the fallen of a
 import { fallenIn } from '../systems/livingWorld/trips.js';   // LW6b: ...the deep's word of them
 import { enemyLootTableKey } from '../systems/loot.js';   // LW6b: ...what they carried, their class's table
 import { goldStack } from '../systems/inventory.js';   // LW6b: ...and their purse
+import { mintKeepsake } from '../systems/livingWorld/keepsake.js';   // LW6c: ...and their keepsake, carried home
 import { createLivingIndoors } from './livingIndoors.js';   // LW8: the residents inside the building the player is in
 import { createTravellerSprites, classLookOf } from '../world/travellerSprites.js';   // LW3: their bodies, and the armed walk's sprite
 import { GUARD_TEXTURE, MobilePerson, PERSON_TEXTURES, PERSON_MOVE_SPEED } from '../characters/mobilePerson.js';
@@ -2438,6 +2439,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const level = Math.max(1, res.level | 0);
     const items = generateLootItems(enemyLootTableKey(res.cls, look.basics.lootTableKey ?? '-'), { level, gender: res.sex ?? 'male' });
     items.push(createRandomWeapon(level), createRandomArmor(level), goldStack(5 + Math.floor(Math.random() * 20 * level)));
+    items.push(mintKeepsake(res));   // LW6c: their own keepsake, for their household
     return d.layRemains(items, feet, { archive: corpse.archive, record: corpse.record });
   };
   const livingRemainsStep = (now) => {
@@ -2477,6 +2479,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     talked: (p) => livingIndoors?.town()?.talked(p) ?? null,
     caught: (p) => livingIndoors?.caught(p) ?? null,
     toned: (p, tone) => livingIndoors?.town()?.toned(p, tone) ?? null,
+    moment: (p) => livingIndoors?.town()?.moment?.(p) ?? null,   // LW6c: a household at home handed a keepsake
   };
   const livingTownOfMap = (mapId) => {
     for (const p of built.values()) if (p.population instanceof LivingTown && (p.population.o.town.mapId >>> 0) === (mapId >>> 0)) return p.population;
@@ -4582,6 +4585,9 @@ export async function bootWorld(canvas, renderer, params, status) {
             const tr = state.pixelTranslation(px, py);
             return { x: b.pos[0] - locOrigin[0] - tr[0], z: b.pos[1] - locOrigin[2] - tr[2] };
           },
+          // LW6c: what the player carries, for a keepsake carried home - and the keepsake handed over
+          keepsakes: () => playerEntity.items ?? [],
+          takeKeepsake: (item) => { const i = playerEntity.items?.indexOf(item) ?? -1; if (i >= 0) playerEntity.items.splice(i, 1); },
         }) : new TownPopulation(nav, {
           suppressSpawns: () => racialSuppressPopulationSpawns(playerEntity),   // V4: the transformed lycanthrope empties the streets
           totalBlocks: loc.width * loc.height,

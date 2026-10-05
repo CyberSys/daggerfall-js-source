@@ -766,6 +766,10 @@ export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, reg
     // middle line, as the activation's other refusals are; DFU's walkers have no memory to refuse from
     const refusal = livingTalk?.refuses?.(target.person) ?? null;
     if (refusal) { setMidScreenText(refusal); return; }
+    // LW6c: a household's moment before the words - the keepsake of one of theirs the deep kept, carried home (the
+    // body's town's: livingTown.js moment, the room's door): their words on the parchment, the conversation another time
+    const moment = target.person?.living?.town?.moment?.(target.person) ?? null;
+    if (moment) { showOverlay(new ActionTextBox(moment)); return; }
     const eng0 = engine();
     if (eng0?.session) {
       // T3c: the NPC keeps a stable per-person seed for the
