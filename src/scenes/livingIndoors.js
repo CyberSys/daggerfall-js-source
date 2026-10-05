@@ -178,6 +178,10 @@ export function createLivingIndoors(deps) {
   const inCircle = new Set();
   /** LW8c: the members of a talking circle (they stay put) */
   const talking = new Set();
+  /** LW-FIX1: the round the tables' circles were dealt for, and each table's circles as the round began */
+  let roomRound = /** @type {number|null} */ (null);
+  /** @type {Map<number, any[]>} */
+  const roundCircles = new Map();
   /** @type {Map<string, { text: string, until: number }>} */
   const words = new Map();
   /** @type {Map<string, number>} */
@@ -203,6 +207,8 @@ export function createLivingIndoors(deps) {
     circles = [];
     inCircle.clear();
     talking.clear();
+    roomRound = null;
+    roundCircles.clear();
     words.clear();
   }
 
@@ -255,8 +261,10 @@ export function createLivingIndoors(deps) {
         const dx = p[0] - feet[0], dz = p[2] - feet[2];
         return arriving || Math.hypot(dx, dz) > INDOOR_SEEN_M || dx * Math.sin(viewYaw) + dz * Math.cos(viewYaw) <= 0;
       };
+      /** LW8c: where one is now - on a walk, along it. */
+      const placeOf = (s) => (s.walk ? [s.walk.from[0] + (s.walk.to[0] - s.walk.from[0]) * (s.walk.t / s.walk.dur), s.walk.to[1], s.walk.from[2] + (s.walk.to[2] - s.walk.from[2]) * (s.walk.t / s.walk.dur)] : room.spots[s.spot]);
       const want = new Set(inside.map((x) => x.res.id));
-      for (const [id, s] of [...stood]) if (!want.has(id) && unseen(room.spots[s.spot])) stood.delete(id);
+      for (const [id, s] of [...stood]) if (!want.has(id) && unseen(placeOf(s))) stood.delete(id);   // LW-FIX1: one walking judged where they are, not where they make for
       for (const { res } of inside) {
         if (stood.has(res.id)) continue;
         const spot = freeSpot();
@@ -281,7 +289,6 @@ export function createLivingIndoors(deps) {
         s.walk = { from, to: room.spots[to], t: 0, dur: Math.hypot(room.spots[to][0] - from[0], room.spots[to][2] - from[2]) / INDOOR_WALK_SPEED };
         s.spot = to;   // theirs from the moment they set out
       }
-      const placeOf = (s) => (s.walk ? [s.walk.from[0] + (s.walk.to[0] - s.walk.from[0]) * (s.walk.t / s.walk.dur), s.walk.to[1], s.walk.from[2] + (s.walk.to[2] - s.walk.from[2]) * (s.walk.t / s.walk.dur)] : room.spots[s.spot]);
       // LW8b: who stands at each table; those at one face its middle, one alone the room (LW8c: one walking at none)
       /** @type {Map<number, { id: string, res: any, spot: number }[]>} */
       const tables = new Map();
@@ -314,10 +321,20 @@ export function createLivingIndoors(deps) {
       circles = [];
       inCircle.clear();
       talking.clear();
+      // LW-FIX1: a table's circles are the round's as it began - one who comes mid-round joins the next, and a circle one
+      // of whom goes is silent till then (never a talk re-dealt mid-script)
+      const round = beat ? Math.floor(t / beat.roundMin) : null;
+      if (round !== roomRound) { roomRound = round; roundCircles.clear(); }
       for (const [ti, at] of tables) {
-        if (at.length < 2 || !beat) continue;
-        const present = at.flatMap((m) => { const e = stays.get(m.id); return e ? [{ who: m.res, t0: e.t0, t1: e.t1 }] : []; });
-        for (const c of spotCircles(`in:${b.key}:${ti}`, present, t, beat.roundMin)) {
+        if (!beat) continue;
+        let dealt = roundCircles.get(ti);
+        if (dealt === undefined) {
+          const present = at.flatMap((m) => { const e = stays.get(m.id); return e ? [{ who: m.res, t0: e.t0, t1: e.t1 }] : []; });
+          dealt = at.length < 2 ? [] : spotCircles(`in:${b.key}:${ti}`, present, t, beat.roundMin);
+          roundCircles.set(ti, dealt);
+        }
+        for (const c of dealt) {
+          if (!c.members.every((m) => at.some((x) => x.id === m.id))) continue;   // one of them gone: silent till the next round
           circles.push(c);
           for (const m of c.members) { inCircle.add(m.id); if (c.talks) talking.add(m.id); }   // LW8c: who stays put
         }

@@ -630,6 +630,30 @@ Mac: NPCs "perform activities" - the room's residents no longer stand where they
   face, and the word to the player from where they are.
 - **Not yet:** a resident's errand in the room (the bar, a shelf, a hearth).
 
+## LW-FIX1 - the review's six (2026-10-05)
+
+An independent read of LW6 to LW8c (a reviewing agent, its findings verified against the code before any fix) found six
+defects; each is fixed and pinned (`test/lwfix1_review.test.js`, `tools/mutants/lwfix1.json`, and LW6's own host pin).
+
+- **The dungeon the player is in** (`world.js livingDungeonHere`) was read off `dungeonCtx.location()`, a seam the
+  dungeon's context does not carry - its summary is the abyss seam's (`dungeonCtx.abyss.location()`, DungeonSummary.
+  LocationData). So no company of LW6 was ever met, and no remains of LW6b (nor LW6c's keepsakes) ever laid, in the
+  game itself: the pins read the host's source alone. LW6's pin now checks the seam on both sides.
+- **A keepsake by the resident's own town** (`livingTown.js moment`): the talk's town was asked, so a visitor whose house
+  in their own town bore the fallen's house's number here took it (and their own household's never reached them away
+  from home); and the household noted is the resident's own town's alone.
+- **A walker's going** (`livingIndoors.js`): judged where they are on the walk, not where they made for - never gone
+  in plain view.
+- **A table's talk is the round's as it began**: each table's circles are dealt once a round (`roundCircles`) - one who
+  sits down mid-round joins the next round's talk, and a circle one of whom goes falls silent till the next round;
+  never a conversation re-dealt mid-script.
+- **The player's own dead**: the deep passes by a `slain` or `died` diver (the pool's corpse) as it does the fallen
+  beside the player; and the books are made again below when a turn is made there (`livingTurnsFresh`, for the
+  remains and the divers alike) - before, a diver slain below was laid again as the deep's once their company left.
+- **An empty room let go**: the layer is cleared on the way out whenever it holds a room, people or none (a house
+  asleep) - before, the same building entered again kept its old sounding and its residents waited for the player to
+  look away.
+
 ## The four hosts
 
 - `scenes/world.js` - WIRED (LW2 the towns, LW3 the roads and the Overworld).
@@ -640,5 +664,5 @@ Mac: NPCs "perform activities" - the room's residents no longer stand where they
   pass hands the room's talk its matrices (`host.livingSpeech`, LW8b); the
   street pool still answers nobody indoors (AUDIT 62 F14) and a building's static NPCs stay DFU's own.
 - `scenes/dungeonContext.js` - WIRED through the host (LW6): its own loose stand (`spawnLooseFoe` allied, `removeLooseFoe`)
-  and its `location()` carry the companies met in it; (LW6b) its resting places (`restingSpots`) and its pile
+  and its abyss seam's `location()` (LW-FIX1) carry the companies met in it; (LW6b) its resting places (`restingSpots`) and its pile
   (`layRemains`, `pileNear`) the fallen of a dive; it keeps no town population.

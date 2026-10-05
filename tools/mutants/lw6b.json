@@ -335,8 +335,8 @@
   {
     "name": "LW6b-host-fallen",
     "file": "src/scenes/world.js",
-    "old": "        return !turns.fallen.has(key) && !turns.spared.has(key) && !livingDivers?.stood(r.trip.id, r.res.id);",
-    "new": "        return !turns.spared.has(key) && !livingDivers?.stood(r.trip.id, r.res.id);",
+    "old": "        return !turns.fallen.has(key) && !turns.spared.has(key) && !turns.slain.has(key) && !turns.died.has(key) && !livingDivers?.stood(r.trip.id, r.res.id);",
+    "new": "        return !turns.spared.has(key) && !turns.slain.has(key) && !turns.died.has(key) && !livingDivers?.stood(r.trip.id, r.res.id);",
     "tests": [
       "test/lw6b_remains.test.js"
     ]
@@ -344,8 +344,8 @@
   {
     "name": "LW6b-host-spared",
     "file": "src/scenes/world.js",
-    "old": "        return !turns.fallen.has(key) && !turns.spared.has(key) && !livingDivers?.stood(r.trip.id, r.res.id);",
-    "new": "        return !turns.fallen.has(key) && !livingDivers?.stood(r.trip.id, r.res.id);",
+    "old": "        return !turns.fallen.has(key) && !turns.spared.has(key) && !turns.slain.has(key) && !turns.died.has(key) && !livingDivers?.stood(r.trip.id, r.res.id);",
+    "new": "        return !turns.fallen.has(key) && !turns.slain.has(key) && !turns.died.has(key) && !livingDivers?.stood(r.trip.id, r.res.id);",
     "tests": [
       "test/lw6b_remains.test.js"
     ]
@@ -353,8 +353,8 @@
   {
     "name": "LW6b-host-stood",
     "file": "src/scenes/world.js",
-    "old": "        return !turns.fallen.has(key) && !turns.spared.has(key) && !livingDivers?.stood(r.trip.id, r.res.id);",
-    "new": "        return !turns.fallen.has(key) && !turns.spared.has(key);",
+    "old": "        return !turns.fallen.has(key) && !turns.spared.has(key) && !turns.slain.has(key) && !turns.died.has(key) && !livingDivers?.stood(r.trip.id, r.res.id);",
+    "new": "        return !turns.fallen.has(key) && !turns.spared.has(key) && !turns.slain.has(key) && !turns.died.has(key);",
     "tests": [
       "test/lw6b_remains.test.js"
     ]

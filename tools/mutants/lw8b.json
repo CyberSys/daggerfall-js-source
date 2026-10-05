@@ -119,8 +119,8 @@
   {
     "name": "LW8b-no-circles",
     "file": "src/scenes/livingIndoors.js",
-    "old": "        if (at.length < 2 || !beat) continue;",
-    "new": "        if (true) continue;",
+    "old": "        if (!beat) continue;\n        let dealt",
+    "new": "        if (true) continue;\n        let dealt",
     "tests": [
       "test/lw8b_talk.test.js"
     ]
@@ -128,8 +128,8 @@
   {
     "name": "LW8b-round-beat",
     "file": "src/scenes/livingIndoors.js",
-    "old": "present, t, beat.roundMin)) {",
-    "new": "present, t, beat.lineMin)) {",
+    "old": "spotCircles(`in:${b.key}:${ti}`, present, t, beat.roundMin);",
+    "new": "spotCircles(`in:${b.key}:${ti}`, present, t, beat.lineMin);",
     "tests": [
       "test/lw8b_talk.test.js"
     ]

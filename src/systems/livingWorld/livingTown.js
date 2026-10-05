@@ -735,14 +735,14 @@ export class LivingTown {
   moment(person) {
     const res = person?.living?.res;
     if (!res) return null;
-    const item = keepsakeFor(this.o.keepsakes?.() ?? [], this.o.town.mapId, res.home, res.id);
+    const item = keepsakeFor(this.o.keepsakes?.() ?? [], res.town, res.home, res.id);   // LW-FIX1: their own town's home - a visitor's is in theirs
     if (!item) return null;
     this.o.takeKeepsake?.(item);
     const rel = this.o.relations?.();
     const now = this.o.clock?.() ?? this._now;   // the clock's own minute - a room's door asks it while the street stands still
     const day = this.dayOf(now);
     rel?.note(res.id, 'saved', day);
-    for (const k of this.kinOf(res)) rel?.note(k.id, 'helped', day);
+    for (const k of this.kinOf(res)) if (k.town === res.town) rel?.note(k.id, 'helped', day);   // LW-FIX1: their own, never another town's same-numbered house
     rel?.turn('home', `${item.livingKeepsake.id}@home`, { t: now, who: item.livingKeepsake.name });   // LW6d: a tale its town tells
     const words = LIVING_KEEPSAKE[lwSeed(textSeed(res.id), textSeed(item.livingKeepsake.id)) % LIVING_KEEPSAKE.length];
     return words.map((w) => fillLine(w, { who: firstNameOf(item.livingKeepsake.name), player: this.o.playerName?.() ?? '' }));

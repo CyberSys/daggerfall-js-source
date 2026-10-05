@@ -337,8 +337,8 @@
   {
     "name": "LW8-host-mode",
     "file": "src/scenes/world.js",
-    "old": "    if (!livingWorldOn() || _mode() !== 'interior') { if (livingIndoors?.size) livingIndoors.clear(); return; }",
-    "new": "    if (!livingWorldOn()) { if (livingIndoors?.size) livingIndoors.clear(); return; }",
+    "old": "    if (!livingWorldOn() || _mode() !== 'interior') { if (livingIndoors?.size || livingIndoors?.spots().length) livingIndoors.clear(); return; }",
+    "new": "    if (!livingWorldOn()) { if (livingIndoors?.size || livingIndoors?.spots().length) livingIndoors.clear(); return; }",
     "tests": [
       "test/lw8_indoors.test.js"
     ]
@@ -391,7 +391,7 @@
   {
     "name": "LW8-host-street-clear",
     "file": "src/scenes/world.js",
-    "old": "    if (livingIndoors?.size) livingIndoors.clear();   // LW8: the street again",
+    "old": "    if (livingIndoors?.size || livingIndoors?.spots().length) livingIndoors.clear();   // LW8: the street again",
     "new": "    void 0;   // LW8: the street again",
     "tests": [
       "test/lw8_indoors.test.js"

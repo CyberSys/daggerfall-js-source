@@ -128,7 +128,7 @@
   {
     "name": "LW6c-household",
     "file": "src/systems/livingWorld/livingTown.js",
-    "old": "    for (const k of this.kinOf(res)) rel?.note(k.id, 'helped', day);",
+    "old": "    for (const k of this.kinOf(res)) if (k.town === res.town) rel?.note(k.id, 'helped', day);",
     "new": "    void 0;",
     "tests": [
       "test/lw6c_keepsake.test.js"

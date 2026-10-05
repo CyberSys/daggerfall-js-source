@@ -217,13 +217,13 @@ test('LW8 the hosts: the building\'s press offers a resident in the room before 
   const w = rd('src/scenes/world.js');
   assert.match(w, /livingBillboards: \(\) => \(livingIndoors\?\.batches\(\) \?\? \[\]\),/);
   assert.match(w, /livingPersonsAct: \(eye, dir, nearer\) => !!livingIndoors\?\.size && townTalk\.tryActivate\(eye, dir, livingIndoors\.seats\(\), nearer\),/);
-  assert.match(w, /if \(!livingWorldOn\(\) \|\| _mode\(\) !== 'interior'\) \{ if \(livingIndoors\?\.size\) livingIndoors\.clear\(\); return; \}/);
+  assert.match(w, /if \(!livingWorldOn\(\) \|\| _mode\(\) !== 'interior'\) \{ if \(livingIndoors\?\.size \|\| livingIndoors\?\.spots\(\)\.length\) livingIndoors\.clear\(\); return; \}/);   // LW-FIX1: an empty room too
   assert.match(w, /building: \(\) => \{ const b = modes\?\.interiorBuilding; const town = b \? livingTownOfMap\(b\.townMapId \?\? 0\) : null; return b && town \? \{ key: b\.buildingKey, town \} : null; \},/);
   assert.match(w, /floorAt: \(x, y, z\) => \{ const d = modes\?\.interiorCollider\?\.raycast\(\[x, y, z\], \[0, -1, 0\], 3\); return Number\.isFinite\(d\) \? y - d : null; \},/);
   assert.match(w, /staticFeet: \(\) => \(modes\?\.interiorCtx\?\.people \?\? \[\]\)\.filter\(\(p\) => p\.active !== false\)\.map\(\(p\) => \[p\.x, p\.y, p\.z\]\),/);
   assert.match(w, /if \(p\.population instanceof LivingTown && \(p\.population\.o\.town\.mapId >>> 0\) === \(mapId >>> 0\)\) return p\.population;/);
   assert.match(w, /livingIndoorsStep\(dt\);   \/\/ LW8/);
-  assert.match(w, /if \(livingIndoors\?\.size\) livingIndoors\.clear\(\);   \/\/ LW8: the street again/);
+  assert.match(w, /if \(livingIndoors\?\.size \|\| livingIndoors\?\.spots\(\)\.length\) livingIndoors\.clear\(\);   \/\/ LW8: the street again/);   // LW-FIX1: an empty room too
   assert.match(w, /caught: \(p\) => livingIndoors\?\.caught\(p\) \?\? null,/);
   assert.match(w, /refuses: \(p\) => livingIndoors\?\.town\(\)\?\.refuses\(p\) \?\? null,/);
   assert.match(w, /toned: \(p, tone\) => livingIndoors\?\.town\(\)\?\.toned\(p, tone\) \?\? null,/);

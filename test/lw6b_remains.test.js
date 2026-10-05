@@ -198,7 +198,7 @@ test('LW6b the dungeon and the streaming host: the dungeon\'s resting places (it
   assert.match(dc, /pileNear: \(feet, r\) => droppedLoot\._piles\.some\(\(p\) => Math\.hypot\(p\.pos\[0\] - feet\[0\], p\.pos\[2\] - feet\[2\]\) <= r && Math\.abs\(p\.pos\[1\] - feet\[1\]\) <= 2\),/);
   const w = rd('src/scenes/world.js');
   assert.match(w, /livingRemainsStep\(now\);   \/\/ LW6b/);
-  assert.match(w, /return !turns\.fallen\.has\(key\) && !turns\.spared\.has\(key\) && !livingDivers\?\.stood\(r\.trip\.id, r\.res\.id\);/);
+  assert.match(w, /return !turns\.fallen\.has\(key\) && !turns\.spared\.has\(key\) && !turns\.slain\.has\(key\) && !turns\.died\.has\(key\) && !livingDivers\?\.stood\(r\.trip\.id, r\.res\.id\);/);   // LW-FIX1: and the player's own dead
   assert.match(w, /laid: \(key\) => livingRelations\.turns\(\)\.laid\.has\(key\),\n\s+mark: \(key\) => livingRelations\.turn\('laid', key\),/);
   assert.match(w, /return d\.layRemains\(items, feet, \{ archive: corpse\.archive, record: corpse\.record \}\);/);
   assert.match(w, /const items = generateLootItems\(enemyLootTableKey\(res\.cls, look\.basics\.lootTableKey \?\? '-'\), \{ level, gender: res\.sex \?\? 'male' \}\);/);

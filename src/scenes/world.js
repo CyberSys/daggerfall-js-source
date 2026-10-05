@@ -2390,7 +2390,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // asked of the dives once a second, met and read each frame; a layer for each dungeon's pool, gone with it
   let livingDivers = null, _livingDiversAt = -Infinity, _livingDiversList = [];
   const livingDungeonHere = () => {
-    const loc = modes?.dungeonCtx?.location?.();
+    const loc = modes?.dungeonCtx?.abyss?.location?.();   // LW-FIX1: the dungeon's summary is its abyss seam's (DungeonSummary.LocationData) - it has no `location` of its own
     if (!loc) return null;
     const row = maps.getLocation(loc.regionIndex, loc.locationIndex);
     livingDungeonsIndex();
@@ -2422,6 +2422,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (now - _livingDiversAt >= 1000) {
       _livingDiversAt = now;
       const here = livingDungeonHere();
+      livingTurnsFresh();   // LW-FIX1: the books fresh below too
       _livingDiversList = here ? diversAt(here, skyMinutes(), livingTripWorld, { mpm: PERSON_MOVE_SPEED / livingBaseRate(), memo: _livingTripMemo }).divers : [];
     }
     livingDivers.frame(_livingDiversList, skyMinutes());
@@ -2462,10 +2463,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (now - _livingRemainsAt >= 1000) {
       _livingRemainsAt = now;
       const here = livingDungeonHere();
+      livingTurnsFresh();   // LW-FIX1: a turn made below (a diver slain) makes the books again here as in the street
       const turns = livingRelations.turns();
       _livingRemainsList = here ? fallenIn(here, skyMinutes(), livingTripWorld, { mpm: PERSON_MOVE_SPEED / livingBaseRate(), memo: _livingTripMemo }).remains.filter((r) => {
         const key = livingTripTurnKey(r.res, r.trip);
-        return !turns.fallen.has(key) && !turns.spared.has(key) && !livingDivers?.stood(r.trip.id, r.res.id);
+        return !turns.fallen.has(key) && !turns.spared.has(key) && !turns.slain.has(key) && !turns.died.has(key) && !livingDivers?.stood(r.trip.id, r.res.id);   // LW-FIX1: and the player's own dead (the pool's corpses)
       }) : [];
     }
     livingRemains.frame(_livingRemainsList);
@@ -2486,7 +2488,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     return null;
   };
   const livingIndoorsStep = (dt) => {
-    if (!livingWorldOn() || _mode() !== 'interior') { if (livingIndoors?.size) livingIndoors.clear(); return; }
+    if (!livingWorldOn() || _mode() !== 'interior') { if (livingIndoors?.size || livingIndoors?.spots().length) livingIndoors.clear(); return; }   // LW-FIX1: a room with nobody in it let go too (a house asleep) - the next way in sounds it again
     livingIndoors ??= createLivingIndoors({
       sprites: createTravellerSprites({ renderer, getTexture, uploadRecordFrame, living: _livingIndoorsDoor }),
       building: () => { const b = modes?.interiorBuilding; const town = b ? livingTownOfMap(b.townMapId ?? 0) : null; return b && town ? { key: b.buildingKey, town } : null; },
@@ -27836,7 +27838,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       livePersonBatches.push(...livingRoads.batches());
     } else if (livingRoads) livingRoads.clear();
     if (_livingWatchTurned.length) livingWatchStep();   // LW7: a struck watchman's guard, watched
-    if (livingIndoors?.size) livingIndoors.clear();   // LW8: the street again - the room's residents freed
+    if (livingIndoors?.size || livingIndoors?.spots().length) livingIndoors.clear();   // LW8: the street again - the room's residents freed (LW-FIX1: and an empty room's sounding)
     if (livingRemains) { livingRemains.clear(); livingRemains = null; }   // LW6b: ...and the deep's layer let go with its dungeon
     // G1: the guards drive + draw on the same flats' axis. WINFOE1
     // (2026-09-17, Mac: "enemies should still be able to do damage"): the
