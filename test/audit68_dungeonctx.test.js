@@ -423,6 +423,7 @@ test('AUDIT 68 S19-rest-alert-decay-wrong-clock (LIVED1): the rest decays the al
     sharedClockOn: () => false, worldMinutes: () => own,   // AUDIT LIVED1 A: the arm hands its rounds the world's sky
     survivalFeed: () => null, survivalEnvNow: () => null, runSurvivalMinutes: () => {}, foes: [], foeSinks: () => ({}),
     decayEnemyAlert, dfLocation: { mapTableData: { dungeonType: 0 } }, _spawnEncounter: () => {},
+    onlineRoom: () => false, restInLair: () => false,   // PIN MOVED (RVN7d: the rest's first roll asks after a revenant at home - none here)
     intermittentEnemySpawn: (ctx) => { rolled.push(ctx.enemyAlertActive); return null; },
     camps: { tend: () => { state.tended = (state.tended ?? 0) + 1; } },   // AUDIT REST II H3: the arm tends my Campfire through the night
   };

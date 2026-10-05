@@ -232,7 +232,7 @@ import { elitesAllowed, pickDungeonElites, promoteEliteFoe, grantEliteLoot, elit
 import { ELITE_FOE_MULTIPLIER, ELITE_HEALTH_SCALE, ELITE_DAMAGE_SCALE, ELITE_LOOT_DROP_MULT, ELITE_LOOT_QUALITY_MULT } from '../world/spawnedDungeons.js';   // ELITE: an elite spawn's foe count and strength
 import { ENEMY_BASICS, enemyDisplayName } from '../characters/enemyBasics.js';
 import { foeTitle } from '../systems/foeTitle.js';   // FOE-TITLE: what a revenant, a champion or an elite is called
-import { revenantFleeStep, revenantFleeHealth, revenantDeed, revenantSlain, revenantSay, revenantFleeEvent, revenantCorneredEvent, revenantEscapeEvent, revenantSlainEvent, revenantUnbrokenEvent, revenantFlinch, revenantSignatureEvent, revenantById } from '../systems/revenant.js';
+import { revenantFleeStep, revenantFleeHealth, revenantDeed, revenantSlain, revenantSay, revenantFleeEvent, revenantCorneredEvent, revenantEscapeEvent, revenantSlainEvent, revenantUnbrokenEvent, revenantFlinch, revenantSignatureEvent, revenantById, applyRevenant, grantRevenantLoot, revenantForLair, releaseRevenantStand, revenantSpawnOptions, revenantTauntEvent, revenantWakeEvent, revenantToReturn, REVENANT_TAUNT_DISTANCE } from '../systems/revenant.js';   // RVN7d: a revenant in its lair, its taunt, its band, a rest's return
 import { revenantMayYield, beginYield, yieldStep, slipEvent, kneelPose, beginExecution, executionStep, finishExecution, beginSpare, spareDone, fateDissolve, fateModel, dropFateHeld, revenantWillHolds, beginTearAway, revenantLastStandDue, beginLastStand, roarStep } from '../systems/revenantFate.js';   // REVENANT-FATE: beaten, it yields - kill it or spare it (the open world's law, one home)
 import { setBatchDissolve } from '../systems/dissolve.js';   // DISSOLVE
 import { createPortalSet } from './portalFx.js';   // COMPANION-PORTAL   // REVENANT-DUNGEON: a special foe of mine alone may run, and get away
@@ -278,7 +278,7 @@ import { foeHitFlash, setBatchHitFlash, puppetHurtStep, setBatchGlint, prefersRe
 import { coverDistance, coverStep, createCoverIndex, isCoverFlat, coverProxy } from '../ai/cover.js';   // TACT1: billboards are cover
 import { blowConnects, blowScaled } from '../ai/foeBlows.js';   // TACT4
 import { foeGlint, tacticsNow, beginRoar } from '../ai/tactics.js';   // TELL2: a wind-up's glint (bible/12-Enhanced-AI/Feud-Arc.md section 4.2); TELL8: the record's wind-up on the foes' clock; RVN4: a last stand's roar
-import { lastStandGlint, lastStandSize, pyreSpell } from '../systems/revenantFeud.js';   // RVN4: phase two's rim and size; RVN5: the pyre's blast
+import { lastStandGlint, lastStandSize, pyreSpell, LAIR_GOLD, bandMembers, bandName, bandWord, BAND_SCATTER_S, BAND_SPACING, RALLY_KIN } from '../systems/revenantFeud.js';   // RVN4: phase two's rim and size; RVN5: the pyre's blast; RVN7d: a lair's gold, its band
 import { blowWire, blowWireKey, applyBlowRecord, puppetBlowTurn, blowClassOf } from '../ai/puppetBlows.js';   // TELL8: a wind-up on the wire - the host's word, the joiner's puppet, each judging its own feet, a blow's class
 import { ambushNight } from '../systems/restAct.js';   // AUDIT REST-PARTY A1: a resting encounter stood breaks the night that rolled it
 
@@ -1352,6 +1352,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (!puppet && e.level == null) applyProgressionScalingTo(entity, basics);   // SOFTCAP1: tougher high-tier foes against skills past 100 (a puppet is its owner's build); ARENA2: never a bout fighter (the ladder is a fixed mountain)
       applySpawnAlliance(entity, e);   // MT-ii / AUDIT OH-F C4
       entity._feudPlace = 'dungeon';   // RVN1 (Feud-Arc.md 12): where a fight with it is fought, for its ledger
+      if (e.revenant && !puppet) applyRevenant(entity, e.revenant);   // RVN7d (Feud-Arc.md 18.4): a revenant stood here - its name and rank, before its loot
       // S1/E4b/AUDIT 18/AUDIT 24/LR1: SetEnemyCareer's whole loot chain -
       // the table on the PLAYER's level and gender, the equipment
       // appended and put on, the map/potion/recipe trio, the port's
@@ -1360,6 +1361,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // corpse carries it on death.
       spawnEnemyLoot(entity, e.mobileType, basics, D.playerEntity, { ...eliteLootOpts(e), where: 'dungeon' });   // ELITE: +20% drops, +20% quality; AUDIT OH-F B3: the dungeon's own
       if (e.eliteFoe) grantEliteLoot(entity, effectiveLevel(D.playerEntity));   // ELITE FOES: better loot
+      if (e.revenant && entity.revenant) grantRevenantLoot(entity, effectiveLevel(D.playerEntity), Math.random, { goldMult: e.lairStand ? LAIR_GOLD : 1 });   // RVN7d: its own drop - found in its lair, its gold x LAIR_GOLD
       const ai = new (getPref('enhancedAI') ? D.EnhancedEnemyAI : D.EnemyAI)(collider, pos, yawDeg * Math.PI / 180, {   // ENHANCED AI 4: the switch chooses the motor; the bake is read per step
         nav: () => enhancedNav.chf, navWorld: enhancedNav.world, navSeed: (yawDeg * 1000) | 0,
         // AUDIT 39: a THUNK, not a snapshot - TakeAction re-reads
@@ -1439,8 +1441,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (!puppet && e.level == null) applyProgressionScalingTo(entity, basics);   // SOFTCAP1: tougher high-tier foes against skills past 100 (a puppet is its owner's build); ARENA2: never a bout fighter
       applySpawnAlliance(entity, e);   // MT-ii / AUDIT OH-F C4
       entity._feudPlace = 'dungeon';   // RVN1 (Feud-Arc.md 12): where a fight with it is fought, for its ledger
+      if (e.revenant && !puppet) applyRevenant(entity, e.revenant);   // RVN7d (Feud-Arc.md 18.4): a revenant stood here - its name and rank, before its loot
       spawnEnemyLoot(entity, e.mobileType, basics, D.playerEntity, { ...eliteLootOpts(e), where: 'dungeon' });   // ELITE: +20% drops, +20% quality. RF2: SetEnemyCareer's whole loot chain, one seam (the table, the kit, the trio, the port's roll)
       if (e.eliteFoe) grantEliteLoot(entity, effectiveLevel(D.playerEntity));   // ELITE FOES: the champion's own drop
+      if (e.revenant && entity.revenant) grantRevenantLoot(entity, effectiveLevel(D.playerEntity), Math.random, { goldMult: e.lairStand ? LAIR_GOLD : 1 });   // RVN7d: its own drop - found in its lair, its gold x LAIR_GOLD
       // C12: the behaviour motors - flying/spectral pursue in 3D at
       // the face with no gravity, aquatic ride WaterMove against the
       // block water surface (beached = frozen, verbatim).
@@ -1580,12 +1584,12 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  Entity.Team from that copy, so BOTH per-instance fields turn and
    *  the shared frozen basics row does not - getting that wrong would
    *  ally every foe of the type. */
-  async function spawnLooseFoe(mobileType, position, { gender = null, yawRad = null, allied = false, questSpawn = false, loadID = null, level = null, bout = null, eliteFoe = false } = {}) {
+  async function spawnLooseFoe(mobileType, position, { gender = null, yawRad = null, allied = false, questSpawn = false, loadID = null, level = null, bout = null, eliteFoe = false, revenant = null, lairStand = false } = {}) {   // RVN7d: a revenant (its record), found in its lair
     // AUDIT OH-F C3/C4: the alliance and the quest mark ride the build's record - DFU sets both before OnEnemySpawn
     // is raised (GameObjectHelper.cs:1286-1294's QuestSpawn, SetupDemoEnemy.cs:85-86's team), and a rebuild keeps them
     // ARENA2: a bout fighter (scenes/arenaBouts.js) at its tier's `level`, carrying its `bout` from its first frame -
     // no loot (nobody dies on the sand to drop it), and never the room's (the instance is one player's)
-    const e = { mobileType, gender, x: position[0], y: position[1], z: position[2], spawnDistanceType: 0, ...(allied ? { allied: true } : {}), ...(questSpawn ? { questSpawn: true } : {}), ...(loadID != null ? { loadID } : {}), ...(Number.isFinite(level) ? { level } : {}), ...(eliteFoe ? { eliteFoe: true } : {}) };   // SEARCH1: a searched grave's elite - applyEliteScaling and grantEliteLoot read the record's mark
+    const e = { mobileType, gender, x: position[0], y: position[1], z: position[2], spawnDistanceType: 0, ...(allied ? { allied: true } : {}), ...(questSpawn ? { questSpawn: true } : {}), ...(loadID != null ? { loadID } : {}), ...(Number.isFinite(level) ? { level } : {}), ...(eliteFoe ? { eliteFoe: true } : {}), ...(revenant ? { revenant, lairStand: !!lairStand } : {}) };   // SEARCH1: a searched grave's elite - applyEliteScaling and grantEliteLoot read the record's mark; RVN7d: a revenant's record
     const f = await buildFoeAt(e, false);
     if (!f) return null;
     if (yawRad != null && f.ai) f.ai.yaw = yawRad;
@@ -1606,6 +1610,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   /** REVENANT-DUNGEON: a fleeing foe out of reach - retired through the quest pool's own door (no corpse, no kill; a
    *  layout foe due back as any it retires), made a revenant (or a stronger one), and said. */
   function escapeDungeonFoe(f, { slip = false, unbroken = false } = {}) {
+    scatterDungeonBand(f);   // RVN7d: gone - its band breaks
     questPoolOps.removeFoe(f);
     f.fleeing = false;
     f.escaped = true;
@@ -1638,12 +1643,93 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const bark = ENEMY_BASICS[f.mobileType]?.barkSound;
     if (bark != null) audio.play3d(bark, [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], 1, { maxDistance: 24, pitch: 0.6 });
     if (ev) revenantSay(ev, (l) => hudText.add(l));
+    if (ev && (f.entity.revenant.rank | 0) >= 5) rallyDungeonBand(f);   // RVN4 rank 5, built underground with RVN7d
   }
   /** RVN3 (Feud-Arc.md 14.2): its will unbroken at the killing blow - it tears away into the smoke, the open world's law. */
   function tearAwayDungeonFoe(f) {
     if ((!foeDeps || !f.ai?._armedTargeting || foeDeps.isLocalPlayerTarget(f.ai?.target)) && f.ai?.detected) setEnemyAlert(playerEntity, false);
+    scatterDungeonBand(f);   // RVN7d
     beginTearAway(f, () => escapeDungeonFoe(f, { unbroken: true }));
     audio.play3d(SOUND.Burning, [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], 0.8, { maxDistance: 16 });
+  }
+  // ── RVN7d (bible/12-Enhanced-AI/Feud-Arc.md 18.4): A REVENANT IN ITS LAIR, and its band ───────────────────────────
+  /** This dungeon's map pixel - a revenant's lair is named by it (RVN7a's door, `lairHere`, names the same). */
+  function lairPixel() {
+    const mt = dfLocation.mapTableData;
+    if (!mt) return null;
+    const p = longitudeLatitudeToMapPixel(mt.longitude, mt.latitude);
+    return { px: p.x, py: p.y };
+  }
+  /** A spot about `at` - PlaceFoeFreely's ring, a camp member's law, out to `max` m; null with none. */
+  function spotAbout(at, max) {
+    const env = placeFoeEnv({ collider, playerFeet: [at[0], at[1] + 0.9, at[2]], playerYawRad: Math.random() * Math.PI * 2, fovDegrees: 0, isOccupied: entityOccupancy((g) => g.ai?.feet ?? g.feet ?? (Number.isFinite(g.x) ? [g.x, g.y, g.z] : null), () => foes, lastPlayerFeet ?? null) });
+    for (let i = 0; i < 4; i++) { const sp = placeFoeFreely(env, { minDistance: 1, maxDistance: max, lineOfSightCheck: false }); if (sp) return sp; }
+    return null;
+  }
+  /** ITS LAIR STAND - entering its lair while it is living, unsworn, not out, and due or known: it stands at the layout
+   *  marker farthest from the entrance, FOUND RESTING (unaware - it hunts nobody until it sees or hears me, so a first
+   *  blow may be a backstab), its drop's gold x LAIR_GOLD, its band about it. A loose foe of mine (online, on the room's
+   *  SUMMON-SYNC lane - never a room's layout foe). Answers the stand, or null. */
+  async function standLairRevenant() {
+    if (!foeDeps || !collider) return null;
+    const r = revenantForLair(playerEntity, lairPixel());
+    if (!r) return null;
+    const from = dungeon.enterMarker ?? dungeon.startMarker ?? null;
+    const marks = (_layoutEnemies ?? []).filter((m) => Number.isFinite(m?.x) && Number.isFinite(m?.z));
+    const far = from && marks.length ? marks.reduce((a, m) => (Math.hypot(m.x - from.x, m.z - from.z) > Math.hypot(a.x - from.x, a.z - from.z) ? m : a)) : marks[0] ?? null;
+    if (!far) { releaseRevenantStand(r); return null; }
+    const sp = spotAbout([far.x, far.y, far.z], 4) ?? { x: far.x, y: far.y, z: far.z };
+    const so = revenantSpawnOptions(r, effectiveLevel(playerEntity));
+    const f = await spawnLooseFoe(r.mobileType, [sp.x, sp.y, sp.z], { gender: so.gender, level: so.level, revenant: r, lairStand: true }).catch(() => null);
+    if (!f || !f.entity?.revenant) { releaseRevenantStand(r); return null; }
+    f._lairStand = true;
+    if (f.ai) { f.ai.detected = false; f.ai.target = null; }   // found resting: it hunts nobody yet
+    standDungeonBand(f, bandMembers(r, effectiveLevel(playerEntity)));
+    return f;
+  }
+  /** RVN6's band, underground (scenes/exteriorFoes.js standBand's law): placed about it, loose (the dungeon's save
+   *  carries no loose foe, nor its master), ordinary, marked, in its camp, named. `portal`: RVN4's rank 5. */
+  function standDungeonBand(f, members, { portal = false } = {}) {
+    const id = f?.entity?.revenant?.id;
+    if (!id || f.dead || !members?.length) return [];
+    const r = revenantById(id);
+    const name = r ? bandName(r) : null;
+    const campId = f.entity.campId ?? (f.entity.campId = `rvn:${id}`);
+    const at = [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]];
+    return members.map((m) => {
+      const sp = spotAbout(at, BAND_SPACING);
+      if (!sp) return null;
+      if (portal) portals.open([sp.x, sp.y, sp.z]);
+      return spawnLooseFoe(m.mobileType, [sp.x, sp.y, sp.z], { level: m.level, yawRad: f.ai.yaw }).then((g) => {
+        if (!g?.entity) return null;
+        g.retinueOf = id; g.entity.retinueOf = id; g.entity.campId = campId; g.entity.bandName = name;
+        if (f._lairStand && g.ai) { g.ai.detected = false; g.ai.target = null; }   // resting with it
+        if (portal) g.portalFx = { dir: 'in', at: Date.now(), delay: 220, ms: 640 };
+        return g;
+      }).catch(() => null);
+    }).filter(Boolean);
+  }
+  /** RVN6's scatter, underground: each follower not already running breaks and runs from it, gone when its run is spent. */
+  function scatterDungeonBand(f) {
+    const id = f?.entity?.revenant?.id;
+    if (!id) return 0;
+    let n = 0;
+    for (const g of foes) {
+      if (g === f || g.dead || g.retinueOf !== id || g.scattering || !g.ai) continue;
+      g.scattering = true;
+      g.ai.flee(f.ai.feet, BAND_SCATTER_S);
+      n++;
+    }
+    if (n) hudText.add(`The ${(bandWord(f.mobileType) ?? 'band').toLowerCase()} scatters.`);
+    return n;
+  }
+  /** RVN4's rank 5, underground: its survivors set on me from its feet; none left, RALLY_KIN of its kin through a portal. */
+  function rallyDungeonBand(f) {
+    const id = f.entity.revenant.id;
+    const live = foes.filter((g) => g !== f && !g.dead && g.retinueOf === id && !g.scattering && g.ai);
+    for (const g of live) { g.ai.detected = true; g.ai.makeHostileToPlayer?.(undefined, f.ai.feet); }
+    if (live.length) return live.length;
+    return standDungeonBand(f, bandMembers(revenantById(id), effectiveLevel(playerEntity), RALLY_KIN), { portal: true }).length;
   }
   // ── REVENANT-FATE underground: the open world's law (scenes/exteriorFoes.js), for a foe of the player's alone ─────
   const portals = createPortalSet({ renderer, audio });   // COMPANION-PORTAL: this place's own, drawn with its foes
@@ -1652,6 +1738,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   function yieldDungeonFoe(f) {
     if ((!foeDeps || !f.ai?._armedTargeting || foeDeps.isLocalPlayerTarget(f.ai?.target)) && f.ai?.detected) setEnemyAlert(playerEntity, false);
     const ev = beginYield(playerEntity, f, { now: Date.now() });
+    scatterDungeonBand(f);   // RVN7d: it kneels - its band breaks
     // AUDIT (2026-10-02): a FLYER beaten kneels on the floor below, never in the air out of the player's reach
     if (f.ai?.flies) { const g = floorLanding(collider, [f.ai.feet[0], f.ai.feet[1] + 0.1, f.ai.feet[2]]); if (g && g[1] < f.ai.feet[1]) f.ai.feet[1] = g[1]; }
     audio.play3d(SOUND.BodyFall, [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], 0.8, { maxDistance: 16 });
@@ -1714,6 +1801,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         reportPlayerKill(f.entity, { kind: 'melee' });
         renownFoeDied(f);
         raiseEnemyDeath(f.entity, { luck: liveStat(playerEntity, 'luck') });
+        scatterDungeonBand(f);   // RVN7d: executed - its band broke at its kneel
         const items = finishExecution(playerEntity, f);
         f.executing = null;
         questPoolOps.removeFoe(f);   // gone with no body
@@ -2351,6 +2439,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // standalone host's ActivateMobileEnemy arm (PlayerActivate.cs
   // :1667-1669 - the failed pickpocket's room-wide aggro).
   const makeAreaHostile = () => makeEnemiesHostile(foes);
+  let _lairAsked = false;   // RVN7d: its lair's revenant asked for, once a visit
   let lastPlayerFeet = null, lastPlayerHeight = CAPSULE_HEIGHT;   // ROAD-H H2: the LIVE player capsule the last frame carried - explodeAt measures the AoE sphere against it (DaggerfallMissile.cs:481)
   // (enhancedNav is declared beside `foes` at the top of this function -
   // see the note there for why it cannot live here.)
@@ -2455,7 +2544,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  asleep is allowed to be standing over you when you wake. The band
    *  and the flag both ride in on the hit; encounters.js carries them
    *  per arm because they are the spawner's arguments. */
-  async function _spawnEncounter({ mobileType, minDistance, maxDistance, lineOfSightCheck }, { feet = lastPlayerFeet, yaw = _motorYaw, shared = false, asked = null } = {}) {   // REST-SYNC: a joiner's feet when the host stands it by them; `shared` the room's; AUDIT III E1: `asked` the joiner's spot
+  async function _spawnEncounter({ mobileType, minDistance, maxDistance, lineOfSightCheck }, { feet = lastPlayerFeet, yaw = _motorYaw, shared = false, asked = null, revenant = null, lairStand = false } = {}) {   // RVN7d: a rest's revenant (its record), found in its lair   // REST-SYNC: a joiner's feet when the host stands it by them; `shared` the room's; AUDIT III E1: `asked` the joiner's spot
     if (!feet || !foeDeps) return null;
     if (!ENEMY_BASICS[mobileType]) return null;
     const spot = (asked && askedSpotStands(asked, { minDistance, maxDistance }, feet)) || encounterSpot({ minDistance, maxDistance, lineOfSightCheck }, feet, yaw);   // AUDIT REST II F1: the one placement, the joiner's ask's too; AUDIT III E1: the spot the joiner's found, where it holds
@@ -2466,9 +2555,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const fly = (ENEMY_BASICS[mobileType].behaviour ?? 'General') === 'Flying';
     // NT2 (F210): no ad-hoc roll - buildFoeAt resolves an unspecified
     // gender through GetTextureArchive's own DFRandom arm.
+    const so = revenant ? revenantSpawnOptions(revenant, effectiveLevel(playerEntity)) : null;   // RVN7d: a returning one's gender and a class foe's level
     const f = await buildFoeAt({
-      mobileType, gender: 'unspecified',
+      mobileType, gender: so?.gender ?? 'unspecified',
       x: spot.x, y: fly ? spot.y + 1.5 : spot.y, z: spot.z, spawnDistanceType: 0,
+      ...(so ? { revenant, lairStand: !!lairStand, ...(Number.isFinite(so.level) ? { level: so.level } : {}) } : {}),
     }, false);
     if (f?.ai) f.ai.yaw = Math.atan2(feet[0] - spot.x, feet[2] - spot.z);   // LookAt player
     if (f && shared && !_ctxDead) { f._encId = ++_sharedSeq; _sharedById.set(f._encId, f); }   // REST-SYNC: the room's, by the room's number
@@ -2485,10 +2576,32 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  asks only where a spot stands outside the ward. And A1's latch is the joiner's too: a night running hears the ask
    *  at its next sub-tick (ambushNight), as the host's own encounter breaks the host's - it no longer runs on to the
    *  hour's check rolling again; a paced window (no night running) breaks at that check, as before. */
+  /** RVN7d: a rest in its own lair - a due revenant (not merely known) stands over me, its band about it. */
+  function restInLair() {
+    const r = revenantForLair(playerEntity, lairPixel(), { dueOnly: true });
+    if (!r) return false;
+    _spawnEncounter({ mobileType: r.mobileType, minDistance: 2, maxDistance: 5, lineOfSightCheck: false }, { revenant: r, lairStand: true }).then((f) => {
+      if (!f?.entity?.revenant) { releaseRevenantStand(r); return; }
+      f._lairStand = true; f._taunted = true;   // it has said what it came to say: it woke me
+      revenantSay(revenantWakeEvent(r, { archive: f.mobileArchive }), (l) => hudText.add(l));
+      standDungeonBand(f, bandMembers(r, effectiveLevel(playerEntity)));
+    }).catch(() => releaseRevenantStand(r));
+    return true;
+  }
+  /** RVN7d: a rest's encounter claimed by a due revenant (the open world's revenantToReturn), its band about it. */
+  function restReturn(hit) {
+    const r = revenantToReturn(playerEntity);
+    if (!r) return false;
+    _spawnEncounter({ ...hit, mobileType: r.mobileType }, { revenant: r }).then((f) => {
+      if (!f?.entity?.revenant) { releaseRevenantStand(r); return; }
+      standDungeonBand(f, bandMembers(r, effectiveLevel(playerEntity)));
+    }).catch(() => releaseRevenantStand(r));
+    return true;
+  }
   let _restAskAt = null;
   let _restAskSentAt = -Infinity;
   function restEncounter(hit) {
-    if (!onlineRoom()) return _spawnEncounter(hit);
+    if (!onlineRoom()) return restReturn(hit) ? null : _spawnEncounter(hit);   // RVN7d: offline, a due revenant may answer it
     if (_authority) return _spawnEncounter(hit, { shared: true });
     const feet = lastPlayerFeet;
     if (!feet) return null;
@@ -2597,6 +2710,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       dungeonType: dfLocation.mapTableData.dungeonType,
       playerLevel: effectiveLevel(playerEntity),   // SOFTCAP2: mentor mode - the group's level
     });
+    // RVN7d (bible/12-Enhanced-AI/Feud-Arc.md 18.4): in its own lair a due revenant answers the rest's first roll ("You
+    // wake to Grushnak standing over you."); and any roll that hits may be a due one's return - the open world's arm.
+    // Mine alone: online the rest's encounter is the room's (REST-SYNC)
+    if (l === 0 && !onlineRoom() && restInLair()) break;
     if (hit) { restEncounter(hit); break; }   // REST-SYNC: online the room's
     }
   };
@@ -6177,6 +6294,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // WORLD6b B2): a PEER's killing blow applied here speaks no notice of mine - the striker's own rings at the
       // striker, below in applyFoeRecord, when this host's record names it
       if (!peer) sayEnemyDied((l) => hudText.add(l), foe.mobileType, foe.entity);
+      if (foe.entity?.revenant) scatterDungeonBand(foe);   // RVN7d: it dies - its band breaks
       if (foe.entity?.revenant) { const nr = revenantSlain(playerEntity, foe.entity); if (nr && !peer) revenantSay(revenantSlainEvent(nr, playerEntity?.name, { archive: foe.mobileArchive }), (l) => hudText.add(l)); }   // REVENANT-DUNGEON: one that killed me here and stood, slain at last
       spawnCorpse(foe);
       playRareDrop(audio, foe.ai.feet, foe.entity.items);   // LR3: the chime for a Rare or better on the body
@@ -6692,6 +6810,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     });
     const _mobileBatches = [];   // C11: the frame's live sprite-mobile quads
     if (playerFeet) { lastPlayerFeet = [...playerFeet]; lastPlayerHeight = playerHeight; }
+    // RVN7d (bible/12-Enhanced-AI/Feud-Arc.md 18.4): a revenant at home - asked once, the first frame I stand here (the
+    // layout stood, every seam this host builds made)
+    if (playerFeet && !_lairAsked) { _lairAsked = true; standLairRevenant().catch(() => null); }
     if (_blockWaterOverride && playerFeet && blockAtXZ(playerFeet[0], playerFeet[2]) !== _blockWaterOverride.block) _blockWaterOverride = null;   // OH-D: a new block reads its own level   // ROAD-H H2: the enemy AoC blast reads the player's live capsule through castEnemySpell
     // ENHANCED AI 3b: ONE BAKE PER DUNGEON, off the frame, once the
     // player's feet are known - they are the anchor, the component the
@@ -6964,6 +7085,15 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (_flee === 'start' || _flee === 'run') _tgt = null;
       if (f.roaring) roarStep(f);   // RVN4: its roar spent - blows reach it again
       if (f.ai._sigCall || f.ai._blowPyre) signatureDungeonFrame(f);   // RVN5: its signature called, its pyre's blast
+      // RVN7d (Feud-Arc.md 17, 18.4): a band's follower scattering runs, and is gone when its run is spent (no corpse, no kill)
+      if (f.scattering && !(f.ai.fleeLeft > 0)) { questPoolOps.removeFoe(f); f.escaped = true; continue; }
+      if (f.scattering) _tgt = null;
+      // RVN7d: a revenant found in its lair says what it came to say once it is roused - in sight and near, once a stand
+      if (f._lairStand && !f._taunted && f.ai.inSight && f.ai.detected && _pf && Math.hypot(_pf[0] - f.ai.feet[0], _pf[2] - f.ai.feet[2]) < REVENANT_TAUNT_DISTANCE) {
+        f._taunted = true;
+        const r = revenantById(f.entity.revenant.id);
+        if (r) revenantSay(revenantTauntEvent(r, playerEntity?.name, { archive: f.mobileArchive }), (l) => hudText.add(l));
+      }
       // RVN3 (Feud-Arc.md 14.1): under half its health, its weakness unknown, it shies from it - once a stand
       if (f.entity?.revenant?.id && !f._flinched) { const ev = revenantFlinch(f, { archive: f.mobileArchive }); if (ev) revenantSay(ev, (l) => hudText.add(l)); }
       // CH3 (characters-8): a past-threshold landing bills the

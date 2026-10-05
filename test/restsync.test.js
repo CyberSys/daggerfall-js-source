@@ -68,6 +68,7 @@ function restDoors(over = {}) {
     // (encounterSpot), and a night running hears the ask at once (ambushNight) - here a spot stands and no night runs
     // (a paced window), so these doors keep their own question; test/auditrest2_fires.test.js asks the others
     encounterSpot: () => ({ x: 9, y: 0, z: 9 }), ambushNight: () => false,
+    restReturn: () => false,   // PIN MOVED (RVN7d: offline a due revenant may answer the rest's roll - none here)
     ...over,
   };
   state.Date = { now: () => state.clock };

@@ -299,7 +299,8 @@ test('REVENANT-DUNGEON, REVENANT-WIRE, the single-location host: a special foe o
   assert.match(d, /if \(_flee === 'escape'\) \{ escapeDungeonFoe\(f\); continue; \}/);
   assert.match(d, /if \(_flee === 'start' \|\| _flee === 'run'\) _tgt = null;/, 'running, it aims at nothing; its walk below');
   // PIN MOVED (RVN3: the unbroken's escape - the same door, its own words)
-  assert.match(d, /function escapeDungeonFoe\(f(?:, \{ slip = false(?:, unbroken = false)? \} = \{\})?\) \{\s*\n\s*questPoolOps\.removeFoe\(f\);/);
+  // PIN MOVED (RVN7d: its band scatters first - bible/12-Enhanced-AI/Feud-Arc.md 17, 18.4)
+  assert.match(d, /function escapeDungeonFoe\(f(?:, \{ slip = false(?:, unbroken = false)? \} = \{\})?\) \{\s*\n(?:\s*scatterDungeonBand\(f\);[^\n]*\n)?\s*questPoolOps\.removeFoe\(f\);/);
   assert.match(d, /if \(foe\.entity\?\.revenant\) \{ const nr = revenantSlain\(playerEntity, foe\.entity\);/);
   // the wire
   const base = { i: 1, t: 7, x: 0, f: [0, 0, 0], y: 0 };

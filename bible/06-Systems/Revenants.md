@@ -439,6 +439,10 @@ its kind or, one time in three, named.
 
 **The map and the journal (RVN7c).** A lair heard of is a blood-red circle with its name on the travel maps, and a hunt
 in the quest log ("Hunt: Grushnak the Butcher" - the way there from where the player stands). Abandoning the hunt
-forgets the lair until it is heard of again. The law: `bible/12-Enhanced-AI/Feud-Arc.md` section 18 and its RVN7a-c
-records.
+forgets the lair until it is heard of again.
+
+**The lair stand (RVN7d).** Enter its lair while it lives, unsworn, and is due or its lair known, and it is there - at
+the dungeon's far end, resting with its band (a first blow may be a backstab), its gold a quarter richer. Rest in its
+lair while it is due and it wakes you, standing over you. Any rest underground may be a due revenant's return. The law:
+`bible/12-Enhanced-AI/Feud-Arc.md` section 18 and its RVN7a-d records.
 

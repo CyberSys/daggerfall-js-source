@@ -613,6 +613,19 @@ export function revenantToReturn(player, { now = nowMinutes(), rolls = Math.rand
   due[0].outAt = Date.now();
   return due[0];
 }
+/** RVN7d (bible/12-Enhanced-AI/Feud-Arc.md 18.4): WHO IS AT HOME - entering the dungeon at `here` ({ px, py }), the
+ *  living, unsworn revenant whose lair it is, not out, and due or its lair known; CLAIMED as a return is (its stand
+ *  crosses awaits). Decided here: a Night-stalker is at home at any hour - the dark is its own underground. */
+export function revenantForLair(player, here, { now = nowMinutes(), dueOnly = false } = {}) {   // `dueOnly`: a rest's answer - due, never merely known
+  if (!revenantOn() || !here || !Number.isInteger(here.px) || !Number.isInteger(here.py)) return null;
+  ensureMirror(player);
+  const r = livingRevenants().filter((x) => !x.out && x.lair && x.lair.px === here.px && x.lair.py === here.py && (x.dueAt <= now || (!dueOnly && x.lairKnown)))
+    .sort((a, b) => b.rank - a.rank || a.dueAt - b.dueAt)[0] ?? null;
+  if (!r) return null;
+  r.out = true;
+  r.outAt = Date.now();
+  return r;
+}
 /** A claimed stand that stood nobody (no place for it, the pool full, a sweep) - free to come on a later roll. */
 export function releaseRevenantStand(r) {
   if (r && r.out && !r.defeated && !r.gone) { r.out = false; r.outAt = 0; }
@@ -667,7 +680,7 @@ export function revenantPresence(foes, { now = nowMinutes(), wall = Date.now() }
 
 // ── its drop ────────────────────────────────────────────────────────
 /** A revenant's drop, over its kind's: gold by level and rank, and gear on chances that grow with the rank. */
-export function revenantLoot(level = 1, rank = 1, rolls = Math.random) {
+export function revenantLoot(level = 1, rank = 1, rolls = Math.random, goldMult = 1) {
   const lv = Math.max(1, level | 0), rk = Math.max(1, Math.min(REVENANT_MAX_RANK, rank | 0));
   const out = [];
   const L = REVENANT_LOOT;
@@ -675,15 +688,15 @@ export function revenantLoot(level = 1, rank = 1, rolls = Math.random) {
   if (rk >= L.rareFromRank || rolls() < L.rareChance + L.rarePerRank * rk) { const it = tieredGear(lv, 'rare', rolls); if (it) out.push(it); }
   if (rolls() < L.legendaryChance + L.legendaryPerRank * rk) { const it = tieredGear(lv, 'legendary', rolls); if (it) out.push(it); }
   const [lo, hi] = L.goldPerLevel;
-  out.push(goldStack(Math.round(lv * rk * (lo + rolls() * (hi - lo)))));
+  out.push(goldStack(Math.round(lv * rk * (lo + rolls() * (hi - lo)) * (goldMult > 0 ? goldMult : 1))));   // RVN7d: found in its lair, x LAIR_GOLD
   return out;
 }
-/** Give a returned revenant its drop (once). */
-export function grantRevenantLoot(entity, level, rolls = Math.random) {
+/** Give a returned revenant its drop (once) - RVN7d: its gold x `goldMult` (LAIR_GOLD, found in its lair). */
+export function grantRevenantLoot(entity, level, rolls = Math.random, { goldMult = 1 } = {}) {
   if (!entity?.revenant || entity._revenantLoot) return;
   entity._revenantLoot = true;
   entity.items = entity.items ?? [];
-  entity.items.push(...revenantLoot(level ?? entity.level, entity.revenant.rank ?? 1, rolls));
+  entity.items.push(...revenantLoot(level ?? entity.level, entity.revenant.rank ?? 1, rolls, goldMult));
 }
 
 // ── what is said ────────────────────────────────────────────────────
@@ -758,8 +771,8 @@ const KICKERS = Object.freeze({
   arrive: 'Companion', dismiss: 'Sent away', downed: 'Companion down', kill: 'Companion', battle: 'Companion', release: 'Released',
   // RVN3: its weakness found or hinted; its will unbroken; RVN4: its last stand
   weakness: 'Weakness', unbroken: 'Unbroken', laststand: 'Last stand',
-  // RVN5: its signature, called out
-  signature: 'Signature',
+  // RVN5: its signature, called out; RVN7d: found in its lair
+  signature: 'Signature', lair: 'Its lair',
 });
 /** @typedef {{ kind: string, kicker: string, id: string|null, name: string, rank: number, sub: string, mood: string|null,
  *   portrait: { archive: number, record: number } | null, speech: string|null, body: string|null, line: string }} RevenantEvent */
@@ -892,6 +905,11 @@ export function forgetRevenantLair(id) {
   return true;
 }
 setHuntJournal({ abandon: (id) => forgetRevenantLair(id) });
+/** RVN7d (18.4): a rest in its own lair, answered - "You wake to Grushnak standing over you." */
+export function revenantWakeEvent(r, { archive = null } = {}) {
+  const body = `You wake to ${r.given} standing over you.`;
+  return revenantEvent('lair', r, { body, line: body, archive });
+}
 /** RVN4 (section 15): ITS LAST STAND, written on its record - the deed (`laststand`) at the character's minute. Answers
  *  the record, or null for one that is no revenant of mine. */
 export function revenantLastStand(player, entity, { now = nowMinutes() } = {}) {

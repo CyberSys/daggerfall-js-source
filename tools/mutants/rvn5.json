@@ -749,8 +749,8 @@
   {
     "name": "RVN5-kicker-dropped",
     "file": "src/systems/revenant.js",
-    "old": "  signature: 'Signature',\n",
-    "new": "",
+    "old": "  signature: 'Signature', lair: 'Its lair',",
+    "new": "  lair: 'Its lair',",
     "tests": [
       "test/rvn5_sig.test.js"
     ]

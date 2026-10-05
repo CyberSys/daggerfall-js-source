@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL, RVN1-RVN6 and RVN7a-c built; RVN7d-RVN13 next)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL and RVN1-RVN7 built; RVN8-RVN13 next)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -7,7 +7,7 @@ detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
 (section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts), AUDIT
-TELL, RVN1 to RVN6, and RVN7 in parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal); each slice's record is at the foot.**
+TELL, RVN1 to RVN6, and RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand); each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -777,6 +777,13 @@ deed underground makes that dungeon its lair.
   revenant arm; in its own lair, a due revenant answers the rest's first roll ("You wake to Grushnak standing over
   you.").
 - No purse (OPEN 15): the drop is the reward.
+- **As built (RVN7d; the record at the foot)**: the stand is asked once a visit, on the first frame the player stands
+  there (every seam the dungeon builds made); its place is PlaceFoeFreely's ring about the farthest marker (the marker
+  itself when none stands). Decided here: a Night-stalker is at home at any hour. Its band stands about it and rests
+  with it. A rest's roll that hits may be a due revenant's return anywhere underground (the open world's
+  `revenantToReturn`), its band about it; in its own lair a DUE one (not merely known) answers the rest's first roll and
+  stands over the player, waking them. Both are the player's own: online a rest's encounter is the room's (REST-SYNC).
+  The dungeon has no encounter cap, so its band and a rank-5 portal stand whole.
 
 ## 19. What it takes (RVN8)
 
@@ -2060,3 +2067,40 @@ and `dungeonContext.js`.
 - Pins `test/rvn7c_map.test.js` (7). Pin moved (marked `PIN MOVED (RVN7c: ...)`): `rvn7a_lair` (the page's lair line,
   now marked on the map). Mutants `tools/mutants/rvn7c.json` (35): 35 dead; `rvn7a`'s page mutant re-aimed by content
   - judged again: dead.
+
+### RVN7d - BUILT 2026-10-04 (the loot-rarity row on; the dungeon)
+
+- **Who is at home** - `revenant.revenantForLair(player, here, { dueOnly })`: the living, unsworn revenant whose lair is
+  `here` (this dungeon's map pixel), not out, and due or its lair known (`dueOnly`: due alone - a rest's ask) - the
+  higher rank, then the longer due; CLAIMED as a return is (`out`), freed by `releaseRevenantStand` when it stands
+  nobody. `revenantLoot`/`grantRevenantLoot` take a gold multiplier (`LAIR_GOLD`); `revenantWakeEvent` - the *Its lair*
+  kicker, "You wake to Grushnak standing over you."
+- **The build** - `scenes/dungeonContext.js buildFoeAt`, both builds (a person's, a monster's): a record carrying
+  `revenant` has it stood on the body before its loot (`applyRevenant`) and its drop after (`grantRevenantLoot`, its gold
+  x LAIR_GOLD when `lairStand`); `spawnLooseFoe` and `_spawnEncounter` carry the record (a returning person's gender and
+  level - `revenantSpawnOptions`).
+- **The stand** - `standLairRevenant`, asked once a visit on the first frame (`_lairAsked`): at the layout marker
+  farthest from the entrance (`dungeon.enterMarker`, else the start marker), a loose foe of mine (online on the room's
+  SUMMON-SYNC lane, never a room's layout foe), FOUND RESTING (`detected` false, no target - a first blow may be a
+  backstab, never on a Watchful one: RVN2's door), its band about it.
+- **Its band underground** - RVN6's law in the dungeon's pool: `standDungeonBand` (PlaceFoeFreely's ring, loose - the
+  dungeon's save carries no loose foe, nor its master - marked, in its camp, named, resting with it),
+  `scatterDungeonBand` (its kneel, tear-away, escape, death and execution; said once a break; a scattering follower
+  retired through the quest pool's door when its run is spent), `rallyDungeonBand` (RVN4's rank 5).
+- **Its taunt** - once roused (in sight, detected, within `REVENANT_TAUNT_DISTANCE`), once a stand.
+- **The rest** - `restInLair` (the first roll, its lair, due alone: it stands over me, its card, its band) and
+  `restReturn` (`restEncounter`'s offline arm: a roll that hits may be a due one's return, its band about it).
+- **A load** - the dungeon's save cuts its loose tail, so a revenant stood here does not survive one; its record stays
+  out until `revenantPresence` (the world host's tick, reading the door's foes beside its own pool) finds it gone and
+  frees it to come again later (`REVENANT_LOST_MINUTES` - REVENANT's own law).
+- **Four hosts** - `scenes/dungeonContext.js` WIRED (`scenes/dungeon.js` hosts it); `scenes/world.js`,
+  `scenes/worldModes.js`, `scenes/exterior.js`: no lair stands above ground (the open world's return is REVENANT's and
+  RVN6's) - `exterior.js` FLAGGED (section 32): its revenants roam.
+- **Not built here** - the lair stand on the wire beyond SUMMON-SYNC's loose lane (`rt`, RVN13); its own voice lines
+  (RVN12 - the taunt's bank stands in).
+- Pins `test/rvn7d_stand.test.js` (6). Pins moved (each marked `PIN MOVED (RVN7d: ...)`): `audit68_dungeonctx` (the
+  rest's harness asks after a revenant at home), `restsync` (the offline arm's harness), `encounterplace` (the
+  encounter door's signature and a returning person's gender), `loosefoespawn` (the loose door's signature and record),
+  `revenant_card` (the escape's door scatters its band first). Mutants `tools/mutants/rvn7d.json` (40): 40 dead. Mutant
+  records re-aimed by content (3): `rvn1` (2 - the dungeon's tag now stands above the record's arm), `rvn5` (the kicker
+  line now carries the lair's) - judged again: dead.
