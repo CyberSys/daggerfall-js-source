@@ -49,6 +49,7 @@ import { markPlayerHarm, playerHarmMark, clearPlayerHarm, HARM_MARK_STRUCK_MS } 
 import { playerDoor } from './playerDoor.js';
 import { MAX_ANSWERS_TELL_ME_ABOUT_OR_RUMORS } from './rumorMill.js';   // RVN7b: a person's one answer, the mill's own gate
 import { compassWord, distanceWord } from './bountyBoard.js';   // RVN7b: a town crier's words for where
+import { setHuntJournal, HUNT_QUEST_PREFIX } from './huntJournal.js';   // RVN7c: a hunt in the quest log, and its Abandon
 import { registerModSaveData } from './modSaveData.js';
 import { appStorage } from './appStorage.js';
 import { characterIdOf, mintCharacterId } from './characterId.js';
@@ -63,7 +64,7 @@ import { getSeed, setSeed, srand } from '../formats/dfRandom.js';
 import { personalityFor, isPersonality, personalityLabel, voiceLine, beastBody, possessive, MUTE_KINDS } from './revenantPersonality.js';   // REVENANT-VOICE: who it is, and how it talks
 // FEUD, Part B (bible/12-Enhanced-AI/Feud-Arc.md sections 12-26): what a revenant remembers - its record's new fields and
 // the draws it is born with (systems/revenantFeud.js), and the fight's ledger (systems/feudLedger.js, a leaf)
-import { RUMOR_CHANCE, RUMOR_PX, RUMOR_WEAK, RUMOR_NAMED, RUMOR_HINTS, weaknessKind, lairAfter, sameLair, feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK, lessonOf, withLesson, adaptEdge, adaptBlowClass, ADAPT, isWeakBlow, metalOf, WEAK, WEAK_NAMES, FLINCH_LINES, FLINCH_HEALTH, WEAKNESS_ELEMENTS, signatureStamp } from './revenantFeud.js';
+import { LAIR_RING_R, RUMOR_CHANCE, RUMOR_PX, RUMOR_WEAK, RUMOR_NAMED, RUMOR_HINTS, weaknessKind, lairAfter, sameLair, feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK, lessonOf, withLesson, adaptEdge, adaptBlowClass, ADAPT, isWeakBlow, metalOf, WEAK, WEAK_NAMES, FLINCH_LINES, FLINCH_HEALTH, WEAKNESS_ELEMENTS, signatureStamp } from './revenantFeud.js';
 import { tagHit, HIT_TAGS } from '../ui/hitNumbers.js';   // RVN3: the "Weakness" word on my blow's number
 import { SOUND } from './soundClips.js';   // RVN3: the hiss of a weakness found
 import { revenantSay as sayRevenant } from './revenantVoice.js';   // RVN3: the reveal's card (the re-export below binds no local name)
@@ -861,6 +862,36 @@ export function revenantRumor(here, session, { rolls = Math.random } = {}) {
   persist();
   return words;
 }
+/** RVN7c (bible/12-Enhanced-AI/Feud-Arc.md 18.3): THE LAIRS HEARD OF, ON THE MAPS - a circle at each living, unsworn
+ *  revenant's lair the player knows (`lairKnown`), named for it (ui/bountyMapMark.js's shape, in blood red). */
+export function revenantMapMarks() {
+  if (!revenantOn()) return [];
+  return livingRevenants().filter((r) => r.lair && r.lairKnown).map((r) => ({ cx: r.lair.px + 0.5, cy: r.lair.py + 0.5, r: LAIR_RING_R, label: r.given ?? r.name, id: r.id }));
+}
+/** RVN7c (18.3): THE HUNTS, IN THE QUEST LOG - each lair heard of as an active side quest (scenes/questBridge.js
+ *  questLog's shape, BOUNTY1's precedent): "Hunt: Grushnak the Butcher", the way there from `here` (my map pixel), no
+ *  clock. Its Abandon (systems/huntJournal.js) forgets the lair. */
+export function revenantHuntEntries(here = null) {
+  if (!revenantOn()) return [];
+  const line = (text) => ({ formatting: 'text', text });
+  return livingRevenants().filter((r) => r.lair && r.lairKnown).map((r) => {
+    const dx = Number.isInteger(here?.px) ? r.lair.px - here.px : 0, dy = Number.isInteger(here?.py) ? r.lair.py - here.py : 0;
+    const way = dx || dy ? `, ${distanceWord(Math.max(Math.abs(dx), Math.abs(dy)))} to the ${compassWord(dx, dy)}` : '';
+    const kind = enemyDisplayName(r.mobileType) ?? 'Revenant';
+    const lines = [`${kind}, rank ${revenantRankNumeral(r.rank)}.`, `Its lair: ${r.lair.name}${way} - marked on your map with a red circle.`, 'Find it there before it finds you.'];
+    return { id: `${HUNT_QUEST_PREFIX}${r.id}`, name: `Hunt: ${r.name}`, questName: 'HUNT', hunt: true, clockSeconds: null, messages: [lines.map(line)] };
+  });
+}
+/** RVN7c: a hunt given up - its lair forgotten (heard again, it comes back). */
+export function forgetRevenantLair(id) {
+  const r = revenantById(id);
+  if (!r || !r.lairKnown) return false;
+  r.lairKnown = false;
+  touch(r);
+  persist();
+  return true;
+}
+setHuntJournal({ abandon: (id) => forgetRevenantLair(id) });
 /** RVN4 (section 15): ITS LAST STAND, written on its record - the deed (`laststand`) at the character's minute. Answers
  *  the record, or null for one that is no revenant of mine. */
 export function revenantLastStand(player, entity, { now = nowMinutes() } = {}) {

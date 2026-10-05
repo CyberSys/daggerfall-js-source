@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL, RVN1-RVN6 and RVN7a-b built; RVN7c-RVN13 next)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL, RVN1-RVN6 and RVN7a-c built; RVN7d-RVN13 next)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -7,7 +7,7 @@ detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
 (section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts), AUDIT
-TELL, RVN1 to RVN6, and RVN7 in parts (RVN7a the lair, RVN7b the rumour); each slice's record is at the foot.**
+TELL, RVN1 to RVN6, and RVN7 in parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal); each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -755,6 +755,12 @@ deed underground makes that dungeon its lair.
   with its name, in `ui/bountyMapMark.js`'s shape.
 - A known lair is a journal row ("Hunt: Grushnak the Butcher - near the Tomb of Vaness, northeast") in the quest log's
   port-own fold (`scenes/bountyHost.js questLogEntries`'s precedent). Abandoning it forgets `lairKnown`.
+- **As built (RVN7c; the record at the foot)**: the circle is the bounty's, its radius and its reader
+  (`readBountyMarks`, with the lair's own fallback label) shared, in blood red (`#7a0a0a`); the classic region page
+  plots its texels as it plots a bounty's. The hunt's row: "Hunt: Grushnak the Butcher", "Orc, rank II.", "Its lair: Tomb
+  of Vaness, a long walk to the east - marked on your map with a red circle.", no clock; its Abandon (twice, as a
+  bounty's) through a leaf of its own, `systems/huntJournal.js` (the faces are lazy chunks, BOUNTY1's reason). A hunt
+  is never shared (the lair is the character's own).
 
 ### 18.4 The lair stand
 
@@ -2030,3 +2036,27 @@ and `dungeonContext.js`.
 - **Not built here** - the map's mark and the journal's row (RVN7c), the lair stand (RVN7d); the rumour's own voice
   lines (RVN12).
 - Pins `test/rvn7b_rumor.test.js` (5). Mutants `tools/mutants/rvn7b.json` (28): 28 dead.
+
+### RVN7c - BUILT 2026-10-04 (the loot-rarity row on; the world host's maps and journal)
+
+- **The marks** - `revenant.revenantMapMarks()`: a circle at each living, unsworn revenant's lair the player has heard
+  of, at its pixel's middle, `LAIR_RING_R` (a bounty's 1.5), named for it. `ui/bountyMapMark.js` gains the lair's ink
+  (`REVENANT_RING_CSS` blood red, its wash, its texel, its legend "Revenant lair") and the reader's fallback label.
+- **The maps** - the world host's map deps gain `revenants`; the held map (`ui/heldMap.js`) reads it on the bounty
+  circle's poll, hands it to the sheet and adds its legend; the ink sheet (`ui/inkMap.js paintInkOverlay`) paints it
+  with `paintBountyRing`'s new ink; the classic region page (`ui/travelMapWindow.js`) plots its ring's texels and
+  repaints when it changes.
+- **The journal** - `revenant.revenantHuntEntries(here)`: each lair heard of as an active side quest, `hunt:<id>`, the
+  way there from my map pixel (the boards' words), no clock; the world host folds them into `questBridge.questLog`
+  beside the bounties (the dungeon reads the same bridge). `systems/huntJournal.js` (a new leaf: 396 systems modules)
+  carries the Abandon - the pause window's Quests tab (`ui/enhancedMenu.js`) and the chronicle
+  (`ui/enhancedChronicle.js`) give a hunt its press (twice), never a share; `revenant.forgetRevenantLair` forgets the
+  lair and saves (heard again, it comes back).
+- **The page** - "Lair: Tomb of Vaness - on your map." once heard of.
+- **Four hosts** - `scenes/world.js` WIRED (the maps' dep, the quest log's fold); `scenes/worldModes.js` and
+  `scenes/dungeonContext.js` (`scenes/dungeon.js`) read the world host's maps and quest log; `scenes/exterior.js` -
+  FLAGGED (section 32): its revenants roam, so no lair is marked there.
+- **Not built here** - the lair stand (RVN7d).
+- Pins `test/rvn7c_map.test.js` (7). Pin moved (marked `PIN MOVED (RVN7c: ...)`): `rvn7a_lair` (the page's lair line,
+  now marked on the map). Mutants `tools/mutants/rvn7c.json` (35): 35 dead; `rvn7a`'s page mutant re-aimed by content
+  - judged again: dead.

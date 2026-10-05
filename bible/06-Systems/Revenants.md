@@ -435,6 +435,10 @@ moved is one the player must hear of again. The page says what the player knows 
 **The rumour (RVN7b).** Ask a townsperson for news within twenty map pixels of a living revenant's lair, or in its
 lair's region, and one time in three or so the answer is of it - its kind, its name, its lair, how far and which way -
 spending that person's one answer, and the player then knows its lair. One rumour in two carries its weakness, hinted by
-its kind or, one time in three, named. The law: `bible/12-Enhanced-AI/Feud-Arc.md` section 18 and its RVN7a and RVN7b
+its kind or, one time in three, named.
+
+**The map and the journal (RVN7c).** A lair heard of is a blood-red circle with its name on the travel maps, and a hunt
+in the quest log ("Hunt: Grushnak the Butcher" - the way there from where the player stands). Abandoning the hunt
+forgets the lair until it is heard of again. The law: `bible/12-Enhanced-AI/Feud-Arc.md` section 18 and its RVN7a-c
 records.
 

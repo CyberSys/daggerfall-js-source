@@ -162,7 +162,7 @@ export function bandWords(r, kindName = (t) => String(t)) {
 /** RVN7 (18.1; RVN12 completes the page): where it goes to ground - its lair as the player knows it. */
 export function lairWords(r) {
   if (!r?.lair?.name) return 'Lair: none - it roams.';
-  return r.lairKnown ? `Lair: ${r.lair.name}.` : 'Lair: unknown - the towns about it may have heard.';
+  return r.lairKnown ? `Lair: ${r.lair.name} - on your map.` : 'Lair: unknown - the towns about it may have heard.';   // RVN7c: and marked
 }
 /** Its scars, newest first and each once - the ways it was hurt and what it learned (a deed's scar is the history's). */
 export function scarWords(r) {
