@@ -98,6 +98,10 @@ export const WRATH_MAX = 3;
 export const FESTER = Object.freeze({ DAYS: 3, EVERY: 3, CATCHUP: 7, HEALTH: 0.10, BLOWS: 0.05 });
 /** RVN9 (20): does `day` (the character's) give a record due on `dueDay` a wrath? */
 export const festersOn = (dueDay, day) => { const past = day - dueDay - FESTER.DAYS; return past >= 0 && past % FESTER.EVERY === 0; };
+/** RVN10 (section 21.2): ROUTED - a special foe on me whose harm reached me within harmMark's HARM_FIGHT_MS (30 s), when
+ *  I get ROUT.DISTANCE (m) from it (or a jump takes me out of its pool), and a hurt in that fight left me under ROUT.LOW
+ *  of my health. */
+export const ROUT = Object.freeze({ DISTANCE: 70, LOW: 0.5 });
 
 // ── the scars (section 12) ──────────────────────────────────────────
 /** What a fight can leave on a record: a leading source (a weapon class, an element, `silver`), `mixed` (none leading),
@@ -482,11 +486,12 @@ export const SILVER_DOUBLED_KINDS = Object.freeze(new Set([M.SkeletalWarrior, M.
  *  teaches an adaptation `learned` does not hold. Decided here: a leading scar it already holds passes the lesson to the
  *  next (a revenant that has learned your blade learns the next thing you lean on); `mixed`, `other` and a deed teach
  *  nothing but the two that do (a kill by night; being run from - RVN10's `routed`); an element its `career` already
- *  resists or shrugs off teaches nothing (DFU's tolerance is its own - stacked, it was immunity). Null for none. */
+ *  resists or shrugs off teaches nothing (DFU's tolerance is its own - stacked, it was immunity). Null for none.
+ *  RVN10 (21.2): being run from is the lesson before any other ("it learns Relentless") - `routed` asked first. */
 export function lessonOf(kinds, learned, mobileType, career = null) {
   const held = new Set(learned ?? []);
   const slew = kinds.includes('slew');
-  for (const k of kinds) {
+  for (const k of kinds.includes('routed') ? ['routed', ...kinds] : kinds) {
     const a = k === 'night' ? (slew ? 'nightStalker' : null) : TEACHES[k] ?? null;
     if (!a || held.has(a)) continue;
     if (a === 'silverScarred' && !SILVER_DOUBLED_KINDS.has(mobileType)) continue;   // its kind's silver double is none to lose

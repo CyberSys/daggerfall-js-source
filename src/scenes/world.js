@@ -22,7 +22,8 @@ import { wodSiteId, yieldsTo } from '../world/wodShared.js';   // WOD7: a camp's
 import { alignBillboardToGround, alignControllerToGround } from '../world/groundAlign.js';   // WOD3: SpawnLoot's drop; CSA-D: BoardBoat's AlignControllerToGround
 import { PRIVATEERS_HOLD_BLOCK, HOLD_MODELS, HOLD_FLATS, holdModelMatrix, holdFireLights, rollHoldFoes } from '../world/wodPrivateersHold.js';   // WOD4: the camp at Privateer's Hold
 import { rollLootRarity, pileSource, dungeonRarityTier, dungeonFamily, stampWonWeapons } from '../systems/lootRarity.js';   // WOD3: LR1 over the camps' piles; SIGIL1: their weapons' sigils
-import { revenantToReturn, revenantSpawnOptions, revenantPresence, takeRevenantNotice, revenantSay, releaseRevenantStand, revenantRecord, revenantMomentEvent, revenantRumor, revenantMapMarks, revenantHuntEntries, revenantTakes } from '../systems/revenant.js';   // REVENANT: who comes back, and what the player is told
+import { revenantToReturn, revenantSpawnOptions, revenantPresence, takeRevenantNotice, revenantSay, releaseRevenantStand, revenantRecord, revenantMomentEvent, revenantRumor, revenantMapMarks, revenantHuntEntries, revenantTakes, revenantFelled, revenantFelledEvent, revenantRoutSweep, revenantRoutedEvent } from '../systems/revenant.js';   // REVENANT: who comes back, and what the player is told
+import { endPlayerFights } from '../systems/harmMark.js';   // RVN10 (bible/12-Enhanced-AI/Feud-Arc.md 21.2): a respawn's jump is no flight
 import { SKY_CLEAR } from '../render/renderer.js'; import { centreFromFeet } from '../characters/enemyAnchor.js';   // REVIEW 2026-09-05: one line, so the cites below it hold
 import { Arch3dFile } from '../formats/arch3dFile.js';
 import { requestLook, releaseLook, makeLookGate, bindCursorToggle, setCursorActive, cursorActive, holdCursor } from '../player/pointerLock.js';   // U45: bindCursorToggle is PlayerMouseLook.cursorActive; releaseLook: the chat's open (AUDIT CHAT C2); HERB-CURSOR: an act's free cursor
@@ -8005,12 +8006,19 @@ export async function bootWorld(canvas, renderer, params, status) {
       remove: (f) => d.removeLooseFoe(f), has: (f) => d.foes.includes(f), spot: spotOf(d.collider), fx: d.companionFx ?? null,
     };
   }
+  /** RVN10 (bible/12-Enhanced-AI/Feud-Arc.md 21.1): FELLED - my companion knocked out by `by`'s blow (the pool's record the
+   *  knock-out arm noted; none for a spell's, or a foe on another's machine): the deed `felled` on it, the companion's
+   *  name on it, and its card. */
+  const felledBy = (by, ally) => {
+    const r = by ? revenantFelled(playerEntity, by, ally) : null;
+    if (r) revenantSay(revenantFelledEvent(r, ally, { archive: by.archive ?? by.mobileArchive ?? null }), (l) => townTalk.say(l));
+  };
   const crewAshore = createCrewAshore({
     party: () => (navalOn() ? naval?.companions ?? null : null),
     place: companionPlace,
     leader: () => (playerSpawned ? { feet: [player.pos[0], player.pos[1], player.pos[2]], yaw: cam.yaw, grounded: !!player.grounded && !player.levitating && !player.swimming } : null),   // AUDIT CC-A3: on a floor or not
     now: () => Math.floor(playerTicker.ownMinutes),
-    onKnocked: (c) => naval?.companionKnocked?.(c),
+    onKnocked: (c, by) => { naval?.companionKnocked?.(c); felledBy(by, c.name); },   // RVN10: a special foe's blow fells him - a deed on it
   });
   // COMPANION-SLOTS: the crew's hands ashore take the player's side's slots with the sworn
   registerCompanionCount('crew', () => (navalOn() ? naval?.companions?.party?.length ?? 0 : 0));
@@ -8031,7 +8039,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     place: () => companionPlace({ crew: false }),
     leader: () => (playerSpawned ? { feet: [player.pos[0], player.pos[1], player.pos[2]], yaw: cam.yaw, grounded: !!player.grounded && !player.levitating && !player.swimming } : null),
     now: () => Math.floor(playerTicker.ownMinutes),
-    onKnocked: (c) => revenantCompanionSay('downed', c.name, `${c.title ?? 'It'} falls, and is carried off through a portal to recover.`),
+    onKnocked: (c, by) => {
+      revenantCompanionSay('downed', c.name, `${c.title ?? 'It'} falls, and is carried off through a portal to recover.`);
+      felledBy(by, revenantRecord(playerEntity, c.name)?.given ?? null);   // RVN10: a special foe's blow fells it - a deed on it, its given name on the deed
+    },
     onStood: (c, rec) => {
       const r = revenantRecord(playerEntity, c.name);
       applySwornStrength(rec.entity, r, { fresh: !(c.maxHealth > 0) });   // its rank's strength, as it fought me with; its whole once
@@ -10988,6 +10999,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // mid-fight left the fight standing and restoreWorld spawned the
     // save's copies on top of it. The distance cull spares anything
     // that has detected you, so nothing else was going to.
+    if (modEvent !== 'load') routByJump();   // RVN10 (Feud-Arc.md 21.2): a jump out of a fight routs me - never a load's
     handOverSiteFoes();
     exteriorFoes.clearLive();
     wodCarry.clear();   // WOD3/WOD4: a sweep is an unload - nothing carries past it
@@ -11467,6 +11479,12 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
 
   let _recalling = false;
+  /** RVN10 (bible/12-Enhanced-AI/Feud-Arc.md 21.2): ROUTED BY A JUMP - a Recall or a teleport taking me out of a fight:
+   *  each engaged special of the pool I leave (the door's) routed and told, before its sweep takes it. A respawn's jump
+   *  routs nobody (the death ended every fight - systems/harmMark.js endPlayerFights). */
+  function routByJump() {
+    for (const { r, f } of revenantRoutSweep(playerEntity)) revenantSay(revenantRoutedEvent(r, { archive: f.archive ?? f.mobileArchive ?? null }), (l) => townTalk.say(l));
+  }
   /** TeleportPlayer (:119-164) + the respawner's tail (:228-256). */
   async function recallToAnchor() {
     if (worldMoveBusy()) return;   // AUDIT 68 S22
@@ -11499,6 +11517,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // makes). Inside a dungeon: NOTHING, because DFU takes
       // TransitionDungeonExteriorImmediate there and dungeons are not
       // scene-cached at all.
+      routByJump();   // RVN10 (21.2): out of a fight - the pool I leave asked before a mode's teardown takes it (a dungeon's, a building's)
       if (plan.cacheScene === 'exterior') cacheExteriorScene(playerTravelPixel());
       if ((modes?.mode ?? 'exterior') !== 'exterior') {
         modes?.forceExitToExterior({ cacheScene: plan.cacheScene === 'building' });
@@ -11823,6 +11842,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // clear the overlay, all synchronous). This is that order.
     if (_respawning) return;   // and a second death mid-flight cannot start a second respawn
     _respawning = true;
+    endPlayerFights();   // RVN10 (Feud-Arc.md 21.2): the death ended every fight - the respawn's jump routs nobody (a death no hurt told)
     // DEATHLOOP1: the health AND the cause. MAC-D3 put the heal first
     // so no frame could see a dead player with no death screen; this
     // also ends the drains that were emptying the bar, because a
@@ -12227,7 +12247,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:8637), so exterior mode and a
+    // composer, dungeonContext.js:8639), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {

@@ -463,3 +463,12 @@ it ranks up on its own ("Grushnak grows bolder - it has waited too long."), neve
 own: online the clock stands while the player is away, so nothing festers between sessions. The law:
 `bible/12-Enhanced-AI/Feud-Arc.md` section 20 and its RVN9 record.
 
+## 26. Felled and routed (FEUD RVN10, 2026-10-05)
+
+Two new deeds. **Felled**: a special foe whose blow knocks out a companion - a sworn revenant or a crew hand ashore -
+becomes a revenant (or ranks up) on the spot, the companion's name on its deed and often in its title ("Grushnak,
+Bane of Borgakh"), its card saying so. **Routed**: a special foe on me that hurt me in the last 30 s, when I get 70 m
+from it or a Recall or a teleport takes me out of its fight, after a hurt in that fight left me under half my health -
+it is gone, a revenant (or a stronger one) that has learned to be Relentless ("Who Made Ayla Run"). Never after my
+death, never by a load. The law: `bible/12-Enhanced-AI/Feud-Arc.md` section 21 and its RVN10 record.
+

@@ -24,7 +24,7 @@ import { EnemyAI, isBackFacing, withinYaw, MELEE_DISTANCE, foeFrameDt } from '..
 import { spaceFoes } from '../characters/foeSpacing.js';   // FOE-SPACING: the pack keeps apart
 import { blowConnects, blowScaled } from '../ai/foeBlows.js';   // TACT4
 import { foeGlint, tacticsNow, beginRoar } from '../ai/tactics.js';   // TELL2: a wind-up's glint (bible/12-Enhanced-AI/Feud-Arc.md section 4.2); TELL8: the record's wind-up on the foes' clock; RVN4: a last stand's roar
-import { lastStandGlint, lastStandSize, pyreSpell, bandMembers, bandName, bandWord, BAND_SCATTER_S, BAND_SPACING, RALLY_KIN } from '../systems/revenantFeud.js';   // RVN4: phase two's rim and size; RVN5: the pyre's blast; RVN6: its band
+import { lastStandGlint, lastStandSize, pyreSpell, bandMembers, bandName, bandWord, BAND_SCATTER_S, BAND_SPACING, RALLY_KIN, ROUT } from '../systems/revenantFeud.js';   // RVN4: phase two's rim and size; RVN5: the pyre's blast; RVN6: its band; RVN10: the rout's distance
 import { runTargetMachine, boutGate, isPlayerTarget, isLocalPlayerTarget, isPeerTarget, resetAllyTeamOnPlayerAttack, PLAYER_TARGET, PEER_CAST_TARGET, targetAimPoint, enemyArrowOrigin, enemyTransformPoint, arrowAimDirection, wireRecipient, bumpAtkCount, staticTeamOf } from '../characters/enemyTargets.js';   // AUDIT WATCH1: the wire's spellings, one home   // WORLD6b-ii: the local player told from a peer, the peer told from a foe   // MT-ii   // ROAD-H H1/H1b: the ONE arrow loose point and the crouch dip
 import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_HEIGHT } from '../player/motor.js';   // CH3: the shared fall formula
 import { SOUND, hitSoundFor, ENEMY_HIT_VOLUME } from '../systems/soundClips.js';   // CH3: the FallDamage clip; WORLD6b: a peer's blow rung at the owner
@@ -89,7 +89,7 @@ import { CAMP_SIGHT_RADIUS, CAMP_ALERT_RADIUS, PACK_ALERT_RADIUS } from '../syst
 import { combatVisualsOn, foeDraw, markConcealedHit } from '../systems/combatVisuals.js';   // ECV1: what the enhanced skin draws for a concealed foe
 import { foeHitFlash, setBatchHitFlash, puppetHurtStep, setBatchGlint, prefersReducedMotion } from '../systems/hitFlash.js';   // TELL2: a wind-up's glint
 import { isOnlinePage } from '../systems/onlineLane.js';   // ELITE FOES: online play only
-import { revenantFleeStep, revenantUnbrokenEvent, revenantFlinch, revenantSignatureEvent, revenantFleeHealth, revenantDeed, revenantSlain, applyRevenant, grantRevenantLoot, revenantById, revenantSay, revenantTauntEvent, revenantFleeEvent, revenantCorneredEvent, revenantEscapeEvent, revenantSlainEvent, REVENANT_TAUNT_DISTANCE } from '../systems/revenant.js';   // REVENANT: the foes that kill you or run, and come back
+import { revenantRoutable, revenantRouted, revenantRoutedEvent, revenantFleeStep, revenantUnbrokenEvent, revenantFlinch, revenantSignatureEvent, revenantFleeHealth, revenantDeed, revenantSlain, applyRevenant, grantRevenantLoot, revenantById, revenantSay, revenantTauntEvent, revenantFleeEvent, revenantCorneredEvent, revenantEscapeEvent, revenantSlainEvent, REVENANT_TAUNT_DISTANCE } from '../systems/revenant.js';   // REVENANT: the foes that kill you or run, and come back
 import { revenantMayYield, beginYield, yieldStep, slipEvent, kneelPose, beginExecution, executionStep, finishExecution, beginSpare, spareDone, fateDissolve, fateModel, dropFateHeld, revenantWillHolds, beginTearAway, revenantLastStandDue, beginLastStand, roarStep } from '../systems/revenantFate.js';   // REVENANT-FATE: beaten, it yields - kill it or spare it
 import { setBatchDissolve } from '../systems/dissolve.js';   // DISSOLVE: burnt away, or gathered through a portal
 import { createPortalSet } from './portalFx.js';   // COMPANION-PORTAL
@@ -901,7 +901,9 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       if (bout) { f.entity.health = 1; if (!bout.out) { bout.out = true; bout.hooks?.floor?.(f, { fromPlayer: fromPlayer && !peer, striker }); } return; }
       // CREW-COMPANIONS: a companion is knocked out, never killed - held at 1 and marked, before every death arm (the
       // trap, the notice, the corpse); the companion layer (crewAshore.js) carries him back aboard next frame
-      if (f.companion != null) { f.entity.health = 1; f._knockedOut = true; return; }
+      // RVN10 (bible/12-Enhanced-AI/Feud-Arc.md 21.1): and whose blow it was that knocked him down (a later blow on the
+      // body down is nobody's felling) - the layer hands it on, a felling's striker
+      if (f.companion != null) { f.entity.health = 1; if (!f._knockedOut) f._knockedBy = striker; f._knockedOut = true; return; }
       // REVENANT-FATE: one of the player's revenants beaten is never killed outright - it YIELDS (whoever struck: the
       // revenant is the player's own), its fate the player's; a kill (a Disintegrate's whole) is a kill
       // RVN4 (Feud-Arc.md 15.1): one of rank 3 and up, once a stand, comes back instead - its last stand (before the
@@ -1163,6 +1165,17 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (f.ai?.detected) setEnemyAlert(playerEntity, false);
     const r = revenantDeed(playerEntity, f.entity, 'fled', { mobileType: f.mobileType, gender: f.gender, rec: f, archive: f.archive });
     if (r) revenantSay(slip ? slipEvent(playerEntity, r, { archive: f.archive }) : unbroken ? revenantUnbrokenEvent(r, playerEntity?.name, { archive: f.archive }) : revenantEscapeEvent(r, playerEntity?.name, { archive: f.archive }), say);   // REVENANT-FATE: a slip says the hesitation; RVN3: the unbroken its own
+  }
+  /** RVN10 (Feud-Arc.md 21.2): ROUTED - I ran from it: gone as the cull takes a foe (no corpse, no kill, its batch freed;
+   *  online its record leaves the stream), its band broken, the deed on it (it learns Relentless), and said. */
+  function routFoe(f) {
+    scatterBand(f);
+    releaseFoeBatch(f);
+    f.dead = true;
+    f.escaped = true;
+    if (f.ai?.detected) setEnemyAlert(playerEntity, false);
+    const r = revenantRouted(playerEntity, f);
+    if (r) revenantSay(revenantRoutedEvent(r, { archive: f.archive }), say);
   }
   /** RVN5 (Feud-Arc.md 16.1): ITS SIGNATURE - called out the first time a stand it winds it up (its card), and a pyre
    *  that landed on me: a blast of its element through the host's own spell door (my saving throw answers it). */
@@ -1541,6 +1554,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // there when you come back.
       // DW-E4: nor a MANAGED one - the deep's foes stand, as DFU's loose enemies do, until the mod's own spawner releases
       // them (their pixel's group leaving, the lane switched off, a transient reset); its cap bounds them, not this cull
+      // RVN10 (bible/12-Enhanced-AI/Feud-Arc.md 21.2): ROUTED - a special foe on me that I got ROUT.DISTANCE from, its
+      // fight with me live and my health under half in it: I ran from it - a revenant made of it, gone as the cull takes
+      // a foe (before the cull, which spares a foe that detects me)
+      if (_playerDist > ROUT.DISTANCE && revenantRoutable(f)) { routFoe(f); continue; }
       const _relentless = f.entity?.revenant?.edge?.relentless === true && f.ai.isHostile;   // RVN2: a Relentless revenant hunting me is never culled (a load or a sweep ends its stand)
       const _cullAt = f.campId != null ? CAMP_CULL_DISTANCE : ENCOUNTER_CULL_DISTANCE;
       if (!f.placed && !f.managed && _playerDist > _cullAt && !(f.ai.detected && f.ai.targetIsLocalPlayer !== false) && !(_qTag(f) && partyNearFoe(f, _cullAt)) && !_relentless) {   // DROPS-AUDIT CAMP-CULL; AUDIT (pre-merge) Q4: a shared quest's foe stands while a party member is near it

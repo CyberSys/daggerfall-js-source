@@ -98,6 +98,8 @@ const DEED_WORDS = Object.freeze({
   // RVN1 (bible/12-Enhanced-AI/Feud-Arc.md section 26): the deeds FEUD adds, worded with the union
   felled: 'felled your companion', routed: 'routed you', festered: 'grew bolder', deserted: 'deserted you', betrayed: 'betrayed you', laststand: 'made its last stand',
 });
+/** A deed in words - RVN10 (bible/12-Enhanced-AI/Feud-Arc.md 21.1): a felling by the companion's name it keeps. */
+export const historyWords = (d) => (d?.deed === 'felled' && typeof d.ally === 'string' && d.ally ? `felled ${d.ally}` : DEED_WORDS[d?.deed] ?? String(d?.deed ?? ''));
 /** RVN1 (section 12; RVN12 completes the page): what a scar says - the way it was hurt, or what it learned of the fight. */
 const SCAR_WORDS = Object.freeze({
   blade: 'blades', blunt: 'blunt weapons', axe: 'axes', h2h: 'fists', arrow: 'arrows', fire: 'fire', frost: 'frost', shock: 'shock',
@@ -238,7 +240,7 @@ function row(el, r, now, kindName) {
   const hist = (r.history ?? []).slice(-5);
   if (hist.length) {
     const ul = el('ul', 'rvn-history');
-    for (const d of hist) ul.append(el('li', '', `${DEED_WORDS[d.deed] ?? d.deed}, ${agoWords(d.at, now)}`));
+    for (const d of hist) ul.append(el('li', '', `${historyWords(d)}, ${agoWords(d.at, now)}`));
     text.append(ul);
   }
   item.append(face(el, r), text);

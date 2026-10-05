@@ -45,7 +45,7 @@ import { lootRarityOn } from './lootRarity.js';
 import { registerPlayerBlowLanded } from './sigilSetPowers.js';
 import { registerPlayerHurtListener } from '../characters/playerEntity.js';   // REVENANT-HARM: a death no blow names
 import { registerPlayerStruckListener, registerPlayerStrikeListener } from '../combat/formulas.js';   // REVENANT-HARM: a foe's blow leaves its mark (its poison's ticks come later); RVN1: my blow, in its fight's ledger
-import { markPlayerHarm, playerHarmMark, clearPlayerHarm, HARM_MARK_STRUCK_MS } from './harmMark.js';
+import { markPlayerHarm, playerHarmMark, clearPlayerHarm, HARM_MARK_STRUCK_MS, harmFightSince, markPlayerLow, playerLowSince, endPlayerFights } from './harmMark.js';   // RVN10: the fight a rout reads
 import { playerDoor } from './playerDoor.js';
 import { MAX_ANSWERS_TELL_ME_ABOUT_OR_RUMORS } from './rumorMill.js';   // RVN7b: a person's one answer, the mill's own gate
 import { compassWord, distanceWord } from './bountyBoard.js';   // RVN7b: a town crier's words for where
@@ -70,7 +70,7 @@ import { getSeed, setSeed, srand } from '../formats/dfRandom.js';
 import { personalityFor, isPersonality, personalityLabel, voiceLine, beastBody, possessive, MUTE_KINDS } from './revenantPersonality.js';   // REVENANT-VOICE: who it is, and how it talks
 // FEUD, Part B (bible/12-Enhanced-AI/Feud-Arc.md sections 12-26): what a revenant remembers - its record's new fields and
 // the draws it is born with (systems/revenantFeud.js), and the fight's ledger (systems/feudLedger.js, a leaf)
-import { FESTER, festersOn, WRATH_MAX, idStream, TOOK_MAX, LAIR_RING_R, RUMOR_CHANCE, RUMOR_PX, RUMOR_WEAK, RUMOR_NAMED, RUMOR_HINTS, weaknessKind, lairAfter, sameLair, feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK, lessonOf, withLesson, adaptEdge, adaptBlowClass, ADAPT, isWeakBlow, metalOf, WEAK, WEAK_NAMES, FLINCH_LINES, FLINCH_HEALTH, WEAKNESS_ELEMENTS, signatureStamp } from './revenantFeud.js';
+import { ROUT, FESTER, festersOn, WRATH_MAX, idStream, TOOK_MAX, LAIR_RING_R, RUMOR_CHANCE, RUMOR_PX, RUMOR_WEAK, RUMOR_NAMED, RUMOR_HINTS, weaknessKind, lairAfter, sameLair, feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK, lessonOf, withLesson, adaptEdge, adaptBlowClass, ADAPT, isWeakBlow, metalOf, WEAK, WEAK_NAMES, FLINCH_LINES, FLINCH_HEALTH, WEAKNESS_ELEMENTS, signatureStamp } from './revenantFeud.js';
 import { tagHit, HIT_TAGS } from '../ui/hitNumbers.js';   // RVN3: the "Weakness" word on my blow's number
 import { SOUND } from './soundClips.js';   // RVN3: the hiss of a weakness found
 import { revenantSay as sayRevenant } from './revenantVoice.js';   // RVN3: the reveal's card (the re-export below binds no local name)
@@ -133,11 +133,14 @@ const HISTORY_MAX = 12;
 export const revenantSpeaks = (mobileType) => !MUTE_KINDS.has(mobileType);
 
 // ── the words ───────────────────────────────────────────────────────
-// `{p}` is the player's first name. An epithet starting "the" follows the given name ("Grushnak the Butcher"); any
-// other follows a comma ("Grushnak, Bane of Ayla").
+// `{p}` is the player's first name (RVN10: `{a}` a felled companion's). An epithet starting "the" follows the given
+// name ("Grushnak the Butcher"); any other follows a comma ("Grushnak, Bane of Ayla").
 export const REVENANT_EPITHETS = Object.freeze({
   slew: Object.freeze(['the Butcher', 'the Gravedigger', 'the Widowmaker', 'Bloodhand', 'Bane of {p}', 'the Unbowed', 'Who Slew {p}', 'the Reaper']),
   fled: Object.freeze(['the Scarred', 'the Survivor', 'the Cunning', 'the Hunted', 'Half-Dead', 'the Lucky', 'Who Ran', 'the Unbroken']),
+  // RVN10 (bible/12-Enhanced-AI/Feud-Arc.md 21): it knocked out my companion (`{a}` the companion's name); I ran from it
+  felled: Object.freeze(['Bane of {a}', 'the Companion-Killer', 'Breaker of Oaths']),
+  routed: Object.freeze(['Who Made {p} Run', 'the Pursuer']),
   // from rank 3, whatever the deed
   risen: Object.freeze(['the Thrice-Risen', 'the Undying', 'the Dread', 'Revenant of {p}', 'the Relentless', '{p}\'s Shadow']),
 });
@@ -180,7 +183,7 @@ const firstWord = (s) => String(s ?? '').trim().split(/\s+/)[0] || 'stranger';
 const pick = (list, rolls) => list[Math.min(list.length - 1, Math.floor(rolls() * list.length))];
 // AUDIT (2026-10-02): `{p}'s` the possessive the trophies spell ("Varis' Shadow"); a function replacement, so a `$` in
 // a typed name is a letter, never a pattern
-const fill = (s, { p = '', n = '' } = {}) => s.replace(/\{p\}'s/g, () => possessive(p)).replace(/\{p\}/g, () => p).replace(/\{n\}/g, () => n);
+const fill = (s, { p = '', n = '', a = '' } = {}) => s.replace(/\{p\}'s/g, () => possessive(p)).replace(/\{p\}/g, () => p).replace(/\{n\}/g, () => n).replace(/\{a\}/g, () => a);   // RVN10: `{a}` the companion felled
 const joinName = (given, epithet) => (/^the /.test(epithet) ? `${given} ${epithet}` : `${given}, ${epithet}`);
 
 /** REVENANT-VOICE: the id a special foe's voice is drawn from - its record's, or (a foe that speaks before it is one: it
@@ -212,12 +215,14 @@ export function revenantGivenName(id, mobileType, gender = 'male') {
   } finally { setSeed(saved); }
 }
 
-/** A deed's epithet - from rank 3 the risen ones, whatever the deed - never the one it wears now. */
-export function revenantEpithet(deed, rank, playerName, rolls = Math.random, current = null) {
-  const pool = rank >= 3 ? REVENANT_EPITHETS.risen : (REVENANT_EPITHETS[deed] ?? REVENANT_EPITHETS.slew);
+/** A deed's epithet - from rank 3 the risen ones, whatever the deed - never the one it wears now. RVN10: `ally` the
+ *  companion it felled (an epithet naming one is passed over without it). */
+export function revenantEpithet(deed, rank, playerName, rolls = Math.random, current = null, ally = '') {
+  const named = (rank >= 3 ? REVENANT_EPITHETS.risen : (REVENANT_EPITHETS[deed] ?? REVENANT_EPITHETS.slew)).filter((e) => ally || !e.includes('{a}'));
   const p = capFirst(firstWord(playerName));   // a name in a title is a name - "Bane of Stranger"
-  const choices = pool.map((e) => fill(e, { p })).filter((e) => e !== current);
-  return pick(choices.length ? choices : pool.map((e) => fill(e, { p })), rolls);
+  const all = named.map((e) => fill(e, { p, a: ally }));
+  const choices = all.filter((e) => e !== current);
+  return pick(choices.length ? choices : all, rolls);
 }
 
 /** The living revenants that hunt the player (the slain kept in their records, `defeated`; the forgotten are tombstones,
@@ -233,6 +238,11 @@ export const revenantById = (id) => _state.list.find((r) => r.id === id && !r.go
 
 const isStr = (v) => typeof v === 'string';
 const isNum = (v) => Number.isFinite(v);
+/** RVN10: a felled companion's name, as a record keeps it - a short name, else none. */
+const ALLY_MAX = 40;
+const allyName = (v) => (isStr(v) && v.trim() ? v.trim().slice(0, ALLY_MAX) : null);
+/** A deed read back: its name and minute, and (RVN10) a felled companion's name. */
+const historyOf = (d) => { const ally = allyName(d.ally); return { deed: d.deed, at: d.at, ...(ally ? { ally } : {}) }; };
 const FATES = new Set(['executed', 'sworn', 'released']);
 /** REVENANT-COMPANION: a sworn one's place read back - the shape checked; anything odd walks with the player whole. */
 function sanitizeCompanion(c, personality = null) {
@@ -265,7 +275,7 @@ function sanitize(r) {
     // REVENANT-FATE: how it ended (or did not) - executed, sworn to the player, released by the player
     fate: FATES.has(r.fate) ? r.fate : null, sworn: !!r.sworn && !r.defeated, swornAt: isNum(r.swornAt) ? r.swornAt : null,
     companion: r.sworn && !r.defeated ? sanitizeCompanion(r.companion, personality) : null,
-    history: Array.isArray(r.history) ? r.history.filter((d) => d && isStr(d.deed) && isNum(d.at)).slice(-HISTORY_MAX) : [],
+    history: Array.isArray(r.history) ? r.history.filter((d) => d && isStr(d.deed) && isNum(d.at)).slice(-HISTORY_MAX).map(historyOf) : [],
     ...feudFields(r, { id: r.id, mobileType: r.mobileType, rank }),   // RVN1 (section 26): FEUD's fields, each by its law
   };
 }
@@ -328,7 +338,7 @@ function prune() {
     _state.list = _state.list.filter((r) => !drop.has(r));
   }
 }
-const deed = (r, d, at) => { r.history.push({ deed: d, at }); if (r.history.length > HISTORY_MAX) r.history.splice(0, r.history.length - HISTORY_MAX); };
+const deed = (r, d, at, ally = null) => { r.history.push({ deed: d, at, ...(ally ? { ally } : {}) }); if (r.history.length > HISTORY_MAX) r.history.splice(0, r.history.length - HISTORY_MAX); };   // RVN10: a felling names its companion
 const dueFrom = (now, rolls) => now + REVENANT_RETURN_MIN_MINUTES + Math.floor(rolls() * (REVENANT_RETURN_MAX_MINUTES - REVENANT_RETURN_MIN_MINUTES + 1));
 
 // ── who may become one ──────────────────────────────────────────────
@@ -349,7 +359,7 @@ export function revenantCandidate(entity, rec = null) {
 /** Make `entity` a revenant for what it just did (`deed` 'slew' or 'fled'), or rank up the one it already is. Answers
  *  the record, or null when it may not be one. `mobileType`/`gender` from the pool's record where the entity lacks
  *  them. */
-export function revenantDeed(player, entity, deedName, { mobileType = entity?.mobileType, gender = 'male', rec = null, archive = null, now = nowMinutes(), rolls = Math.random } = {}) {
+export function revenantDeed(player, entity, deedName, { mobileType = entity?.mobileType, gender = 'male', rec = null, archive = null, now = nowMinutes(), rolls = Math.random, ally = null } = {}) {   // RVN10: `ally` the companion a felling knocked out
   const ledger = takeFeud(entity);   // RVN1: the fight is over - its ledger taken whatever the answer (it dies with the fight)
   if (!revenantCandidate(entity, rec) || !Number.isInteger(mobileType)) return null;
   ensureMirror(player);
@@ -361,14 +371,14 @@ export function revenantDeed(player, entity, deedName, { mobileType = entity?.mo
   if (!r && entity.revenant?.id) entity.revenant = null;
   if (r) {
     r.rank = Math.min(REVENANT_MAX_RANK, r.rank + 1);
-    r.epithet = revenantEpithet(deedName, r.rank, pName, rolls, r.epithet);
+    r.epithet = revenantEpithet(deedName, r.rank, pName, rolls, r.epithet, allyName(ally) ?? '');
     if (r.rank >= SIG_RANK && !r.sig) r.sig = drawSignature(r.id, r.mobileType);   // RVN1 (RVN5's field): its signature, drawn on its id at rank 2
   } else {
     const id = voiceIdOf(entity);   // REVENANT-VOICE: the id its voice was drawn from while it fled, if it spoke before it was one
     const given = revenantGivenName(id, mobileType, gender);
     r = {
       id, rev: 0, mobileType, gender: gender === 'female' ? 'female' : 'male', given,
-      epithet: revenantEpithet(deedName, 1, pName, rolls), name: '', rank: 1, kills: 0, escapes: 0, returns: 0,
+      epithet: revenantEpithet(deedName, 1, pName, rolls, null, allyName(ally) ?? ''), name: '', rank: 1, kills: 0, escapes: 0, returns: 0,
       trait: typeof entity.champion === 'string' && entity.champion ? entity.champion : null, elite: !!entity.eliteFoe,
       born: now, dueAt: 0, out: false, outAt: 0, defeated: false, defeatedAt: null, notice: null, history: [],
       archive: Number.isInteger(archive) ? archive : null,   // REVENANT-CARD: the sprite it wore (a retextured kind's own), for its portrait
@@ -385,9 +395,9 @@ export function revenantDeed(player, entity, deedName, { mobileType = entity?.mo
     }
   }
   r.name = joinName(r.given, r.epithet);
-  if (deedName === 'slew') { r.kills++; r.notice = 'slew'; _lastSlew = { id: r.id, at: Date.now() }; } else { r.escapes++; r.notice = null; }   // RVN8: this death's killer, for the respawn
+  if (deedName === 'slew') { r.kills++; r.notice = 'slew'; _lastSlew = { id: r.id, at: Date.now() }; } else { if (deedName === 'fled') r.escapes++; r.notice = null; }   // RVN8: this death's killer, for the respawn   // RVN10: a felling or a rout is no escape of its own
   r.dueAt = dueFrom(now, rolls);
-  deed(r, deedName, now);
+  deed(r, deedName, now, deedName === 'felled' ? allyName(ally) : null);
   // RVN1 (section 12): the fight folded into its SCARS - its leading source, its lessons, the deed - and counted
   const kinds = feudScars(ledger, deedName);
   r.scars = withScars(r.scars, kinds, now);
@@ -402,7 +412,7 @@ export function revenantDeed(player, entity, deedName, { mobileType = entity?.mo
   // the foe that did it wears its name at once - while it still stands (a killer over my body), it IS the revenant
   entity.revenant = revenantStamp(r);   // RVN2: and what it learned, at once
   computeEntityMods(entity);
-  r.out = deedName === 'slew';
+  r.out = deedName === 'slew' || deedName === 'felled';   // RVN10 (21.1): a felling foe still stands, as a killer over my body does
   r.outAt = r.out ? Date.now() : 0;
   touch(r);
   prune();
@@ -436,7 +446,10 @@ function onBlowLanded(entity, attacker) {
   armDeathCheck(entity);
 }
 function onPlayerHurt(entity, { after } = /** @type {any} */ ({})) {
-  if (!entity?.isPlayer || entity.peer || !(after <= 0)) return;
+  if (!entity?.isPlayer || entity.peer) return;
+  // RVN10 (Feud-Arc.md 21.2): a hurt that left me under half is my fights' low; my death ends every fight (no rout after it)
+  if (after <= 0) endPlayerFights(); else if (after < (entity.maxHealth || 1) * ROUT.LOW) markPlayerLow();
+  if (!(after <= 0)) return;
   armDeathCheck(entity);
 }
 registerPlayerBlowLanded('revenant', onBlowLanded);
@@ -853,6 +866,8 @@ const KICKERS = Object.freeze({
   weakness: 'Weakness', unbroken: 'Unbroken', laststand: 'Last stand',
   // RVN5: its signature, called out; RVN7d: found in its lair; RVN9: festered
   signature: 'Signature', lair: 'Its lair', festered: 'Grows bolder',
+  // RVN10: it knocked out my companion; I ran from it
+  felled: 'Felled', routed: 'Routed',
 });
 /** @typedef {{ kind: string, kicker: string, id: string|null, name: string, rank: number, sub: string, mood: string|null,
  *   portrait: { archive: number, record: number } | null, speech: string|null, body: string|null, line: string }} RevenantEvent */
@@ -1030,6 +1045,59 @@ export function revenantWakeEvent(r, { archive = null } = {}) {
   const body = `You wake to ${r.given} standing over you.`;
   return revenantEvent('lair', r, { body, line: body, archive });
 }
+// ── RVN10: felled and routed (bible/12-Enhanced-AI/Feud-Arc.md section 21) ─────────────────
+/** RVN10 (21.1): FELLED - a special foe's blow knocked out my companion (a sworn revenant, a crew hand ashore): the deed
+ *  on its striker (the pool's record the knock-out arm noted - `striker`), the companion's name on it; it still stands,
+ *  so it is out. Answers the record, or null (a striker dead or down, a companion unnamed, or no candidate). */
+export function revenantFelled(player, striker, ally, { now = nowMinutes(), rolls = Math.random } = {}) {
+  const name = allyName(ally);
+  if (!striker?.entity || striker.dead || !(striker.entity.health > 0) || !name) return null;
+  return revenantDeed(player, striker.entity, 'felled', {
+    mobileType: striker.mobileType ?? striker.entity.mobileType, gender: striker.gender ?? 'male', rec: striker,
+    archive: striker.archive ?? striker.mobileArchive ?? null, now, rolls, ally: name,
+  });
+}
+/** RVN10 (21.1): the felling, told - "Grushnak felled Borgakh. It will remember this." */
+export function revenantFelledEvent(r, ally, { archive = null } = {}) {
+  const who = allyName(ally) ?? 'your companion';
+  const body = `${r.given} felled ${who}. ${r.rank > 1 ? `Now rank ${revenantRankNumeral(r.rank)} - it` : 'It'} will remember this.`;
+  return revenantEvent('felled', r, { body, line: `${r.name} felled ${who}.`, archive });
+}
+/** RVN10 (21.2): may this foe ROUT me - a special foe, alive, hostile and on me (detecting me), neither kneeling nor
+ *  running itself, whose fight with me is live (its harm within harmMark's HARM_FIGHT_MS) and saw a hurt leave me under
+ *  ROUT.LOW? The street pool asks it past ROUT.DISTANCE; a jump's sweep asks it of the pool I leave. */
+export function revenantRoutable(f, { now = Date.now() } = {}) {
+  if (!f?.entity || f.dead || f._routed || !(f.entity.health > 0) || f.yielded || f.fleeing) return false;
+  if (!f.ai?.isHostile || !f.ai.detected || f.ai.targetIsLocalPlayer === false) return false;
+  if (!revenantCandidate(f.entity, f)) return false;
+  return playerLowSince(harmFightSince(f.entity, now));
+}
+/** RVN10 (21.2): ROUTED - I ran from it: the deed `routed` (it learns Relentless - revenantFeud.lessonOf asks it first),
+ *  the foe marked so no second ask finds it. Its pool takes it after (the cull's own shape, or the jump's sweep). */
+export function revenantRouted(player, f, { now = nowMinutes(), rolls = Math.random } = {}) {
+  if (!f?.entity) return null;
+  f._routed = true;
+  return revenantDeed(player, f.entity, 'routed', {
+    mobileType: f.mobileType ?? f.entity.mobileType, gender: f.gender ?? 'male', rec: f,
+    archive: f.archive ?? f.mobileArchive ?? null, now, rolls,
+  });
+}
+/** RVN10 (21.2): A JUMP'S ROUT - a Recall or a teleport taking me out of a fight: each engaged special of `foes` (the pool
+ *  I leave - the host's door) routed before the sweep takes it. Answers [{ r, f }], for the host to tell. */
+export function revenantRoutSweep(player, foes = playerDoor()?.foes?.() ?? [], { now = nowMinutes(), rolls = Math.random, wall = Date.now() } = {}) {
+  const out = [];
+  for (const f of foes ?? []) {
+    if (!revenantRoutable(f, { now: wall })) continue;
+    const r = revenantRouted(player, f, { now, rolls });
+    if (r) out.push({ r, f });
+  }
+  return out;
+}
+/** RVN10 (21.2): the rout, told - "You ran from Grushnak. It will remember this." */
+export function revenantRoutedEvent(r, { archive = null } = {}) {
+  const body = `You ran from ${r.given}. ${r.rank > 1 ? `Now rank ${revenantRankNumeral(r.rank)} - it` : 'It'} will remember this.`;
+  return revenantEvent('routed', r, { body, line: `You ran from ${r.name}. It will remember this.`, archive });
+}
 /** RVN4 (section 15): ITS LAST STAND, written on its record - the deed (`laststand`) at the character's minute. Answers
  *  the record, or null for one that is no revenant of mine. */
 export function revenantLastStand(player, entity, { now = nowMinutes() } = {}) {
@@ -1113,8 +1181,8 @@ registerModSaveData(REVENANT_SAVE, {
   // AUDIT (2026-10-02): one standing as the save is made comes back later (REVENANT_LOST_MINUTES), not at once beside
   // the street's copy of it - the street's save leaves it out (scenes/exteriorFoes.js snapshotWorld)
   getSaveData: () => ({ v: 1, list: _state.list.map((r) => (r.gone ? r : { ...r, out: false, outAt: 0, dueAt: r.out ? Math.max(r.dueAt, nowMinutes() + REVENANT_LOST_MINUTES) : r.dueAt })), lastDay: _state.lastDay }),
-  restoreSaveData: (rec) => { _state.list = mergeRevenants(rec?.list ?? [], []); _state.lastDay = sanitizeDay(rec?.lastDay); _state.mirrorId = null; clearPlayerHarm(); },   // the last game's harm is no one's death in this one
-  newGame: () => { _state.list = []; _state.lastDay = null; _state.mirrorId = null; clearPlayerHarm(); },
+  restoreSaveData: (rec) => { _state.list = mergeRevenants(rec?.list ?? [], []); _state.lastDay = sanitizeDay(rec?.lastDay); _state.mirrorId = null; clearPlayerHarm(); endPlayerFights(); },   // the last game's harm is no one's death in this one (RVN10: nor its fights a rout)
+  newGame: () => { _state.list = []; _state.lastDay = null; _state.mirrorId = null; clearPlayerHarm(); endPlayerFights(); },
 });
 
 /** Tests only: forget everything. */

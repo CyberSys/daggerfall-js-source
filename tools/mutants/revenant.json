@@ -128,8 +128,8 @@
   {
     "name": "REVENANT-escape-leaves-a-corpse",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "    f.escaped = true;\n",
-    "new": "    f.escaped = true;\n    f.corpse = true;\n",
+    "old": "    f.fleeing = false;\n    f.escaped = true;\n",
+    "new": "    f.fleeing = false;\n    f.escaped = true;\n    f.corpse = true;\n",
     "tests": [
       "test/revenant.test.js"
     ]

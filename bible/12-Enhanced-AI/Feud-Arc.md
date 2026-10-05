@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL and RVN1-RVN9 built; RVN10-RVN13 next)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL and RVN1-RVN10 built; RVN11-RVN13 next)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -7,7 +7,7 @@ detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
 (section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts), AUDIT
-TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), RVN8 and RVN9; each slice's record is at the foot.**
+TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), RVN8, RVN9 and RVN10; each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -853,6 +853,16 @@ deed underground makes that dungeon its lair.
 The deed union (`RevenantDeed` in `revenant.js`), the epithet pools (`REVENANT_EPITHETS`), and
 `ui/revenantPage.js DEED_WORDS`.
 
+- **As built (RVN10; the record at the foot)**: the knock-out arm notes the striker of the blow that knocked him DOWN
+  (a later blow on the body down names nobody); a striker dead or down by the layer's next frame fells nobody. "Its
+  harm reached me in the last 30 s" is read per foe, not off the one mark: `harmMark.js` keeps each foe's FIGHT (its
+  first harm, carried on by each harm within 30 s of its last) and the last hurt that left me under half; a rout needs
+  that hurt inside the foe's fight. My death ends every fight (no rout after it - the respawn's jump is no flight), as
+  a load does. Being run from is the lesson before any other (`lessonOf` asks `routed` first). A felled companion's
+  name rides the deed's history entry (`ally`, at most 40 characters), the page saying it ("felled Borgakh"). A
+  routed foe kneeling or running itself routs nobody; a jump's sweep is the host's door's pool, and a Recall within one
+  room leaves none. Felling and routing count neither a kill nor an escape.
+
 ## 22. The sworn: loyalty, desertion, betrayal (RVN11)
 
 ### 22.1 Loyalty
@@ -1141,6 +1151,10 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
   fields there and leaves the gap FLAGGED.
 - **The single-location host.** `scenes/exterior.js` builds its pool without `fates`, so its revenants die outright;
   and it builds no location index, so they roam (no lair - RVN7a). FLAGGED in every RVN slice's record.
+- **RVN10's edges.** A spell's knock-out of a companion names no striker (the world host's foe sinks), and a foe on
+  another's machine that knocks out mine (the wire's `fb`) is theirs - neither fells. A dungeon never culls by
+  distance, so no rout by distance underground (a jump's is there); a door walked through mid-fight is no rout (the
+  arc names the distance and the jump). `scenes/exterior.js` stands no companions, so nothing is felled there. FLAGGED.
 - **Corrected now in `06-Systems/Revenants.md`**: both of its pages are on the **Holdings** tab (HOLDINGS moved them on
   2026-10-03), and REVENANT-WIRE shipped as relay **`world153`** (its sections 6 and 15 named the branch's `world144`
   and `world152`, which are SEAT1b's and GLYPH-WEAR's today).
@@ -2162,3 +2176,38 @@ and `dungeonContext.js`.
   tick's fast path for a day already counted: without it the loop counts no day and sets the day to itself). Mutant
   record re-aimed by content (1): `rvn1`'s rank-2 signature (the festering's rank-up draws one too, so its line named two
   sites) - judged again: dead.
+
+### RVN10 - BUILT 2026-10-05 (the loot-rarity row on; every pool, the world host's companions and jumps)
+
+- **The law** - `systems/revenantFeud.js`: `ROUT` (70 m, under half); `lessonOf` asks `routed` before the fight's
+  other scars (the Relentless). `systems/harmMark.js`: `HARM_FIGHT_MS` 30 s, each foe's fight (`markPlayerHarm` opens
+  or carries it; `harmFightSince`), the low (`markPlayerLow`, `playerLowSince`), `endPlayerFights` (a death, a load, a
+  new game, the online respawn); a judged foe's fight ends with its mark (`clearPlayerHarm(entity)`).
+- **Felled** - `revenant.revenantFelled(player, striker, ally)`: the deed `felled` on the striker (a candidate, alive),
+  the companion's name on its history entry and in its epithet (`REVENANT_EPITHETS.felled`: "Bane of {a}", "the
+  Companion-Killer", "Breaker of Oaths" - `{a}` the companion; one naming him passed over without a name), out (it
+  still stands). `revenantFelledEvent` - *Felled*, "Grushnak felled Borgakh. It will remember this."
+- **Routed** - `revenantRoutable(f)` (a candidate, alive, hostile, detecting me and on me, neither kneeling nor running
+  itself, not routed already, its fight live and a hurt in it leaving me under half); `revenantRouted` (the deed,
+  marked); `revenantRoutSweep(player, foes)` (a jump's: the door's pool by default); `REVENANT_EPITHETS.routed` ("Who
+  Made {p} Run", "the Pursuer"); `revenantRoutedEvent` - *Routed*, "You ran from Grushnak. It will remember this."
+- **The record** - `revenantDeed` takes `ally`; `felled` marks out as `slew` does; an escape is counted for `fled`
+  alone; a history entry read back keeps its `ally` (trimmed to 40, a bad one dropped). The page: `historyWords`.
+- **Four hosts** - the knock-out arm of both damage doors (`scenes/exteriorFoes.js`, `scenes/dungeonContext.js`)
+  notes `_knockedBy`; `scenes/crewAshore.js` hands it to `onKnocked(c, by)`; `scenes/world.js` WIRED - both parties
+  (the crew's hand by his name, the sworn by its given name) make the deed and its card (`felledBy`); the street pool
+  (`exteriorFoes.js`, the world's, `scenes/exterior.js`'s and `scenes/worldModes.js`'s interiors) routs past 70 m
+  before its cull (`routFoe`: gone as the cull takes a foe, its band scattered, told); `world.js _teleportToPixel` routs
+  before its sweep (never a load's) and `recallToAnchor` before a mode's teardown (`routByJump`), the online respawn
+  ending every fight first; `scenes/exterior.js` WIRED - its Recall's mode exit routs (its street stays: the distance
+  judges a jump in it); `scenes/dungeonContext.js` - routed by the world's jump (no cull underground); FLAGGED
+  (section 32): a spell's knock-out, a peer's foe's, a door walked through, `exterior.js`'s companions (none).
+- **Not built here** - the return's taunt naming the companion (`felled_return`, `routed_return` - RVN12's words, the
+  history's `ally`); felled and routed epithet banks past rank 3 (the risen, as every deed's).
+- Pins `test/rvn10_deeds.test.js` (11). Mutants `tools/mutants/rvn10.json` (65): 65 dead. Pins moved (4):
+  `crewcompanions` (the knock-out arm's two strings and the crew's `onKnocked`), `audit26_dungeonfoes` F212 (the
+  teleport core's window 6800 -> 7000: the jump's rout above its needles), `qx1_exterior_host`'s lifted Recall (the
+  sweep's three names stubbed - none engaged). Mutant records re-aimed by content (9):
+  `rvn2`'s lesson-skips-the-lead (the loop's head), `revenant`'s escape-leaves-a-corpse (`f.escaped = true;` is
+  `routFoe`'s too), `crewcompanions`' two companion-killed (the knock-out arms), `revenantaudit`'s A2 (the restore's
+  line), `survtiers` (1) and `survtiers3` (3) (the cites the shift moved) - each judged again: dead.

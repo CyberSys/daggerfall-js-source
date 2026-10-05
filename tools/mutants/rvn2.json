@@ -2,8 +2,8 @@
   {
     "name": "RVN2-the-lesson-skips-the-lead",
     "file": "src/systems/revenantFeud.js",
-    "old": "  for (const k of kinds) {\n    const a = k === 'night'",
-    "new": "  for (const k of kinds.slice(1)) {\n    const a = k === 'night'",
+    "old": "  for (const k of kinds.includes('routed') ? ['routed', ...kinds] : kinds) {\n    const a = k === 'night'",
+    "new": "  for (const k of (kinds.includes('routed') ? ['routed', ...kinds] : kinds).slice(1)) {\n    const a = k === 'night'",
     "tests": [
       "test/rvn2_adapt.test.js"
     ]
