@@ -242,7 +242,7 @@ test('REVENANT THE HOSTS: the open world\'s pool rolls the flee once under a fif
   const spawn = x.slice(x.indexOf('async function spawnFoe('), x.indexOf('const gender = MobileUnit.resolveGender'));
   assert.match(spawn, /revenant \? revenant\.elite : rollOverworldElite\(Math\.random\)\)/, 'an elite stands as one again, never a fresh roll');
   assert.match(spawn, /revenant \? \(revenant\.trait \? championIndex\(revenant\.trait\) : null\)/, 'its trait, never a fresh one');
-  const iApply = spawn.indexOf('applyRevenant(entity, revenant)'), iLoot = spawn.indexOf('spawnEnemyLoot(entity');
+  const iApply = spawn.indexOf('applyRevenant(entity, revenant, { turned })'), iLoot = spawn.indexOf('spawnEnemyLoot(entity');   // PIN MOVED (RVN11c: a betrayer's turning is no return)
   assert.ok(iApply > spawn.indexOf('applyChampion(entity') && iApply < iLoot, 'its rank over its trait, before its loot');
   assert.match(spawn, /if \(entity\.revenant\) grantRevenantLoot\(entity, builtLevel\);/);
   const w = read('src/scenes/world.js');

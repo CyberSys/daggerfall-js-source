@@ -143,6 +143,8 @@ export const REVENANT_EPITHETS = Object.freeze({
   routed: Object.freeze(['Who Made {p} Run', 'the Pursuer']),
   // RVN11b (22.2): it broke its oath - whatever its rank, this is its name
   deserted: Object.freeze(['the Oathbreaker']),
+  // RVN11c (22.3): it turned on me
+  betrayed: Object.freeze(['the Betrayer']),
   // from rank 3, whatever the deed
   risen: Object.freeze(['the Thrice-Risen', 'the Undying', 'the Dread', 'Revenant of {p}', 'the Relentless', '{p}\'s Shadow']),
 });
@@ -723,8 +725,9 @@ export function revenantSpawnOptions(r, playerLevel) {
   return { revenant: r, gender: r.mobileType >= 128 ? r.gender : null, level: r.mobileType >= 128 ? Math.max(1, (playerLevel | 0) + r.rank * REVENANT_LEVEL_PER_RANK) : null };   // a monster's sprite is its kind's, whatever its gender
 }
 /** Stand the record on a freshly built entity (before its loot): its name, its rank's health and blows. The record is
- *  OUT from here until the foe dies, escapes or leaves the world. */
-export function applyRevenant(entity, r, { now = nowMinutes() } = {}) {
+ *  OUT from here until the foe dies, escapes or leaves the world. RVN11c: `turned` - a betrayer standing where it
+ *  stood beside me is no return (no `returned` deed, no return counted). */
+export function applyRevenant(entity, r, { now = nowMinutes(), turned = false } = {}) {
   if (!entity || !r) return false;
   entity.revenant = revenantStamp(r);   // RVN2: what it learned stands with it
   entity.maxHealth = Math.max(1, Math.round((entity.maxHealth || 1) * (1 + REVENANT_HEALTH_PER_RANK * r.rank)));
@@ -747,9 +750,9 @@ export function applyRevenant(entity, r, { now = nowMinutes() } = {}) {
   if (edge.relentless && entity.stats) entity.stats.speed = (entity.stats.speed ?? 0) + ADAPT.RELENTLESS_SPEED;
   if (edge.nightStalker && skyIsNight()) entity.damageScale *= ADAPT.NIGHT_BLOWS;
   computeEntityMods(entity);
-  r.out = true; r.outAt = Date.now(); r.returns++;
+  r.out = true; r.outAt = Date.now();
   r.fights = (r.fights | 0) + 1;   // RVN1: a return is a fight (an older record's count is kills + escapes + returns)
-  deed(r, 'returned', now);
+  if (!turned) { r.returns++; deed(r, 'returned', now); }   // RVN11c: a turning is its own deed (`betrayed`)
   touch(r);
   persist();
   return true;
@@ -883,6 +886,8 @@ const KICKERS = Object.freeze({
   felled: 'Felled', routed: 'Routed',
   // RVN11: a Devoted one's warning; RVN11b: a deserter
   warn: 'Companion', deserted: 'Oathbreaker',
+  // RVN11c: a betrayer
+  betrayed: 'Betrayed',
 });
 /** @typedef {{ kind: string, kicker: string, id: string|null, name: string, rank: number, sub: string, mood: string|null,
  *   portrait: { archive: number, record: number } | null, speech: string|null, body: string|null, line: string }} RevenantEvent */
@@ -1075,12 +1080,7 @@ const _desertWords = new Map();
  *  no longer the party's); its notice is its card. Answers the record, or null. */
 export function revenantDeserts(player, r, { now = nowMinutes(), rolls = Math.random } = {}) {
   if (!r?.sworn || r.defeated) return null;
-  const { kept, back } = deserterSplit(r.companion?.items ?? [], { value: itemValueOf, isGold: isGoldPieces, room: TOOK_MAX - (r.took?.length ?? 0) });
-  if (player) {
-    player.items ??= [];
-    for (const it of back) { if (isGoldPieces(it)) addGoldPieces(player, it.stackCount ?? 1); else addItem(player.items, it); }
-  }
-  r.took = [...(r.took ?? []), ...kept];
+  const { kept, back } = splitPack(player, r);
   r.sworn = false; r.fate = null; r.companion = null; r.out = false;
   r.epithet = REVENANT_EPITHETS.deserted[0];
   r.name = joinName(r.given, r.epithet);
@@ -1093,6 +1093,45 @@ export function revenantDeserts(player, r, { now = nowMinutes(), rolls = Math.ra
   persist();
   try { _swornLeft?.(r.id); } catch { /* the party's bookkeeping is no record's failure */ }
   return r;
+}
+/** RVN11b/RVN11c (Feud-Arc.md 22.2, 22.3, OPEN 18): a sworn one leaving with its pack - the more valuable half kept on its
+ *  record (RVN8's `took`: room TOOK_MAX less what it took), the rest into my pack and its gold into my purse. Answers
+ *  { kept, back }. */
+function splitPack(player, r) {
+  const { kept, back } = deserterSplit(r.companion?.items ?? [], { value: itemValueOf, isGold: isGoldPieces, room: TOOK_MAX - (r.took?.length ?? 0) });
+  if (player) {
+    player.items ??= [];
+    for (const it of back) { if (isGoldPieces(it)) addGoldPieces(player, it.stackCount ?? 1); else addItem(player.items, it); }
+  }
+  r.took = [...(r.took ?? []), ...kept];
+  return { kept, back };
+}
+/** RVN11c (bible/12-Enhanced-AI/Feud-Arc.md 22.3): BETRAYED - a sworn one under BETRAY.AT, Unhinged, Craven or Brutal,
+ *  turns on me: out of the party, its rank up (never past 5; its signature drawn at 2), "the Betrayer" whatever its rank,
+ *  the `betrayed` deed; its pack as a deserter's (what it may hold it carries on its record - recovered when it falls -
+ *  the rest, and its gold, to me); the cap held; its member forgotten. The host stands it, hostile, where its body stood
+ *  (applyRevenant's `turned`). Answers the record, or null. */
+export function revenantBetrays(player, r, { now = nowMinutes(), rolls = Math.random } = {}) {
+  if (!r?.sworn || r.defeated) return null;
+  splitPack(player, r);   // its pack as a deserter's
+  r.sworn = false; r.fate = null; r.companion = null;
+  r.rank = Math.min(REVENANT_MAX_RANK, r.rank + 1);
+  if (r.rank >= SIG_RANK && !r.sig) r.sig = drawSignature(r.id, r.mobileType);
+  r.epithet = REVENANT_EPITHETS.betrayed[0];
+  r.name = joinName(r.given, r.epithet);
+  r.dueAt = dueFrom(now, rolls);   // should it get away
+  r.notice = null;
+  deed(r, 'betrayed', now);
+  trimLiving(r);
+  touch(r);
+  persist();
+  try { _swornLeft?.(r.id); } catch { /* the party's bookkeeping is no record's failure */ }
+  return r;
+}
+/** RVN11c (22.3): the turning, told - "Grushnak turns on you!" */
+export function revenantBetrayEvent(r, { archive = null } = {}) {
+  const body = `${r.given} turns on you!`;
+  return revenantEvent('betrayed', r, { body, line: `${r.name} turns on you!`, archive });
 }
 /** RVN11b (22.2): the desertion, told - "Grushnak broke its oath and left you. It kept your Ebony Longsword." */
 export function revenantDesertEvent(r, { archive = null } = {}) {

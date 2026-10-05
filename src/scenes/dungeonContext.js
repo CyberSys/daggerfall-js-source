@@ -1352,7 +1352,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (!puppet && e.level == null) applyProgressionScalingTo(entity, basics);   // SOFTCAP1: tougher high-tier foes against skills past 100 (a puppet is its owner's build); ARENA2: never a bout fighter (the ladder is a fixed mountain)
       applySpawnAlliance(entity, e);   // MT-ii / AUDIT OH-F C4
       entity._feudPlace = 'dungeon';   // RVN1 (Feud-Arc.md 12): where a fight with it is fought, for its ledger
-      if (e.revenant && !puppet) applyRevenant(entity, e.revenant);   // RVN7d (Feud-Arc.md 18.4): a revenant stood here - its name and rank, before its loot
+      if (e.revenant && !puppet) applyRevenant(entity, e.revenant, { turned: !!e.turned });   // RVN7d (Feud-Arc.md 18.4): a revenant stood here - its name and rank, before its loot; RVN11c: a betrayer's turning is no return
       // S1/E4b/AUDIT 18/AUDIT 24/LR1: SetEnemyCareer's whole loot chain -
       // the table on the PLAYER's level and gender, the equipment
       // appended and put on, the map/potion/recipe trio, the port's
@@ -1441,7 +1441,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (!puppet && e.level == null) applyProgressionScalingTo(entity, basics);   // SOFTCAP1: tougher high-tier foes against skills past 100 (a puppet is its owner's build); ARENA2: never a bout fighter
       applySpawnAlliance(entity, e);   // MT-ii / AUDIT OH-F C4
       entity._feudPlace = 'dungeon';   // RVN1 (Feud-Arc.md 12): where a fight with it is fought, for its ledger
-      if (e.revenant && !puppet) applyRevenant(entity, e.revenant);   // RVN7d (Feud-Arc.md 18.4): a revenant stood here - its name and rank, before its loot
+      if (e.revenant && !puppet) applyRevenant(entity, e.revenant, { turned: !!e.turned });   // RVN7d (Feud-Arc.md 18.4): a revenant stood here - its name and rank, before its loot; RVN11c: a betrayer's turning is no return
       spawnEnemyLoot(entity, e.mobileType, basics, D.playerEntity, { ...eliteLootOpts(e), where: 'dungeon' });   // ELITE: +20% drops, +20% quality. RF2: SetEnemyCareer's whole loot chain, one seam (the table, the kit, the trio, the port's roll)
       if (e.eliteFoe) grantEliteLoot(entity, effectiveLevel(D.playerEntity));   // ELITE FOES: the champion's own drop
       if (e.revenant && entity.revenant) grantRevenantLoot(entity, effectiveLevel(D.playerEntity), Math.random, { goldMult: e.lairStand ? LAIR_GOLD : 1 });   // RVN7d: its own drop - found in its lair, its gold x LAIR_GOLD
@@ -1584,12 +1584,12 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  Entity.Team from that copy, so BOTH per-instance fields turn and
    *  the shared frozen basics row does not - getting that wrong would
    *  ally every foe of the type. */
-  async function spawnLooseFoe(mobileType, position, { gender = null, yawRad = null, allied = false, questSpawn = false, loadID = null, level = null, bout = null, eliteFoe = false, revenant = null, lairStand = false } = {}) {   // RVN7d: a revenant (its record), found in its lair
+  async function spawnLooseFoe(mobileType, position, { gender = null, yawRad = null, allied = false, questSpawn = false, loadID = null, level = null, bout = null, eliteFoe = false, revenant = null, lairStand = false, turned = false } = {}) {   // RVN7d: a revenant (its record), found in its lair
     // AUDIT OH-F C3/C4: the alliance and the quest mark ride the build's record - DFU sets both before OnEnemySpawn
     // is raised (GameObjectHelper.cs:1286-1294's QuestSpawn, SetupDemoEnemy.cs:85-86's team), and a rebuild keeps them
     // ARENA2: a bout fighter (scenes/arenaBouts.js) at its tier's `level`, carrying its `bout` from its first frame -
     // no loot (nobody dies on the sand to drop it), and never the room's (the instance is one player's)
-    const e = { mobileType, gender, x: position[0], y: position[1], z: position[2], spawnDistanceType: 0, ...(allied ? { allied: true } : {}), ...(questSpawn ? { questSpawn: true } : {}), ...(loadID != null ? { loadID } : {}), ...(Number.isFinite(level) ? { level } : {}), ...(eliteFoe ? { eliteFoe: true } : {}), ...(revenant ? { revenant, lairStand: !!lairStand } : {}) };   // SEARCH1: a searched grave's elite - applyEliteScaling and grantEliteLoot read the record's mark; RVN7d: a revenant's record
+    const e = { mobileType, gender, x: position[0], y: position[1], z: position[2], spawnDistanceType: 0, ...(allied ? { allied: true } : {}), ...(questSpawn ? { questSpawn: true } : {}), ...(loadID != null ? { loadID } : {}), ...(Number.isFinite(level) ? { level } : {}), ...(eliteFoe ? { eliteFoe: true } : {}), ...(revenant ? { revenant, lairStand: !!lairStand, ...(turned ? { turned: true } : {}) } : {}) };   // RVN11c: a betrayer turned where it stood   // SEARCH1: a searched grave's elite - applyEliteScaling and grantEliteLoot read the record's mark; RVN7d: a revenant's record
     const f = await buildFoeAt(e, false);
     if (!f) return null;
     if (yawRad != null && f.ai) f.ai.yaw = yawRad;
@@ -2293,7 +2293,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:16501 / exterior.js:3943), set
+  // host's own townTalk sink (world.js:16523 / exterior.js:3943), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -4425,7 +4425,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:27247,
+              // playerArrowHitFoe is the one copy world.js:27269,
               // exterior.js:5609 and worldModes.js:9229 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP

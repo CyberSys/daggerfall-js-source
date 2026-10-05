@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL, RVN1-RVN10, RVN11a and RVN11b built; RVN11c-RVN13 next)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL and RVN1-RVN11 built; RVN12-RVN13 next)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -7,7 +7,7 @@ detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
 (section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts), AUDIT
-TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), RVN8, RVN9, RVN10, and RVN11 in three parts (RVN11a loyalty and RVN11b desertion built; RVN11c betrayal next); each slice's record is at the foot.**
+TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), RVN8, RVN9, RVN10, and RVN11 in three parts (RVN11a loyalty, RVN11b desertion, RVN11c betrayal); each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -894,6 +894,13 @@ half by value and leaves the rest, gold to your purse (OPEN 18).
 Under `BETRAY_AT` (10), and only an Unhinged, Craven or Brutal one: once, in a fight where your health falls under 25%,
 it turns - out of the party first (`crewAshore.js` forces its body's team to the player's every frame), then a hostile
 revenant standing where it stood (the `betrayed` deed, "the Betrayer", rank +1). The rest never betray; they desert.
+
+- **As built (RVN11c; the record at the foot)**: the moment is a hurt that leaves me alive under a quarter (my death turns
+  nobody); one turns a hurt - the first at my side whose body stands here and who may. It turns where it stood: its body
+  lifted at once (no portal), and its record stood hostile at its feet through the place's own spawn (`turned`: no
+  return counted, no band), set on me. Its rank +1 (its signature drawn at 2), "the Betrayer" whatever its rank, the
+  `betrayed` deed, due should it get away. Its pack is decided here as a deserter's: what it may hold it carries (taken
+  back when it falls), the rest and its gold to me.
 
 ### 22.4 Shown
 
@@ -2284,3 +2291,28 @@ and `dungeonContext.js`.
 - Pins `test/rvn11b_desert.test.js` (7). Mutants `tools/mutants/rvn11b.json` (30): 30 dead. Mutant records re-aimed by
   content (4): `revenantaudit`'s A6 and `revenant`'s no-cap (the cap's lines now `trimLiving`'s), `rvn11a`'s
   warn-kicker and `rvn9`'s card-unsaid (their lines carry the deserter's too) - each judged again: dead.
+
+### RVN11c - BUILT 2026-10-05 (the loot-rarity row on; the world host's sworn, every place's spawn)
+
+- **The law** - `systems/revenantFeud.js`: `BETRAY` (under 10, a quarter of my health, the Unhinged, the Craven, the
+  Brutal - OPEN 19), `mayBetray(r)`.
+- **The moment** - `systems/revenantCompanions.js betrayalStep(entity, after)`, on the player's hurt
+  (`registerPlayerHurtListener('sworn-betrayal')`): alive and under a quarter, the first sworn one at my side that may
+  and whose body stands here turns - its record (`revenant.revenantBetrays`), then the host told (`'betray'`).
+- **The turn** - `revenantBetrays(player, r)`: not sworn, rank +1 (never past 5; its signature at 2), "the Betrayer"
+  (`REVENANT_EPITHETS.betrayed`), the `betrayed` deed, due should it get away; its pack as a deserter's (`splitPack` -
+  RVN11b's split, now one function for both); the cap held; its member forgotten. `revenantBetrayEvent` - *Betrayed*,
+  "Grushnak turns on you!". `applyRevenant(entity, r, { turned })`: a turning counts no return and writes no `returned`.
+- **Four hosts** - `scenes/world.js` WIRED: the retinue listener queues it; `turnSworn` (before the layer's frame) says
+  its card, lifts its body (no portal - the layer finds it swept) and stands it hostile through the place's `turn` -
+  the street's and a building's `spawnFoe(... { feetGiven, loose, band: false, turned })` (`scenes/exteriorFoes.js`:
+  `turned`, `band`), the dungeon's `spawnLooseFoe(... { revenant, turned })` (`scenes/dungeonContext.js`: both builds
+  pass `turned`); `scenes/worldModes.js` - its interiors are the street pool's kind (`interiorPool`); `scenes/exterior.js`
+  - FLAGGED (section 32): no companions there.
+- **Not built here** - its voice (`betrayed`, three lines - RVN12).
+- Pins `test/rvn11c_betray.test.js` (7). Mutants `tools/mutants/rvn11c.json` (37): 37 dead. Pins moved (6):
+  `loosefoespawn` SD1, `rvn7d_stand` (the loose stand's signature and record, both builds' stand), `loot7_champions`,
+  `revenant` THE HOSTS, `rvn6_band` THE CAP (the band's arm), `revenant_companions` the world's wiring (the places'
+  `turn`). Mutant records re-aimed by content (10): `rvn1`'s two dungeon tags, `rvn7d`'s build-unapplied and
+  record-dropped, `rvn6`'s band-unstood and puppet-band (each line now carries the turning), `rvn11b`'s four on the
+  split (now `splitPack`'s one site) - each judged again: dead.

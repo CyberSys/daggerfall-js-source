@@ -22,7 +22,7 @@ import { wodSiteId, yieldsTo } from '../world/wodShared.js';   // WOD7: a camp's
 import { alignBillboardToGround, alignControllerToGround } from '../world/groundAlign.js';   // WOD3: SpawnLoot's drop; CSA-D: BoardBoat's AlignControllerToGround
 import { PRIVATEERS_HOLD_BLOCK, HOLD_MODELS, HOLD_FLATS, holdModelMatrix, holdFireLights, rollHoldFoes } from '../world/wodPrivateersHold.js';   // WOD4: the camp at Privateer's Hold
 import { rollLootRarity, pileSource, dungeonRarityTier, dungeonFamily, stampWonWeapons } from '../systems/lootRarity.js';   // WOD3: LR1 over the camps' piles; SIGIL1: their weapons' sigils
-import { revenantToReturn, revenantSpawnOptions, revenantPresence, takeRevenantNotice, revenantSay, releaseRevenantStand, revenantRecord, revenantMomentEvent, revenantRumor, revenantMapMarks, revenantHuntEntries, revenantTakes, revenantFelled, revenantFelledEvent, revenantRoutSweep, revenantRoutedEvent, revenantWarnEvent } from '../systems/revenant.js';   // REVENANT: who comes back, and what the player is told
+import { revenantToReturn, revenantSpawnOptions, revenantPresence, takeRevenantNotice, revenantSay, releaseRevenantStand, revenantRecord, revenantMomentEvent, revenantRumor, revenantMapMarks, revenantHuntEntries, revenantTakes, revenantFelled, revenantFelledEvent, revenantRoutSweep, revenantRoutedEvent, revenantWarnEvent, revenantBetrayEvent } from '../systems/revenant.js';   // REVENANT: who comes back, and what the player is told
 import { endPlayerFights } from '../systems/harmMark.js';   // RVN10 (bible/12-Enhanced-AI/Feud-Arc.md 21.2): a respawn's jump is no flight
 import { DEVOTED } from '../systems/revenantFeud.js';   // RVN11 (Feud-Arc.md 22.1): a Devoted one's wait between warnings
 import { SKY_CLEAR } from '../render/renderer.js'; import { centreFromFeet } from '../characters/enemyAnchor.js';   // REVIEW 2026-09-05: one line, so the cites below it hold
@@ -7992,10 +7992,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT CC-A1: `has` - a place's clear empties its list and marks nobody (the street's clearLive), so the layer
     // asks the list itself whether a body still stands there
     // COMPANION-PORTAL: each place's portals (`fx` - the pool draws them with its foes)
-    if (mode === 'exterior') return { key: exteriorFoes, spawn: standIn(exteriorFoes), remove: (f) => exteriorFoes.removeFoe(f), has: (f) => exteriorFoes.foes.includes(f), spot: spotOf(collider), fx: exteriorFoes.companionFx };
+    // RVN11c (bible/12-Enhanced-AI/Feud-Arc.md 22.3): `turn` - a betrayer stood HOSTILE where its body stood (its record's
+    // stand at its feet: no band, no return counted)
+    const turnIn = (pool) => (r, feet, yaw) => pool.spawnFoe(r.mobileType, feet, { yaw, feetGiven: true, loose: true, band: false, turned: true, ...revenantSpawnOptions(r, effectiveLevel(playerEntity)) });   // `loose`: no encounter's slot - it stands whatever the pool holds
+    if (mode === 'exterior') return { key: exteriorFoes, spawn: standIn(exteriorFoes), remove: (f) => exteriorFoes.removeFoe(f), has: (f) => exteriorFoes.foes.includes(f), spot: spotOf(collider), fx: exteriorFoes.companionFx, turn: turnIn(exteriorFoes) };
     if (mode === 'interior') {
       const pool = modes?.interiorPool?.();
-      return pool ? { key: pool, spawn: standIn(pool), remove: (f) => pool.removeFoe(f), has: (f) => pool.foes.includes(f), spot: spotOf(modes?.interiorCollider), fx: pool.companionFx } : null;
+      return pool ? { key: pool, spawn: standIn(pool), remove: (f) => pool.removeFoe(f), has: (f) => pool.foes.includes(f), spot: spotOf(modes?.interiorCollider), fx: pool.companionFx, turn: turnIn(pool) } : null;
     }
     const d = _dungeonPool();
     if (!d?.spawnLooseFoe || !d.removeLooseFoe) return null;
@@ -8005,6 +8008,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // the room stands him as my ally (dungeonContext.js companionPuppet); off the lane he was nobody's to see
       spawn: (mobile, feet, o) => d.spawnLooseFoe(mobile, feet, { yawRad: o.yaw, allied: true, gender: o.gender }),
       remove: (f) => d.removeLooseFoe(f), has: (f) => d.foes.includes(f), spot: spotOf(d.collider), fx: d.companionFx ?? null,
+      turn: (r, feet, yaw) => { const so = revenantSpawnOptions(r, effectiveLevel(playerEntity)); return d.spawnLooseFoe(r.mobileType, feet, { yawRad: yaw, revenant: r, turned: true, gender: so.gender, level: so.level }); },   // RVN11c
     };
   }
   /** RVN10 (bible/12-Enhanced-AI/Feud-Arc.md 21.1): FELLED - my companion knocked out by `by`'s blow (the pool's record the
@@ -8030,6 +8034,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   setRetinuePlayer(playerEntity);
   /** The sworn ones the player just called or spared, who say so as they step through (the roster's call). */
   const _revenantArrivals = new Set();
+  /** RVN11c: the sworn turned on me, waiting for the layer's next frame. */
+  const _revenantBetrayals = [];
   const revenantCompanionSay = (kind, id, body = null) => {
     const r = revenantRecord(playerEntity, id);
     if (r) revenantSay(revenantMomentEvent(kind, r, playerEntity?.name, body ? { body } : {}), (l) => townTalk.say(l));
@@ -8060,6 +8066,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // AUDIT (2026-10-02): opposite acts in one pause cancel - a call after a sending-away (the body never left) says neither
   // word, nor leaves an arrival waiting for the next door; a release carries its pack's count for its words
   setRetinueListener((kind, r, extra) => {
+    if (kind === 'betray') { _revenantArrivals.delete(r.id); _revenantBetrayals.push(r); return; }   // RVN11c: its turning, at the layer's next frame
     const sentAt = _revenantDepartures.findIndex((d) => d.kind === 'dismiss' && d.r.id === r.id);
     if (kind === 'arrive') { if (sentAt >= 0) _revenantDepartures.splice(sentAt, 1); else noteRevenantArrival(r.id); return; }
     _revenantArrivals.delete(r.id);
@@ -8146,9 +8153,24 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (++_companionPruneN >= 60) { _companionPruneN = 0; naval?.pruneCompanions?.(); }
     try { crewAshore.frame(); } catch (e) { console.warn('[companions]', e?.message ?? e); }
   }
+  /** RVN11c (bible/12-Enhanced-AI/Feud-Arc.md 22.3): BETRAYED - its card; its body lifted at once (no portal: it turns where
+   *  it stood - the layer then finds it swept, never carried off), and the hostile revenant its record now is stood there,
+   *  set on me. No body here (another place, or none stood): it comes later, as any living revenant. */
+  function turnSworn(r) {
+    revenantSay(revenantBetrayEvent(r), (l) => townTalk.say(l));
+    const rec = revenantAshore.bodies().find((b) => b.revenantCompanion === r.id && !b.dead && b.ai?.feet);
+    const place = rec ? companionPlace({ crew: false }) : null;
+    if (!rec || !place?.turn) return;
+    const feet = [rec.ai.feet[0], rec.ai.feet[1], rec.ai.feet[2]], yaw = rec.ai.yaw ?? 0;
+    try { place.remove(rec); } catch (e) { console.warn('[companions] a betrayer would not lift', e?.message ?? e); }
+    Promise.resolve(place.turn(r, feet, yaw)).then((f) => {
+      if (f?.ai && !f.dead) f.ai.makeHostileToPlayer?.(undefined, [player.pos[0], player.pos[1], player.pos[2]]);
+    }, (e) => console.warn('[companions] a betrayer would not stand', e?.message ?? e));
+  }
   /** REVENANT-COMPANION: the sworn's layer's frame, in every mode beside the crew's - never the naval arc's to stop. */
   function revenantAshoreTick() {
     if (gamePaused()) return;   // the sworn wait out a window too (AUDIT CC-A10's law: no knock, no stand, no catch-up under one)
+    while (_revenantBetrayals.length) turnSworn(_revenantBetrayals.shift());   // RVN11c: before the layer's frame - its body lifted, no portal
     try { revenantAshore.frame(); } catch (e) { console.warn('[companions] the sworn', e?.message ?? e); }
     while (_revenantDepartures.length) {   // COMPANION-ROSTER: its parting words, as it goes
       const d = _revenantDepartures.shift();

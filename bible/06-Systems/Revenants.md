@@ -487,3 +487,10 @@ revenant again under its own rank, now called the Oathbreaker, and comes back wi
 more valuable half of what was in its pack (killing, executing or sparing it again returns it) and leaves the rest, and
 any gold, to the player. The law: `bible/12-Enhanced-AI/Feud-Arc.md` section 22.2 and its RVN11b record.
 
+## 29. Betrayal (FEUD RVN11c, 2026-10-05)
+
+An Unhinged, Craven or Brutal sworn revenant whose loyalty falls under 10 may turn on the player: when a blow leaves the
+player under a quarter of their health, it turns where it stands - stronger by a rank, now called the Betrayer - and
+fights. What it carried it keeps as a deserter does (kill it to take it back); the rest falls to the player. The others
+never betray; they desert. The law: `bible/12-Enhanced-AI/Feud-Arc.md` section 22.3 and its RVN11c record.
+

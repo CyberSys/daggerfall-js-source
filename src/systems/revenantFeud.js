@@ -439,6 +439,10 @@ export const loyaltyLabel = (v) => (LOYALTY_LABELS.find(([at]) => (Number(v) || 
 /** RVN11: a loyalty moved by `d`, kept 0-100. */
 export const movedLoyalty = (v, d) => Math.max(0, Math.min(100, Math.round((Number.isFinite(v) ? v : 0) + d)));
 export const isDevoted = (v) => Number.isFinite(v) && v >= DEVOTED.AT;
+/** RVN11c (22.3, OPEN 19): BETRAYAL - a sworn one under BETRAY.AT, and only of these three, turns on me once, when a hurt
+ *  leaves me under BETRAY.HEALTH of my health. The rest never betray; they desert. */
+export const BETRAY = Object.freeze({ AT: 10, HEALTH: 0.25, KINDS: Object.freeze(['unhinged', 'craven', 'brutal']) });
+export const mayBetray = (r) => !!r?.sworn && r.companion?.loyalty < BETRAY.AT && BETRAY.KINDS.includes(r.personality);
 /** RVN11b (22.2): DESERTION - a sworn one under DESERT.AT, once a day, one time in DESERT.CHANCE, leaves. */
 export const DESERT = Object.freeze({ AT: 20, CHANCE: 0.15 });
 /** RVN11b (22.2, OPEN 18): a deserter's pack split - it keeps the more valuable half (an odd one its way - decided here),

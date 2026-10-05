@@ -19,10 +19,11 @@
 //    it is kept - a fight won at the player's side, a day with the player, a call after its rest; a day sent away, a
 //    fall, a second sending-away in a day, one of its own kind executed in its sight. Devoted (90 and up), it strikes
 //    harder and warns of a blow from behind.
-import { swornRevenants, revenantCompanionUpdate, revenantRecord, REVENANT_HEALTH_PER_RANK, REVENANT_DAMAGE_PER_RANK, setSwornLeftListener } from './revenant.js';
+import { swornRevenants, revenantCompanionUpdate, revenantRecord, REVENANT_HEALTH_PER_RANK, REVENANT_DAMAGE_PER_RANK, setSwornLeftListener, revenantBetrays } from './revenant.js';
 import { registerCompanionCount, companionsWithYou, COMPANION_SLOTS } from './companionSlots.js';
 import { addItem, addGoldPieces, isGoldPieces } from './inventory.js';   // a released one's pack, handed back
-import { LOYALTY, DEVOTED, movedLoyalty, isDevoted, sameKin } from './revenantFeud.js';   // RVN11 (bible/12-Enhanced-AI/Feud-Arc.md 22.1): its loyalty
+import { LOYALTY, DEVOTED, movedLoyalty, isDevoted, sameKin, BETRAY, mayBetray } from './revenantFeud.js';
+import { registerPlayerHurtListener } from '../characters/playerEntity.js';   // RVN11c: the hurt that leaves me under a quarter   // RVN11 (bible/12-Enhanced-AI/Feud-Arc.md 22.1): its loyalty
 import { MINUTES_PER_DAY } from './gameDate.js';   // RVN11: "twice in a day"
 import { ownMinutes } from './worldTick.js';
 
@@ -36,7 +37,7 @@ export const isRevenantCompanionKey = (k) => typeof k === 'string' && k.startsWi
 export const revenantIdOfKey = (k) => (isRevenantCompanionKey(k) ? k.slice(3) : null);
 
 let _player = null;
-/** @type {((kind: 'arrive'|'dismiss'|'release', r: any, extra?: { items?: number } | null) => void) | null} */
+/** @type {((kind: 'arrive'|'dismiss'|'release'|'betray', r: any, extra?: { items?: number } | null) => void) | null} */
 let _listener = null;
 /** The host's ear for the roster's acts (its portal's words as the body steps through - ui/companionRoster.js). */
 export function setRetinueListener(fn) { _listener = typeof fn === 'function' ? fn : null; }
@@ -239,5 +240,17 @@ export function swornWitness(mobileType) {
 export const devotedWithYou = () => revenantsWithYou().find((r) => isDevoted(r.companion?.loyalty) && swornBodyOf(r.id)?.health > 0) ?? null;
 // RVN11b (Feud-Arc.md 22.2): a deserter's member forgotten - its carried spells are no next oath's
 setSwornLeftListener((id) => forgetSwornMember(id));
+/** RVN11c (bible/12-Enhanced-AI/Feud-Arc.md 22.3): THE BETRAYAL'S MOMENT - a hurt that leaves me (alive) under
+ *  BETRAY.HEALTH: the first sworn one at my side that may betray (mayBetray) and whose body stands here turns - its record
+ *  first (systems/revenant.js revenantBetrays), then the host told ('betray'), which stands it hostile where it stood. One
+ *  a hurt. */
+export function betrayalStep(entity, after) {
+  if (!entity?.isPlayer || entity.peer || !(after > 0) || after >= (entity.maxHealth || 1) * BETRAY.HEALTH) return null;
+  const r = revenantsWithYou().find((x) => mayBetray(x) && swornBodyOf(x.id)?.health > 0);
+  const t = r ? revenantBetrays(entity, r) : null;
+  if (t) tell('betray', t);
+  return t;
+}
+registerPlayerHurtListener('sworn-betrayal', (entity, { after } = /** @type {any} */ ({})) => { betrayalStep(entity, after); });
 /** Tests only. */
 export function _resetRetinueForTests() { _members.clear(); _heldUntil.clear(); _player = null; _listener = null; _bodies = null; }

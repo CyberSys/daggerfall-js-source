@@ -365,7 +365,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   // CENTRE, and `hitDist` what AlignControllerToGround's ray found below
   // it (null: nothing within 3); the drop needs the capsule the sprite
   // sizes, so it lands once the sprite has.
-  async function spawnFoe(mobileType, pos, { gender: forcedGender = null, yaw = null, questBehaviour = null, allied = false, feetGiven = false, replacing = false, puppet = null, seq = null, level = null, placed = false, groundAlign = null, site = null, loose = false, transformY = null, team = null, transient = false, managed = false, questMarker = false, champion = undefined, revenant = null, eliteFoe = undefined } = {}) {   // LOOT7: `champion` - a puppet's owner's word or a save's trait (null none); unsaid, an encounter's own roll
+  async function spawnFoe(mobileType, pos, { gender: forcedGender = null, yaw = null, questBehaviour = null, allied = false, feetGiven = false, replacing = false, puppet = null, seq = null, level = null, placed = false, groundAlign = null, site = null, loose = false, transformY = null, team = null, transient = false, managed = false, questMarker = false, champion = undefined, revenant = null, eliteFoe = undefined, turned = false, band = true } = {}) {   // LOOT7: `champion` - a puppet's owner's word or a save's trait (null none); unsaid, an encounter's own roll
     // WORLD6b: a puppet is not this cap's. AUDIT 68 review (R-scenes-loose-foe-squad-capped): nor is a `loose` stand -
     // CreateFoeSpawner's (a summoning punishment, RR's expulsion squad, a Rose's Daedroth) stands however many it is
     // told in one loop, and DFU caps none of them; the cap is the encounter rolls'
@@ -411,7 +411,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       if (team) entity.team = team;
       entity._feudPlace = playerInside ? 'building' : 'street';   // RVN1 (Feud-Arc.md 12): where a fight with it is fought, for its ledger
       if (!allied && !entity.eliteFoe) applyChampion(entity, champion !== undefined ? champion : revenant ? (revenant.trait ? championIndex(revenant.trait) : null) : (capped ? rollStreetChampion(pending.feet, mobileType) : null));   // LOOT7: a champion - before its loot, which reads the mark
-      if (revenant && !puppet) applyRevenant(entity, revenant);   // REVENANT: its name and its rank - over its trait or its glow, before its loot
+      if (revenant && !puppet) applyRevenant(entity, revenant, { turned });   // REVENANT: its name and its rank - over its trait or its glow, before its loot; RVN11c: a betrayer's turning is no return
       // AUDIT WORLD6b B14: a PUPPET carries no loot of this player's (its body is its owner's - WORLD6b-iii(c): taken under the owner's grant), wears no
       // kit of its own and casts nothing, so its stand rolls no table and draws nothing off the injectable roll or
       // the shared stream: what my neighbours stream must not move my own dice
@@ -551,7 +551,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // B1: the quest resource behaviour couples at the stand - the
       // activation moment, where Unity runs the deferred Start.
       if (questBehaviour) bindQuestFoeHost(f, questBehaviour, questPoolOps);
-      if (revenant && !puppet && !allied && entity.revenant) Promise.resolve().then(() => standBand(f, bandMembers(revenant, effectiveLevel(playerEntity))));   // RVN6: its band about it - once its own slot is let go (the finally below)
+      if (revenant && band && !puppet && !allied && entity.revenant) Promise.resolve().then(() => standBand(f, bandMembers(revenant, effectiveLevel(playerEntity))));   // RVN6: its band about it - once its own slot is let go (the finally below)
       return f;
     } catch (err) {
       console.error(`[encounter] mobileType ${mobileType} failed to spawn:`, err?.message ?? err);

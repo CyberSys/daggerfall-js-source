@@ -155,7 +155,7 @@
   {
     "name": "RVN6-band-unstood",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "      if (revenant && !puppet && !allied && entity.revenant) Promise.resolve().then(() => standBand(f, bandMembers(revenant, effectiveLevel(playerEntity))));",
+    "old": "      if (revenant && band && !puppet && !allied && entity.revenant) Promise.resolve().then(() => standBand(f, bandMembers(revenant, effectiveLevel(playerEntity))));",
     "new": "      if (false) Promise.resolve().then(() => standBand(f, bandMembers(revenant, effectiveLevel(playerEntity))));",
     "tests": [
       "test/rvn6_band.test.js"
@@ -164,8 +164,8 @@
   {
     "name": "RVN6-puppet-band",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "      if (revenant && !puppet && !allied && entity.revenant) Promise.resolve()",
-    "new": "      if (revenant && !allied && entity.revenant) Promise.resolve()",
+    "old": "      if (revenant && band && !puppet && !allied && entity.revenant) Promise.resolve()",
+    "new": "      if (revenant && band && !allied && entity.revenant) Promise.resolve()",
     "tests": [
       "test/rvn6_band.test.js"
     ]
