@@ -281,8 +281,8 @@
   {
     "name": "LW4-fallen-come-home",
     "file": "src/systems/livingWorld/trips.js",
-    "old": "    out.push({ t0: tr.outT0, t1: fell ? Infinity : tr.backT1, yaw: leavingYaw(tr), armed: res.cls != null });",
-    "new": "    out.push({ t0: tr.outT0, t1: tr.backT1, yaw: leavingYaw(tr), armed: res.cls != null });",
+    "old": "    out.push({ t0: tr.outT0, t1: fell ? Infinity : tr.backT1, yaw: leavingYaw(tr), armed: res.cls != null, dock: !!tr.sea });",
+    "new": "    out.push({ t0: tr.outT0, t1: tr.backT1, yaw: leavingYaw(tr), armed: res.cls != null, dock: !!tr.sea });",
     "tests": [
       "test/lw4_trouble.test.js"
     ]
@@ -335,8 +335,8 @@
   {
     "name": "LW4-remains-forever",
     "file": "src/systems/livingWorld/trips.js",
-    "old": "        if (f.inside || !(f.t <= t && t < f.t + REMAINS_MIN)) return;",
-    "new": "        if (f.inside || !(f.t <= t)) return;",
+    "old": "        if (f.inside || f.atSea || !(f.t <= t && t < f.t + REMAINS_MIN)) return;",
+    "new": "        if (f.inside || f.atSea || !(f.t <= t)) return;",
     "tests": [
       "test/lw4_trouble.test.js"
     ]

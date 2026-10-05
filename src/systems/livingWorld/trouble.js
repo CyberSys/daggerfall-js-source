@@ -59,6 +59,7 @@ export const foeStrength = (level) => 1 + 0.6 * Math.max(1, level);
  * @param {TroubleWorld} world
  */
 export function troubleOf(trip, world) {
+  if (trip.sea) return seaTrouble(trip, world);   // LW5b: a crossing meets none of the land's foes
   const walk = Math.max(0, trip.way.len - trip.trim0 - trip.trim1);
   if (!(walk > 0) || !(trip.pace > 0)) return null;
   const walkMin = walk / trip.pace;
@@ -129,6 +130,22 @@ export function diveTrouble(trip, dead, world) {
 }
 
 /**
+ * LW5b: A CROSSING'S TROUBLE - none of the land's. A passenger the lives take this cycle is LOST AT SEA, at a seeded hour
+ * of a crossing (the way out the likelier); the ship sails on with the rest. None fated, none.
+ * @param {import('./trips.js').Trip} trip @param {TroubleWorld} world
+ */
+export function seaTrouble(trip, world) {
+  const dead = trip.party.filter((m) => world.dies?.(m, trip)).map((m) => m.id);
+  if (!dead.length) return null;
+  const rng = lwRng(textSeed(trip.id), TROU, 0x736561);   // 'sea'
+  const out = rng() < 0.6;
+  const [a, b] = out ? [trip.outT0, trip.outT1] : [trip.backT0, trip.backT1];
+  const t0 = a + (b - a) * (0.2 + 0.6 * rng());
+  return { id: `${trip.id}:e`, leg: 'sea', camp: false, t0, t1: t0, fightEnd: t0, s: 0, x: 0, z: 0, px: -1, py: -1,
+    foes: /** @type {number[]} */ ([]), level: 1, kind: /** @type {'fell'} */ ('fell'), dead, atSea: true };
+}
+
+/**
  * THE TRIP AS THE TROUBLE LEFT IT: its encounter (`enc`), the HALT where it fell, the FALLEN (out of the party from the
  * fight's middle), and - a party that fled or fell on the way out - TURNED: home from where it stood once the halt is
  * done, never at the town it set out for. A trip with no trouble is itself.
@@ -137,6 +154,10 @@ export function diveTrouble(trip, dead, world) {
 export function troubledTrip(trip, enc) {
   if (!enc) return trip;
   const byId = new Map(trip.party.map((m) => [m.id, m]));
+  if (enc.leg === 'sea') {
+    // LW5b: lost at sea - gone from the party at the hour, nowhere to lie; the ship sails on with the rest
+    return { ...trip, enc, fallen: enc.dead.map((id) => ({ res: byId.get(id), t: enc.t0, s: 0, atSea: true })).filter((f) => f.res), turned: false };
+  }
   const fallAt = enc.t0 + FIGHT_MIN[enc.kind] * 0.6;
   if (enc.leg === 'dive') {
     // LW6: under the ground - the fallen lie there; a party whose leader fell comes out at once and walks home

@@ -258,15 +258,24 @@ export const HELPED_NEWS = Object.freeze({
     Object.freeze(['{player} fought beside {who}\'s party near {place}. Not everyone came home.', 'More would be in the ground without {player}.']),
   ]),
 });
+/** LW5b: what the town says of a passage by sea that cost a life - `{place}` the port they sailed for. */
+export const SEA_NEWS = Object.freeze({
+  fell: Object.freeze([
+    Object.freeze(['{who} was lost at sea, on the crossing to {place}.', 'The Bay takes its share.']),
+    Object.freeze(['Did you hear? {who} went over the side, halfway to {place}.', 'In that weather?', 'In any weather. The sea does not ask.']),
+  ]),
+});
 /** Of a meeting with news to tell, the share that tells it. */
 export const NEWS_SHARE = 0.4;
 
 /** LW7: a news item's words - a deed's (struck down by the player, seen or not; died at their side), a fight the player
- *  turned, a dive's (LW6), the road's. @param {{ kind: string, dive?: boolean, helped?: boolean, seen?: boolean }} item */
+ *  turned, a passage by sea's (LW5b), a dive's (LW6), the road's.
+ *  @param {{ kind: string, dive?: boolean, helped?: boolean, seen?: boolean, sea?: boolean }} item */
 const newsPool = (item) => (item.kind === 'slain' ? SLAIN_NEWS[item.seen ? 'seen' : 'unseen']
   : item.kind === 'died' ? DIED_NEWS
     : item.helped && HELPED_NEWS[/** @type {keyof typeof HELPED_NEWS} */ (item.kind)] ? HELPED_NEWS[/** @type {keyof typeof HELPED_NEWS} */ (item.kind)]
-      : (item.dive ? DIVE_NEWS : ROAD_NEWS)[/** @type {keyof typeof ROAD_NEWS} */ (item.kind)]);
+      : item.sea ? SEA_NEWS[/** @type {keyof typeof SEA_NEWS} */ (item.kind)]   // LW5b: the sea's own words
+        : (item.dive ? DIVE_NEWS : ROAD_NEWS)[/** @type {keyof typeof ROAD_NEWS} */ (item.kind)]);
 
 /**
  * LW4: a meeting's news, if it tells one - NEWS_SHARE of the meetings with news to tell, the item drawn on the seed -

@@ -79,9 +79,10 @@ Taken at the design, in the request's own order; each is Mac's to overrule.
 - LW2 - the town: residents walk the streets in the streaming host.
 - LW3 - the roads: trips, caravans, camps, the gear; the wilderness and the Overworld.
 - LW4 - trouble on the road; LW4b - the fight stood live, the player's to turn.
-- LW5 - the ports.
+- LW5 - the ports; LW5b - the passage by sea.
 - LW6 - the deep.
-- LW7 - the deeds; LW7b - friends and enemies beyond the walls.
+- LW7 - the deeds; LW7b - friends and enemies beyond the walls; LW7c - the people who know you.
+- LW8 - the doors open.
 
 ## LW1 - the census, the places, the day, the meetings, the lines, the regards (2026-10-04)
 
@@ -341,8 +342,41 @@ them with the Bay's own packets (`scenes/world.js`, `naval/seaLanes.js`).
   ashore, as LW1 made them.
 - **The clocks.** The packets run on the shared clock's real seconds, the living world on the sky's minutes; a sailor's
   place is read off the ships' clock as it stands NOW, so where the ships are and where their hands are always agree.
-  A traveller's own passage over the water - a trip by sea on a timetable of the sky's minutes - is not yet (the
-  roads' trips keep to the land; a town across the water is no destination).
+  A traveller's own passage over the water, a trip by sea on a timetable of the sky's minutes, is LW5b's.
+
+## LW5b - the passage by sea (2026-10-05)
+
+`trips.js` (`seaTrip`, `SEA_CHANCE`, `SEA_PACE_X`, `SEA_TIDE_H`; `ownTrip`, `partyAt`, `awayOf`, `visitorsOf`, `newsOf`,
+`remainsNear`), `trouble.js seaTrouble`, `lines.js SEA_NEWS`, the LivingTown's dock exits (`livingTown.js`), the host's
+lanes (`scenes/world.js` `lanesFrom`: the Bay's own network, `naval/seaLanes.js`). Mac: NPCs "travel between towns ...
+link with the ship AI at ports" - LW3's trips kept to the land; a port's traveller now takes ship.
+
+- **Who sails.** A port town's traveller sails on about `SEA_CHANCE` of their cycles - a merchant 0.4, a courier 0.35,
+  a pilgrim 0.3, a pedlar 0.2, an adventurer 0.15 (one not diving that cycle); a sailor crews (LW5), a sellsword rides
+  with their merchant. The cycle's own dice ('sea'), apart from the road's, so a cycle that does not sail is the trip it
+  always was.
+- **Where.** A port a lane of the Bay runs to from theirs (`world.lanesFrom`: the far port, the lane's length in
+  metres): the bigger and the nearer the likelier (a pilgrim's a temple town's). Lanes are the Bay's own - the ones its
+  packets sail (LW5) - so a passage can reach a port beyond any road's `TRIP_REACH_PX`.
+- **When.** Out from the dock on a morning tide (`SEA_TIDE_H`, 6 to 9 o'clock); the crossing at `SEA_PACE_X` (3) a
+  walker's pace, by night as by day; the stay (the job's `STAY_DAYS`); home on a later morning's tide, the same hour
+  (a ship turns round overnight at the least). The whole passage inside the cycle: a lane too long for it gives way to
+  the longest shorter lane that fits; none that fits (or no lane at all), the road's trip it always was.
+- **At sea, never on the road.** A passage is `sea` while it sails, out and home, and `stay` between - never `out` or
+  `back`, so no road, Overworld mark or roadside fight shows it (it has no way under it). Its party is a caravan's
+  like any trip's: a merchant's sellswords and the joiners of the day (LW3) take the same ship.
+- **The dock.** A traveller sailing walks to the town's dock (LW5's: the Ship door, else the street cell by the first
+  berth) and is gone from it; a passenger off a ship comes in at the far port's dock, lodges at a tavern there, and
+  leaves by it. A port's visitors are read from every port its lanes run to, however far.
+- **Lost at sea** (`seaTrouble`). A crossing meets none of the land's foes. A passenger the lives take this cycle (LW4's
+  fate - the same dice) is LOST AT SEA at a seeded hour of a crossing (the way out the likelier, 0.6), gone from the
+  party there and nowhere to lie; the ship sails on with the rest. None fated, none. The town tells it in the sea's own
+  words (`SEA_NEWS`).
+- **The map read first.** The lanes are read off the map's own ports and water (the host's `lanesFrom`, cached per
+  port); until the map is read a port's sea trips are `undefined` - asked again, like an unread road - so every reader
+  answers alike. Not gated on the ships sailing (`naval.enabled`): a passage is a timetable of the sky's minutes, not a
+  hull.
+- **Not yet:** a passenger seen aboard a packet (the ships' crews are LW5's sailors; a passage keeps its own timetable).
 
 ## LW6 - the deep (2026-10-05)
 

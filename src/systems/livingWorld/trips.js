@@ -59,6 +59,12 @@ export const TRIP_REACH_PX = 18;
 export const DIVE_CHANCE = 0.55;
 export const DIVE_RANGE_PX = Object.freeze([1, 8]);
 export const DIVE_MIN = Object.freeze([240, 600]);
+/** LW5b: THE PASSAGE BY SEA - the share of a port town's travellers' trips that sail to a port a lane of the Bay runs
+ *  to from theirs (by job: a sailor crews, a sellsword rides with their merchant), how much faster a ship goes than a
+ *  walker (by night as by day), and the hours of the morning tide a ship sails on. */
+export const SEA_CHANCE = Object.freeze({ merchant: 0.4, pilgrim: 0.3, courier: 0.35, pedlar: 0.2, adventurer: 0.15 });
+export const SEA_PACE_X = 3;
+export const SEA_TIDE_H = Object.freeze([6, 9]);
 /** The calendar's walking pace (metres a clock minute): DFU's 1.3 m/s over CLASSIC_MINUTES_PER_SECOND. */
 export const CALENDAR_MPM = 1.3 / 0.2;
 
@@ -76,16 +82,19 @@ export const CALENDAR_MPM = 1.3 / 0.2;
  *   dungeonsNear?: (px: number, py: number, rMax: number) => LwTown[],
  *   fated?: (res: Resident, k: number) => boolean,
  *   fate?: (trip: Trip) => Trip,
+ *   lanesFrom?: (town: LwTown) => ({ to: LwTown, len: number, key: string }[] | undefined),
  * }} TripWorld - the host's: towns near a pixel (the game's own rows, populated); the planner's way between two towns
  *   (undefined while it is being asked, null for none); a town's travellers (census.js travellerRoster). LW4: who holds
  *   a traveller's place in a cycle (lives.js - null while it stands empty; unasked, the census's own), whether its
  *   holder dies that cycle (and so sets out whatever the chance said - a fated death is on the road), and the trouble
  *   a trip meets (trouble.js - the trip as it left it). LW6: the dungeons near a pixel (`dungeon: true` rows - an
- *   adventurer's dives)
+ *   adventurer's dives). LW5b: the Bay's lanes from a port town (naval/seaLanes.js: the far port, the lane's length in
+ *   metres; none for a town with no harbour; undefined while the map is unread)
  * @typedef {{ id: string, k?: number, kind: string, leader: Resident, party: Resident[], from: LwTown, to: LwTown, way: Way,
  *   pace: number, outT0: number, outT1: number, backT0: number, backT1: number, trim0: number, trim1: number,
  *   enc?: any, halt?: { t0: number, t1: number, fightEnd: number, s: number, leg: 'out'|'back' },
- *   fallen?: { res: Resident, t: number, s: number, inside?: boolean, hand?: boolean }[], turned?: boolean, dive?: { t0: number, t1: number } }} Trip - LW6: `dive` an
+ *   fallen?: { res: Resident, t: number, s: number, inside?: boolean, hand?: boolean, atSea?: boolean }[], turned?: boolean, dive?: { t0: number, t1: number },
+ *   sea?: { key: string, len: number } }} Trip - LW5b: `sea` a passage by sea, its lane and length (no road under it). LW6: `dive` an
  *   adventurer's hours in the dungeon it went to (its `to` a dungeon). LW4: `k` its cycle; the trouble's
  *   `enc`, its `halt`, the `fallen` and whether it `turned` home (trouble.js troubledTrip). LW7: a fallen by a `hand`
  *   (handsOn - struck down by the player, or at their side) gone from that minute, no remains or news of the road's
@@ -181,6 +190,16 @@ export function ownTrip(res, home, k, world, { mpm }) {
       if (dive !== null) return dive;   // undefined (a way asked) or the dive; none that fits, the town trip
     }
   }
+  // LW5b: a port town's traveller's cycle a PASSAGE BY SEA now and then - its own dice, so a cycle that is none is the
+  // trip it always was
+  const seaShare = SEA_CHANCE[/** @type {keyof typeof SEA_CHANCE} */ (res.job)] ?? 0;
+  if (home.port && world.lanesFrom && seaShare > 0) {
+    const srng = lwRng(res.town, res.slot, k, 0x736561);   // 'sea'
+    if (srng() < seaShare) {
+      const sea = seaTrip(res, home, k, world, { start, len, mpm, pace, rng: srng });
+      if (sea !== null) return sea;   // undefined (the map unread) or the passage; none that fits, the road's trip
+    }
+  }
   const [rMin, rMax] = TRIP_RANGE_PX[/** @type {keyof typeof TRIP_RANGE_PX} */ (res.job)] ?? [3, 12];
   const near = world.townsNear(home.px ?? 0, home.py ?? 0, rMax)
     .filter((t) => t.mapId !== home.mapId && Math.max(Math.abs((t.px ?? 0) - (home.px ?? 0)), Math.abs((t.py ?? 0) - (home.py ?? 0))) >= rMin);
@@ -225,6 +244,54 @@ export function ownTrip(res, home, k, world, { mpm }) {
     if (backT1 > (start + len) * DAY_MIN + DAY_START_MIN) continue;
     return { id: `${res.id}:${k}`, k, kind: res.job, leader: res, party: [res], from: home, to: /** @type {LwTown} */ (to), way, pace,
       outT0, outT1, backT0, backT1, trim0, trim1 };
+  }
+  return null;
+}
+
+/** LW5b: the way of a trip with no road under it - a passage by sea. */
+const noWay = () => ({ pts: [], cum: [0], len: 0, kinds: [] });
+
+/**
+ * LW5b: A PASSAGE BY SEA - a port town's traveller's trip to a port a lane of the Bay runs to from theirs
+ * (`world.lanesFrom`: the far port and the lane's length), the bigger and the nearer the likelier (a pilgrim's a temple
+ * town's); the pick, then the nearer lanes, the longest of them first. Out from the dock on a morning tide (SEA_TIDE_H),
+ * the crossing at SEA_PACE_X a walker's pace by night as by day, the stay, home on a later morning's tide (a ship turns
+ * round overnight at the least) - inside the cycle, or none (null); undefined while the map is unread.
+ * @param {Resident} res @param {LwTown} home @param {number} k @param {TripWorld} world
+ * @param {{ start: number, len: number, mpm: number, pace: number, rng: () => number }} o
+ * @returns {Trip|null|undefined}
+ */
+export function seaTrip(res, home, k, world, { start, len, mpm, pace, rng }) {
+  const all = world.lanesFrom?.(home);
+  if (all === undefined) return undefined;
+  const lanes = all.filter((l) => l.to && l.to.mapId !== home.mapId && l.len > 0);
+  if (!lanes.length) return null;
+  /** @type {Record<string, number>} */
+  const weights = {};
+  for (const l of lanes) {
+    const size = Math.pow(Math.max(1, l.to.blocks | 0), 0.7);
+    const temple = res.job === 'pilgrim' ? (world.templeTown?.(l.to) ? 6 : 0.2) : 1;
+    weights[l.key] = (temple * size) / (1 + l.len / 10000);
+  }
+  const pick = pickWeighted(rng, weights);
+  const first = lanes.find((l) => l.key === pick);
+  if (!first) return null;
+  const order = [first, ...lanes.filter((l) => l !== first && l.len < first.len).sort((a, b) => b.len - a.len || (a.key < b.key ? -1 : 1))];
+  const [sLo, sHi] = STAY_DAYS[/** @type {keyof typeof STAY_DAYS} */ (res.job)] ?? [1, 1];
+  const stay = rollInt(rng, sLo, sHi);
+  const tideMin = Math.floor((SEA_TIDE_H[0] + rng() * (SEA_TIDE_H[1] - SEA_TIDE_H[0])) * 60);
+  const offsetRoll = rng();
+  const cycleEnd = (start + len) * DAY_MIN + DAY_START_MIN;
+  for (const l of order) {
+    const cross = Math.ceil(l.len / (Math.max(0.1, mpm) * SEA_PACE_X));   // the clock's minutes, by night as by day
+    const span = Math.ceil((2 * cross) / DAY_MIN) + Math.max(1, stay) + 1;
+    const outT0 = (start + Math.floor(offsetRoll * Math.max(0, len - span))) * DAY_MIN + tideMin;
+    const outT1 = outT0 + cross;
+    const backT0 = Math.max(outT1 + 60, (Math.floor(outT1 / DAY_MIN) + Math.max(1, stay)) * DAY_MIN + tideMin);
+    const backT1 = backT0 + cross;
+    if (backT1 > cycleEnd) continue;
+    return { id: `${res.id}:${k}`, k, kind: res.job, leader: res, party: [res], from: home, to: l.to, way: noWay(), pace,
+      outT0, outT1, backT0, backT1, trim0: 0, trim1: 0, sea: { key: l.key, len: l.len } };
   }
   return null;
 }
@@ -432,7 +499,7 @@ export const NEWS_DAYS = 3;
  * the town they were bound for, `enc` the encounter's id (LW7: the character's turn of it). A hand's dead are not the
  * road's news (LW7).
  * @param {Trip[]} trips - the town's own, about the minute (and the days before it) @param {number} t
- * @returns {{ id: string, enc: string, kind: string, who: string, foe: number|null, place: string, t: number, dive: boolean }[]}
+ * @returns {{ id: string, enc: string, kind: string, who: string, foe: number|null, place: string, t: number, dive: boolean, sea: boolean }[]}
  */
 export function newsOf(trips, t) {
   const seen = new Set();
@@ -445,7 +512,7 @@ export function newsOf(trips, t) {
     if (!(known <= t && t - known < NEWS_DAYS * DAY_MIN)) continue;
     const fell = tr.fallen?.filter((f) => !f.hand) ?? [];
     const who = fell[0]?.res ?? tr.leader;
-    out.push({ id: tr.id, enc: enc.id, kind: fell.length ? 'fell' : enc.kind, who: who.name, foe: enc.foes?.[0] ?? null, place: tr.to?.name ?? '', t: known, dive: !!tr.dive });
+    out.push({ id: tr.id, enc: enc.id, kind: fell.length ? 'fell' : enc.kind, who: who.name, foe: enc.foes?.[0] ?? null, place: tr.to?.name ?? '', t: known, dive: !!tr.dive, sea: !!tr.sea });
   }
   return out.sort((a, b) => b.t - a.t);
 }
@@ -457,13 +524,15 @@ export function newsOf(trips, t) {
  * own minutes) - and then it walks on, making up the halt at HALT_CATCH_UP again its pace; a party TURNED walks home
  * from where it stood.
  * @param {Trip} trip @param {number} t
- * @returns {{ phase: 'home'|'out'|'stay'|'back', x?: number, z?: number, yaw?: number, camp?: boolean, s?: number, halt?: boolean, fight?: boolean }}
+ * LW5b: a passage by sea is 'sea' while it sails, out and home (no road under it).
+ * @returns {{ phase: 'home'|'out'|'stay'|'back'|'sea', x?: number, z?: number, yaw?: number, camp?: boolean, s?: number, halt?: boolean, fight?: boolean }}
  */
 export function partyAt(trip, t) {
   const { way, pace, trim0, trim1 } = trip;
   const walk = Math.max(0, way.len - trim0 - trim1);
   const daylight = (m) => { const h = (((m % DAY_MIN) + DAY_MIN) % DAY_MIN) / 60; return h >= WALK_FROM_H && h < WALK_TO_H; };
   if (t < trip.outT0 || t >= trip.backT1) return { phase: 'home' };
+  if (trip.sea) return { phase: t < trip.outT1 || t >= trip.backT0 ? 'sea' : 'stay' };   // LW5b: a passage is the ship's, never the road's
   const h = trip.halt;
   const placed = (/** @type {'out'|'back'} */ phase, /** @type {number} */ s, extra = {}) => {
     const p = wayAt(way, s);
@@ -512,14 +581,15 @@ export const arrivingYaw = (trip) => wayAt(trip.way, trip.way.len - trip.trim1 -
  * A home town's away windows for a resident on `day` - each trip of theirs (their own, or a caravan they ride with)
  * touching the living day: out at its first minute, home at its last; armed where they carry a class.
  * @param {Resident} res @param {Trip[]} trips - townTrips' answer for the day
- * @returns {{ t0: number, t1: number, yaw: number, armed: boolean }[]}
+ * LW5b: a passage by sea's window is the dock's (`dock`).
+ * @returns {{ t0: number, t1: number, yaw: number, armed: boolean, dock: boolean }[]}
  */
 export function awayOf(res, trips) {
   const out = [];
   for (const tr of trips) {
     if (!tr.party.some((p) => p.id === res.id)) continue;
     const fell = tr.fallen?.some((f) => f.res.id === res.id);   // LW4: one the road took never walks home
-    out.push({ t0: tr.outT0, t1: fell ? Infinity : tr.backT1, yaw: leavingYaw(tr), armed: res.cls != null });
+    out.push({ t0: tr.outT0, t1: fell ? Infinity : tr.backT1, yaw: leavingYaw(tr), armed: res.cls != null, dock: !!tr.sea });   // LW5b: a passage leaves by the dock
   }
   return out.sort((a, b) => a.t0 - b.t0);
 }
@@ -529,19 +599,24 @@ export function awayOf(res, trips) {
  * with the minute they come in (at the exit facing the road they came), the minute they leave by it, and its way.
  * Undefined while a way is still being asked.
  * @param {LwTown} town @param {number} day @param {TripWorld} world @param {{ mpm: number, memo?: Map<string, Trip|null> }} o
- * @returns {{ res: Resident, trip: Trip, inT: number, outT: number, yaw: number }[] | undefined}
+ * LW5b: and a port's visitors off the ships from the ports its lanes run to (in and out by the dock, `dock`).
+ * @returns {{ res: Resident, trip: Trip, inT: number, outT: number, yaw: number, dock: boolean }[] | undefined}
  */
 export function visitorsOf(town, day, world, o) {
   const D0 = day * DAY_MIN + DAY_START_MIN, D1 = D0 + DAY_MIN;
   const out = [];
   let pending = false;
-  for (const from of world.townsNear(town.px ?? 0, town.py ?? 0, TRIP_REACH_PX)) {
+  const homes = [...world.townsNear(town.px ?? 0, town.py ?? 0, TRIP_REACH_PX)];
+  const lanes = town.port ? world.lanesFrom?.(town) : [];
+  if (lanes === undefined) pending = true;
+  for (const l of lanes ?? []) if (l.to && !homes.some((h) => h.mapId === l.to.mapId)) homes.push(l.to);   // LW5b: a port's own across the water, however far
+  for (const from of homes) {
     if (from.mapId === town.mapId) continue;
     const trips = townTrips(from, D0 + DAY_MIN / 2, world, o);
     if (trips === undefined) { pending = true; continue; }
     for (const tr of trips) {
       if (tr.to.mapId !== town.mapId || tr.turned || !(tr.outT1 < D1 && tr.backT0 > D0)) continue;   // LW4: a party turned home never comes
-      for (const res of membersAt(tr, tr.outT1)) out.push({ res, trip: tr, inT: tr.outT1, outT: tr.backT0, yaw: arrivingYaw(tr) });
+      for (const res of membersAt(tr, tr.outT1)) out.push({ res, trip: tr, inT: tr.outT1, outT: tr.backT0, yaw: arrivingYaw(tr), dock: !!tr.sea });   // LW5b: off a ship, by the dock
     }
   }
   return pending ? undefined : out;
@@ -591,7 +666,7 @@ export function remainsNear(px, py, t, world, o, rPx = 6) {
       const fell = trip.fallen?.filter((f) => !f.hand);   // LW7: a hand's dead lie where the hand left them, not the road's
       if (!fell?.length) continue;
       fell.forEach((f, i) => {
-        if (f.inside || !(f.t <= t && t < f.t + REMAINS_MIN)) return;   // LW6: the fallen of a dive lie in the dungeon
+        if (f.inside || f.atSea || !(f.t <= t && t < f.t + REMAINS_MIN)) return;   // LW6: the fallen of a dive lie in the dungeon; LW5b: the sea's, nowhere
         const p = wayAt(trip.way, f.s);
         const ppx = Math.floor(p.x / NATIVE_PIXEL), ppy = 499 - Math.floor(p.z / NATIVE_PIXEL);
         if (Math.max(Math.abs(ppx - px), Math.abs(ppy - py)) > rPx) return;

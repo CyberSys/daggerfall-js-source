@@ -11,8 +11,10 @@ import { ENEMY_BASICS } from '../src/characters/enemyBasics.js';
 import { DAY_MIN } from '../src/systems/livingWorld/dayPlan.js';
 
 /** Towns every `step` pixels on a `n` x `n` grid from (x0, y0); each town's blocks off its place - LW6: and, `dives`,
- *  a dungeon in each square of four for the adventurers to dive. */
-export function synthMap({ x0 = 100, y0 = 100, n = 9, step = 5, dives = false } = {}) {
+ *  a dungeon in each square of four for the adventurers to dive; LW5b: and, `sea`, the first row's towns ports, a
+ *  chain of lanes along it and a far haven a lane away (beyond TRIP_REACH_PX of any town), each lane its length in
+ *  metres (a map pixel 819.2 m). */
+export function synthMap({ x0 = 100, y0 = 100, n = 9, step = 5, dives = false, sea = false } = {}) {
   const towns = [];
   let id = 1000;
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
@@ -41,14 +43,26 @@ export function synthMap({ x0 = 100, y0 = 100, n = 9, step = 5, dives = false } 
     dungeons.push({ mapId: did++, px: x, py: y, blocks: 1, name: `D${x}_${y}`, dungeon: true, dungeonType: (i + j) % 17 });
   }
   if (dives) world.dungeonsNear = (px, py, r) => dungeons.filter((d) => Math.max(Math.abs(d.px - px), Math.abs(d.py - py)) <= r).sort((a, b) => a.mapId - b.mapId);
-  return { towns, world, dungeons, asked: () => asked };
+  /** @type {{ key: string, a: any, b: any, len: number }[]} */
+  const lanes = [];
+  if (sea) {
+    const row = towns.filter((t) => t.py === y0).sort((a, b) => a.px - b.px);
+    for (const t of row) t.port = true;
+    const haven = { mapId: 9000, px: x0 - 25, py: y0, blocks: 24, region: 17, people: 3, type: 0, name: 'FarHaven', port: true };
+    towns.push(haven);
+    const lane = (a, b) => lanes.push({ key: `${Math.min(a.mapId, b.mapId)}-${Math.max(a.mapId, b.mapId)}`, a, b, len: Math.hypot(a.px - b.px, a.py - b.py) * 819.2 * 1.15 });
+    for (let i = 1; i < row.length; i++) lane(row[i - 1], row[i]);
+    lane(haven, row[0]);
+    world.lanesFrom = (t) => (!t.port ? [] : lanes.filter((l) => l.a === t || l.b === t).map((l) => ({ to: l.a === t ? l.b : l.a, len: l.len, key: l.key })));
+  }
+  return { towns, world, dungeons, lanes, asked: () => asked };
 }
 
 // LW4: the map with the lives and the trouble on it, as the host composes them (world.js) - for the trouble's pins and
 // the live fight's.
 /** The synthetic map with the lives and the trouble on it, as the host composes them (world.js). */
-export function livingMap({ turns = null, climate = 230, dives = false } = {}) {
-  const m = synthMap({ dives });
+export function livingMap({ turns = null, climate = 230, dives = false, sea = false } = {}) {
+  const m = synthMap({ dives, sea });
   const { towns, world } = m;
   const byId = new Map(towns.map((t) => [t.mapId, t]));
   const book = new Map();

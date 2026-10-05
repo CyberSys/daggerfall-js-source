@@ -2328,10 +2328,30 @@ export async function bootWorld(canvas, renderer, params, status) {
   const livingPacketAt = (b) => { const way = livingLaneWay(b.lane); return way ? packetAt(b.lane, way, raidNowMs(), b.k, b.count) : null; };
   const livingSailing = () => !!naval?.enabled && !!mapDict;
   let _livingTownByPort = null;
-  const livingSailorsOf = (portId) => {
+  const livingTownOfPort = (portId) => {
     if (!_livingTownByPort) { _livingTownByPort = new Map(); for (const t of livingTownsIndex().values()) if (t.port) _livingTownByPort.set(maskMapId(t.mapId), t); }
-    const town = _livingTownByPort.get(portId);
+    return _livingTownByPort.get(portId) ?? null;
+  };
+  const livingSailorsOf = (portId) => {
+    const town = livingTownOfPort(portId);
     return town ? livingTripWorld.rosterOf(town).filter((r) => r.job === 'sailor') : [];
+  };
+  // LW5b: THE PASSAGE BY SEA - a port town's lanes (the Bay's own, naval/seaLanes.js: the far port, the lane's length),
+  // for its travellers to sail and its visitors to come off the ships by; the map read first (pure: every reader's alike)
+  const _livingLanesFrom = new Map();
+  livingTripWorld.lanesFrom = (town) => {
+    if (!town?.port) return [];
+    if (!mapDict) return undefined;
+    let got = _livingLanesFrom.get(town.mapId);
+    if (!got) {
+      const id = maskMapId(town.mapId);
+      got = laneNet().filter((l) => l.a.id === id || l.b.id === id).flatMap((l) => {
+        const way = livingLaneWay(l), to = livingTownOfPort(l.a.id === id ? l.b.id : l.a.id);
+        return way && to ? [{ to, len: way.len, key: l.key }] : [];
+      });
+      _livingLanesFrom.set(town.mapId, got);
+    }
+    return got;
   };
   const _livingBerths = new Map();
   /** Where one of a port's sailors is now ('home', 'sea', 'abroad'), null for anyone else or the ships not sailing. */
