@@ -14,8 +14,8 @@ the owner chose the climb's law from four questions:
   NOT the fixed mountain - recorded below as not done);
 - how much of the online side - **"Relay and service"**: the relay's judges, telegraphs between fighters and faster
   fighters; the service's laurel needing distinct opponents and ladder bouts keyed per player. A relay version
-  (world168 - world167 on this branch until main's SHADOW-CLOAK took it) and an account-service migration (0082, acct81 - acct79 until
-  main's GLOBAL-MARKET and SHADOW-CLOAK took acct79 and acct80).
+  (world169 - world167 on this branch until main's SHADOW-CLOAK and SERAPH-WINGS took it and world168) and an account-service migration (0082,
+  acct82 - acct79 until main's GLOBAL-MARKET, SHADOW-CLOAK and SERAPH-WINGS took acct79, acct80 and acct81).
 
 Pinned by `test/arenaladder_audit.test.js` (23 at the first pass, each red on the code before it) and mutation-checked
 (`tools/mutants/arenaladder.json`, 54 at the first pass, all dead); the second pass - AUDIT ARENA-LADDER 2, at the
@@ -74,13 +74,13 @@ champions, Invisibility no class fighter sees through and a Calm on the fighter;
 |---|---|---|
 | O1 | HIGH: the relay's fighters out-walked (L4 above) | L4 |
 | O2 | MEDIUM-HIGH: win-trading with second accounts bought the season's #1 and the laurel - three rated bouts wore it, a pair counted five a day | The laurel takes `ARENA_CHAMPION_MIN_BOUTS` 10 rated bouts against `ARENA_CHAMPION_MIN_FOES` 5 different accounts (`laurelWorthy`, the board's `foes`); a pair's rated bouts counted `ARENA_PAIR_SEASON_MAX` 10 a season |
-| O3 | LOW: a ladder bout's id could be taken over to cancel another's unclaimed win (`arena_pve` keyed by the room id, which the hall lists and the room forgets after ten minutes) | A ticketed bout's row is keyed by its ticket, the account's own (`claimLadder` refuses another account's: 'reused'). A receipt from a relay before world168 keeps the old key for its week |
+| O3 | LOW: a ladder bout's id could be taken over to cancel another's unclaimed win (`arena_pve` keyed by the room id, which the hall lists and the room forgets after ten minutes) | A ticketed bout's row is keyed by its ticket, the account's own (`claimLadder` refuses another account's: 'reused'). A receipt from a relay before world169 keeps the old key for its week |
 
 ## Deploy order
 
-1. The account service, **acct81**, with migration **0082** (`npx wrangler d1 migrations apply daggerfall-accounts
+1. The account service, **acct82**, with migration **0082** (`npx wrangler d1 migrations apply daggerfall-accounts
    --remote`, then deploy).
-2. The relay, **world168** (`npx wrangler deploy` in `server/`). Every connected player reconnects once.
+2. The relay, **world169** (`npx wrangler deploy` in `server/`). Every connected player reconnects once.
 3. The site (CI). Between 2 and 3 an older client's ladder `in` carries no ticket and is told 'no bout' ("That bout is
    over." - the word that build ends its bout on, AUDIT 2 R5); its exhibitions, players' bouts and private sessions are
    untouched.

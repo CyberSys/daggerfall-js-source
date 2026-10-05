@@ -4692,7 +4692,9 @@ left in it.) SirMcMobdon already holds SHADOW-FANG's title and glyph (black #0d0
       along its own direction, a strafe reversed parted neighbours across the axis into a sheet across the legs),
       never swings past 0.7 of its hang (so the pendulum never folds the hem over), swings shorter crouched, and a rise
       never drops it below the feet; a knee's tent is 0.2 m at most.
-    - WITHOUT BONES - the sprite body (the EOTB lane), first person (which poses no third-person body; nor is the cape
+    - ON A BEHOLDER SPRITE (the EOTB lane, mine or a peer's walker or beast) it hangs from the sprite's figure since
+      SERAPH-WINGS v2, as the wings do - its shoulders by the pixel, facing as the sprite faces, folded when sunk to
+      the neck (SERAPH-WINGS, AUDIT 3). WITHOUT BONES - first person (which poses no third-person body; nor is the cape
       drawn over one's own view), a peer with no body standing (building, past BODY_RANGE, a doll), the wolf's
       skeleton - it hangs at rest (CLOAK_REST_POSE), my own pressed down to my body's height (`player.height` over
       CAPSULE_HEIGHT - a crouch, a swim - to 0.4 at the least), and swings all the same. Off the bones the shoulders
@@ -4811,4 +4813,173 @@ left in it.) SirMcMobdon already holds SHADOW-FANG's title and glyph (black #0d0
   - Left as they are, said here: a compile failure or a slow compile of the one program takes all four auras with it
     (the eager compile and the probe are the guard); the off-screen peer's pose, the gear rebuild's rest frames, the
     emblem's crouch squash and the unset head turn as above.
+
+## SERAPH-WINGS — the developers' own: the Seraph Wings (2026-10-05, world168, acct81)
+
+Mac, sending a painted angel whose wings are long ribbons of golden light: "So I want to build an aura for the
+developers. These are based off this image above. Golden Angel wings that flow"; then "Just want to make sure this
+properly attachs to the back of the eye of the Beholder skins + morrowind skins" and "I want this to be insane". The
+wings are drawn from that idea - plumes of flowing light out of the back - in the pass's own shader; nothing of the
+painting is used.
+
+- **The grant** (`server-account/src/titles.js`): `DEVELOPER_AURA = 'seraphwings'`, held while the handle is in
+  DEVELOPER_HANDLES - the developer title and glyph's own list, read off the config at every ask as they are -
+  case-folded, never a guest's, gone from the next token once the handle is off it. `aurasHeld` gives the listed
+  titles' auras first (TIER_AURA), then the wings, then what the Broker sold. Held is not worn: a developer wears them
+  from the account card's Aura row, as every aura is.
+- **The vocabulary** (`src/net/identityToken.js`, in the relay bundle): `seraphwings` joins AURAS last. A relay before it
+  refuses a token carrying it (`claimsValid`), so the relay is **world168** and the account service **acct81**; the
+  account deploy waits on the relay's `/health` to serve world168 (SHADOW-FANG's AUDIT B1). No frame changes shape. A
+  token with every glyph and the wings stays inside the relay's 640.
+- **The face** (`src/ui/playerBadge.js`): "Seraph Wings" (`AURA_TEXT`); the button in the Founder's gold (`AURA_PAINT
+  seraphwings: 'founder'`) - the wings' own colour, where the developer title's paint is a red.
+- **The look** (`src/render/auraRing.js`, the fifth: `AURA_LOOK.seraphwings`, kind 4, its own mesh `wings`, added whole -
+  light, never a shadow):
+  - THE WINGS: two layers a side - WING_PLUMES (9) long primaries fanned from below level (-0.7 rad) to high over the
+    head (1.25 rad), the high ones long (WING_REACH 0.95 - 2.2 m), and inside them WING_COVERTS (6) short coverts
+    (WING_COVERT: 0.45 - 0.8 m) that give a wing its body, softer. Each plume a broad strand (0.34 m with its glow's
+    sheath) and four fine ones bundled about it as a feather's barbs; ribbons of WING_SEGS (32) segments
+    (`auraWingsGrid`, 150 strands), laid along a curve out of the upper back - rising first, then out along the
+    plume's angle, the tips drooping as a long feather's do - turned to the eye along their length.
+  - THEY FLOW: waves run out along each strand (1/4 Hz, and a flutter at 1/2 Hz on every strand); the fan breathes (1/6 Hz);
+    and every eight seconds THE BEAT (`wingBeat`, WING_BEAT): a slow stroke, the fan swept down and its tips forward,
+    fast down and slow back up, the tips after the roots - the light flaring with it. In the fragment half noise and a
+    pulse of light run out along each strand; gold (WING_RGB), white-hot at the heart, amber at a frayed edge, the tips
+    burning as they fray; faint where they leave the back.
+  - THE BACKLIGHT: one card of radiance behind the upper back (WING_HALO_M 2.6 m), square to the eye - a soft gold glow,
+    white at its heart, rays turning slowly in it (1/30 Hz and 1/15 Hz), flaring with the beat.
+  - THE SPARKS (WING_MOTES 24): streaks of light riding a strand out and past its tip, long along their way as the eye
+    sees it and brightest at their head; their lives (3, 4, 5 s) dividing the clock.
+  - THE GROUND: a faint pool of gold beneath (WING_POOL_R 1.3 m).
+  - THE LIGHT ON THE WORLD (`auraWingLights`, WING_LIGHT): a gold carried light behind the shoulders of the nearest
+    three wearers within 40 m of the eye (7 m as kindled), fed into every host's light list through world.js
+    `peerTorchLights` - the open world's (where the city's light colour stands for every carried light) and the
+    dungeon's and the building's (where it is gold: the light is tagged `aura`, and the dungeon's flame tint,
+    worldModes.js `_dgTint`, passes it by - AUDIT 3; in the abyss with its torches out it stays, halved by the
+    candle's law, as an aura is no torch). None while the wings are closed (below).
+  - Unfurling from the root as they kindle (the backlight and the sparks after them); nothing laid over an eye standing
+    among them (the wearer's own first person); drawn without the ground's depth offset. Every rate whole over the
+    clock (`wingRatesWhole`).
+- **On the back, both bodies:**
+  - THE TORSO: every point is laid along the torso's own axes (`uTorsoU`, `uTorsoF` - `auraTorso`, carried on the pose
+    as `torso`): up the spine (`bip01 spine2` to the neck, joined to CLOAK_BONES; the neck to the head without it),
+    across the shoulders, forward out of the chest square to both - so the wings lean as the back leans and turn as
+    the shoulders turn. Upright where the bones cannot say, or where a back would be upside down.
+  - A MORROWIND BODY: its posed bones as drawn (fpArm.thirdBones mine, peerBodies.bonesOf a peer's) - the shoulders'
+    middle (`uCapeS`, its breadth setting the roots apart), the torso above.
+  - AN EYE OF THE BEHOLDER SPRITE has no bones: what stands for them is read off the frame drawn (`auraSpriteBones`,
+    EOTB_FIGURE) - its base over the feet, its metres a pixel, its form and its facing (player/eotbBody.js `figure()`,
+    handed to player/mwView.js through the sprite's door and kept as `mwViewSpriteFigure()`; a peer's walker's or, on
+    foot, a beast's `figureOf`, net/peerRiders.js). AUDIT 3: BY THE PIXEL - the shoulder line 86 px over the frame's
+    foot (the sets' own measure 78 - 88 px whatever the frame holds: Idle 88, IdleMelee 80, IdleSpell 84, IdleRanged
+    87 - about 1.63 m at 0.019 m a pixel), the neck 91, the head's joint 96 and the upper spine 75; a beast's frames
+    at 0.68 of that (1.70 m at 0.029 m a pixel, measured 1.65 - 1.74); as broad as its metres a pixel are to 0.019 m
+    (within bounds). The first cut put the shoulders at 0.8 of the frame's HEIGHT, and a frame is as tall as what it
+    holds - a sword up, a staff, a hand raised to cast (to 174 px): with a weapon out they hung 0.3 - 1 m over the head
+    and jumped as it was drawn or sheathed. A crouch sinks them with the sprite. None read off a rider's frame (the
+    horse's too) nor the first-person billboard's (it stands on the camera: its figure lifted the cloak's hood off the
+    eye and the cloth was drawn round it - AUDIT 3). FACING: my own sprite's - eotbBody's UpdateOrientation facing,
+    `figure().yaw` - not the camera's (AUDIT 3: walking back, the sprite showed its face and the cloak and the wings
+    faced away over it; strafing they were a quarter turn off); a peer's walker and their aura already read the same
+    `peerBodyYaw`. SUNK: a figure whose shoulders fall below the crouch's floor (swimming, the quad's top at the
+    waterline) is `sunk` - the cloak folds and the wings close, unlit, as on a rider (AUDIT 3: hung at the floor, they
+    floated over the swimmer).
+  - A RIDER WITHOUT BONES hangs them from the rest pose lifted by the saddle (AURA_SADDLE_M 0.81 m: RIDE_EYE_HEIGHT less
+    EYE_HEIGHT).
+  - And swung as the cape is (`auraMotionStep` - `uSwing`: a run's trail sweeping them back the further out, a fall
+    lifting them, the roots where they were).
+- **The hosts** - THE FOUR HOSTS: `scenes/world.js` WIRED - the draw hangs and swings every look with a mesh of its own
+  (`auraLookOf(w.aura).mesh`), mine off my rig else my sprite's figure, a peer's off their rig else their walker's
+  figure (a walker's, or a beast's on foot); the wings' light rides `peerTorchLights`; `scenes/worldModes.js` WIRED
+  (AUDIT 3) - it builds the dungeon's light list from `host.peerLights` and its flame tint now passes an aura's light
+  by; `scenes/dungeonContext.js` draws through world.js's pass, unchanged; `scenes/exterior.js` draws no aura -
+  FLAGGED, unchanged.
+- **Seen**, in headless Chromium's WebGL2 through the pass itself over a stand-in body: behind, in front,
+  three-quarters, beside, from above, half kindled, running, mid-beat, on a 2.09 m Beholder frame and on a Morrowind
+  torso leaning into a run; and through the committed `tools/auraProbe.mjs`: 62/62, the wings' 9.
+- Pins: `test/seraphwings.test.js` (19 since AUDIT 3) - the vocabulary; the grant; the service end to end; the account card's note;
+  the token and the relay; the law (rates whole, the mesh, the fan); the vertex half RUN (roots, sides, the fan's order,
+  none in front, the facing, ribbons turned to the eye, waves beyond the breath and along each strand, the breath, the
+  roots still, the wrap); on the body (pose, breadth, trail, lift); the light RUN; the ground and the sparks; no pow of a
+  negative and no NaN; the draw (the mesh, farthest first, added whole, the offset, the wings' own mesh, each wearer's
+  torso); the hosts (mine off my rig else my sprite, a peer's likewise); the Morrowind back (the torso's axes, a lean, a
+  turn, its guards, the wings along it); the Beholder back (the figure's shoulders, a crouch, a beast, a peer's, the
+  sprite's own `figure()`, the plumbing, the saddle); the coverts and the beat; the backlight and the sparks; the light
+  on the world. `tools/mutants/seraphwings.json` (75, all dead; 93 since AUDIT 3). The relay's and the account's pins moved to world168
+  and acct81 crediting SERAPH-WINGS; the vocabulary, paint, flames, version and host-line records re-aimed by content.
+- Left as they are, said here: not seen in a running game client with a real body (the probe and the previews draw a
+  stand-in); the wings stay on a wearer turned beast (a beast's sprite frame carries them higher) and on a rider;
+  from first person, looking to the side or behind, the wearer sees their own wings - only what stands in front of
+  the eye is spared; the sprite figure's shoulder line is one measure for every set and every frame (within a hand of
+  each - AUDIT 3); outdoors the wings' light takes the city's light colour; one program draws all five auras, so a
+  compile failure would take them all (the eager compile and the probe are the guard).
+
+### AUDIT 3 (2026-10-05, Mac: "1. Audit this 2. Ensure Sir Mcmobdens new aura also appears on the eye of the Beholder 3. Ensure other players can sew all auras")
+
+Five lenses: the shader and the draw, the attachment and the cloak on a Beholder sprite, the peers, the test net, and
+the grant, versions and docs. What they found, and what was done:
+
+- **OTHERS SEE AN AURA WORN NOW, NOT AT THE NEXT AREA (AURA-LIVE, `src/net/online.js` `rehello`).** The relay reads a
+  badge - the aura, the title, the glyphs - off the token alone, and a token rides a hello, so an aura put on at the
+  account card or the Broker lit at the wearer's own feet at once and at nobody else's until they changed area (the
+  Broker even said so: "Others see it once you change area."). Now each open socket - the room's and every halo's -
+  says hello again on a fresh token, through a NEW socket of the same id: the relay already takes that as a reconnect
+  (the old socket loses the id and is closed CLOSE_REPLACED with no leave said, the first hello's stamp is kept so a
+  host keeps its seat, and the new hello's join is fanned - every peer reads it as the badge now, `_refresh`). The old
+  socket speaks for the room until the new one's token is minted (`_promote`), so nothing goes unsaid but a hello's
+  round trip; its replaced close is ignored (it is no room's by then), so it is never the one-seat verdict; a
+  replacement whose room went while it minted is closed, one the relay refuses takes the old socket with it and the
+  ordinary retry says hello, one that never opens is dropped past the longest backoff. At most once a REHELLO_GAP_MS
+  (3 s), the latest badge. No relay change, no version: the relay's own reconnect law does it. `scenes/world.js`
+  asks for it when my aura (`ownAura`) differs from the one the last minted token said (`_auraHeard`, set by the
+  minter's hook) - so a mint, which said it already, asks nothing. Pinned end to end through the real Room
+  (`test/auralive.test.js`, 6): a peer draws it, no leave, the host's seat kept, not superseded, taken off the same
+  way; a run of changes one hello; a halo's socket too; the refusals.
+- **The draw cap 32** (AURA_DRAW_MAX, was 16 - a hub's crowd is more than sixteen, and the seventeenth wearer in reach
+  was drawn by nobody); **a peer who blinks out of the list keeps their kindling** for AURA_FORGET_S (2 s) - it was lit
+  again from nothing at every frame without their pose.
+- **The Beholder sprite** (the cloak and the wings alike - the cloak hangs from the same figure since v2, and its
+  record in SHADOW-CLOAK now says so): BY THE PIXEL, not the frame's height; my own sprite's FACING; none in FIRST
+  PERSON; SUNK in water folded and closed; a beast's figure on foot, mine and a peer's (above).
+- **The radiance's inside fade is 3D** (`outside` - out of the column, over or under it too: a camera high over a
+  wearer saw no column, judged by the distance across the ground alone).
+- **The wings' light in a dungeon is gold** (tagged `aura`, passed by the flame tint) and none while closed.
+- **The net:** a crouched or mounted wearer's upright back (a zeroed torso collapsed every strand onto the shoulder,
+  unpinned); a back laid flat; a peer's figure driven through the real layers; the light off the pose's shoulders; the
+  saddle pinned to the motor's (RIDE_EYE_HEIGHT less EYE_HEIGHT). `tools/mutants/seraphwings.json` 93 (18 new),
+  `tools/mutants/auralive.json` 12, `primarch.json` one more (the inside fade by the ground alone); records re-aimed
+  by content (the shoulder line, the frame's height, the crouch, the light's aura, the symbols, my facing, the flames);
+  ACC1d's late token recorded equivalent - the promotion's own guard (`_promote`) refuses a replaced socket's hello too.
+- **Docs:** the cloak on a sprite (SHADOW-CLOAK and Rendering.md no longer say it hangs at rest there), the probe's
+  count (the wings' 9), the flutter (every strand's), the header of `auraRing.js`.
+- **Left as they are, said:** a rider's cloak stays folded (v1's own law - "It folds away while you ride"), the wings
+  over the saddle; the sprite's cloak is centred on the feet, and some frames draw the torso up to 0.2 - 0.4 m aside;
+  the hood's radius does not scale with BillboardScale; my own cloak and wings are drawn whole while I am concealed
+  (a peer's are hidden with them); the sprite figure's objects are made each frame (a handful of small objects per
+  wearer); an old relay that does not know an aura refuses the whole token (the deploy order - the relay first -
+  keeps that from happening); a client older than an aura draws none for it.
+
+### AUDIT 4 (2026-10-05) - the shader and draw lens, landed after the merge of AUDIT 3
+
+- **THE BACKLIGHT OVER THE WEARER'S OWN EYE.** The card is 2.6 m across and square to the eye, its middle about 0.36 m
+  from the first-person eye; looking down, its lower half hung in front of the feet and washed the view gold (measured
+  in a real WebGL: 41% of the frame brighter at 85 degrees down) - `wingNear` spared only what lay within 0.9 m. It now
+  fades by the eye's distance from its middle (WING_HALO_NEAR 0.9 - 1.6 m, carried to the fragment half in `vS.x`):
+  gone from the wearer's own eye, whole from a third-person camera's or a peer's at arm's length.
+- **A STALE `sunk`** (AUDIT 3's): the rest, crouch and saddle path reused the pose and never cleared it - a swim and
+  then a ride kept the wings closed and unlit, and the cloak folded, for the whole ride. Cleared there.
+- **THE TIP'S BOWTIE:** the last segment's tangent was taken backward, so its across flipped at the tip and its two
+  triangles crossed (faint - 7% of a strand's peak at most). Forward at the tip too.
+- **HARDENING:** no `pow` of a negative in the backlight's rays (a cos a hair under -1); the strand's index math kept
+  whole (`floor((k + 0.5) / n)`, no `mod`) for a GPU that divides through a reciprocal.
+- **Checked clean:** both stages compile and link; no NaN or Inf over 564 scenes into a float target; the draw ranges
+  exact; the GL state handed back the same for all five auras; every rate whole; the other four auras bit-identical
+  to main over 80 frames; the cloak right on the taller sprite poses.
+- **Left as it is, said:** the wings are the heaviest look per wearer after the cloak (about 1.9 screens of fragments
+  for one wearer 3 m from the camera; estimated about 1 ms on a mid-range desktop GPU and 4 - 6 ms on an integrated
+  one at 1080p, close up) - only the developers wear them. Cheaper ways are recorded for a later pass: the broad
+  strands' noise per vertex, a smaller backlight, an indexed mesh, broad strands alone past 12 m. The sin hash's large
+  arguments (the sparks') hash coarsely on some mobile GPUs.
+- Pins: `test/seraphwings.test.js` 20 (the backlight's fade from the eye; a swim then a ride or a crouch, open and lit;
+  no strand twisted at its tip); `tools/mutants/seraphwings.json` 97 (four new, one re-aimed). The probe 62/62.
 

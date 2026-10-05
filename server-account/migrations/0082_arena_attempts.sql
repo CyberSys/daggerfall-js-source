@@ -3,8 +3,8 @@
 --   npx wrangler d1 migrations apply daggerfall-accounts --remote
 --
 -- Applied exactly once through the `d1_migrations` ledger, which the
--- deploy runs (ACC1-CI). Deploy this service (acct81) BEFORE the relay
--- (world168) and the site: the new relay opens a ladder bout only for a
+-- deploy runs (ACC1-CI). Deploy this service (acct82) BEFORE the relay
+-- (world169) and the site: the new relay opens a ladder bout only for a
 -- ticket this service mints.
 --
 -- The owner, asked what a lost ladder bout should cost: "Lose the tier's
