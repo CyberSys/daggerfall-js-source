@@ -1,6 +1,6 @@
 // @ts-check
 // ═══════════════════════════════════════════════════════════════════
-// DECOR-OUTDOOR (FIELD BUGS 2026-10-05) — A YARD'S TREES AND PLANTS,
+// DECOR-OUTDOOR (FIELD BUGS 2026-10-05b) — A YARD'S TREES AND PLANTS,
 // DRAWN AS ITS TOWN'S OWN NATURE IS DRAWN.
 //
 // The owner: "There seems to be a lot of missing decor items with house

@@ -12,7 +12,7 @@
 // interior's PROP models - the object type Daggerfall lays out as a
 // room's furniture (world/interiorLayout.js PROP_MODEL_TYPE) - and its
 // flats, the editor's markers (TEXTURE.199) excepted. DECOR-DUNGEON
-// (FIELD BUGS 2026-10-05, the owner: "a lot of missing decor items",
+// (FIELD BUGS 2026-10-05b, the owner: "a lot of missing decor items",
 // asked which, the dungeons' furnishings among them): and its dungeon
 // blocks (RDB) - every model of the furniture families that stands
 // there doing nothing (no action, no door) and every flat that is not

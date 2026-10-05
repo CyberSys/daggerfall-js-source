@@ -1,4 +1,4 @@
-// DECOR-DUNGEON (FIELD BUGS 2026-10-05, the owner: "There seems to be a lot of missing decor items with house
+// DECOR-DUNGEON (FIELD BUGS 2026-10-05b, the owner: "There seems to be a lot of missing decor items with house
 // decoration"; asked which, the dungeons' furnishings among them). The catalogue read the town blocks' rooms alone, so
 // nothing Daggerfall stands only in its dungeons - a throne, a cage, a coffin, a statue, chains, a brazier - could be
 // set in a house. A dungeon block has no prop type, so its furnishings are told from the dungeon itself by their family

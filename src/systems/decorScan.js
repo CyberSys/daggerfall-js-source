@@ -13,7 +13,7 @@
 // to parse, and a hitch that long the moment the panel opens is exactly
 // what a panel must never cost.
 //
-// DECOR-DUNGEON (FIELD BUGS 2026-10-05): and the dungeon blocks, where the
+// DECOR-DUNGEON (FIELD BUGS 2026-10-05b): and the dungeon blocks, where the
 // host says which they are (`isDungeonBlock`) - their furnishings
 // (decorCatalogue.js collectDecor).
 //

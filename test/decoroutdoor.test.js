@@ -1,4 +1,4 @@
-// DECOR-OUTDOOR (FIELD BUGS 2026-10-05, the owner: "There seems to be a lot of missing decor items with house
+// DECOR-OUTDOOR (FIELD BUGS 2026-10-05b, the owner: "There seems to be a lot of missing decor items with house
 // decoration"; asked which, the outdoor pieces for a yard among them). A yard's decorator offered the rooms' furniture
 // alone: none of what Daggerfall stands in its streets - a fence, a well, a fountain, a cart, a lamp - and none of its
 // trees and plants. Now each town block's street joins the catalogue, and the climates' nature sets whole; both stand in

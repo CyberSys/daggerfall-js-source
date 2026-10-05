@@ -4417,7 +4417,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1483`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1488`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4801,7 +4801,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5858`). With the property missing that call is a
+(`dungeonContext.js:5865`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4928,7 +4928,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:9525` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:9539` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:496`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -9527,7 +9527,7 @@ changes to a placed piece.
   2026-10-05, the owner: "a lot of missing decor items"): and the dungeon blocks' furnishings - a model of the furniture
   families or a free-standing piece that stands doing nothing (no action, never a door), a flat but a marker, an acting
   flat or nature; found only there, a piece is "Dungeon furniture"; every place's names are numbered after the earlier
-  places' (a room's first), so no room's name moves (`01-Overview/Field-Bugs-2026-10-05.md`).
+  places' (a room's first), so no room's name moves (`01-Overview/Field-Bugs-2026-10-05b.md`).
 
 Pinned: `test/decor1.test.js` (4 of its 7) - the law, the store through the real Worker with every migration
 applied, the client's door and the deploy, the catalogue and its filters.
@@ -10046,7 +10046,7 @@ home's alone - they are about other players.
   service with `yard`, paid from the purse and the town's region's account (or the realm record's act).
 - Four hosts: `world.js` WIRED (the yards, the frames, the passes, the eye and the stick); `worldModes.js` and
   `dungeonContext.js` stand no street; `exterior.js` (the bench) FLAGGED - no online homes.
-- **The street and the nature** (DECOR-OUTDOOR, FIELD BUGS 2026-10-05, the owner: "a lot of missing decor items"): a
+- **The street and the nature** (DECOR-OUTDOOR, FIELD BUGS 2026-10-05b, the owner: "a lot of missing decor items"): a
   yard's catalogue holds what Daggerfall stands in its streets - each town block's own models (never a mill, a gate, the
   town's board or the ladder) and flats, and its buildings' outside flats - and its climate's trees and plants (every
   record of its set, the set its pixel names); neither is offered indoors. A yard's model stands in its town's climate
@@ -10149,8 +10149,8 @@ and `test/decor2b.test.js` (the sale's line, the tap under a flight) and the ACC
   the item, the owner and the town (vendorSearch).
 - **The catalogue** (`systems/decorCatalogue.js`): the people Daggerfall stands in its rooms (`blockPeopleRecords`) are
   catalogue pieces too, kind Vendors (Mac: "People category sounds wrong call it vendors") - placed, one is made the
-  trader. NUDE-HOSTS (FIELD BUGS 2026-10-05): Show Nudity governs them as it does the world's people - off, no nude
-  figure is offered, and one placed stands, flies and is pictured as its clothed stand-in (`01-Overview/Field-Bugs-2026-10-05.md`).
+  trader. NUDE-HOSTS (FIELD BUGS 2026-10-05b): Show Nudity governs them as it does the world's people - off, no nude
+  figure is offered, and one placed stands, flies and is pictured as its clothed stand-in (`01-Overview/Field-Bugs-2026-10-05b.md`).
 - **The service** (`server-account/src/market.js` over `migrations/0080_home_vendors.sql` - `market_listings.vendor_map`,
   `vendor_id`; routes `/v1/market/vendor`, `/vendors`, `/myvendors`). A listing named at a trader is the owner's
   character's own trader (`vendor-not-yours`), in the HOME's region whatever the client says; it is filtered out of the
