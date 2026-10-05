@@ -56,7 +56,7 @@ import { allyCastable, allyReachFor, allyCastFrame, allyCastCasterLine, allyCast
 import { hasResurrect, RESURRECT_REACH, RESURRECT_TEXT, pickFallenBody } from '../systems/resurrect.js';   // RESURRECT1: a fallen party member's body is the target   // ALLY-CAST: a beneficial spell at the party mate under the crosshair
 import { billboardSize, centredBase } from '../world/rmbFlats.js';
 import { betterAmbience } from '../systems/betterAmbience.js';   // IMPACTFEEL: the camera kick a landing spell gives
-import { SpellImpactFx, SpellImpactPass, elementFxKind, FX_KINDS } from '../render/spellImpactFx.js';
+import { SpellImpactFx, SpellImpactPass, elementFxKind, IMPACT_FX_KINDS } from '../render/spellImpactFx.js';
 import { orbColourFrom } from '../characters/thunderlockIds.js';   // ART-COLOUR: a missile archive's own colour, the Thunderlock orb's sampler   // IMPACTFX: a landing spell in light - its element's spray, a heal's rising lines
 import { createSpellImpactSounds } from '../systems/spellImpactSound.js';   // IMPACTFX: ...and heard
 import { createMagicCandle } from './magicCandle.js';   // X11: the Light effect's candle
@@ -564,7 +564,7 @@ export function createPlayerMagic({
   const AREA_FX_BODY = Object.freeze({ r: BODY_CAPSULE_RADIUS, h: 1.8 });
   function landFx(kind, pos, { back = null, scale = 1, power = 1, radius = null, minR = 0, heard = 40, shake = 0, ground = null, area = 0, areaFrom = null, normal = null, surfaceAt = null } = {}) {
     try {
-      if (kind !== 'heal') noteElementArt(FX_KINDS.indexOf(kind));   // ART-COLOUR: a touch or a peer's lands here first sometimes
+      if (kind !== 'heal') noteElementArt(IMPACT_FX_KINDS.indexOf(kind));   // ART-COLOUR: a touch or a peer's lands here first sometimes
       const gy = Number.isFinite(ground) ? ground : groundUnder(pos);
       fx.burst(kind, pos, { ground: gy, back, scale, power, radius, minR, area, areaFrom, body: AREA_FX_BODY, normal, surfaceAt });   // AOE-SIZE / AOE-REACH: an area's burst is drawn to what its sweep catches
       impactSounds.play(kind, kind === 'heal' ? [pos[0], gy + 1, pos[2]] : pos, { heard, volume: kind === 'heal' ? 0.8 : Math.min(1, 0.75 + 0.2 * power) });   // HEAL-SOFT: a big heal is no louder

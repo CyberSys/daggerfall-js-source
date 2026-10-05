@@ -24,9 +24,9 @@ import { FOG_GLSL } from './fogGlsl.js';
 import { buildProgram } from './glProgram.js';
 
 /** The looks, by name; the element order is DFU's ElementTypes (fire, frost, poison, shock, magic). */
-export const FX_KINDS = Object.freeze(['fire', 'frost', 'poison', 'shock', 'magic', 'heal']);
+export const IMPACT_FX_KINDS = Object.freeze(['fire', 'frost', 'poison', 'shock', 'magic', 'heal']);
 /** A spell element (0..4) as its look; anything else is magic's. */
-export const elementFxKind = (el) => FX_KINDS[Number.isInteger(el) && el >= 0 && el <= 4 ? el : 4];
+export const elementFxKind = (el) => IMPACT_FX_KINDS[Number.isInteger(el) && el >= 0 && el <= 4 ? el : 4];
 
 /** The shapes the pass draws. */
 export const FX_SHAPE = Object.freeze({ spark: 0, bolt: 1, star: 2, flare: 3, ring: 4, pool: 5 });
@@ -143,7 +143,7 @@ export class SpellImpactFx {
   /** ART-COLOUR: each element's colour as this engine draws it now, and whether it came from the art. */
   artColours() {
     const out = {};
-    for (const k of FX_KINDS) out[k] = { main: this.looks[k].main.map((v) => +v.toFixed(3)), fromArt: !!this.looks[k].art };
+    for (const k of IMPACT_FX_KINDS) out[k] = { main: this.looks[k].main.map((v) => +v.toFixed(3)), fromArt: !!this.looks[k].art };
     return out;
   }
 
@@ -179,7 +179,7 @@ export class SpellImpactFx {
   }
 
   /**
-   * ONE LANDING. `kind` a FX_KINDS name; `at` where it landed (scene frame). `ground` the floor's height under it (null:
+   * ONE LANDING. `kind` an IMPACT_FX_KINDS name; `at` where it landed (scene frame). `ground` the floor's height under it (null:
    * a body's height below), `back` the unit direction out of what it struck (sparks spray back that way), `scale` the
    * missile's size, `power` 1 a bolt's, more for a blast, less for a touch; `radius` a heal's reach and `minR` the hole
    * a heal leaves at its middle (the caster's own eye stands there).

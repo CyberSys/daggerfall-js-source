@@ -21,6 +21,8 @@
 // voices and a seed and answers the samples. Not a DFU member.
 import { SAMPLE_RATE as SND_RATE } from '../formats/sndFile.js';
 import { APP_ROOT } from './appRoot.js';   // HEAL-FILE: where public/sfx is served from
+import { addVoice, noise, lowpass } from './arenaSound.js';   // ONE HOME: the made sounds' mixer, noise and one-pole low-pass (ARENA2)
+import { seededRng } from './wind.js';   // the port's one seeded die (mulberry32) - one home
 
 export const IMPACT_SOUND_RATE = SND_RATE;
 export const IMPACT_SOUND_KEYS = Object.freeze({ fire: 'spellfx:fire', frost: 'spellfx:frost', poison: 'spellfx:poison', shock: 'spellfx:shock', magic: 'spellfx:magic', heal: 'spellfx:heal' });
@@ -75,27 +77,11 @@ export const IMPACT_SOUND_SEED = 0x5f1c3d;
 const R = IMPACT_SOUND_RATE;
 const TAU = Math.PI * 2;
 
-function rngOf(seed) {
-  let a = seed >>> 0;
-  return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-}
 const env = (t, atk, dec) => (t < 0 ? 0 : (atk > 0 ? Math.min(1, t / atk) : 1) * Math.exp(-t / dec));
 
 /** A voice from the archive (at R) added into `out` at `offset` s, resampled by `ratio`, at `gain`, cut to `take` s
- *  with a fade-in and a fade-out (`fadeOut` s at its end). */
-export function addVoice(out, src, { ratio = 1, offset = 0, gain = 1, take = Infinity, fadeIn = 0.003, fadeOut = 0.15 } = {}) {
-  if (!src?.length || !(gain > 0)) return out;
-  const n = Math.min(Math.floor(src.length / ratio), Math.floor(take * R));
-  const start = Math.floor(offset * R), fo = Math.max(1, fadeOut * R), fi = Math.max(1, fadeIn * R);
-  for (let i = 0; i < n; i++) {
-    const j = start + i;
-    if (j < 0 || j >= out.length) continue;
-    const p = i * ratio, k = Math.floor(p), f = p - k;
-    const s = (src[k] ?? 0) * (1 - f) + (src[k + 1] ?? src[k] ?? 0) * f;
-    out[j] += s * gain * Math.min(1, i / fi, (n - i) / fo);
-  }
-  return out;
-}
+ *  with a fade-in and a fade-out (`fadeOut` s at its end) - through the made sounds' one mixer (arenaSound addVoice). */
+const voice = (out, src, o) => addVoice(out, R, src, R, { fadeIn: 0.003, fadeOut: 0.15, ...o });
 
 /** A band-pass whose centre moves (`hz(t)`), RBJ's constant-peak form, over `x` in place. */
 function bandpass(x, hz, q) {
@@ -110,13 +96,14 @@ function bandpass(x, hz, q) {
   }
   return x;
 }
-function onePole(x, hz, high = false) {
+/** `x` less its one-pole low-pass at `hz`, in place: the gentle low cut these sounds are voiced through (not arenaSound's
+ *  `highpass`, a different filter; its low-pass half is arenaSound's `lowpass`, which the low arms call). */
+function lowCut(x, hz) {
   const a = 1 - Math.exp((-hz * TAU) / R);
   let y = 0;
-  for (let i = 0; i < x.length; i++) { y += a * (x[i] - y); x[i] = high ? x[i] - y : y; }
+  for (let i = 0; i < x.length; i++) { y += a * (x[i] - y); x[i] -= y; }
   return x;
 }
-const noiseOf = (n, rng) => { const o = new Float32Array(n); for (let i = 0; i < n; i++) o[i] = rng() * 2 - 1; return o; };
 /** `x` shaped by `e(t)` and added into `out` at `gain`. */
 function addShaped(out, x, e, gain) { for (let i = 0; i < out.length && i < x.length; i++) out[i] += x[i] * e(i / R) * gain; }
 /** A sine (frequency `f(t)`) added under `e(t)`. */
@@ -139,7 +126,7 @@ function addCrackle(out, rng, rate, amp, toneHz, until) {
 
 /** The finish every sound takes: no DC, levelled, softly saturated, 8 bits - Daggerfall's own grain - and a tail fade. */
 export function finish(out, { soft = false } = {}) {
-  onePole(out, 25, true);
+  lowCut(out, 25);
   let peak = 0;
   for (let i = 0; i < out.length; i++) peak = Math.max(peak, Math.abs(out[i]));
   const g = peak > 1e-6 ? 1.15 / peak : 0, sat = Math.tanh(1.3);
@@ -157,7 +144,7 @@ export function finish(out, { soft = false } = {}) {
  * ..., and `cast` the look's element cast clip), any of them null. Pure: the same voices and seed, the same sound.
  */
 export function buildImpactSound(kind, voices = {}, seed = IMPACT_SOUND_SEED) {
-  const rng = rngOf(seed ^ (FX_INDEX[kind] ?? 4) * 0x9e3779b1);
+  const rng = seededRng(seed ^ (FX_INDEX[kind] ?? 4) * 0x9e3779b1);
   const sec = IMPACT_SOUND_SECONDS[kind] ?? 1.3;
   const out = new Float32Array(Math.floor(sec * R));
   const r = (a, b) => a + rng() * (b - a);
@@ -165,56 +152,56 @@ export function buildImpactSound(kind, voices = {}, seed = IMPACT_SOUND_SEED) {
   switch (kind) {
     case 'fire': {
       addTone(out, (t) => 38 + 75 * Math.exp(-t / 0.07), (t) => env(t, 0.004, 0.28), 0.75);
-      addShaped(out, bandpass(noiseOf(out.length, rng), (t) => 300 + 1900 * Math.exp(-t / 0.25), 0.8), (t) => env(t, 0.008, 0.42), 0.9);
+      addShaped(out, bandpass(noise(out.length, rng), (t) => 300 + 1900 * Math.exp(-t / 0.25), 0.8), (t) => env(t, 0.008, 0.42), 0.9);
       addCrackle(out, rng, (t) => 140 * Math.exp(-t / 0.35) + 10, (t) => 0.32 * Math.exp(-t / 0.7), 2600, sec - 0.05);
-      addVoice(out, V.ignite, { ratio: 0.82, gain: 0.55, take: 1.0, fadeOut: 0.5 });
-      addVoice(out, V.cast, { ratio: 0.7, gain: 0.35, take: 0.8, fadeOut: 0.4 });
-      addVoice(out, V.burning, { ratio: 1, offset: 0.15, gain: 0.3, take: 1.2, fadeIn: 0.2, fadeOut: 0.6 });
+      voice(out, V.ignite, { ratio: 0.82, gain: 0.55, take: 1.0, fadeOut: 0.5 });
+      voice(out, V.cast, { ratio: 0.7, gain: 0.35, take: 0.8, fadeOut: 0.4 });
+      voice(out, V.burning, { ratio: 1, offset: 0.15, gain: 0.3, take: 1.2, fadeIn: 0.2, fadeOut: 0.6 });
       break;
     }
     case 'frost': {
-      if (V.splashLarge) addVoice(out, V.splashLarge, { ratio: 1.08, gain: 0.85, take: 1.1, fadeOut: 0.4 });
-      else addShaped(out, bandpass(noiseOf(out.length, rng), () => 1400, 1.1), (t) => env(t, 0.003, 0.22), 0.9);
+      if (V.splashLarge) voice(out, V.splashLarge, { ratio: 1.08, gain: 0.85, take: 1.1, fadeOut: 0.4 });
+      else addShaped(out, bandpass(noise(out.length, rng), () => 1400, 1.1), (t) => env(t, 0.003, 0.22), 0.9);
       addTone(out, (t) => 50 + 50 * Math.exp(-t / 0.05), (t) => env(t, 0.003, 0.12), 0.4);
-      addShaped(out, onePole(noiseOf(out.length, rng), 2500, true), (t) => env(t, 0.01, 0.38), 0.22);
+      addShaped(out, lowCut(noise(out.length, rng), 2500), (t) => env(t, 0.01, 0.38), 0.22);
       for (let i = 0; i < 10; i++) {   // the ice: short glassy pings, some with their bell partial
         const t0 = r(0.02, 0.6), f = r(1400, 3900), d = r(0.04, 0.11), a = r(0.06, 0.16);
         addTone(out, () => f, (t) => env(t - t0, 0.001, d), a, t0, t0 + d * 6);
         if (f * 1.38 < R * 0.45) addTone(out, () => f * 1.38, (t) => env(t - t0, 0.001, d * 0.6), a * 0.4, t0, t0 + d * 4);
       }
-      addVoice(out, V.cast, { ratio: 0.85, gain: 0.22, take: 0.6, fadeOut: 0.3 });
+      voice(out, V.cast, { ratio: 0.85, gain: 0.22, take: 0.6, fadeOut: 0.3 });
       break;
     }
     case 'poison': {
-      addVoice(out, V.splashSmallLow, { ratio: 0.72, gain: 0.65, take: 0.9, fadeOut: 0.35 });
-      addShaped(out, bandpass(noiseOf(out.length, rng), (t) => 220 + 900 * Math.exp(-t / 0.12), 4), (t) => env(t, 0.005, 0.22), 1.1);
+      voice(out, V.splashSmallLow, { ratio: 0.72, gain: 0.65, take: 0.9, fadeOut: 0.35 });
+      addShaped(out, bandpass(noise(out.length, rng), (t) => 220 + 900 * Math.exp(-t / 0.12), 4), (t) => env(t, 0.005, 0.22), 1.1);
       for (let i = 0; i < 11; i++) {   // bubbles: a quick upward blip each
         const t0 = r(0.05, 1.1), f0 = r(220, 600), d = r(0.04, 0.08), a = r(0.08, 0.2);
         addTone(out, (t) => f0 * (1 + 1.2 * Math.min(1, (t - t0) / d)), (t) => (t < t0 || t > t0 + d ? 0 : Math.sin((Math.PI * (t - t0)) / d) ** 2), a, t0, t0 + d);
       }
-      addShaped(out, onePole(noiseOf(out.length, rng), 3000, true), (t) => env(t, 0.08, 0.7) * (0.6 + 0.4 * Math.sin(t * 90)), 0.12);
-      addVoice(out, V.cast, { ratio: 0.7, gain: 0.22, take: 0.7, fadeOut: 0.3 });
+      addShaped(out, lowCut(noise(out.length, rng), 3000), (t) => env(t, 0.08, 0.7) * (0.6 + 0.4 * Math.sin(t * 90)), 0.12);
+      voice(out, V.cast, { ratio: 0.7, gain: 0.22, take: 0.7, fadeOut: 0.3 });
       break;
     }
     case 'shock': {
-      addShaped(out, noiseOf(out.length, rng), (t) => env(t, 0.0005, 0.012), 1.0);   // the crack
-      if (V.lightningShort) addVoice(out, V.lightningShort, { ratio: 1.25, gain: 0.8, take: 0.85, fadeOut: 0.55 });
-      else addShaped(out, bandpass(noiseOf(out.length, rng), () => 2000, 0.7), (t) => env(t, 0.001, 0.12), 0.9);
+      addShaped(out, noise(out.length, rng), (t) => env(t, 0.0005, 0.012), 1.0);   // the crack
+      if (V.lightningShort) voice(out, V.lightningShort, { ratio: 1.25, gain: 0.8, take: 0.85, fadeOut: 0.55 });
+      else addShaped(out, bandpass(noise(out.length, rng), () => 2000, 0.7), (t) => env(t, 0.001, 0.12), 0.9);
       {   // the buzz: a square that hops pitch and stutters, crushed to a few bits
         const n = Math.min(out.length, Math.floor(0.75 * R));
         let ph = 0, f = 90, hop = 0, on = 1;
-        const nz = noiseOf(n, rng), buzz = new Float32Array(n);
+        const nz = noise(n, rng), buzz = new Float32Array(n);
         for (let i = 0; i < n; i++) {
           if (i >= hop) { f = r(55, 140); on = rng() < 0.72 ? 1 : 0; hop = i + Math.floor(r(0.012, 0.03) * R); }
           ph += (TAU * f) / R;
           const s = (Math.sin(ph) >= 0 ? 1 : -1) * 0.7 + nz[i] * 0.3;
           buzz[i] = Math.round(s * on * env(i / R, 0.002, 0.3) * 7) / 7;
         }
-        onePole(buzz, 2500);
+        lowpass(buzz, R, 2500);
         for (let i = 0; i < n; i++) out[i] += buzz[i] * 0.4;
       }
       addCrackle(out, rng, (t) => 260 * Math.exp(-t / 0.2), (t) => 0.3 * Math.exp(-t / 0.4), 3200, sec - 0.05);
-      addVoice(out, V.cast, { ratio: 1.15, gain: 0.25, take: 0.6, fadeOut: 0.3 });
+      voice(out, V.cast, { ratio: 1.15, gain: 0.25, take: 0.6, fadeOut: 0.3 });
       break;
     }
     case 'heal': {
@@ -228,9 +215,9 @@ export function buildImpactSound(kind, voices = {}, seed = IMPACT_SOUND_SEED) {
       });
       addTone(out, () => 220, (t) => Math.min(1, t / 0.25) * Math.exp(-Math.max(0, t - 0.25) / 0.6), 0.1);
       addTone(out, () => 330, (t) => Math.min(1, t / 0.3) * Math.exp(-Math.max(0, t - 0.3) / 0.55), 0.07);
-      addShaped(out, bandpass(noiseOf(out.length, rng), (t) => 500 + 1500 * Math.min(1, t / 1.0), 1.5), (t) => Math.min(1, t / 0.35) * Math.exp(-Math.max(0, t - 0.35) / 0.5), 0.08);   // HEAL-SOFT: a breath, not a hiss
-      addVoice(out, V.cast, { ratio: 1.35, gain: 0.08, take: 0.6, fadeIn: 0.08, fadeOut: 0.35 });
-      onePole(onePole(out, 2600), 2600);   // HEAL-SOFT: rounded off - nothing sharp left on top
+      addShaped(out, bandpass(noise(out.length, rng), (t) => 500 + 1500 * Math.min(1, t / 1.0), 1.5), (t) => Math.min(1, t / 0.35) * Math.exp(-Math.max(0, t - 0.35) / 0.5), 0.08);   // HEAL-SOFT: a breath, not a hiss
+      voice(out, V.cast, { ratio: 1.35, gain: 0.08, take: 0.6, fadeIn: 0.08, fadeOut: 0.35 });
+      lowpass(lowpass(out, R, 2600), R, 2600);   // HEAL-SOFT: rounded off - nothing sharp left on top
       return finish(out, { soft: true });
     }
     default: {   // magic
@@ -240,8 +227,8 @@ export function buildImpactSound(kind, voices = {}, seed = IMPACT_SOUND_SEED) {
         const f = r(700, 1700), tr = r(9, 14);
         addTone(out, () => f, (t) => env(t, 0.02, 0.6) * (0.7 + 0.3 * Math.sin(TAU * tr * t)), 0.07);
       }
-      addShaped(out, bandpass(noiseOf(out.length, rng), (t) => 500 + 2600 * Math.exp(-t / 0.2), 1.2), (t) => env(t, 0.01, 0.3), 0.45);
-      addVoice(out, V.cast, { ratio: 0.78, gain: 0.4, take: 0.9, fadeOut: 0.4 });
+      addShaped(out, bandpass(noise(out.length, rng), (t) => 500 + 2600 * Math.exp(-t / 0.2), 1.2), (t) => env(t, 0.01, 0.3), 0.45);
+      voice(out, V.cast, { ratio: 0.78, gain: 0.4, take: 0.9, fadeOut: 0.4 });
     }
   }
   return finish(out);
