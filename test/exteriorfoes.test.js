@@ -78,7 +78,7 @@ test('exteriorfoes: the world host - the cadence loop, the travel reset, the fac
     'fast travel suppresses the traveled window, as DFU does');
   // encounter foes are spell targets and the sinks route by pool
   assert.ok(s.includes('[...cityGuards.guards, ...exteriorFoes.foes]'), 'magic.foes() sees both pools');
-  assert.ok(s.includes("g._encounter ? exteriorFoes.damageFoe(g, n, player.pos, null, { fromPlayer: fp, kind: 'spell', whole: !!o?.whole }) : cityGuards.hurtGuard(g, n, player.pos, null, { fromPlayer: fp })"),   // AUDIT WORLD6b-iii(a) B2: with the engine's provenance; AUDIT PSCALE1 DOORS-1: and a kill's flag
+  assert.ok(s.includes("g._encounter ? exteriorFoes.damageFoe(g, n, player.pos, null, { fromPlayer: fp, kind: 'spell', whole: !!o?.whole, round: !!o?.round, element: o?.element ?? null }) : cityGuards.hurtGuard(g, n, player.pos, null, { fromPlayer: fp, kind: 'spell', round: !!o?.round })"),   // PIN MOVED (RVN3: a landing's element)   // PIN MOVED (TELL1: the kind reaches the watch, and whether a tick is a later round)   // AUDIT WORLD6b-iii(a) B2: with the engine's provenance; AUDIT PSCALE1 DOORS-1: and a kill's flag
     'the spell sink routes to the right damage door');
   // the melee chain: the watch, then encounters, then civilians
   const watch = s.indexOf('cityGuards.resolvePlayerHit(weaponRig.playerWeapon');
@@ -93,7 +93,8 @@ test('exteriorfoes: the world host - the cadence loop, the travel reset, the fac
   // ROAD-H tail (review): ...and the shaft carries `aimFoe`, the foe the
   // archer selected (null for the player) - the flight's damage gate
   // (DaggerfallMissile.cs:669) reads it at contact.
-  assert.ok(s.includes("arrows.fire(from, dir, { enemy: true, shooterFoe: f, weapon: f.entity.weapon, aimFoe })"),
+  // PIN MOVED (TELL6d, bible/12-Enhanced-AI/Feud-Arc.md 8.1): an aimed shot's word rides the same shaft
+  assert.ok(s.includes("arrows.fire(from, dir, { enemy: true, shooterFoe: f, weapon: f.entity.weapon, aimFoe, ...(extra ?? {}) })"),
     'the shoot frame looses a real hunting arrow');
   assert.ok(s.includes('audio.play3d(SOUND.ArrowShoot, from'), 'the loose rings from the archer');
   const imp = s.indexOf('onPlayerHit: (m) =>');
