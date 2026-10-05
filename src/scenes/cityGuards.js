@@ -1421,7 +1421,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     }
     setCrimeCommitted(playerEntity, CRIME_ASSAULT);   // V4: through the one setter (SuppressCrime)
     const stood = await spawnGuardAt(best.pos, best.fwdYaw, playerFeet ?? null);
-    if (stood && best.person) stood.livingFrom = best.person;   // LW-FIX2: the guard marks whom it stands for (the living world's turned watch, scenes/livingWatch.js)
+    if (stood && best.person?.living) stood.livingFrom = best.person.living;   // LW-FIX2: the guard marks whom it stands for (the living world's turned watch, scenes/livingWatch.js)
     best.disable();
     const carriedHit = resolvePlayerHit(playerWeapon, eye, lookDir, playerFeet, inViewFn ?? _lastInView, onHitSound, { swing });   // AUDIT DISC19: the same swing, re-pointed - one grunt
     return { crime: 'assault', carriedHit };

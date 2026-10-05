@@ -11,15 +11,16 @@
 // is what happened, LW6).
 // WHERE. At one of the places the dungeon's own foes stand (`spots()`: its random enemy markers' floors), the one their
 // key deals (`restAt`) - every reader the same.
-// WHAT. Their body - their class's corpse picture - with what they carried (`lay`: a pile of the dungeon's own). Laid
-// ONCE in this character's world (`laid`, `mark`: the relations' `laid`); the dungeon's own pile from then - its scene's
-// cache keeps it, the player loots it. On the way in it is simply there (the dungeon as it is); one the deep takes while
-// the player is down lies where they are not (beyond DEEP_LAY_M).
+// WHAT. Their body - their class's corpse picture - with what they carried (`lay`: a pile of the dungeon's own, the
+// same goods every time, its key's). AUDIT-C5: laid each visit until the player has TAKEN from them (`laid`, `mark`: the
+// relations' `laid` - spent); a dungeon keeps nothing past its leaving, so marked on laying they lay one visit, most often
+// unfound, and never again. On the way in it is simply there (the dungeon as it is); one the deep takes while the player
+// is down lies where they are not (beyond DEEP_LAY_M).
 // FOUND. The player coming near one ("The remains of Ada Lark, of Wayrest.") hears whose it is - once a visit, while
 // the pile lies there (`there`).
 //
-// EVERY ALLOCATION HAS AN OWNER: the piles are the dungeon's (its droppedLoot, its scene cache); this layer keeps only
-// the keys it told this visit - `clear()` (the dungeon left) forgets them.
+// EVERY ALLOCATION HAS AN OWNER: the piles are the dungeon's (its droppedLoot); this layer keeps only the keys it laid and
+// told this visit - `clear()` (the dungeon left) forgets them.
 // ═══════════════════════════════════════════════════════════════════
 import { lwSeed, textSeed } from '../systems/livingWorld/seed.js';
 
@@ -36,15 +37,20 @@ export const restAt = (key, n) => (n > 0 ? lwSeed(textSeed(key), 0x72657374) % n
  *   spots: () => number[][],
  *   laid: (key: string) => boolean,
  *   mark: (key: string) => void,
- *   lay: (res: any, feet: number[]) => any,
+ *   lay: (res: any, feet: number[], key: string) => any,
  *   there: (feet: number[]) => boolean,
+ *   count?: (pile: any) => number,
  *   feet: () => (number[] | null),
  *   say: (text: string) => void,
  *   townName: (res: any) => string,
- * }} deps - `lay(res, feet)` the dungeon's pile for them (null: not laid); `there(feet)` whether a pile still lies there
+ * }} deps - `lay(res, feet, key)` the dungeon's pile for them (null: not laid); `there(feet)` whether a pile still lies
+ *   there; AUDIT-C5 `count(pile)` what a pile holds now
  */
 export function createDeepRemains(deps) {
   const told = new Set();
+  /** AUDIT-C5: the remains laid this visit (key -> the pile and what it was laid with) - spent (`mark`) only once taken
+   *  from: a dungeon keeps nothing past its leaving, so marked on laying they lay one visit, unfound, and never again */
+  const here = new Map();
   let arriving = true;
   return {
     /**
@@ -59,10 +65,14 @@ export function createDeepRemains(deps) {
       for (const r of remains) {
         const at = spots[restAt(r.key, spots.length)];
         const away = !feet || Math.hypot(at[0] - feet[0], at[2] - feet[2]) > DEEP_LAY_M;
-        if (!deps.laid(r.key)) {
-          if (!(arriving || away) || !deps.lay(r.res, at)) continue;
-          deps.mark(r.key);
+        if (!deps.laid(r.key) && !here.has(r.key)) {
+          if (!(arriving || away)) continue;
+          const pile = deps.lay(r.res, at, r.key);
+          if (!pile) continue;
+          here.set(r.key, { pile, n: deps.count?.(pile) ?? 0 });
         }
+        const h = here.get(r.key);
+        if (h && !deps.laid(r.key) && (!deps.there(at) || (deps.count?.(h.pile) ?? h.n) < h.n)) deps.mark(r.key);   // taken from: spent
         if (told.has(r.key) || !feet || Math.hypot(at[0] - feet[0], at[2] - feet[2]) > DEEP_NOTICE_M || Math.abs(at[1] - feet[1]) > 3 || !deps.there(at)) continue;
         told.add(r.key);
         const town = deps.townName(r.res);
@@ -72,6 +82,6 @@ export function createDeepRemains(deps) {
     },
     /** The remains told this visit (the probes; the pins). */
     told: () => [...told],
-    clear() { told.clear(); arriving = true; },
+    clear() { told.clear(); here.clear(); arriving = true; },
   };
 }

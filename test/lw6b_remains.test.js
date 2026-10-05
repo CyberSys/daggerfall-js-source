@@ -97,9 +97,9 @@ test('LW6b laid where the dungeon\'s foes stand: each at the place its key deals
   rig.layer.frame([near]);
   assert.equal(rig.piles.length, 1);
   assert.equal(rig.piles[0].at, rig.spots[restAt(near.key, n)], 'at its own place');
-  assert.ok(rig.marks.has(near.key), 'marked laid');
+  assert.ok(!rig.marks.has(near.key), 'laid, not spent - LW-FIX5: spent once taken from (test/lwfix5_deep.test.js)');
   rig.layer.frame([near]);
-  assert.equal(rig.piles.length, 1, 'laid once');
+  assert.equal(rig.piles.length, 1, 'laid once a visit');
   // after the way in: one the deep takes near the player waits until they are away
   const later = [1, 2, 3, 4, 5, 6, 7, 8].map((i) => R(i + 10)).find((r) => restAt(r.key, n) === restAt(near.key, n));
   rig.layer.frame([near, later]);
@@ -201,7 +201,8 @@ test('LW6b the dungeon and the streaming host: the dungeon\'s resting places (it
   assert.match(w, /return !turns\.fallen\.has\(key\) && !turns\.spared\.has\(key\) && !turns\.slain\.has\(key\) && !turns\.died\.has\(key\) && !livingDivers\?\.stood\(r\.trip\.id, r\.res\.id\);/);   // LW-FIX1: and the player's own dead
   assert.match(w, /laid: \(key\) => livingRelations\.turns\(\)\.laid\.has\(key\),\n\s+mark: \(key\) => livingRelations\.turn\('laid', key\),/);
   assert.match(w, /return d\.layRemains\(items, feet, \{ archive: corpse\.archive, record: corpse\.record \}\);/);
-  assert.match(w, /const items = generateLootItems\(enemyLootTableKey\(res\.cls, look\.basics\.lootTableKey \?\? '-'\), \{ level, gender: res\.sex \?\? 'male' \}\);/);
-  assert.match(w, /items\.push\(createRandomWeapon\(level\), createRandomArmor\(level\), goldStack\(/);
+  assert.match(w, /const items = generateLootItems\(enemyLootTableKey\(res\.cls, look\.basics\.lootTableKey \?\? '-'\), \{ level, gender: res\.sex \?\? 'male' \}, rolls\);/);
+  assert.match(w, /for \(const raw of \[createRandomWeapon\(level, rolls\), createRandomArmor\(level, rolls\)\]\)/);
+  assert.match(w, /items\.push\(goldStack\(/);
   assert.match(w, /if \(livingRemains\) \{ livingRemains\.clear\(\); livingRemains = null; \}   \/\/ LW6b: \.\.\.and the deep's layer let go with its dungeon/);
 });

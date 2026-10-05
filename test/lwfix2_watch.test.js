@@ -38,8 +38,8 @@ test('LW-FIX2 the turned watch: a struck watchman\'s guard found by the mark the
   const watch = town.peopleOf(day).find((r) => r.roll === 'w') ?? town.residents.find((r) => r.roll === 'w');
   assert.ok(watch, 'one of the watch');
   const person = { living: { id: watch.id, res: watch, town }, pos: [0, 0, 0], guard: true };
-  const turned = [{ res: watch, person, town, at: [1, 0, 2], guard: null, waited: 0 }];
-  const other = { livingFrom: null, dead: false }, his = { livingFrom: person, dead: false };
+  const turned = [{ res: watch, from: person.living, town, at: [1, 0, 2], guard: null, waited: 0 }];   // LW-FIX5: by the struck body's identity
+  const other = { livingFrom: null, dead: false }, his = { livingFrom: person.living, dead: false };
   const guards = [other];
   watchStep(turned, guards);
   assert.equal(turned[0].guard, null, 'another guard stood after: not his');
@@ -52,12 +52,12 @@ test('LW-FIX2 the turned watch: a struck watchman\'s guard found by the mark the
   assert.deepEqual(slays, [{ id: watch.id, at: clock.t, seen: slays[0]?.seen ?? false }], 'the hand\'s turn at this minute');
   for (const kin of town.kinOf(watch)) assert.equal(rel.regard(kin.id, day), EVENTS.slain, `${kin.id}: his household turned`);
   // the guard gone with the crime; never stood
-  const gone = [{ res: watch, person, town, at: [0, 0, 0], guard: null, waited: 0 }];
-  const g2 = { livingFrom: person, dead: false };
+  const gone = [{ res: watch, from: person.living, town, at: [0, 0, 0], guard: null, waited: 0 }];
+  const g2 = { livingFrom: person.living, dead: false };
   watchStep(gone, [g2]);
   watchStep(gone, []);
   assert.equal(gone.length, 0, 'gone: let be');
-  const never = [{ res: watch, person, town, at: [0, 0, 0], guard: null, waited: 0 }];
+  const never = [{ res: watch, from: person.living, town, at: [0, 0, 0], guard: null, waited: 0 }];
   for (let i = 0; i < WATCH_WAIT; i++) watchStep(never, []);
   assert.equal(never.length, 1, 'waiting');
   watchStep(never, []);
@@ -88,10 +88,10 @@ test('LW-FIX2 a room\'s doors read the clock\'s own minute: a word, a tone, a re
 
 test('LW-FIX2 the conversions mark their guards: the swing\'s (scenes/cityGuards.js) and the trample\'s (systems/rrRidingHost.js) guard carries whom it stands for, and the host follows the watch through it (mutants: each mark, the host)', () => {
   const cg = rd('src/scenes/cityGuards.js');
-  assert.match(cg, /const stood = await spawnGuardAt\(best\.pos, best\.fwdYaw, playerFeet \?\? null\);\n\s*if \(stood && best\.person\) stood\.livingFrom = best\.person;[^\n]*\n\s*best\.disable\(\);/);
+  assert.match(cg, /const stood = await spawnGuardAt\(best\.pos, best\.fwdYaw, playerFeet \?\? null\);\n\s*if \(stood && best\.person\?\.living\) stood\.livingFrom = best\.person\.living;[^\n]*\n\s*best\.disable\(\);/);
   const rr = rd('src/systems/rrRidingHost.js');
-  assert.match(rr, /\.then\(\(g\) => \{ if \(g\) \{ g\.livingFrom = person; chargeFoe\(g, fwd\); \} \}\)/);
+  assert.match(rr, /\.then\(\(g\) => \{ if \(g\) \{ g\.livingFrom = from; chargeFoe\(g, fwd\); \} \}\)/);
   const w = rd('src/scenes/world.js');
-  assert.match(w, /_livingWatchTurned\.push\(\{ res: person\.living\.res, person, town, at: \[\.\.\.person\.pos\], guard: null, waited: 0 \}\);/);
+  assert.match(w, /_livingWatchTurned\.push\(\{ res: person\.living\.res, from: person\.living, town, at: \[\.\.\.person\.pos\], guard: null, waited: 0 \}\);/);
   assert.match(w, /const livingWatchStep = \(\) => watchStep\(_livingWatchTurned, cityGuards\.guards\);/);
 });

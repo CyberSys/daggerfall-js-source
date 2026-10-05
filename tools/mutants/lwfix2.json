@@ -2,7 +2,7 @@
   {
     "name": "LW-FIX2-mark-find",
     "file": "src/scenes/livingWatch.js",
-    "old": "    w.guard ??= guards.find((g) => g.livingFrom === w.person) ?? null;",
+    "old": "    w.guard ??= guards.find((g) => g.livingFrom === w.from) ?? null;",
     "new": "    w.guard ??= guards.find((g) => !g.dead) ?? null;",
     "tests": [
       "test/lwfix2_watch.test.js"
@@ -65,7 +65,7 @@
   {
     "name": "LW-FIX2-mark-swing",
     "file": "src/scenes/cityGuards.js",
-    "old": "    if (stood && best.person) stood.livingFrom = best.person;",
+    "old": "    if (stood && best.person?.living) stood.livingFrom = best.person.living;",
     "new": "    void stood;",
     "tests": [
       "test/lwfix2_watch.test.js"
@@ -74,7 +74,7 @@
   {
     "name": "LW-FIX2-mark-trample",
     "file": "src/systems/rrRidingHost.js",
-    "old": "if (g) { g.livingFrom = person; chargeFoe(g, fwd); }",
+    "old": "if (g) { g.livingFrom = from; chargeFoe(g, fwd); }",
     "new": "if (g) { chargeFoe(g, fwd); }",
     "tests": [
       "test/lwfix2_watch.test.js"

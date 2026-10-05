@@ -44,11 +44,15 @@ export const isKeepsake = (it) => it?.templateIndex === KEEPSAKE_TEMPLATE && !!i
 
 /**
  * The keepsake among `items` of one who lived in `town`'s `home` - never one of `holder`'s own place (the fallen, or a
- * newcomer holding it now) - or null.
+ * newcomer holding it now) - or null. AUDIT-C1: `homeOf(id)` the town's own word for the home of the place a keepsake
+ * names when it carries none - the deep's dead are travellers, minted off the town's row alone with no house (their home
+ * is the town's census's), and no keepsake of theirs was ever carried home.
  * @param {readonly any[]} items @param {number} town @param {number|null|undefined} home @param {string} holder - the id spoken with
+ * @param {((id: string) => (number|null))|null} [homeOf]
  */
-export function keepsakeFor(items, town, home, holder) {
+export function keepsakeFor(items, town, home, holder, homeOf = null) {
   if (home == null) return null;
-  return (items ?? []).find((it) => isKeepsake(it) && it.livingKeepsake.town === (town >>> 0) && it.livingKeepsake.home === home
+  return (items ?? []).find((it) => isKeepsake(it) && it.livingKeepsake.town === (town >>> 0)
+    && (it.livingKeepsake.home ?? homeOf?.(it.livingKeepsake.id) ?? null) === home
     && placeIdOf(it.livingKeepsake.id) !== placeIdOf(holder)) ?? null;
 }

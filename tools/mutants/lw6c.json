@@ -65,8 +65,8 @@
   {
     "name": "LW6c-town",
     "file": "src/systems/livingWorld/keepsake.js",
-    "old": "isKeepsake(it) && it.livingKeepsake.town === (town >>> 0) && it.livingKeepsake.home === home",
-    "new": "isKeepsake(it) && it.livingKeepsake.home === home",
+    "old": "isKeepsake(it) && it.livingKeepsake.town === (town >>> 0)",
+    "new": "isKeepsake(it)",
     "tests": [
       "test/lw6c_keepsake.test.js"
     ]
@@ -74,8 +74,8 @@
   {
     "name": "LW6c-home",
     "file": "src/systems/livingWorld/keepsake.js",
-    "old": "isKeepsake(it) && it.livingKeepsake.town === (town >>> 0) && it.livingKeepsake.home === home",
-    "new": "isKeepsake(it) && it.livingKeepsake.town === (town >>> 0)",
+    "old": "    && (it.livingKeepsake.home ?? homeOf?.(it.livingKeepsake.id) ?? null) === home",
+    "new": "    && true",
     "tests": [
       "test/lw6c_keepsake.test.js"
     ]

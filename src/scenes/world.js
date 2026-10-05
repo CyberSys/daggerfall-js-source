@@ -122,7 +122,7 @@ import { watchStep } from './livingWatch.js';   // LW-FIX2: a struck watchman's 
 import { fallenIn } from '../systems/livingWorld/trips.js';   // LW6b: ...the deep's word of them
 import { enemyLootTableKey } from '../systems/loot.js';   // LW6b: ...what they carried, their class's table
 import { goldStack } from '../systems/inventory.js';   // LW6b: ...and their purse
-import { mintKeepsake } from '../systems/livingWorld/keepsake.js';   // LW6c: ...and their keepsake, carried home
+import { mintKeepsake } from '../systems/livingWorld/keepsake.js'; import { lwRng, textSeed } from '../systems/livingWorld/seed.js';   // LW6c: ...and their keepsake, carried home; AUDIT-C5: their goods their key's own (on this line, so no cite below it moves)
 import { createLivingIndoors } from './livingIndoors.js';   // LW8: the residents inside the building the player is in
 import { createTravellerSprites, classLookOf } from '../world/travellerSprites.js';   // LW3: their bodies, and the armed walk's sprite
 import { GUARD_TEXTURE, MobilePerson, PERSON_TEXTURES, PERSON_MOVE_SPEED } from '../characters/mobilePerson.js';
@@ -796,7 +796,7 @@ import { createRandomReligiousItem, createRandomJewellery, createRandomGem, crea
 import { createRegularMagicItem, getMagicItemTemplates, lootMatrix, tableLootSpawned } from '../systems/loot.js';   // OH-E: CreateRandomMagicItem, GetMatrix, LootTables.OnLootSpawned
 import { enemyLootSpawned } from '../characters/enemyEntity.js';   // OH-E: EnemyEntity.OnLootSpawned
 import { customItemClass } from '../systems/rriItems.js';   // OH-E: UpgradeLoot's `GetType() != typeof(DaggerfallUnityItem)`
-import { setItemFields, mintCondition } from '../systems/itemTemplates.js';   // DW-E5: the item constructor's name, value and condition
+import { setItemFields, mintCondition, isAmmunition } from '../systems/itemTemplates.js';   // DW-E5: the item constructor's name, value and condition
 import { registerItemUseHandler } from '../systems/itemTemplates.js';   // CSA-H: the boat items' UseItem on the item-use door
 import { mintBoatItem, mintShelfBoatUids, assignVariantsToShopItems, cargoLootTarget, BOAT_PARTS_TEMPLATE as CSA_PARTS_TEMPLATE, BOAT_DEED_TEMPLATE as CSA_DEED_TEMPLATE } from '../systems/comeSailAwayItems.js';   // CSA-H: the two items, their shelf
 import { ListPickerWindow, listPickerArtLoaded } from '../ui/listPicker.js';   // CSA-H: the boat's variant picker
@@ -2441,13 +2441,17 @@ export async function bootWorld(canvas, renderer, params, status) {
   let livingRemains = null, _livingRemainsAt = -Infinity, _livingRemainsList = [];
   /** LW6b: a fallen diver's remains in the dungeon `d` at `feet` - their class's corpse picture, and what they carried:
    *  their class's own loot table at their level, a weapon and a piece of armour, their purse. */
-  const livingRemainsLay = (d, res, feet) => {
+  const livingRemainsLay = (d, res, feet, key = res.id) => {
     const look = classLookOf(res);
     const corpse = look?.basics?.corpseTexture;
     if (!corpse) return null;
     const level = Math.max(1, res.level | 0);
-    const items = generateLootItems(enemyLootTableKey(res.cls, look.basics.lootTableKey ?? '-'), { level, gender: res.sex ?? 'male' });
-    items.push(createRandomWeapon(level), createRandomArmor(level), goldStack(5 + Math.floor(Math.random() * 20 * level)));
+    const rolls = lwRng(textSeed(key), 0x676f6f64);   // 'good' - AUDIT-C5: the same goods each time they are laid (never a reroll for leaving)
+    const items = generateLootItems(enemyLootTableKey(res.cls, look.basics.lootTableKey ?? '-'), { level, gender: res.sex ?? 'male' }, rolls);
+    // AUDIT-C7: their weapon and their armour minted as every other piece the port hands out (the item's fields, its
+    // condition), never an arrow for a weapon
+    for (const raw of [createRandomWeapon(level, rolls), createRandomArmor(level, rolls)]) if (raw && !isAmmunition(raw)) items.push(mintCondition(setItemFields(raw)));
+    items.push(goldStack(5 + Math.floor(rolls() * 20 * level)));
     items.push(mintKeepsake(res));   // LW6c: their own keepsake, for their household
     return d.layRemains(items, feet, { archive: corpse.archive, record: corpse.record });
   };
@@ -2460,8 +2464,9 @@ export async function bootWorld(canvas, renderer, params, status) {
         spots: () => d.restingSpots(),
         laid: (key) => livingRelations.turns().laid.has(key),
         mark: (key) => livingRelations.turn('laid', key),
-        lay: (res, feet) => livingRemainsLay(d, res, feet),
+        lay: (res, feet, key) => livingRemainsLay(d, res, feet, key),
         there: (feet) => d.pileNear(feet, 0.6),
+        count: (pile) => pile?.items?.length ?? 0,   // AUDIT-C5: taken from - spent
         feet: () => (playerSpawned ? [player.pos[0], player.pos[1], player.pos[2]] : null),
         say: (text) => d.hudSay?.(text),
         townName: (res) => livingTownOfId(res.town)?.name ?? '',
@@ -9576,7 +9581,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const town = livingWorldOn() ? person?.living?.town : null;
     if (!town?.slain) return;
     if (!person.guard) { town.slain(person); return; }
-    if (town.struck(person)) _livingWatchTurned.push({ res: person.living.res, person, town, at: [...person.pos], guard: null, waited: 0 });   // LW-FIX2: his guard found by the mark the conversion puts on it (scenes/livingWatch.js)
+    if (town.struck(person)) _livingWatchTurned.push({ res: person.living.res, from: person.living, town, at: [...person.pos], guard: null, waited: 0 });   // LW-FIX2: his guard found by the mark the conversion puts on it (scenes/livingWatch.js)
   };
   const livingStruckPool = (pool) => (livingWorldOn() ? pool.map((e) => ({ ...e, disable: () => { livingDeedOf(e.person, e.pos); e.disable(); } })) : pool);
   /** LW7: each turned watchman's guard found and watched (scenes/livingWatch.js - LW-FIX2: by the conversion's own mark on

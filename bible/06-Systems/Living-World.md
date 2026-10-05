@@ -736,6 +736,28 @@ The deep audit's road and deep findings; each is fixed and pinned (`test/lwfix4_
   fight's end all the same (it dove on for its full hours and was met again); a company that made for the surface is
   not met again this visit (`dungeonDivers.js`).
 
+## LW-FIX5 - the deep's four (2026-10-05)
+
+The deep audit's deep and deed findings; each is fixed and pinned (`test/lwfix5_deep.test.js`,
+`tools/mutants/lwfix5.json`).
+
+- **A keepsake carried home** (`keepsake.js keepsakeFor`'s `homeOf`; `livingTown.js _homeOfPlace`). The deep's dead are
+  travellers, minted off the town's row alone with no house: their keepsake named no home, and no household ever took
+  it - LW6c's homecoming never happened for the one place keepsakes come from. A keepsake that names no home is matched
+  by the home the town's census gives the place its id names (a newcomer's generation aside); one that names its house
+  keeps it.
+- **The remains lie till they are taken from** (`deepRemains.js` `here`; the host's `count` and seeded goods). A dungeon
+  keeps nothing past its leaving (no scene cache), and the remains were marked laid as they were laid: they lay one
+  visit, most often unfound, and never again. They are laid each visit until the player takes from them (fewer goods,
+  or the pile emptied away) - then spent; their goods are rolled off their key, the same every time they are laid.
+- **The turned watch followed by identity** (`livingWatch.js`, the two conversions' marks). The guard was marked with
+  the struck body, which is the town's pool's and dressed again: a dead guard still wearing an old body's mark was
+  found for the next watchman struck in that body, and he was counted slain the moment he was struck, his own guard
+  alive. The mark is the body's `living` record as it was struck (minted afresh each time the pool dresses a body).
+- **Their weapon and armour minted** (the host's lay). The remains' weapon and armour were raw templates - no name,
+  value or condition set, as every other piece the port hands out has (`setItemFields`, `mintCondition`) - and the
+  weapon could be a bundle of arrows. They are minted, and never ammunition.
+
 ## The four hosts
 
 - `scenes/world.js` - WIRED (LW2 the towns, LW3 the roads and the Overworld).

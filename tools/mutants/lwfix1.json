@@ -12,8 +12,8 @@
   {
     "name": "LW-FIX1-town",
     "file": "src/systems/livingWorld/livingTown.js",
-    "old": "keepsakeFor(this.o.keepsakes?.() ?? [], res.town, res.home, res.id);",
-    "new": "keepsakeFor(this.o.keepsakes?.() ?? [], this.o.town.mapId, res.home, res.id);",
+    "old": "keepsakeFor(this.o.keepsakes?.() ?? [], res.town, res.home, res.id, (id) => this._homeOfPlace(id));",
+    "new": "keepsakeFor(this.o.keepsakes?.() ?? [], this.o.town.mapId, res.home, res.id, (id) => this._homeOfPlace(id));",
     "tests": [
       "test/lwfix1_review.test.js"
     ]

@@ -173,8 +173,8 @@
   {
     "name": "LW6b-way-in",
     "file": "src/scenes/deepRemains.js",
-    "old": "          if (!(arriving || away) || !deps.lay(r.res, at)) continue;",
-    "new": "          if (!away || !deps.lay(r.res, at)) continue;",
+    "old": "          if (!(arriving || away)) continue;",
+    "new": "          if (!away) continue;",
     "tests": [
       "test/lw6b_remains.test.js"
     ]
@@ -182,8 +182,8 @@
   {
     "name": "LW6b-reach",
     "file": "src/scenes/deepRemains.js",
-    "old": "          if (!(arriving || away) || !deps.lay(r.res, at)) continue;",
-    "new": "          if (!deps.lay(r.res, at)) continue;",
+    "old": "          if (!(arriving || away)) continue;",
+    "new": "          if (false) continue;",
     "tests": [
       "test/lw6b_remains.test.js"
     ]
@@ -191,10 +191,11 @@
   {
     "name": "LW6b-mark",
     "file": "src/scenes/deepRemains.js",
-    "old": "          deps.mark(r.key);",
-    "new": "          void 0;",
+    "old": ") deps.mark(r.key);   // taken from: spent",
+    "new": ") void 0;   // taken from: spent",
     "tests": [
-      "test/lw6b_remains.test.js"
+      "test/lw6b_remains.test.js",
+      "test/lwfix5_deep.test.js"
     ]
   },
   {
@@ -254,8 +255,8 @@
   {
     "name": "LW6b-visit",
     "file": "src/scenes/deepRemains.js",
-    "old": "    clear() { told.clear(); arriving = true; },",
-    "new": "    clear() { arriving = true; },",
+    "old": "    clear() { told.clear(); here.clear(); arriving = true; },",
+    "new": "    clear() { here.clear(); arriving = true; },",
     "tests": [
       "test/lw6b_remains.test.js"
     ]
@@ -380,8 +381,8 @@
   {
     "name": "LW6b-host-loot",
     "file": "src/scenes/world.js",
-    "old": "    items.push(createRandomWeapon(level), createRandomArmor(level), goldStack(",
-    "new": "    items.push(goldStack(",
+    "old": "    for (const raw of [createRandomWeapon(level, rolls), createRandomArmor(level, rolls)]) if",
+    "new": "    for (const raw of []) if",
     "tests": [
       "test/lw6b_remains.test.js"
     ]
