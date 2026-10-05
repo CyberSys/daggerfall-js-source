@@ -1,0 +1,353 @@
+[
+  {
+    "name": "SERAPHWINGS-the-root-in-front",
+    "file": "src/render/auraRing.js",
+    "old": "uCapeS.z - ${g3(WING_ROOT.back)});",
+    "new": "uCapeS.z + ${g3(WING_ROOT.back)});",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-sides-swapped",
+    "file": "src/render/auraRing.js",
+    "old": "return vec3(p < ${g1(WING_PLUMES)} ? -1.0 : 1.0,",
+    "new": "return vec3(p < ${g1(WING_PLUMES)} ? 1.0 : -1.0,",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-one-wing",
+    "file": "src/render/auraRing.js",
+    "old": "return vec3(p < ${g1(WING_PLUMES)} ? -1.0 : 1.0,",
+    "new": "return vec3(p < ${g1(WING_PLUMES)} ? 1.0 : 1.0,",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-fan-flat",
+    "file": "src/render/auraRing.js",
+    "old": "float th = mix(${g3(WING_SPREAD[0])}, ${g3(WING_SPREAD[1])}, s.y)",
+    "new": "float th = mix(${g3(WING_SPREAD[0])}, ${g3(WING_SPREAD[0])}, s.y)",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-fan-upside-down",
+    "file": "src/render/auraRing.js",
+    "old": "float th = mix(${g3(WING_SPREAD[0])}, ${g3(WING_SPREAD[1])}, s.y)",
+    "new": "float th = mix(${g3(WING_SPREAD[1])}, ${g3(WING_SPREAD[0])}, s.y)",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-every-plume-long",
+    "file": "src/render/auraRing.js",
+    "old": "float reach = mix(${g3(WING_REACH[0])}, ${g3(WING_REACH[1])},",
+    "new": "float reach = mix(${g3(WING_REACH[1])}, ${g3(WING_REACH[1])},",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-facing-ignored",
+    "file": "src/render/auraRing.js",
+    "old": "vec3 wingWorld(vec3 b) { vec2 d = cloakWorldXZ(b.xz);",
+    "new": "vec3 wingWorld(vec3 b) { vec2 d = b.xz;",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-width-one",
+    "file": "src/render/auraRing.js",
+    "old": "float width = mix(${g3(WING_W.broad)}, ${g3(WING_W.fine)}, fine)",
+    "new": "float width = mix(${g3(WING_W.broad)}, ${g3(WING_W.broad)}, fine)",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-not-turned-to-the-eye",
+    "file": "src/render/auraRing.js",
+    "old": "vec3 side = cross(along, uCamPos - c);",
+    "new": "vec3 side = cross(along, vec3(0.0, 0.0, 1.0));",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-no-waves",
+    "file": "src/render/auraRing.js",
+    "old": "float amp = (0.08 + 0.01 * s.z) * pow(t, 1.4);",
+    "new": "float amp = 0.0;",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-no-breath",
+    "file": "src/render/auraRing.js",
+    "old": "+ 0.07 * breathe +",
+    "new": "+ 0.0 * breathe +",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-no-trail",
+    "file": "src/render/auraRing.js",
+    "old": "  b.z += uSwing.y * 1.3 * tt;\n",
+    "new": "",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-trail-at-the-root",
+    "file": "src/render/auraRing.js",
+    "old": "float tt = pow(t, 1.5);",
+    "new": "float tt = 1.0;",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-no-lift",
+    "file": "src/render/auraRing.js",
+    "old": "  b.y += uSwing.z * 1.2 * t;\n",
+    "new": "",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-shoulders-ignored",
+    "file": "src/render/auraRing.js",
+    "old": "uCapeS.y - ${g3(WING_ROOT.below)},",
+    "new": "${g3(CLOAK_SHOULDER_Y)} - ${g3(WING_ROOT.below)},",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-breadth-ignored",
+    "file": "src/render/auraRing.js",
+    "old": "s.x * ${g3(WING_ROOT.apart)} * uCapeS.w,",
+    "new": "s.x * ${g3(WING_ROOT.apart)},",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-no-heart",
+    "file": "src/render/auraRing.js",
+    "old": "+ WING_CORE * core * (0.6 + 0.6 * pulse)",
+    "new": "+ WING_CORE * 0.0 * (0.6 + 0.6 * pulse)",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-edge-never-frays",
+    "file": "src/render/auraRing.js",
+    "old": "float edge = 1.0 - smoothstep(0.45 - 0.3 * n2, 1.0, abs(a));",
+    "new": "float edge = 1.0;",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-tip-never-frays",
+    "file": "src/render/auraRing.js",
+    "old": " * (1.0 - smoothstep(0.6 + 0.25 * n, 1.0, t));   // out of the back",
+    "new": ";   // out of the back",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-root-blazing",
+    "file": "src/render/auraRing.js",
+    "old": "float along = smoothstep(0.0, 0.16, t) *",
+    "new": "float along = 1.0 *",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-unfurled-unkindled",
+    "file": "src/render/auraRing.js",
+    "old": "float grown = 1.0 - smoothstep(uKindle * 1.15 - 0.15, uKindle * 1.15, t);",
+    "new": "float grown = 1.0;",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-laid-over-the-eye",
+    "file": "src/render/auraRing.js",
+    "old": "float wingNear() { return smoothstep(0.25, 0.9, distance(uCamPos, vWorld)); }",
+    "new": "float wingNear() { return 1.0; }",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-light-still",
+    "file": "src/render/auraRing.js",
+    "old": "float n = fbmP(vec2(t * ${g1(WING_FLOW.cells)} - uTime * ${g3(WING_FLOW.rate)}, k * 3.7)",
+    "new": "float n = fbmP(vec2(t * ${g1(WING_FLOW.cells)}, k * 3.7)",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-pool-unbounded",
+    "file": "src/render/auraRing.js",
+    "old": "  if (r > ${g3(WING_POOL_R)}) discard;\n",
+    "new": "",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-motes-never-fade",
+    "file": "src/render/auraRing.js",
+    "old": "float life = smoothstep(0.0, 0.15, s.x) * (1.0 - smoothstep(0.6, 1.0, s.x));\n  return (WING_CORE",
+    "new": "float life = 1.0;\n  return (WING_CORE",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-motes-before-the-wings",
+    "file": "src/render/auraRing.js",
+    "old": " * smoothstep(0.75, 1.0, uKindle) * wingNear();   // none till",
+    "new": " * wingNear();   // none till",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-mesh-short",
+    "file": "src/render/auraRing.js",
+    "old": "    for (let j = 0; j < WING_SEGS; j++) {\n      const t0 = j / WING_SEGS",
+    "new": "    for (let j = 0; j < WING_SEGS - 1; j++) {\n      const t0 = j / WING_SEGS",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-strands-not-drawn",
+    "file": "src/render/auraRing.js",
+    "old": "gl.drawArrays(gl.TRIANGLES, 0, wings ? WING_VERTS : AURA_STEPS * 6);",
+    "new": "gl.drawArrays(gl.TRIANGLES, 0, AURA_STEPS * 6);",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-strip-for-the-wings",
+    "file": "src/render/auraRing.js",
+    "old": "gl.bindVertexArray(wings ? this.wingsVao : this.flameVao);",
+    "new": "gl.bindVertexArray(this.flameVao);",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-offset-left-on",
+    "file": "src/render/auraRing.js",
+    "old": "          if (wings) gl.disable(gl.POLYGON_OFFSET_FILL);\n",
+    "new": "",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-offset-not-handed-back",
+    "file": "src/render/auraRing.js",
+    "old": "          if (wings) gl.enable(gl.POLYGON_OFFSET_FILL);\n",
+    "new": "",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-look-a-shade",
+    "file": "src/render/auraRing.js",
+    "old": "glyphs: WING_MOTES, mesh: 'wings' }),",
+    "new": "glyphs: WING_MOTES, mesh: 'wings', shade: true }),",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-motes-dropped",
+    "file": "src/render/auraRing.js",
+    "old": "glyphs: WING_MOTES, mesh: 'wings' }),",
+    "new": "glyphs: 0, mesh: 'wings' }),",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-grant-dropped",
+    "file": "server-account/src/titles.js",
+    "old": "  if (isDeveloper(player, env) && !held.includes(DEVELOPER_AURA)) held.push(DEVELOPER_AURA);\n",
+    "new": "",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-wrong-aura",
+    "file": "server-account/src/titles.js",
+    "old": "export const DEVELOPER_AURA = 'seraphwings';",
+    "new": "export const DEVELOPER_AURA = 'radiance';",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-vocabulary-without-the-wings",
+    "file": "src/net/identityToken.js",
+    "old": "'shadowcloak', 'seraphwings']);",
+    "new": "'shadowcloak']);",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-word",
+    "file": "src/ui/playerBadge.js",
+    "old": "  seraphwings: 'Seraph Wings',",
+    "new": "  seraphwings: 'seraphwings',",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-paint",
+    "file": "src/ui/playerBadge.js",
+    "old": "shadowcloak: 'shadowfang', seraphwings: 'founder' });",
+    "new": "shadowcloak: 'shadowfang', seraphwings: 'developer' });",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-wings-unposed",
+    "file": "src/scenes/world.js",
+    "old": "for (const w of _auraDraw) if (auraLookOf(w.aura).mesh) {",
+    "new": "for (const w of _auraDraw) if (w.aura === 'shadowcloak') {",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  }
+]
