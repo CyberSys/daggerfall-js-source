@@ -232,8 +232,8 @@
  {
   "name": "AUDIT-GRAIN-the-perf-probe-cannot-reach-the-dial",
   "file": "tools/perfProbe.mjs",
-  "old": "  await page.goto(`http://localhost:${PORT}${url}${GROUND}`);",
-  "new": "  await page.goto(`http://localhost:${PORT}${url}`);",
+  "old": "  await page.goto(`http://localhost:${PORT}${url}${GROUND}${TREES}`);",
+  "new": "  await page.goto(`http://localhost:${PORT}${url}${TREES}`);",
   "tests": [
    "test/grain1_terrainmip.test.js"
   ]
