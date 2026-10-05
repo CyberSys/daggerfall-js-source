@@ -2505,11 +2505,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!livingWorldOn() || _mode() !== 'interior') { if (livingIndoors?.size || livingIndoors?.spots().length) livingIndoors.clear(); return; }   // LW-FIX1: a room with nobody in it let go too (a house asleep) - the next way in sounds it again
     livingIndoors ??= createLivingIndoors({
       sprites: createTravellerSprites({ renderer, getTexture, uploadRecordFrame, living: _livingIndoorsDoor }),
-      building: () => { const b = modes?.interiorBuilding; const town = b ? livingTownOfMap(b.townMapId ?? 0) : null; return b && town ? { key: b.buildingKey, town } : null; },
+      building: () => { const b = modes?.interiorBuilding; const town = b && !modes?.interiorCtx?.ownedRoom ? livingTownOfMap(b.townMapId ?? 0) : null; return b && town ? { key: b.buildingKey, town } : null; },   // AUDIT-E1: never a player's own room
       collider: () => modes?.interiorCollider ?? null,
       floorAt: (x, y, z) => { const d = modes?.interiorCollider?.raycast([x, y, z], [0, -1, 0], 3); return Number.isFinite(d) ? y - d : null; },
-      origin: () => null,   // the player's own feet, on the way in
-      staticFeet: () => (modes?.interiorCtx?.people ?? []).filter((p) => p.active !== false).map((p) => [p.x, p.y, p.z]),
+      origin: () => modes?.interiorCtx?.landing ?? null,   // AUDIT-E4: the landing of the building's first door - a load made inside, another door, a peer: the room laid out the same
+      waysIn: () => modes?.interiorCtx?.waysIn ?? [],   // ...and every door's landing kept clear
+      staticFeet: () => (modes?.interiorCtx?.people ?? []).filter((p) => p.active !== false).map((p) => [p.x, p.y, p.z]).concat(modes?.interiorQuestFeet?.() ?? []),   // AUDIT-E7: and the quest's people
       clock: skyMinutes,
       ready: () => !_loading && !modes?.transitioning,
     });
@@ -10214,7 +10215,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:3072 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:7250
+  // that context through modes.dungeonCtx - so worldModes.js:7259
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -16136,7 +16137,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10951-11015 -
+  // worldModes answers it in BOTH modes (worldModes.js:10960-11024 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -26033,9 +26034,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       ambience.setPreset(presetForExterior(heardWeather(), isNight(minuteNow())));   // DISC9: the word the street last heard - the one truth Better Ambience's indoor rain reads too
       ambience.update(dt, { inside: true, underground: modes.mode === 'dungeon', indoorRainSource: betterAmbience.rainPlaying() });
       if (livingRoads) livingRoads.clear();   // LW3: indoors, underground - the road's bodies freed with the open world they stood in
+      livingWays.frame(); livingMemoFresh();   // AUDIT-E2: the ways asked indoors too - a load made in a tavern or below asked once and never again
       livingDiversStep(now);   // LW6: underground, the companies diving here met
       livingRemainsStep(now);   // LW6b: ...and the dead the deep kept there
-      livingIndoorsStep(dt);   // LW8: in a building, the residents whose day has them inside
+      livingIndoorsStep(townTalk.overlayActive ? 0 : dt);   // LW8: in a building, the residents whose day has them inside (AUDIT-E3: held under a talk, as the street's)
       if (dwPlayer) {
         audio.setListenerLowPass(0);   // DW-D: UpdateAudioFilter's IsPlayerInside - RemoveAudioFilter
         // AUDIT DW-F: UpdateSwimSfxAndWeather asks IsPlayingGame and IsPlayerSwimming && !IsWaterWalking and nothing of

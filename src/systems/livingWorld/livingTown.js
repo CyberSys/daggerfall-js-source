@@ -550,7 +550,7 @@ export class LivingTown {
   _greet(res, person, dist, stopped) {
     if (dist > GREET_RANGE || this._inCircle.has(res.id)) return;
     const last = this._greeted.get(res.id);
-    if (last != null && this._now - last < GREET_REST_MIN) return;
+    if (last != null && this._now >= last && this._now - last < GREET_REST_MIN) return;   // AUDIT-E6: a clock gone back (a load) forgets the rest
     this._greeted.set(res.id, this._now);
     const text = this.greetingFor(res, this._now, stopped);
     if (text == null) return;

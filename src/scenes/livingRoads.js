@@ -259,7 +259,7 @@ export function createLivingRoads(deps) {
     for (const m of list) {
       if (m.distM > ROAD_GREET_M || m.talk === false || busy.has(m.res.id)) continue;   // LW4: no word from a fighter, a foe or the fallen
       const last = greeted.get(m.res.id);
-      if (last != null && t - last < ROAD_GREET_REST_MIN) continue;
+      if (last != null && t >= last && t - last < ROAD_GREET_REST_MIN) continue;   // AUDIT-E6: a clock gone back (a load) forgets the rest
       greeted.set(m.res.id, t);
       const rel = deps.relations?.() ?? null;
       const standing = rel ? rel.standing(m.res.id, dayOf(t)) : 'neutral';

@@ -460,8 +460,9 @@ test('HELM-TIME-ONLINE: online the helm\'s time dial is retired - each of the th
   }
   assert.deepEqual([on.rt.state.timeScaleIndex, on.out.timeScales, on.world.timeScale], [0, [], 1], 'and nothing moved');
   assert.equal(on.rt.helmPanelState().timeDial, false, 'no dial to draw');
+  const said = on.out.mid.length;
   on.frame();
-  assert.equal(on.out.mid.at(-1)[0], HELM_TIME_LOCKED_TEXT, 'no key, no new line');
+  assert.equal(on.out.mid.length, said, 'no key, no new line');   // AUDIT-A1: counted - the last line alone was the same line said every frame
   const off = scene();
   off.rt.StartSailing(off.place());
   off.frame({ press: [BOAT_ACTIONS.timeScaleUp] });

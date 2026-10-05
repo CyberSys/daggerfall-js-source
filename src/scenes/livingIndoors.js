@@ -8,7 +8,7 @@
 // minute - the evening's drinkers at the tavern, the errand's customers at a shop, the faithful at the temple, members
 // at the guild hall, a household at home awake - read again each INDOOR_TICK_S; never the asleep, and never the
 // building's own staff at their work where it is no house (DFU's static people stand for them, as they always have).
-// WHERE. A room has no grid to walk; the room is SOUNDED once from where the player came in (`origin`): a fan of
+// WHERE. A room has no grid to walk; it is SOUNDED once from its way in (`origin`, AUDIT-E4: the first door's): a fan of
 // INDOOR_FAN directions walked out to INDOOR_SPREAD_M through the room's own collider (`move` - never through a wall),
 // each landing on a floor (`floorAt`), kept INDOOR_APART_M from every other, from the building's static people and from
 // the way in - and each resident given one, in the order of their ids over an order the building's key deals (those in
@@ -67,13 +67,13 @@ export const INDOOR_WALK_SPEED = 1.2;
 
 /**
  * Sound a room: from `origin` (feet), a fan of directions walked out through the collider and landed on its floor,
- * kept apart from each other, from `keepClear` (feet) and from the way in. Pure over the collider's answers.
+ * kept apart from each other, from `keepClear` (feet) and from every way in (`origin`, `waysIn`). Pure over the collider.
  * @param {number[]} origin @param {{ move: (feet: number[], dx: number, dy: number, dz: number, height: number) => any }} collider
  * @param {(x: number, y: number, z: number) => (number|null)} floorAt - the floor's height under a point, or null
- * @param {readonly number[][]} [keepClear]
+ * @param {readonly number[][]} [keepClear] @param {readonly number[][]} [waysIn] - AUDIT-E4: the building's other ways in
  * @returns {number[][]}
  */
-export function soundRoom(origin, collider, floorAt, keepClear = []) {
+export function soundRoom(origin, collider, floorAt, keepClear = [], waysIn = []) {
   const spots = [];
   const far = (p, list, d) => list.every((q) => Math.hypot(p[0] - q[0], p[2] - q[2]) >= d);
   for (const dist of INDOOR_SPREAD_M) {
@@ -85,7 +85,7 @@ export function soundRoom(origin, collider, floorAt, keepClear = []) {
       if (y == null || !Number.isFinite(y) || Math.abs(y - origin[1]) > 1.2) continue;   // a floor of this room, not a stair's foot or a hole
       const p = [q[0], y, q[2]];
       if (Math.hypot(p[0] - origin[0], p[2] - origin[2]) < INDOOR_DOOR_M) continue;
-      if (!far(p, spots, INDOOR_APART_M) || !far(p, keepClear, INDOOR_CLEAR_M)) continue;
+      if (!far(p, spots, INDOOR_APART_M) || !far(p, keepClear, INDOOR_CLEAR_M) || !far(p, waysIn, INDOOR_DOOR_M)) continue;
       spots.push(p);
     }
   }
@@ -153,11 +153,13 @@ export function stirPlace(room, standing, id, spot, stirs, walkable) {
  *   floorAt: (x: number, y: number, z: number) => (number|null),
  *   origin: () => (number[] | null),
  *   staticFeet: () => number[][],
+ *   waysIn?: () => number[][],
  *   clock: () => number,
  *   ready?: () => boolean,
  * }} deps - `building()` the building the player is in and its town's LivingTown (null: none, or not a living town's);
  *   `origin()` where the player came in (feet, the room's frame); `floorAt` the room's floor under a point;
- *   `staticFeet()` the building's static people standing; `ready()` whether the room is whole (nothing loading)
+ *   `staticFeet()` the building's static people standing; `waysIn()` every door's landing (AUDIT-E4); `ready()` whether
+ *   the room is whole (nothing loading)
  */
 export function createLivingIndoors(deps) {
   /** @type {{ key: number, spots: number[][], centre: number[], order: number[], tableOf: number[] } | null} */
@@ -242,7 +244,7 @@ export function createLivingIndoors(deps) {
         clear();
         const origin = deps.origin() ?? feet;
         const collider = deps.collider();
-        const spots = collider ? soundRoom(origin, collider, deps.floorAt, deps.staticFeet()) : [];
+        const spots = collider ? soundRoom(origin, collider, deps.floorAt, deps.staticFeet(), deps.waysIn?.() ?? []) : [];
         const cx = spots.reduce((s, p) => s + p[0], 0) / Math.max(1, spots.length), cz = spots.reduce((s, p) => s + p[2], 0) / Math.max(1, spots.length);
         // LW8b: the room fills table by table - the tables in the building's deal, each its spots in turn
         const groups = tablesOf(spots, dealOf(b.key, spots.length));
@@ -324,7 +326,13 @@ export function createLivingIndoors(deps) {
       // LW-FIX1: a table's circles are the round's as it began - one who comes mid-round joins the next, and a circle one
       // of whom goes is silent till then (never a talk re-dealt mid-script)
       const round = beat ? Math.floor(t / beat.roundMin) : null;
-      if (round !== roomRound) { roomRound = round; roundCircles.clear(); }
+      if (round !== roomRound) {
+        roomRound = round;
+        roundCircles.clear();
+        // AUDIT-E5: a table nobody stands at as the round begins deals nothing this round - two who sit down at it
+        // mid-round talk from the next (dealt now, they began mid-script)
+        for (const ti of room.tableOf) if (ti >= 0 && !tables.has(ti)) roundCircles.set(ti, []);
+      }
       for (const [ti, at] of tables) {
         if (!beat) continue;
         let dealt = roundCircles.get(ti);
@@ -344,7 +352,7 @@ export function createLivingIndoors(deps) {
         const p = placeOf(s);
         if (inCircle.has(id) || Math.hypot(p[0] - feet[0], p[2] - feet[2]) > GREET_RANGE) continue;
         const last = greeted.get(id);
-        if (last != null && t - last < GREET_REST_MIN) continue;
+        if (last != null && t >= last && t - last < GREET_REST_MIN) continue;   // AUDIT-E6: a clock gone back (a load) forgets the rest
         greeted.set(id, t);
         const text = b.town.greetingFor?.(s.res, t, false) ?? null;
         if (text != null) words.set(id, { text, until: realNow + GREET_S });

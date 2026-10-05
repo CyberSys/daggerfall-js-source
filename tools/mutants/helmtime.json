@@ -79,5 +79,14 @@
     "tests": [
       "test/csa_time_audio.test.js"
     ]
+  },
+  {
+    "name": "HELM-TIME-said-unasked",
+    "file": "src/systems/comeSailAway.js",
+    "old": "      if (BOAT_TIME_ACTIONS.some((a) => deps.input.started(a))) deps.midScreenText(",
+    "new": "      if (true) deps.midScreenText(",
+    "tests": [
+      "test/csa_time_audio.test.js"
+    ]
   }
 ]

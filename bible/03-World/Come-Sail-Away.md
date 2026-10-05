@@ -1360,7 +1360,7 @@ collision, a beaching, a stop, a fast travel or another mod's scale (a
 journey's, RATE-LAW's x60/x100) is put back, none of them the dial. The
 keys stay in the registry and in Controls (KB1: the list is never cut);
 offline the dial is the mod's, as before. Pins: `test/csa_time_audio.test.js`
-(HELM-TIME-ONLINE, 4); `tools/mutants/helmtime.json` (9, all dead).
+(HELM-TIME-ONLINE, 4 - AUDIT-A1: no key, no line, counted); `tools/mutants/helmtime.json` (10, all dead).
 
 THE HUD'S TWO MESSAGE CLOCKS count game time, as DFU's do - a correction
 the helm's messages showed: DaggerfallHUD.cs:262 and PopupText.cs:56-59

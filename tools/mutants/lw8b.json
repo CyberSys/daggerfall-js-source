@@ -182,7 +182,7 @@
   {
     "name": "LW8b-greet-rest",
     "file": "src/scenes/livingIndoors.js",
-    "old": "        if (last != null && t - last < GREET_REST_MIN) continue;",
+    "old": "        if (last != null && t >= last && t - last < GREET_REST_MIN) continue;",
     "new": "        void 0;",
     "tests": [
       "test/lw8b_talk.test.js"

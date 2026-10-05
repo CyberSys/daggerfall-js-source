@@ -567,11 +567,12 @@ all have tasks ... perform activities" - LW2 shut the door behind a resident; th
   guild hall, a household at home awake - never one asleep, never the building's own STAFF at their work where it is no
   house (DFU's static people stand for them, as they always have), never the taken, the gone (at sea, abroad), the dead
   or one still in the street (a walk running late); in the order of their ids.
-- **Where** (`soundRoom`). A room has no grid to walk: it is SOUNDED once from where the player came in - a fan of
+- **Where** (`soundRoom`). A room has no grid to walk: it is SOUNDED once from its way in (LW-FIX6: the landing of
+  the building's first door, whichever door was taken - every reader and every way in the same room) - a fan of
   `INDOOR_FAN` (12) directions walked out to `INDOOR_SPREAD_M` (2.4 to 6.6 m) through the room's own collider (never
   through a wall), each landing on this room's floor (no floor, or another - a stair's foot - no spot), kept
   `INDOOR_APART_M` (1.3 m) from every other, `INDOOR_CLEAR_M` (1.1 m) from the building's static people and
-  `INDOOR_DOOR_M` (1.8 m) from the way in. Each resident takes a spot in the order of their ids over an order the
+  `INDOOR_DOOR_M` (1.8 m) from every way in (LW-FIX6: each door's landing). Each resident takes a spot in the order of their ids over an order the
   building's key deals, facing into the room, in their own clothes (indoors no one is armed), to `INDOOR_MAX` (12).
 - **Coming and going**: who is inside is read every `INDOOR_TICK_S` (1 s); on the way in the room is as the day has it,
   all at once (LW2's arrival law); after it one who comes or goes waits for the player to look away (or be
@@ -757,6 +758,40 @@ The deep audit's deep and deed findings; each is fixed and pinned (`test/lwfix5_
 - **Their weapon and armour minted** (the host's lay). The remains' weapon and armour were raw templates - no name,
   value or condition set, as every other piece the port hands out has (`setItemFields`, `mintCondition`) - and the
   weapon could be a bundle of arrows. They are minted, and never ammunition.
+
+## LW-FIX6 - the rooms' seven (2026-10-05)
+
+The deep audit's indoor and host findings; each is fixed and pinned (`test/lwfix6_rooms.test.js`,
+`tools/mutants/lwfix6.json`).
+
+- **A player's own room stands nobody** (`worldModes.js` `ctx.ownedRoom`; the host's `building()`). DFU's AddPeople
+  stands nobody in a house the player owns (the people gate's `isHouseOwned`, HOME1's homes anyone's) - the living world
+  stood the census's household there all the same, among the player's things, talking and greeting every visitor. The
+  room keeps the people gate's own answer (the player's house, an online home, a private room, a cabin), and the living
+  world stands nobody in it.
+- **The ways asked indoors** (the host's modal frame). The planner's budget was renewed only in the street's frame,
+  below the modal return: a load made in a tavern or a dungeon asked two ways and then nothing all visit - every trip
+  waited, travellers away stood in the room, lodgers never came, a dungeon's companies and remains stalled. The modal
+  frame renews it too.
+- **The room held under the talk** (`livingIndoorsStep(townTalk.overlayActive ? 0 : dt)`). The street holds its people
+  under the talk window ("nobody walks away mid-talk"); indoors the raw frame ran, and one being talked to got up and
+  walked off when their wait ran out.
+- **The room laid out from the first door's landing** (`ctx.landing`, the host's `origin()`). The room was sounded from
+  the player's feet: a load made upstairs measured that floor only (the drinkers about the rented bed), and another
+  door, a load or a peer laid out other places and dealt everyone anew - against "alike for every reader". It is
+  sounded from the landing of the building's first door (its block's own order), whichever door was taken; a first door
+  with no floor at it, the door taken. Every door's landing is kept clear of the room's places (`waysIn`), as the way in
+  always was.
+- **A table empty as the round begins deals nothing that round** (`livingIndoors.js`). LW-FIX1 cached a table's deal
+  only where someone stood as the round began: two stood together mid-round at a table that was empty (a coming held
+  till the player looked away, the inside read on its beat) were dealt at once and began mid-script. They talk from the
+  next round, as anyone who comes mid-round does.
+- **A greeting's rest kept by the clock as it runs** (the room's, the street's `_greet`, the road's `greet`). The rests
+  outlive a load: after loading an earlier save the clock stood before the last word, and those greeted kept silent until
+  it passed the old minute plus the rest. A clock gone back forgets the rest.
+- **The quest's people kept clear** (`worldModes.js interiorQuestFeet`, the host's `staticFeet`). The room's places
+  kept clear of the building's own people but not of a quest's stood there, so a resident could stand on a quest's
+  person and take their click.
 
 ## The four hosts
 

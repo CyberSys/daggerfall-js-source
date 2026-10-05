@@ -175,8 +175,8 @@
   {
     "name": "LW8-apart-unchecked",
     "file": "src/scenes/livingIndoors.js",
-    "old": "      if (!far(p, spots, INDOOR_APART_M) || !far(p, keepClear, INDOOR_CLEAR_M)) continue;",
-    "new": "      if (!far(p, keepClear, INDOOR_CLEAR_M)) continue;",
+    "old": "      if (!far(p, spots, INDOOR_APART_M) || !far(p, keepClear, INDOOR_CLEAR_M) ||",
+    "new": "      if (!far(p, keepClear, INDOOR_CLEAR_M) ||",
     "tests": [
       "test/lw8_indoors.test.js"
     ]
@@ -184,8 +184,8 @@
   {
     "name": "LW8-clear-unchecked",
     "file": "src/scenes/livingIndoors.js",
-    "old": "      if (!far(p, spots, INDOOR_APART_M) || !far(p, keepClear, INDOOR_CLEAR_M)) continue;",
-    "new": "      if (!far(p, spots, INDOOR_APART_M)) continue;",
+    "old": "      if (!far(p, spots, INDOOR_APART_M) || !far(p, keepClear, INDOOR_CLEAR_M) ||",
+    "new": "      if (!far(p, spots, INDOOR_APART_M) ||",
     "tests": [
       "test/lw8_indoors.test.js"
     ]
@@ -346,7 +346,7 @@
   {
     "name": "LW8-host-building",
     "file": "src/scenes/world.js",
-    "old": "      building: () => { const b = modes?.interiorBuilding; const town = b ? livingTownOfMap(b.townMapId ?? 0) : null; return b && town ? { key: b.buildingKey, town } : null; },",
+    "old": "      building: () => { const b = modes?.interiorBuilding; const town = b && !modes?.interiorCtx?.ownedRoom ? livingTownOfMap(b.townMapId ?? 0) : null; return b && town ? { key: b.buildingKey, town } : null; },",
     "new": "      building: () => null,",
     "tests": [
       "test/lw8_indoors.test.js"
@@ -364,7 +364,7 @@
   {
     "name": "LW8-host-statics",
     "file": "src/scenes/world.js",
-    "old": "      staticFeet: () => (modes?.interiorCtx?.people ?? []).filter((p) => p.active !== false).map((p) => [p.x, p.y, p.z]),",
+    "old": "      staticFeet: () => (modes?.interiorCtx?.people ?? []).filter((p) => p.active !== false).map((p) => [p.x, p.y, p.z]).concat(modes?.interiorQuestFeet?.() ?? []),",
     "new": "      staticFeet: () => [],",
     "tests": [
       "test/lw8_indoors.test.js"
@@ -382,7 +382,7 @@
   {
     "name": "LW8-host-step",
     "file": "src/scenes/world.js",
-    "old": "      livingIndoorsStep(dt);   // LW8",
+    "old": "      livingIndoorsStep(townTalk.overlayActive ? 0 : dt);   // LW8",
     "new": "      void 0;   // LW8",
     "tests": [
       "test/lw8_indoors.test.js"
