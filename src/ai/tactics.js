@@ -116,6 +116,21 @@ function board(key) {
   if (!b) _boards.set(key, b = { melee: new Map(), ranged: new Map(), waiting: new Map() });
   return b;
 }
+/**
+ * AUDIT ARENA-LADDER (the owner, 2026-10-05: "Ensure AI enemies sometimes receive telegraphed attacks"): WHERE A BLOW IS
+ * AIMED - the local player's feet (TACT4's law); and on the arena's sand, a BOUT-MATE's: a fighter of the same live bout
+ * on another side (the pair characters/enemyTargets.js boutGate keeps, read off the two entities' own tags), so an
+ * exhibition's fighters, a Grand Melee's and a two-against-one's wind up at each other as they wind up at the player.
+ * Any other foe target is no mark (street infighting, a peer's foe - the TACT4 law kept): null.
+ */
+function blowAim(ai, key) {
+  if (key === LOCAL) return _me?.feet ?? null;
+  const t = ai.target;
+  const sb = ai.vitals?.()?.bout, tb = t?.entity?.bout;
+  if (!sb || !tb || t.dead || !t.ai?.feet) return null;
+  if (String(sb.id) !== String(tb.id) || sb.out || tb.out || sb.hold || tb.hold || (sb.side | 0) === (tb.side | 0)) return null;
+  return t.ai.feet;
+}
 /** Release every token and place `ai` holds (it died, despawned, lost its target, fled). */
 export function releaseTactics(ai) {
   for (const [k, b] of _boards) {
@@ -278,12 +293,16 @@ export function tacticsStep(ai, dx, dz) {
     s.state = 'engage';
   }
   if (s.state === 'engage' && !b.melee.has(ai) && !open) s.state = 'wait';
-  // TACT4: a telegraphed blow - a holder in reach of the tier, its cooldown spent, nobody else winding up near me
-  if (s.state === 'engage' && b.melee.has(ai) && key === LOCAL && _me && dist <= reach + 0.5 && ai.canAct !== false && now >= (s.blowReady ?? 0)) {   // AUDIT TACT: a token holder's, never an opportunist's
+  // TACT4: a telegraphed blow - a holder in reach of the tier, its cooldown spent, nobody else winding up near its mark
+  // (AUDIT ARENA-LADDER: the mark me, or on the sand a bout-mate - blowAim)
+  const aim = s.state === 'engage' && b.melee.has(ai) ? blowAim(ai, key) : null;
+  if (aim && dist <= reach + 0.5 && ai.canAct !== false && now >= (s.blowReady ?? 0)) {   // AUDIT TACT: a token holder's, never an opportunist's
     const ent = ai.vitals?.();
-    if (throwsBlows(ent) && !windupNear(_me.feet, now, ai) && Math.random() < BLOW_CHANCE) {
+    if (throwsBlows(ent) && !windupNear(aim, now, ai) && Math.random() < BLOW_CHANCE) {
       const shapes = blowShapesOf(ent.mobileType);
       s.blow = fitBlowToGround(makeBlow(shapes[Math.floor(Math.random() * shapes.length)], ai.feet, Math.atan2(dx, dz), now, BLOW_COLOR), ai.collider);   // AUDIT TACT D8: on the ground it marks
+      s.blow.tg = key;   // AUDIT ARENA-LADDER: whom it was wound up at - it lands on that one alone
+      if (key !== LOCAL) s.blow.sand = true;   // ...and one at a bout-mate is drawn for the stands (foeBlows.js SAND_DRAW_RANGE)
       setLiveBlow(ai, s.blow);
       s.state = 'windup';
     }
@@ -318,9 +337,12 @@ function windupTurn(ai, s, now, skipped) {
     return false;
   }
   if (now >= s.blow.land) {
-    // AUDIT TACT A4/D6: only ever at ME - a wind-up whose foe has turned on another lands on no one here
-    if (_me && targetKey(ai) === LOCAL) {
-      ai._blowVerdict = inBlow(s.blow, _me.feet[0], _me.feet[2]);
+    // AUDIT TACT A4/D6: only ever at the one it was wound up at - me, or (AUDIT ARENA-LADDER) a bout-mate on the sand; a
+    // wind-up whose foe has turned on another lands on no one
+    const key = targetKey(ai);
+    const at = key === (s.blow.tg ?? LOCAL) ? blowAim(ai, key) : null;   // a blow wound up before its mark was kept is mine
+    if (at) {
+      ai._blowVerdict = inBlow(s.blow, at[0], at[2]);
       ai._blowMult = s.blow.mult; ai._blowAt = now; ai._blowSwing = true;
     } else clearBlowState(ai);
     s.blowReady = cooled; s.state = 'engage'; s.blow = null;

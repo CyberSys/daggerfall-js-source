@@ -1497,7 +1497,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
           // falls through to its hand-to-hand attack.
           const fwpn = chooseEnemyWeapon(dropWeaponIfTargetImmune(f.entity.weapon, _foeTarget.entity), ENEMY_BASICS[f.mobileType]);
           const ffwd = [Math.sin(f.ai.yaw), 0, Math.cos(f.ai.yaw)];   // transform.forward (:208)
-          if (meleeHitConnects(f.ai._dist, f.ai.inSight, withinYaw(f.ai.yaw, fdx, fdz, MELEE_HIT_YAW_DEG))) {
+          // AUDIT ARENA-LADDER: a telegraphed blow at a bout-mate (ai/tactics.js blowAim) - decided and weighed by its shape
+          if (blowConnects(f.ai, meleeHitConnects(f.ai._dist, f.ai.inSight, withinYaw(f.ai.yaw, fdx, fdz, MELEE_HIT_YAW_DEG)))) {
             applyDamageToNonPlayer(f, _foeTarget, {
               weapon: fwpn, direction: ffwd, rolls,
               calculateAttackDamage,
@@ -1506,7 +1507,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
               // guard pool's door (the host wires that through the
               // candidate's `hurtFromFoe`, the `_encounter` split
               // world.js already uses for spell sinks).
-              dealDamage: (t, d) => (t.hurtFromFoe ? t.hurtFromFoe(d, ffwd, f) : damageFoe(t, d, null, ffwd)),
+              dealDamage: (t, d) => { d = blowScaled(f.ai, d); return t.hurtFromFoe ? t.hurtFromFoe(d, ffwd, f) : damageFoe(t, d, null, ffwd); },   // AUDIT ARENA-LADDER: the shape's weight
               audio, hitEffects,
               // AUDIT 58: FormulaHelper.cs:691-696 has NO player gate -
               // a poisoned foe blade doses the foe it strikes. Without

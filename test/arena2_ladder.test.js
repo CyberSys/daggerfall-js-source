@@ -67,7 +67,7 @@ test('ARENA2 ladder: the purses - a tier-1 win 50 gold, the Grand Champion 10,00
   assert.equal(EXHIBITION_PURSE, 100);
 });
 
-test('ARENA2 ladder: a climb - three bouts, the champion, the tier up and its title; a loss costs only the purse', () => {
+test('ARENA2 ladder: a climb - three bouts, the champion, the tier up and its title; a loss breaks the tier\'s run (AUDIT ARENA-LADDER)', () => {
   let L = newArenaLadder();
   assert.equal(L.v, ARENA_LADDER_VERSION);
   let n = nextLadderBout(L);
@@ -77,7 +77,10 @@ test('ARENA2 ladder: a climb - three bouts, the champion, the tier up and its ti
   assert.deepEqual([out.ladder.record.losses, out.ladder.record.falls], [1, 1]);
   L = out.ladder;
   const once = ladderAfter(L, { won: true, purse: 50 }).ladder;
-  assert.equal(ladderAfter(once, { won: false, how: 'fall' }).ladder.won, 1, 'a loss after a win keeps the win');
+  // AUDIT ARENA-LADDER (the owner's call, "Lose the tier's run"): a loss after a win sends the climb back to the tier's first bout
+  const broken = ladderAfter(once, { won: false, how: 'fall' });
+  assert.deepEqual([broken.ladder.tier, broken.ladder.won, broken.runLost], [0, 0, true], 'a loss after a win breaks the run');
+  assert.equal(out.runLost, false, 'a loss with no run to break says none');
   for (const how of ['yield', 'ringout', 'judges']) { const o = ladderAfter(L, { won: false, how }); L = o.ladder; }
   assert.deepEqual([L.record.yields, L.record.ringouts, L.record.losses], [1, 1, 4]);
   for (let i = 0; i < BOUTS_PER_TIER; i++) { out = ladderAfter(L, { won: true, purse: 50 }); L = out.ladder; assert.equal(out.title, null); }

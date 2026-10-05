@@ -164,8 +164,8 @@
   {
     "name": "ARENA2-TIER5-TWO",
     "file": "src/systems/arenaLadder.js",
-    "old": "champion: [b(M.Warrior, 11), b(M.Warrior, 11)] }",
-    "new": "champion: [b(M.Warrior, 11)] }",
+    "old": "champion: [champ(M.Warrior, 11), champ(M.Warrior, 11)] }",
+    "new": "champion: [champ(M.Warrior, 11)] }",
     "tests": [
       "test/arena2_ladder.test.js"
     ]

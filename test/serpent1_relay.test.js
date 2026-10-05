@@ -108,7 +108,7 @@ test('SERPENT1 wire: the client says five things - `in` with its day, law, level
   assert.equal(parseClient(JSON.stringify({ t: 'serpent', k: 'hit', d: -1, z: 0 }), { hasHello: true }).error, 'bad serpent');
   assert.equal(SERPENT_RELAY_MIN, 165);
   assert.ok(relayVersionAtLeast(SERPENT_RELAY_MIN), 'the relay this tree builds holds a serpent');
-  assert.equal(RELAY_VERSION, 'world166');   // SERPENT2 moved it on (world166: the serpent herald)
+  assert.equal(RELAY_VERSION, 'world167');   // AUDIT ARENA-LADDER moved it on (world167: the arena ladder's audit); SERPENT2 moved it on (world166: the serpent herald)
   assert.ok(relaySupportsSerpent('world165') && !relaySupportsSerpent('world164') && !relaySupportsSerpent(undefined));
   let b = null, pass = 0;
   for (let i = 0; i < 40; i++) { const g = serpentGate(b, 1000); b = g.bucket; if (g.pass) pass++; }

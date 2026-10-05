@@ -43,6 +43,7 @@ import { verifyArenaReceipt } from '../../src/net/arenaReceipt.js';
 import {
   arenaSeasonOf, arenaSeasonEndsS, arenaSeasonDay, eloAfter, ARENA_ELO_START, arenaLadderOf, ladderKey, ARENA_BANNERS, ARENA_TEAM_POINTS,
   ARENA_TIERS, ARENA_TIER_BOUTS, ARENA_PAIR_DAY_MAX, ARENA_CHAMPION_MIN_BOUTS, arenaRatingOk, ARENA_ELO_MIN, ARENA_ELO_MAX,
+  ARENA_CHAMPION_MIN_FOES, ARENA_PAIR_SEASON_MAX, ARENA_TICKET_RE, arenaNextOf,   // AUDIT ARENA-LADDER
 } from '../../src/net/arenaLaw.js';
 import { displayName } from './accounts.js';
 import { titleWorn, glyphsOf } from './titles.js';
@@ -118,7 +119,7 @@ const PVE_POINTS_SQL = `CASE WHEN step = ${ARENA_TIER_BOUTS} AND tier = ${GRAND_
 // ── THE ROWS, READ ───────────────────────────────────────────────────────────────────────────
 /** The account's ladder bouts won, and its ladder record (wins, losses, by how). */
 export async function arenaPveOf({ db }, playerId) {
-  const won = (await db.prepare('SELECT tier, step AS bout FROM arena_pve WHERE player = ?1 AND won = 1 ORDER BY tier, step').bind(playerId).all()).results ?? [];
+  const won = (await db.prepare('SELECT tier, step AS bout FROM arena_pve WHERE player = ?1 AND won = 1 AND voided = 0 ORDER BY tier, step').bind(playerId).all()).results ?? [];   // AUDIT ARENA-LADDER: a run a loss broke is out of the climb
   const r = await db.prepare(`SELECT SUM(won) AS wins, SUM(1 - won) AS losses, SUM(CASE WHEN won = 0 AND how = 'yield' THEN 1 ELSE 0 END) AS yields,
       SUM(CASE WHEN won = 0 AND how = 'fall' THEN 1 ELSE 0 END) AS falls, SUM(CASE WHEN won = 0 AND how = 'ringout' THEN 1 ELSE 0 END) AS ringouts
     FROM arena_pve WHERE player = ?1`).bind(playerId).first();
@@ -134,17 +135,17 @@ export async function arenaLadderOfAccount(ctx, playerId) {
 /** One side's rows of a season's rated bouts between players, as a CTE - an account per row, its rating after, and
  *  whether it won, lost or drew. */
 const SIDES_SQL = `sides AS (
-    SELECT a AS p, ra1 AS r, at, rowid AS k, CASE result WHEN 0 THEN 1 ELSE 0 END AS w, CASE result WHEN 1 THEN 1 ELSE 0 END AS l, CASE result WHEN 2 THEN 1 ELSE 0 END AS d
+    SELECT a AS p, ra1 AS r, at, rowid AS k, CASE result WHEN 0 THEN 1 ELSE 0 END AS w, CASE result WHEN 1 THEN 1 ELSE 0 END AS l, CASE result WHEN 2 THEN 1 ELSE 0 END AS d, b AS o
       FROM arena_pvp WHERE season = ?1 AND rated = 1 AND a IS NOT NULL
     UNION ALL
-    SELECT b, rb1, at, rowid, CASE result WHEN 1 THEN 1 ELSE 0 END, CASE result WHEN 0 THEN 1 ELSE 0 END, CASE result WHEN 2 THEN 1 ELSE 0 END
-      FROM arena_pvp WHERE season = ?1 AND rated = 1 AND b IS NOT NULL)`;
+    SELECT b, rb1, at, rowid, CASE result WHEN 1 THEN 1 ELSE 0 END, CASE result WHEN 0 THEN 1 ELSE 0 END, CASE result WHEN 2 THEN 1 ELSE 0 END, a
+      FROM arena_pvp WHERE season = ?1 AND rated = 1 AND b IS NOT NULL)`;   // AUDIT ARENA-LADDER O2: `o` the opponent (the laurel's distinct foes)
 /** The season's board: each account's rating after its last rated bout, its wins, losses and draws, ranked - the rating
  *  first, then wins, then fewer bouts, then the one who got there first. */
 const BOARD_SQL = `WITH ${SIDES_SQL},
   last AS (SELECT p, r, at, ROW_NUMBER() OVER (PARTITION BY p ORDER BY at DESC, k DESC) AS rn FROM sides),
-  tally AS (SELECT p, SUM(w) AS w, SUM(l) AS l, SUM(d) AS d, COUNT(*) AS n FROM sides GROUP BY p)
-  SELECT last.p AS player, last.r AS rating, last.at AS at, tally.w AS wins, tally.l AS losses, tally.d AS draws, tally.n AS bouts
+  tally AS (SELECT p, SUM(w) AS w, SUM(l) AS l, SUM(d) AS d, COUNT(*) AS n, COUNT(DISTINCT o) AS foes FROM sides GROUP BY p)
+  SELECT last.p AS player, last.r AS rating, last.at AS at, tally.w AS wins, tally.l AS losses, tally.d AS draws, tally.n AS bouts, tally.foes AS foes
     FROM last JOIN tally ON tally.p = last.p WHERE last.rn = 1
     ORDER BY last.r DESC, tally.w DESC, tally.n ASC, last.at ASC, last.p ASC`;
 
@@ -160,12 +161,16 @@ export async function arenaRatingOf({ db }, playerId, season) {
   return { rating: last ? arenaRatingOk(Number(last.r)) : ARENA_ELO_START, wins: n(t?.w), losses: n(t?.l), draws: n(t?.d), bouts: n(t?.n) };
 }
 
-/** The season's #1 who may wear the laurel - ARENA_CHAMPION_MIN_BOUTS rated bouts at least - or null. */
+/** AUDIT ARENA-LADDER O2: may this board row wear the laurel - its rated bouts, against enough different foes. */
+export const laurelWorthy = (r) => !!r && Number(r.bouts) >= ARENA_CHAMPION_MIN_BOUTS && Number(r.foes ?? 0) >= ARENA_CHAMPION_MIN_FOES;
+/** The board's #1 when it may wear the laurel, or null: the #1 is the board's FIRST row; one short of the bouts or the
+ *  foes holds the top and nobody wears the laurel over them. */
+export const laurelOfBoard = (rows) => (laurelWorthy(rows?.[0]) ? rows[0].player : null);
+/** The season's #1 who may wear the laurel - ARENA_CHAMPION_MIN_BOUTS rated bouts against ARENA_CHAMPION_MIN_FOES
+ *  accounts at least - or null. */
 export async function arenaChampionOf({ db }, season) {
-  const rows = (await db.prepare(`${BOARD_SQL} LIMIT 25`).bind(season).all()).results ?? [];
-  const top = rows.find((r) => Number(r.bouts) >= ARENA_CHAMPION_MIN_BOUTS) ?? null;
-  // the #1 is the board's FIRST row; one short of the bouts holds the top and nobody wears the laurel over them
-  return top && top === rows[0] ? top.player : null;
+  const rows = (await db.prepare(`${BOARD_SQL} LIMIT 1`).bind(season).all()).results ?? [];
+  return laurelOfBoard(rows);
 }
 /** One Worker's word of the season's #1, kept ARENA_CHAMPION_CACHE_S. */
 let _champ = { season: 0, at: -Infinity, id: null };
@@ -246,18 +251,57 @@ export async function claimArena(ctx, player, receipt, publicKey, fighter = {}) 
   // ARENA4b: the bout kept is the caller's win - counted now, or counted before (a players' bout another claimed first)
   const won = c.a === 'l' ? (r.recorded ? r.won : r.why === 'claimed' && c.r === 1) : r.result === 'won' && r.rated === true;
   if (!won) return r;
-  const renown = await arenaRenownFor(ctx, player, c.j, c.a === 'l' ? { kind: 'ladder', tier: c.q, step: c.u } : { kind: 'pvp' }, fighter);
+  const renown = await arenaRenownFor(ctx, player, c.z ?? c.j, c.a === 'l' ? { kind: 'ladder', tier: c.q, step: c.u } : { kind: 'pvp' }, fighter);   // AUDIT ARENA-LADDER: a ticketed bout's Renown keyed by its ticket, as its row is
   return renown ? { ...r, renown } : r;
 }
+
+/**
+ * AUDIT ARENA-LADDER: A LOSS BREAKS THE TIER'S RUN (the owner's call, "Lose the tier's run") - the account's won rows of
+ * the tier's three bouts, not yet broken, are `voided`: kept (the record counts them), out of the climb, which goes back
+ * to the tier's first bout. A champion beaten stays beaten (its step, 3, is never voided). The statement, for a batch,
+ * set BEFORE the loss row's INSERT and guarded so it breaks the run once, for the first claim of its loss alone: a
+ * ticketed loss while its attempt is still open (`ticket`), a loss from a relay before tickets while no row holds its
+ * bout's id (`bout`) - a receipt carried twice never breaks a run won again since.
+ */
+const breakRun = (db, playerId, tier, { ticket = null, bout = null } = {}) => db.prepare(`UPDATE arena_pve SET voided = 1
+    WHERE player = ?1 AND tier = ?2 AND step < ${ARENA_TIER_BOUTS} AND won = 1 AND voided = 0
+      AND ${ticket ? 'EXISTS (SELECT 1 FROM arena_attempts WHERE id = ?3 AND done = 0)' : 'NOT EXISTS (SELECT 1 FROM arena_pve WHERE bout = ?3)'}`).bind(playerId, tier, ticket ?? bout);
+/** The INSERT of a ladder row, keyed `key` (the attempt's ticket, or a relay before tickets' bout id): THE ORDER IS THE
+ *  WRITE'S - a win lands only while the account's won rows of the climb number exactly its step's key. */
+const ladderRow = (db, key, playerId, season, c, won, banner, nowS) => db.prepare(`INSERT OR IGNORE INTO arena_pve (bout, player, season, tier, step, won, how, banner, at)
+      SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9
+      WHERE ?6 = 0 OR (SELECT COUNT(*) FROM arena_pve WHERE player = ?2 AND won = 1 AND voided = 0) = ?10`)
+  .bind(key, playerId, season, c.q, c.u, won ? 1 : 0, c.h, banner, nowS, ladderKey(c.q, c.u));
 
 async function claimLadder(ctx, player, c, season, banner) {
   const { db, nowS } = ctx;
   const won = c.r === 1;
-  // THE ORDER IS THE WRITE'S: a win lands only while the account's won rows number exactly its key
-  const r = await db.prepare(`INSERT OR IGNORE INTO arena_pve (bout, player, season, tier, step, won, how, banner, at)
-      SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9
-      WHERE ?6 = 0 OR (SELECT COUNT(*) FROM arena_pve WHERE player = ?2 AND won = 1) = ?10`)
-    .bind(c.j, player.id, season, c.q, c.u, won ? 1 : 0, c.h, banner, nowS, ladderKey(c.q, c.u)).run();
+  // AUDIT ARENA-LADDER: A TICKETED ATTEMPT (`z`, net/arenaReceipt.js) - its row keyed by the ticket, the account's own
+  // and this tier and bout's; a loss breaks the tier's run in the same write, and the attempt is done
+  if (c.z !== undefined) {
+    const att = await db.prepare('SELECT player, tier, step, done FROM arena_attempts WHERE id = ?1').bind(c.z).first();
+    if (!att || att.player !== player.id || Number(att.tier) !== c.q || Number(att.step) !== c.u) return { recorded: false, why: 'reused', ladder: await arenaLadderOfAccount(ctx, player.id) };
+    const res = await db.batch([
+      ...(won ? [] : [breakRun(db, player.id, c.q, { ticket: c.z })]),
+      ladderRow(db, c.z, player.id, season, c, won, banner, nowS),
+      db.prepare('UPDATE arena_attempts SET done = 1 WHERE id = ?1').bind(c.z),
+    ]);
+    const recorded = Number(res?.[won ? 0 : 1]?.meta?.changes ?? 0) > 0;
+    const ladder = await arenaLadderOfAccount(ctx, player.id);
+    if (!recorded) {
+      // the attempt's row stands already: this claim's own (claimed before), or the forfeit a later attempt wrote
+      const kept = await db.prepare('SELECT won FROM arena_pve WHERE bout = ?1').bind(c.z).first();
+      return { recorded: false, why: kept ? (Number(kept.won) === (won ? 1 : 0) ? 'claimed' : 'forfeit') : 'order', ladder };
+    }
+    return {
+      recorded: true, kind: 'ladder', won, tier: c.q, bout: c.u, how: c.h, ladder,
+      points: won && banner ? pvePoints(c.q, c.u) : 0, banner, grand: won && c.q === GRAND_TIER && c.u === ARENA_TIER_BOUTS,
+    };
+  }
+  // a relay before tickets (its receipts carried for their week): keyed by the bout's id, as it was - a loss breaks the
+  // run all the same
+  const r = won ? await ladderRow(db, c.j, player.id, season, c, won, banner, nowS).run()
+    : (await db.batch([breakRun(db, player.id, c.q, { bout: c.j }), ladderRow(db, c.j, player.id, season, c, won, banner, nowS)]))[1];
   const recorded = Number(r?.meta?.changes ?? 0) > 0;
   const ladder = await arenaLadderOfAccount(ctx, player.id);
   if (!recorded) {
@@ -295,7 +339,10 @@ async function claimPlayers(ctx, player, c, season) {
     // friends trading wins cannot climb the board on each other
     const pair = await db.prepare(`SELECT COUNT(*) AS n FROM arena_pvp WHERE rated = 1 AND at > ?3 - 86400
         AND ((a = ?1 AND b = ?2) OR (a = ?2 AND b = ?1))`).bind(a, b, nowS).first();
-    const rated = Number(pair?.n ?? 0) < ARENA_PAIR_DAY_MAX;
+    // AUDIT ARENA-LADDER O2: AND THE PAIR'S SEASON - past ARENA_PAIR_SEASON_MAX rated bouts between the two this season
+    const pairSeason = await db.prepare(`SELECT COUNT(*) AS n FROM arena_pvp WHERE rated = 1 AND season = ?3
+        AND ((a = ?1 AND b = ?2) OR (a = ?2 AND b = ?1))`).bind(a, b, season).first();
+    const rated = Number(pair?.n ?? 0) < ARENA_PAIR_DAY_MAX && Number(pairSeason?.n ?? 0) < ARENA_PAIR_SEASON_MAX;
     const [na, nb] = rated ? eloAfter(ra.rating, rb.rating, c.r === 0 ? 1 : c.r === 1 ? 0 : 0.5) : [ra.rating, rb.rating];
     const ma = await arenaMemberOf(ctx, a), mb = await arenaMemberOf(ctx, b);
     const ins = await db.prepare(`INSERT OR IGNORE INTO arena_pvp (bout, season, a, b, result, how, ra0, rb0, ra1, rb1, rated, banner_a, banner_b, at)
@@ -308,6 +355,41 @@ async function claimPlayers(ctx, player, c, season) {
   }
   return { error: 'busy' };   // the receipt is kept and carried again (net/arenaClaims.js - every error but a receipt's)
 }
+/**
+ * AUDIT ARENA-LADDER: AN ATTEMPT AT THE ACCOUNT'S NEXT LADDER BOUT - its ticket (16 hex), which the relay opens the bout
+ * for and signs into its receipt (`z`). Every attempt still open is FORFEIT first: its loss row written now (`forfeit`),
+ * its tier's run broken - so a bout lost and never carried here is lost all the same, and one walked away from is too.
+ * The client carries every receipt it holds before it asks (scenes/arenaOnline.js), so a win it fought is counted, not
+ * forfeit. `tier`/`bout` must be the account's next (`order` and the ladder otherwise - a device behind the climb).
+ * A guest's attempt is minted and forfeit alike, and nothing of it is kept as a row (a guest's bouts are not counted).
+ */
+export async function arenaAttempt(ctx, player, tier, bout) {
+  const { db, nowS, rand } = ctx;
+  if (!Number.isInteger(tier) || tier < 0 || tier >= ARENA_TIERS || !Number.isInteger(bout) || bout < 0 || bout > ARENA_TIER_BOUTS) return { error: 'bad-bout' };
+  const open = (await db.prepare('SELECT id, tier, step FROM arena_attempts WHERE player = ?1 AND done = 0').bind(player.id).all()).results ?? [];
+  if (open.length) {
+    const season = arenaSeasonOf(nowS);
+    const member = player.handle ? await arenaMemberOf(ctx, player.id) : null;
+    const stmts = [];
+    for (const a of open) {
+      if (player.handle) {
+        stmts.push(breakRun(db, player.id, Number(a.tier), { ticket: a.id }));
+        stmts.push(ladderRow(db, a.id, player.id, season, { q: Number(a.tier), u: Number(a.step), h: 'forfeit' }, false, member?.banner ?? null, nowS));
+      }
+      stmts.push(db.prepare('UPDATE arena_attempts SET done = 1 WHERE id = ?1').bind(a.id));
+    }
+    await db.batch(stmts);
+  }
+  const next = arenaNextOf((await arenaPveOf(ctx, player.id)).won);
+  if (player.handle && (!next || next.tier !== tier || next.bout !== bout)) return { error: 'order', ladder: await arenaLadderOfAccount(ctx, player.id) };
+  const b = new Uint8Array(8);
+  rand(b);
+  const ticket = [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
+  if (!ARENA_TICKET_RE.test(ticket)) return { error: 'busy' };
+  await db.prepare('INSERT INTO arena_attempts (id, player, tier, step, at, done) VALUES (?1, ?2, ?3, ?4, ?5, 0)').bind(ticket, player.id, tier, bout, nowS).run();
+  return { ticket, tier, bout, forfeits: player.handle ? open.length : 0 };
+}
+
 /** AUDIT PRE-MERGE 1003 S6: how many times a players' claim reads the two ratings again when a bout of either landed
  *  between its read and its write. */
 export const ARENA_RATE_TRIES = 4;
@@ -468,12 +550,12 @@ export async function arenaBoardOf(ctx, player, env) {
   // the honours every badge on the board reads: the Grand Champions, and the season's #1
   const grandRows = (await db.prepare(`SELECT player, MIN(at) AS at FROM arena_pve WHERE tier = ${GRAND_TIER} AND step = ${ARENA_TIER_BOUTS} AND won = 1 GROUP BY player ORDER BY at DESC`).all()).results ?? [];
   const pvpAll = (await db.prepare(BOARD_SQL).bind(season).all()).results ?? [];
-  const top = pvpAll.find((r) => Number(r.bouts) >= ARENA_CHAMPION_MIN_BOUTS) ?? null;
-  const champion = top && top === pvpAll[0] ? top.player : null;
+  const champion = laurelOfBoard(pvpAll);   // AUDIT ARENA-LADDER O2: the one law (bouts and foes)
   const honours = { grands: new Set(grandRows.map((r) => r.player)), champion };
   // the climb: each account's wins in order (the won rows' count is the bout it reached), its record, its first and last
-  const pveAll = (await db.prepare(`SELECT player, SUM(won) AS reached, SUM(1 - won) AS losses, MIN(at) AS first, MAX(CASE WHEN won = 1 THEN at END) AS last
-      FROM arena_pve GROUP BY player HAVING SUM(won) > 0 ORDER BY reached DESC, last ASC, player ASC`).all()).results ?? [];
+  // AUDIT ARENA-LADDER: the bout reached is the climb's - its won rows a loss did not break (`voided`)
+  const pveAll = (await db.prepare(`SELECT player, SUM(CASE WHEN won = 1 AND voided = 0 THEN 1 ELSE 0 END) AS reached, SUM(1 - won) AS losses, MIN(at) AS first, MAX(CASE WHEN won = 1 AND voided = 0 THEN at END) AS last
+      FROM arena_pve GROUP BY player HAVING reached > 0 ORDER BY reached DESC, last ASC, player ASC`).all()).results ?? [];
   const fastAll = (await db.prepare(`SELECT g.player AS player, g.at AS at, (SELECT MIN(at) FROM arena_pve f WHERE f.player = g.player) AS first
       FROM (SELECT player, MIN(at) AS at FROM arena_pve WHERE tier = ${GRAND_TIER} AND step = ${ARENA_TIER_BOUTS} AND won = 1 GROUP BY player) g`).all()).results ?? [];
   const fast = fastAll.map((r) => ({ player: r.player, days: Math.max(1, Math.ceil((Number(r.at) - Number(r.first)) / 86400)), at: Number(r.at) }))
