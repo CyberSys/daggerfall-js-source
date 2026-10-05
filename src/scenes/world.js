@@ -117,6 +117,10 @@ import { createLivingRoads } from './livingRoads.js';   // LW3: the parties on t
 import { createRoadFights, LIVE_M } from './roadFights.js';   // LW4b: a beset party's fight, stood live
 import { createRoadStands, FIGHT_NEAR_M } from './roadStands.js';   // LW7b: the armed beyond the walls - a hostile drawing, a friend at the player's side
 import { createDungeonDivers } from './dungeonDivers.js';   // LW6: the divers met in the dungeon
+import { createDeepRemains } from './deepRemains.js';   // LW6b: the fallen of a dive, found in its dungeon
+import { fallenIn } from '../systems/livingWorld/trips.js';   // LW6b: ...the deep's word of them
+import { enemyLootTableKey } from '../systems/loot.js';   // LW6b: ...what they carried, their class's table
+import { goldStack } from '../systems/inventory.js';   // LW6b: ...and their purse
 import { createLivingIndoors } from './livingIndoors.js';   // LW8: the residents inside the building the player is in
 import { createTravellerSprites, classLookOf } from '../world/travellerSprites.js';   // LW3: their bodies, and the armed walk's sprite
 import { GUARD_TEXTURE, MobilePerson, PERSON_TEXTURES, PERSON_MOVE_SPEED } from '../characters/mobilePerson.js';
@@ -2373,6 +2377,14 @@ export async function bootWorld(canvas, renderer, params, status) {
       return res ? [{ res: res.id === c.res.id ? c.res : res, berth: c.berth, inT: t - Math.max(0, nowS - (c.until - LANE_DWELL_S)) * rate, outT: t + Math.max(0, c.until - nowS) * rate }] : [];
     });
   };
+  /** LW4: the character's turn key of a traveller's place on a trip - the place's (the census roster's slot) of the
+   *  trip's cycle. The roads' fights, the divers met and (LW6b) the remains in the deep read it. */
+  const livingTripTurnKey = (res, trip) => {
+    const town = livingTownOfId(res.town);
+    const roster = town ? livingTripWorld.rosterOf(town) : [];
+    const place = roster.find((r) => r.slot === res.slot) ?? res;
+    return turnKey(place, placeCycle(place, roster, Math.floor(trip.outT0 / 1440), livingScale()));
+  };
   // LW6: THE DIVERS MET (scenes/dungeonDivers.js) - the companies of adventurers inside the dungeon the player is in,
   // asked of the dives once a second, met and read each frame; a layer for each dungeon's pool, gone with it
   let livingDivers = null, _livingDiversAt = -Infinity, _livingDiversList = [];
@@ -2396,12 +2408,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         spot: (from, dx, dz) => { const q = [from[0], from[1], from[2]]; try { d.collider?.move(q, dx, 0, dz, 1.8); } catch { /* the player's own spot */ } return [q[0], q[1], q[2]]; },
         owner: () => amGroupRollOwner(online?.id ?? null, player.feetAt(), peersNear() ?? [], 200),
         relations: () => livingRelations,
-        turnKeyOf: (res, trip) => {
-          const town = livingTownOfId(res.town);
-          const roster = town ? livingTripWorld.rosterOf(town) : [];
-          const place = roster.find((r) => r.slot === res.slot) ?? res;
-          return turnKey(place, placeCycle(place, roster, Math.floor(trip.outT0 / 1440), livingScale()));
-        },
+        turnKeyOf: livingTripTurnKey,
         dies: (res, trip) => livingTroubleWorld.dies(res, trip),
         day: () => Math.floor((skyMinutes() - 240) / 1440),
         say: (text) => d.hudSay?.(text),
@@ -2417,6 +2424,49 @@ export async function bootWorld(canvas, renderer, params, status) {
       _livingDiversList = here ? diversAt(here, skyMinutes(), livingTripWorld, { mpm: PERSON_MOVE_SPEED / livingBaseRate(), memo: _livingTripMemo }).divers : [];
     }
     livingDivers.frame(_livingDiversList, skyMinutes());
+  };
+  // LW6b: THE FALLEN IN THE DEEP (scenes/deepRemains.js) - the dead of a dive left in its dungeon, laid once in this
+  // character's world where the dungeon's own foes stand and told when the player comes near; the deep asked once a
+  // second, passed by the hand's dead, the fallen beside the player, the spared and any of a company stood here now
+  let livingRemains = null, _livingRemainsAt = -Infinity, _livingRemainsList = [];
+  /** LW6b: a fallen diver's remains in the dungeon `d` at `feet` - their class's corpse picture, and what they carried:
+   *  their class's own loot table at their level, a weapon and a piece of armour, their purse. */
+  const livingRemainsLay = (d, res, feet) => {
+    const look = classLookOf(res);
+    const corpse = look?.basics?.corpseTexture;
+    if (!corpse) return null;
+    const level = Math.max(1, res.level | 0);
+    const items = generateLootItems(enemyLootTableKey(res.cls, look.basics.lootTableKey ?? '-'), { level, gender: res.sex ?? 'male' });
+    items.push(createRandomWeapon(level), createRandomArmor(level), goldStack(5 + Math.floor(Math.random() * 20 * level)));
+    return d.layRemains(items, feet, { archive: corpse.archive, record: corpse.record });
+  };
+  const livingRemainsStep = (now) => {
+    const d = _dungeonPool();
+    if (!d?.layRemains || !livingWorldOn()) { if (livingRemains) { livingRemains.clear(); livingRemains = null; } return; }
+    if (livingRemains?.pool !== d) {
+      livingRemains?.clear();
+      livingRemains = Object.assign(createDeepRemains({
+        spots: () => d.restingSpots(),
+        laid: (key) => livingRelations.turns().laid.has(key),
+        mark: (key) => livingRelations.turn('laid', key),
+        lay: (res, feet) => livingRemainsLay(d, res, feet),
+        there: (feet) => d.pileNear(feet, 0.6),
+        feet: () => (playerSpawned ? [player.pos[0], player.pos[1], player.pos[2]] : null),
+        say: (text) => d.hudSay?.(text),
+        townName: (res) => livingTownOfId(res.town)?.name ?? '',
+      }), { pool: d });
+      _livingRemainsAt = -Infinity;
+    }
+    if (now - _livingRemainsAt >= 1000) {
+      _livingRemainsAt = now;
+      const here = livingDungeonHere();
+      const turns = livingRelations.turns();
+      _livingRemainsList = here ? fallenIn(here, skyMinutes(), livingTripWorld, { mpm: PERSON_MOVE_SPEED / livingBaseRate(), memo: _livingTripMemo }).remains.filter((r) => {
+        const key = livingTripTurnKey(r.res, r.trip);
+        return !turns.fallen.has(key) && !turns.spared.has(key) && !livingDivers?.stood(r.trip.id, r.res.id);
+      }) : [];
+    }
+    livingRemains.frame(_livingRemainsList);
   };
   // LW8: THE DOORS OPEN (scenes/livingIndoors.js) - the residents whose day has them inside the building the player is
   // in, stood in its room and talked to through the street's own ray; their regard hears it through the room's own door
@@ -2483,12 +2533,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       sceneOf: (nx, nz) => tvSceneOf(nx, nz, 0),
       clock: skyMinutes,
       relations: () => livingRelations,
-      turnKeyOf: (res, trip) => {
-        const town = livingTownOfId(res.town);
-        const roster = town ? livingTripWorld.rosterOf(town) : [];
-        const place = roster.find((r) => r.slot === res.slot) ?? res;
-        return turnKey(place, placeCycle(place, roster, Math.floor(trip.outT0 / 1440), livingScale()));
-      },
+      turnKeyOf: livingTripTurnKey,
       dies: (res, trip) => livingTroubleWorld.dies(res, trip),
       door: _livingRoadsDoor,
     }),
@@ -10146,7 +10191,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:3070 mounts the same one, gated on
+  // and dungeonContext.js:3072 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:7250
@@ -12892,7 +12937,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:8429), so exterior mode and a
+    // composer, dungeonContext.js:8437), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -25958,6 +26003,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       ambience.update(dt, { inside: true, underground: modes.mode === 'dungeon', indoorRainSource: betterAmbience.rainPlaying() });
       if (livingRoads) livingRoads.clear();   // LW3: indoors, underground - the road's bodies freed with the open world they stood in
       livingDiversStep(now);   // LW6: underground, the companies diving here met
+      livingRemainsStep(now);   // LW6b: ...and the dead the deep kept there
       livingIndoorsStep(dt);   // LW8: in a building, the residents whose day has them inside
       if (dwPlayer) {
         audio.setListenerLowPass(0);   // DW-D: UpdateAudioFilter's IsPlayerInside - RemoveAudioFilter
@@ -27785,6 +27831,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     } else if (livingRoads) livingRoads.clear();
     if (_livingWatchTurned.length) livingWatchStep();   // LW7: a struck watchman's guard, watched
     if (livingIndoors?.size) livingIndoors.clear();   // LW8: the street again - the room's residents freed
+    if (livingRemains) { livingRemains.clear(); livingRemains = null; }   // LW6b: ...and the deep's layer let go with its dungeon
     // G1: the guards drive + draw on the same flats' axis. WINFOE1
     // (2026-09-17, Mac: "enemies should still be able to do damage"): the
     // ENEMY pools no longer freeze under a window - a rest, the

@@ -943,6 +943,12 @@
   },
   {
    "file": "src/scenes/world.js",
+   "has": "_livingRemainsList = here ? fallenIn(here, skyMinutes(), livingTripWorld,",
+   "clock": "sky",
+   "why": "LW6b: the dead of the dives into the player's dungeon at the sky's minute"
+  },
+  {
+   "file": "src/scenes/world.js",
    "has": "livingDivers.frame(_livingDiversList, skyMinutes());",
    "clock": "sky",
    "why": "LW6: the companies met read at the sky's minute - their hours done"

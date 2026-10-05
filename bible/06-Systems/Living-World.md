@@ -80,7 +80,7 @@ Taken at the design, in the request's own order; each is Mac's to overrule.
 - LW3 - the roads: trips, caravans, camps, the gear; the wilderness and the Overworld.
 - LW4 - trouble on the road; LW4b - the fight stood live, the player's to turn.
 - LW5 - the ports; LW5b - the passage by sea.
-- LW6 - the deep.
+- LW6 - the deep; LW6b - the fallen in the deep.
 - LW7 - the deeds; LW7b - friends and enemies beyond the walls; LW7c - the people who know you.
 - LW8 - the doors open; LW8b - the room's talk.
 
@@ -405,7 +405,32 @@ index (`scenes/world.js`).
   company makes for the surface: the fated still standing SPARED, every survivor's regard moved (`saved`, `helped`),
   the bodies taken out; a company the dive lists no longer goes. The host asks the dives once a second and reads the
   company each frame, a layer for each dungeon's pool (`livingDiversStep`, in the modal frame).
-- **Not yet:** the fallen of a dive lie in the dungeon as a thing to find.
+- **Not yet:** the fallen of a dive lie in the dungeon as a thing to find - LW6b's.
+
+## LW6b - the fallen in the deep (2026-10-05)
+
+`trips.js` (`fallenIn`, `DEEP_REMAINS_MIN`), `relations.js` (`MARK_KINDS`: `laid`), `scenes/deepRemains.js`
+(`createDeepRemains`, `restAt`, `DEEP_NOTICE_M`, `DEEP_LAY_M`), `dungeonDivers.js stood`, the dungeon's resting places and
+pile (`dungeonContext.js` `restingSpots`, `layRemains`, `pileNear`) and the host's step (`scenes/world.js
+livingRemainsStep`). Mac: "You can find them dungeon diving ... explore a dynamic world" - a company that never came up
+leaves its dead below, and the town says so (DIVE_NEWS); now a player can go down and find them.
+
+- **The deep's word** (`fallenIn`): the dead of the dives into a dungeon by the towns within reach, each from the minute
+  the deep took them for `DEEP_REMAINS_MIN` (three days); none of the road, never a hand's (LW7: their bodies are the
+  pool's own corpses); each once by its own key (`deep:<resident>:<trip>`), the oldest first. Pure: every reader's
+  dungeon holds the same dead. The host passes by, as well, one who fell at the player's side (the `fallen` turn: the
+  pool's corpse), one the player saw spared, and any of a company stood in the dungeon now (`dungeonDivers.js stood`:
+  its end is what happens there, LW6).
+- **Where they lie**: at one of the places the dungeon's own foes stand - its random enemy markers, each on the floor
+  under it (`restingSpots`, the layout's order) - the one their key deals (`restAt`): every reader the same.
+- **What lies there**: their body, their class's own corpse picture, as a pile of the dungeon's own (`layRemains`) with
+  what they carried - their class's loot table at their level, a weapon, a piece of armour and their purse. Laid ONCE in
+  the character's world (the relations' `laid` mark, written into the save only once there is one); the dungeon's pile
+  from then - the scene's cache keeps it, the player loots it. On the way in they are simply there (the dungeon as it
+  is); one the deep takes while the player is below lies where the player is not (beyond `DEEP_LAY_M`, 15 m).
+- **Found**: the player coming within `DEEP_NOTICE_M` (4 m) of remains still lying there hears whose they are ("The
+  remains of Ada Lark, of Wayrest.") - once a visit.
+- **Not yet:** their kin told of it (a word to the household, a keepsake carried home).
 
 ## LW7 - the deeds (2026-10-05)
 
@@ -569,4 +594,5 @@ conversations with each other ... much like the crew on board ships" - LW8 stood
   pass hands the room's talk its matrices (`host.livingSpeech`, LW8b); the
   street pool still answers nobody indoors (AUDIT 62 F14) and a building's static NPCs stay DFU's own.
 - `scenes/dungeonContext.js` - WIRED through the host (LW6): its own loose stand (`spawnLooseFoe` allied, `removeLooseFoe`)
-  and its `location()` carry the companies met in it; it keeps no town population.
+  and its `location()` carry the companies met in it; (LW6b) its resting places (`restingSpots`) and its pile
+  (`layRemains`, `pileNear`) the fallen of a dive; it keeps no town population.

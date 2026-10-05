@@ -1038,6 +1038,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // The ray starts at chest height so a step or a floor seam does not read as a wall.
   // ARENA-FIX 4: the hall stands no random foe - only the beast tier's chained beasts, passive at their markers (the undercroft is the city's own keep, never an elite spawn)
   const _hallBeasts = _undercroftHall ? _undercroftHall.beasts.map((b, i) => ({ x: b.x, y: b.y, z: b.z, mobileType: b.mobileType, fixed: true, reaction: 'passive', gender: 'unspecified', spawnDistanceType: 0, loadID: 0x55430100 + i, blockIndex: -1, arenaChained: i })) : null;
+  /** @type {number[][] | null} LW6b: the dungeon's resting places, sounded once (restingSpots) */
+  let _restingSpots = null;
   const enemies = dfLocation?.elite
     ? expandEliteEnemies(_layoutEnemies, {
       copies: ELITE_FOE_MULTIPLIER,
@@ -2162,7 +2164,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:17221 / exterior.js:3938), set
+  // host's own townTalk sink (world.js:17266 / exterior.js:3938), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -4262,7 +4264,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:28216,
+              // playerArrowHitFoe is the one copy world.js:28263,
               // exterior.js:5601 and worldModes.js:9377 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
@@ -8208,6 +8210,12 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     arenaHall: _undercroftHall?.hall ?? null,   // ARENA5: the Hall of Champions' place - its plaque wall hangs about it (scenes/worldModes.js standArenaWall)
     spawnLooseFoe,   // SD1: the same chain with no quest behaviour bound - the enchant ctx's spawner
     questSpawnSpots: () => dungeonQuestSpawnSpots(dungeon.blocks),   // FIELD BUGS 29h (BOUNTY-LAIR): where DFU stands a quest's foe here
+    // LW6b (bible/06-Systems/Living-World.md "LW6b"): THE FALLEN IN THE DEEP - where the dungeon's own foes stand (its
+    // random enemy markers, each on the floor under it, in the layout's order: every reader the same), a fallen diver's
+    // remains laid there as a pile of the dungeon's own (its class's corpse picture), and whether a pile still lies at one
+    restingSpots: () => (_restingSpots ??= _layoutEnemies.filter((e) => !e.fixed).map((e) => floorLanding(collider, [e.x, e.y + 0.2, e.z]))),
+    layRemains: (items, feet, icon) => droppedLoot.dropPile(items, feet, null, icon),
+    pileNear: (feet, r) => droppedLoot._piles.some((p) => Math.hypot(p.pos[0] - feet[0], p.pos[2] - feet[2]) <= r && Math.abs(p.pos[1] - feet[1]) <= 2),
     questMarkerMover: (markerID) => sceneMarkerMover(dungeon.blocks, actions, markerID),   // TOTEM-CAGE: the acting marker a quest item rides (AddQuestItem's parenting), or null
     replaceFoe: replaceFoeInPool,   // AUDIT 58 (review): the hosted route's enchant mount routes the Wabbajack here by pool membership
     drawFoes,

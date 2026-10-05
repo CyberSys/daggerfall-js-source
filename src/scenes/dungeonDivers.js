@@ -159,6 +159,9 @@ export function createDungeonDivers(deps) {
     },
     /** The companies met here (the probes; the pins). */
     companies: () => [...companies.values()],
+    /** LW6b: whether one of a company was stood here this time - their end is what happens here, not the deep's word
+     *  (the host lays no remains of them). @param {string} tripId @param {string} resId */
+    stood: (tripId, resId) => { const c = companies.get(tripId); return !!c && (c.allies.has(resId) || c.foes.has(resId)); },
     /** Every company forgotten (the dungeon left; a sweep) - its pool goes with it. */
     clear() { for (const id of [...companies.keys()]) letGo(id); },
     get size() { return companies.size; },

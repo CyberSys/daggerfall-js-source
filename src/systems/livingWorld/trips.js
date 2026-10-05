@@ -679,6 +679,38 @@ export function remainsNear(px, py, t, world, o, rPx = 6) {
   return { remains, pending };
 }
 
+/** LW6b: how long the fallen of a dive lie in its dungeon to be found (the clock's minutes). */
+export const DEEP_REMAINS_MIN = 3 * DAY_MIN;
+
+/**
+ * LW6b: THE FALLEN IN THE DEEP at minute `t` - the dead of the dives into `dungeon` by the towns within reach, each from
+ * the minute the deep took them for DEEP_REMAINS_MIN (a hand's dead are the hand's: LW7). `key` the remains' own
+ * (`deep:<resident>:<trip>`). The oldest first. `pending` as diversAt's.
+ * @param {LwTown} dungeon @param {number} t @param {TripWorld} world @param {{ mpm: number, memo?: Map<string, Trip|null> }} o
+ * @returns {{ remains: { key: string, res: Resident, trip: Trip, t: number }[], pending: boolean }}
+ */
+export function fallenIn(dungeon, t, world, o) {
+  /** @type {Map<string, { key: string, res: Resident, trip: Trip, t: number }>} */
+  const found = new Map();
+  let pending = false;
+  for (const town of world.townsNear(dungeon.px ?? 0, dungeon.py ?? 0, TRIP_REACH_PX)) {
+    // a trip is its town's within a day of its end: read back over the days the remains lie
+    for (let back = 0; back * DAY_MIN <= DEEP_REMAINS_MIN + DAY_MIN; back++) {
+      const trips = townTrips(town, t - back * DAY_MIN, world, o);
+      if (trips === undefined) { pending = true; break; }
+      for (const trip of trips) {
+        if (!trip.dive || trip.to?.mapId !== dungeon.mapId) continue;
+        for (const f of trip.fallen ?? []) {
+          if (!f.inside || f.hand || !(f.t <= t && t < f.t + DEEP_REMAINS_MIN)) continue;
+          const key = `deep:${f.res.id}:${trip.id}`;
+          if (!found.has(key)) found.set(key, { key, res: f.res, trip, t: f.t });
+        }
+      }
+    }
+  }
+  return { remains: [...found.values()].sort((a, b) => a.t - b.t || (a.key < b.key ? -1 : 1)), pending };
+}
+
 /**
  * LW6: THE DIVERS in a dungeon at minute `t` - the parties of the towns within TRIP_REACH_PX inside it now (their dive,
  * less the fallen by then). `pending` as partiesNear's.
