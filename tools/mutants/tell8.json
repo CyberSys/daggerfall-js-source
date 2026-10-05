@@ -2,8 +2,8 @@
   {
     "name": "TELL8-wire-iron-flag",
     "file": "src/ai/puppetBlows.js",
-    "old": "out.wk = k | (b.guard === 'iron' ? WIRE_IRON : 0) | (b.feint ? WIRE_FEINT : 0) | (landed ? WIRE_LANDED : 0);",
-    "new": "out.wk = k | (b.feint ? WIRE_FEINT : 0) | (landed ? WIRE_LANDED : 0);",
+    "old": "out.wk = k | (b.guard === 'iron' ? WIRE_IRON : 0) | (b.feint ? WIRE_FEINT : 0) | (landed ? WIRE_LANDED : 0) | (b.sig ? WIRE_SIG : 0);",
+    "new": "out.wk = k | (b.feint ? WIRE_FEINT : 0) | (landed ? WIRE_LANDED : 0) | (b.sig ? WIRE_SIG : 0);",
     "tests": [
       "test/tell8_online.test.js"
     ]
@@ -11,8 +11,8 @@
   {
     "name": "TELL8-wire-feint-flag",
     "file": "src/ai/puppetBlows.js",
-    "old": "out.wk = k | (b.guard === 'iron' ? WIRE_IRON : 0) | (b.feint ? WIRE_FEINT : 0) | (landed ? WIRE_LANDED : 0);",
-    "new": "out.wk = k | (b.guard === 'iron' ? WIRE_IRON : 0) | (landed ? WIRE_LANDED : 0);",
+    "old": "out.wk = k | (b.guard === 'iron' ? WIRE_IRON : 0) | (b.feint ? WIRE_FEINT : 0) | (landed ? WIRE_LANDED : 0) | (b.sig ? WIRE_SIG : 0);",
+    "new": "out.wk = k | (b.guard === 'iron' ? WIRE_IRON : 0) | (landed ? WIRE_LANDED : 0) | (b.sig ? WIRE_SIG : 0);",
     "tests": [
       "test/tell8_online.test.js"
     ]
@@ -29,8 +29,8 @@
   {
     "name": "TELL8-wire-landed-sent",
     "file": "src/ai/puppetBlows.js",
-    "old": "| (b.feint ? WIRE_FEINT : 0) | (landed ? WIRE_LANDED : 0);",
-    "new": "| (b.feint ? WIRE_FEINT : 0);",
+    "old": "| (b.feint ? WIRE_FEINT : 0) | (landed ? WIRE_LANDED : 0) | (b.sig ? WIRE_SIG : 0);",
+    "new": "| (b.feint ? WIRE_FEINT : 0) | (b.sig ? WIRE_SIG : 0);",
     "tests": [
       "test/tell8_online.test.js"
     ]
@@ -382,8 +382,8 @@
   {
     "name": "TELL8-valid-shape-7",
     "file": "src/net/wire.js",
-    "old": "if (!Number.isInteger(r.wk) || r.wk < 0 || r.wk > 63 || (r.wk & 7) > 6) return null;",
-    "new": "if (!Number.isInteger(r.wk) || r.wk < 0 || r.wk > 63) return null;",
+    "old": "if (!Number.isInteger(r.wk) || r.wk < 0 || r.wk > 127 || (r.wk & 7) > 6) return null;",
+    "new": "if (!Number.isInteger(r.wk) || r.wk < 0 || r.wk > 127) return null;",
     "tests": [
       "test/tell8_online.test.js"
     ]

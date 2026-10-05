@@ -41,7 +41,8 @@ test('TELL8: the record\'s law - the wind-up\'s four fields together (its shape 
   assert.deepEqual(validFoeRecord({ ...base, ws: 2 }), { ...base, ws: 2 }, 'a stagger or an overreach rides alone');
   assert.deepEqual(validFoeRecord(base), base, 'none: an old record reads as before');
   for (const [bad, why] of [
-    [{ wk: 7 }, 'shape 7 is none'], [{ wk: 64 }, 'past the flags'], [{ wn: 256 }, 'a serial past a byte'], [{ wn: -1 }, 'a serial below'], [{ wn: 1.5 }, 'a whole serial'], [{ wk: -1 }, 'negative'], [{ wk: 1.5 }, 'whole'],
+    [{ wk: 7 }, 'shape 7 is none'], [{ wk: 128 }, 'past the flags'],   // PIN MOVED (FEUD WIRE: +64 a revenant's signature)
+    [{ wn: 256 }, 'a serial past a byte'], [{ wn: -1 }, 'a serial below'], [{ wn: 1.5 }, 'a whole serial'], [{ wk: -1 }, 'negative'], [{ wk: 1.5 }, 'whole'],
     [{ wy: NaN }, 'a yaw'], [{ wl: FOE_WINDUP_MS + 1 }, 'a landing past 3 s'], [{ wl: -1 }, 'a landing past'], [{ wl: 2.5 }, 'whole ms'],
     [{ wo: [1, 2] }, 'three'], [{ wo: [POSE_BOUND * 2, 0, 0] }, 'bounded as `f`'], [{ wo: [0, 1e6, 0] }, 'its height bounded'],
     [{ wp: -1 }, 'a point behind'], [{ wp: FOE_WINDUP_REACH + 1 }, 'a point too far'],
@@ -52,7 +53,7 @@ test('TELL8: the record\'s law - the wind-up\'s four fields together (its shape 
   for (const ws of [0, 3, '1', true]) assert.equal(validFoeRecord({ ...base, ws }), null, `ws ${ws}`);
   assert.equal(WIRE_LAND_MS, FOE_WINDUP_MS, 'the writer\'s ceiling is the reader\'s');
   assert.deepEqual([...WIRE_KINDS], ['lunge', 'sweep', 'slam', 'ring', 'charge', 'leap', 'aimed']);
-  assert.equal(RELAY_VERSION, 'world164');   // AUDIT TELL moved it on (world162 was TELL8's)
+  assert.equal(RELAY_VERSION, 'world165');   // AUDIT TELL moved it on (world162 was TELL8's)
 });
 
 test('TELL8: the owner\'s word - a live wind-up\'s shape, iron and feint flags, yaw, landing in ms (clamped), origin through the record\'s projection and point; none for a cut feint, a landed blow or a puppet; the stagger and the overreach; the dedupe key never carries `wl` (mutants: a flag dropped; wl in the key)', () => {
@@ -289,8 +290,8 @@ test('TELL8: the blow\'s class - its K, its back flag and its weakness flag as o
 test('TELL8: the hosts by source - both pools write the wind-up into the record and its key, read it onto the puppet (at me by the blow\'s recipient), turn it every frame (the hold, the stagger\'s Hurt, the cues), carry the class out and in; the watch\'s door; the leap gate (mutants: any pool unwired)', () => {
   const x = rd('src/scenes/exteriorFoes.js'), d = rd('src/scenes/dungeonContext.js');
   assert.match(x, /if \(!f\.dead && f\.ai\._tac && !f\.ai\._tac\.puppet\) Object\.assign\(r, blowWire\(f\.ai, tacticsNow\(\), \(p\) => _net\.toWire\(p\)\)\);/);
-  assert.match(x, /\$\{r\.sp \?\? 0\}(?:,\$\{r\.ad \?\? 0\},\$\{r\.wq \?\? -1\},\$\{r\.p2 \?\? 0\},\$\{r\.rt \?\? -1\})?\$\{r\.wk !== undefined \|\| r\.ws !== undefined \? `,\$\{blowWireKey\(r\)\}` : ''\}`;/);
-  assert.match(x, /if \(r\.d !== 1 && \(r\.wk !== undefined \|\| r\.ws !== undefined \|\| f\.ai\._tac\?\.puppet\)\) applyBlowRecord\(f\.ai, r, \{ origin: r\.wo \? _net\.toScene\(r\.wo\) : null, me: recipientIsMe\(f, r\.b \?\? r\.g \?\? p\.target\), entity: f\.entity, collider \}\);/);
+  assert.match(x, /\$\{r\.sp \?\? 0\}(?:,\$\{r\.ad \?\? 0\},\$\{r\.wq \?\? -1\},\$\{r\.p2 \?\? 0\},\$\{r\.rt \?\? -1\},\$\{r\.rb \?\? 0\})?\$\{r\.wk !== undefined \|\| r\.ws !== undefined \? `,\$\{blowWireKey\(r\)\}` : ''\}`;/);   // PIN MOVED (FEUD WIRE: and the revenant's blows, `rb`)
+  assert.match(x, /if \(r\.d !== 1 && \(r\.wk !== undefined \|\| r\.ws !== undefined \|\| f\.ai\._tac\?\.puppet\)\) applyBlowRecord\(f\.ai, r, \{ origin: r\.wo \? _net\.toScene\(r\.wo\) : null, me: recipientIsMe\(f, r\.b \?\? r\.g \?\? p\.target\), entity: f\.entity, collider, sig: SIG \}\);/);   // PIN MOVED (FEUD WIRE: and the signature's numbers)
   assert.match(x, /const _pb = f\.ai\._tac\?\.puppet \? puppetBlowTurn\(f\.ai, playerFeet\) : NO_PUPPET_BLOW;/);
   assert.match(x, /hurting: f\.ai\.hurtKnock \|\| _pb\.staggered, casting: !!f\._castPending, hold: _pb\.hold \}/);
   assert.match(x, /if \(f\._pup\?\.leap && !puppetGapLanded\(f\.ai\)\) return false;/);
@@ -301,8 +302,8 @@ test('TELL8: the hosts by source - both pools write the wind-up into the record 
   assert.match(x, /whole: data\.z === 1, \.\.\.\(data\.wc != null \? \{ wc: hitClassOf\(data\) \} : \{\}\) \}\);/);
   assert.match(x, /if \(onWatch\) _net\.watch\.hurt\(f, dmg, at, dir, data\.wc != null \? hitClassOf\(data\) : null, kind\);/);   // PIN MOVED (AUDIT TELL P1: and its kind)
   assert.match(d, /if \(!f\.dead && f\.ai\._tac && !f\.ai\._tac\.puppet\) Object\.assign\(r, blowWire\(f\.ai, tacticsNow\(\)\)\);/);
-  assert.match(d, /\$\{r\.v\}(?:,\$\{r\.ad \?\? 0\},\$\{r\.wq \?\? -1\},\$\{r\.p2 \?\? 0\})?\$\{r\.wk !== undefined \|\| r\.ws !== undefined \? `,\$\{blowWireKey\(r\)\}` : ''\}`;/);
-  assert.match(d, /applyBlowRecord\(f\.ai, r, \{ origin: r\.wo \?\? null, me: _to != null && _me != null && _to === _me, entity: f\.entity, collider \}\);/);
+  assert.match(d, /\$\{r\.v\}(?:,\$\{r\.ad \?\? 0\},\$\{r\.wq \?\? -1\},\$\{r\.p2 \?\? 0\},\$\{r\.rb \?\? 0\})?\$\{r\.wk !== undefined \|\| r\.ws !== undefined \? `,\$\{blowWireKey\(r\)\}` : ''\}`;/);   // PIN MOVED (FEUD WIRE: and the revenant's blows, `rb`)
+  assert.match(d, /applyBlowRecord\(f\.ai, r, \{ origin: r\.wo \?\? null, me: _to != null && _me != null && _to === _me, entity: f\.entity, collider, sig: SIG \}\);/);   // PIN MOVED (FEUD WIRE: and the signature's numbers)
   assert.match(d, /_pb = f\.ai\._tac\?\.puppet \? puppetBlowTurn\(f\.ai, _pf\) : null;/);
   assert.match(d, /if \(r\.d !== 1 && \(r\.wk !== undefined \|\| r\.ws !== undefined \|\| f\.ai\._tac\?\.puppet\)\) \{/, 'a record and a puppet that say none: nothing to do (the lifted harnesses reach none of it)');
   assert.match(d, /hold: _puppet \? \(_pb\?\.hold \?\? false\) : f\.ai\._blowHold,/);

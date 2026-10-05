@@ -433,8 +433,10 @@ export function revenantDeed(player, entity, deedName, { mobileType = entity?.mo
   if (!sameLair(lair, r.lair)) { r.lair = lair; r.lairKnown = false; }
   // the foe that did it wears its name at once - while it still stands (a killer over my body), it IS the revenant
   const p2 = entity.revenant?.p2 ?? null;   // AUDIT FEUD 2: a felling in its last stand keeps the stand's phase two
+  const blows = entity.revenant?.blows ?? null;   // FEUD WIRE: and the stand's blows it still strikes with
   entity.revenant = revenantStamp(r);   // RVN2: and what it learned, at once
   if (p2) entity.revenant.p2 = p2;
+  if (blows) entity.revenant.blows = blows;
   computeEntityMods(entity);
   r.out = deedName === 'slew' || deedName === 'felled';   // RVN10 (21.1): a felling foe still stands, as a killer over my body does
   r.outAt = r.out ? Date.now() : 0;
@@ -765,6 +767,7 @@ export function applyRevenant(entity, r, { now = nowMinutes(), turned = false } 
   const edge = entity.revenant.edge;
   if (edge.relentless && entity.stats) entity.stats.speed = (entity.stats.speed ?? 0) + ADAPT.RELENTLESS_SPEED;
   if (edge.nightStalker && skyIsNight()) entity.damageScale *= ADAPT.NIGHT_BLOWS;
+  entity.revenant.blows = entity.damageScale / prior;   // FEUD WIRE (Feud-Arc.md 25): its stand's blows over its kind's, for its puppets (revenantFeud.js feudWire `rb`)
   computeEntityMods(entity);
   r.out = true; r.outAt = Date.now();
   r.fights = (r.fights | 0) + 1;   // RVN1: a return is a fight (an older record's count is kills + escapes + returns)

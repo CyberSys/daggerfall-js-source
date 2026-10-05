@@ -554,3 +554,19 @@ duel harness made faithful to the game - every target holds: a perfect dodger ma
 trader about one in eight, and a rank 5 is about two and two-thirds times a rank 1's fight. The law:
 `bible/12-Enhanced-AI/Feud-Arc.md`, the AUDIT FEUD 2 record.
 
+## 36. Its blows online (FEUD WIRE, 2026-10-05)
+
+A revenant now strikes the party members fighting it as hard as it strikes you: its rank's, its wrath's and a
+Night-stalker's night blows, its last stand's fury, and its signature blow at double weight, in its ember with its deeper
+wind-up sound - before, another player's copy of it hit with its kind's plain blows and a plain shape. Its called name
+for the signature, and its pyre, stay yours alone. Relay world165. The law: `bible/12-Enhanced-AI/Feud-Arc.md` section
+25 and the FEUD WIRE record.
+
+## 37. Its band and its flight, measured (FEUD HARNESS, 2026-10-05)
+
+The arc's balance tool now fights a revenant as the game gives it - its band about it, and its chance to run - and every
+balance target still holds: a perfect dodger makes a rank-3 kneel about nine fights in ten, a trader about one in nine,
+and a rank 5 is about two and two-thirds times a rank 1's fight. Modelling the flight found a fault: a revenant that rose
+in its last stand while running away kept running, untargeted, until its run was spent - it now turns and fights its
+last stand where it rose. The law: `bible/12-Enhanced-AI/Feud-Arc.md`, the FEUD HARNESS record.
+

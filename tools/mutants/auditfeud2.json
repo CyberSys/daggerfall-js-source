@@ -209,8 +209,8 @@
   {
     "name": "AF2-S1-dodger-early",
     "file": "tools/tellDuel.mjs",
-    "old": "T < blow.land + CLASSIC_UPDATE_INTERVAL",
-    "new": "T < blow.land",
+    "old": "T < lb.land + CLASSIC_UPDATE_INTERVAL",
+    "new": "T < lb.land",
     "tests": [
       "test/auditfeud2.test.js"
     ]

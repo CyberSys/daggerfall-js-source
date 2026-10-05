@@ -38,8 +38,8 @@
   {
     "name": "RVN13-ad-unwritten",
     "file": "src/systems/revenantFeud.js",
-    "old": "  return { ...(ad ? { ad } : {}), ...(wq >= 0 ? { wq } : {}), ...(rev.p2 ? { p2: 1 } : {}) };",
-    "new": "  return { ...(wq >= 0 ? { wq } : {}), ...(rev.p2 ? { p2: 1 } : {}) };",
+    "old": "  return { ...(ad ? { ad } : {}), ...(wq >= 0 ? { wq } : {}), ...(rev.p2 ? { p2: 1 } : {}), ...(rb ? { rb } : {}) };",
+    "new": "  return { ...(wq >= 0 ? { wq } : {}), ...(rev.p2 ? { p2: 1 } : {}), ...(rb ? { rb } : {}) };",
     "tests": [
       "test/rvn13_wire.test.js"
     ]
@@ -47,8 +47,8 @@
   {
     "name": "RVN13-wq-unwritten",
     "file": "src/systems/revenantFeud.js",
-    "old": "  return { ...(ad ? { ad } : {}), ...(wq >= 0 ? { wq } : {}), ...(rev.p2 ? { p2: 1 } : {}) };",
-    "new": "  return { ...(ad ? { ad } : {}), ...(rev.p2 ? { p2: 1 } : {}) };",
+    "old": "  return { ...(ad ? { ad } : {}), ...(wq >= 0 ? { wq } : {}), ...(rev.p2 ? { p2: 1 } : {}), ...(rb ? { rb } : {}) };",
+    "new": "  return { ...(ad ? { ad } : {}), ...(rev.p2 ? { p2: 1 } : {}), ...(rb ? { rb } : {}) };",
     "tests": [
       "test/rvn13_wire.test.js"
     ]
@@ -56,8 +56,8 @@
   {
     "name": "RVN13-p2-unwritten",
     "file": "src/systems/revenantFeud.js",
-    "old": "  return { ...(ad ? { ad } : {}), ...(wq >= 0 ? { wq } : {}), ...(rev.p2 ? { p2: 1 } : {}) };",
-    "new": "  return { ...(ad ? { ad } : {}), ...(wq >= 0 ? { wq } : {}) };",
+    "old": "  return { ...(ad ? { ad } : {}), ...(wq >= 0 ? { wq } : {}), ...(rev.p2 ? { p2: 1 } : {}), ...(rb ? { rb } : {}) };",
+    "new": "  return { ...(ad ? { ad } : {}), ...(wq >= 0 ? { wq } : {}), ...(rb ? { rb } : {}) };",
     "tests": [
       "test/rvn13_wire.test.js"
     ]
@@ -74,8 +74,8 @@
   {
     "name": "RVN13-weak-unread",
     "file": "src/systems/revenantFeud.js",
-    "old": "  const weak = r?.wq != null ? weakAt(r.wq) : null;\n  return",
-    "new": "  const weak = null;\n  return",
+    "old": "  const weak = r?.wq != null ? weakAt(r.wq) : null;\n  const blows",
+    "new": "  const weak = null;\n  const blows",
     "tests": [
       "test/rvn13_wire.test.js"
     ]
@@ -92,8 +92,8 @@
   {
     "name": "RVN13-p2-unread",
     "file": "src/systems/revenantFeud.js",
-    "old": "p2: r?.p2 === 1 ? (rev?.p2 ?? phaseTwo()) : null };",
-    "new": "p2: null };",
+    "old": "p2: r?.p2 === 1 ? (rev?.p2 ?? phaseTwo()) : null, blows };",
+    "new": "p2: null, blows };",
     "tests": [
       "test/rvn13_wire.test.js"
     ]
@@ -101,8 +101,8 @@
   {
     "name": "RVN13-p2-kept",
     "file": "src/systems/revenantFeud.js",
-    "old": "p2: r?.p2 === 1 ? (rev?.p2 ?? phaseTwo()) : null };",
-    "new": "p2: r?.p2 === 1 ? (rev?.p2 ?? phaseTwo()) : rev?.p2 ?? null };",
+    "old": "p2: r?.p2 === 1 ? (rev?.p2 ?? phaseTwo()) : null, blows };",
+    "new": "p2: r?.p2 === 1 ? (rev?.p2 ?? phaseTwo()) : rev?.p2 ?? null, blows };",
     "tests": [
       "test/rvn13_wire.test.js"
     ]
@@ -236,8 +236,8 @@
   {
     "name": "RVN13-street-key",
     "file": "src/scenes/exteriorFoes.js",
-    "old": ",${r.ad ?? 0},${r.wq ?? -1},${r.p2 ?? 0},${r.rt ?? -1}${r.wk !== undefined",
-    "new": "${r.wk !== undefined",
+    "old": ",${r.ad ?? 0},${r.wq ?? -1},${r.p2 ?? 0},${r.rt ?? -1},${r.rb ?? 0}${r.wk !== undefined",
+    "new": ",${r.rb ?? 0}${r.wk !== undefined",
     "tests": [
       "test/rvn13_wire.test.js"
     ]
@@ -245,8 +245,8 @@
   {
     "name": "RVN13-street-unread",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "if (f._feudWire !== fw) { f._feudWire = fw; f.entity.revenant = feudFromWire(f.entity.revenant, r); }",
-    "new": "if (f._feudWire !== fw) { f._feudWire = fw; }",
+    "old": "if (f._feudWire !== fw) { f._feudWire = fw; f.entity.revenant = feudFromWire(f.entity.revenant, r); puppetRevenantBlows(f.entity, r); }",
+    "new": "if (f._feudWire !== fw) { f._feudWire = fw; puppetRevenantBlows(f.entity, r); }",
     "tests": [
       "test/rvn13_wire.test.js"
     ]
@@ -281,8 +281,8 @@
   {
     "name": "RVN13-deep-key",
     "file": "src/scenes/dungeonContext.js",
-    "old": "${r.v},${r.ad ?? 0},${r.wq ?? -1},${r.p2 ?? 0}${r.wk",
-    "new": "${r.v}${r.wk",
+    "old": "${r.v},${r.ad ?? 0},${r.wq ?? -1},${r.p2 ?? 0},${r.rb ?? 0}${r.wk",
+    "new": "${r.v},${r.rb ?? 0}${r.wk",
     "tests": [
       "test/rvn13_wire.test.js"
     ]

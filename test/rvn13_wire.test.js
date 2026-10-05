@@ -40,7 +40,7 @@ test('RVN13 THE MASK AND THE INDEX: a bit for each adaptation, read back in its 
   assert.equal(Wire.FOE_ADAPT_MASK_MAX, 2 ** F.ADAPTATIONS.length - 1);
   assert.equal(Wire.FOE_ADAPT_MAX, F.ADAPT_MAX);
   assert.equal(Wire.FOE_WEAK_MAX, F.WEAKNESSES.length - 1);
-  assert.equal(Wire.RELAY_VERSION, 'world164');
+  assert.equal(Wire.RELAY_VERSION, 'world165');   // FEUD WIRE moved it on (world164 was RVN13's)
 });
 
 test('RVN13 THE RECORD\'S LAW: `ad` a mask of one to three, `wq` an index, `p2` 1, `rt` a foe\'s number - each refused whole outside its law; none when none (mutants: each bound dropped)', () => {
@@ -96,7 +96,7 @@ test('RVN13 THE HOSTS: the street writes and reads all four (its master by its n
   assert.match(x, /if \(!onWatch && f\.entity\?\.revenant\) Object\.assign\(r, feudWire\(f\.entity\.revenant\)\);/);
   assert.match(x, /if \(!onWatch && f\.retinueOf != null\) \{ const m = foes\.find\(\(x\) => !x\.dead && !x\.puppet && x\.entity\?\.revenant\?\.id === f\.retinueOf\); if \(m\) r\.rt = m\.seq; \}/);
   assert.match(x, /\$\{r\.sp \?\? 0\},\$\{r\.ad \?\? 0\},\$\{r\.wq \?\? -1\},\$\{r\.p2 \?\? 0\},\$\{r\.rt \?\? -1\}/);
-  assert.match(x, /if \(f\._feudWire !== fw\) \{ f\._feudWire = fw; f\.entity\.revenant = feudFromWire\(f\.entity\.revenant, r\); \}/);
+  assert.match(x, /if \(f\._feudWire !== fw\) \{ f\._feudWire = fw; f\.entity\.revenant = feudFromWire\(f\.entity\.revenant, r\); puppetRevenantBlows\(f\.entity, r\); \}/);   // PIN MOVED (FEUD WIRE: and its blows folded on the puppet)
   assert.match(x, /const m = _pupIndex\.get\(pupKey\(f\.puppet, r\.rt\)\); const name = m \? puppetBandName\(m\.entity\?\.revenant\?\.name, m\.mobileType\) : null; if \(name\) f\.entity\.bandName = name;/);
   assert.match(x, /if \(!onWatch && data\.wc != null && hitClassOf\(data\)\?\.weak && f\.entity\?\.revenant\?\.id\) feudRevealWeak\(f\.entity\);/);
   const d = read('src/scenes/dungeonContext.js');

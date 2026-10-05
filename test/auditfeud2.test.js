@@ -306,7 +306,7 @@ test('AUDIT FEUD 2 S1: THE HARNESS\'S OWN STEPS - a landing knocks me down only 
   assert.ok(Math.abs(ai.knockbackSpeed - plain * TELL.STAGGER_KNOCK) < 1e-9, 'a stagger\'s half again');
   const src = read('tools/tellDuel.mjs');
   assert.equal((src.match(/if \(T >= down\.downUntil\) swingT \+= DT;/g) ?? []).length, 2, 'both fights: the swing stands while I am down');
-  assert.match(src, /T < blow\.land \+ CLASSIC_UPDATE_INTERVAL/);
+  assert.match(src, /blows\.some\(\(lb\) => T < lb\.land \+ CLASSIC_UPDATE_INTERVAL\)/);   // PIN MOVED (FEUD HARNESS: every wind-up at me - its band's too)
 });
 
 test('AUDIT FEUD 2 S2: THE HARNESS IS ITS SEEDS - a fight\'s result is its seed\'s whatever DFU\'s shared stream held before it; a trader takes telegraphed blows, a perfect dodger next to none; a revenant from rank 2 bears its signature (mutants: a seed dropped; the blows uncounted; the signature undrawn)', async () => {

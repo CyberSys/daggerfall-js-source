@@ -545,12 +545,17 @@ export const maskAdapt = (mask) => ADAPTATIONS.filter((_, i) => ((Number(mask) >
 /** RVN13: its weakness on the wire - its index in WEAKNESSES (net/wire.js FOE_WEAK_MAX the last), -1 for none; and back. */
 export const weakIndex = (weak) => WEAKNESSES.indexOf(weak);
 export const weakAt = (i) => (Number.isInteger(i) && i >= 0 && i < WEAKNESSES.length ? WEAKNESSES[i] : null);
+/** FEUD WIRE (section 25): a revenant's blows on the wire - its stand's factor (`entity.revenant.blows`) per mille,
+ *  within net/wire.js FOE_BLOWS_MIN..FOE_BLOWS_MAX (the tests hold them in step). */
+export const BLOWS_WIRE = Object.freeze({ PER: 1000, MIN: 1000, MAX: 4000 });
 /** RVN13 (section 25): a revenant's own on its foe record, from its stamp (`entity.revenant`) - `ad` its adaptations
- *  (none learned: absent), `wq` its weakness, `p2` 1 in its last stand's second phase. */
+ *  (none learned: absent), `wq` its weakness, `p2` 1 in its last stand's second phase; FEUD WIRE: `rb` its stand's
+ *  blows (none over its kind's: absent). */
 export function feudWire(rev) {
   if (!rev) return {};
   const ad = adaptMask(rev.learned), wq = weakIndex(rev.weak);
-  return { ...(ad ? { ad } : {}), ...(wq >= 0 ? { wq } : {}), ...(rev.p2 ? { p2: 1 } : {}) };
+  const rb = Number.isFinite(rev.blows) && rev.blows > 1 ? Math.max(BLOWS_WIRE.MIN, Math.min(BLOWS_WIRE.MAX, Math.round(rev.blows * BLOWS_WIRE.PER))) : 0;
+  return { ...(ad ? { ad } : {}), ...(wq >= 0 ? { wq } : {}), ...(rev.p2 ? { p2: 1 } : {}), ...(rb ? { rb } : {}) };
 }
 /** RVN13 (25): what a puppet stands with of its owner's revenant (`r` its record): its adaptations, its weakness and
  *  their edge - the formulas, the doors and the brain read them on it, so a peer's roll against it sees what its owner's
@@ -558,7 +563,22 @@ export function feudWire(rev) {
 export function feudFromWire(rev, r) {
   const learned = r?.ad != null ? maskAdapt(r.ad) : [];
   const weak = r?.wq != null ? weakAt(r.wq) : null;
-  return { ...(rev ?? {}), learned, weak, edge: adaptEdge(learned, weak), p2: r?.p2 === 1 ? (rev?.p2 ?? phaseTwo()) : null };
+  const blows = Number.isInteger(r?.rb) ? r.rb / BLOWS_WIRE.PER : null;   // FEUD WIRE: its stand's blows - an heir writes them back
+  return { ...(rev ?? {}), learned, weak, edge: adaptEdge(learned, weak), p2: r?.p2 === 1 ? (rev?.p2 ?? phaseTwo()) : null, blows };
+}
+/** FEUD WIRE (section 25): a puppet's blows its owner's - its stand's (`r.rb`) and its second phase's (`r.p2`,
+ *  PHASE_TWO.BLOWS) folded onto its own `damageScale` (its kind's, its elite's, its champion's - each stood on it here):
+ *  the factor it stood with last (`entity._revBlows`) is taken out first, so a record said again never doubles it and
+ *  one that says none gives its own back. `r` null: none. Answers the factor. */
+export function puppetRevenantBlows(entity, r) {
+  if (!entity) return 1;
+  const factor = (Number.isInteger(r?.rb) ? r.rb / BLOWS_WIRE.PER : 1) * (r?.p2 === 1 ? PHASE_TWO.BLOWS : 1);
+  const was = Number.isFinite(entity._revBlows) && entity._revBlows > 0 ? entity._revBlows : 1;
+  if (factor === was) return factor;
+  const own = (Number.isFinite(entity.damageScale) && entity.damageScale > 0 ? entity.damageScale : 1) / was;
+  entity.damageScale = own * factor;
+  entity._revBlows = factor;
+  return factor;
 }
 /** RVN13 (25): a follower's band's name, from its master's puppet - its given name (the first word of what its owner
  *  calls it) and its kind's word. Null without both. */

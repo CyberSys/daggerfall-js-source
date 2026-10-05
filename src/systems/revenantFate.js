@@ -67,6 +67,7 @@ export function beginLastStand(player, f, { now = Date.now(), clock = 0, roar = 
   const r = revenantById(e?.revenant?.id);
   f._lastStood = true;
   f.fleeing = false;
+  if (f.ai) f.ai.fleeLeft = 0;   // FEUD HARNESS: its run over too, as a kneel's - risen mid-flight it ran on untargeted, never cornered nor escaped
   e.health = Math.max(1, Math.round((e.maxHealth || 1) * lastStandHealth(r?.rank)));
   f.roaring = { at: now, until: now + LAST_STAND_ROAR * 1000 };
   // no brain to roar with (the switch off): its motor held and its swing raised for the roar (the pool lets it go)

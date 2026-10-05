@@ -25,7 +25,7 @@ import { spaceFoes } from '../characters/foeSpacing.js';   // FOE-SPACING: the p
 import { blowConnects, blowScaled } from '../ai/foeBlows.js';   // TACT4
 import { foeGlint, tacticsNow, beginRoar } from '../ai/tactics.js';   // TELL2: a wind-up's glint (bible/12-Enhanced-AI/Feud-Arc.md section 4.2); TELL8: the record's wind-up on the foes' clock; RVN4: a last stand's roar
 import { feudRevealWeak, feudWeakBlow } from '../systems/feudLedger.js';   // RVN13: a peer's blow of its weakness; AUDIT FEUD: and mine on a puppet
-import { lastStandGlint, lastStandSize, pyreSpell, bandMembers, bandName, bandWord, BAND_SCATTER_S, BAND_SPACING, RALLY_KIN, ROUT, feudWire, feudFromWire, puppetBandName } from '../systems/revenantFeud.js';   // RVN4: phase two's rim and size; RVN5: the pyre's blast; RVN6: its band; RVN10: the rout's distance
+import { lastStandGlint, lastStandSize, pyreSpell, bandMembers, bandName, bandWord, BAND_SCATTER_S, BAND_SPACING, RALLY_KIN, ROUT, feudWire, feudFromWire, puppetBandName, puppetRevenantBlows, SIG } from '../systems/revenantFeud.js';   // RVN4: phase two's rim and size; RVN5: the pyre's blast; RVN6: its band; RVN10: the rout's distance; FEUD WIRE: a puppet's blows and signature
 import { runTargetMachine, boutGate, isPlayerTarget, isLocalPlayerTarget, isPeerTarget, resetAllyTeamOnPlayerAttack, PLAYER_TARGET, PEER_CAST_TARGET, targetAimPoint, enemyArrowOrigin, enemyTransformPoint, arrowAimDirection, wireRecipient, bumpAtkCount, staticTeamOf } from '../characters/enemyTargets.js';   // AUDIT WATCH1: the wire's spellings, one home   // WORLD6b-ii: the local player told from a peer, the peer told from a foe   // MT-ii   // ROAD-H H1/H1b: the ONE arrow loose point and the crouch dip
 import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_HEIGHT } from '../player/motor.js';   // CH3: the shared fall formula
 import { SOUND, hitSoundFor, ENEMY_HIT_VOLUME } from '../systems/soundClips.js';   // CH3: the FallDamage clip; WORLD6b: a peer's blow rung at the owner
@@ -2309,7 +2309,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         if (f._heir) { r.e = h; r.it = items; }
       }
       if (!f.dead && f.ai._tac && !f.ai._tac.puppet) Object.assign(r, blowWire(f.ai, tacticsNow(), (p) => _net.toWire(p)));   // TELL8 (10.1): its wind-up, its stagger, its overreach - a foe with a brain
-      const key = `${r.f[0]},${r.f[1]},${r.f[2]},${r.y},${r.h},${r.k},${r.d},${r.a},${r.b},${r.m},${r.g},${r.l},${wd ? wd.join('/') : '-'},${r.c},${r.s},${r.u},${r.o},${r.n},${r.z ?? 0},${r.nm ?? ''},${r.yd ?? 0},${r.ex ?? 0},${r.sp ?? 0},${r.ad ?? 0},${r.wq ?? -1},${r.p2 ?? 0},${r.rt ?? -1}${r.wk !== undefined || r.ws !== undefined ? `,${blowWireKey(r)}` : ''}`;   // TELL8: and the wind-up's (never `wl`)
+      const key = `${r.f[0]},${r.f[1]},${r.f[2]},${r.y},${r.h},${r.k},${r.d},${r.a},${r.b},${r.m},${r.g},${r.l},${wd ? wd.join('/') : '-'},${r.c},${r.s},${r.u},${r.o},${r.n},${r.z ?? 0},${r.nm ?? ''},${r.yd ?? 0},${r.ex ?? 0},${r.sp ?? 0},${r.ad ?? 0},${r.wq ?? -1},${r.p2 ?? 0},${r.rt ?? -1},${r.rb ?? 0}${r.wk !== undefined || r.ws !== undefined ? `,${blowWireKey(r)}` : ''}`;   // TELL8: and the wind-up's (never `wl`)
       if (!full && f._sentKey === key) continue;
       f._sentKey = key;
       out.push(r); src.set(r, f); if (qt) qtOf.set(r, qt);
@@ -2566,8 +2566,9 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     f._pupExec = r.ex === 1 ? (f._pupExec ?? Date.now()) : null;   // ...or burns away, from the record that said so
     f._pupSpare = r.sp === 1 ? (f._pupSpare ?? Date.now()) : null;   // AUDIT (2026-10-02): ...or rises sworn into its portal
     if (typeof r.nm === 'string' && r.nm && f.entity.revenant?.name !== r.nm) { f.entity.revenant = { id: null, name: r.nm, rank: 0 }; f._feudWire = null; }   // REVENANT-WIRE: called what its owner calls it
-    // RVN13 (bible/12-Enhanced-AI/Feud-Arc.md 25): its owner's adaptations, weakness and second phase - stood again only when they change
-    if (typeof r.nm === 'string' && r.nm) { const fw = `${r.ad ?? 0},${r.wq ?? -1},${r.p2 ?? 0}`; if (f._feudWire !== fw) { f._feudWire = fw; f.entity.revenant = feudFromWire(f.entity.revenant, r); } }
+    // RVN13 (bible/12-Enhanced-AI/Feud-Arc.md 25): its owner's adaptations, weakness and second phase - stood again only when they change;
+    // FEUD WIRE: and its blows (its stand's and phase two's on its own - so its owner's revenant strikes me as hard as it strikes its owner)
+    if (typeof r.nm === 'string' && r.nm) { const fw = `${r.ad ?? 0},${r.wq ?? -1},${r.p2 ?? 0},${r.rb ?? 0}`; if (f._feudWire !== fw) { f._feudWire = fw; f.entity.revenant = feudFromWire(f.entity.revenant, r); puppetRevenantBlows(f.entity, r); } }
     if (r.rt !== undefined && f.puppet) { const m = _pupIndex.get(pupKey(f.puppet, r.rt)); const name = m ? puppetBandName(m.entity?.revenant?.name, m.mobileType) : null; if (name) f.entity.bandName = name; }   // RVN13: a follower named for its master's band
     if (r.k !== undefined) f.entity.maxHealth = r.k;   // AUDIT SETS M1: the owner's maximum - "under half" is its word
     if (r.h !== undefined) { if (p.h != null && r.h < p.h) p.hurt = true; p.h = r.h; f.entity.health = r.h; }   // AUDIT WORLD6b-iii(a) B6: a drop against the last STREAMED health - a self-heal cast here made every record after it a hurt
@@ -2578,7 +2579,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (r.c !== undefined) { if (p.c != null && r.c !== p.c && Number.isInteger(r.s)) p.cast = { s: r.s, at: r.u ?? r.g ?? p.target }; p.c = r.c; }
     // TELL8 (10.1): its owner's wind-up, stagger and overreach - the puppet's synthetic state (ai/puppetBlows.js); at ME by
     // the blow's own recipient, judged on my feet at the landing (10.3)
-    if (r.d !== 1 && (r.wk !== undefined || r.ws !== undefined || f.ai._tac?.puppet)) applyBlowRecord(f.ai, r, { origin: r.wo ? _net.toScene(r.wo) : null, me: recipientIsMe(f, r.b ?? r.g ?? p.target), entity: f.entity, collider });
+    if (r.d !== 1 && (r.wk !== undefined || r.ws !== undefined || f.ai._tac?.puppet)) applyBlowRecord(f.ai, r, { origin: r.wo ? _net.toScene(r.wo) : null, me: recipientIsMe(f, r.b ?? r.g ?? p.target), entity: f.entity, collider, sig: SIG });
     if (r.d === 1 && !f.dead) {
       if (r.j !== undefined) casterSoulTrap(f, r);
       const t = p.wire ? _net.toScene(p.wire) : null; if (t) { f.ai.feet[0] = t[0]; f.ai.feet[1] = t[1]; f.ai.feet[2] = t[2]; } puppetDie(f);

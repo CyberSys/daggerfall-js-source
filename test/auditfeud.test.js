@@ -324,7 +324,9 @@ test('AUDIT FEUD H4: EVERY COMMENT ON ITS OWN LINE - the trailing notes FEUD\'s 
 // PIN MOVED (FEUD BALANCE, Feud-Arc.md OPEN 22-24 - Mac: one stagger or one perfect dodge breaks the will; dodging pays in
 // the blows not taken, never slower; AUDIT FEUD 2: the harness's fights re-seeded by its faithful steps)
 test('AUDIT FEUD (section 28): THE REVENANT\'S DUEL - an Orc revenant fought to its end through the pools\' own law: its last stand from rank 3, then its will - its weakness struck, it kneels; traded with and never staggered, it tears away; one stagger, it kneels; one perfect dodge, it kneels; a rank-1 kneels with no stand; RVN\'s targets as the arc names them (mutants: the stand skipped; the will unread; the dodge left before the late sample; a target moved)', async () => {
-  const { revenantFight, FEUD_TARGETS } = await import('../tools/tellDuel.mjs');
+  const { revenantFight: fightIn, FEUD_TARGETS } = await import('../tools/tellDuel.mjs');
+  // PIN MOVED (FEUD HARNESS: the duel's laws on its seeds, alone and never running - its band's draws would move each seed's stream)
+  const revenantFight = (o) => fightIn({ band: false, flight: false, ...o });
   assert.deepEqual(JSON.parse(JSON.stringify(FEUD_TARGETS)), { DODGE_SPARES: 0.1, KNEEL_WEAK: 0.9, KNEEL_DODGE: 0.7, KNEEL_TRADE_MAX: 0.2, RANK_RATIO: [2, 3] });
   const weak = revenantFight({ rank: 3, weak: true, seed: 1 });
   assert.deepEqual([weak.end, weak.stood, weak.weak > 0], ['knelt', true, true]);

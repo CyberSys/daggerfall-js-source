@@ -66,9 +66,10 @@ function seeded(seed) {
 }
 
 /** AUDIT FEUD 2: THE POOLS' OWN STEPS, shared by both fights. A foe's motor and attack component as the pools build them
- *  (scenes/exteriorFoes.js: its live Speed - phase two's +20 rides it). */
-function foeMotor(ent) {
-  const ai = new EnemyAI(new Collider(() => 0), [0, 0, 4], Math.PI, { vitals: () => ent, liveSpeed: () => liveStat(ent, 'speed') });
+ *  (scenes/exteriorFoes.js: its live Speed - phase two's +20 rides it) - 4 m off my front, or (FEUD HARNESS: a band's
+ *  member) where it stands. */
+function foeMotor(ent, feet = [0, 0, 4], yaw = Math.PI) {
+  const ai = new EnemyAI(new Collider(() => 0), feet, yaw, { vitals: () => ent, liveSpeed: () => liveStat(ent, 'speed') });
   const atk = new EnemyAttack({ liveSpeed: () => liveStat(ent, 'speed'), playerLevel: () => 10, reflexes: 2 });
   return { ai, atk };
 }
@@ -267,28 +268,53 @@ export function measureAll({ fights = 1000, seconds = 30 } = {}) {
 // trader down (BLOW_EFFECT.KNOCKDOWN_S - its swing stands meanwhile, as the rig's `paralyzed` holds it). AUDIT FEUD 2: the
 // pools' own steps besides - a swing whose hit frame finds the foe out of reach misses, every landed blow the poise did not
 // hold shoves the foe (DFU's knockback, C15), the foe's live Speed (phase two's +20), its signature from rank 2, the
-// dodger back in only once the brain has judged the landing. Never modelled: a flight (the chase is not the duel), the
-// player's own health, the band (its followers, rank 5's rally at its stand).
+// dodger back in only once the brain has judged the landing. FEUD HARNESS (Mac, 2026-10-05: "Take care of both gaps"):
+// and the rest of the fight the pools give it - ITS BAND (scenes/exteriorFoes.js standBand: its kin by rank, RETINUE's,
+// each its kind's own foe at its own level in the ring out to BAND_SPACING about it, with its own motor, attack and brain
+// - the brain's tokens shared with its master's, a kin of the tier's level telegraphing, its iron landings knocking me
+// down, the dodger out of its blows too; rank 5's RALLY at its stand - its kin through a portal when none is left;
+// scattered when it runs, gone when their run is spent) and ITS FLIGHT (systems/revenant.js revenantFleeStep, the pools'
+// one law: under a fifth of its health once, its roll; escaped, the fight is over - 'fled'; run down, cornered, it fights
+// on), chased at a run (DFU's at Speed 50 and Running 50). The player strikes its master first (`order` 'band': its band
+// first). Never modelled: the player's own health (the band's plain blows - under the tier - land on nobody here), a
+// kin's spells (an Orc Shaman's), the foes' bodies against each other, the pools' placement probes (flat ground).
 globalThis.localStorage ??= (() => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { m.set(k, String(v)); }, removeItem: (k) => { m.delete(k); }, clear: () => m.clear(), key: (i) => [...m.keys()][i] ?? null, get length() { return m.size; } }; })();
 const RV = await import('../src/systems/revenant.js');
 const FATE = await import('../src/systems/revenantFate.js');
 const { windupDoor } = await import('../src/scenes/hostCombat.js');
 const { beginRoar } = await import('../src/ai/tactics.js');
-const { weaponFeudClass, drawSignature, SIG_RANK } = await import('../src/systems/revenantFeud.js');
-const { walkSpeed } = await import('../src/player/motor.js');
+const { weaponFeudClass, drawSignature, SIG_RANK, bandMembers, RALLY_KIN, BAND_SCATTER_S, BAND_SPACING } = await import('../src/systems/revenantFeud.js');
+const { walkSpeed, runSpeed } = await import('../src/player/motor.js');
+const { releaseTactics } = await import('../src/ai/tactics.js');
 
 /** Section 28's RVN targets: the telegraphed blows a perfect dodger takes, at most this share of a trader's, its time to
  *  the end no longer (FEUD BALANCE, OPEN 24 - it was its time, at most 0.75 of the trader's); the will's kneels; a rank-5's
  *  time over a rank-1's in this band ("about 2.5 times"). */
 export const FEUD_TARGETS = Object.freeze({ DODGE_SPARES: 0.1, KNEEL_WEAK: 0.9, KNEEL_DODGE: 0.7, KNEEL_TRADE_MAX: 0.2, RANK_RATIO: Object.freeze([2, 3]) });
 const WALK = walkSpeed(50);   // player/motor.js: DFU's walk at Speed 50 (4.43 m/s)
+const RUN = runSpeed(50, 50);   // FEUD HARNESS: ...and its run at Running 50 (8.10 m/s) - the chase of a fleeing one
 const CLOSE = 0.25;           // the dodger and the trader close to this inside their reach
 const FEUD_ME = Object.freeze({ isPlayer: true, name: 'Duelist', characterId: 'char-duel', level: 10, items: [] });
 
+/** FEUD HARNESS: one of its band stood as the pool stands one (scenes/exteriorFoes.js standBand) - its kind's foe at its
+ *  level (a monster its kind's own, a person mine - 2: bandMembers), ordinary, `retinueOf` its master, somewhere in the
+ *  ring out to BAND_SPACING about `at` (PlaceFoeFreely's, any bearing), facing as its master faces. */
+export function standKin(m, at, yaw, id, rand) {
+  const basics = ENEMY_BASICS[m.mobileType];
+  const entity = makeEnemyEntity(m.mobileType, basics, null, m.level ?? FEUD_ME.level);
+  entity.retinueOf = id;
+  const a = rand() * Math.PI * 2, d = 1 + rand() * (BAND_SPACING - 1);
+  const { ai, atk } = foeMotor(entity, [at[0] + Math.sin(a) * d, 0, at[2] + Math.cos(a) * d], yaw);
+  const weight = enemyWeightClassicUnits(false, 'male', basics.weight ?? 0, entity.items ?? []);
+  return { entity, ai, atk, mobileType: m.mobileType, weight, dead: false, scattering: false, gone: false, blow: null, swings: 0 };
+}
+
 /** One revenant fight to its end (or `seconds`): the player 4 m off its front; `weak` - the player's weapon is of its
- *  weakness (else its weakness is fire, which a blade never strikes). Answers how it ended ('knelt', 'tore' - its will
- *  held - or 'time'), when (s), and its counts. */
-export function revenantFight({ type = M.Orc, weapon = 'Longsword', rank = 3, mode = 'trade', weak = false, seconds = 240, seed = 1 } = {}) {
+ *  weakness (else its weakness is fire, which a blade never strikes). FEUD HARNESS: `band` its band about it (its rank's),
+ *  `flight` its flight, as the pools give them; `order` whom I strike - 'master' (it first) or 'band' (its band first);
+ *  `chase` whether I run after it when it runs (false: I stand, and let it go).
+ *  Answers how it ended ('knelt', 'tore' - its will held - 'fled' - it escaped - or 'time'), when (s), and its counts. */
+export function revenantFight({ type = M.Orc, weapon = 'Longsword', rank = 3, mode = 'trade', weak = false, seconds = 240, seed = 1, band = true, flight = true, order = 'master', chase = true } = {}) {
   const rand = seeded(seed);
   const was = Math.random, wasOn = getPref('lootRarity'), wasDf = getSeed();
   Math.random = rand;
@@ -303,52 +329,103 @@ export function revenantFight({ type = M.Orc, weapon = 'Longsword', rank = 3, mo
     const ent = foe.entity;
     ent.level = Math.max(ent.level | 0, RV.REVENANT_MIN_LEVEL);
     const player = makePlayer(weapon, { material: metalFor(type) });
-    const r = RV.revenantDeed(FEUD_ME, { mobileType: type, level: ent.level, champion: 'mighty', health: 1, maxHealth: 50, team: 'Monster', _voiceId: `duel-${seed}` }, 'fled', { mobileType: type, rolls: () => 0, now: 1 });   // AUDIT FEUD 2: its id the seed's - its draws (name, personality, signature) with it
+    const r = RV.revenantDeed(FEUD_ME, { mobileType: type, level: ent.level, champion: 'mighty', health: 1, maxHealth: 50, team: 'Monster', _voiceId: `duel-${seed}` }, 'fled', { mobileType: type, rolls: () => 0, now: 1 });   // AUDIT FEUD 2: its id the seed's - its draws (name, personality, signature, kin) with it
     Object.assign(r, { rank, learned: [], wrath: 0, weak: weak ? weaponFeudClass(player.item).cls : 'fire', out: false });
     if (rank >= SIG_RANK && !r.sig) r.sig = drawSignature(r.id, r.mobileType);   // AUDIT FEUD 2: its signature, as a deed that ranks it to 2 draws it
     RV.applyRevenant(ent, r, { now: 2 });
     const { ai, atk } = foeMotor(ent);
     const f = { entity: ent, ai, mobileType: type, gender: 'male', dead: false };
+    const kin = band ? bandMembers(r, FEUD_ME.level).map((m) => standKin(m, ai.feet, ai.yaw, r.id, rand)) : [];   // RVN6: its band about it as it stands
     const p = [0, 0, 0];
-    const out = { end: 'time', t: seconds, staggers: 0, weak: 0, stood: false, windups: 0, overreach: 0, hitsOnMe: 0, perfect: 0, swings: 0, sig: !!ent.revenant?.sigBlow };
+    const out = {
+      end: 'time', t: seconds, staggers: 0, weak: 0, stood: false, windups: 0, overreach: 0, hitsOnMe: 0, perfect: 0, swings: 0, sig: !!ent.revenant?.sigBlow,
+      band: kin.length, bandSwings: 0, bandWindups: 0, bandHits: 0, bandSlain: 0, rallied: 0, portal: 0, scattered: 0, bandGone: 0, flight: false, flightAt: null, cornered: false, caught: false, stoodInFlight: false,
+    };
     let lastState = null;
     let blow = null, down = { downUntil: -Infinity, guardUntil: -Infinity };
     let swingT = rand() * player.swing, struck = false;
-    const done = (end) => { const l = ent._feud ?? {}; Object.assign(out, { end, t: +T.toFixed(3), staggers: l.staggers | 0, weak: l.weak | 0, perfect: l.perfect | 0 }); return out; };
+    const standing = (g) => !g.dead && !g.gone && !g.scattering;
+    const done = (end) => { const l = ent._feud ?? {}; Object.assign(out, { end, t: +T.toFixed(3), staggers: l.staggers | 0, weak: l.weak | 0, perfect: l.perfect | 0, caught: end !== 'fled' && !!f.fleeing }); return out; };   // `caught`: brought down as it ran
+    // RVN6 (17): it runs - its band breaks and runs from it, gone when its run is spent (scatterBand)
+    const scatter = () => { for (const g of kin) if (standing(g)) { g.scattering = true; g.ai.flee(ai.feet, BAND_SCATTER_S); out.scattered++; } };
+    // RVN4 rank 5 (15.2): at its stand its band's survivors to it (already on me here: counted), none left - RALLY_KIN of its
+    // kin through a portal about it (rallyBand)
+    const rally = () => {
+      const live = kin.filter(standing);
+      if (live.length) { out.rallied += live.length; return; }
+      for (const m of bandMembers(RV.revenantById(r.id), FEUD_ME.level, RALLY_KIN)) { kin.push(standKin(m, ai.feet, ai.yaw, r.id, rand)); out.portal++; }
+    };
     for (let step = 0; step < Math.round(seconds / DT); step++) {
       T += DT;
-      const fx = ai.feet[0] - p[0], fz = ai.feet[2] - p[2];
+      const prey = order === 'band' ? kin.filter(standing).sort((a, b) => Math.hypot(a.ai.feet[0] - p[0], a.ai.feet[2] - p[2]) - Math.hypot(b.ai.feet[0] - p[0], b.ai.feet[2] - p[2]))[0] ?? null : null;
+      const at = prey ? prey.ai.feet : ai.feet;
+      const fx = at[0] - p[0], fz = at[2] - p[2];
       noteLocalPlayer(p, [fx, 0, fz]);
       FATE.roarStep(f, T * 1000);
       ai.update(DT, p);
-      atk.update(DT, ai, p);
+      // REVENANT (revenantFleeStep, the pools' law): asked of it running, or under the line and not yet rolled
+      const run = flight && (f.fleeing || (!f._fleeRolled && RV.revenantFleeHealth(ent))) ? RV.revenantFleeStep(f, p) : null;
+      if (run === 'escape') return done('fled');
+      if (run === 'start') { out.flight = true; out.flightAt = +T.toFixed(3); scatter(); }
+      if (run === 'cornered') out.cornered = true;
+      if (run !== 'start' && run !== 'run') atk.update(DT, ai, p);   // running, it strikes nothing (the pools' `continue`)
       const s = ai._tac;
       const b = s?.state === 'windup' && s.key === LOCAL_TARGET ? s.blow : null;
       if (b && b !== blow) { blow = b; out.windups++; }
       if (s?.state === 'overreach' && lastState !== 'overreach') out.overreach++;
       lastState = s?.state ?? null;
+      for (const g of kin) {   // its band - each its own motor, attack and brain, in the pool's turn
+        if (g.dead || g.gone) continue;
+        g.ai.update(DT, p);
+        if (g.scattering) { if (!(g.ai.fleeLeft > 0)) { g.gone = true; releaseTactics(g.ai); out.bandGone++; } continue; }   // its run spent, gone (no corpse, no kill)
+        g.atk.update(DT, g.ai, p);
+        if (g.atk.swingSeq !== g.swings) { g.swings = g.atk.swingSeq; if (!g.atk.firedRanged) out.bandSwings++; }   // a plain swing at me (its damage is my health's - not modelled)
+        const gs = g.ai._tac, gb = gs?.state === 'windup' && gs.key === LOCAL_TARGET ? gs.blow : null;
+        if (gb && gb !== g.blow) { g.blow = gb; out.bandWindups++; }
+        if (g.ai._blowFx) { out.bandHits++; down = landOnMe(g.ai, g.entity, g.mobileType, player, T, down); }
+      }
       // the perfect dodge: inside at the brain's late sample (its first 16 Hz turn inside TELL_LATE of the landing - by
-      // TELL_LATE less a turn), out before the landing: half TELL_LATE before it
-      if (mode === 'dodge' && blow && T >= blow.land - TELL.TELL_LATE / 2 && T < blow.land && inBlow(blow, p[0], p[2])) stepOut(blow, p);
+      // TELL_LATE less a turn), out before the landing: half TELL_LATE before it - its band's blows as its own
+      const blows = [blow, ...kin.map((g) => g.blow)].filter(Boolean);
+      if (mode === 'dodge') for (const lb of blows) if (T >= lb.land - TELL.TELL_LATE / 2 && T < lb.land && inBlow(lb, p[0], p[2])) stepOut(lb, p);
       if (ai._blowFx) { out.hitsOnMe++; down = landOnMe(ai, ent, type, player, T, down); }   // a landing that hit me (TELL6e)
-      // back into reach at a walk (DFU's at Speed 50) - the dodger once the wind-up it left has been judged (AUDIT FEUD 2:
-      // the brain's next 16 Hz turn after its landing - walking back at the landing itself walked into it)
-      const d = Math.hypot(fx, fz);
-      if (d > REACH - CLOSE && T >= down.downUntil && !(mode === 'dodge' && blow && T < blow.land + CLASSIC_UPDATE_INTERVAL)) {
-        const k = Math.min(WALK * DT, d - (REACH - CLOSE)) / d;
+      // back into reach at a walk (DFU's at Speed 50), a fleeing one chased at a run - the dodger once every wind-up it
+      // left has been judged (AUDIT FEUD 2: the brain's next 16 Hz turn after its landing - walking back at the landing
+      // itself walked into it)
+      const d = Math.hypot(fx, fz);   // where it stood as I stepped - my step before the foes' (the frame's order)
+      const chasing = f.fleeing && !prey;
+      if (d > REACH - CLOSE && T >= down.downUntil && (chase || !chasing) && !(mode === 'dodge' && blows.some((lb) => T < lb.land + CLASSIC_UPDATE_INTERVAL))) {
+        const k = Math.min((chasing ? RUN : WALK) * DT, d - (REACH - CLOSE)) / d;
         p[0] += fx * k; p[2] += fz * k;
       }
       if (T >= down.downUntil) swingT += DT;   // AUDIT FEUD 2: knocked down, the swing stands (the rig's `paralyzed`)
       if (swingT >= player.swing) { swingT -= player.swing; struck = false; out.swings++; }
       if (struck || swingT < player.hitAt) continue;
       struck = true;   // AUDIT FEUD 2: the hit frame is a moment - out of reach then, the swing missed
+      if (prey) {   // `order` 'band': its band first - an ordinary foe, slain at none
+        if (Math.hypot(prey.ai.feet[0] - p[0], prey.ai.feet[2] - p[2]) > REACH) continue;
+        const dmg = calculateAttackDamage(player.entity, prey.entity, { weapon: player.item });
+        if (!(dmg > 0)) continue;
+        prey.entity.health -= dmg;
+        if (prey.entity.health <= 0) { prey.dead = true; releaseTactics(prey.ai); out.bandSlain++; continue; }
+        const ps = prey.ai._tac;
+        const pw = ps?.state === 'windup' || ps?.state === 'overreach' ? windupDoor(prey, dmg, { kind: 'melee', weapon: player.item, from: p, weight: prey.weight }) : null;
+        knockFoe(prey.ai, prey.mobileType, prey.weight, dmg, pw, p);
+        continue;
+      }
       if (Math.hypot(ai.feet[0] - p[0], ai.feet[2] - p[2]) > REACH) continue;
       if (FATE.fateHeld(f) || f.roaring) continue;   // the pools' door: no blow reaches it
       const dmg = calculateAttackDamage(player.entity, ent, { weapon: player.item });
       if (!(dmg > 0)) continue;
       ent.health -= dmg;
       if (ent.health <= 0) {
-        if (FATE.revenantLastStandDue(f)) { FATE.beginLastStand(FEUD_ME, f, { now: T * 1000, clock: T, roar: (sec) => beginRoar(ai, ent, sec), rolls: rand }); out.stood = true; continue; }
+        if (FATE.revenantLastStandDue(f)) {
+          if (f.fleeing) out.stoodInFlight = true;
+          const ev = FATE.beginLastStand(FEUD_ME, f, { now: T * 1000, clock: T, roar: (sec) => beginRoar(ai, ent, sec), rolls: rand });
+          out.stood = true;
+          if (band && ev && (ent.revenant.rank | 0) >= 5) rally();   // the pools' word: its rank-5 rally rides its stand's card (no band, none)
+          continue;
+        }
         return done(FATE.revenantWillHolds(f) ? 'tore' : 'knelt');
       }
       const word = s?.state === 'windup' || s?.state === 'overreach' ? windupDoor(f, dmg, { kind: 'melee', weapon: player.item, from: p, weight: foe.weight }) : null;
@@ -379,6 +456,13 @@ export function revenantCell(opts, fights) {
     perfect: +(rows.reduce((a, x) => a + x.perfect, 0) / fights).toFixed(2), hitsOnMe: +(rows.reduce((a, x) => a + x.hitsOnMe, 0) / fights).toFixed(2),
     windups: +(rows.reduce((a, x) => a + x.windups, 0) / fights).toFixed(2), overreach: +(rows.reduce((a, x) => a + x.overreach, 0) / fights).toFixed(2),
     twoStaggers: +(rows.filter((x) => x.staggers >= 2).length / fights).toFixed(3),
+    // FEUD HARNESS: its flight - fights it ran in, escaped (`fled`), run down and cornered, brought down as it ran, risen in
+    // its last stand as it ran; its band - its size, its plain swings and its telegraphed blows at me and their landings (a
+    // fight's mean), its rank-5 rally's (to it; through a portal), my kills of it, its scattered
+    fled: n('fled'), flights: rows.filter((x) => x.flight).length, cornered: rows.filter((x) => x.cornered).length,
+    caught: rows.filter((x) => x.caught).length, stoodInFlight: rows.filter((x) => x.stoodInFlight).length,
+    band: +(sum('band') / fights).toFixed(2), bandSwings: +(sum('bandSwings') / fights).toFixed(2), bandWindups: +(sum('bandWindups') / fights).toFixed(2),
+    bandHits: +(sum('bandHits') / fights).toFixed(2), rallied: sum('rallied'), portal: sum('portal'), bandSlain: +(sum('bandSlain') / fights).toFixed(2), scattered: sum('scattered'),
   };
 }
 
@@ -407,8 +491,14 @@ export function measureFeud({ fights = 1000, weapons = ['Dagger', 'Longsword', '
   }
   const ranks = [];
   for (const mode of ['trade', 'dodge']) for (let rank = 1; rank <= 5; rank++) ranks.push({ weapon: 'Longsword', mode, rank, ...revenantCell({ weapon: 'Longsword', mode, rank }, fights) });
+  // FEUD HARNESS: beside the targets (read off the fights the pools give - its band, its flight): a Longsword against its
+  // band first, ranks 3 and 5 (rank 5's rally through a portal); and the rank-3 duel as AUDIT FEUD 2 measured it -
+  // alone, never running - for the difference
+  const beside = [];
+  for (const rank of [3, 5]) for (const mode of ['trade', 'dodge']) beside.push({ weapon: 'Longsword', mode, rank, order: 'band', ...revenantCell({ weapon: 'Longsword', mode, rank, order: 'band' }, fights) });
+  for (const mode of ['trade', 'dodge']) beside.push({ weapon: 'Longsword', mode, rank: 3, order: 'alone', ...revenantCell({ weapon: 'Longsword', mode, rank: 3, band: false, flight: false }, fights) });
   const verdict = feudVerdict(duel, ranks);
-  return { fights, duel, ranks, verdict };
+  return { fights, duel, ranks, beside, verdict };
 }
 
 if (isMain(import.meta.url)) {
@@ -433,10 +523,13 @@ if (isMain(import.meta.url)) {
   }
   if (fr && !process.argv.includes('--json')) {
     const pct = (v) => `${(v * 100).toFixed(1).padStart(5)}%`;
-    console.log(`\nTHE REVENANT (an Orc revenant, ${fr.fights} fights a cell, to its end): how it ended, the time to the end, its staggers and my perfect dodges a fight`);
-    for (const x of fr.duel) console.log(`  ${x.weapon.padEnd(10)} rank ${x.rank} ${x.mode.padEnd(6)} ${x.weak ? 'its weakness' : 'plain       '}  knelt ${pct(x.kneel)}  mean ${String(x.mean).padStart(6)} s  median ${String(x.median).padStart(7)} s  staggers ${x.staggers}  two+ ${pct(x.twoStaggers)}  perfect ${x.perfect}  wind-ups ${x.windups}  blows on me ${x.hitsOnMe}`);
+    const runBand = (x) => `ran ${x.flights} (fled ${x.fled}, cornered ${x.cornered}, caught ${x.caught}, stood running ${x.stoodInFlight})  band ${x.band}: swings ${x.bandSwings} wind-ups ${x.bandWindups} landed ${x.bandHits} slain ${x.bandSlain} rallied ${x.rallied} portal ${x.portal}`;
+    console.log(`\nTHE REVENANT (an Orc revenant with its band, ${fr.fights} fights a cell, to its end): how it ended, the time to the end, its staggers and my perfect dodges a fight; its flight and its band`);
+    for (const x of fr.duel) console.log(`  ${x.weapon.padEnd(10)} rank ${x.rank} ${x.mode.padEnd(6)} ${x.weak ? 'its weakness' : 'plain       '}  knelt ${pct(x.kneel)}  mean ${String(x.mean).padStart(6)} s  median ${String(x.median).padStart(7)} s  staggers ${x.staggers}  two+ ${pct(x.twoStaggers)}  perfect ${x.perfect}  wind-ups ${x.windups}  blows on me ${x.hitsOnMe}  ${runBand(x)}`);
     console.log('\nTHE RANKS (a Longsword): the time to the end');
-    for (const x of fr.ranks) console.log(`  rank ${x.rank} ${x.mode.padEnd(6)} knelt ${pct(x.kneel)}  mean ${String(x.mean).padStart(6)} s  median ${String(x.median).padStart(7)} s  stood ${x.stood}`);
+    for (const x of fr.ranks) console.log(`  rank ${x.rank} ${x.mode.padEnd(6)} knelt ${pct(x.kneel)}  mean ${String(x.mean).padStart(6)} s  median ${String(x.median).padStart(7)} s  stood ${x.stood}  ${runBand(x)}`);
+    console.log('\nBESIDE THE TARGETS (a Longsword): its band first; alone and never running (as AUDIT FEUD 2 measured)');
+    for (const x of fr.beside) console.log(`  rank ${x.rank} ${x.mode.padEnd(6)} ${x.order.padEnd(6)} knelt ${pct(x.kneel)}  mean ${String(x.mean).padStart(6)} s  median ${String(x.median).padStart(7)} s  blows on me ${x.hitsOnMe}  ${runBand(x)}`);
     console.log('\nRVN TARGETS');
     for (const [k, v] of Object.entries(fr.verdict)) console.log(`  ${v.held ? 'held  ' : 'MISSED'} ${k} ${JSON.stringify(v)}`);
   }

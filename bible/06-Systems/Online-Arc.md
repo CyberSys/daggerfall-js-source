@@ -4801,7 +4801,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:6033`). With the property missing that call is a
+(`dungeonContext.js:6034`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -7151,7 +7151,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1178`, `src/net/online.js:2452`):**
+**Now (`src/net/wire.js:1186`, `src/net/online.js:2452`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -14289,6 +14289,11 @@ An heir's stream (a foe adopted after its owner left, a room's new authority) ke
 AUDIT FEUD 2: only a blow that landed (`damage > 0`) carries the weakness - a miss carried it as "bare hands"; the
 owner's reveal raises no word on its own screen for a peer's blow (the peer's says it); each player's shaft carries its
 bow, so a metal weakness rides too.
+**FEUD WIRE (2026-10-05; relay world165)**: both streams carry `rb` - a revenant's stand's blows over its kind's (its
+rank's, its wrath's, a Night-stalker's night), per mille - and a wind-up's signature flag (`wk` +64). A puppet folds `rb`
+and phase two's x1.2 (`p2`) onto its own `damageScale` once (the last factor taken out first) and strikes a flagged
+signature at x2.0, so a peer is struck as the owner is; an heir writes `rb` back. The pyre and the signature's called
+name stay the owner's.
 
 ## TELL8 - a wind-up on the foe stream (2026-10-04)
 

@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL, RVN1-RVN13, AUDIT FEUD, FEUD BALANCE and AUDIT FEUD 2 built)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL, RVN1-RVN13, AUDIT FEUD, FEUD BALANCE, AUDIT FEUD 2, FEUD WIRE and FEUD HARNESS built)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -7,7 +7,7 @@ detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
 (section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts), AUDIT
-TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), RVN8, RVN9, RVN10, RVN11 in three parts (RVN11a loyalty, RVN11b desertion, RVN11c betrayal), RVN12 in two (RVN12a the words, RVN12b the page and the card), RVN13, AUDIT FEUD (its balance table measured three of RVN's targets missed - section 31's OPEN 22-24) FEUD BALANCE (Mac's calls on them, built) and AUDIT FEUD 2 (both read again; the duel harness made faithful to the pools - every target of section 28 holds); each slice's record is at the foot.**
+TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), RVN8, RVN9, RVN10, RVN11 in three parts (RVN11a loyalty, RVN11b desertion, RVN11c betrayal), RVN12 in two (RVN12a the words, RVN12b the page and the card), RVN13, AUDIT FEUD (its balance table measured three of RVN's targets missed - section 31's OPEN 22-24) FEUD BALANCE (Mac's calls on them, built), AUDIT FEUD 2 (both read again; the duel harness made faithful to the pools - every target of section 28 holds), FEUD WIRE (a revenant's blows - its rank's, wrath's, night's, last stand's and signature's - reach a peer; relay world165) and FEUD HARNESS (the harness fights its band and its flight - every target still holds; a fault it found fixed); each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -659,7 +659,10 @@ before the yield in both damage doors (`exteriorFoes.js damageFoe`, `dungeonCont
 - **Rank 5**: its band's survivors run to it; with none left, two of its kin step out of a portal (`scenes/portalFx.js`)
   - within the pool's cap.
 - **The card**: *Last stand*, and its words (23).
-- **Online**: `p2` (25) - the glow and the size on puppets.
+- **Online**: `p2` (25) - the glow and the size on puppets; FEUD WIRE: and phase two's x1.2 on a puppet's blows.
+- **Risen as it runs** (FEUD HARNESS, the record at the foot): its run is over (`beginLastStand` ends the motor's
+  `fleeLeft`, as a kneel and a tear-away do) - before, it ran on untargeted for the rest of its run, neither cornered nor
+  escaped.
 
 ## 16. Signature blows (RVN5)
 
@@ -988,6 +991,12 @@ For the living, under what it is:
   through the reveal's own door (`feudLedger.feudRevealWeak`).
 - **AUDIT FEUD**: that reveal never fired (no sender set the class's weakness bit; a class rode only in a wind-up) -
   both senders now pass it, winding up or not; an heir's stream keeps writing the fields (the record at the foot).
+- **FEUD WIRE (Mac, 2026-10-05: "Take care of both gaps"; the record at the foot)**: a revenant's blows at a PEER were
+  its kind's plain ones. Now both streams carry `rb` - its stand's blows over its kind's (its rank's, its wrath's, a
+  Night-stalker's night: `entity.revenant.blows`, written at `applyRevenant`), per mille - and a wind-up's signature
+  (`wk` +64). A puppet folds `rb` and phase two's x1.2 (from `p2`) onto its own `damageScale` (its kind's, its elite's,
+  its champion's) when they change - the factor it stood with last taken out first, so never twice - and strikes a
+  signature at x2.0 in its ember, its WIND deeper. An heir writes `rb` back from the puppet's stamp. Relay **world165**.
 
 ## 26. The record, whole
 
@@ -1094,7 +1103,11 @@ over rank 1: 3.25 trading, 2.98 dodging - the last stand's share grows with the 
 target holds. **AUDIT FEUD 2** made the harness faithful to the pools (the AUDIT FEUD 2 record) and measured again: the will
 by dodging 94.6%, by its weakness 100%, by trading 12.7%; a perfect dodger struck by 0.2% of a trader's telegraphed blows,
 in 98.4% of its time; rank 5 over rank 1, 2.66 trading and 2.63 dodging; TELL's four hold (LIGHT 0.5%, HEAVY 91.0%,
-MASSIVE 97.7% of the floor, FAIR 0) - every target holds, each with room.
+MASSIVE 97.7% of the floor, FAIR 0) - every target holds, each with room. **FEUD HARNESS** fought the rest of the fight
+the pools give a revenant - its band and its flight (the FEUD HARNESS record) - and measured again: the will by dodging
+88.0%, by its weakness 100%, by trading 11.4%; a perfect dodger struck by none of a trader's telegraphed blows (0 in a
+thousand fights), in 99.2% of its time; rank 5 over rank 1, 2.69 trading and 2.62 dodging - every target holds. The
+duel alone and never running, measured beside them, is AUDIT FEUD 2's to the fight (12.7% and 94.6%).
 
 ## 29. Tests, mutants and probes
 
@@ -1245,10 +1258,8 @@ With 22 and 23 as recommended together (measured): the will 100 / 90 / 12%, the 
 - **The dungeon stream's gaps.** `roomRecord` carries no `z`, `nm`, `yd`, `ex` or `sp` today; FEUD adds only its own
   fields there and leaves the gap FLAGGED (RVN13: with no `nm` there, no band follower's `rt` either - a follower in a
   dungeon stands unnamed on a joiner's screen; the same flag names it).
-- **A revenant puppet's blows at a peer** (AUDIT FEUD). Its owner's `damageScale` - its rank's, its wrath's, a
-  Night-stalker's night, phase two's x1.2 - rides no wire, so a peer's copy strikes the peer with its kind's plain blows
-  (REVENANT-WIRE's law as it was, before FEUD; RVN13 carried what a peer's roll AGAINST it needs). The day a foe record
-  carries its owner's scale, the sentence goes.
+- **A revenant puppet's blows at a peer** (AUDIT FEUD) - closed by FEUD WIRE (section 25): `rb` and the signature's
+  flag ride both streams.
 - **The single-location host.** `scenes/exterior.js` builds its pool without `fates`, so its revenants die outright;
   and it builds no location index, so they roam (no lair - RVN7a). FLAGGED in every RVN slice's record.
 - **RVN11a's fields.** RVN1 changed the record once for every field FEUD foresaw; loyalty's own moves needed two more on
@@ -2091,7 +2102,9 @@ and `dungeonContext.js`.
   its sinks), so my Spell Reflection sends the pyre back at its body.
 - **Not built here** - the signature on the wire: a signature of reach rides as its shape and its iron, at its shape's
   multiplier on a peer's machine; the pyre not at all, and so it is wound up only at me (RVN13); the card's iron-red
-  edge and the *signature* voice moment (RVN12).
+  edge and the *signature* voice moment (RVN12). **FEUD WIRE** carried it: a signature of reach rides flagged (`wk`
+  +64) and a peer's puppet strikes it at x2.0, in its ember, its WIND deeper; the pyre still rides nowhere (a spell,
+  wound up only at me), and its called name stays its owner's (its voice reads the owner's record).
 - Pins `test/rvn5_sig.test.js` (13). Pins moved (each marked `PIN MOVED (RVN5: ...)`): `tell6c_leap` (the shader's
   disc uniforms shared with the pyre), `audittell` (B6: the feint's guard reads the signature and the pyre too).
 - Mutants `tools/mutants/rvn5.json` (91): 91 dead. Mutant records re-aimed by content (16): `tell2` (2), `tell3` (2),
@@ -2649,3 +2662,82 @@ it was fixed.
   `audittell`, `feudbalance`, `revenantaudit`, `rvn10`, `rvn11b`, `rvn13`, `rvn8` (one each) - each judged again, all
   dead.
 
+### FEUD WIRE - BUILT 2026-10-05 (Mac: "Take care of both gaps"; the loot-rarity row on; both foe streams; relay world165)
+
+AUDIT FEUD's named gap (section 32): online, a revenant puppet struck a peer with its kind's plain blows - its owner's
+`damageScale` (its rank's x1.1 a rank, its wrath's x1.05 a wrath, a Night-stalker's x1.15 by night, phase two's x1.2)
+rode no wire, and a signature of reach landed at its shape's multiplier (a slam's x1.75, not x2.0).
+
+- **The owner** - `systems/revenant.js applyRevenant` keeps its stand's blows over its kind's on its stamp
+  (`entity.revenant.blows` - the scale it stood with over the one before it, so an elite's or a champion's never counts);
+  a deed that stamps it again (a killer over my body, a felling) keeps them, as it keeps phase two.
+- **The law** - `systems/revenantFeud.js`: `BLOWS_WIRE` (per mille, x1 to x4); `feudWire` writes `rb` (none at x1;
+  clamped to the law, so a record is never refused whole for it); `feudFromWire` reads it onto the puppet's stamp as
+  `blows`, so an heir writes it back; `puppetRevenantBlows(entity, record)` folds `rb` and phase two's x1.2 (`p2`) onto
+  the puppet's own `damageScale` - the factor it stood with last (`entity._revBlows`) taken out first, so a record said
+  again never doubles it, one changed refolds it, one that says none gives its own back. `ai/puppetBlows.js`: `WIRE_SIG`
+  (`wk` +64) - `blowWire` flags a signature; `applyBlowRecord` takes the host's signature numbers (`sig`, the brain
+  bringing no revenant system) and strikes a flagged one at `SIG.MULT`, in `SIG.COLOR`, its WIND at `SIG.WIND_PITCH`.
+- **The wire** - `net/wire.js validFoeRecord`: `rb` (a whole FOE_BLOWS_MIN..FOE_BLOWS_MAX), `wk` bounded at 127 - each
+  refused whole outside its law. `RELAY_VERSION` **world165** and its `relayversion` row; the tests naming the relay
+  moved with it.
+- **The hosts** - `scenes/exteriorFoes.js` (the street, both interiors) and `scenes/dungeonContext.js` (the room
+  stream): each writes `rb` through `feudWire` and keys it; each folds a puppet's blows when its feud fields change (the
+  dungeon's also when the record says none); each passes `SIG` to the puppet's blow. A peer's blow lands through the host's
+  own door (`calculateAttackDamage`'s `damageScale` tail, then `blowScaled`'s multiplier), so the peer is struck as the
+  owner is.
+- **Not on the wire** - the pyre (a spell, wound up only at me - RVN13) and the signature's called name (its voice reads
+  the owner's record).
+- Pins `test/feudwire.test.js` (8 - one through the real street pool). Pins moved (each marked): `tell8_online` (the law's flag bound, both keys, both
+  applies), `rvn13_wire` (the street's reader; the relay), `revenant_card` (the street's key), `world3` (the room's
+  key); and the relay's name in 28 tests (world164 -> world165,
+  `relayversion` excluded as its own law asks, its world165 row added). Mutants `tools/mutants/feudwire.json` (35): 35
+  dead. Re-aimed by content (14): `rvn13` (9), `tell8` (4), `soc1`'s S38 - each judged again: dead.
+
+### FEUD HARNESS - 2026-10-05 (Mac: "Take care of both gaps"; the duel harness, and one fault in the game it found)
+
+AUDIT FEUD 2's disclosed gap: the duel harness (`tools/tellDuel.mjs`) fought a revenant alone and never let it run.
+
+- **Its band** - `standKin`: its kin as the street pool stands them (`standBand`): `bandMembers` by rank (RETINUE's -
+  none at 1, then 1, 2, 3, 3), each its kind's foe at its own level (a person at mine - 2), ordinary, `retinueOf` its
+  master, in the ring out to BAND_SPACING about it; each with its own motor, attack component and brain - the brain's
+  tokens shared with its master's, a kin of the tier winding up at me (its iron landings knocking me down; the dodger
+  out of its blows as of its master's).
+- **Rank 5's rally** - at its stand its band's survivors to it (they are on me already: counted); none standing,
+  RALLY_KIN of its kin through a portal (`rallyBand`). **Its scatter** - it runs: its band runs from it for
+  BAND_SCATTER_S and is gone when the run is spent (`scatterBand`). No band (`band: false`): no rally.
+- **Its flight** - `revenantFleeStep`, the pools' one law, asked of it running or under the line and not yet rolled:
+  running, its attack is not stepped (the pools' `continue`); escaped, the fight is over (`fled`); run down, cornered,
+  it fights on. I chase it at DFU's run (Speed 50, Running 50: 8.10 m/s), or (`chase: false`) let it go.
+- **Whom I strike** - its master first (`order` 'master'), or its band first ('band', the nearest standing kin).
+- **The fault it found** - a revenant risen in its last stand as it ran ran on: `beginLastStand` set `f.fleeing` false
+  but left the motor's run (`ai.fleeLeft`) going, so it ran untargeted for the rest of its run, and the flee law - asked
+  no more - never cornered it nor let it escape. `systems/revenantFate.js beginLastStand` ends the run, as `beginYield`
+  and `beginTearAway` do. In the measure below about one rank-3 fight in ten rises in its stand as it runs.
+- **Held as it was** - the walk back into reach aims where the foe stood as I stepped (my step before the foes', the
+  frame's order), as AUDIT FEUD 2's did: the duel alone and never running reproduces its numbers to the fight.
+- **Never modelled** - the player's own health (so the band's plain blows - its kin under the tier - land on nobody),
+  a kin's spells (an Orc Shaman's), the foes' bodies against each other, the pools' placement probes (flat ground).
+
+Measured, a thousand fights a cell, an Orc revenant (its kin Orcs, Orc Sergeants and Orc Shamans - none winds up: the
+first two are under the tier, the Shaman has no melee shape):
+
+| A rank-3 Orc revenant, its band and its flight | knelt | time to its end (mean) | telegraphed blows on me |
+|---|---|---|---|
+| Longsword, trading | 11.4% | 12.4 s | 1.73 |
+| Longsword, dodging | 88.0% | 12.3 s | 0.00 |
+| Longsword, its weakness | 100% | 9.2 s | 1.43 |
+| Dagger, trading / dodging | 0% / 87.8% | 23.3 / 22.9 s | 2.04 / 0.00 |
+| Warhammer, trading / dodging | 20.0% / 93.7% | 12.7 / 13.7 s | 1.58 / 0.04 |
+
+Rank 5 over rank 1: 2.69 trading (16.6 / 6.2 s), 2.62 dodging (16.1 / 6.1 s). It runs in 8 to 17% of fights (one
+roll, under a fifth of its health) and is run down every time (none escaped a chaser; a few in a thousand cornered); its band swings at me about
+9 times a rank-3 fight and 18 a rank-5. At rank 5 its band stands with it at its stand in seven fights in eight; in
+the rest a flight had scattered it, and two kin step out of a portal. Its band first: a rank 3 takes 29 s, a rank 5
+58 s (its band slain, the portal every time). Alone and never running: 12.7% and 94.6% - AUDIT FEUD 2's. Every RVN
+target holds (the will 100 / 88.0 / 11.4%, dodging struck 0% in 99.2% of the time, the ranks 2.69 / 2.62), so no call
+goes to Mac. TELL's half is unchanged (its fights stand no band).
+- Pins `test/feudharness.test.js` (7). Pins moved (each marked): `auditfeud` (the duel's laws on its seeds, alone and
+  never running), `auditfeud2` (the dodger waits on every wind-up at me). Mutants `tools/mutants/feudharness.json` (25):
+  25 dead. Re-aimed by content (2): `auditfeud`'s AF-S28-dodge-early and `auditfeud2`'s AF2-S1-dodger-early; every
+  record on the harness (16) judged again: all dead.
