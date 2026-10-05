@@ -78,6 +78,20 @@ export const ARRIVAL_JUMP_MIN = 15;
 export const ARRIVAL_STEP_M = 40;
 /** The searches a frame may make while the street is being stood on arrival. */
 export const ARRIVAL_PATHS_PER_FRAME = 32;
+/** AUDIT-G1: the searches a census beat may make for the walks not searched yet that may pass near the player. */
+export const CENSUS_PATHS = 4;
+/** AUDIT-G1: how far (m) a walk's path may stray outside the box its two ends make - a town's streets turn a path about
+ *  a block at most (the synthetic town's straying, measured: 16 m). */
+export const WALK_STRAY_M = 48;
+
+/** AUDIT-G1: the gap (m) from `p` to the box a walk's two ends make - no nearer can its path pass, but by WALK_STRAY_M.
+ *  @param {{ from?: { x: number, z: number }, to?: { x: number, z: number } }} e @param {number[]} p */
+export function walkGap(e, p) {
+  const a = /** @type {{ x: number, z: number }} */ (e.from), b = /** @type {{ x: number, z: number }} */ (e.to);
+  const gx = Math.max(Math.min(a.x, b.x) - p[0], 0, p[0] - Math.max(a.x, b.x));
+  const gz = Math.max(Math.min(a.z, b.z) - p[2], 0, p[2] - Math.max(a.z, b.z));
+  return Math.hypot(gx, gz);
+}
 /** How long a word to the player stands (real seconds). */
 export const GREET_S = 3.4;
 /** A resident's line stands this high over their feet (m) - a townsperson's billboard and a little. */
@@ -323,6 +337,8 @@ export class LivingTown {
    * Where a resident's day has them at minute `t`, or null indoors. `search` lets this frame's budget search a path.
    * A walk is its path walked at `_walked`'s pace: one that has not arrived when its window closes holds the walker
    * past it, and one that arrives early stands them at its end (or takes them through the door, out of the gate).
+   * A walk whose path is not searched yet is `pending` (AUDIT-G1: the census searches the ones that may pass near the
+   * player, `_tick`).
    * @param {Resident} res @param {number} t @param {boolean} search
    * @returns {{ x: number, z: number, yaw: number, moving: boolean, e: Entry, pending?: boolean, fromDoor?: boolean } | null}
    */
@@ -398,6 +414,8 @@ export class LivingTown {
     /** @type {Map<string, any>} */
     const spotOf = new Map();
     const wanted = [];
+    /** @type {{ res: Resident, gap: number }[]} */
+    const pending = [];
     if (this.o.harbour && !this.places.dock.length && !this._harbourDock) this.dockSpot();   // LW5: the harbour sounded since
     for (const res of [...this.peopleOf(day), ...this._crewsNow()]) {
       if (this._taken.get(res.id) === day) continue;
@@ -413,8 +431,21 @@ export class LivingTown {
       }
       const w = this.where(res, t, false);
       if (!w) continue;
+      if (w.pending) { const gap = walkGap(w.e, playerPos); if (gap < LIVING_RANGE + WALK_STRAY_M) pending.push({ res, gap }); continue; }
       const d = Math.hypot(w.x - playerPos[0], w.z - playerPos[2]);
       if (d < LIVING_RANGE) wanted.push({ res, d });
+    }
+    // AUDIT-G1: THE WALKS NOT SEARCHED YET THAT MAY PASS NEAR - searched here, the nearest first, on the census's own
+    // budget (the rest on the beats after). Read at their start, a walk begun beyond the street's reach was never searched
+    // (only a row on the street searches its own) and its walker never came on, though they passed beside the player
+    if (pending.length) {
+      pending.sort((a, b) => a.gap - b.gap || (a.res.id < b.res.id ? -1 : 1));
+      this._paths.budget(this._arriving ? ARRIVAL_PATHS_PER_FRAME : CENSUS_PATHS);
+      for (const { res } of pending) {
+        const w = this.where(res, t, true);
+        const d = w ? Math.hypot(w.x - playerPos[0], w.z - playerPos[2]) : Infinity;   // one the budget did not reach: at its start, as it was
+        if (w && d < LIVING_RANGE) wanted.push({ res, d });
+      }
     }
     wanted.sort((a, b) => a.d - b.d || (a.res.id < b.res.id ? -1 : 1));
     const keep = new Set(wanted.slice(0, this.maxPopulation).map((w) => w.res));

@@ -223,8 +223,11 @@ export function dayPlan(res, places, day, { mpm, away = [], visitor = false, hom
       const [from, until] = shift === 0 ? [h(6), h(16)] : [h(14), h(24)];
       const beat = guardBeat(res, places, day);
       let t = from;
-      for (let i = 0; beat.length && t < until && i < 64; i++) {
-        I('watch', beat[i % beat.length], t, rollInt(rng, 3, 8), until, Infinity);
+      // AUDIT-G2: each stop a stay's length at the least (MIN_STAY - `schedule` drops a shorter one: drawn at three to
+      // eight minutes, five stops in six were dropped and the 64 ran out hours before the shift's end), and stops enough
+      // for the whole shift
+      for (let i = 0, n = Math.ceil((until - from) / MIN_STAY); beat.length && t < until && i < n; i++) {
+        I('watch', beat[i % beat.length], t, rollInt(rng, MIN_STAY, MIN_STAY + 7), until, Infinity);
         t += 1;   // each stop follows the last as soon as the walk to it allows
       }
       if (shift === 0) evening(h(18));
@@ -338,14 +341,17 @@ export function schedule(intents, { D0, D1, wake, bed, home, mpm, away }) {
       if (w.armed) { fill(leaveHome - GEAR_MIN); if (leaveHome > cursor) { push('gear', home, cursor, leaveHome); cursor = leaveHome; } }
       go(exit, w.t0, { armed: !!w.armed }, 'away');
     }
-    const t1 = Math.min(D1, w.t1);
+    const back = exit && exit !== home ? walkMinutes(exit, home, mpm) : 0;
+    let t1 = Math.min(D1, w.t1);
+    // AUDIT-G5: a walk home that would run past the day's end is never begun - away to the end, the next day's plan has
+    // them home (its own day drops the window; the walk cut at 04:00 left the street mid-step, in plain view)
+    if (back > 0 && Math.max(cursor, t1) + back > D1) t1 = D1;
     if (t1 > cursor) push('away', exit ?? home, cursor, t1, { armed: !!w.armed });
     cursor = Math.max(cursor, t1);
     at = exit ?? home; atKind = 'away';
-    if (w.t1 < D1 && exit && exit !== home) {
-      const m = walkMinutes(exit, home, mpm);
-      push('walk', home, cursor, cursor + m, { from: exit, to: home, armed: !!w.armed });
-      cursor += m;
+    if (cursor < D1 && back > 0) {
+      push('walk', home, cursor, cursor + back, { from: exit, to: home, armed: !!w.armed });
+      cursor += back;
       at = home; atKind = 'home';
     }
   };

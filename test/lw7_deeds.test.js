@@ -235,7 +235,7 @@ test('LW7 the town\'s deeds: a resident struck down (`slain`) is dead for good f
   c.town.caught(v);
   assert.equal(c.relations.regard(v.living.id, cday), EVENTS.crime, 'the purse\'s own');
   for (const id of cNear) assert.equal(c.relations.regard(id, cday), EVENTS.crime, `${id} saw the hand`);
-  const w = cseats[1].person;
+  const w = cseats.find((x) => x.person !== v && !cNear.includes(x.person.living.id)).person;   // one who did not see the hand
   assert.equal(c.town.toned(w, 1), null, 'a plain word: nothing');
   c.town.toned(w, 0);
   assert.equal(c.relations.regard(w.living.id, cday), EVENTS.polite);

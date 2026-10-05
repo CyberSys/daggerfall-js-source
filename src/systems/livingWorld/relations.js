@@ -138,9 +138,12 @@ export function createRelations(record = null) {
     const ease = apart * EASE_PER_DAY;
     return e.r > 0 ? Math.max(0, e.r - ease) : Math.min(0, e.r + ease);
   };
-  const trim = () => {
+  /** Past RELATIONS_MAX the faintest regard goes first (the longest unseen of equals) - AUDIT-G3: as it stands on `day`,
+   *  never `keep` (the one just noted). It read the regard as last noted, so a crowd's old crime, long eased to nothing,
+   *  outweighed every new acquaintance, and a word to a stranger was forgotten as it was said. */
+  const trim = (day, keep) => {
     if (map.size <= RELATIONS_MAX) return;
-    const order = [...map.entries()].sort((a, b) => (Math.abs(a[1].r) - Math.abs(b[1].r)) || (a[1].seen - b[1].seen));
+    const order = [...map.entries()].filter(([id]) => id !== keep).sort((a, b) => (Math.abs(eased(a[1], day)) - Math.abs(eased(b[1], day))) || (a[1].seen - b[1].seen));
     for (let i = 0; map.size > RELATIONS_MAX && i < order.length; i++) map.delete(order[i][0]);
   };
   return {
@@ -167,7 +170,7 @@ export function createRelations(record = null) {
       e.r = clamp(now + delta);
       e.seen = day;
       map.set(id, e);
-      trim();
+      trim(day, id);
       return e.r;
     },
     /** The player saw `id` on `day` (the regard stops easing from today). @param {string} id @param {number} day */

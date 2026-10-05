@@ -569,9 +569,10 @@ function onKey(e) {
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     e.preventDefault(); e.stopPropagation();
-    const i = CHRONICLE_SECTIONS.findIndex(([id]) => id === section);
-    const n = CHRONICLE_SECTIONS.length;
-    section = CHRONICLE_SECTIONS[(i + (e.key === 'ArrowDown' ? 1 : n - 1)) % n][0];
+    const list = chronicleSections(deps);   // AUDIT-G4: the sections the window shows - LW7c's People among them (the four alone never reached it)
+    const i = list.findIndex(([id]) => id === section);
+    const n = list.length;
+    section = list[(i + (e.key === 'ArrowDown' ? 1 : n - 1)) % n][0];
     render();
     return;
   }

@@ -672,6 +672,33 @@ before the fix) found three more; each is fixed and pinned (`test/lwfix2_watch.t
   noted on day -1 counted for nothing, the regard eased at once). They read the clock's own minute now (the street's
   is the same minute while it stands).
 
+## LW-FIX3 - the town's five (2026-10-05)
+
+The deep audit of everything the branch made (seven agents, each finding verified against the code before the fix)
+found five in the town core; each is fixed and pinned (`test/lwfix3_town.test.js`, `tools/mutants/lwfix3.json`).
+
+- **The walks coming near** (`livingTown.js _tick`, CENSUS_PATHS, WALK_STRAY_M, `walkGap`). The census read a walk
+  whose path was not searched yet at its start, and only a row on the street searches its own path - so a walk begun
+  beyond the street's reach was never searched, and its walker never came on, though they passed beside the player
+  (measured on a 6x6-block town: 51 of 110 residents walking within 80 m by their day had no body; one who arrived
+  early stood missing at their spot till the walk's planned minutes ran out). The census now searches the walks that
+  may pass near - the box the walk's two ends make within LIVING_RANGE and WALK_STRAY_M (a path strays about a block at
+  most outside it) - the nearest first, CENSUS_PATHS a beat (the arrival's own budget on an arrival); measured again, none
+  missing but under DFU's cap.
+- **The watch's beat** (`dayPlan.js`, the guard's stops). Each stop was drawn at three to eight minutes, and `schedule`
+  drops a stay under MIN_STAY (8): five stops in six were dropped, the 64 drawn ran out, and the watch went home hours
+  before the shift's end. Each stop is MIN_STAY to MIN_STAY + 7 minutes now, and enough of them to fill the shift.
+- **The regard's bound** (`relations.js` trim). Past RELATIONS_MAX the faintest regard goes first - it read the regard as
+  last noted, so a crowd's crime (every witness -15), long eased to nothing, outweighed every new acquaintance: once
+  the bound was reached a word to a stranger was forgotten as it was said, and no new friend could be made. It reads
+  the regard as it stands today, and never the one just noted.
+- **The chronicle's keys** (`ui/enhancedChronicle.js` onKey). The arrow keys walked the four old sections: LW7c's People
+  was never reached from the History, and an arrow from it jumped. They walk the sections the window shows.
+- **A walk home cut at 04:00** (`dayPlan.js schedule`, an away window). A walk home after an away window that closed in
+  the last minutes before the day's end ran past it, and the next day's plan - which drops that window - had the
+  walker home asleep: a crewman or a visitor left the street mid-step, in plain view. A walk home that would run past
+  the day's end is never begun; away to the end, the next day has them home.
+
 ## The four hosts
 
 - `scenes/world.js` - WIRED (LW2 the towns, LW3 the roads and the Overworld).

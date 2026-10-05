@@ -371,8 +371,8 @@
   {
     "name": "LW1-walk-home-unarmed",
     "file": "src/systems/livingWorld/dayPlan.js",
-    "old": "      push('walk', home, cursor, cursor + m, { from: exit, to: home, armed: !!w.armed });",
-    "new": "      push('walk', home, cursor, cursor + m, { from: exit, to: home });",
+    "old": "      push('walk', home, cursor, cursor + back, { from: exit, to: home, armed: !!w.armed });",
+    "new": "      push('walk', home, cursor, cursor + back, { from: exit, to: home });",
     "tests": [
       "test/lw1_livingWorld.test.js"
     ]
