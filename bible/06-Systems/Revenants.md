@@ -446,3 +446,12 @@ the dungeon's far end, resting with its band (a first blow may be a backstab), i
 lair while it is due and it wakes you, standing over you. Any rest underground may be a due revenant's return. The law:
 `bible/12-Enhanced-AI/Feud-Arc.md` section 18 and its RVN7a-d records.
 
+## 24. What it takes (FEUD RVN8, 2026-10-04)
+
+Online, a revenant that kills the player takes one piece at the respawn - the equipped weapon or one of the pack's five
+most valuable pieces, never a quest item, a summoned piece, the Materials Bag, gold or a locked piece; three at most,
+after which it only gloats. The wake box says what it took. It carries what it took at every stand: kill it and it is in
+the body, execute it and it is in the pile, spare it and it hands it back ("It's yours. It always was."); let it escape
+and it keeps it. A revenant holding a piece is never forgotten to make room. The law: `bible/12-Enhanced-AI/Feud-Arc.md`
+section 19 and its RVN8 record.
+

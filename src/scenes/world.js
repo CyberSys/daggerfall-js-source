@@ -22,7 +22,7 @@ import { wodSiteId, yieldsTo } from '../world/wodShared.js';   // WOD7: a camp's
 import { alignBillboardToGround, alignControllerToGround } from '../world/groundAlign.js';   // WOD3: SpawnLoot's drop; CSA-D: BoardBoat's AlignControllerToGround
 import { PRIVATEERS_HOLD_BLOCK, HOLD_MODELS, HOLD_FLATS, holdModelMatrix, holdFireLights, rollHoldFoes } from '../world/wodPrivateersHold.js';   // WOD4: the camp at Privateer's Hold
 import { rollLootRarity, pileSource, dungeonRarityTier, dungeonFamily, stampWonWeapons } from '../systems/lootRarity.js';   // WOD3: LR1 over the camps' piles; SIGIL1: their weapons' sigils
-import { revenantToReturn, revenantSpawnOptions, revenantPresence, takeRevenantNotice, revenantSay, releaseRevenantStand, revenantRecord, revenantMomentEvent, revenantRumor, revenantMapMarks, revenantHuntEntries } from '../systems/revenant.js';   // REVENANT: who comes back, and what the player is told
+import { revenantToReturn, revenantSpawnOptions, revenantPresence, takeRevenantNotice, revenantSay, releaseRevenantStand, revenantRecord, revenantMomentEvent, revenantRumor, revenantMapMarks, revenantHuntEntries, revenantTakes } from '../systems/revenant.js';   // REVENANT: who comes back, and what the player is told
 import { SKY_CLEAR } from '../render/renderer.js'; import { centreFromFeet } from '../characters/enemyAnchor.js';   // REVIEW 2026-09-05: one line, so the cites below it hold
 import { Arch3dFile } from '../formats/arch3dFile.js';
 import { requestLook, releaseLook, makeLookGate, bindCursorToggle, setCursorActive, cursorActive, holdCursor } from '../player/pointerLock.js';   // U45: bindCursorToggle is PlayerMouseLook.cursorActive; releaseLook: the chat's open (AUDIT CHAT C2); HERB-CURSOR: an act's free cursor
@@ -11840,6 +11840,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // (no guard's blow lands in it); a charge already laid stays whole - only a sentence gives any of it back.
     setCrimeCommitted(playerEntity, CRIMES.None);
     arrestFlow.abandon();   // the surrender question withdrawn, the chase's charge and slain watchman forgotten
+    const took = revenantTakes(playerEntity, { online: true });   // RVN8 (bible/12-Enhanced-AI/Feud-Arc.md 19): a revenant's kill takes one piece - online alone, once a death (the same guard)
     _deathWasOnline = null;   // armed fresh for the NEXT death
     const mode = modes?.mode ?? 'exterior';
     const wasInDungeon = mode === 'dungeon';
@@ -11902,7 +11903,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // this is idempotent rather than a second mercy.
       if (!(playerEntity.health > 0)) { reviveForPlay(playerEntity); surfacePlayer(); }
       ohAbyss?.onRespawnerComplete();   // OH-D: the port's own respawn - a respawn anywhere but the bound abyss clears it, as the respawner's does
-      townTalk.showOverlay(new ActionTextBox([respawnFlavorText(kind), deathPenaltyText(goldLost)].filter(Boolean)));   // DEATH-PENALTY: and what the fall cost
+      townTalk.showOverlay(new ActionTextBox([respawnFlavorText(kind), deathPenaltyText(goldLost), took?.line].filter(Boolean)));   // DEATH-PENALTY: and what the fall cost; RVN8: and what it took
     }).catch((e) => {
       // RISE-STUCK: A RISE THAT THREW STILL RISES. The heal ran first
       // (MAC-D3), so the player is alive; a screen left up here has its

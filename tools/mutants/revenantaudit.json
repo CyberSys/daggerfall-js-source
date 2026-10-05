@@ -11,8 +11,8 @@
   {
     "name": "AUDIT-A6-one-standing-buried",
     "file": "src/systems/revenant.js",
-    "old": "x !== r && !x.out)",
-    "new": "x !== r)",
+    "old": "x !== r && !x.out && !x.took?.length)",
+    "new": "x !== r && !x.took?.length)",
     "tests": [
       "test/revenant_audit.test.js"
     ]

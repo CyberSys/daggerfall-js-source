@@ -21,7 +21,8 @@
 //
 // PURE but for the clock and the records it is handed - the pools (scenes/exteriorFoes.js, scenes/dungeonContext.js)
 // call in, and draw what it answers.
-import { revenantById, revenantOn, revenantYielded, revenantExecuted, revenantSpared, revenantMomentEvent, revenantPortrait, revenantRankNumeral, revenantLastStand, revenantLastStandEvent } from './revenant.js';
+import { revenantHandBack, revenantById, revenantOn, revenantYielded, revenantExecuted, revenantSpared, revenantMomentEvent, revenantPortrait, revenantRankNumeral, revenantLastStand, revenantLastStandEvent } from './revenant.js';
+import { itemLongName } from './itemInfo.js';   // RVN8: a piece handed back, by its name
 import { revenantTrophy, trophyKindWords } from './revenantTrophy.js';
 import { PERSONALITIES } from './revenantPersonality.js';
 import { retinueHasRoom, swornPlace, REVENANT_RETINUE_MAX, setRetinuePlayer, holdSworn } from './revenantCompanions.js';
@@ -190,12 +191,14 @@ export function beginSpare(player, f, { now = Date.now(), rolls = Math.random } 
   const state = swornPlace();
   const r = revenantSpared(player, f.entity, { state });
   if (!r) return null;
+  const back = revenantHandBack(player, r, f.entity);   // RVN8 (Feud-Arc.md 19): what it took of mine, handed back at the oath
   f.yielded = null;
   f.sparing = { at: now };
   if (state === 'with') holdSworn(r.id, SPARING_MS);   // AUDIT (2026-10-02): its companion steps out once the kneeling one is through
-  const body = state === 'with'
+  const body = (state === 'with'
     ? `Sworn to you. ${r.given} walks at your side now.`
-    : `Sworn to you. Your companions are full - ${r.given} waits until you call it.`;
+    : `Sworn to you. Your companions are full - ${r.given} waits until you call it.`)
+    + (back.length ? ` It hands back your ${back.map((it) => itemLongName(it)).join(' and ')}: "It's yours. It always was."` : '');
   return { r, state, event: revenantMomentEvent('spared', r, player?.name, { body, archive: f.archive, rolls }) };
 }
 /** The sworn one has stepped through its portal - take its kneeling body out. */

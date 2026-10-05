@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL and RVN1-RVN7 built; RVN8-RVN13 next)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL and RVN1-RVN8 built; RVN9-RVN13 next)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -7,7 +7,7 @@ detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
 (section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts), AUDIT
-TELL, RVN1 to RVN6, and RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand); each slice's record is at the foot.**
+TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), and RVN8; each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -802,6 +802,13 @@ deed underground makes that dungeon its lair.
 - **Back**: slain - in its body; executed - in the pile (`revenantFate.finishExecution` hands over everything carried);
   spared - handed back at the oath ("It's yours. It always was."); escaped - kept. **The cap never buries one holding a
   piece.**
+- **As built (RVN8; the record at the foot)**: "the most valuable of the equipped weapon and the pack's five most
+  valuable pieces, drawn on its id and its kill count" is read as a DRAW among those six (the equipped weapon and the
+  five most valuable takeable pack pieces), on its id's side stream salted by its kill count - so one id and count
+  always takes one piece, and a kill more draws anew. The killer still standing over the body (the host's door's foes)
+  carries the piece at once; a body carrying its pieces hands them over at its death (the record lets them go), one
+  that never carried them leaves the record keeping them. The save's copy of what it took wins at the mirror's merge as
+  a sworn one's pack does.
 
 ## 20. Festering (RVN9)
 
@@ -2104,3 +2111,28 @@ and `dungeonContext.js`.
   `revenant_card` (the escape's door scatters its band first). Mutants `tools/mutants/rvn7d.json` (40): 40 dead. Mutant
   records re-aimed by content (3): `rvn1` (2 - the dungeon's tag now stands above the record's arm), `rvn5` (the kicker
   line now carries the lair's) - judged again: dead.
+
+### RVN8 - BUILT 2026-10-04 (the loot-rarity row on; online alone)
+
+- **The law** - `systems/revenant.js`: `revenantMayTake` (never a quest item, a summoned piece, the Materials Bag -
+  `net/bagLaw.js isBagItem` - gold or a locked piece, `systems/itemLock.js`'s LOCK1 promise); `pickTaken(id, kills,
+  weapon, items)` (19 as built); `TOOK_MAX` 3 (RVN1's).
+- **The take** - `revenantTakes(player, { online })`: this death's killer (`revenantDeed`'s slew remembers it, taken
+  once), online alone; at TOOK_MAX it only gloats (`{ item: null }`); else the piece off the hand that held it
+  (`equip.unequipItem`), out of the pack, onto the record's `took`, into the standing killer's pack; the wake box's line
+  "Grushnak the Butcher took your Ebony Longsword." (`itemInfo.itemLongName`).
+- **Carried** - `grantRevenantLoot` puts what it took in every stand's pack (each piece once, `entity._tookCarried`).
+- **Back** - `revenantSlain`: a body that carried them hands its pieces over (the record lets them go; executed, they
+  are in `finishExecution`'s pile); `revenantHandBack` at the oath (`revenantFate.beginSpare`'s words: "It hands back
+  your Ebony Longsword: "It's yours. It always was.""); escaped, kept.
+- **The cap** - never buries one holding a piece. **The save** - the mirror's merge takes the save's copy of `took`
+  (no save copy: none).
+- **Four hosts** - `scenes/world.js` WIRED (`respawnOnlinePlayer`, after the death penalty and the chase's end - AUDIT
+  REP's pin holds the chase's clear right under the price - once a death by its `_respawning` guard; the wake box, its
+  line after the price's: pins moved (3) `deathpenalty`, `donline1_respawn`, `risestuck`, each box's regex taking
+  `took?.line`); the pools' and the dungeon's bodies carry it by `grantRevenantLoot` (RVN7d's arm
+  underground); `scenes/worldModes.js` and `scenes/dungeonContext.js` die through the world host's respawn;
+  `scenes/exterior.js` - FLAGGED (section 32): no online respawn there.
+- **Not built here** - its next taunt's word on it (RVN12, `{item}`); the page's *Took* (RVN12).
+- Pins `test/rvn8_took.test.js` (6). Mutants `tools/mutants/rvn8.json` (34): 34 dead. Mutant record re-aimed by
+  content (1): `revenantaudit`'s A6 (the cap's filter now spares a holder too) - judged again: dead.

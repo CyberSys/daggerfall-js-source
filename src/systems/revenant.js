@@ -56,7 +56,12 @@ import { characterIdOf, mintCharacterId } from './characterId.js';
 import { ownMinutes, skyMinutes } from './worldTick.js';
 import { isNight } from '../world/worldClock.js';   // RVN1: a fight begun by night
 import { tieredGear } from './eliteFoes.js';
-import { goldStack } from './inventory.js';
+import { goldStack, isSummoned, isGoldPieces } from './inventory.js';   // RVN8: never a summoned piece or gold taken
+import { unequipItem, equipTableOf, EQUIP_SLOTS } from './equip.js';   // RVN8: what it takes, off the hand that held it
+import { isLocked } from './itemLock.js';   // RVN8: LOCK1's promise - a locked piece stays yours
+import { isBagItem } from '../net/bagLaw.js';   // RVN8: never the Materials Bag
+import { itemLongName } from './itemInfo.js';   // RVN8: the piece by the name the pack shows
+import { itemValueOf } from './itemTemplates.js';   // RVN8: the most valuable
 import { enemyDisplayName, ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';
 import { firstName, monsterName, BANK_TYPES, GENDERS } from '../characters/nameHelper.js';
@@ -64,7 +69,7 @@ import { getSeed, setSeed, srand } from '../formats/dfRandom.js';
 import { personalityFor, isPersonality, personalityLabel, voiceLine, beastBody, possessive, MUTE_KINDS } from './revenantPersonality.js';   // REVENANT-VOICE: who it is, and how it talks
 // FEUD, Part B (bible/12-Enhanced-AI/Feud-Arc.md sections 12-26): what a revenant remembers - its record's new fields and
 // the draws it is born with (systems/revenantFeud.js), and the fight's ledger (systems/feudLedger.js, a leaf)
-import { LAIR_RING_R, RUMOR_CHANCE, RUMOR_PX, RUMOR_WEAK, RUMOR_NAMED, RUMOR_HINTS, weaknessKind, lairAfter, sameLair, feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK, lessonOf, withLesson, adaptEdge, adaptBlowClass, ADAPT, isWeakBlow, metalOf, WEAK, WEAK_NAMES, FLINCH_LINES, FLINCH_HEALTH, WEAKNESS_ELEMENTS, signatureStamp } from './revenantFeud.js';
+import { idStream, TOOK_MAX, LAIR_RING_R, RUMOR_CHANCE, RUMOR_PX, RUMOR_WEAK, RUMOR_NAMED, RUMOR_HINTS, weaknessKind, lairAfter, sameLair, feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK, lessonOf, withLesson, adaptEdge, adaptBlowClass, ADAPT, isWeakBlow, metalOf, WEAK, WEAK_NAMES, FLINCH_LINES, FLINCH_HEALTH, WEAKNESS_ELEMENTS, signatureStamp } from './revenantFeud.js';
 import { tagHit, HIT_TAGS } from '../ui/hitNumbers.js';   // RVN3: the "Weakness" word on my blow's number
 import { SOUND } from './soundClips.js';   // RVN3: the hiss of a weakness found
 import { revenantSay as sayRevenant } from './revenantVoice.js';   // RVN3: the reveal's card (the re-export below binds no local name)
@@ -296,6 +301,7 @@ function ensureMirror(player) {
     if (r.gone) continue;
     if (s?.sworn && s.companion?.items?.length && !r.sworn && r.fate === 'released') { _state.list[i] = { ...s, rev: (r.rev | 0) + 1 }; continue; }
     if (r.companion) r.companion.items = s?.companion?.items ? s.companion.items.slice() : [];
+    r.took = s?.took ? s.took.slice() : [];   // RVN8 (Feud-Arc.md 19): what it took is inventory too - the save's copy wins (the mirror never brings back a piece the save holds)
   }
   _state.mirrorId = id;
 }
@@ -373,12 +379,12 @@ export function revenantDeed(player, entity, deedName, { mobileType = entity?.mo
     // past the cap: the weakest, oldest living one is forgotten - a tombstone, so no older save raises it again
     const living = livingRevenants();
     if (living.length > REVENANT_MAX) {
-      const drop = living.filter((x) => x !== r && !x.out).sort((x, y) => x.rank - y.rank || x.born - y.born)[0];   // AUDIT (2026-10-02): never one standing in the world
+      const drop = living.filter((x) => x !== r && !x.out && !x.took?.length).sort((x, y) => x.rank - y.rank || x.born - y.born)[0];   // RVN8: never one holding a piece of mine   // AUDIT (2026-10-02): never one standing in the world
       if (drop) bury(drop);
     }
   }
   r.name = joinName(r.given, r.epithet);
-  if (deedName === 'slew') { r.kills++; r.notice = 'slew'; } else { r.escapes++; r.notice = null; }
+  if (deedName === 'slew') { r.kills++; r.notice = 'slew'; _lastSlew = { id: r.id, at: Date.now() }; } else { r.escapes++; r.notice = null; }   // RVN8: this death's killer, for the respawn
   r.dueAt = dueFrom(now, rolls);
   deed(r, deedName, now);
   // RVN1 (section 12): the fight folded into its SCARS - its leading source, its lessons, the deed - and counted
@@ -543,6 +549,7 @@ export function revenantSlain(player, entity, { now = nowMinutes(), deedName = '
   const r = revenantById(id);
   if (!r || r.defeated || r.sworn) return null;   // REVENANT-COMPANION: a sworn one's fall is a knock-out, never this
   r.defeated = true; r.defeatedAt = now; r.out = false; r.notice = null;
+  if (entity._tookCarried) r.took = [];   // RVN8: what it took is in its body (executed: in its pile) - the player's again
   deed(r, deedName, now);
   touch(r);
   prune();
@@ -612,6 +619,59 @@ export function revenantToReturn(player, { now = nowMinutes(), rolls = Math.rand
   due[0].out = true;
   due[0].outAt = Date.now();
   return due[0];
+}
+// ── RVN8: what it takes (bible/12-Enhanced-AI/Feud-Arc.md 19) ─────────────────────────────────────────────────────
+/** This death's killer, by the slew deed - taken (once) at the respawn. */
+let _lastSlew = null;
+/** RVN8 (19): may it take `item` - never a quest item, a summoned piece, the Materials Bag, gold, or a locked piece
+ *  (LOCK1's promise, "A LOCKED PIECE STAYS YOURS"). */
+export const revenantMayTake = (item) => !!item && typeof item === 'object' && Number.isInteger(item.templateIndex)
+  && !item.questItem && !isSummoned(item) && !isGoldPieces(item) && !isBagItem(item) && !isLocked(item);
+/** RVN8 (19): the piece it takes - drawn on its id and its kill count from my equipped weapon and my pack's five most
+ *  valuable pieces (each takeable). Null with none. */
+export function pickTaken(id, kills, weapon, items) {
+  const pack = (Array.isArray(items) ? items : []).filter((it) => it !== weapon && revenantMayTake(it)).sort((a, b) => itemValueOf(b) - itemValueOf(a)).slice(0, 5);
+  const pool = [...(revenantMayTake(weapon) ? [weapon] : []), ...pack];
+  if (!pool.length) return null;
+  return pool[Math.min(pool.length - 1, Math.floor(idStream(id, `took:${kills | 0}`)() * pool.length))];
+}
+/** RVN8 (19): AT THE RESPAWN - online alone (offline a death ends the run with nothing saved, and the app's mirror
+ *  outlives the save: a piece taken offline would come back twice) - when this death was a revenant's kill: one piece,
+ *  off the hand that held it, out of my pack, onto its record (and into its standing body's pack); at TOOK_MAX it only
+ *  gloats. Answers { r, item, line } (the wake box's line), { r, item: null } for a gloat, or null. */
+export function revenantTakes(player, { online = false } = {}) {
+  const s = _lastSlew;
+  _lastSlew = null;
+  if (!online || !s || !revenantOn() || !player) return null;
+  const r = revenantById(s.id);
+  if (!r || r.defeated || r.sworn) return null;
+  if ((r.took?.length ?? 0) >= TOOK_MAX) return { r, item: null, line: null };
+  const weapon = equipTableOf(player)[EQUIP_SLOTS.RightHand] ?? null;
+  const item = pickTaken(r.id, r.kills, weapon, player.items);
+  if (!item) return null;
+  unequipItem(player, item);
+  const i = (player.items ?? []).indexOf(item);
+  if (i >= 0) player.items.splice(i, 1);
+  r.took = [...(r.took ?? []), item];
+  const body = playerDoor()?.foes?.()?.find((f) => !f?.dead && f?.entity?.revenant?.id === r.id)?.entity ?? null;
+  if (body) carryTaken(body);   // the killer standing over my body carries it now
+  touch(r);
+  persist();
+  return { r, item, line: `${r.name} took your ${itemLongName(item)}.` };
+}
+/** RVN8 (19): SPARED - what it took handed back at the oath ("It's yours. It always was."). Answers the pieces. */
+export function revenantHandBack(player, r, entity = null) {
+  const back = r?.took?.length ? r.took.slice() : [];
+  if (!back.length || !player) return [];
+  player.items = player.items ?? [];
+  for (const it of back) {
+    if (entity?.items) { const i = entity.items.indexOf(it); if (i >= 0) entity.items.splice(i, 1); }
+    player.items.push(it);
+  }
+  r.took = [];
+  touch(r);
+  persist();
+  return back;
 }
 /** RVN7d (bible/12-Enhanced-AI/Feud-Arc.md 18.4): WHO IS AT HOME - entering the dungeon at `here` ({ px, py }), the
  *  living, unsworn revenant whose lair it is, not out, and due or its lair known; CLAIMED as a return is (its stand
@@ -697,6 +757,16 @@ export function grantRevenantLoot(entity, level, rolls = Math.random, { goldMult
   entity._revenantLoot = true;
   entity.items = entity.items ?? [];
   entity.items.push(...revenantLoot(level ?? entity.level, entity.revenant.rank ?? 1, rolls, goldMult));
+  carryTaken(entity);   // RVN8: what it took of mine, in its pack at every stand
+}
+/** RVN8 (bible/12-Enhanced-AI/Feud-Arc.md 19): what it took of mine rides in a standing body's pack - marked, so its
+ *  death hands the record's pieces to its body. */
+function carryTaken(entity) {
+  const r = entity?.revenant?.id ? revenantById(entity.revenant.id) : null;
+  if (!r?.took?.length) return;
+  entity.items = entity.items ?? [];
+  for (const it of r.took) if (!entity.items.includes(it)) entity.items.push(it);   // each piece once, whoever asks again
+  entity._tookCarried = true;
 }
 
 // ── what is said ────────────────────────────────────────────────────
