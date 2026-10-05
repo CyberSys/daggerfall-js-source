@@ -4928,7 +4928,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:9539` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:9540` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:496`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -10054,7 +10054,11 @@ home's alone - they are about other players.
   (its swaps written into the pixel's own table before it stands), a street's animal or flame moves with the town's
   animator, and a tree or a plant is drawn as the pixel draws its nature: the season's archive of its set, Seasons of the
   Iliac Bay's picture where the mod re-skins it, the wind's lean; when the pixel is built again (a season's turn, an
-  install) the yard stands again in it. The ghost and the panel's pictures are the season's too.
+  install) the yard stands again in it. The ghost and the panel's pictures are the season's too. DECOR-LPT (FIELD BUGS
+  2026-10-05b, the owner: "elements should recieve the low poly overhaul style like trees got"): a tree or a plant Low
+  Poly Trees has a tree for stands as the world's do - its 3D tree near the eye (the piece's scale and turn), its own far
+  picture beyond (its handle held while it stands) - and the ghost is the picture it will stand as
+  (`07-Rendering/Low-Poly-Trees.md`).
 - Known limits: the lot is a box round the footprint (a building turned off the grid has a wider lot); yard pieces are
   not activation targets; the street's wandering folk are not steered round them.
 

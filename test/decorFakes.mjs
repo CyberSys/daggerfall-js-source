@@ -13,6 +13,10 @@ import { PROP_MODEL_TYPE } from '../src/world/interiorLayout.js';
 import { isFurnishing } from '../src/systems/decorFurnish.js';
 import { decorMatrix, decorKeyOf } from '../src/scenes/decorRoom.js';
 import { localAabb } from '../src/render/frustum.js';
+import { createHomeYards } from '../src/scenes/homeYards.js';
+import { applyClimate, SEASON } from '../src/world/climateSwaps.js';
+import { getWorldClimateSettings } from '../src/formats/mapsFile.js';
+import { billboardSize } from '../src/world/rmbFlats.js';
 
 export const settle = () => new Promise((r) => setTimeout(r, 0));
 export const near = (a, b, eps = 1e-6) => Math.abs(a - b) < eps;
@@ -253,3 +257,56 @@ export async function placeFrom(rig, key) {
   rig.frame();
   return root;
 }
+
+// ─── THE YARD (DECOR-OUTDOOR, DECOR-LPT) ─────────────────────────────────────────────────────────────────────────────
+
+export const DESERT = getWorldClimateSettings(224).climateType;
+export const WOODS = getWorldClimateSettings(231).climateType;
+/** An archive the town's climate swaps (applyClimate's own answer) - found, never assumed. */
+export const SWAPPED = [...Array(500).keys()].find((a) => applyClimate(a, 0, DESERT, SEASON.Summer) !== a && applyClimate(a, 0, DESERT, SEASON.Summer) !== applyClimate(a, 0, WOODS, SEASON.Summer));
+export const yardPiece = (over = {}) => ({ id: 'p1', model: null, flat: [504, 12], pos: [8, 0, 2], rot: [0, 0, 0], scale: 2, light: null, storage: false, paid: 120, ...over });
+
+/** The real yard host over a town pixel built in `season`, its town of `climate`, a home (300) holding `pieces` - `own`
+ *  the player's, who stands on its lot - with the panel's picture door `iconUrl`. DECOR-LPT: `trees` the world's Low Poly
+ *  Trees (`{ door, sway }`, scenes/yardNature.js), `sizes` a record's picture over its archive's (`'504.20': [w, h]`);
+ *  `shift` is where the pixel stands in the scene (written in place, then `yards.rebase()` - a recentre). */
+export function yardWorld({ pieces, season = SEASON.Summer, climate = WOODS, seasonal = null, own = false, iconUrl = async () => null, trees = null, sizes: own_sizes = {} } = {}) {
+  const made = [];
+  const uploads = [];
+  const animated = [];
+  const doc = fakeDoc();
+  const win = fakeWin();
+  const shift = [0, 0, 0];
+  const pixel = (s) => ({
+    px: 0, py: 0, homeTown: 7, homeRegion: 17, season: s, townClimate: climate,
+    homeFrames: new Map([[300, { at: [10, 0, 10], box: [6, 0, 7, 14, 6, 13] }]]),
+    texRemap: new Map(), forest: { base: 504, archive: s === SEASON.Winter ? 505 : 504 },
+    flatAnims: { add: (b, a, n) => animated.push([b, a, n]), remove() {} },
+  });
+  const built = new Map([['0,0', pixel(season)]]);
+  const sizes = { 504: [40, 120], 505: [44, 130], 201: [30, 20], ...own_sizes };
+  const yards = createHomeYards({
+    api: { yards: async () => ({ ok: true, data: { yards: [{ buildingKey: 300, pieces }] } }) },
+    homes: { homeAt: (m, k) => (k === 300 ? { owner: 'Tomas', own, look: null } : null) },
+    built: () => built, translation: () => shift, feet: () => (own ? [18, 0, 10] : [100, 0, 100]), outside: () => true, eye: () => (own ? [18, 1.6, 10] : [100, 1.6, 100]),
+    collider: () => ({ addMesh() {}, removeBucket() {} }),
+    meshes: { getGpuMesh: async (id) => ({ id, subMeshes: [{ textureArchive: SWAPPED, textureRecord: 0 }] }), cpuModels: new Map() },
+    renderer: {
+      createBillboardBatch: (a, r, size, centers, opts = {}) => { const b = { a, r, size, centers, scales: opts.scales ?? null }; made.push(b); return b; },
+      destroyBillboardBatch: (b) => { b.gone = true; }, uploadTexture: (a, k) => uploads.push(`${a}_${k}`),
+    },
+    getTexture: async (a) => ({ recordCount: 32, getSize: (r) => { const [w, h] = sizes[`${a}.${r}`] ?? sizes[a] ?? [16, 32]; return { width: w, height: h }; }, getScale: () => ({ width: 0, height: 0 }), getFrameCount: (r) => (a === 201 ? 4 : 1) }),
+    uploadRecord() {}, uploadRecordFrame() {}, iconUrl,
+    seasonal: () => seasonal,
+    trees,
+    scanDeps: () => ({ blocks: fakeBlocks([{ type: TOWN, block: rmb([41000]) }]), isTownBlock: (x) => x === TOWN, nature: true, modelRadius: () => 0.8, flatRadius: async () => 0.2 }),
+    character: () => 'r0123456789abcdef0123', realm: () => null, wallet: () => ({ gold: 5000, pay() {}, credit() {} }), regionOf: () => 17,
+    doc, win, canvas: null, touch: false, actionOf: (e) => ACTIONS.get(e.code) ?? null, locked: () => true, cursorOff() {}, stick: () => null,
+    say() {}, refusal: (w) => w, openSlot() {}, now: () => 0,
+  });
+  const cam = own ? { pos: [18, 1.6, 10], yaw: Math.PI, pitch: -0.6 } : { pos: [100, 1.6, 100], yaw: 0, pitch: 0 };
+  const run = async (n = 3, overlayUp = false) => { for (let i = 0; i < n; i++) { yards.frame({ dt: 1, cam, overlayUp }); await settle(); await settle(); } };
+  return { yards, built, made, uploads, animated, pixel, run, doc, win, shift };
+}
+export const live = (made) => made.filter((b) => !b.gone);
+export const sized = (w, h, k = 1) => { const s = billboardSize({ getSize: () => ({ width: w, height: h }), getScale: () => ({ width: 0, height: 0 }) }, 0); return { w: s.w * k, h: s.h * k }; };

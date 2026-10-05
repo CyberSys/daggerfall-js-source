@@ -13,8 +13,10 @@
 //
 //   - the SEASON's archive (world/climateSwaps.js getNatureArchive - the
 //     four woodland sets' winter twins), read off the yard's pixel;
-//   - Seasons of the Iliac Bay's picture of that record, where the mod
-//     re-skins the archive now (systems/seasonsIliacBay.js lookup) -
+//   - DECOR-LPT: Low Poly Trees' own tree of that record, where the mod
+//     stands one - see below;
+//   - else Seasons of the Iliac Bay's picture of that record, where the
+//     mod re-skins the archive now (systems/seasonsIliacBay.js lookup) -
 //     uploaded under the install's own key, without mips, as the pixel
 //     uploads it (AUDIT 61: the mod's atlas has one NEAREST level);
 //   - else the classic record;
@@ -22,8 +24,23 @@
 // at the piece's own scale, mirrored when it is turned half round as any
 // placed picture is (net/decorLaw.js decorFlatMirrored), leaning with the
 // wind as the town's flora leans (WIND3, systems/windDrive.js
-// floraSwayOf). The yard stands its pieces again when its pixel is built
-// again - a season's turn, an install - as the town's own flats are.
+// floraSwayOf - by its RECORD's height, a bush scaled up a bush still).
+// The yard stands its pieces again when its pixel is built again - a
+// season's turn, an install - as the town's own flats are.
+//
+// DECOR-LPT (FIELD BUGS 2026-10-05b, the owner: "elements should recieve
+// the low poly overhaul style like trees got"; asked which, "Placed trees
+// & plants"). A placed tree or plant Low Poly Trees has a tree for stands
+// as the world's own do (LPT1, bible/07-Rendering/Low-Poly-Trees.md): its
+// 3D tree within LPT_NEAR_M of the eye, turned by the piece's own turn and
+// sized by its scale (a location's tree is the prefab as it is - scale 1,
+// world/lowPolyTrees.js lptVariety), and the same tree's far picture
+// beyond, giving way to it across the band. The far picture is a batch of
+// the yard's like any (its handle held while it stands, let go with it);
+// the 3D tree joins the world's near set through the yard's own
+// (yardTreeSet, scenes/homeYards.js treeSets). A tree turns in earnest, so
+// its picture never mirrors. The decorator's ghost asks the same door
+// (`picture`), so what the ghost shows is what stands.
 //
 // Pure of the world host: everything it reads is handed in.
 // ═══════════════════════════════════════════════════════════════════
@@ -32,6 +49,7 @@ import { getNatureArchive } from '../world/climateSwaps.js';
 import { isNatureArchive, billboardSize } from '../world/rmbFlats.js';
 import { floraSwayOf } from '../systems/windDrive.js';
 import { decorFlatMirrored } from '../net/decorLaw.js';
+import { LPT_ARCHIVES, LPT_SCALE_MAX, LPT_SET_FLOATS } from '../world/lowPolyTrees.js';
 
 /** Whether a placed piece is the climate's nature - a flat of a nature set's archive (any piece of the catalogue's
  *  "Trees and plants" stores its set's summer archive). */
@@ -41,43 +59,104 @@ export const isNaturePiece = (piece) => piece?.model == null && Array.isArray(pi
  *  record - [archive, record]. */
 export const yardNatureFlat = (flat, season) => [getNatureArchive(flat[0], season), flat[1]];
 
+/** DECOR-LPT: a piece's turn (its record's yaw, degrees - scenes/decorRoom.js decorMatrix) as a 3D tree's (radians, the
+ *  same way round: BB_VS turns a tree as world/mat4.js trs turns a model about +Y). */
+export const yardTreeYaw = (piece) => (Number(piece?.rot?.[0]) || 0) * (Math.PI / 180);
+
+/**
+ * DECOR-LPT: A YARD'S NEAR SET - its standing trees (`{ handle, pos, scale, yaw }`, `pos` in the yard's own frame) in
+ * the shape the world's near set reads a pixel's (world/lowPolyTrees.js buildTreeSet): the handles, LPT_SET_FLOATS a
+ * tree - [handle index, x, y, z, scale, turn] - and each tree's centre.
+ * @param {{ handle: any, pos: number[], scale: number, yaw: number }[]} trees
+ */
+export function yardTreeSet(trees) {
+  const handles = [], centers = [];
+  const out = new Float32Array(trees.length * LPT_SET_FLOATS);
+  trees.forEach((t, k) => {
+    let h = handles.indexOf(t.handle);
+    if (h < 0) { h = handles.length; handles.push(t.handle); }
+    out.set([h, t.pos[0], t.pos[1], t.pos[2], t.scale, t.yaw], k * LPT_SET_FLOATS);
+    centers.push(t.pos);
+  });
+  return { handles, trees: out, centers };
+}
+
 /**
  * A YARD'S NATURE, STOOD. `deps`:
  *   renderer      - createBillboardBatch, uploadTexture
  *   getTexture(a), uploadRecord(a, r) - the pipeline's
  *   seasonal()    - Seasons of the Iliac Bay's helper while it stands (`lookup(archive, record)`, `installedSeason`), else
  *                   null
+ *   trees         - DECOR-LPT: the world's Low Poly Trees - `{ door, sway(proto, share) }`: its door (systems/
+ *                   lowPolyTreesAssets.js createLowPolyTrees - load, proto, farPicture, acquire, release) and its record
+ *                   of a prototype's share of the wind's lean (the 3D trees' - scenes/world.js `_lptSway`); null while
+ *                   the mod is off (or `?trees=off`): every piece a picture
  */
-export function createYardNature({ renderer, getTexture, uploadRecord, seasonal = () => null }) {
+export function createYardNature({ renderer, getTexture, uploadRecord, seasonal = () => null, trees = null }) {
+  /**
+   * THE PICTURE A NATURE PIECE STANDS AS, at scale 1, in its pixel's `season` beside its `natureArchive` (the season's
+   * own - what the pixel's flora is drawn from): `{ archive, key, size, plain, sway, handle, mirrors, release }` - `key`
+   * the record (or the key it went up under), `size` the picture's, `plain` the classic flat's (or the season's
+   * picture's: the height the far rings read, as the pixel's), `sway` its lean, `handle` Low Poly Trees' far picture
+   * (held - `release` lets it go; null for a picture of the record) - or null: a record the archive lacks. The yard's
+   * standing piece and the decorator's ghost both ask here.
+   * @param {number[]} flat @param {number} season @param {number|null} [natureArchive]
+   */
+  async function picture(flat, season, natureArchive = null) {
+    const [archive, record] = yardNatureFlat(flat, season);
+    const t = await getTexture?.(archive);
+    if (!t || !(record < t.recordCount)) return null;
+    const s = seasonal?.() ?? null;
+    const sib = s?.lookup?.(archive, record) ?? null;
+    const plain = sib ? sib.size : billboardSize(t, record);
+    const sway = floraSwayOf(archive, natureArchive ?? archive, plain.h);
+    // DECOR-LPT: Low Poly Trees' tree first, as the pixel asks it (its atlases take the season the flats take)
+    const door = trees?.door ?? null;
+    const proto = door && LPT_ARCHIVES.includes(archive) && (await door.load()) ? door.proto(archive, record) : null;
+    const far = proto ? await door.farPicture(proto) : null;
+    if (far) {
+      door.acquire(far);
+      trees?.sway?.(proto, sway);   // its 3D trees lean as its far pictures do (the pixel's own record of it)
+      let held = true;
+      const release = () => { if (held) { held = false; door.release(far); } };
+      return { archive, key: far.record, size: { w: far.size.w / LPT_SCALE_MAX, h: far.size.h / LPT_SCALE_MAX }, plain, sway, handle: far, mirrors: false, release };
+    }
+    if (sib) {
+      const key = `${record}#season${s.installedSeason}`;
+      renderer?.uploadTexture?.(archive, key, sib.texture.image, { mips: false, variant: '' });
+      return { archive, key, size: sib.size, plain, sway, handle: null, mirrors: true, release: () => {} };
+    }
+    uploadRecord?.(archive, record);
+    return { archive, key: record, size: plain, plain, sway, handle: null, mirrors: true, release: () => {} };
+  }
+
   /**
    * STAND ONE NATURE PIECE at `at` (the yard's origin, this visit's), in its pixel's `season` beside its `natureArchive`
-   * (the season's own - what the pixel's flora is drawn from) - answering `{ batch, size }` (`size` its picture's, at the
-   * piece's scale, for the eye's box), or null: not a nature piece, a record the archive lacks, or `live()` false once
-   * the picture is in hand (the piece moved or went - nothing is made).
+   * - answering `{ batch, size, release, tree }` (`size` its picture's, at the piece's scale, for the eye's box; `tree`
+   * DECOR-LPT's `{ handle, pos, scale, yaw }` for the yard's near set, or null), or null: not a nature piece, a record the
+   * archive lacks, or `live()` false once the picture is in hand (the piece moved or went - nothing is made, nothing held).
    * @param {any} piece @param {number[]} at @param {{ season: number, natureArchive?: number|null, live?: () => boolean }} where
    */
   async function stand(piece, at, { season, natureArchive = null, live = () => true }) {
     if (!isNaturePiece(piece) || !renderer?.createBillboardBatch) return null;
-    const [archive, record] = yardNatureFlat(piece.flat, season);
-    const t = await getTexture?.(archive);
-    if (!t || !(record < t.recordCount) || !live()) return null;
-    const s = seasonal?.() ?? null;
-    const sib = s?.lookup?.(archive, record) ?? null;
-    let key = record;
-    let plain;
-    if (sib) {
-      key = `${record}#season${s.installedSeason}`;
-      renderer.uploadTexture?.(archive, key, sib.texture.image, { mips: false, variant: '' });
-      plain = sib.size;
-    } else {
-      uploadRecord?.(archive, record);
-      plain = billboardSize(t, record);
+    const pic = await picture(piece.flat, season, natureArchive);
+    if (!pic) return null;
+    if (!live()) { pic.release(); return null; }
+    const size = { w: pic.size.w * piece.scale, h: pic.size.h * piece.scale };
+    const where = [[at[0] + piece.pos[0], at[1] + piece.pos[1], at[2] + piece.pos[2]]];
+    if (pic.handle) {
+      // DECOR-LPT: the far picture as the pixel stands one - the batch sized for the tallest tree, this one's share on its
+      // corner - giving way near the eye to its 3D tree; MAC1's far rings read the flat's height at the piece's scale
+      const batch = renderer.createBillboardBatch(pic.archive, pic.key, pic.handle.size, where, { scales: [piece.scale / LPT_SCALE_MAX] });
+      batch.lptProto = pic.handle;
+      batch.farH = pic.plain.h * piece.scale;
+      batch.sway = pic.sway;
+      return { batch, size, release: pic.release, tree: { handle: pic.handle, pos: [...piece.pos], scale: piece.scale, yaw: yardTreeYaw(piece) } };
     }
-    const size = { w: plain.w * piece.scale, h: plain.h * piece.scale };
     const drawn = decorFlatMirrored(piece) ? { w: -size.w, h: size.h } : size;
-    const batch = renderer.createBillboardBatch(archive, key, drawn, [[at[0] + piece.pos[0], at[1] + piece.pos[1], at[2] + piece.pos[2]]]);
-    batch.sway = floraSwayOf(archive, natureArchive ?? archive, size.h);
-    return { batch, size };
+    const batch = renderer.createBillboardBatch(pic.archive, pic.key, drawn, where);
+    batch.sway = pic.sway;
+    return { batch, size, release: pic.release, tree: null };
   }
-  return { stand };
+  return { picture, stand };
 }

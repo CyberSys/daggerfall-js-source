@@ -9,12 +9,14 @@ Asked which pieces were missing (three gaps were traced in the catalogue) and wh
 style, the owner chose all three gaps - the town mods' furnishings, the outdoor pieces for a yard, the dungeons'
 furnishings - and, for the style, a placed tree or plant standing as Low Poly Trees' own 3D tree, as the world's do.
 Each change below is pinned by tests that fail on the code before it, and its pins are mutation-checked. Nothing here
-was seen in a browser: this container has no ARENA2, so every claim is the suites'.
+was seen in a browser, so every claim is the suites'; the game's own data (ARENA2, fetched into the session's scratchpad
+and never the repository) was read for the dungeons' measure alone.
 
 | | Report | What it was | Done |
 |---|---|---|---|
 | 1 | "a lot of missing decor items with house decoration" - the dungeons' furnishings | the catalogue read the town blocks' rooms alone: nothing Daggerfall stands only in its dungeons - a throne, a cage, a coffin, a statue, chains - could be set in a house | DECOR-DUNGEON |
 | 1 | "a lot of missing decor items with house decoration" - the outdoor pieces for a yard | a yard offered the rooms' furniture alone: none of what Daggerfall stands in its streets - a fence, a well, a fountain, a cart, a lamp - and none of its trees and plants | DECOR-OUTDOOR |
+| 1 | "plus elements should recieve the low poly overhaul style like trees got" - placed trees and plants | a yard's tree or plant stood as its classic picture, at the classic size, where Low Poly Trees stood the town's own as 3D trees | DECOR-LPT |
 | 2 | "Even with nudity turned off. Players can see and have access to nude vendors" | HOME-VENDOR made every person Daggerfall stands in a room a catalogue piece a week after NUDE-FLATS, and no seam of the decorator asked NUDE-FLATS' table: the nude figures were offered, and one placed stood, flew and showed as itself; the Arena's tiers seat two of the table's figures, unasked too | NUDE-HOSTS |
 
 ## NUDE-HOSTS (2)
@@ -148,7 +150,7 @@ cart or lamp post, and none of the trees, bushes, flowers and rocks of the clima
 - **Its town's nature, drawn as the pixel draws its own** (`standFlat` -> `yardNature.js`): the season's archive of its
   set (the woodlands' winter twins), Seasons of the Iliac Bay's picture of the record where the mod re-skins it now
   (uploaded under the install's key, without mips, as the pixel does), else the classic record - at the piece's own
-  scale, mirrored when turned half round, leaning with the wind (WIND3).
+  scale, mirrored when turned half round, leaning with the wind (WIND3 - by its record's height, DECOR-LPT below).
 - **Stood again with its pixel.** A pixel built again (a season's turn, an install, a painted home leaving the merge)
   stands its yards again in the new table, animator and season - that very frame, as a recentre is.
 - **The decorator** shows a tree in its season: the ghost, and the panel's pictures (kept under their own key while the
@@ -162,3 +164,38 @@ scan record, `survtiers3.json`'s two world.js cites (moved by the cite shift), a
 record now names one site (the room's solid model, `solid`, stands once for both paths); `test/decor1.test.js`'s kinds
 (17) and `test/decordungeon.test.js`'s DECOR_FROM moved with the table; `test/nudedecor.test.js` names `yardNature.js`.
 
+## DECOR-LPT (1)
+
+**Why.** Low Poly Trees (LPT1, `07-Rendering/Low-Poly-Trees.md`) stands the climate's trees as the mod's 3D trees near
+the eye and as their own far pictures beyond - the world's pixels' and the `?exterior` host's. A yard's placed tree
+(DECOR-OUTDOOR) was drawn by its own door, `scenes/yardNature.js`, which never asked the mod: in a wood of 3D trees, the
+trees a player placed stood as the classic pictures, at the classic size.
+
+**The fix** (`scenes/yardNature.js` picture and stand, `scenes/homeYards.js`, `scenes/world.js`). A placed tree or plant
+the mod has a tree for stands as the world's do:
+
+- **Far, its own picture**: a batch of the yard's, sized for the tallest tree with the piece's scale on its corner, giving
+  way near the eye to its 3D tree (`lptProto`), the far rings reading the flat's height at the piece's scale (`farH`) -
+  its handle HELD while the piece stands and let go with it, as a pixel holds its own (EVERY ALLOCATION HAS AN OWNER).
+- **Near, the tree itself**: in the yard's near set (`yardTreeSet`, a pixel's own shape) at the yard's place now
+  (`homeYards.js` treeSets - a recentre moves it with its pieces), gathered with the pixels' (`world.js`
+  lowPolyTreesFrame). Its scale is the piece's (a location's tree stands at the prefab's own size, scale 1), its turn
+  the piece's (`yardTreeYaw`: the record's yaw, the way a model turns), its lean its far picture's (recorded for its
+  prototype as the pixel's is, `_lptSway`). A tree turns in earnest, so its picture never mirrors (DECOR-FLIP mirrors a
+  flat turned half round).
+- **Its lean is its record's** (WIND3's rule: a tall record sways whole, a short one six tenths). The yard read the
+  height at the piece's scale, so a bush scaled up leaned as a tree - fixed for every yard piece, the mod on or off.
+- A record the mod has no tree for, or the mod off (its switch, `?trees=off`, data that will not load), stands as before.
+
+**The ghost.** The decorator asks the host for the picture a flat it stands its own way WILL stand as (`decorTool.js`
+flatPicture; a yard answers with `yardNature.js` picture - the one door its pieces ask), so the tree placed is the tree
+that stands, never mirrored, its handle held while it is placed and let go when the placing ends. The same door fixes
+DECOR-OUTDOOR's ghost under Seasons of the Iliac Bay: it showed the classic record of the season's archive where the
+piece stands as the mod's picture. The panel's list keeps the record's own icon - the tree it names.
+
+THE FOUR HOSTS: `world.js` WIRED (its Low Poly Trees handed to the yards, their near sets gathered with its pixels');
+`exterior.js`, `worldModes.js` and `dungeonContext.js` stand no yard.
+
+`test/decorlpt.test.js` (8); `tools/mutants/decorlpt.json` 14, 14 dead. The yard rig moved to `test/decorFakes.mjs`
+(`yardWorld`, shared with `test/decoroutdoor.test.js`, which pins the lean by record now). Re-aimed by content:
+`decoroutdoor.json`'s three tree records and `fieldbugs27g.json`'s DECOR-FLIP ghost record (both still dead).

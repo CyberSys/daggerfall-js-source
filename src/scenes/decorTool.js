@@ -354,6 +354,10 @@ export const eyePoint = (collider, eye, dir, skip = null) => eyeHit(collider, ey
  *                      - or null
  *   flatAs(flat)     - DECOR-OUTDOOR: the picture a flat is here, [archive, record] - a yard's nature in its season
  *                      (scenes/homeYards.js); none, the flat itself
+ *   flatPicture(flat) - DECOR-LPT: the picture a flat the host stands its own way WILL stand as (a yard's tree - its Low
+ *                      Poly Trees picture, its season's: scenes/yardNature.js picture), a Promise of `{ archive, key,
+ *                      size, mirrors, release }` at scale 1 (`release` lets go of what it holds - called when the ghost
+ *                      goes), or null (none: the flat's own picture, as ever)
  */
 export function createDecorTool(deps) {
   const { renderer, pool } = deps;
@@ -813,7 +817,7 @@ export function createDecorTool(deps) {
     const eye = flightStart(editing);   // DECOR-ROOMS: in the room chosen - else at the eye, as ever
     placing = {
       entry, radius, editing, free, placer: null, fly: [...eye], start: [...eye], id: editing ? editing.id : mintDecorId(), piece: null,
-      refused: null, busy: false, batch: null, flatSize: null, rise: 0, art: null, decal: null, inside: [],
+      refused: null, busy: false, batch: null, flatSize: null, rise: 0, art: null, decal: null, inside: [], mirrors: true, release: null,   // DECOR-LPT: the host's picture's
       door: entry.kind === 'door', flip: false, marks: null, markSig: '',   // HOME-DOORS: hung in a doorway, its marks
       lotMarks: null, lotSig: '',   // HOME-YARD: the lot's edge
     };
@@ -826,8 +830,18 @@ export function createDecorTool(deps) {
       // scenes/decorRoom.js standPicture) - else its own world picture, as ever
       const mw = entry.kind === 'own' && entry.item ? Promise.resolve(pool.standPicture?.(entry.item) ?? null).catch(() => null) : Promise.resolve(null);
       const [ga, gr] = drawnHere(entry.flat);   // NUDE-DECOR: a figure moved shows the stand-in the room stands it as; DECOR-OUTDOOR: a tree, its season
-      Promise.all([deps.getTexture?.(ga), mw]).then(([t, pic]) => {
-        if (placing !== p) return;
+      // DECOR-LPT: a flat the host stands its own way shows the picture it will stand as (a yard's tree, Low Poly Trees')
+      const hosted = Promise.resolve(deps.flatPicture?.(entry.flat) ?? null).catch(() => null);
+      Promise.all([deps.getTexture?.(ga), mw, hosted]).then(([t, pic, own]) => {
+        if (placing !== p) { own?.release?.(); return; }
+        if (own) {
+          p.flatSize = { ...own.size };
+          p.mirrors = own.mirrors !== false;   // a tree turns in earnest - its picture never mirrors
+          p.release = own.release ?? null;
+          p.placer = createDecorPlacer(entry, { radius, from: editing, free });
+          if (renderer?.createBillboardBatch) p.batch = renderer.createBillboardBatch(own.archive, own.key, { ...p.flatSize }, [[0, 0, 0]]);
+          return;
+        }
         if (pic) {
           p.flatSize = { w: pic.w, h: pic.h };
           p.placer = createDecorPlacer(entry, { radius, from: editing, free });
@@ -892,6 +906,7 @@ export function createDecorTool(deps) {
     if (p?.decal) renderer?.destroyDecalBatch?.(p.decal);   // DECOR2c
     if (p?.marks) renderer?.destroyDecalBatch?.(p.marks);   // HOME-DOORS
     if (p?.lotMarks) renderer?.destroyDecalBatch?.(p.lotMarks);   // HOME-YARD
+    p?.release?.();   // DECOR-LPT: what the host's picture held (a tree's far picture)
     bar?.hide();
     listen(false);
   }
@@ -1329,7 +1344,7 @@ export function createDecorTool(deps) {
     if (p.batch && p.piece && p.flatSize) {
       const sc = p.piece.scale;
       p.batch.origin = [origin[0] + p.piece.pos[0], origin[1] + p.piece.pos[1], origin[2] + p.piece.pos[2]];
-      p.batch.size = { w: p.flatSize.w * sc * (decorFlatMirrored(p.piece) ? -1 : 1), h: p.flatSize.h * sc };   // DECOR-FLIP: the ghost faces the way it will stand
+      p.batch.size = { w: p.flatSize.w * sc * (p.mirrors !== false && decorFlatMirrored(p.piece) ? -1 : 1), h: p.flatSize.h * sc };   // DECOR-FLIP: the ghost faces the way it will stand (DECOR-LPT: a tree never mirrors)
       if (p.batch.bounds) p.batch.bounds[3] = Math.hypot(p.batch.size.w, p.batch.size.h) * 0.5;
     }
   }

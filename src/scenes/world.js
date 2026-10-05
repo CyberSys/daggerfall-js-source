@@ -4802,7 +4802,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** LPT1: the frame's near 3D trees - the eye's pixel's and its neighbours' sets, each at its translation this frame,
    *  gathered (when the eye or they moved, or a tree was felled), culled to the view (`planes`, the frame's normalised
    *  ones - null when culling is off) and handed to the renderer for the flats' call. A set is made as its pixel comes
-   *  into the eye's 3x3 and let go once it is past the 5x5 (AUDIT LPT B10). */
+   *  into the eye's 3x3 and let go once it is past the 5x5 (AUDIT LPT B10). DECOR-LPT: and the yards' placed trees. */
   function lowPolyTreesFrame(planes) {
     _lptSets.length = 0;
     for (let i = 0; i < _pixelOrder.length; i++) {
@@ -4814,6 +4814,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       set.ox = p._t[0]; set.oy = p._t[1]; set.oz = p._t[2];
       _lptSets.push(set);
     }
+    for (const set of yards?.treeSets() ?? []) _lptSets.push(set);   // DECOR-LPT: the yards' placed trees, where their yards stand now
     _lptOpts.stamp = FOREST_STAMP.n;
     _lptOpts.planes = planes;
     lowPolyTrees.frame(_lptSets, cam.pos[0], cam.pos[1], cam.pos[2], _lptOpts);
@@ -10038,6 +10039,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     iconUrl: (a, r) => loadIcon(a, r, { scale: 1 }),
     scanDeps: () => decorScanDeps({ blocks, arch, getTexture }),   // DECOR-DUNGEON: the interior host's own constructor
     seasonal: () => (seasonsActive ? seasons : null),   // DECOR-OUTDOOR: a yard's trees in Seasons of the Iliac Bay's season, as the town's
+    trees: lowPolyTrees ? { door: lowPolyTrees, sway: (proto, share) => _lptSway.set(proto, Math.max(_lptSway.get(proto) ?? 0, share)) } : null,   // DECOR-LPT: a yard's tree as Low Poly Trees' own - its 3D tree in the near set (lowPolyTreesFrame)
     character: () => characterIdOf(playerEntity),
     realm: () => (realmSession ? (o) => realmGoldAct({ session: realmSession, checkpoint: () => onlineCheckpoint(), ...o }) : null),
     wallet: (region) => homeYardWallet(region), regionOf: (y) => built.get(`${y.px},${y.py}`)?.homeRegion ?? 0,

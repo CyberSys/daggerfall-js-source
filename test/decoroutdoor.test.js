@@ -12,16 +12,13 @@ import {
   DECOR_KINDS,
 } from '../src/systems/decorCatalogue.js';
 import { createDecorScan, decorScanDeps } from '../src/systems/decorScan.js';
-import { createHomeYards } from '../src/scenes/homeYards.js';
 import { yardNatureFlat, isNaturePiece } from '../src/scenes/yardNature.js';
 import { TREE_RECORDS } from '../src/world/terrainNature.js';
 import { applyClimate, SEASON } from '../src/world/climateSwaps.js';
-import { getWorldClimateSettings } from '../src/formats/mapsFile.js';
-import { billboardSize } from '../src/world/rmbFlats.js';
 import { floraSwayOf } from '../src/systems/windDrive.js';
 import { BLOCK_TYPES } from '../src/formats/blocksFile.js';
 import { LADDER_MODEL_ID } from '../src/player/enterExit.js';
-import { rmb, fakeBlocks, fakeDoc, fakeWin, settle, TOWN, rows, all } from './decorFakes.mjs';
+import { rmb, fakeBlocks, settle, rows, all, yardWorld, yardPiece, live, sized, SWAPPED, DESERT } from './decorFakes.mjs';
 
 /** A parsed RMB block with a STREET: its own models (`misc`, ids), its own flats (`miscFlats`, [a, r, factionID?]) and
  *  one building whose outside stands `outside` flats - beside one room (rmb's own). */
@@ -100,53 +97,6 @@ test('DECOR-OUTDOOR the scan, through the hosts\' one constructor: the streets r
   }
 });
 
-// ─── THE YARD ─────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-const DESERT = getWorldClimateSettings(224).climateType;
-const WOODS = getWorldClimateSettings(231).climateType;
-/** An archive the town's climate swaps (applyClimate's own answer) - found, never assumed. */
-const SWAPPED = [...Array(500).keys()].find((a) => applyClimate(a, 0, DESERT, SEASON.Summer) !== a && applyClimate(a, 0, DESERT, SEASON.Summer) !== applyClimate(a, 0, WOODS, SEASON.Summer));
-const yardPiece = (over = {}) => ({ id: 'p1', model: null, flat: [504, 12], pos: [8, 0, 2], rot: [0, 0, 0], scale: 2, light: null, storage: false, paid: 120, ...over });
-
-/** The real yard host over a town pixel built in `season`, its town of `climate`, a home (300) holding `pieces` - `own`
- *  the player's, who stands on its lot - with the panel's picture door `iconUrl`. */
-function yardWorld({ pieces, season = SEASON.Summer, climate = WOODS, seasonal = null, own = false, iconUrl = async () => null } = {}) {
-  const made = [];
-  const uploads = [];
-  const animated = [];
-  const doc = fakeDoc();
-  const pixel = (s) => ({
-    px: 0, py: 0, homeTown: 7, homeRegion: 17, season: s, townClimate: climate,
-    homeFrames: new Map([[300, { at: [10, 0, 10], box: [6, 0, 7, 14, 6, 13] }]]),
-    texRemap: new Map(), forest: { base: 504, archive: s === SEASON.Winter ? 505 : 504 },
-    flatAnims: { add: (b, a, n) => animated.push([b, a, n]), remove() {} },
-  });
-  const built = new Map([['0,0', pixel(season)]]);
-  const sizes = { 504: [40, 120], 505: [44, 130], 201: [30, 20] };
-  const yards = createHomeYards({
-    api: { yards: async () => ({ ok: true, data: { yards: [{ buildingKey: 300, pieces }] } }) },
-    homes: { homeAt: (m, k) => (k === 300 ? { owner: 'Tomas', own, look: null } : null) },
-    built: () => built, translation: () => [0, 0, 0], feet: () => (own ? [18, 0, 10] : [100, 0, 100]), outside: () => true, eye: () => (own ? [18, 1.6, 10] : [100, 1.6, 100]),
-    collider: () => ({ addMesh() {}, removeBucket() {} }),
-    meshes: { getGpuMesh: async (id) => ({ id, subMeshes: [{ textureArchive: SWAPPED, textureRecord: 0 }] }), cpuModels: new Map() },
-    renderer: {
-      createBillboardBatch: (a, r, size, centers) => { const b = { a, r, size, centers }; made.push(b); return b; },
-      destroyBillboardBatch: (b) => { b.gone = true; }, uploadTexture: (a, k) => uploads.push(`${a}_${k}`),
-    },
-    getTexture: async (a) => ({ recordCount: 32, getSize: () => { const [w, h] = sizes[a] ?? [16, 32]; return { width: w, height: h }; }, getScale: () => ({ width: 0, height: 0 }), getFrameCount: (r) => (a === 201 ? 4 : 1) }),
-    uploadRecord() {}, uploadRecordFrame() {}, iconUrl,
-    seasonal: () => seasonal,
-    scanDeps: () => ({ blocks: fakeBlocks([{ type: TOWN, block: rmb([41000]) }]), isTownBlock: (x) => x === TOWN, nature: true, modelRadius: () => 0.8, flatRadius: async () => 0.2 }),
-    character: () => 'r0123456789abcdef0123', realm: () => null, wallet: () => ({ gold: 5000, pay() {}, credit() {} }), regionOf: () => 17,
-    doc, win: fakeWin(), canvas: null, touch: false, actionOf: () => null, locked: () => true, cursorOff() {}, stick: () => null,
-    say() {}, refusal: (w) => w, openSlot() {}, now: () => 0,
-  });
-  const cam = own ? { pos: [18, 1.6, 10], yaw: Math.PI, pitch: -0.6 } : { pos: [100, 1.6, 100], yaw: 0, pitch: 0 };
-  const run = async (n = 3, overlayUp = false) => { for (let i = 0; i < n; i++) { yards.frame({ dt: 1, cam, overlayUp }); await settle(); await settle(); } };
-  return { yards, built, made, uploads, animated, pixel, run, doc };
-}
-const live = (made) => made.filter((b) => !b.gone);
-const sized = (w, h, k = 1) => { const s = billboardSize({ getSize: () => ({ width: w, height: h }), getScale: () => ({ width: 0, height: 0 }) }, 0); return { w: s.w * k, h: s.h * k }; };
 
 test('DECOR-OUTDOOR the yard\'s tree: drawn as its town draws its nature - the season\'s archive of its set (winter\'s twin in winter), at its own scale on its own base, leaning with the wind, mirrored when turned half round - and stood again in the new season when its pixel is built again (mutants: DECOROUTDOOR-tree-seasonless, DECOROUTDOOR-tree-unscaled, DECOROUTDOOR-tree-still, DECOROUTDOOR-rebuild-unheard)', async () => {
   assert.equal(isNaturePiece(yardPiece()), true);
@@ -156,7 +106,12 @@ test('DECOR-OUTDOOR the yard\'s tree: drawn as its town draws its nature - the s
   await w.run();
   let [a, b] = live(w.made);
   assert.deepEqual([a.a, a.r, a.size, a.centers], [504, 12, sized(40, 120, 2), [[18, 0, 12]]], 'summer: its set\'s own archive, twice its size, on its base');
-  assert.equal(a.sway, floraSwayOf(504, 504, sized(40, 120, 2).h), 'it leans as the town\'s flora leans');
+  assert.equal(a.sway, floraSwayOf(504, 504, sized(40, 120).h), 'it leans as the town\'s flora leans');
+  // ...by its RECORD's height: a bush scaled past a tree's height is a bush still
+  const bush = yardWorld({ pieces: [yardPiece({ flat: [504, 20], scale: 4 })], sizes: { '504.20': [16, 32] } });
+  await bush.run();
+  const [shrub] = live(bush.made);
+  assert.deepEqual([shrub.size.h > sized(40, 120).h, shrub.sway], [true, floraSwayOf(504, 504, sized(16, 32).h)]);
   assert.ok(b.size.w < 0 && b.size.h > 0, 'turned half round: mirrored');
   // the season turns: the town's pixel is built again, and the yard stands again in it
   w.built.set('0,0', w.pixel(SEASON.Winter));

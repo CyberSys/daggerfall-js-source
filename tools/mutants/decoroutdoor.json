@@ -92,8 +92,8 @@
   {
     "name": "DECOROUTDOOR-tree-seasonless",
     "file": "src/scenes/yardNature.js",
-    "old": "    const [archive, record] = yardNatureFlat(piece.flat, season);",
-    "new": "    const [archive, record] = piece.flat;",
+    "old": "    const [archive, record] = yardNatureFlat(flat, season);",
+    "new": "    const [archive, record] = flat;",
     "tests": [
       "test/decoroutdoor.test.js"
     ]
@@ -101,8 +101,8 @@
   {
     "name": "DECOROUTDOOR-tree-unscaled",
     "file": "src/scenes/yardNature.js",
-    "old": "    const size = { w: plain.w * piece.scale, h: plain.h * piece.scale };",
-    "new": "    const size = { w: plain.w, h: plain.h };",
+    "old": "    const size = { w: pic.size.w * piece.scale, h: pic.size.h * piece.scale };",
+    "new": "    const size = { w: pic.size.w, h: pic.size.h };",
     "tests": [
       "test/decoroutdoor.test.js"
     ]
@@ -110,8 +110,8 @@
   {
     "name": "DECOROUTDOOR-tree-still",
     "file": "src/scenes/yardNature.js",
-    "old": "    batch.sway = floraSwayOf(archive, natureArchive ?? archive, size.h);\n",
-    "new": "",
+    "old": "    const sway = floraSwayOf(archive, natureArchive ?? archive, plain.h);",
+    "new": "    const sway = 0;",
     "tests": [
       "test/decoroutdoor.test.js"
     ]
