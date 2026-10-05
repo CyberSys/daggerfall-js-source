@@ -296,8 +296,11 @@ test('LW1 favourites: a resident keeps to the same two social spots, tavern, tem
   const { nav, buildings, doors } = synthTown();
   const places = townPlaces(nav, doors, buildings);
   const census = townCensus(TOWN, buildings);
-  const keys = (rs) => rs.map((x) => { const f = favourites(x, places, places.doors.get(x.home)); return [...f.social.map((s) => s.key), f.market?.key, f.tavern?.key].join(','); });
-  assert.deepEqual(keys(census.slice(0, 40)), keys(census.slice(0, 40)), 'the seed\'s alone - the same every reading');
+  const keys = (rs, pl = places) => rs.map((x) => { const f = favourites(x, pl, pl.doors.get(x.home)); return [...f.social.map((s) => s.key), f.market?.key, f.tavern?.key].join(','); });
+  // A second reader's own places: LW-PERF keeps the favourites by the town's places, so a second reading off the SAME
+  // places is the kept one and could not fail a daily re-draw (the mutant survived it); a reader who builds the town
+  // afresh works them out again, and must find the same.
+  assert.deepEqual(keys(census.slice(0, 40), townPlaces(nav, doors, buildings)), keys(census.slice(0, 40)), 'the seed\'s alone - the same for every reader');
   const r = census[20];
   const home = places.doors.get(r.home);
   const f1 = favourites(r, places, home);
