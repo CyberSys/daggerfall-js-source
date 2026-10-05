@@ -17,7 +17,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import {
   setDfmodSources, attachedDfmods, dfmodLoadOrder, dfmodFileName, manifestDeps, buildDfmodIndex, DFMOD_INDEX_VERSION,
-  setDfmodEnabled, dfmodEnabled, forgetDfmodOff, DFMOD_OFF_PREF, DFMOD_ON_PREF, dfmodGroundLayers, groundSource, hasDfmodGround,
+  setDfmodEnabled, dfmodEnabled, forgetDfmodOff, DFMOD_OFF_PREF, DFMOD_SHIPPED_PREF, dfmodGroundLayers, groundSource, hasDfmodGround,
   dfmodImgImage, dfmodGeneration, _resetDfmodForTests,
 } from '../src/systems/dfmodTextures.js';
 import { preloadTextureRecord, setTextureReplacements, clearTextureReplacements, looseTextureExists, looseTextureGeneration, PRELOAD_CONCURRENCY } from '../src/systems/textureReplacement.js';
@@ -76,7 +76,7 @@ const WINTER = 'dfmod/vanilla enhanced - winter tracks.dfmod';
 function fresh() {
   setValue('Enhancements', 'AssetInjection', 'True');
   setPref(DFMOD_OFF_PREF, []);
-  setPref(DFMOD_ON_PREF, []);   // VE4: the shipped mods' switches
+  setPref(DFMOD_SHIPPED_PREF, {});   // VE4 / AUDIT VE: the shipped mods' switches
   setPref(VE_ADDONS_PREF, []);   // VE4: the add-ons the look is worn with
   clearTextureReplacements();
 }
@@ -280,7 +280,8 @@ test('VE3/VE4 the Texture Overhaul card: Classic and Vanilla Enhanced - the pack
   assert.deepEqual(tex.options.map((o) => [o.id, o.name]), [['classic', 'Classic'], ['vanilla-enhanced', 'Vanilla Enhanced']]);
   const [classic, ve] = tex.options;
   await attach({});
-  assert.equal(currentOption(tex), classic, 'nothing switched on: Daggerfall\'s own - the shipped pack is off until it is worn');
+  // PIN MOVED (AUDIT VE, Mac: "Ensure this is on by default"): nothing attached was Classic while the shipped pack was off
+  assert.equal(currentOption(tex), ve, 'nothing attached: the shipped Base, on by default');
   assert.equal(ve.by, 'carademono, version 3.4.7', 'VE4: the shipped Base');
   await attach({
     'dfmod/dream - sprites.dfmod': fakeMod('DREAM - Sprites', { textures: [['210_0-0', 2, 2]] }),

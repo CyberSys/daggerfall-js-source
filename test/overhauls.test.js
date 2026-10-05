@@ -28,7 +28,7 @@ test('OVH1: three panels, Texture, Sound and UI in that order; Texture stood EMP
   assert.deepEqual(OVERHAUL_PANELS.map((p) => p.title), ['Texture Overhaul', 'Sound Overhaul', 'UI Overhaul']);
   const [tex, snd, ui] = OVERHAUL_PANELS;
   assert.deepEqual(tex.options.map((o) => o.name), ['Classic', 'Vanilla Enhanced'], 'VE3: the first texture pack, beside Daggerfall\'s own');
-  assert.equal(currentOption(tex), tex.options[0], 'a fresh shelf: Classic - the shipped pack is off until it is worn');
+  assert.equal(currentOption(tex), tex.options[1], 'a fresh shelf: Vanilla Enhanced - the shipped Base is on by default (AUDIT VE; PIN MOVED: it read Classic while VE4 shipped it off)');
   // VE4: it ships (Port-Doctrine's one exception) - nothing to attach, its author and version off the shipped Base
   assert.equal(tex.options[1].by, 'carademono, version 3.4.7');
   assert.equal(tex.options[1].vendor, 'vanilla-enhanced', 'the credits find the pack through its look');

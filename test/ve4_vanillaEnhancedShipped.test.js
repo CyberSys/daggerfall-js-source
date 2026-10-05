@@ -4,7 +4,7 @@
 // Port-Doctrine's A RENDER OF GAME DATA IS GAME DATA kept it out. Mac approved carrying it; the doctrine records the one
 // exception (test/doctrine.test.js holds the bound). Three of its mods ship under public/art/vanilla-enhanced/, written
 // by tools/vanillaEnhancedVendor.mjs from the mod's repository at a pinned commit, and register in the texture-mod door
-// beside any the player attaches - one load order, one walk, off until worn.
+// beside any the player attaches - one load order, one walk; the Base on by default (AUDIT VE), its add-ons off.
 //
 // Driven through the real door (systems/dfmodTextures.js), the real pack module over the REAL generated index, the
 // real texture door, the real prefs shelf and the real Overhauls registry; only the network and the PNG decode are
@@ -16,10 +16,11 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import {
-  setDfmodSources, attachedDfmods, setDfmodEnabled, setShippedDfmods, clearDfmodSources, DFMOD_ON_PREF, DFMOD_OFF_PREF,
+  setDfmodSources, attachedDfmods, setDfmodEnabled, setShippedDfmods, clearDfmodSources, DFMOD_SHIPPED_PREF, DFMOD_OFF_PREF,
   DFMOD_INDEX_VERSION, dfmodStoreKey, dfmodGroundLayers, groundSource, dfmodGeneration, _resetDfmodForTests,
 } from '../src/systems/dfmodTextures.js';
-import { VE_PACK_MODS, VE_PACK_SOURCE, fitSize, vePackClient, vePackUrl, installVanillaEnhancedPack, _setVePackIoForTests } from '../src/systems/vanillaEnhancedPack.js';
+import { VE_PACK_MODS, VE_PACK_SOURCE, vePackClient, vePackUrl, installVanillaEnhancedPack, _setVePackIoForTests } from '../src/systems/vanillaEnhancedPack.js';
+import { mipFitSize } from '../src/formats/resample.js';   // AUDIT VE P1: the mip rule's one home, the decode worker's and the page's
 import { bundleTextureCount, preloadTextureRecord, clearTextureReplacements, textureEntry } from '../src/systems/textureReplacement.js';
 import { VE_COMMIT, BC7_MEAN, BC7_MAX, VE_MODS } from '../tools/vanillaEnhancedVendor.mjs';
 import { wearVanillaEnhanced, wearClassicTextures, setVeAddon, veAddons, veWorn, VE_ADDONS_PREF } from '../src/systems/vanillaEnhanced.js';
@@ -65,7 +66,7 @@ function fresh() {
   _resetDfmodForTests();
   setValue('Enhancements', 'AssetInjection', 'True');
   setPref(DFMOD_OFF_PREF, []);
-  setPref(DFMOD_ON_PREF, []);
+  setPref(DFMOD_SHIPPED_PREF, {});
   setPref(VE_ADDONS_PREF, []);
   clearTextureReplacements();
   fakeIo();
@@ -126,18 +127,22 @@ test('VE4 the index: the shape an attached copy\'s index has, at the door\'s ver
   assert.deepEqual(masked.index.arrays.find((a) => a[0] === '403-TexArray'), ['403-TexArray', 256, 256, 57], 'the malformed array, indexed as it is');
 });
 
-test('VE4 the door: the shipped mods register beside the attached in one load order, off until switched on on their own shelf entry; switched on, their names are on the doors and drawn from the port\'s files; an attached copy shadows one and its removal brings the shipped one back as it was; a clear of the attached leaves them (mutants: a shipped mod on by default; the attached copy not shadowing; the shipped mod read from the store; the clear taking the shipped)', async () => {
+test('VE4 the door: the shipped mods register beside the attached in one load order - the Base ON by default, its add-ons off (AUDIT VE), the player\'s choice either way on its own shelf entry; switched on, their names are on the doors and drawn from the port\'s files; an attached copy shadows one and its removal brings the shipped one back as it was; a clear of the attached leaves them (mutants: the Base off by default; the attached copy not shadowing; the shipped mod read from the store; the clear taking the shipped)', async () => {
+  // PIN MOVED (AUDIT VE, Mac: "Ensure this is on by default"): VE4 shipped every mod OFF until worn
   fresh();
   installVanillaEnhancedPack();
-  assert.deepEqual(attachedDfmods().map((m) => [m.key, m.shipped, m.enabled]), [[BASE, true, false], [MASKED, true, false], [SNOWLESS, true, false]], 'in load order, every one off');
-  assert.equal(bundleTextureCount(), 0, 'nothing on the doors until worn');
+  assert.deepEqual(attachedDfmods().map((m) => [m.key, m.shipped, m.enabled]), [[BASE, true, true], [MASKED, true, false], [SNOWLESS, true, false]], 'in load order: the Base on, its add-ons off');
+  assert.equal(bundleTextureCount(), 1238, 'the Base\'s names on the doors from the start - its 1,246 PNGs but the eight World of Daggerfall biome pictures, which are not archive-named');
   const gen = dfmodGeneration();
   installVanillaEnhancedPack();
   assert.equal(dfmodGeneration(), gen, 'the same list again changes nothing');
+  setDfmodEnabled(BASE, false);
+  assert.deepEqual(getPref(DFMOD_SHIPPED_PREF), { [BASE]: false }, 'a shipped mod\'s switch is the player\'s choice');
+  assert.equal(bundleTextureCount(), 0, 'switched off: nothing on the doors');
   setDfmodEnabled(BASE, true);
-  assert.deepEqual(getPref(DFMOD_ON_PREF), [BASE], 'a shipped mod\'s switch is the keys switched ON');
+  assert.deepEqual(getPref(DFMOD_SHIPPED_PREF), { [BASE]: true });
   assert.deepEqual(getPref(DFMOD_OFF_PREF), [], 'and the attached shelf entry is untouched');
-  assert.equal(bundleTextureCount(), 1238, 'the Base\'s 1,246 PNGs but the eight World of Daggerfall biome pictures, which are not archive-named');
+  assert.equal(bundleTextureCount(), 1238);
   const name = INDEX.Mods[0].index.textures.find(([n]) => /^500_/.test(n))[0];
   const e = textureEntry(`${name}.png`);
   const c = await preloadTextureRecord(e.archive, e.record, e.frame);
@@ -177,6 +182,7 @@ test('VE4 the door: the shipped mods register beside the attached in one load or
 test('VE4 the ground, over the real index: the Base\'s arrays dress the terrain from its own records; Masked Roads, loaded after it, decides its arrays - the Base\'s tiles but its road tiles; its 403 array, 57 deep, is refused and 403 is made of records - the Base\'s and its own three road records; Snowless Swamps, loaded last, decides 402 (DFU: TryImportTextureArray, the first mod in TryGetAsset\'s walk)', async () => {
   fresh();
   installVanillaEnhancedPack();
+  setDfmodEnabled(BASE, false);   // PIN MOVED (AUDIT VE): the Base is on by default - switched off, the classic set
   assert.equal(await dfmodGroundLayers(302, classicTex(56)), null, 'off: the classic set');
   setDfmodEnabled(BASE, true);
   assert.deepEqual(groundSource(302), { kind: 'array', key: BASE, name: '302-TexArray', depth: 56 });
@@ -205,11 +211,11 @@ test('VE4 the ground, over the real index: the Base\'s arrays dress the terrain 
 });
 
 test('VE4 the client: a texture asked at the texture detail is the mip a bundle would decode - halved until it fits, as mipLevelFor picks; an array is its slices, a few at a time; a name the mod does not carry is refused (mutants: the detail not honoured; every slice fetched at once)', async () => {
-  assert.deepEqual(fitSize(256, 256, 256), [256, 256]);
-  assert.deepEqual(fitSize(512, 256, 256), [256, 128]);
-  assert.deepEqual(fitSize(1024, 1024, 300), [256, 256], 'a mip, not a fit: 512 is over, 256 is the level');
-  assert.deepEqual(fitSize(13, 107, 64), [6, 53]);
-  assert.deepEqual(fitSize(64, 64, Infinity), [64, 64], 'full detail');
+  assert.deepEqual(mipFitSize(256, 256, 256), [256, 256]);
+  assert.deepEqual(mipFitSize(512, 256, 256), [256, 128]);
+  assert.deepEqual(mipFitSize(1024, 1024, 300), [256, 256], 'a mip, not a fit: 512 is over, 256 is the level');
+  assert.deepEqual(mipFitSize(13, 107, 64), [6, 53]);
+  assert.deepEqual(mipFitSize(64, 64, Infinity), [64, 64], 'full detail');
   fresh();
   fakeIo({ w: 512, h: 256 });
   const base = VE_PACK_MODS.find((m) => m.key === BASE);
@@ -233,11 +239,12 @@ test('VE4 the client: a texture asked at the texture detail is the mip a bundle 
   fakeIo();
 });
 
-test('VE4 the card over the shipped pack: Classic until worn; wearing switches the Base on, the add-ons off until picked on the card; an add-on picked is kept across a turn to Classic and worn again with the Base (mutants: the add-ons worn by default; the pick not kept; Classic forgetting the add-ons)', () => {
+test('VE4 the card over the shipped pack: Vanilla Enhanced is a fresh game\'s look (AUDIT VE) - the Base alone, the add-ons off until picked on the card; an add-on picked is kept across a turn to Classic and worn again with the Base (mutants: the add-ons worn by default; the pick not kept; Classic forgetting the add-ons)', () => {
+  // PIN MOVED (AUDIT VE, Mac: "Ensure this is on by default"): VE4's fresh game was Classic
   fresh();
   const tex = OVERHAUL_PANELS.find((p) => p.id === 'texture');
   const [classic, ve] = tex.options;
-  assert.equal(currentOption(tex), classic, 'a fresh game is Daggerfall\'s own');
+  assert.equal(currentOption(tex), ve, 'a fresh game wears Vanilla Enhanced');
   assert.deepEqual(ve.addons().map((m) => m.title), ['Vanilla Enhanced - Masked Roads', 'Vanilla Enhanced - Snowless Swamps and Jungles']);
   wearVanillaEnhanced();
   assert.ok(veWorn());

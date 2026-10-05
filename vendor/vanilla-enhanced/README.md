@@ -106,8 +106,12 @@ register in the texture-mod door (`src/systems/dfmodTextures.js`
 one lookup walk. The only difference is where a picture comes from: the
 port's own file, fetched when it is first drawn.
 
-- Every shipped mod is off until it is switched on. Its switch is kept on the
-  prefs shelf as `dfmodOn`.
+- The Base is on by default (AUDIT VE; Mac: "Ensure this is on by default"),
+  as a mod in Daggerfall Unity's Mods folder is; its add-ons are off until
+  picked. The player's choice either way is kept on the prefs shelf as
+  `dfmodShipped`.
+- The pictures are decoded in a worker (AUDIT VE P1), as an attached bundle's
+  are in its own.
 - The Texture Overhaul card wears Vanilla Enhanced: the Base, plus the add-ons
   the player picks on the card.
 - A copy the player attaches under the same name (a newer version from Nexus)

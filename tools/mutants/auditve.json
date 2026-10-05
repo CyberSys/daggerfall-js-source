@@ -1,0 +1,139 @@
+[
+  {
+    "name": "AUDITVE-base-off-by-default",
+    "file": "src/systems/vanillaEnhancedPack.js",
+    "tests": [
+      "test/auditve.test.js",
+      "test/ve4_vanillaEnhancedShipped.test.js",
+      "test/ve1_vanillaEnhanced.test.js",
+      "test/overhauls.test.js"
+    ],
+    "old": "export const ON_BY_DEFAULT = Object.freeze(new Set(['base']));",
+    "new": "export const ON_BY_DEFAULT = Object.freeze(new Set([]));"
+  },
+  {
+    "name": "AUDITVE-default-ignored",
+    "file": "src/systems/dfmodTextures.js",
+    "tests": [
+      "test/auditve.test.js",
+      "test/ve4_vanillaEnhancedShipped.test.js",
+      "test/ve1_vanillaEnhanced.test.js"
+    ],
+    "old": "  return typeof choice === 'boolean' ? choice : _shipped.find((s) => s.key === key)?.on === true;   // AUDIT VE: the shipped default",
+    "new": "  return typeof choice === 'boolean' ? choice : false;"
+  },
+  {
+    "name": "AUDITVE-choice-ignored",
+    "file": "src/systems/dfmodTextures.js",
+    "tests": [
+      "test/auditve.test.js",
+      "test/ve4_vanillaEnhancedShipped.test.js",
+      "test/ve1_vanillaEnhanced.test.js"
+    ],
+    "old": "  return typeof choice === 'boolean' ? choice : _shipped.find((s) => s.key === key)?.on === true;   // AUDIT VE: the shipped default",
+    "new": "  return _shipped.find((s) => s.key === key)?.on === true;"
+  },
+  {
+    "name": "AUDITVE-off-not-kept",
+    "file": "src/systems/dfmodTextures.js",
+    "tests": [
+      "test/auditve.test.js",
+      "test/ve4_vanillaEnhancedShipped.test.js"
+    ],
+    "old": "    if (_shippedLive.has(k)) { shipped = true; choices[k] = !!on; }",
+    "new": "    if (_shippedLive.has(k)) { shipped = true; if (on) choices[k] = true; else delete choices[k]; }"
+  },
+  {
+    "name": "AUDITVE-shipped-switch-on-the-attached-shelf",
+    "file": "src/systems/dfmodTextures.js",
+    "tests": [
+      "test/auditve.test.js",
+      "test/ve4_vanillaEnhancedShipped.test.js",
+      "test/ve1_vanillaEnhanced.test.js"
+    ],
+    "old": "    if (_shippedLive.has(k)) { shipped = true; choices[k] = !!on; }",
+    "new": "    if (false) { shipped = true; choices[k] = !!on; }"
+  },
+  {
+    "name": "AUDITVE-worker-never-asked",
+    "file": "src/systems/vanillaEnhancedPack.js",
+    "tests": [
+      "test/auditve.test.js"
+    ],
+    "old": "  if (lanes) {\n    try { return await askWorker(lanes, url, maxSize); } catch (e) {",
+    "new": "  if (false) {\n    try { return await askWorker(lanes, url, maxSize); } catch (e) {"
+  },
+  {
+    "name": "AUDITVE-unsupported-not-falling-back",
+    "file": "src/systems/vanillaEnhancedPack.js",
+    "tests": [
+      "test/auditve.test.js"
+    ],
+    "old": "      if (!e?.unsupported) throw e;\n",
+    "new": "      throw e;\n"
+  },
+  {
+    "name": "AUDITVE-dead-worker-asked",
+    "file": "src/systems/vanillaEnhancedPack.js",
+    "tests": [
+      "test/auditve.test.js"
+    ],
+    "old": "  const live = lanes.filter((l) => !l.dead);",
+    "new": "  const live = lanes;"
+  },
+  {
+    "name": "AUDITVE-fallback-not-fitted",
+    "file": "src/systems/vanillaEnhancedPack.js",
+    "tests": [
+      "test/auditve.test.js",
+      "test/ve4_vanillaEnhancedShipped.test.js"
+    ],
+    "old": "  return w === img.width && h === img.height ? img : resampleRgba(img, w, h);\n}",
+    "new": "  return img;\n}"
+  },
+  {
+    "name": "AUDITVE-worker-no-fit",
+    "file": "src/systems/vanillaEnhancedDecodeWorker.js",
+    "tests": [
+      "test/auditve.test.js"
+    ],
+    "old": "    if (w !== out.width || h !== out.height) {",
+    "new": "    if (false) {"
+  },
+  {
+    "name": "AUDITVE-worker-copies-the-pixels",
+    "file": "src/systems/vanillaEnhancedDecodeWorker.js",
+    "tests": [
+      "test/auditve.test.js"
+    ],
+    "old": "    globalThis.postMessage({ id, width: out.width, height: out.height, data: out.data }, [out.data.buffer]);",
+    "new": "    globalThis.postMessage({ id, width: out.width, height: out.height, data: out.data });"
+  },
+  {
+    "name": "AUDITVE-worker-unsupported-unsaid",
+    "file": "src/systems/vanillaEnhancedDecodeWorker.js",
+    "tests": [
+      "test/auditve.test.js"
+    ],
+    "old": "    if (typeof OffscreenCanvas !== 'function' || typeof createImageBitmap !== 'function') {",
+    "new": "    if (false) {"
+  },
+  {
+    "name": "AUDITVE-ground-cache-unbounded",
+    "file": "src/systems/dfmodTextures.js",
+    "tests": [
+      "test/auditve.test.js"
+    ],
+    "old": "  while (_groundCache.size > GROUND_CACHE_SETS) _groundCache.delete(_groundCache.keys().next().value);   // AUDIT VE P2: the least recently asked goes\n",
+    "new": ""
+  },
+  {
+    "name": "AUDITVE-ground-cache-oldest-not-least-recent",
+    "file": "src/systems/dfmodTextures.js",
+    "tests": [
+      "test/auditve.test.js"
+    ],
+    "old": "  _groundCache.delete(id);   // AUDIT VE P2: re-entered last - the Map's order is the cache's recency\n  if (hit) { _groundCache.set(id, hit); return hit; }",
+    "new": "  if (hit) return hit;"
+  }
+]

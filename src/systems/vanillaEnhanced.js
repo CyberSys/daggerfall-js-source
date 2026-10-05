@@ -5,7 +5,7 @@
 // nature flats, the city walls, the dungeons. VE3 had the player attach it (Port-Doctrine: A RENDER OF GAME DATA IS
 // GAME DATA); VE4 (Mac, 2026-10-05: "Put it in the codebase") ships it, under the exception Port-Doctrine records:
 // systems/vanillaEnhancedPack.js registers the Base, Masked Roads and Snowless Swamps and Jungles in the texture-mod
-// door (systems/dfmodTextures.js), off until worn. A copy the player attaches under the same name - a newer version
+// door (systems/dfmodTextures.js) - the Base on by default (AUDIT VE), its add-ons off. A copy the player attaches under the same name - a newer version
 // from Nexus - shadows the shipped one. This module names which registered mods are Vanilla Enhanced and wears them as
 // one look on the Texture Overhaul card (systems/overhauls.js).
 //

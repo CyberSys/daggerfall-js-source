@@ -2,10 +2,10 @@
 // side by side at a desktop and stack on a phone with nothing spilling sideways; the arrows browse without wearing; a
 // look worn from its button reads back as the card's look in use; a mix made on Features reads "Custom"; GrimoireUI's
 // card shows the pack's own art (the file served, the picture decoded); and wearing GrimoireUI reloads onto the
-// classic skin with the pack on the shelf, the card saying so. VE4: the Texture card reads Classic on a fresh game (the
-// shipped pack is off until worn); Vanilla Enhanced's button wears it at once; its add-ons stand on the card while it is
-// worn and switch there; a shipped picture is served and decoded through the pack's own client under /play/; and
-// Classic puts it away, keeping the add-ons for the next wear. A phone takes the add-on rows without spilling.
+// classic skin with the pack on the shelf, the card saying so. VE4 / AUDIT VE: the Texture card reads Vanilla Enhanced
+// in use on a fresh game (Mac: "Ensure this is on by default"); its add-ons stand on the card and switch there; a shipped
+// picture is served under /play/ and decoded by the pack's own WORKER (AUDIT VE P1); Classic puts it away, keeping the
+// add-ons, and Vanilla Enhanced worn again brings them back. A phone takes the add-on rows without spilling.
 //
 //     node tools/overhaulsProbe.mjs          (stands its own dev server; SHOT_DIR for the pictures)
 import { createServer } from 'vite';
@@ -58,39 +58,39 @@ const spills = (page) => page.evaluate(() => {
   let cs = await cards(page);
   check('three cards: Texture, Sound, UI', cs.map((c) => c.panel).join('|') === 'texture|sound|ui', cs.map((c) => c.panel).join('|'));
   check('...side by side at a desktop', new Set(cs.map((c) => Math.round(c.box.top))).size === 1 && cs[0].box.right <= cs[1].box.left, JSON.stringify(cs.map((c) => c.box)));
-  // VE4: the Texture card holds Classic and Vanilla Enhanced - the pack that ships, off until it is worn
-  check('the Texture card reads Classic in use on a fresh game', cs[0].state === 'on' && cs[0].name === 'Classic' && cs[0].disabled, JSON.stringify(cs[0]));
-  await page.locator('.look-panel[data-panel="texture"] .look-arrow').last().click(); await page.waitForTimeout(80);
-  const ve = (await cards(page)).find((c) => c.panel === 'texture');
+  // AUDIT VE: the Texture card holds Classic and Vanilla Enhanced - the pack that ships, ON by default
   const veBy = await page.$eval('.look-panel[data-panel="texture"] .look-by', (b) => b.textContent);
-  check('...browsing to Vanilla Enhanced offers to wear the shipped pack', ve.name === 'Vanilla Enhanced' && ve.state === 'browse' && ve.use === 'Use Vanilla Enhanced' && !ve.disabled && veBy === 'carademono, version 3.4.7', `${JSON.stringify(ve)} ${veBy}`);
-  await page.locator('.look-panel[data-panel="texture"] .look-use').click(); await page.waitForTimeout(150);
-  const veCard = (await cards(page)).find((c) => c.panel === 'texture');
-  const shelf = () => page.evaluate(async () => { const p = await import('/src/systems/uiPrefs.js'); return { on: p.getPref('dfmodOn'), kept: p.getPref('veAddons'), inject: (await import('/src/systems/settings.js')).getBool('Enhancements', 'AssetInjection') }; });
+  const shelf = () => page.evaluate(async () => { const p = await import('/src/systems/uiPrefs.js'); return { shipped: p.getPref('dfmodShipped'), kept: p.getPref('veAddons'), inject: (await import('/src/systems/settings.js')).getBool('Enhancements', 'AssetInjection') }; });
   let sh = await shelf();
-  check('Use Vanilla Enhanced wears it at once: the Base on, Replace Game Artwork on, the card reading it back', veCard.state === 'on' && veCard.name === 'Vanilla Enhanced' && veCard.disabled && JSON.stringify(sh.on) === '["dfmod/vanilla enhanced - base.dfmod"]' && sh.inject === true, `${JSON.stringify(veCard)} ${JSON.stringify(sh)}`);
+  check('a fresh game wears Vanilla Enhanced: the card reads it in use, the shipped version named, no choice on the shelf', cs[0].state === 'on' && cs[0].name === 'Vanilla Enhanced' && cs[0].disabled && veBy === 'carademono, version 3.4.7' && JSON.stringify(sh.shipped ?? {}) === '{}' && sh.inject === true, `${JSON.stringify(cs[0])} ${veBy} ${JSON.stringify(sh)}`);
   const rows = () => page.$$eval('.look-panel[data-panel="texture"] .look-colours', (rs) => rs.map((r) => `${r.getAttribute('aria-label')}:${[...r.querySelectorAll('button')].map((b) => `${b.textContent}=${b.getAttribute('aria-pressed')}`).join(',')}`));
   check('...its two add-ons stand on the card, off', JSON.stringify(await rows()) === JSON.stringify(['Masked Roads:On=false,Off=true', 'Snowless Swamps and Jungles:On=false,Off=true']), JSON.stringify(await rows()));
   await page.locator('.look-panel[data-panel="texture"] .look-colours[aria-label="Masked Roads"] button', { hasText: 'On' }).click(); await page.waitForTimeout(120);
   sh = await shelf();
-  check('...and Masked Roads switches on from there, kept for the next wear', (await rows())[0] === 'Masked Roads:On=true,Off=false' && sh.on.includes('dfmod/vanilla enhanced - masked roads.dfmod') && JSON.stringify(sh.kept) === '["dfmod/vanilla enhanced - masked roads.dfmod"]', JSON.stringify(sh));
-  // the pack's own file, served under the site root and decoded the way a drawn tile is
+  check('...and Masked Roads switches on from there, kept for the next wear', (await rows())[0] === 'Masked Roads:On=true,Off=false' && sh.shipped?.['dfmod/vanilla enhanced - masked roads.dfmod'] === true && JSON.stringify(sh.kept) === '["dfmod/vanilla enhanced - masked roads.dfmod"]', JSON.stringify(sh));
+  // the pack's own file, served under the site root and decoded the way a drawn tile is - in the pack's worker
+  const decodeWorkers = [];
+  page.on('worker', (w) => { if (/vanillaEnhancedDecodeWorker/.test(w.url())) decodeWorkers.push(w.url()); });
   const served = await page.evaluate(async () => {
     const pack = await import('/src/systems/vanillaEnhancedPack.js');
     const masked = pack.VE_PACK_MODS.find((m) => m.dir === 'masked-roads');
     const url = pack.vePackUrl(masked.slices['302-TexArray'][46]);
     const tiles = await pack.vePackClient(masked).layers('302-TexArray');
-    const flat = await pack.vePackClient(pack.VE_PACK_MODS[0]).rgba('500_0-0', { maxSize: 64 });
-    return { url: url.replace(location.origin, ''), n: tiles.length, size: `${tiles[46].width}x${tiles[46].height}`, flat: `${flat.width}x${flat.height}` };
+    const tree = await pack.vePackClient(pack.VE_PACK_MODS[0]).rgba('501_13-0', { maxSize: 256 });
+    return { url: url.replace(location.origin, ''), n: tiles.length, size: `${tiles[46].width}x${tiles[46].height}`, tree: `${tree.width}x${tree.height}` };
   });
-  check('a road tile is the pack\'s own file under the site root, the 302 set decoded whole, a flat at the texture detail', served.url === '/art/vanilla-enhanced/masked-roads/302-TexArray_46.png' && served.n === 56 && served.size === '256x256' && /^\d+x\d+$/.test(served.flat) && Math.max(...served.flat.split('x').map(Number)) <= 64, JSON.stringify(served));
+  await page.waitForTimeout(100);
+  check('a road tile is the pack\'s own file under the site root, the 302 set decoded whole and a 457x700 tree at the texture detail - by the decode worker', served.url === '/art/vanilla-enhanced/masked-roads/302-TexArray_46.png' && served.n === 56 && served.size === '256x256' && served.tree === '114x175' && decodeWorkers.length > 0, `${JSON.stringify(served)} workers ${decodeWorkers.length}`);
   await page.screenshot({ path: `${OUT}/look-desktop-ve.png` });
-  // Classic puts it away - every texture mod off, the add-on kept
+  // Classic puts it away - every texture mod off, the add-on kept; Vanilla Enhanced again brings it back
   await page.locator('.look-panel[data-panel="texture"] .look-arrow').first().click(); await page.waitForTimeout(80);
   await page.locator('.look-panel[data-panel="texture"] .look-use').click(); await page.waitForTimeout(150);
   sh = await shelf();
   const back = (await cards(page)).find((c) => c.panel === 'texture');
-  check('Use Classic switches the pack off and keeps its add-on for the next wear', back.state === 'on' && back.name === 'Classic' && JSON.stringify(sh.on) === '[]' && JSON.stringify(sh.kept) === '["dfmod/vanilla enhanced - masked roads.dfmod"]', `${JSON.stringify(back)} ${JSON.stringify(sh)}`);
+  check('Use Classic switches the pack off - a choice now - and keeps its add-on for the next wear', back.state === 'on' && back.name === 'Classic' && sh.shipped?.['dfmod/vanilla enhanced - base.dfmod'] === false && JSON.stringify(sh.kept) === '["dfmod/vanilla enhanced - masked roads.dfmod"]', `${JSON.stringify(back)} ${JSON.stringify(sh)}`);
+  await page.locator('.look-panel[data-panel="texture"] .look-arrow').last().click(); await page.waitForTimeout(80);
+  await page.locator('.look-panel[data-panel="texture"] .look-use').click(); await page.waitForTimeout(150);
+  check('...and Use Vanilla Enhanced wears it again with Masked Roads', (await cards(page)).find((c) => c.panel === 'texture').state === 'on' && (await rows())[0] === 'Masked Roads:On=true,Off=false', JSON.stringify(await rows()));
   cs = await cards(page);
   // the UI card's enhanced look is named Enhanced Plus since PLUS-ONLY (systems/uiSkin.js SKIN_NAMES) - this check read
   // plain Enhanced on both cards and failed from then on (found by VE3, which ran the probe again)
@@ -162,9 +162,7 @@ const spills = (page) => page.evaluate(() => {
   const arrow = await page.$eval('.look-arrow', (b) => b.getBoundingClientRect().height);
   check('...and a finger\'s 44px arrow', arrow >= 44, `${arrow}`);
   await page.screenshot({ path: `${OUT}/look-phone.png`, fullPage: true });
-  // VE4: Vanilla Enhanced worn on a phone - its add-on rows fit the column
-  await page.locator('.look-panel[data-panel="texture"] .look-arrow').last().click(); await page.waitForTimeout(80);
-  await page.locator('.look-panel[data-panel="texture"] .look-use').click(); await page.waitForTimeout(150);
+  // VE4 / AUDIT VE: Vanilla Enhanced, worn by default on a phone - its add-on rows fit the column
   const addonRows = await page.locator('.look-panel[data-panel="texture"] .look-colours').count();
   const sp2 = await spills(page);
   check('...and Vanilla Enhanced worn there, its add-on rows spill nothing', addonRows === 2 && sp2.length === 0, `${addonRows} rows; ${sp2.slice(0, 5).join(' | ')}`);

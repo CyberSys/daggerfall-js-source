@@ -195,16 +195,25 @@ the player attaches that is built on the shipped Base loads after it.
 `systems/vanillaEnhancedPack.js` hands the door each mod's index and a client
 in unityBundleClient's shape:
 - `rgba` fetches the port's own file and decodes it at the texture detail as
-  the mip a bundle would pick (`fitSize`, mipLevelFor's halving).
+  the mip a bundle would pick (`mipFitSize`, mipLevelFor's halving).
 - `layers` answers an array from its slices, `PRELOAD_CONCURRENCY` at once.
+- **The decode is a worker's** (AUDIT VE P1,
+  `systems/vanillaEnhancedDecodeWorker.js`): the fetch, the readback and the
+  detail's fit run off the main thread, as an attached bundle's decode does in
+  its own worker, and the pixels come back moved, not copied. A browser with no
+  OffscreenCanvas in a worker decodes on the page's thread instead - the same
+  pixels.
 
 The rules around them:
 - **Shadowing:** an attached `.dfmod` under the same key shadows the shipped
   mod, so a newer copy from Nexus is the one read. Removing it brings the
   shipped mod back as its own switch left it.
-- **Off until worn:** a shipped mod is off until switched on, and its switch
-  is the keys switched ON (`dfmodOn`). An attached mod's switch is the keys
-  switched off.
+- **On by default (AUDIT VE, Mac: "Ensure this is on by default"):** a
+  shipped mod stands at its own default until the player chooses. The Base
+  ships ON, as a mod in DFU's Mods folder is; its add-ons ship OFF until they
+  are picked on the card. The player's choice, either way, is kept as
+  `{ key: on }` on its own shelf entry (`dfmodShipped`); an attached mod's
+  switch is still the keys switched off.
 - **A clear keeps them:** clearing the attached mods leaves the shipped ones.
 
 The pack goes into the door before anything reads it: the boot seam
@@ -222,22 +231,24 @@ Enhanced is that pack, beside **Classic** (`systems/vanillaEnhanced.js`,
 `systems/overhauls.js`):
 
 - **Classic** is in use when Replace Game Artwork is off, or when no texture
-  mod is on and no loose texture pack is attached. A fresh game is Classic:
-  the shipped pack is off until worn. Wearing Classic switches every texture
-  mod off and keeps it registered. It never touches the lighting mod, which
+  mod is on and no loose texture pack is attached. Wearing Classic switches
+  every texture mod off and keeps it registered; the shipped mods' off is the
+  player's choice, kept through every boot after. It never touches the lighting mod, which
   rides the same store and is not a texture mod (the packs card's own split).
   A loose pack has no switch; while one is attached the card reads Custom and
   says where the packs are.
 - **Vanilla Enhanced** is in use when its Base is on and Replace Game Artwork
-  is on. The Base is the shipped one, or the player's own copy over it, and
-  the card names that copy's version. Wearing it switches on the Base,
+  is on - a fresh game's look (AUDIT VE): the shipped Base is on by default,
+  and Replace Game Artwork is on by default, as DFU's own default is. The Base
+  is the shipped one, or the player's own copy over it, and the card names
+  that copy's version. Wearing it switches on the Base,
   Replace Game Artwork (`Enhancements/AssetInjection`), and the add-ons it was
   last worn with. Other texture mods are left as they are.
 - **Its add-ons** are the family's other mods: the shipped Masked Roads and
   Snowless Swamps and Jungles, and any the player attached. While the look is
   worn they stand on the card as On/Off switches (`setVeAddon`), in the PLUS
   rows' shape. Classic remembers which were on (`veAddons`), so the next wear
-  brings them back. The first wear is the Base alone.
+  brings them back. A fresh game wears the Base alone.
 - The effect line is the card's own: it takes effect when the world next
   loads. What is drawn keeps its pictures until its area loads again, and a
   tile set already uploaded stays until PLACE-LRU lets it go (true of every
@@ -268,10 +279,12 @@ and nothing of it reaches the wire.
 5. **Mod.Enabled lives on the prefs shelf** (`dfmodOff`), not in a
    Mods.json; a fresh attach is on.
 6. **Wearing Vanilla Enhanced turns Replace Game Artwork on.**
-7. **A shipped mod is off until it is worn** (VE4). A mod in DFU's Mods
-   folder is on until the player switches it off. The port's look is
-   Daggerfall's own until the player picks another, so the shipped mods
-   start off, their switch on its own shelf entry (`dfmodOn`).
+7. **Vanilla Enhanced's add-ons ship off** (VE4; AUDIT VE). A mod in DFU's
+   Mods folder is on until the player switches it off. The Base ships so - on
+   by default (Mac: "Ensure this is on by default") - but Masked Roads and
+   Snowless Swamps and Jungles change the roads and the swamps' winters, and
+   wait to be picked on the card. Each shipped mod's switch is the player's
+   choice either way, on its own shelf entry (`dfmodShipped`).
 8. **The terrain arrays draw from the pictures they were compressed from**
    (VE4). DFU decodes the BC7 slices. The port serves each slice from the
    PNG the vendoring proved it within BC7's error of: the same picture,

@@ -98,9 +98,10 @@ pick and its words (`needsFiles`, `attach`) are gone, and the button wears
 the look at once.
 
 **What each look does:**
-- **Classic** is the look on a fresh game: the shipped pack is off until it
-  is worn. Wearing Classic switches every texture mod off and keeps it
-  registered.
+- **Classic:** wearing it switches every texture mod off and keeps it
+  registered; the shipped mods' off is the player's choice, kept after.
+- **AUDIT VE (Mac: "Ensure this is on by default"):** Vanilla Enhanced is the
+  look on a fresh game - its Base ships on, as Replace Game Artwork does.
 - **Vanilla Enhanced:** wearing it switches the Base on with Replace Game
   Artwork, and the add-ons it was last worn with.
 - **The add-ons** (Masked Roads, Snowless Swamps and Jungles, and any the
@@ -141,18 +142,18 @@ real skin choice; the hosts' wiring by source). Mutants:
 `tools/mutants/ovh4.json` (15, all dead).
 
 Pins: `test/overhauls.test.js`; the browser probe `tools/overhaulsProbe.mjs`
-(27 checks):
+(26 checks):
 - the three cards at a desktop and on a phone;
 - browse vs wear, and Custom;
 - GrimoireUI's art decoded, and the reload onto the classic skin wearing
   the pack;
-- VE4's seven, where OVH1b's empty card stood:
-  - Classic in use on a fresh game;
-  - Vanilla Enhanced offered with the shipped version;
-  - worn at once;
+- VE4's and AUDIT VE's seven, where OVH1b's empty card stood:
+  - Vanilla Enhanced in use on a fresh game, the shipped version named
+    (AUDIT VE);
   - its two add-ons on the card, off;
   - Masked Roads switched on there and kept;
-  - a road tile served under the site root and decoded through the pack's
-    own client;
-  - Classic putting the pack away and keeping the add-on.
+  - a road tile served under the site root, the 302 set and a tree at the
+    texture detail decoded by the pack's own worker (AUDIT VE P1);
+  - Classic putting the pack away and keeping the add-on;
+  - Vanilla Enhanced worn again with it.
 - on a phone, the add-on rows spilling nothing.

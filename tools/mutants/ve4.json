@@ -1,14 +1,5 @@
 [
   {
-    "name": "VE4-shipped-on-by-default",
-    "file": "src/systems/dfmodTextures.js",
-    "tests": [
-      "test/ve4_vanillaEnhancedShipped.test.js"
-    ],
-    "old": "export const dfmodEnabled = (key) => (_shippedLive.has(key) ? onKeys().includes(key) : !offKeys().includes(key));",
-    "new": "export const dfmodEnabled = (key) => !offKeys().includes(key);"
-  },
-  {
     "name": "VE4-attached-copy-not-shadowing",
     "file": "src/systems/dfmodTextures.js",
     "tests": [
@@ -66,23 +57,14 @@
     "new": ""
   },
   {
-    "name": "VE4-shipped-switch-on-the-attached-shelf",
-    "file": "src/systems/dfmodTextures.js",
-    "tests": [
-      "test/ve4_vanillaEnhancedShipped.test.js",
-      "test/ve1_vanillaEnhanced.test.js"
-    ],
-    "old": "    if (_shippedLive.has(k)) { shipped = true; if (on) onSet.add(k); else onSet.delete(k); }",
-    "new": "    if (false) { shipped = true; if (on) onSet.add(k); else onSet.delete(k); }"
-  },
-  {
     "name": "VE4-detail-not-honoured",
     "file": "src/systems/vanillaEnhancedPack.js",
     "tests": [
-      "test/ve4_vanillaEnhancedShipped.test.js"
+      "test/ve4_vanillaEnhancedShipped.test.js",
+      "test/auditve.test.js"
     ],
-    "old": "      return w === img.width && h === img.height ? img : resampleRgba(img, w, h);",
-    "new": "      return img;"
+    "old": "  return w === img.width && h === img.height ? img : resampleRgba(img, w, h);\n}",
+    "new": "  return img;\n}"
   },
   {
     "name": "VE4-every-slice-fetched-at-once",
@@ -95,9 +77,10 @@
   },
   {
     "name": "VE4-fit-not-a-mip",
-    "file": "src/systems/vanillaEnhancedPack.js",
+    "file": "src/formats/resample.js",
     "tests": [
-      "test/ve4_vanillaEnhancedShipped.test.js"
+      "test/ve4_vanillaEnhancedShipped.test.js",
+      "test/auditve.test.js"
     ],
     "old": "  while (Math.max(w, h) > maxSize && (w > 1 || h > 1)) { w = Math.max(1, w >> 1); h = Math.max(1, h >> 1); }",
     "new": "  if (Math.max(w, h) > maxSize && (w > 1 || h > 1)) { w = Math.max(1, w >> 1); h = Math.max(1, h >> 1); }"

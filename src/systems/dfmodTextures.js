@@ -206,13 +206,19 @@ export function dfmodLoadOrder(mods) {
 // mod attached is on.
 export const DFMOD_OFF_PREF = 'dfmodOff';
 const offKeys = () => { const v = getPref(DFMOD_OFF_PREF); return Array.isArray(v) ? v.filter((k) => typeof k === 'string') : []; };
-// VE4: a SHIPPED mod is off until it is switched on - the port's look is Daggerfall's own until the player picks another
-// (the Texture Overhaul card's Classic) - so its switch is the other way round: the keys switched ON, on their own shelf
-// entry. It is read while the shipped copy is the one registered; an attached copy that shadows it is an attached mod.
-export const DFMOD_ON_PREF = 'dfmodOn';
-const onKeys = () => { const v = getPref(DFMOD_ON_PREF); return Array.isArray(v) ? v.filter((k) => typeof k === 'string') : []; };
+// VE4: a SHIPPED mod stands at its own default until the player chooses - AUDIT VE (Mac, 2026-10-05: "Ensure this is on
+// by default"): Vanilla Enhanced's Base ships ON, as a mod in DFU's Mods folder is, and its add-ons OFF - so its switch
+// is the player's CHOICE either way, `{ key: on }` on its own shelf entry, and a key with no choice reads the mod's
+// default (`on` in setShippedDfmods' list). It is read while the shipped copy is the one registered; an attached copy
+// that shadows it is an attached mod.
+export const DFMOD_SHIPPED_PREF = 'dfmodShipped';
+const shippedChoices = () => { const v = getPref(DFMOD_SHIPPED_PREF); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; };
 /** The mod registered under `key` is switched on (Mod.Enabled). */
-export const dfmodEnabled = (key) => (_shippedLive.has(key) ? onKeys().includes(key) : !offKeys().includes(key));
+export const dfmodEnabled = (key) => {
+  if (!_shippedLive.has(key)) return !offKeys().includes(key);
+  const choice = shippedChoices()[key];
+  return typeof choice === 'boolean' ? choice : _shipped.find((s) => s.key === key)?.on === true;   // AUDIT VE: the shipped default
+};
 
 /** Open a bundle's bytes, index it and close it - the attach step. */
 export async function indexDfmodBytes(bytes, { open = openUnityBundle } = {}) {
@@ -403,10 +409,11 @@ function install() {
 }
 
 /**
- * VE4: register the mods that ship with the port - `[{ key, index, open }]`: `index` in buildDfmodIndex's shape, `open()`
- * answering a client in unityBundleClient's (`rgba`, `layers`, `close`) that serves the port's own files. They join the
- * attached mods in one load order; an attached copy under the same key shadows one. The same list again changes nothing;
- * another replaces it. The doors are put back at once. Answers what install() put on them.
+ * VE4: register the mods that ship with the port - `[{ key, index, open, on }]`: `index` in buildDfmodIndex's shape,
+ * `open()` answering a client in unityBundleClient's (`rgba`, `layers`, `close`) that serves the port's own files, `on`
+ * the mod's default until the player chooses (AUDIT VE). They join the attached mods in one load order; an attached copy
+ * under the same key shadows one. The same list again changes nothing; another replaces it. The doors are put back at
+ * once. Answers what install() put on them.
  */
 export function setShippedDfmods(list) {
   if (list === _shippedSrc) return _registered;
@@ -429,22 +436,22 @@ export function clearDfmodSources() {
 
 /**
  * VE3: switch registered mods on or off (Mod.Enabled) and put the doors back at once. The choice is kept on the prefs
- * shelf - an attached mod's as a key switched off, a shipped one's (VE4) as a key switched on; a mod switched off has
- * its bundle closed (DFU unloads it). Answers the shelf's word - a refused write still holds for this session. What is
- * already drawn keeps its pictures until its area loads again.
+ * shelf - an attached mod's as a key switched off, a shipped one's (VE4, AUDIT VE) as the player's choice either way; a
+ * mod switched off has its bundle closed (DFU unloads it). Answers the shelf's word - a refused write still holds for
+ * this session. What is already drawn keeps its pictures until its area loads again.
  */
 export function setDfmodEnabled(keys, on) {
   const list = (Array.isArray(keys) ? keys : [keys]).filter((k) => typeof k === 'string');
   const off = new Set(offKeys());
-  const onSet = new Set(onKeys());   // VE4: a shipped mod's switch is the keys switched ON
+  const choices = { ...shippedChoices() };   // VE4 / AUDIT VE: a shipped mod's switch is the player's choice, either way
   let attached = false, shipped = false;
   for (const k of list) {
-    if (_shippedLive.has(k)) { shipped = true; if (on) onSet.add(k); else onSet.delete(k); }
+    if (_shippedLive.has(k)) { shipped = true; choices[k] = !!on; }
     else { attached = true; if (on) off.delete(k); else off.add(k); }
   }
   let saved = true;
   if (attached) saved = setPref(DFMOD_OFF_PREF, [...off].sort()) && saved;
-  if (shipped) saved = setPref(DFMOD_ON_PREF, [...onSet].sort()) && saved;
+  if (shipped) saved = setPref(DFMOD_SHIPPED_PREF, choices) && saved;
   if (!on) {
     for (const k of list) {
       const p = _open.get(k);
@@ -516,7 +523,12 @@ export const dfmodCifRciNamed = (name) => {
 //      records when no record 0 is replaced): the set is record 0's size, else the classic size.
 // GROUND1 read only the arrays - an archive a loose pack or an array-less mod dressed record by record (Kokey's
 // Temperate: TEXTURE.302's 56 pictures, no array) stood classic - and took the FIRST mod by file name.
-let _groundCache = new Map();   // `${archive}:${depth}:${loose generation}` -> Promise<layers | null>
+let _groundCache = new Map();   // `${archive}:${depth}:${loose generation}` -> Promise<layers | null>, least recently asked first
+/** AUDIT VE P2: how many tile sets the ground cache keeps. A set stands on the GPU once uploaded (renderer.tileArrays); this
+ *  copy only spares a re-decode when PLACE-LRU lets the array go and the player comes back - and it was kept for every
+ *  archive the session ever drew, 14.7 MB a set at Vanilla Enhanced's 256 pixels (eleven sets, 162 MB). Three cover a
+ *  junction of climates; an older set is decoded again if it is ever asked for (off the main thread, AUDIT VE P1). */
+export const GROUND_CACHE_SETS = 3;
 
 /** VE2: what dresses a ground archive - `{ kind: 'array', key, name, depth }` (a mod's array decided first),
  *  `{ kind: 'records' }` (a loose record 0, or a mod whose first name is the record), or null: no loose record 0 and no
@@ -589,10 +601,12 @@ export function dfmodGroundLayers(archive, tex, { decode = decodePng } = {}) {
   const n = tex?.recordCount ?? 0;
   if (!n || !textureReplacementEnabled()) return Promise.resolve(null);
   const id = `${Number(archive)}:${n}:${looseTextureGeneration()}`;
-  if (!_groundCache.has(id)) {
-    for (const k of _groundCache.keys()) if (k.startsWith(`${Number(archive)}:`)) _groundCache.delete(k);   // a set built off an older loose pick
-    _groundCache.set(id, groundLayers(Number(archive), tex, decode));
-  }
+  const hit = _groundCache.get(id);
+  _groundCache.delete(id);   // AUDIT VE P2: re-entered last - the Map's order is the cache's recency
+  if (hit) { _groundCache.set(id, hit); return hit; }
+  for (const k of _groundCache.keys()) if (k.startsWith(`${Number(archive)}:`)) _groundCache.delete(k);   // a set built off an older loose pick
+  _groundCache.set(id, groundLayers(Number(archive), tex, decode));
+  while (_groundCache.size > GROUND_CACHE_SETS) _groundCache.delete(_groundCache.keys().next().value);   // AUDIT VE P2: the least recently asked goes
   return _groundCache.get(id);
 }
 
