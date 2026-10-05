@@ -53,7 +53,7 @@ test('TELL8: the record\'s law - the wind-up\'s four fields together (its shape 
   for (const ws of [0, 3, '1', true]) assert.equal(validFoeRecord({ ...base, ws }), null, `ws ${ws}`);
   assert.equal(WIRE_LAND_MS, FOE_WINDUP_MS, 'the writer\'s ceiling is the reader\'s');
   assert.deepEqual([...WIRE_KINDS], ['lunge', 'sweep', 'slam', 'ring', 'charge', 'leap', 'aimed']);
-  assert.equal(RELAY_VERSION, 'world165');   // AUDIT TELL moved it on (world162 was TELL8's)
+  assert.equal(RELAY_VERSION, 'world170');   // AUDIT TELL moved it on (world162 was TELL8's, world163 AUDIT TELL's on the branch); RVN13 and FEUD WIRE after it, and FEUD's merge of main renumbered the arc's relay to world170 - PIN MOVED
 });
 
 test('TELL8: the owner\'s word - a live wind-up\'s shape, iron and feint flags, yaw, landing in ms (clamped), origin through the record\'s projection and point; none for a cut feint, a landed blow or a puppet; the stagger and the overreach; the dedupe key never carries `wl` (mutants: a flag dropped; wl in the key)', () => {
@@ -311,7 +311,7 @@ test('TELL8: the hosts by source - both pools write the wind-up into the record 
   assert.match(d, /whole: data\.z === 1, \.\.\.\(data\.wc != null \? \{ wc: hitClassOf\(data\) \} : \{\}\) \}\);/);
   assert.match(rd('src/scenes/world.js'), /hurt: \(g, dmg, at, dir, wc = null, kind = 'melee'\) => cityGuards\.hurtGuard\(g, dmg, at, dir, \{ fromPlayer: false, peer: true, wc, kind \}\) \},/);   // PIN MOVED (AUDIT TELL P1: and its kind)
   assert.match(rd('src/scenes/cityGuards.js'), /from: striker\?\.ai\?\.feet \?\? playerFeet, wc,/);
-  assert.match(rd('test/relayversion.test.js'), /world162: '[0-9a-f]{64}',   \/\/ TELL8/);
+  assert.match(rd('test/relayversion.test.js'), /world170: '[0-9a-f]{64}',   \/\/ FEUD [^\n]*TELL8's wind-up, stagger and blow class on the foe record/);   // PIN MOVED (FEUD's merge of main): TELL8's world162 is one version with the arc's other wire changes, world170
 });
 
 // ── AUDIT TELL: the landing on the wire, the blow's serial ─────────

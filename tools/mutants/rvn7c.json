@@ -254,11 +254,12 @@
   {
     "name": "RVN7c-page-unrepainted",
     "file": "src/ui/travelMapWindow.js",
-    "old": "\n      && bountyMarksKey(readBountyMarks(this.deps.revenants, { width: MAP_WIDTH, height: MAP_HEIGHT }, REVENANT_LEGEND_TEXT)) === (this._revenantsKey ?? '')) return false;",
-    "new": ") return false;",
+    "old": "\n      && bountyMarksKey(readBountyMarks(this.deps.revenants, { width: MAP_WIDTH, height: MAP_HEIGHT }, REVENANT_LEGEND_TEXT)) === (this._revenantsKey ?? '')",
+    "new": "",
     "tests": [
       "test/rvn7c_map.test.js"
-    ]
+    ],
+    "note": "FEUD's MERGE of main's #586-#622 (PIN MOVED): the redraw's question asks HOME-VENDOR's trader after the lairs - the lairs' clause dropped whole."
   },
   {
     "name": "RVN7c-world-no-dep",

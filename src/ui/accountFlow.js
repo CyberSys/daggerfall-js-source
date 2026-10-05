@@ -44,6 +44,7 @@ import {
   PASSWORD_MIN_LEN,
 } from '../net/accountClient.js';
 import { ACCEPTED, TERMS_URL, PRIVACY_URL } from '../net/legalLaw.js';   // TERMS1: the documents a new account agrees to
+import { AURA_TEXT } from './playerBadge.js';   // SHADOW-CLOAK (AUDIT): an aura's name in the card's note
 
 /** Every stage this card can be on. Exported because a pin that
  *  enumerates them by hand is a pin that stops covering the one added
@@ -409,7 +410,7 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
    * WB9g - WEAR ONE AURA, OR NONE: `equip`'s law at the feet (Mac: "an animated burning ground aura that circles the
    * ground where your character stands"). It asks; the service decides what is held; the answer replaces the wardrobe;
    * pressing the one worn takes it off. The stored session learns it (net/accountClient.js adoptIdentity), so the fire
-   * at the player's own feet lights or goes out at once - the room sees it from the next hello the token signs.
+   * at the player's own feet lights or goes out at once - and the room's at once (AURA-LIVE: world.js auraFrame - online.js rehello).
    */
   self.wearAura = async (aura) => {
     if (self.busy || self.stage !== 'in') return false;
@@ -422,7 +423,7 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
       if (!r.ok) return refuse(accountRefusalText(r.error));
       self.wardrobe = { ...(self.wardrobe ?? {}), titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs, ...glyphHalf(r.data), ...auraHalf(r.data) };
       self.busy = false;
-      self.note = want ? `Wearing ${want}.` : 'Aura removed.';
+      self.note = want ? `Wearing ${AURA_TEXT[want] ?? want}.` : 'Aura removed.';   // SHADOW-CLOAK (AUDIT): the aura's name, never its key
       adoptIdentity(storage, { glyphs: r.data.glyphs, glyphsOff: r.data.glyphsOff, aura: auraStated(r.data), secret: asked });
       changed();
       return true;

@@ -77,10 +77,12 @@ import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angl
 
 import { isGateRoom } from './gateLaw.js';   // WB3: a gate's arena is one room of its own
 import { isBattleRoom, isRoyalRoom } from './siegeRef.js';   // SEAT2a part four: a siege's battle is one room of its own   // CROWN1 part two: and a Royal Tourney's
+import { privateInteriorOf } from './privateInterior.js';   // NET-SMOOTH: an owned interior's poses are MapsFile's frame
 import { isArenaRoom, validArenaIn } from './arenaLaw.js';   // ARENA4: the arena's hall and its bouts
-import { poseChanged, SOCKETS_MAX, WORLD_CELL, RANGE_PIXELS, PIXEL_UNITS, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, WORLD_FRAME_MAX, worldFrameMaxFor, isCellRoom, hitOwnerOf, validPose, validLook, sanitizeName, readBadge, readAura, readRibbon, sanitizeChat, chatGate, redGate, dmGate, relaySupportsDm, muteGate, subOf, mutedUntilOf, worldRoom, inRange, relayUrl, isWorldRoom, isChatRoom, foesGate, FOES_FRAME_MAX, MAX_FRAME_BYTES, hitGate, actGate, actFrameFits, whoGate, WHO_RETRY_MS, HEARTBEAT_MS, PING_MS, relayVersionOf, chatInGate, CHAT_ROOM_HZ_MAX, socialGate, partyGate, validPartyPose, validSocialFrame, validPartyFrame, PARTY_SEND_MS, validSocialAct, socialInGate, noteInGate, partyInGate, SOCIAL_IN_HZ_MAX, NOTE_IN_HZ_MAX, INBOUND_FRAME_MAX, questInGate, validQuestFrame, QUEST_SEND_MS, QUEST_HUB_MIN_MS, PARTY_MAX, tokenGate, validTradeData, tradeGate, tradeInGate, validCastData, castGate, castInGate, CAST_FRAME_MAX, CAST_IN_HZ_MAX, relaySupportsCast, TRADE_IN_HZ_MAX, relaySupportsTrade, TRADE_FRAME_MAX, parkGate, relaySupportsPark, PARK_CELL_MAX, PARK_KEY_RE, PARK_TTL_MS, relaySupportsChannels, CHAT_LINE_CHANNELS, partyChatInGate, PARTY_CHAT_ROOM_HZ_MAX, relaySupportsRoll, rollGate, validRollSpec, validRoll, relaySupportsEmote, validCardData, cardGate, cardInGate, CARD_FRAME_MAX, CARD_IN_HZ_MAX, relaySupportsCard, validPageData, pageGate, pageInGate, PAGE_FRAME_MAX, PAGE_IN_HZ_MAX, relaySupportsPage, validDuelData, duelGate, duelInGate, DUEL_FRAME_MAX, DUEL_IN_HZ_MAX, relaySupportsDuel, readRenown, renownGate, relaySupportsRenown, RENOWN_ORDER_KEEP_MS, RENOWN_RESEND_MS, lookGate, relaySupportsLook, relaySupportsPartyTravel, relaySupportsRestOpt, relaySupportsEvent, eventGate, validLiveEvent, LIVE_EVENTS, isSocialRoom, validGateIn, validGateOut, gateGate, relaySupportsGate, relaySupportsOwn, relaySupportsGateSpent, relaySupportsGateSite, relaySupportsGateHeal, gatePlaceWire, readGuildTag, relaySupportsGuild, GUILD_ORDER_KEEP_MS, guildChatInGate, GUILD_CHAT_ROOM_HZ_MAX, validRaidIn, validRaidOut, raidGate, relaySupportsRaid, validRaidTownsIn, isRegionRoom, validTravellerMark, validTravellerFrame, relaySupportsTravellers, travInGate, TRAV_SEND_MIN_MS, TRAV_WELCOME_MAX, TRAV_STALE_MS, relaySupportsPartyWalk, relaySupportsPartyMap, validAmapFrame, amapBody, AMAP_SEND_MS, AMAP_HUB_MIN_MS, validSiegeIn, validSiegeOut, siegeGate, relayFightsBattles, relayRunsRoyal, validRiteIn, validRiteOut, riteGate, relaySupportsRite, arenaGate, relaySupportsArena, readArenaOut } from './wire.js';   // SOC2: the hub's law, at home; AUDIT SOC B3/B11/B20: the act's projection, the inbound gates, the inbound bound
+import { poseChanged, POSE_TS_MOD, poseTsDiff, SOCKETS_MAX, WORLD_CELL, RANGE_PIXELS, PIXEL_UNITS, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, WORLD_FRAME_MAX, worldFrameMaxFor, isCellRoom, hitOwnerOf, validPose, validLook, sanitizeName, readBadge, readAura, readRibbon, sanitizeChat, chatGate, redGate, dmGate, relaySupportsDm, muteGate, subOf, mutedUntilOf, worldRoom, inRange, relayUrl, isWorldRoom, isChatRoom, foesGate, FOES_FRAME_MAX, MAX_FRAME_BYTES, hitGate, actGate, actFrameFits, whoGate, WHO_RETRY_MS, HEARTBEAT_MS, PING_MS, relayVersionOf, chatInGate, CHAT_ROOM_HZ_MAX, socialGate, partyGate, validPartyPose, validSocialFrame, validPartyFrame, PARTY_SEND_MS, validSocialAct, socialInGate, noteInGate, partyInGate, SOCIAL_IN_HZ_MAX, NOTE_IN_HZ_MAX, INBOUND_FRAME_MAX, questInGate, validQuestFrame, QUEST_SEND_MS, QUEST_HUB_MIN_MS, PARTY_MAX, tokenGate, validTradeData, tradeGate, tradeInGate, validCastData, castGate, castInGate, CAST_FRAME_MAX, CAST_IN_HZ_MAX, relaySupportsCast, TRADE_IN_HZ_MAX, relaySupportsTrade, TRADE_FRAME_MAX, parkGate, relaySupportsPark, PARK_CELL_MAX, PARK_KEY_RE, PARK_TTL_MS, relaySupportsChannels, CHAT_LINE_CHANNELS, partyChatInGate, PARTY_CHAT_ROOM_HZ_MAX, relaySupportsRoll, rollGate, validRollSpec, validRoll, relaySupportsEmote, validCardData, cardGate, cardInGate, CARD_FRAME_MAX, CARD_IN_HZ_MAX, relaySupportsCard, validPageData, pageGate, pageInGate, PAGE_FRAME_MAX, PAGE_IN_HZ_MAX, relaySupportsPage, validDuelData, duelGate, duelInGate, DUEL_FRAME_MAX, DUEL_IN_HZ_MAX, relaySupportsDuel, readRenown, renownGate, relaySupportsRenown, RENOWN_ORDER_KEEP_MS, RENOWN_RESEND_MS, lookGate, relaySupportsLook, relaySupportsPartyTravel, relaySupportsRestOpt, relaySupportsEvent, relayKnowsLiveEvent, eventGate, validLiveEvent, LIVE_EVENTS, isSocialRoom, validGateIn, validGateOut, gateGate, relaySupportsGate, relaySupportsOwn, relaySupportsGateSpent, relaySupportsGateSite, relaySupportsGateHeal, gatePlaceWire, readGuildTag, relaySupportsGuild, GUILD_ORDER_KEEP_MS, guildChatInGate, GUILD_CHAT_ROOM_HZ_MAX, validRaidIn, validRaidOut, raidGate, relaySupportsRaid, validRaidTownsIn, isRegionRoom, validTravellerMark, validTravellerFrame, relaySupportsTravellers, travInGate, TRAV_SEND_MIN_MS, TRAV_WELCOME_MAX, TRAV_STALE_MS, relaySupportsPartyWalk, relaySupportsPartyLead, relaySupportsPartyMap, validAmapFrame, amapBody, AMAP_SEND_MS, AMAP_HUB_MIN_MS, validSiegeIn, validSiegeOut, siegeGate, relayFightsBattles, relayRunsRoyal, validRiteIn, validRiteOut, riteGate, relaySupportsRite, arenaGate, relaySupportsArena, readArenaOut } from './wire.js';   // SOC2: the hub's law, at home; AUDIT SOC B3/B11/B20: the act's projection, the inbound gates, the inbound bound
 import { RAID_TOWNS_CHUNK } from './raidLaw.js';   // RAID-ROLL: the towns table's pieces
-import { owGate, validOwIn, validOwOut, relaySupportsOverworld, OW_WORD_IDS_MAX, OW_WORD_ROWS_MAX } from './wire.js';   // OW6L: the overworld ledger's frame, both ways
+import { owGate, validOwIn, validOwOut, relaySupportsOverworld, OW_WORD_IDS_MAX, OW_WORD_ROWS_MAX } from './wire.js';
+import { validSerpentIn, validSerpentOut, serpentGate, relaySupportsSerpent, relaySupportsSerpentSite } from './wire.js';   // SERPENT1: the sea serpent's frame, both ways   // OW6L: the overworld ledger's frame, both ways
 import { owIdInCell, owRowInCell, owRowSane } from './overworldLaw.js';   // OW6L: and the cell's law, held at home before a word is said
 import { readWatchReceipt } from './watchReceipt.js';   // SEAT1b: the Watch's tick, read (never judged) at home
 
@@ -155,8 +157,14 @@ export const tokenRetryable = (/** @type {string|null|undefined} */ why) => type
 /** Reconnect backoff bounds, ms. */
 export const BACKOFF_MIN_MS = 1000;
 export const BACKOFF_MAX_MS = 8000;
+/** AURA-LIVE: a badge said again (`rehello`) at most once this often - a player trying aura after aura costs the room's
+ *  hello budget one hello a socket per gap, and it is the LATEST badge that goes. */
+export const REHELLO_GAP_MS = 3000;
 /** How often a world room's host publishes the room's memory (WORLD1); the relay drops one sooner than WORLD_MIN_MS. */
 export const WORLD_PUBLISH_MS = 15000;
+/** SCALE2b: a host whose room's memory has not changed says it again at least this often (world.js worldPublish skips
+ *  an unchanged memory otherwise - the room already holds it). */
+export const WORLD_REPUBLISH_MS = 5 * 60 * 1000;
 /** WORLD2: how often the host streams its changed foes (5 a second - under FOES_HZ_MAX with room for a burst). */
 export const FOES_MS = 200;
 /** WORLD2: how often the stream carries EVERY layout foe, not the changed alone - a dropped delta heals within it. */
@@ -243,6 +251,121 @@ export function lerpPose(from, to, t) {
 
 /** The distance between two poses on the ground. */
 const groundDist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+
+// ═══ NET-SMOOTH (2026-10-04, Mac: "Sometimes other players rubberband, I want to continue to improve performance and
+// future proof for larger amounts of players") ════════════════════════════════════════════════════════════════════
+//
+// FOUR CAUSES OF A PEER DRAWN JUMPING BACK OR DASHING, all of them here, none needing the relay:
+//   1. THE SNAP IN THE WRONG UNITS. The scene frame's snap (SNAP_SCENE_UNITS, 30 - metres in a dungeon) was taken for
+//      every room not named `world:` - but a siege's battle, a Royal Tourney and an owned interior or boat carry their
+//      poses in MapsFile's frame too (scenes/world.js `nativeFrame`), 40 to the metre: a 0.75 m snap, so a runner at
+//      10 Hz (0.8 m a pose) teleported on nearly every pose. The snap is the ROOM's frame's now (nativePoseRoom).
+//   2. ONE POSE, SEVERAL ROOMS, NO ORDER. A player's pose goes down its cell's socket AND every halo's (sendPose), each
+//      room a Durable Object of its own; a listener sharing two of them hears it twice, and the two copies need not
+//      arrive in order. Only an identical copy was dropped (C6) - an OLDER copy landing second was eased toward, and
+//      the peer walked backwards. The frame carries no sequence to order them by, so a peer is heard through ONE room
+//      at a time (`src`): another room's copy says the peer is alive and moves nothing, until the source falls silent
+//      (SOURCE_STALE_GAPS intervals, SOURCE_STALE_MIN_MS at least) or lets the peer go - or the other room proves itself
+//      AHEAD, bringing the source's own poses sooner (SOURCE_LEADS in a row), and takes the peer. One socket's frames
+//      arrive in the order they were sent.
+//   3. A HELLO'S POSE REPLAYED. A peer opening a halo is announced to that room by a `join` carrying the pose it said
+//      hello with, and a halo of mine opening hears a roster of the poses that room last held - each older than what
+//      the peer's source room is saying. An introduction's pose moves a peer only from its source room, or when no
+//      source is live.
+//   4. AN EASE THAT RESTARTED ON EVERY POSE. It ran from where the peer was drawn to the newest pose over the newest
+//      interval between ARRIVALS (halved at most per pose, SLAM10) - so a stall's backlog, landing in one burst, cut
+//      the corners at up to 4x and parked the peer between; and it restarted from where the peer was drawn the frame
+//      BEFORE, so every pose cost the peer one frozen frame. A peer is PLAYED OUT now: its poses are waypoints on a
+//      path (`path`), spaced in the peer's own time (`c`, ms of its walk), and a cursor (`cur`) walks the path at a
+//      rate (`rate`) set at each arrival from how much path is still ahead of it (rateFor) - kept one interval and a
+//      jitter cushion ahead, never faster than PLAY_RATE_MAX (twice the peer's pace) to catch up, never slower than PLAY_RATE_MIN
+//      to let the cushion fill. The cushion is the farthest of the recent intervals from the cadence (cushionOf). A
+//      backlog is walked at twice the pace, never dashed across; a line that jitters walks on its cushion instead of
+//      stopping at every late pose.
+//      The interval is the MEDIAN of the last CADENCE_SAMPLES intervals between moves (cadenceOf): an interval under
+//      GAP_MIN_MS (faster than any client may speak - two poses delivered together) or past PAUSE_MS (a pause) is not
+//      counted. A pose's own segment of the path is that interval (segmentFor), unless its own spacing says the rate
+//      has changed before the median can: under 1/FAST_SHARE of it, a faster rate (the far tier promoting me); past
+//      twice it after a moving pose, a slower rate or a stall - walked over half the silence, at most twice the pace.
+
+/** NET-SMOOTH 1: the rooms whose poses are MapsFile's frame (scenes/world.js `nativeFrame`): a world cell, a siege's
+ *  battle or a Royal Tourney (the overworld's own rooms), and an owned interior or boat. */
+export const nativePoseRoom = (key) => isCellRoom(key) || isBattleRoom(key) || !!privateInteriorOf(key);
+/** NET-SMOOTH 1: the snap distance for a pose heard in this room, in that room's own units. */
+export const snapUnitsFor = (key) => (nativePoseRoom(key) ? SNAP_WORLD_UNITS : SNAP_SCENE_UNITS);
+/** NET-SMOOTH 4: how many of a peer's last intervals its cadence is the median of - five, so two late or early poses
+ *  never move it and a real change of rate (a crowd, the relay's far tier) is taken in three. */
+export const CADENCE_SAMPLES = 5;
+/** NET-SMOOTH 4: a silence longer than this is a pause (the peer stood still, or its line stalled), not a rate. Twice
+ *  GAP_MAX_MS, because GAP_MAX_MS is itself a real rate - the relay's far tier at a crowd's pace is one pose a second
+ *  exactly, and its jitter carries some intervals past it; between the two an interval counts as GAP_MAX_MS. */
+export const PAUSE_MS = 2 * GAP_MAX_MS;
+/** NET-SMOOTH 4: the bounds on the play-out rate - at most twice the peer's pace to catch up (SLAM10's own bound on a
+ *  catch-up), at least three quarters of it while the cushion fills. */
+export const PLAY_RATE_MAX = 2;
+export const PLAY_RATE_MIN = 0.75;
+/** NET-SMOOTH 4: a pose spaced under 1/FAST_SHARE of the cadence after the last is a faster rate starting. Three, so a
+ *  jittering line's early pose is not mistaken for one. */
+export const FAST_SHARE = 3;
+/** NET-SMOOTH 4: the most waypoints a peer's path holds - a longer backlog lets its oldest go past the segment being
+ *  walked (the path straightens; the peer's time along it is kept, so nothing dashes). */
+export const PATH_MAX = 8;
+/** NET-SMOOTH 2: a peer's source room is given up after this many of its intervals of silence, and never sooner than
+ *  SOURCE_STALE_MIN_MS. */
+export const SOURCE_STALE_GAPS = 3;
+export const SOURCE_STALE_MIN_MS = 500;
+/** NET-SMOOTH 2: another room that brought the source's pose at least SOURCE_LEAD_MIN_MS sooner, SOURCE_LEADS times in a
+ *  row, becomes the source; the last LEAD_KEEP poses another room brought are remembered to tell. */
+export const SOURCE_LEAD_MIN_MS = 25;
+export const SOURCE_LEADS = 3;
+export const LEAD_KEEP = 4;
+/** SCALE2b: a TIMED pose (one carrying its send time, wire.js `ts`) older than the newest applied is a late copy and
+ *  moves nothing - unless nothing newer has been applied for this long, when the sender's clock is taken to have
+ *  started over (a clock set back) and its stream is followed from there. */
+export const TS_RESYNC_MS = 2000;
+/** SCALE2b: how many of a timed peer's arrivals its play-out delay is read off - each one's lateness against its own
+ *  send time (`offs`); the earliest is the line's fastest, the spread is its jitter. */
+export const OFFSET_SAMPLES = 8;
+
+/** NET-SMOOTH 4: the median of a peer's sampled intervals, or the ordinary interval before any. Pure. */
+export function cadenceOf(samples) {
+  if (!Array.isArray(samples) || !samples.length) return 1000 / POSE_HZ;
+  const s = [...samples].sort((a, b) => a - b), mid = s.length >> 1;
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+/** NET-SMOOTH 4: the jitter cushion - the farthest of the samples from the cadence, never more than the cadence itself.
+ *  The farthest, not a mean: the cushion is there for the late pose, and a cushion of the typical lateness is
+ *  overrun by every pose later than typical (on a line jittering 0-60 ms, twice the mean distance stood its peer still
+ *  on 12 frames in four seconds, and this on none). Pure. */
+export function cushionOf(samples, cadence) {
+  if (!Array.isArray(samples) || !samples.length) return 0;
+  return Math.min(cadence, Math.max(...samples.map((x) => Math.abs(x - cadence))));
+}
+/** NET-SMOOTH 4: the length of a new pose's segment, in the peer's own time: the cadence, or what the pose's own spacing
+ *  (`since`, null for the first) says before the median can - a faster rate, or after a MOVING pose a slower rate or a
+ *  stall, walked over half the silence (GAP_MAX_MS at most). Pure. */
+export function segmentFor(since, cadence, wasMoving) {
+  if (since == null || !(since >= GAP_MIN_MS)) return cadence;
+  if (since < cadence / FAST_SHARE) return since;
+  return wasMoving ? Math.max(cadence, Math.min(GAP_MAX_MS, since) / 2) : cadence;
+}
+/** NET-SMOOTH 4: the play-out rate once a pose lands - the path still ahead (`ahead`, ms of the peer's time) less the
+ *  cushion, walked over the next interval (the cadence, or the new segment when that is longer), within PLAY_RATE_MIN and
+ *  PLAY_RATE_MAX. A steady stream plays at exactly 1. A slower rate's segment (longer than the cadence: half its silence,
+ *  already up to twice the pace) is never played faster than 1. Pure. */
+export const rateFor = (ahead, cushion, cadence, segment) => Math.max(PLAY_RATE_MIN, Math.min(segment > cadence ? 1 : PLAY_RATE_MAX, (ahead - cushion) / Math.max(cadence, segment)));
+/** NET-SMOOTH 4: the pose drawn at `c` along a path of waypoints `{ pose, c }` (c ascending): the first before it
+ *  starts, the last once it is walked, eased between the two it falls between. Pure. */
+export function poseAlong(path, c) {
+  if (!Array.isArray(path) || !path.length) return null;
+  if (c <= path[0].c) return lerpPose(path[0].pose, path[0].pose, 0);
+  const last = path[path.length - 1];
+  if (c >= last.c) return lerpPose(last.pose, last.pose, 1);
+  let i = 0;
+  while (i < path.length - 2 && path[i + 1].c <= c) i++;
+  const a = path[i], b = path[i + 1];
+  return lerpPose(a.pose, b.pose, (c - a.c) / (b.c - a.c));
+}
 
 /** A token minted once and kept in storage under `key`, or fresh when storage will not keep it. */
 export function keptToken(storage, key, re, mint) {   // SOC2: exported for the ACCOUNT's pair (net/social.js accountId) - the same keeping, another storage
@@ -358,6 +481,7 @@ export class OnlineSession {
     this.dmOk = false;            // TITLE-N: the relay that welcomed this socket carries /dm (relaySupportsDm) - an older one CLOSES the socket on the frame
     this.onEvent = null;          // EVENT1: (ev, {live}) => void - the server-wide live event now ({kind, at}) or null; live: it changed while I watched (a welcome's word is not)
     this.eventOk = false;         // EVENT1: the relay that welcomed this socket knows the `stage` frame (relaySupportsEvent) - an older one CLOSES the socket on it
+    this.eventV = null;           // SUNBABY1: the version that welcomed it - which event WORDS it knows (relayKnowsLiveEvent): a word it does not know CLOSES the socket too
     this.liveEvent = null;        // EVENT1: the hub's live event as last said - {kind, at} or null
     this.onMuted = null;          // MOD1: ({until}) => void - the relay says I am muted until then (epoch seconds), or 0: lifted
     this.onFoes = null;           // WORLD2: (id, data) => void - the host's live foes in (a non-host's, from the room's host alone)
@@ -379,10 +503,15 @@ export class OnlineSession {
     this._pkbucket = null;        // HCC-PARK: my park words out, PARK_HZ_MAX a second
     this.restOptOk = false;   // REST-OPT (AUDIT C1): the hub carries a pose's `nr` (relaySupportsRestOpt) - an older one strips it, so the switch waits for it
     this.partyWalkOk = false;   // TV8: the hub carries the party's Overworld walk (`tw`, `ts` - relaySupportsPartyWalk)
+    this.partyLeadOk = false;   // PARTY-LEAD: the hub knows `party.lead` (relaySupportsPartyLead) - an older one closes the socket on it
     this.partyTravelOk = false;   // PARTY-TRAVEL: the hub that welcomed this socket carries the party journey's pose fields (relaySupportsPartyTravel) - an older one strips them, so no round is opened through it
     this.lookOk = false;          // PROFILE2: the relay that welcomed my primary socket knows the `look` frame (a halo's own welcome says for the halo)
     this._lookDirty = false;      // PROFILE2: my look changed since the sockets now open said hello - to be said again
     this._lkbucket = null;        // PROFILE2: my looks out, LOOK_HZ_MAX a second (the relay's per-socket gate, never tripped)
+    this._rehelloWant = false;    // AURA-LIVE: my badge changed since the sockets now open said hello - to be said again (rehello)
+    this._rehelloAt = -Infinity;  // AURA-LIVE: when the last one went (REHELLO_GAP_MS)
+    this._swap = new Map();       // AURA-LIVE: room -> { ws, old, since } - a socket opening to take an open one's place, its hello on a fresh token
+    this._retired = new Map();    // AURA-LIVE: new socket -> the one it replaced, closed by my own hand once the new is welcomed (or gone)
     this._tbucket = null;         // TRADE1: the trade frames' own gate at home (TRADE_HZ_MAX)
     this._inCastBuckets = new Map();   // ALLY-CAST: the gate on cast frames coming in, per sender - the trade gate's shape
     this._castBucket = null;   // ALLY-CAST: my own casts out, castGate's law. CHAT-CHAN: its OWN field - this was `_cbucket`, the chat gate's own
@@ -423,6 +552,11 @@ export class OnlineSession {
     this.onWatch = null;          // SEAT1b: (receipt, claims) => void - the Watch's tick the relay signed for my account in my own cell (net/watchReceipt.js), carried to the account service by the seats' book
     this.onRaid = null;           // RAID3: (frame, room) => void - a cell's word about a raid (its ledger, its cleanse, my receipt) or the hub's (a cleanse anywhere, the day's cleanses), projected by the wire's validRaidOut
     this._raidBucket = null;      // RAID3: my own raid words out - raidGate's law
+    this.serpentSiteOk = false;   // SERPENT2: the hub that welcomed my primary socket takes a serpent's `site` (relaySupportsSerpentSite)
+    this._serpentSiteSaid = null; // SERPENT2: the socket and day my serpent `site` last went on - once a socket and day
+    this.serpentOk = false;       // SERPENT1: the relay that welcomed my primary socket holds a serpent's fight (relaySupportsSerpent) - an older one CLOSES the socket on the frame
+    this.onSerpent = null;        // SERPENT1: (word, room) => void - the serpent's cell's word (its state, its swim, its blows, my receipt) or the hub's (its kill, Bay-wide), projected by the wire's validSerpentOut
+    this._serpentBucket = null;   // SERPENT1: my own serpent words out - serpentGate's law
     this._riteBucket = null;      // WB12d: my own rite words out - riteGate's law
     this.foeInventoryOk = false;
     this.owOk = false;            // OW6L: the relay that welcomed my primary socket keeps a cell's overworld ledger (relaySupportsOverworld) - an older one CLOSES the socket on the frame, so nothing is said to it
@@ -535,11 +669,11 @@ export class OnlineSession {
       // status is the SOCKET's - open, or still connecting (an 'error' after a relay error frame is a close on its way)
       // AUDIT WB12d (C6): each socket's own relay's word goes with it - the cell crossed into keeps the raid and the rite
       // its welcome said it keeps, and the one stepped down keeps its own (sendRaid/sendRite read the socket's word)
-      const old = { ws: this._ws, status: this.status === 'open' ? 'open' : 'connecting', retryAt: null, backoff: BACKOFF_MIN_MS, since: this._now(), raidOk: this.raidOk, riteOk: this.riteOk, foeInventoryOk: this.foeInventoryOk };
+      const old = { ws: this._ws, status: this.status === 'open' ? 'open' : 'connecting', retryAt: null, backoff: BACKOFF_MIN_MS, since: this._now(), raidOk: this.raidOk, riteOk: this.riteOk, serpentOk: this.serpentOk, foeInventoryOk: this.foeInventoryOk };   // SERPENT1: and the serpent's
       this._halo.delete(room);
       this._halo.set(this.room, old);
       this._ws = h.ws; this.status = h.status; this.error = null; this._retryAt = h.retryAt; this._backoff = h.backoff;
-      this.raidOk = !!h.raidOk; this.riteOk = !!h.riteOk;
+      this.raidOk = !!h.raidOk; this.riteOk = !!h.riteOk; this.serpentOk = !!h.serpentOk;
       this.foeInventoryOk = !!h.foeInventoryOk;
       this.room = room;
       this._pose = pose ?? this._pose;
@@ -582,6 +716,10 @@ export class OnlineSession {
     const ws = this._ws;
     this._ws = null;
     if (ws) { try { ws.close(1000, 'leaving'); } catch { /* already closed */ } }
+    // AURA-LIVE: a replacement on its way and a socket replaced go with the room - the next hello says the badge
+    for (const [, s] of this._swap) { try { s.ws.close(1000, 'leaving'); } catch { /* already closed */ } }
+    for (const [, old] of this._retired) { try { old.close(1000, 'leaving'); } catch { /* already closed */ } }
+    this._swap.clear(); this._retired.clear(); this._rehelloWant = false;
     this._endHalo();
     this._rooms.clear();
     this._retryAt = null;
@@ -628,7 +766,7 @@ export class OnlineSession {
   _member(room, id, p, now, told = true) {
     this._roomSet(room).add(id);
     const have = this.peers.get(id);
-    if (have) { if (have.unconfirmed) this._confirm(have, room); if (told) this._refresh(have, p, now); return; }   // SLAM14 B2: named or heard here - confirmed here
+    if (have) { if (have.unconfirmed) this._confirm(have, room); if (told) this._refresh(have, p, now, room); return; }   // SLAM14 B2: named or heard here - confirmed here; NET-SMOOTH 3: heard in this room
     // SLAM9: A STRANGER THIS SESSION ONCE KNEW IS STOOD AS ITSELF. The welcome names the nearest ROSTER_MAX and prunes
     // the rest of the room's roster (the merge-not-wipe law is about the peers it DOES name); so one socket blip -
     // a Wi-Fi hiccup, a Durable Object eviction - dropped everyone past the nearest 64, and their next pose re-stood
@@ -712,6 +850,7 @@ export class OnlineSession {
   _unmember(room, id) {
     this._rooms.get(room)?.delete(id);
     const p = this.peers.get(id);
+    if (p?.src === room) p.src = null;   // NET-SMOOTH 2: the room that spoke for it let it go - the next room heard speaks
     if (p?.unconfirmed) this._confirm(p, room);   // SLAM14 B2: gone from this room is an answer too
     if (!this._held(id)) this.peers.delete(id);
   }
@@ -730,6 +869,7 @@ export class OnlineSession {
     for (const k of [...this._inAmap.keys()]) if (k.startsWith(`${room}|`)) this._inAmap.delete(k);   // PARTY-MAP
     this._inAmapRoom.delete(room);
     if (s) for (const id of s) if (!this._held(id)) this.peers.delete(id);
+    for (const p of this.peers.values()) if (p.src === room) p.src = null;   // NET-SMOOTH 2: nor is it anyone's source
   }
   _openHalo(room, backoff = BACKOFF_MIN_MS) {
     if (!this.url || !this._WS) return;
@@ -841,6 +981,72 @@ export class OnlineSession {
     this._lookDirty = false;
     const s = JSON.stringify({ t: 'look', look: this.look });
     for (const ws of socks) { try { ws.send(s); this.stats.sent++; } catch { /* the close will say; its reconnect's hello carries the look */ } }
+  }
+
+  /** AURA-LIVE (2026-10-05, Mac: "Ensure other players can see all auras"): MY BADGE AGAIN, MID-SESSION - an aura worn
+   *  or taken off on the account card or at the Broker. The relay reads a badge (the aura, the title, the glyphs) off
+   *  the TOKEN alone, and a token rides a hello, so every room I was already in kept drawing the old one until I
+   *  changed area. Each open socket says hello again, on a fresh token, through a NEW socket of the same id - which the
+   *  relay already takes as a reconnect: the old socket loses the id and is closed CLOSE_REPLACED with no leave said,
+   *  the first hello's stamp is kept (a host keeps its seat - AUDIT WORLD A4), and the new hello's JOIN is fanned to
+   *  the room, which every peer reads as "this peer's badge is now this" (`_refresh`). The old socket stays this
+   *  session's until the new one's hello is ready (`_promote`), so nothing goes unsaid but a hello's round trip, and
+   *  its close - my own hand's - is not the one-seat verdict. At most once a REHELLO_GAP_MS (`_flushRehello` on tick).
+   *  True when it is owed (a socket open to say it). */
+  rehello() {
+    if (this.terminal || this._closedByUs || !this.url || !this._WS) return false;
+    this._rehelloWant = true;
+    this._flushRehello();
+    return true;
+  }
+  _flushRehello() {
+    const now = this._now();
+    // a replacement that never opens and never closes is not immortal (the halo's A7 law): past the longest backoff it
+    // is dropped, the old socket standing - and the badge owed again
+    for (const [room, s] of [...this._swap]) if (now - s.since > BACKOFF_MAX_MS) { this._swap.delete(room); this._rehelloWant = true; try { s.ws.close(1000, 'leaving'); } catch { /* already closed */ } }
+    if (!this._rehelloWant || this.terminal || this._closedByUs) return;
+    if (now - this._rehelloAt < REHELLO_GAP_MS || this._swap.size) return;   // held: the tick tries again, and the latest badge goes
+    const open = [];
+    if (this._ws && this.status === 'open' && this.room) open.push([this.room, this._ws]);
+    for (const [room, h] of this._halo) if (h.ws && h.status === 'open') open.push([room, h.ws]);
+    this._rehelloWant = false;
+    if (!open.length) return;   // nothing open: whatever opens next says hello on a fresh token, so nothing is owed
+    this._rehelloAt = now;
+    for (const [room, old] of open) {
+      let ws;
+      try { ws = new this._WS(`${this.url}/room/${room}`); } catch { continue; }   // the old socket stands; the next change asks again
+      this._swap.set(room, { ws, old, since: now });
+      this._bind(ws);
+    }
+  }
+  /** AURA-LIVE: the room a replacing socket is opening for, or null. */
+  _swapRoom(ws) {
+    for (const [room, s] of this._swap) if (s.ws === ws) return room;
+    return null;
+  }
+  /** AURA-LIVE: the replacing socket takes the old one's place - only now, its token minted and its hello ready, and
+   *  only while the old one is still the room's open socket (a crossing, a leave or a drop in the meantime: the new
+   *  one is closed, and the old one's own paths stand). False when it did not. */
+  _promote(ws, room) {
+    const s = this._swap.get(room);
+    if (!s || s.ws !== ws) return false;
+    this._swap.delete(room);
+    const primary = room === this.room;
+    const h = primary ? null : this._halo.get(room);
+    const cur = primary ? this._ws : h?.ws;
+    const open = primary ? this.status === 'open' : h?.status === 'open';
+    if (this.terminal || this._closedByUs || !cur || cur !== s.old || !open) { try { ws.close(1000, 'leaving'); } catch { /* already closed */ } return false; }
+    if (primary) { this._ws = ws; this.ownOk = false; } else h.ws = ws;   // the own lane waits for ITS welcome, as `_open`'s does (OWN1 O2)
+    this._retired.set(ws, s.old);
+    return true;
+  }
+  /** AURA-LIVE: the socket a replacement took the place of, closed - by the relay already (CLOSE_REPLACED, at the new
+   *  hello), or, when the new one was refused, by this hand: its events were ignored from the promotion on. */
+  _retire(ws) {
+    const old = this._retired.get(ws);
+    if (!old) return;
+    this._retired.delete(ws);
+    try { old.close(1000, 'leaving'); } catch { /* already closed */ }
   }
 
   /** WORLD2: a blow on the host's foe out - anyone but the host (the host applies its own), in a world room. */
@@ -1057,6 +1263,47 @@ export class OnlineSession {
     return true;
   }
 
+  /** SERPENT1: my word on the sea serpent's fight (net/wire.js validSerpentIn) - down the socket of the CELL its site
+   *  stands in (my own cell's or a halo's: the raid's law, and the only room that holds its fight), SERPENT_HZ_MAX a
+   *  second, never at a relay that would close the socket for it. TRUE MEANS THE WORD LEFT THE SOCKET. */
+  sendSerpent(word, cell) {
+    const w = validSerpentIn(word);
+    if (!w || typeof cell !== 'string' || !isCellRoom(cell)) return false;
+    const halo = cell !== this.room ? this._halo.get(cell) : null;
+    if (!(cell === this.room ? this.serpentOk : halo?.serpentOk)) return false;
+    const ws = cell === this.room ? (this.status === 'open' ? this._ws : null) : (halo?.status === 'open' ? halo.ws : null);
+    if (!ws) return false;
+    const gate = serpentGate(this._serpentBucket, this._now());
+    if (!gate.pass) return false;
+    try { ws.send(JSON.stringify({ t: 'serpent', ...w })); } catch { return false; }
+    this._serpentBucket = gate.bucket; this.stats.sent++;
+    return true;
+  }
+  /** SERPENT2: where this game found the serpent the clock is about (systems/serpentSite.js - its day, its native point
+   *  to the whole unit and the port it lies off), said to the hub, whose Discord herald names the place and posts the
+   *  kill at the site the most accounts agree on (net/serpentHerald.js). ONCE A SOCKET AND DAY (the gate's `site` law);
+   *  on the hub's socket alone, under the serpent frames' own bucket; true once it went. */
+  sendSerpentSite(day, sx, sz, place) {
+    if (this._serpentSiteSaid && this._serpentSiteSaid.ws === this._ws && this._serpentSiteSaid.d === day) return true;
+    const w = validSerpentIn({ k: 'site', d: day, sx: Math.round(sx), sz: Math.round(sz), pl: gatePlaceWire(place) });
+    if (!w) { this._serpentSiteSaid = { ws: this._ws, d: day }; return false; }   // a site the wire cannot carry: asked no more today
+    if (!this.acct || !this.serpentSiteOk || !isSocialRoom(this.room) || this.status !== 'open' || !this._ws) return false;
+    const gate = serpentGate(this._serpentBucket, this._now());
+    if (!gate.pass) return false;
+    try { this._ws.send(JSON.stringify({ t: 'serpent', ...w })); } catch { return false; }
+    this._serpentBucket = gate.bucket; this.stats.sent++;
+    this._serpentSiteSaid = { ws: this._ws, d: day };
+    return true;
+  }
+  /** SERPENT1: whether a word to `cell` would leave a socket now - my own cell's or a halo's, open, at a relay that holds
+   *  a serpent's fight (the host asks before it gathers its volleys into a word). */
+  serpentReady(cell) {
+    if (typeof cell !== 'string' || !isCellRoom(cell)) return false;
+    if (cell === this.room) return this.serpentOk && this.status === 'open' && !!this._ws;
+    const h = this._halo.get(cell);
+    return !!h?.serpentOk && h.status === 'open' && !!h.ws;
+  }
+
   /** WB12d: my word at a breach's faithful rite (net/wire.js validRiteIn) - down the socket of the CELL its circle
    *  stands in (my own cell's or a halo's, the raid's law), RITE_HZ_MAX a second, never at a relay that would close the
    *  socket for it. TRUE MEANS THE WORD LEFT THE SOCKET. */
@@ -1188,7 +1435,7 @@ export class OnlineSession {
   /** The hello as the wire has it - the account beside the peer when this session holds one (SOC2: the hub link's;
    *  a session without it sends the hello every build before SOC1 sent, key for key). */
   _helloFrame() {
-    const frame = { t: 'hello', id: this.id, secret: this.secret, name: this.name, look: this.look, pose: this.presence ? this._pose : null };
+    const frame = { t: 'hello', id: this.id, secret: this.secret, name: this.name, look: this.look, pose: this.presence && this._pose ? { ...this._pose, ts: this._stampTs() } : null };   // SCALE2b: the hello's pose is a pose said now
     // ACC1d: only when there IS one. A `tok: null` would be a malformed
     // token rather than an absent one, and wire.js refuses that - which
     // is right, and is why the key is not written at all when empty.
@@ -1222,8 +1469,9 @@ export class OnlineSession {
   /** The one handler set for a socket, the primary's or a halo's - the role is read at event time (_roomOf). */
   _bind(ws) {
     ws.onopen = async () => {
-      const room = this._roomOf(ws);
+      const room = this._roomOf(ws) ?? this._swapRoom(ws);   // AURA-LIVE: or a socket opening to replace one (rehello)
       if (room == null) return;
+      const live = () => this._roomOf(ws) != null || this._swapRoom(ws) != null;
       // ACC1d: A FRESH TOKEN PER CONNECTION, minted here because the
       // relay spends each one once. Awaiting before the hello is safe -
       // the relay says nothing until it has heard one - and it is
@@ -1234,7 +1482,7 @@ export class OnlineSession {
       if (this.mintToken) {
         this.token = await this._mint(room);
         // the socket may have been replaced or closed while we waited
-        if (this._roomOf(ws) == null) return;
+        if (!live()) return;
         // SCALE2: why this socket's hello goes without one - its close is read by it (tokenRetryable)
         if (this.token) this._tokenless.delete(ws); else this._tokenless.set(ws, this._tokenWhy ?? 'refused');
       }
@@ -1245,8 +1493,9 @@ export class OnlineSession {
         try {
           this._siegePass = await Promise.race([Promise.resolve(this.mintSiegePass(room)).catch(() => null), new Promise((r) => { timer = setTimeout(() => r(null), TOKEN_WAIT_MS); })]);
         } catch { this._siegePass = null; } finally { clearTimeout(timer); }
-        if (this._roomOf(ws) == null) return;
+        if (!live()) return;
       }
+      if (this._roomOf(ws) == null && !this._promote(ws, room)) return;   // AURA-LIVE: a replacement takes its place now, its hello ready
       const frame = this._helloFrame();
       const hello = JSON.stringify(frame);
       if (room === this.room) {
@@ -1269,6 +1518,8 @@ export class OnlineSession {
     // and painted the overlay. Driven in a real browser to prove it. The frame is one contained act from the outside in.
     ws.onmessage = (ev) => this._deliver('frame', () => { const room = this._roomOf(ws); if (room != null) this._receive(ev.data, room); });
     ws.onclose = (ev) => {
+      this._retire(ws);   // AURA-LIVE: a replacement refused - the socket it replaced goes too (the retry below says hello)
+      for (const [r, s] of this._swap) if (s.ws === ws) this._swap.delete(r);   // AURA-LIVE: one that never took its place
       const room = this._roomOf(ws);
       if (room == null) return;
       const code = ev?.code ?? 1005;
@@ -1351,6 +1602,13 @@ export class OnlineSession {
     try { this._ws.send(JSON.stringify(o)); this.stats.sent++; return true; } catch { return false; }
   }
 
+  /** SCALE2b: this session's send time for a pose going out now (wire.js POSE_TS_MOD) - its wall clock in ms, never
+   *  less than one past the last it stamped, so two poses said in one millisecond still order. */
+  _stampTs() {
+    this._tsLast = Math.max((this._tsLast ?? -Infinity) + 1, Math.floor(this._now()));
+    return this._tsLast % POSE_TS_MOD;
+  }
+
   /** The frame's pose: sent at POSE_HZ when it moved, and every HEARTBEAT_MS regardless. A channel session refuses it (AUDIT CHAT D3). */
   sendPose(pose) {
     if (!this.presence) return false;
@@ -1362,8 +1620,10 @@ export class OnlineSession {
     // WORLD6b-iii(b): the halo rooms hear my pose too - their fans range me by it and their rosters place me. AUDIT
     // WORLD6b-iii(b) A5: through every OPEN socket, my own cell's down or not (the halos rode out nothing while the
     // fan sat behind the primary's send)
-    let went = this._send({ t: 'pose', p: pose });
-    if (this._halo.size) { const s = JSON.stringify({ t: 'pose', p: pose }); for (const [, h] of this._halo) if (h.status === 'open' && h.ws) { try { h.ws.send(s); this.stats.sent++; went = true; } catch { /* the close will say */ } } }
+    if (!(this._ws && this.status === 'open') && ![...this._halo.values()].some((h) => h.status === 'open' && h.ws)) return false;   // nowhere to say it: nothing stamped
+    const out = { ...pose, ts: this._stampTs() };   // SCALE2b: one send time for every room's copy - that is what lets a listener order them
+    let went = this._send({ t: 'pose', p: out });
+    if (this._halo.size) { const s = JSON.stringify({ t: 'pose', p: out }); for (const [, h] of this._halo) if (h.status === 'open' && h.ws) { try { h.ws.send(s); this.stats.sent++; went = true; } catch { /* the close will say */ } } }
     if (!went) return false;
     this._lastSent = { ...pose }; this._lastSentAt = now; this.stats.poses++;
     return true;
@@ -1375,7 +1635,7 @@ export class OnlineSession {
   sendDeath() {
     const last = this._pose ?? this._lastSent;
     if (!this.presence || !last) return false;
-    const s = JSON.stringify({ t: 'pose', p: { ...last, mv: 0, dd: 1 } });
+    const s = JSON.stringify({ t: 'pose', p: { ...last, mv: 0, dd: 1, ts: this._stampTs() } });
     let went = false;
     if (this._ws && this.status === 'open') { try { this._ws.send(s); this.stats.sent++; went = true; } catch { /* the close will say */ } }
     for (const [, h] of this._halo) if (h.status === 'open' && h.ws) { try { h.ws.send(s); this.stats.sent++; went = true; } catch { /* the close will say */ } }
@@ -1651,6 +1911,7 @@ export class OnlineSession {
    *  the socket on it). Whether this player may is the relay's question, asked of the token; a refusal is silence. */
   sendStage(kind) {
     if (kind !== '' && !LIVE_EVENTS.includes(kind)) return false;
+    if (kind !== '' && !relayKnowsLiveEvent(this.eventV, kind)) return false;   // SUNBABY1: a word this relay does not know closes the socket
     if (!this.eventOk || !isSocialRoom(this.room ?? '')) return false;
     const gate = eventGate(this._ebucket, this._now());
     if (!gate.pass) return false;
@@ -1696,6 +1957,7 @@ export class OnlineSession {
     // target named twice or not at all, or an id outside the wire's law never leaves this machine.
     const shaped = validSocialAct(act);
     if (!shaped) return false;
+    if (shaped.k === 'party.lead' && !this.partyLeadOk) return false;   // PARTY-LEAD: an older hub closes the socket on an act it does not know
     const gate = socialGate(this._sbucket, this._now());
     if (!gate.pass) return false;
     if (!this._send({ t: 'social', ...shaped })) return false;
@@ -1915,6 +2177,7 @@ export class OnlineSession {
       // doubling SLAM2 was written for never happened in the one case it was written for. A welcome is the relay
       // saying yes; that is when the retry ladder starts over.
       if (primary) this._backoff = BACKOFF_MIN_MS; else { const h = this._halo.get(room); if (h) h.backoff = BACKOFF_MIN_MS; }
+      this._retire(primary ? this._ws : this._halo.get(room)?.ws);   // AURA-LIVE: welcomed - the socket it replaced goes (the relay has closed it already)
       // SRV-N: WHICH RELAY IS THIS. Read ABOVE the `primary` gate below on purpose - a halo room's welcome comes off
       // the same Worker as my own room's, and a chat channel's welcome is the only one a chat link ever gets, so
       // gating this on the primary room would have made the chat's own sessions blind to the restart that just
@@ -1946,6 +2209,9 @@ export class OnlineSession {
       else { const h = this._halo.get(room); if (h) h.raidOk = relaySupportsRaid(relayV); }   // AUDIT RAID R8b: a halo says for itself
       if (primary) this.riteOk = relaySupportsRite(relayV);   // WB12d: the cell keeps the rite - an older relay closes the socket on `rite`
       else { const h = this._halo.get(room); if (h) h.riteOk = relaySupportsRite(relayV); }
+      if (primary) this.serpentSiteOk = relaySupportsSerpentSite(relayV);   // SERPENT2: the hub's serpent herald
+      if (primary) this.serpentOk = relaySupportsSerpent(relayV);   // SERPENT1: the cell holds a serpent's fight - an older relay closes the socket on `serpent`
+      else { const h = this._halo.get(room); if (h) h.serpentOk = relaySupportsSerpent(relayV); }
       if (primary) this.owOk = relaySupportsOverworld(relayV);   // OW6L: the cell keeps the overworld's ledger - an older relay closes the socket on `ow` (the word goes down the primary alone)
       // AUDIT RENOWN1 WIRE-3: THIS SOCKET'S OWN WORD, not the session's - a halo's welcome names its own relay, and a
       // socket whose welcome has not come is sent no renown order at all (the frame a relay behind would close it on)
@@ -1958,6 +2224,7 @@ export class OnlineSession {
       if (primary) this.partyTravelOk = relaySupportsPartyTravel(relayV);   // PARTY-TRAVEL
       if (primary) this.restOptOk = relaySupportsRestOpt(relayV);   // REST-OPT (AUDIT C1)
       if (primary) this.partyWalkOk = relaySupportsPartyWalk(relayV);   // TV8
+      if (primary) this.partyLeadOk = relaySupportsPartyLead(relayV);   // PARTY-LEAD
       else { const h = this._halo.get(room); if (h) h.lookOk = relaySupportsLook(relayV); }   // PROFILE2: a halo says for itself
       if (primary) this.staffTeleportOk = staffTeleportSupported(relayV);
       if (primary) this.travOk = relaySupportsTravellers(relayV);   // TV3
@@ -1973,6 +2240,7 @@ export class OnlineSession {
         this._deliver('travellers', () => this.onTravellerRoom?.(list));
       }
       if (primary) this.eventOk = relaySupportsEvent(relayV);   // EVENT1
+      if (primary) this.eventV = relayV;   // SUNBABY1: the words it knows (relayKnowsLiveEvent)
       // EVENT1: THE HUB SAYS THE LIVE EVENT ON ITS WELCOME (`ev`), and says nothing when there is none - so a hub
       // welcome without one ENDS any event this session held (a relay restarted without it, or an old relay that
       // knows none). Another room's welcome carries none and says nothing about it.
@@ -2093,6 +2361,12 @@ export class OnlineSession {
       // AUDIT RAID R2: my receipt from the hub too - it keeps an earner's and hands it wherever the earner stands
       const r = validRaidOut(m);
       if (r && (r.k === 'cl' || r.k === 'rc' ? isCellRoom(room) || isSocialRoom(room) : r.k === 'cls' || r.k === 'tw' ? isSocialRoom(room) : isCellRoom(room))) this._deliver('raid', () => this.onRaid?.(r, room));   // RAID-ROLL: `tw` the hub's ask alone
+    } else if (m.t === 'serpent') {
+      // SERPENT1: the serpent's cell's word (on any cell socket I hold - my own cell's or a halo's) or the hub's (its kill,
+      // to everyone online), projected by the wire's own law; the hub says the kill and an account's receipt (AUDIT
+      // SERPENT S5 - a fighter away from its cell at the kill) alone, and a cell anything but
+      const r = validSerpentOut(m);
+      if (r && (isSocialRoom(room) ? r.k === 'fell' || r.k === 'rcpt' : isCellRoom(room))) this._deliver('serpent', () => this.onSerpent?.(r, room));
     } else if (m.t === 'rite') {
       // WB12d: the hub's word of a broken rite (once, and at my hello while its circle stands), projected by the wire's
       // own law; from any other room it is dropped
@@ -2237,10 +2511,11 @@ export class OnlineSession {
         // its latest pose came on.
         if (!p.told || p.recall) p.heardIn = room;
         if (p.unconfirmed) this._confirm(p, room);   // SLAM14 B2: a pose is proof it is still here
-        this._arrive(p, pose, now); return;
+        this._arrive(p, pose, now, room); return;   // NET-SMOOTH 2: heard through this room
       }
       this._member(room, m.id, { id: m.id, name: null, look: null, pose: m.p }, now, false);   // sanitizeName's own default stands over its head until the answer lands
       const stood = this.peers.get(m.id);
+      if (stood && stood.src == null) { stood.src = room; stood.srcAt = now; }   // NET-SMOOTH 2: stood by a pose, this room speaks for it
       if (stood && (!stood.told || stood.recall)) stood.heardIn = room;   // the socket the ask goes down (`_askRound`) - the one this stranger is heard through
     } else if (m.t === 'chat') {
       // CHAT1: checked by the relay's own law (B7) - the id's shape, the name's, the line's; `mine` is the sender's own line back
@@ -2407,7 +2682,7 @@ export class OnlineSession {
   }
 
   /** A known peer said hello again: its name and look are the new ones, its pose arrives as any other. */
-  _refresh(p, m, now) {
+  _refresh(p, m, now, room = this.room) {
     p.name = sanitizeName(m.name); p.look = validLook(m.look); p.told = true; p.recall = false;   // SLAM6: an introduction, so the asks stop (SLAM14: the recall's too)
     // ACC3: THE NEWEST HELLO'S BADGE, whatever it is - including none.
     // A player who takes a title off and reconnects must lose it here
@@ -2421,34 +2696,139 @@ export class OnlineSession {
     if (subOf(m)) p.sub = subOf(m);   // MOD1: a place room's hello names no account; a channel's does - keep the one we were told
     this._remember(p.id, p);   // SLAM9: and it is kept, so a blip cannot un-introduce it
     const pose = validPose(m.pose);
-    if (pose) this._arrive(p, pose, now); else p.seenAt = now;
+    if (pose) this._arrive(p, pose, now, room, true); else p.seenAt = now;   // NET-SMOOTH 3: an introduction's pose, from this room
   }
 
-  /** A pose in: eased from where the peer is drawn, or snapped there when it jumped. */
-  _arrive(p, pose, now) {
-    if (p.pose && !poseChanged(p.pose, pose)) { p.seenAt = now; return; }   // AUDIT WORLD6b-iii(b) C6: the same pose again (through a second room, or a standing heartbeat) is seen, not re-eased
-    // SLAM3: how long this peer took between the last two poses it really moved on - the interval its own ease runs
-    // over. Bounded both ways: a burst must not make it snap, and a long silence must not make it crawl back.
-    // Measured MOVE to MOVE, never from the welcome: `at` is also stamped when a roster entry first names this peer,
-    // and the time between hearing OF somebody and seeing them move is not an interval they are keeping. A peer's
-    // first real move therefore has no gap yet and eases on the default.
-    // SLAM10 (AUDIT SLAM): AND THE INTERVAL MAY NOT COLLAPSE FASTER THAN BY HALF. The ease is a lag interpolator -
-    // `from` is where the peer is drawn, `to` the newest pose - so the drawn figure trails by one interval. When
-    // SLAM6 promotes me into a sender's near tier its interval falls from 1000 ms (one in POSE_FAR_SHARE at the
-    // crowd rate) to 250 ms in a single step, and the whole accumulated lag has to be burned inside one 250 ms
-    // segment: measured, a peer walking at 5 u/s was drawn at 20.6 u/s for a quarter second - a dash, under
-    // JUMP_UNITS so the rig plays the walk at 4x rather than snapping. Halving at most per pose caps the catch-up
-    // at twice the peer's real speed and converges in two intervals; growing is unbounded as before (a silence
-    // must still ceiling, not crawl), and the steady state is untouched.
-    if (p.movedAt != null) {
-      const g = Math.min(GAP_MAX_MS, Math.max(GAP_MIN_MS, now - p.movedAt));
-      p.gap = p.gap != null ? Math.max(g, p.gap * 0.5) : g;
+  /** A pose in: eased from where the peer is drawn, or snapped there when it jumped. NET-SMOOTH: heard through `room`,
+   *  and `intro` when it rode an introduction (a welcome's roster, a join) rather than a pose frame. */
+  _arrive(p, pose, now, room = this.room, intro = false) {
+    if (Number.isInteger(pose.ts)) return this._arriveTimed(p, pose, now, room, intro);   // SCALE2b: a pose that says when it was said
+    if (p.timed) { p.timed = false; p.path = null; p.cadence = []; }   // SCALE2b: a peer gone back to untimed poses (an older relay) starts its walk over
+    // NET-SMOOTH 2/3: ONE ROOM SPEAKS FOR A PEER. Another room's copy of a pose, or an introduction from a room that is
+    // not the source, says the peer is alive and moves nothing while the source is live.
+    const fromSource = p.src == null || p.src === room;
+    if (!fromSource && this._srcLive(p, now)) {
+      if (!intro) { (p.alts ??= []).push({ room, pose, at: now }); if (p.alts.length > LEAD_KEEP) p.alts.shift(); }
+      p.seenAt = now; return;
     }
+    if (!intro) {
+      // NET-SMOOTH 2: THE ROOM THAT IS AHEAD SPEAKS. The source is whichever room spoke first, and a slower Durable
+      // Object kept the peer late for as long as it lived. A pose the source brings that another room already brought
+      // SOURCE_LEAD_MIN_MS sooner is a lead; SOURCE_LEADS of them in a row hand that room the peer - at the moment it
+      // has just proven itself ahead, so its next pose is newer than anything the old source said.
+      const seen = p.src === room ? p.alts?.find((a) => a.room !== room && !poseChanged(a.pose, pose)) : null;
+      if (seen && now - seen.at >= SOURCE_LEAD_MIN_MS) {
+        p.leads = seen.room === p.leadRoom ? (p.leads ?? 0) + 1 : 1;
+        p.leadRoom = seen.room;
+      } else p.leads = 0;
+      p.src = room; p.srcAt = now;
+      if (p.leads >= SOURCE_LEADS && this._rooms.get(p.leadRoom)?.has(p.id) && this.inRoom(p.leadRoom)) { p.src = p.leadRoom; p.leads = 0; p.alts = []; }
+    }
+    if (p.pose && !poseChanged(p.pose, pose)) { p.seenAt = now; return; }   // AUDIT WORLD6b-iii(b) C6: the same pose again (through a second room, or a standing heartbeat) is seen, not re-eased
+    // SLAM3: the interval this peer keeps between the poses it really moved on, measured MOVE to MOVE (never from the
+    // welcome: hearing OF a peer is not an interval it keeps). NET-SMOOTH 4: the median of its last CADENCE_SAMPLES -
+    // it was the newest arrival's spacing, halved at most per pose (SLAM10), so a backlog's burst drew it to the floor.
+    const since = p.movedAt != null ? now - p.movedAt : null;
+    if (since != null && since >= GAP_MIN_MS && since <= PAUSE_MS) {
+      (p.cadence ??= []).push(Math.min(GAP_MAX_MS, since));
+      if (p.cadence.length > CADENCE_SAMPLES) p.cadence.shift();
+      p.gap = cadenceOf(p.cadence);
+    }
+    const wasMoving = !!(p.pose && (p.pose.mv | 0));
     p.movedAt = now;
-    const snap = String(this.room ?? '').startsWith('world:') ? SNAP_WORLD_UNITS : SNAP_SCENE_UNITS;
-    const from = p.shown && groundDist(p.shown, pose) <= snap ? { ...p.shown } : { ...pose };
-    p.from = from; p.pose = pose; p.at = now; p.seenAt = now;
-    p.shown = { ...from };
+    this._play(p, now);
+    const shown = (p.path?.length ? poseAlong(p.path, p.cur) : null) ?? p.shown ?? pose;   // where it is drawn NOW, not a frame ago
+    if (groundDist(shown, pose) > snapUnitsFor(room)) {   // NET-SMOOTH 1: in the units of the room it was heard in
+      p.path = [{ pose: { ...pose }, c: 0 }]; p.cur = 0; p.rate = 1; p.playAt = now;
+      p.from = { ...pose }; p.pose = pose; p.at = now; p.seenAt = now; p.shown = { ...pose };
+      return;
+    }
+    // NET-SMOOTH 4: A WAYPOINT, one segment past the last; the rate is set for the path now ahead of the cursor.
+    const cadence = p.gap ?? 1000 / POSE_HZ;
+    if (!p.path?.length) { p.path = [{ pose: { ...shown }, c: 0 }]; p.cur = 0; p.playAt = now; }
+    const end = p.path[p.path.length - 1].c, seg = segmentFor(since, cadence, wasMoving);
+    p.path.push({ pose: { ...pose }, c: end + seg });
+    if (p.path.length > PATH_MAX) p.path.splice(2, p.path.length - PATH_MAX);   // the oldest ahead past the one being walked
+    p.rate = rateFor(end + seg - p.cur, cushionOf(p.cadence, cadence), cadence, seg);
+    p.from = { ...shown }; p.pose = pose; p.at = now; p.seenAt = now;
+  }
+
+  /** SCALE2b: A TIMED POSE IN - one carrying its send time (wire.js `ts`), which the relay passes from world162 on.
+   *  What NET-SMOOTH had to guess, the sender now says:
+   *   - ORDER: the newest send time wins, whichever room brings it, and an older or repeated copy moves nothing - so
+   *     every pose arrives by the quickest room, and an introduction's old pose (a join, a roster) is simply older;
+   *   - SPACING: a waypoint's place on the path (`c`) is its send time, so the path is walked at the pace the sender
+   *     kept, not the pace the network delivered;
+   *   - DELAY: each arrival's lateness against its send time (`offs`) gives the line's fastest (the earliest) and its
+   *     jitter (the spread); the cursor is steered to the send time `now - D`, D = the fastest + one interval + the
+   *     jitter (at most one interval) - one interval so there is always a pose ahead of it, the jitter so a late one
+   *     still arrives before it is needed. Steady, that is a rate of exactly 1 whatever the line does; behind (a
+   *     backlog, a promotion to the near tier), at most PLAY_RATE_MAX; ahead, never under PLAY_RATE_MIN.
+   *  A standing peer's silence is not walked: a pose after a still one starts its move one interval before its send
+   *  time, and a moving one's segment is at most GAP_MAX_MS - the time before it stands at the last waypoint, and a
+   *  cursor waiting at the end of the path is moved across that dead time rather than racing it. */
+  _arriveTimed(p, pose, now, room, intro) {
+    if (!p.timed) {   // first timed pose, or back from untimed ones: the walk starts over from where the peer is drawn
+      p.timed = true; p.path = null; p.cadence = []; p.offs = []; p.tsU = null; p.movedU = null;
+      if (Number.isInteger(p.pose?.ts)) { p.tsRaw = p.pose.ts; p.tsU = p.pose.ts; p.tsAt = p.seenAt ?? now; }   // a roster's pose is the newest heard so far
+    }
+    let u;
+    if (p.tsU == null) u = pose.ts;
+    else {
+      const d = poseTsDiff(pose.ts, p.tsRaw);
+      if (d > 0) u = p.tsU + d;
+      else if (now - (p.tsAt ?? -Infinity) <= TS_RESYNC_MS) { p.seenAt = now; return; }   // a late copy, or the same one again
+      else { u = pose.ts; p.path = null; p.cadence = []; p.offs = []; p.movedU = null; }   // the sender's clock started over
+    }
+    p.tsRaw = pose.ts; p.tsU = u; p.tsAt = now; p.src = room; p.srcAt = now;
+    if (!intro) { p.offs.push(now - u); if (p.offs.length > OFFSET_SAMPLES) p.offs.shift(); }   // a roster's pose was said long ago: not a lateness
+    if (p.pose && !poseChanged(p.pose, pose)) { p.seenAt = now; return; }   // C6: the same pose, said again
+    const dt = p.movedU != null ? u - p.movedU : null;   // the interval the SENDER kept - no jitter in it
+    if (dt != null && dt >= GAP_MIN_MS && dt <= PAUSE_MS) {
+      p.cadence.push(Math.min(GAP_MAX_MS, dt));
+      if (p.cadence.length > CADENCE_SAMPLES) p.cadence.shift();
+      p.gap = cadenceOf(p.cadence);
+    }
+    const wasMoving = !!(p.pose && (p.pose.mv | 0));
+    p.movedU = u;
+    this._play(p, now);
+    const shown = (p.path?.length ? poseAlong(p.path, p.cur) : null) ?? p.shown ?? pose;
+    if (groundDist(shown, pose) > snapUnitsFor(room)) {   // NET-SMOOTH 1
+      p.path = [{ pose: { ...pose }, c: u }]; p.cur = u; p.rate = 1; p.playAt = now;
+      p.from = { ...pose }; p.pose = pose; p.at = now; p.seenAt = now; p.shown = { ...pose };
+      return;
+    }
+    const cadence = p.gap ?? 1000 / POSE_HZ;
+    if (!p.path?.length) { p.path = [{ pose: { ...shown }, c: u - cadence }]; p.cur = u - cadence; p.playAt = now; }
+    const end = p.path[p.path.length - 1].c, at = Math.max(u, end + 1);
+    const longest = wasMoving ? GAP_MAX_MS : cadence;
+    if (at - end > longest) p.path.push({ pose: { ...p.path[p.path.length - 1].pose }, c: at - longest });   // stood there till then
+    const startsAt = p.path[p.path.length - 1].c;
+    p.path.push({ pose: { ...pose }, c: at });
+    if (p.path.length > PATH_MAX) p.path.splice(2, p.path.length - PATH_MAX);
+    const offs = p.offs.length ? p.offs : [now - u];
+    const fastest = Math.min(...offs);
+    const target = now - (fastest + cadence + Math.min(cadence, Math.max(...offs) - fastest));
+    if (p.cur >= end && !wasMoving) p.cur = Math.max(p.cur, Math.min(target, startsAt));   // waiting at the end: the standing is skipped
+    p.rate = Math.max(PLAY_RATE_MIN, Math.min(PLAY_RATE_MAX, 1 + (target - p.cur) / cadence));
+    p.from = { ...shown }; p.pose = pose; p.at = now; p.seenAt = now;
+  }
+
+  /** NET-SMOOTH 4: the peer's cursor along its path, moved on to `now` at its rate; waypoints behind it let go. */
+  _play(p, now) {
+    if (!p.path?.length) return;
+    const end = p.path[p.path.length - 1].c;
+    p.cur = Math.min(end, (p.cur ?? 0) + Math.max(0, now - (p.playAt ?? now)) * (p.rate ?? 1));
+    p.playAt = now;
+    while (p.path.length > 1 && p.path[1].c <= p.cur) p.path.shift();
+  }
+
+  /** NET-SMOOTH 2: is a peer's source room still speaking for it - heard within SOURCE_STALE_GAPS of its intervals
+   *  (SOURCE_STALE_MIN_MS at least), still holding the peer, and a room this session still holds? */
+  _srcLive(p, now) {
+    if (p.src == null || p.srcAt == null) return false;
+    if (now - p.srcAt > Math.max(SOURCE_STALE_MIN_MS, SOURCE_STALE_GAPS * (p.gap ?? 1000 / POSE_HZ))) return false;
+    return !!this._rooms.get(p.src)?.has(p.id) && this.inRoom(p.src);
   }
 
   /** Once a frame, on the session's own clock: the retry, the easing
@@ -2477,18 +2857,18 @@ export class OnlineSession {
     if (this._rnOrder) this._flushRenown(now);   // AUDIT RENOWN1 WIRE-2: a rise a room has not confirmed goes again, on each socket's own gate
     if (this._gdHeld.length) this._flushGuild(now);   // GUILD1c: a held guild order a socket's gate kept back goes now
     this._flushLook();   // PROFILE2: a look the gate held back
+    this._flushRehello();   // AURA-LIVE: and a badge
     for (const p of [...this.peers.values()]) {
       // SLAM14 B2: a peer a welcome left unnamed, and that no pose or join has confirmed since, leaves each such room
       // when the silence law hides it - the moment it would have vanished from the screen in any case
       if (p.unconfirmed && now - p.seenAt > PEER_TIMEOUT_MS) for (const room of Object.keys(p.unconfirmed)) this._unmember(room, p.id);
       if (!p.pose) continue;
-      // SLAM3: EASED OVER THE INTERVAL THIS PEER IS ACTUALLY KEEPING, not over an assumed 1/POSE_HZ. The assumption
-      // was already wrong for anyone on a slow line or a throttled tab - the ease finished early and the peer stood
-      // still until the next pose, which is the stutter AUDIT MWBODY A8 describes for the yaw - and SLAM3 makes it
-      // wrong for EVERYONE in a crowd, because a crowded sender deliberately speaks less often. The gap is measured
-      // at arrival and bounded, so one late frame cannot make a peer crawl.
-      const t = (now - p.at) / (p.gap ?? (1000 / POSE_HZ));
-      p.shown = lerpPose(p.from ?? p.pose, p.pose, t);
+      // SLAM3: EASED OVER THE INTERVAL THIS PEER IS ACTUALLY KEEPING, not over an assumed 1/POSE_HZ - a crowded sender
+      // deliberately speaks less often. NET-SMOOTH 4: walked along its waypoints (`path`, written by _arrive), the ones
+      // already passed let go; a peer with none yet stands at its pose.
+      if (!p.path?.length) { p.path = [{ pose: { ...(p.shown ?? p.pose) }, c: 0 }]; p.cur = 0; p.rate = 1; p.playAt = now; }
+      this._play(p, now);
+      p.shown = poseAlong(p.path, p.cur);
     }
   }
 

@@ -95,6 +95,7 @@ import { questRail, journalLines, questTitleOf, QUEST_URGENT_SECONDS, remainWord
 import { entryTarget, targetWords, WHERE_TEXT } from './questLens.js';   // GUIDE2: where a quest points, and the way there   // MAC-K2: the ONE quest walk, shared with the chronicle
 import { questTracker, followOn, trackButton } from './questTracker.js';   // GUIDE4: the HUD's card - the Track toggle, and the quest the journal opens on
 import { closeOnOutsideTap } from './enhancedOverlays.js';   // OT1: a tap on the scrim resumes
+import { drawShotsPane, releaseShotsPane } from './shotsPane.js';   // LOAD1: the Screenshots pane - the gallery the PrintScreen key keeps
 import { TEST_PRESETS, TEST_RIDE, TEST_SEA, TEST_LOOT } from '../systems/testRoom.js';   // TR3: the one home the pane shows; TSR4: the ride; LR3: the loot ladder
 import { mwRaceId } from '../formats/mwNpc.js';
 import { EQUIP_SLOTS, equipTableOf } from '../systems/equip.js';
@@ -145,6 +146,7 @@ import { drawPixelGround } from './pixelGround.js';
 // renders the tab, so the front door still reads no game state.
 import { sheetModel } from './enhancedCharSheet.js';
 import { profPagesShown, PROF_PAGE_SECTIONS, drawProfessionsPage, drawStoresPage, resetProfPages, profActUnderWay, setDownProfAct } from './profPages.js';   // PROF1: the Professions and Stores pages, online
+import { vendorPageShown, VENDOR_PAGE_SECTIONS, drawVendorPage } from './vendorPage.js';   // HOME-VENDOR: the Vendor page
 import { REVENANT_PAGE_SECTIONS, revenantPageShown, drawRevenantsPage } from './revenantPage.js';
 import { COMPANION_PAGE_SECTIONS, companionPageShown, drawCompanionsPage, resetCompanionRoster } from './companionRoster.js';   // COMPANION-ROSTER: the sworn and the slots
 import { STABLE_PAGE_SECTIONS, stablePageShown, drawStablePage, resetHoldingsPages } from './holdingsPages.js';   // HOLDINGS: the horse and the wagon
@@ -229,7 +231,7 @@ import { maxRoundsRemaining } from './hudActiveSpells.js';   // BUFF-END: a bund
 // by it. Empty at FT0; the Enhanced category of Settings and the Mods
 // section keep their rows until each one's slice moves it here
 // (bible/10-UI/Features-Arc.md).
-const SECTIONS_BOOT = ['Continue', 'New Game', 'Load Game', 'Online', 'Test Room', 'Settings', 'Features', 'Overhauls', 'About'];   // OVH1: the three looks   // FT16: Controls is a Settings CATEGORY, not a rail door   // FT14: Mods is gone - every mod is a tile on Features, and what the pane carried besides stands under them   // ONLINE1: the shared world's door
+const SECTIONS_BOOT = ['Continue', 'New Game', 'Load Game', 'Online', 'Test Room', 'Settings', 'Features', 'Overhauls', 'Screenshots', 'About'];   // LOAD1: the gallery (ui/shotsPane.js)   // OVH1: the three looks   // FT16: Controls is a Settings CATEGORY, not a rail door   // FT14: Mods is gone - every mod is a tile on Features, and what the pane carried besides stands under them   // ONLINE1: the shared world's door
 // FD1 (Mac, 2026-09-11): the CLASSIC skin opens on this same door. Its
 // three game doors collapse into BEGIN, which leads into the classic
 // start sequence - the title, the film, Daggerfall's own start window -
@@ -238,7 +240,7 @@ const SECTIONS_BOOT = ['Continue', 'New Game', 'Load Game', 'Online', 'Test Room
 // SO1: ENHANCED left the rail for a category of Settings (settingsMap).
 // ONLINE1: ONLINE joins it - Mac: "if using classic, you'd see the
 // other user's paperdoll" - the same pane, the same save brought in.
-const SECTIONS_CLASSIC = ['Begin', 'Online', 'Settings', 'Features', 'Overhauls', 'About'];   // OVH1   // FT14; FT16: Controls is a Settings category
+const SECTIONS_CLASSIC = ['Begin', 'Online', 'Settings', 'Features', 'Overhauls', 'Screenshots', 'About'];   // LOAD1: the key keeps its shots under either skin   // OVH1   // FT14; FT16: Controls is a Settings category
 
 // U51: the same rail with the boot-only questions swapped for the
 // in-game ones. Continue and New Game answer "which game", which is
@@ -251,7 +253,7 @@ const SECTIONS_CLASSIC = ['Begin', 'Online', 'Settings', 'Features', 'Overhauls'
 // mode's doors), and the pane says so in words. A rail that drops the
 // row instead teaches the player the door was never there - the same
 // argument the Mods section is built on.
-const SECTIONS_PAUSE = ['Resume', 'Save Game', 'Load Game', 'Settings', 'Features', 'Overhauls', 'About', 'Exit'];   // OVH1   // FT14; FT16: Controls is a Settings category
+const SECTIONS_PAUSE = ['Resume', 'Save Game', 'Load Game', 'Settings', 'Features', 'Overhauls', 'Screenshots', 'About', 'Exit'];   // LOAD1   // OVH1   // FT14; FT16: Controls is a Settings category
 
 const idOf = (label) => label.toLowerCase().split(' ')[0];
 
@@ -1797,7 +1799,7 @@ const ONLINE_LOCK_NOTE = 'Always on online: the shared world uses every enhancem
 /** MODS-ONLINE-2: the Mods pane's own line. The lane's note (above)
  *  is about the PORT's switches and was wrong over the tiles the
  *  moment a mod stopped being forced. */
-const ONLINE_MODS_NOTE = 'Most mods are your choice online. A few are set for everyone in the room so everyone plays on the same ground by the same rules: the ones that change the ground (Basic Roads, World of Daggerfall, Detailed Ships, Iliac Puddle No More\u2019s sea and depth, and There\u2019s a Hole in the Bottom of the Ocean), and every setting of Meaner Monsters, the Combat and Armor Overhaul, Unleveled Loot, Roleplay & Realism, Roleplay & Realism: Items and Oblivion leveling (who stands behind a counter and which leveling your character uses stay yours). Travel Options is on for everyone, so every trip over land is travelled and ships sail only from ports.';
+const ONLINE_MODS_NOTE = 'Most mods are your choice online. A few are set for everyone in the room so everyone plays on the same ground by the same rules: the ones that change the ground (Basic Roads, World of Daggerfall, Detailed Ships, Iliac Puddle No More\u2019s sea and depth, and There\u2019s a Hole in the Bottom of the Ocean), and every setting of Meaner Monsters, the Combat and Armor Overhaul, Unleveled Loot, Roleplay & Realism, Roleplay & Realism: Items and Oblivion leveling (who stands behind a counter and which leveling your character uses stay yours). Travel Options is on for everyone, so every trip over land is travelled and ships sail only from ports. Immersive Travel is on for everyone too: its carriages stand at every city gate, a driver\u2019s fare is fast travel over land, and its fares and rules are the room\u2019s (how its map looks stays yours).';   // AUDIT IT1 W5: a port's ship passage is fast travel online too
 const ONLINE_GROUND_NOTE = 'Set for everyone online: it changes the ground itself (roads, camp sites, the shared ship deck, the seafloor and its pits), and everyone in a room has to stand on the same ground. Your own choice comes back offline.';
 /** WOD1: the vendors whose room-owned switch is the GROUND's - the two
  *  that write terrain heights (roads' beds, World of Daggerfall's sites). */
@@ -1825,7 +1827,11 @@ const ONLINE_WORLD_EVENT_NOTE = 'On for everyone online: a raid is shared, so ev
 /** TRAVEL-ONLINE: Travel Options' three room switches - the mod and its two journey dials - and their own reason. */
 const ONLINE_TRAVEL_VENDORS = Object.freeze(['travel-options']);
 const ONLINE_TRAVEL_NOTE = 'On for everyone online: every trip over land is travelled, and ships sail only from ports. Your own choice comes back offline.';
-const onlineLockNote = (vendor, key) => (ONLINE_GROUND_VENDORS.includes(vendor) || ONLINE_GROUND_KEYS[vendor]?.includes(key) ? ONLINE_GROUND_NOTE : ONLINE_RULESET_KEYS[vendor]?.includes(key) ? ONLINE_RULESET_NOTE : ONLINE_WORLD_EVENT_VENDORS.includes(vendor) ? ONLINE_WORLD_EVENT_NOTE : ONLINE_TRAVEL_VENDORS.includes(vendor) ? ONLINE_TRAVEL_NOTE : ONLINE_SHARED_NOTE);
+/** IT1: Immersive Travel's two room switches - the mod (its carriages stand at the gates, ground everyone walks among) and
+ *  Disable Normal Travel held off - and their own reason. */
+const ONLINE_CARRIAGE_VENDORS = Object.freeze(['immersive-travel']);
+const ONLINE_CARRIAGE_NOTE = 'Set for everyone online: carriages stand at every city gate, the travel map\u2019s trips stay travelled, and a driver\u2019s fare is fast travel over land, its fares and rules the same for everyone. Your own choice comes back offline.';   // AUDIT IT1 W5
+const onlineLockNote = (vendor, key) => (ONLINE_GROUND_VENDORS.includes(vendor) || ONLINE_GROUND_KEYS[vendor]?.includes(key) ? ONLINE_GROUND_NOTE : ONLINE_RULESET_KEYS[vendor]?.includes(key) ? ONLINE_RULESET_NOTE : ONLINE_WORLD_EVENT_VENDORS.includes(vendor) ? ONLINE_WORLD_EVENT_NOTE : ONLINE_TRAVEL_VENDORS.includes(vendor) ? ONLINE_TRAVEL_NOTE : ONLINE_CARRIAGE_VENDORS.includes(vendor) ? ONLINE_CARRIAGE_NOTE : ONLINE_SHARED_NOTE);   // IT1
 /** REALM P0.2: a key the room owns only because its mod is owned whole wears the balance note; a key the room table names keeps its own. */
 const modLockNote = (vendor, key) => (!Object.hasOwn(ONLINE_ROOM_MOD_KEYS[vendor] ?? {}, key) && onlineWholeModKey(vendor, key, undefined, { offline: true }) ? ONLINE_BALANCE_NOTE : onlineLockNote(vendor, key));
 /** REALM P0.2: a DIAL the room owns online - its steppers and buttons answer nothing, and say why. */
@@ -3444,7 +3450,7 @@ function renderHome() {
   // still exists on the shell rail untouched, so the rail-hole pin and
   // the shared-sections law hold.
   for (const label of sections) {
-    if (label === 'About') continue;
+    if (label === 'About' || label === 'Screenshots') continue;   // LOAD1: Screenshots stands in the foot, beside About
     const id = idOf(label);
     // PX31: THE DOOR'S BUTTONS CARRY THEIR OWN NAME. Until now they
     // were classless, and nine probes still reached for `.railbtn` -
@@ -3494,6 +3500,17 @@ function appendPxFoot(home) {
   const about = el('button', 'px-about', 'About');
   about.onclick = () => go('about');
   foot.append(build, about);   // MENU-TOGGLE: the skin pair that stood between them is retired
+  // LOAD1: the gallery's plaque stands beside About, in About's own box, so the foot keeps one shape - the centre
+  // runs under the menu's last rows on a 720-pixel screen. The door's face only: the pause window's System rail carries
+  // it as a row (SYSTEM_PANES).
+  if (mode !== 'pause' && sections.includes('Screenshots')) {
+    const shots = el('button', 'px-about px-shots', 'Screenshots');
+    shots.onclick = () => go('screenshots');
+    const right = el('div', 'px-footright');
+    about.remove();
+    right.append(shots, about);
+    foot.append(right);
+  }
   home.append(foot);
 }
 
@@ -3593,6 +3610,7 @@ export const SYSTEM_PANES = Object.freeze([
   ['settings', 'Settings'],   // FT16: Controls is a category INSIDE it
   ['features', 'Features'],   // FT0
   ['overhauls', 'Overhauls'],   // OVH1
+  ['screenshots', 'Screenshots'],   // LOAD1: the gallery, mid-game too
   ['about', 'About'], ['exit', 'Exit'],   // FT14: no Mods pane
 ]);
 
@@ -3627,6 +3645,7 @@ function pauseSystem(body) {
       save: paneSave, load: paneLoad,
       features: paneFeatures,   // FT0
       overhauls: paneOverhauls,   // OVH1
+      screenshots: drawShotsPane,   // LOAD1
       about: paneAbout, exit: paneExit,
     })[sysSec](detail);
   }
@@ -3688,7 +3707,7 @@ function meterRow(label, now, max, tone) {
  *  page (ui/profPages.js). HOLDINGS: the Stores page, the Revenants and the Companions went to the Holdings rail. */
 const PROF_STATS_SECTIONS = Object.freeze(PROF_PAGE_SECTIONS.filter(([id]) => id === 'professions'));
 const PROF_HOLD_SECTIONS = Object.freeze(PROF_PAGE_SECTIONS.filter(([id]) => id !== 'professions'));
-const statsSections = () => [...STATS_SECTIONS, ...(profPagesShown() ? PROF_STATS_SECTIONS : [])];
+const statsSections = () => [...STATS_SECTIONS, ...(profPagesShown() ? PROF_STATS_SECTIONS : []), ...(vendorPageShown() ? VENDOR_PAGE_SECTIONS : [])];   // HOME-VENDOR: the Vendor page, under the Professions
 /** HOLDINGS: the Holdings rail's pages - what the player owns (the Stable, the Fleet while ships sail, the Stores
  *  online) and who follows them (the Companions, the Revenants), each while it has a thing to show. */
 const holdingsSections = () => [...(stablePageShown() ? STABLE_PAGE_SECTIONS : []), ...(fleetPageShown() ? FLEET_PAGE_SECTIONS : []), ...(companionPageShown() ? COMPANION_PAGE_SECTIONS : []), ...(revenantPageShown(playerEntity) ? REVENANT_PAGE_SECTIONS : []), ...(profPagesShown() ? PROF_HOLD_SECTIONS : [])];
@@ -3719,6 +3738,7 @@ function pauseStats(body) {
   ({
     character: statsCharacter, attributes: statsAttributes, skills: statsSkills, specials: statsSpecials, standing: statsStanding, effects: statsEffects, master: statsMaster,   // SOFTCAP4: `master` - the Master Skills door's page
     professions: (d) => drawProfessionsPage(d, render, profKit),
+    vendor: (d) => drawVendorPage(d, render, profKit),   // HOME-VENDOR
   })[statsSec](detail, m);
   // PX25: THE DOORS THE F5 SHEET CARRIED. The classic character sheet
   // has four buttons down its side - Inventory, Spellbook, Logbook,
@@ -4548,6 +4568,7 @@ function renderInto() {
         save: paneSave, exit: paneExit,
         features: paneFeatures,   // FT0
         overhauls: paneOverhauls,   // OVH1
+        screenshots: drawShotsPane,   // LOAD1
         about: paneAbout, begin: paneBegin,   // FD1: the classic rail's door; SO1: Enhanced is a Settings category now
       })[section](body);
     }
@@ -4841,6 +4862,7 @@ export function mountEnhancedMenu(host, {
       if (textKeyCapture) { globalThis.removeEventListener('keydown', textKeyCapture, true); textKeyCapture = null; }   // DISC28-A
       if (questTimer) { clearInterval(questTimer); questTimer = null; }
       stopTimers();   // TIMERS1
+      releaseShotsPane();   // LOAD1: the gallery's pictures and its listener
       // FIX-F: and the rebind pane's own capture listener, which is on
       // the DOCUMENT and would outlive this screen exactly as the one
       // above would.

@@ -38,6 +38,7 @@ import { installPlusCursor } from './plusCursor.js';   // PLUS7: the gauntlet cu
 import { installWindowMotion } from './windowMotion.js';   // PLUS1/WM1: windows unfold and fold - Enhanced Plus only
 import { isEnhancedPlus } from '../systems/uiSkin.js';   // PLUS1: the Plus sheet is laid only under Plus
 import { pageHas } from '../systems/pageQuery.js';   // PERF-URL: the page's query, parsed once a search
+import { SERPENT_RING_MAP_CSS } from './serpentMapMark.js';   // SERPENT-TIMERS: the sea serpent's row marked in its waters' own colour
 
 /**
  * QUICK-LOOT-STATS: THE PLAQUE'S LAYOUT NUMBERS LIVE WITH THE DRESS.
@@ -2172,6 +2173,8 @@ ${badgeCss()}
 .px-build { justify-self: start; }
 /* MENU-TOGGLE: the skin switch that stood centred is retired; the centre is left open and About keeps the right. */
 .px-foot .px-about { grid-column: 3; }
+/* LOAD1: the Screenshots plaque - About's box, beside it on the right. */
+.px-footright { grid-column: 3; justify-self: end; display: flex; align-items: flex-end; gap: 10px; }
 /* The About box: the ONE box on the boxless face, which is what makes
    it read as a plaque rather than a menu row. 2px border in whole
    pixels, gold on hover by the same pair. */
@@ -2378,7 +2381,7 @@ ${badgeCss()}
 .px-timerswin .tm-row { display: flex; align-items: center; gap: 12px; padding: 9px 10px 9px 14px; position: relative;
   border-bottom: 1px solid rgba(125,116,96,0.25); }
 .px-timerswin .tm-row::before { content: '\\25c6'; position: absolute; left: 0; top: 12px; font-size: 9px; color: var(--tm-kind, #9c937d); }
-.px-timerswin .tm-gate { --tm-kind: #e2554c; } .px-timerswin .tm-raid { --tm-kind: #f2c46b; } .px-timerswin .tm-battle { --tm-kind: #d98074; }
+.px-timerswin .tm-gate { --tm-kind: #e2554c; } .px-timerswin .tm-serpent { --tm-kind: ${SERPENT_RING_MAP_CSS}; } .px-timerswin .tm-raid { --tm-kind: #f2c46b; } .px-timerswin .tm-battle { --tm-kind: #d98074; }
 .px-timerswin .tm-seat { --tm-kind: #c08a3e; } .px-timerswin .tm-reset { --tm-kind: #85a8a1; }
 .px-timerswin .tm-row.live { background: rgba(192,138,62,0.08); }
 .px-timerswin .tm-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -2397,7 +2400,6 @@ ${badgeCss()}
 :root[data-plus-theme="stone"] .px-timerswin .tm-count { color: #ffe3a6; }
 :root[data-plus-theme="stone"] .px-timerswin .tm-row.live .tm-count { color: #c8ffd6; }
 @media (max-width: 560px) {
-  .px-timersword { display: none; }
   .px-win.px-timerswin .px-body { padding: 16px 14px 18px; }
   .px-timerswin .tm-count { font-size: 16px; }
 }
@@ -2418,6 +2420,8 @@ ${badgeCss()}
   .px-foot { grid-template-columns: 1fr auto; grid-template-areas: 'build about'; }
   .px-build { grid-area: build; align-self: center; }
   .px-foot .px-about { grid-area: about; grid-column: auto; }
+  /* LOAD1: on a phone the two plaques stack at the right - inside the 132px the stage keeps for the foot (PX8) */
+  .px-footright { grid-area: about; grid-column: auto; flex-direction: column; gap: 8px; }
 }
 @media (prefers-reduced-motion: reduce) { .px-ground { animation: none; } }
 /* PX8, caught by the tap probe TWICE: centering the list on a SHORT
@@ -2455,7 +2459,6 @@ html.plus-pad-prompts-visible .px-over > .px-stage:not(.px-acctstage):not(.px-ti
 @media (max-height: 560px) {
   .px-stage.px-timersstage { padding: 10px 12px; }
   .px-win.px-timerswin { max-height: calc(100dvh - 20px); }
-  .px-timersword { display: none; }
   .px-over .px-stage:not(.px-acctstage):not(.px-timersstage) { padding-top: max(7dvh, 64px); }
 }
 
@@ -2807,6 +2810,14 @@ html.plus-pad-prompts-visible .px-over > .px-stage:not(.px-acctstage):not(.px-ti
 .tview-fdot-towns { background: #e9e4d9; } .tview-fdot-distant { background: #c08a3e; } .tview-fdot-dungeons { background: #b0443a; }
 .tview-fdot-enemies { background: #e0503c; } .tview-fdot-travellers { background: #4e7f72; } .tview-fdot-gathering { background: linear-gradient(135deg, #e586ec, #d9894a 50%, #d4e157); }
 .tview-fnum { min-width: 2ch; text-align: right; font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+/* OW-WHO / OW-NODE-KM (FIELD BUGS 2026-10-04e): the players by kin - each switch's dot the colour their names wear
+   (systems/travelViewFilters.js TV_KIN_COLORS; a stranger the traveller's verdigris) - and the two steps, pressed round */
+.tview-fdot-kin-friends { background: #8fd0ff; } .tview-fdot-kin-guild { background: #c9a6ff; } .tview-fdot-kin-others { background: #4e7f72; }
+.tview-filter.tview-cycle { grid-template-columns: 1fr; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tview-filter.tview-cycle-wide { grid-column: 1 / -1; }
+/* SEAT-TIP: the held map's card (.hmtip), over the Overworld - placed in the root's viewport pixels; over the block
+   (.hmtip's own z-index stands later in the sheet, so this rule names both classes to outweigh it) */
+.hmtip.tview-tip { z-index: 4; }
 .tview-filter:not(.on) .tview-fnum { opacity: 0.6; }
 /* OW-CONFIRM: the view's own question - over the map's upper middle, in the block's stone; its presses the Path switch's */
 .tview-confirm { position: absolute; left: 50%; top: 28%; transform: translate(-50%, -50%); pointer-events: auto; z-index: 2;
@@ -2823,6 +2834,10 @@ html.plus-pad-prompts-visible .px-over > .px-stage:not(.px-acctstage):not(.px-ti
 .tview-foot { display: flex; padding: 8px 12px 10px; }
 .tview-foot > .tview-back { flex: 1 1 auto; text-align: center; }
 @media (pointer: coarse) { .tview-bar { bottom: auto; top: 14px; } }
+/* OW-WHO (FIELD BUGS 2026-10-04e): the Players' switches and the two steps made the filters three rows taller - on a
+   touch screen the block stands from the top, and a phone held landscape ran it off the foot. The switches scroll
+   within their own section (the block itself never clips: the docked journey's word hangs above it) */
+@media (pointer: coarse) { .tview-filters { max-height: 38vh; overflow-y: auto; overscroll-behavior: contain; } }
 @media (max-width: 520px) { .tview-bar { right: 10px; width: calc(100vw - 20px); } }
 @media (prefers-reduced-motion: reduce) { .tview-filter, .tview-fdot { transition: none; } }
 .travelpanel-msg { position: absolute; left: 50%; top: 86px; transform: translateX(-50%);
@@ -4702,6 +4717,25 @@ html.plus-pad-prompts-visible .px-over > .px-stage:not(.px-acctstage):not(.px-ti
 .piletab.on { color: rgb(243,239,44); border-color: var(--brass); cursor: default; }
 .piletabname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .piletabn { color: #d8cfae; font-variant-numeric: tabular-nums; }
+/* WAGON-FILTER (2026-10-04, Mac: "The wagon needs a filter option"): the player's own store - the wagon, their
+   storage, the Materials Bag - carries a search and a category menu between the head and the rows, in ONE row of
+   fixed furniture (PX21e: the rows scroll, never the frame). AUDIT WAGON-FILTER C1: the first cut's wrapping chips and
+   hint stood 202-236 px tall and left a phone on its side 1 px of list; one row is 44 px. The menu wears the search's
+   dress, the brass on focus. */
+.storefilter { display: flex; align-items: center; gap: 6px; padding: 6px 10px; flex: 0 0 auto;
+  border-bottom: 2px solid rgba(125,116,96,0.3); }
+.storesearch, .storecat { font: inherit; font-size: 13px; min-height: 32px; box-sizing: border-box; color: #d8cfae;
+  background: rgba(0,0,0,0.35); border: 1px solid rgba(125,116,96,0.45); border-radius: 0; }
+.storesearch { flex: 1 1 0; min-width: 0; padding: 0 8px; }
+.storecat { flex: 0 1 auto; max-width: 48%; padding: 0 4px; }
+.storecat option { color: #d8cfae; background: #10141a; }
+.storesearch::placeholder { color: #9c937d; }
+.storesearch:focus, .storecat:focus { outline: none; border-color: var(--brass); }
+/* SHIFT-STOW's line: its own element, so hiding it leaves no band - on a touch screen (no Shift) and a short screen
+   (the list first) */
+.storehint { margin: 0; padding: 4px 10px 0; flex: 0 0 auto; font-size: 11px; letter-spacing: 0.06em; color: #9c937d;
+  text-align: center; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
+@media (pointer: coarse), (max-height: 640px) { .storehint { display: none; } }   /* SHIFT-STOW: no Shift to tell of, or no room */
 /* NOT MULTICOL. column-count was the obvious answer and it is the
    wrong one: a multicol box that is also a SCROLL container fragments
    in the block direction, so the overflow columns went below the fold
@@ -5076,6 +5110,9 @@ html.plus-pad-prompts-visible .px-over > .px-stage:not(.px-acctstage):not(.px-ti
 .hmkeykind.dim { opacity: 0.4; }
 .hmkeyrow.off .hmkeykind { opacity: 0.3; }
 .hmkeychip { flex: none; display: block; box-shadow: 0 0 0 1px rgba(0,0,0,0.8); }
+/* OW-WHO: the Players row's word - the row's first cell, so never hidden with the glyphs' words on a phone (the
+   grid's rows are display: contents, and a hidden first cell would shift every row after it a column) */
+.hmkeywho { font-size: 11px; color: #c5bda2; letter-spacing: 0.08em; text-transform: uppercase; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 @media (max-width: 860px) {
   .hmkey { max-width: calc(100vw - 24px); }
   .hmkeyname { display: none; }   /* a phone keeps the toggles and the glyphs; each glyph's title names it */

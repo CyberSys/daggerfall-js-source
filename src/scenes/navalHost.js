@@ -49,6 +49,10 @@
 //   random() -> [0, 1)                         the engine draw (Port-Ledger A's rule: injectable, Math.random by default)
 //   groundY(x, z) -> y, shake(amount), peerBoats() -> [{ id, pos, vel, speed }], warmAshesOn() -> bool   (optional)
 //   swimming() -> bool                         AUDIT NAV1: the player in the water (a cask hauled in by hand)
+//   serpent: { targets(), struck(seg, d), hold(boat), drift(boat), near() } | null   SERPENT1 (scenes/serpentHost.js):
+//                                              the sea serpent's segments among the shots' targets, a ball of mine on one,
+//                                              its coil's hold on my ship (the warp seam), its maelstrom's pull and a blow's
+//                                              throw (the drift seam), and whether it counts as a hostile near
 //   raiderSpent(raiderId)                      NAV-R: a raider ship of mine sunk, struck, taken or given the slip - spent
 //                                              for its life (the Overworld's own law, scenes/world.js seaRaidSpend: and
 //                                              said to the cell, OW6's raider word and its ledger)
@@ -62,7 +66,8 @@ import { wrapAngle, multiply } from '../world/mat4.js';   // ONCRASH1: the port'
 import { createShipDamage, shotDamage, shotMen, ballMen, SHIP_STATES, SINK_SECONDS, SINK_CLEAR, sinkAngles, sinkDepth, BRACE_TAKEN, FIRE_CHANCE, WRECKED_OARS, repairCost, STRUCK_AT } from '../systems/naval/navalDamage.js';
 import { createGunDeck, aimSolution, volleyLaunches, bearingOf, sideForBearing, toWorld, RIPPLE_S, READY_FLASH_S } from '../systems/naval/navalGunnery.js';
 import { hullBuild, firstBuildOf, batteryOf, batteriesOf, GUNS, classById, classFor, shipNames, crownOf, classLine, SIDES, SIDE_DIR, BARREL, NAVAL_FACTIONS, HULL } from '../systems/naval/navalShips.js';
-import { findHarbour, createWaterGrid, errandFor, errandRng, dwellOf, offsetErrand, offsetHarbour, alongside, BERTH_SNAP_M, BERTH_WAY } from '../systems/naval/shipLife.js';   // SHIP-LIFE
+import { createWaterGrid, errandFor, errandRng, dwellOf, offsetErrand, alongside, BERTH_SNAP_M, BERTH_WAY } from '../systems/naval/shipLife.js';   // SHIP-LIFE
+import { createHarbourBook, HARBOUR_RETRY_S } from '../systems/naval/harbourBook.js';   // HARBOUR-BOOK: the harbours, the world's and mine
 import { hash32 } from '../world/spawnedDungeons.js';
 import { mulberry32 } from '../combat/bloodArt.js';
 import { orientedBox, arcPoints, flatUnit, NAVAL_DEG, rangeAt, segmentBoxEntry, shotPosition, landing } from '../systems/naval/navalBallistics.js';
@@ -87,6 +92,7 @@ import { NAVAL_SFX, NAVAL_CLASSIC, NAVAL_FIRE_LOOP, NAVAL_SINK_LOOP, navalSoundR
 import { raiderPlan, raiderClassOf, RAIDER_DROP_M } from '../systems/naval/navalRaiders.js';
 import { pursue } from '../systems/naval/seaLanes.js';   // AUDIT BAY A6: a packet steered along her leg
 import { FADE_FLATS } from './comeSailAwayPool.js';   // AUDIT BAY A13/A14: what of a fading ship goes at half
+import { segmentOfTarget } from './serpentHost.js';   // SERPENT1: a sea serpent's segment among the shots' targets
 import { intoDeck, outOfDeck, mainLevel, DECK_STEP } from '../systems/naval/navalDeck.js';   // AUDIT NAV2 F36: the feet in her deck's frame (aboardShip); QUAYS: her rail where the gangway lands
 import { CAPSULE_RADIUS } from '../player/motor.js';   // AUDIT GN-D3: aboard under her main deck, a body's own reach (standsOn)
 import { createGalleonGunDeck } from '../systems/naval/galleonGunDeck.js';   // GALLEON: her shutters and guns at work
@@ -169,9 +175,8 @@ export const LINER_PORT_M = 500;
 /** AUDIT SHIP-LIFE B3: the level a harbour's ships are drawn at - the port's, never a player's (two players' levels
  *  drew two fleets into one port's berths). */
 export const HARBOUR_LEVEL = 10;
-/** AUDIT SHIP-LIFE B7: a port whose shore gave no harbour is sounded again after this (s) - the terrain streams in
- *  nearest-first, and a harbour sounded on arrival met unbuilt water. */
-export const HARBOUR_RETRY_S = 10;
+/** AUDIT SHIP-LIFE B7 (HARBOUR-BOOK: kept with the harbours now, systems/naval/harbourBook.js). */
+export { HARBOUR_RETRY_S };
 /** The port's key folded into a seed - a string's own hash (FNV-1a). */
 const keyHash = (k) => { let h = 0x811c9dc5; for (let i = 0; i < k.length; i++) h = Math.imul(h ^ k.charCodeAt(i), 0x01000193); return h >>> 0; };
 /** A ball's report heard as the near boom within this (m); past it the far one. */
@@ -530,6 +535,8 @@ export function sparsOf(boat, models) {
 }
 
 const MY_BOAT = 'me';
+/** SERPENT1: the aim's "ship" when its guns strike the sea serpent (no sea entry - the target card stands none). */
+const SERPENT_AIM = Object.freeze({ id: 'serpent' });
 /** A boat of mine as the shots know it: its own id, so its balls never meet its own planking. */
 const myBoatId = (boat) => `${MY_BOAT}:${boat?.uid || 0}`;
 const isMine = (id) => typeof id === 'string' && id.startsWith(`${MY_BOAT}:`);
@@ -567,10 +574,16 @@ export function createNavalHost(deps) {
    *  lifeDt, lifeN, list, deck, prize, lost, sinkUnder, colours } */
   const sea = new Map();
   let seq = 0;
-  /** SHIP-LIFE: the harbours found near the player - key -> { key, harbour (shipLife.js findHarbour, or null: a port
-   *  with no shore to berth at - sounded again after HARBOUR_RETRY_S), rolled (its moored ships stood), at (when it
-   *  was sounded) } - and the water grids a hull's ways are planned on (the scene's; made again when the origin moves). */
-  const harbours = new Map();
+  /** SHIP-LIFE: the harbours found near the player (systems/naval/harbourBook.js - key -> { key, name, harbour
+   *  (shipLife.js findHarbour, or null: a port with no shore to berth at), at }) - and the water grids a hull's ways are
+   *  planned on (the scene's; made again when the origin moves). HARBOUR-BOOK: the world's book (`deps.harbourBook`),
+   *  which the world sounds, moves and empties whether the sea runs or not - its quays stand off it with Naval Combat
+   *  off; made without one (the tests), a book of my own that my frame steps, my origin moves and my clear empties. */
+  const ownBook = !deps.harbourBook;
+  const harbours = deps.harbourBook ?? createHarbourBook({ harbourNear: () => deps.harbourNear?.() ?? null, isWater: (x, z, h) => deps.isWater(x, z, h) });
+  /** The harbours whose moored ships stand (harbourFrame's roll), by their sounding - one found again is rolled anew,
+   *  and my sea's clear forgets them all (its ships went with it). */
+  let rolled = new WeakSet();
   let grids = new Map();
   /** AUDIT SHIP-LIFE B6: the seeds that sailed from each port today - port key -> { day, seeds } - kept across the sea's
    *  clear (a door's visit found the harbour again and stood a ship that had sailed at her berth once more). */
@@ -674,6 +687,9 @@ export function createNavalHost(deps) {
       const box = hullBox(b);
       if (box) out.push({ id: myBoatId(b), box, rig: rigBoxesOf(b), boat: b });
     }
+    // SERPENT1: the sea serpent's segments above the sea - every ball meets it, a ship's, a peer's and mine (mine alone
+    // counted: landHit)
+    for (const t of deps.serpent?.targets?.() ?? []) out.push(t);
     return out;
   }
   const shots = createShotField({
@@ -832,6 +848,14 @@ export function createNavalHost(deps) {
       return;
     }
     if (e.type === 'land') { effects.hit(e.point, [0, 1, 0], false); return; }
+    if ((e.type === 'hit' || e.type === 'blast') && segmentOfTarget(e.target) != null) {
+      // SERPENT1: a ball into the serpent's hide - the sea thrown up off it, no splinters and no planks afloat
+      effects.splash(e.point, e.gun === 'heavy' || e.type === 'blast');
+      if (e.type === 'blast') { effects.blast(e.point); sound(NAVAL_SFX.blast, e.point, 1); }
+      else sound(NAVAL_CLASSIC.splashSmall, e.point, 0.8, isMine(e.shooter) ? { refDistance: HIT_CONFIRM_REF_M } : {});
+      landHit(e);
+      return;
+    }
     if (e.type === 'hit' || e.type === 'blast') {
       if (e.type === 'blast') { effects.blast(e.point); sound(NAVAL_SFX.blast, e.point, 1); }
       else {
@@ -873,6 +897,16 @@ export function createNavalHost(deps) {
       return;
     }
     if (!e.resolve) return;
+    // SERPENT1: a ball (or a barrel) of MINE on the serpent - its gun's own harm, my Guns refit's with it, gathered by
+    // the serpent's host into the cell's word; anyone else's is its own machine's to say
+    const seg = segmentOfTarget(e.target);
+    if (seg != null) {
+      if (!isMine(e.shooter)) return;
+      const hurt = { hull: gun.hull * (0.85 + 0.3 * random()), sail: 0, crew: 0 };
+      if (e.type !== 'blast') gunsRefit(hurt, e.shooter);
+      deps.serpent?.struck?.(seg, hurt.hull);
+      return;
+    }
     const target = sea.get(e.target);
     if (!target) return;
     const hurt = shotDamage(gun, zone, { roll: random() });
@@ -1047,7 +1081,8 @@ export function createNavalHost(deps) {
     const t = e.volley != null ? tallies.get(String(e.volley)) : null;
     if (!t) return;
     if (e.type === 'hit') {
-      if (!sea.has(e.target)) { if (e.zone !== 'rig') t.ended++; }
+      if (segmentOfTarget(e.target) != null) { t.hits++; t.ended++; }   // AUDIT SERPENT L2: a ball in the sea serpent's hide is a hit, never a miss
+      else if (!sea.has(e.target)) { if (e.zone !== 'rig') t.ended++; }
       else if (e.zone === 'rig') t.rig++;
       else { t.hits++; if (e.zone === 'holed') t.holed++; t.ended++; }
     } else if (e.type === 'splash' || e.type === 'land' || e.type === 'gone') t.ended++;
@@ -2054,6 +2089,7 @@ export function createNavalHost(deps) {
    *  no captain can take them. */
   function hostileNearMe() {
     if (!aboardShip()) return false;
+    if (deps.serpent?.near?.()) return true;   // SERPENT1: the sea serpent's waters about me - no rest, no time scale, no yard
     const feet = deps.feet(), me = meContact();
     for (const e of sea.values()) if (dist2d(e.ship.pos, feet) <= HOSTILE_NEAR_M && hostileToMe(e, me)) return true;
     return false;
@@ -2064,6 +2100,7 @@ export function createNavalHost(deps) {
    *  hostileNearMe - the rest, the journey, the yard - is unchanged. */
   function crewAlarm() {
     if (!aboardShip()) return false;
+    if (deps.serpent?.near?.()) return true;   // SERPENT1: all hands to the guns in the sea serpent's waters
     const feet = deps.feet(), me = meContact(), night = !!where().night;
     for (const e of sea.values()) {
       const d = dist2d(e.ship.pos, feet);
@@ -2381,10 +2418,17 @@ export function createNavalHost(deps) {
         if (hit && (!best || hit.t < best.t)) best = { t: hit.t, point: hit.point, e, hull, rig: i > 0 };
       }
     }
+    // SERPENT1: the look on the serpent lays the guns on the segment it meets - AUDIT SERPENT T4: led by its way as a
+    // ship is by hers (a body swimming 11 m/s under a ball two seconds aloft was struck behind the segment laid on)
+    for (const t of deps.serpent?.targets?.() ?? []) {
+      const hit = segmentBoxEntry(look.origin, far, t.box, 0);
+      if (hit && (!best || hit.t < best.t)) best = { t: hit.t, point: hit.point, e: null, hull: null, rig: false, v: t.v ?? null };
+    }
     if (!best) return null;
+    if (!best.e && !best.v) return best.point;
     const pose = boatPose(boat);
     const fire = flatUnit(quatRotate(pose.rotation, SIDE_DIR[side])) ?? [0, 0, 1];
-    const v = velocityOf(best.e.ship);
+    const v = best.e ? velocityOf(best.e.ship) : best.v;
     const p = best.rig && bat.gun !== 'chain' && best.hull ? best.hull.c : best.point;
     const along = (v[0] * fire[0] + v[2] * fire[2]) * dist2d(p, pose.position) / Math.max(1, g.speed * 0.97);
     return [p[0] + fire[0] * along, p[1], p[2] + fire[2] * along];
@@ -2411,6 +2455,9 @@ export function createNavalHost(deps) {
       const boxes = [hullBox(e.boat), ...(solution.gun === 'chain' ? rigBoxesOf(e.boat) : [])].filter(Boolean);
       if (boxes.length) ships.push({ e, v: velocityOf(e.ship), boxes: boxes.map((b) => ({ b, r: Math.hypot(b.h[0], b.h[1], b.h[2]) })) });
     }
+    // SERPENT1: the sea serpent's segments above the sea - a broadside laid on it goes red as on a ship, each segment
+    // where its way will carry it (AUDIT SERPENT T4)
+    for (const t of deps.serpent?.targets?.() ?? []) ships.push({ e: SERPENT_AIM, v: t.v ?? [0, 0, 0], boxes: [{ b: t.box, r: Math.hypot(t.box.h[0], t.box.h[1], t.box.h[2]) }] });
     if (!ships.length) return null;
     let ship = null;
     const hits = solution.launches.map((l) => {
@@ -3409,13 +3456,9 @@ export function createNavalHost(deps) {
     return best;
   }
   // ── QUAYS: docking at a harbour's quays (systems/naval/quays.js; the quays themselves, scenes/quayPool.js) ─────────
-  /** The harbours I know with their berths, for the quays the world stands off them (the berths moved with the world in
-   *  place - offsetAll's offsetHarbour). */
-  function harbourList() {
-    const out = [];
-    for (const h of harbours.values()) if (h.harbour?.berths?.length) out.push({ key: h.key, name: h.name ?? null, harbour: h.harbour });
-    return out;
-  }
+  /** The harbours I know with their berths (the book's - its berths moved with the world in place, harbourBook.js
+   *  offsetAll). HARBOUR-BOOK: the world's quays read the world's book itself, whether my sea runs or not. */
+  function harbourList() { return harbours.list(); }
   /** Whether berth `i` of harbour `key` is free for `boat` to dock at: no ship of the sea moored at it or lying still by
    *  it, no other boat (mine, another player's) lying at it. A ship only coming in to it is put off it (dockAt). */
   function dockFree(key, i, boat) {
@@ -3470,6 +3513,9 @@ export function createNavalHost(deps) {
    * and once made fast.
    */
   function warp(boat, { struck = false, oars = false, dt = 0 } = {}) {
+    // SERPENT1: in the sea serpent's coil she is held where it took her, her way off and her helm dead
+    const held = enabled && boat ? deps.serpent?.hold?.(boat) ?? null : null;
+    if (held) { warping = null; return { pos: held.pos, rotation: quatOfYaw(held.yaw) }; }
     const pose = boat ? boatPose(boat) : null;
     if (!enabled || !pose || !struck || oars || boarding || Math.hypot(pose.velocity[0], pose.velocity[2]) > DOCK_WAY || hostileNearMe()) { warping = null; return null; }
     const yaw = yawOfRot(pose.rotation);
@@ -3589,11 +3635,9 @@ export function createNavalHost(deps) {
    *  the stander's alone to launch, as every ship is - and gone past HARBOUR_LEAVE, to be stood again the same on the
    *  player's return (those that sailed today not again). */
   function harbourFrame(seaY) {
-    const near = deps.harbourNear?.() ?? null;
-    const sound = () => findHarbour({ rect: near.rect, isWater: (x, z, h) => deps.isWater(x, z, h) });
-    // AUDIT HOLDINGS O1: sounded once every pixel its scan reads is built (`near.ready`) - never off a half-streamed shore
-    if (near && !harbours.has(near.key)) { if (near.ready?.() !== false) harbours.set(near.key, { key: near.key, name: near.name ?? null, harbour: sound(), rolled: false, at: clock }); }
-    else if (near) { const h = harbours.get(near.key); if (!h.harbour && clock - h.at >= HARBOUR_RETRY_S && near.ready?.() !== false) { h.harbour = sound(); h.at = clock; } }   // AUDIT SHIP-LIFE B7
+    // AUDIT HOLDINGS O1, AUDIT SHIP-LIFE B7: sounded once its ground is built, again after a sounding that found none -
+    // HARBOUR-BOOK: by the world each frame, or here off a book of my own
+    if (ownBook) harbours.step(clock);
     const feet = deps.feet();
     const day = where().day ?? 0;
     for (const h of harbours.values()) {
@@ -3601,22 +3645,22 @@ export function createNavalHost(deps) {
       const departed = departedOf(h.key, day);
       const d = Math.hypot(h.harbour.mouth[0] - feet[0], h.harbour.mouth[1] - feet[2]);
       if (d > HARBOUR_LEAVE) {
-        if (h.rolled) for (const e of [...sea.values()]) if (!e.owner && e.fromHarbour === h.key && e.ship.errand?.kind === 'moored') retire(e);   // SHIP-FADE
-        h.rolled = false;
+        if (rolled.has(h.harbour)) for (const e of [...sea.values()]) if (!e.owner && e.fromHarbour === h.key && e.ship.errand?.kind === 'moored') retire(e);   // SHIP-FADE
+        rolled.delete(h.harbour);
         continue;
       }
       if (d > HARBOUR_STAND || !rollsHarbour(h.harbour.mouth)) continue;
       const r = mulberry32(hash32(keyHash(h.key), day >>> 0, HARBOUR_SALT));
       const n = Math.min(h.harbour.berths.length, HARBOUR_ROLL[0] + Math.floor(r() * (HARBOUR_ROLL[1] - HARBOUR_ROLL[0] + 1)));
       const seedOf = (i) => hash32(keyHash(h.key), day >>> 0, i, HARBOUR_SALT);
-      if (h.rolled) {
+      if (rolled.has(h.harbour)) {
         // AUDIT BAY A20: the port's own a player sailing off lets go of (out of their word) - taken over where they
         // lie by the one who rolls the port now (they faded out of their berths under my eyes, the roll long done)
         const own = new Set(Array.from({ length: n }, (_, i) => seedOf(i)));
         for (const e of [...sea.values()]) if (e.owner && e.retiring && own.has(e.ship.seed) && e.ship.damage.state === SHIP_STATES.afloat) { adopt(e); e.retiring = false; }
         continue;
       }
-      h.rolled = true;
+      rolled.add(h.harbour);
       for (let i = 0; i < n; i++) {
         const seed = seedOf(i);
         const faction = r() < HARBOUR_NAVY ? 'navy' : 'merchant';
@@ -4378,7 +4422,7 @@ export function createNavalHost(deps) {
     if (boarding) for (const p of [boarding.from, boarding.to]) { p.pos[0] += o[0]; p.pos[2] += o[2]; }
     shots.offsetAll(o);
     effects.offsetAll(o);
-    for (const h of harbours.values()) offsetHarbour(h.harbour, o);   // SHIP-LIFE: the harbours with the world - and the grids made again in it
+    if (ownBook) harbours.offsetAll(o);   // SHIP-LIFE: the harbours with the world (HARBOUR-BOOK: the world's moves its own) - and the grids made again in it
     grids = new Map();
   }
   /** A transition, a fast travel, a load, a room change: the sea empties (its ships were never a save's). */
@@ -4388,7 +4432,8 @@ export function createNavalHost(deps) {
     effects.clear();
     wireVolleys = []; wireBarrels = [];
     gunfire = [];   // AUDIT NAV2 F8: the guns heard go with the sea they were fired on
-    harbours.clear(); grids = new Map();   // SHIP-LIFE: found again, and their ships stood again, where the world is next
+    if (ownBook) harbours.clear();   // SHIP-LIFE: found again where the world is next (HARBOUR-BOOK: the world empties its own at a transition)
+    rolled = new WeakSet(); grids = new Map();   // and their ships stood again
     warping = null; gangwaySaid = null;   // AUDIT HOLDINGS Q9: no warp nor gangway word carried across
     claims.clear(); granted.clear();
     myCasks.clear();   // KEEP-PLUNDER
@@ -4539,6 +4584,47 @@ export function createNavalHost(deps) {
     liners,   // SEA-LANES: the Bay's packets
     /** Whether a hostile ship is near - Come Sail Away's time scale refuses to run with one (AreEnemiesNearby). */
     hostileNear: () => hostileNearMe(),
+    /** SERPENT1: Come Sail Away's `drift` seam - the sea serpent's maelstrom pulling my ship, a blow's throw: scene m/s
+     *  `[vx, 0, vz]` added to the sea's current under her (scenes/serpentHost.js drift), or null. */
+    drift: (boat) => (enabled ? deps.serpent?.drift?.(boat) ?? null : null),
+    /** SERPENT1: the boat of mine in play (at my helm, or one I stand aboard) as the serpent's blows read her - her root's
+     *  place (`root` - what the coil holds), her hull's middle (`pos` - what a blow is tested at), her heading, half
+     *  length and beam, her whole, and whether I hold her helm - or null. */
+    serpentBoat() {
+      if (!enabled) return null;
+      const boat = boatInPlay();
+      const st = boat ? myBoatState(boat) : null;
+      if (!st) return null;
+      const pose = boatPose(boat), b = hullBuild(boat.hull), yaw = yawOfRot(pose.rotation), mid = (b.bowZ + b.aftZ) / 2;
+      return {
+        boat, hull: boat.hull, root: [pose.position[0], pose.position[2]], yaw,
+        pos: [pose.position[0] + Math.sin(yaw) * mid, pose.position[1], pose.position[2] + Math.cos(yaw) * mid],
+        hl: (b.bowZ - b.aftZ) / 2, hw: b.halfWidth, maxHull: st.damage.maxHull, maxSail: st.damage.maxSail,
+        atHelm: boat === myBoat(), wrecked: st.damage.state === SHIP_STATES.wrecked,
+      };
+    },
+    /** SERPENT1: a sea serpent's blow on a boat of mine - her own client takes it (the victim's law): her hurt, the deck's
+     *  shake, the line. AUDIT SERPENT B6: braced, her hull and canvas take BRACE_TAKEN of it, as of any ball. Answers the
+     *  state it changed her to, or null. */
+    serpentStrike(boat, hurt, { shake = 0, line = null } = {}) {
+      const st = boat ? myBoatState(boat) : null;
+      if (!enabled || !st || !hurt) return null;
+      const k = st.guns.braced ? BRACE_TAKEN : 1;
+      const change = st.damage.apply(k < 1 ? { ...hurt, hull: Math.round((hurt.hull ?? 0) * k), sail: Math.round((hurt.sail ?? 0) * k) } : hurt, clock);
+      if (shake) deps.shake?.(shake);
+      if (line) deps.say?.(line, 2.5);
+      if (change === SHIP_STATES.wrecked) deps.mid?.('Your ship is crippled! The sails hang in rags.', 3);
+      return change;
+    },
+    /** SERPENT1: the sea's own spray for the serpent's landings - a breach's column, a lash's sheet, the venom's spatter,
+     *  the ram's bow wave - on the sea fight's effects (one budget, one draw). */
+    serpentFx(kind, pos, scale = 1) {
+      if (!enabled || !pos) return;
+      const jit = (r) => [pos[0] + (random() - 0.5) * r * scale, pos[1], pos[2] + (random() - 0.5) * r * scale];
+      if (kind === 'breach') { for (let i = 0; i < 5; i++) effects.splash(jit(14), true); }
+      else if (kind === 'lash') { for (let i = 0; i < 4; i++) effects.splash(jit(24), true); }
+      else if (kind === 'wake' || kind === 'venom' || kind === 'roar') effects.splash(jit(4), kind === 'roar');
+    },
     /** SEA-HUNT: whether the player stands aboard - at a helm, on a boat of theirs or on a sea ship's deck (aboardShip). */
     aboard: () => aboardShip(),
     takesActivate,   // NAVAL-E: the sea's E before a node's

@@ -14,6 +14,18 @@
    "why": "the gate's phases as relay ms"
   },
   {
+   "file": "src/net/serpentLaw.js",
+   "has": "export const serpentDayAt = (nowMs) => Math.floor(sharedClassicMinutes(nowMs) / SERPENT_DAY_MINUTES);",
+   "clock": "event",
+   "why": "the sea serpent's day - the gate's own, which days hold a serpent"
+  },
+  {
+   "file": "src/net/serpentLaw.js",
+   "has": "const at = (minute) => Math.round(wallMsForClassicMinutes(base + minute));",
+   "clock": "event",
+   "why": "the serpent's sighting, rising, storm and sounding as relay ms"
+  },
+  {
    "file": "src/net/nodeLaw.js",
    "has": "Math.floor(skyClassicMinutes(day",
    "clock": "sky",
@@ -380,12 +392,6 @@
   },
   {
    "file": "src/scenes/world.js",
-   "has": "winter: seasonValue(dateFromClassicMinutes(skyMinutes())) =",
-   "clock": "sky",
-   "why": "the hunter's winter"
-  },
-  {
-   "file": "src/scenes/world.js",
    "has": "levelBonus: () => seatEdicts.guardLevelBonus(Math.floor(skyMinutes())),",
    "clock": "sky",
    "why": "a Curfew's night watch (SEAT1d; AUDIT SEATS-3 E1)"
@@ -461,9 +467,9 @@
   {
    "file": "src/scenes/world.js",
    "has": "const nowMin = Math.floor(skyMinutes());",
-   "count": 2,
+   "count": 3,
    "clock": "sky",
-   "why": "the sun's refusals - the career's, the curse's, the party's"
+   "why": "the sun's refusals - the career's, the curse's, the party's; and the driver's map's online (AUDIT IT1 W2)"
   },
   {
    "file": "src/scenes/world.js",

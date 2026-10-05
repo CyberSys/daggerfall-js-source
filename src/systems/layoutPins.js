@@ -108,21 +108,41 @@ export function stampVendors(stamp) {
  * replaced) with no tavern: no room to rent, no innkeeper, no tavern quest. The mod is kept out of a TAVERN location
  * whose grid names one of them - Daggerfall's own tavern stands, as a pin would stand it, and its records are stamped
  * so; the villages that lay those blocks out among their own are the author's. A save's own pin on the town wins.
+ *
+ * FIELD BUGS 2026-10-04d TEMPLE-HOME: and a TEMPLE WITH NO HOUSE. Beautiful Villages replaces the location files of 34
+ * of Arkay's standalone temples (ReligionTemple) with its TEMPASA2 alone - the temple and 25 House5, none a house a
+ * quest seats anyone in (Place.cs's validHouseTypes, House1-4) - where Daggerfall's TEMPAAA0 stands its houses round
+ * the temple. A quest person given no scope has a home in the town it is set up in half the time (Person.cs
+ * AssignHomeTown, `Place _x_home_ local house`); there that finds no house and throws, the quest is never made
+ * (QuestListsManager.SelectQuest answers none) and the temple's questor answers "You're too late..." (TEXT.RSC 600,
+ * ShowFailGetQuestMessage) - C0B00Y01 fifteen times in sixteen, C0B00Y03 one in two. DFU does the same with the mod. The 34 are kept Daggerfall's own BY THEIR
+ * KEYS, never by a grid: the mod replaces their location files, so the grid a host holds for one is the mod's or
+ * Daggerfall's by when it was read (world.js fills its index before the pins can ask a town's type or grid), and the
+ * town's key alone answers alike either way - and is asked by the door from the first read. The twelve villages that
+ * lay TEMPASA2 out among their own houses are the author's.
  */
 export const CURATED_CLASSIC = Object.freeze([
   Object.freeze({ vendor: 'beautiful-villages', locationType: 6, blocks: Object.freeze(['TVRNAS00.RMB', 'TVRNAS06.RMB']), why: 'a tavern with no tavern' }),
+  Object.freeze({
+    vendor: 'beautiful-villages', why: 'a temple with no house',
+    locations: Object.freeze([4401, 4501, 6442, 6801, 7001, 7842, 10142, 10801, 17760, 19442, 20301, 20701, 22901, 26201, 27201, 28560, 29401,
+      31360, 35801, 41901, 43660, 46060, 46101, 46801, 48201, 51501, 51901, 57801, 62601, 63001, 67301, 85801, 88701, 89701]),
+  }),
 ]);
+/** TEMPLE-HOME: the towns the curation names by key (worldDataVariants.js makeLocationKey) -> the mods kept out. */
+const CURATED_TOWNS = new Map();
+for (const c of CURATED_CLASSIC) for (const k of c.locations ?? []) (CURATED_TOWNS.get(k) ?? CURATED_TOWNS.set(k, []).get(k)).push(c.vendor);
 /** The mods the curation keeps out of a town, or null. */
 let _curating = false;   // a resolver that reads the location through the door asks the door's oracle again: no answer inside
 export function curatedOut(locationKey) {
   if (locationKey == null || locationKey < 0 || _curating) return null;
   _curating = true;
   try {
+    let out = CURATED_TOWNS.has(locationKey) ? new Set(CURATED_TOWNS.get(locationKey)) : null;   // TEMPLE-HOME: by the town's key
     const type = _typeOf(locationKey);
-    if (type == null) return null;
-    let out = null;
+    if (type == null) return out;
     for (const c of CURATED_CLASSIC) {
-      if (type !== c.locationType) continue;
+      if (!c.blocks || type !== c.locationType) continue;
       const grid = _gridOf(locationKey);
       if (Array.isArray(grid) && grid.some((n) => c.blocks.includes(n))) (out ??= new Set()).add(c.vendor);
     }
@@ -263,7 +283,10 @@ export function layoutRecordsOf({ houses = [], rooms = [], sites = [], questors 
   const out = [];
   for (const h of houses ?? []) if (h && h.buildingKey > 0 && h.mapId) out.push({ locationKey: locationKeyOfMapId(h.mapId), stamp: h.layout, kind: 'house' });
   for (const r of rooms ?? []) if (r && r.buildingKey > 0 && r.mapId) out.push({ locationKey: locationKeyOfMapId(r.mapId), stamp: r.layout, kind: 'room' });
-  for (const s of sites ?? []) if (s && s.buildingKey > 0 && s.mapId) out.push({ locationKey: locationKeyOfMapId(s.mapId), stamp: s.layout, kind: 'quest' });
+  for (const site of sites ?? []) {
+    const s = site?.unseated ? { ...site, ...site.unseated } : site;   // FIELD BUGS 2026-10-04d RESEAT-GAPS: an unseated site still asks for the layout it was chosen in (place.js reseatMovedSite)
+    if (s && s.buildingKey > 0 && s.mapId) out.push({ locationKey: locationKeyOfMapId(s.mapId), stamp: s.layout, kind: 'quest' });
+  }
   for (const q of questors ?? []) if (q && q.buildingKey > 0 && q.mapID) out.push({ locationKey: locationKeyOfMapId(q.mapID), stamp: q.layout, kind: 'questor' });
   for (const d of repairs ?? []) if (d && d.buildingKey > 0 && d.mapId) out.push({ locationKey: locationKeyOfMapId(d.mapId), stamp: d.layout, kind: 'repair' });
   if (anchor?.insideBuilding && anchor.pixel) out.push({ locationKey: locationKeyOfPixel(anchor.pixel.x, anchor.pixel.y), stamp: anchor.layout, kind: 'anchor' });

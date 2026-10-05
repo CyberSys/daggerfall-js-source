@@ -148,7 +148,7 @@ test('PROF10 law: a piece of jewellery\'s card says its quality, its maker and i
   assert.deepEqual(pieceLines({ provenance: '0123456789abcdef', recipe: 'ring:gold:ruby', quality: 2 }), ['Fine']);
   assert.deepEqual(pieceLines({ provenance: '0123456789abcdef', recipe: 'longsword:iron', quality: 2, enchantmentPoints: 900 }), ['Fine'], 'a sword says none');
   assert.deepEqual([JEWEL_FEE, MASON_FEE], [50, 50]);
-  assert.equal(DECOR_STATIONS.at(-1), 'jeweller');
+  assert.equal(DECOR_STATIONS.at(-2), 'jeweller');   // PIN MOVED (HOME-VENDOR): the hired trader a ninth after it
   assert.deepEqual([DECOR_STATION_FEES.jeweller, DECOR_STATION_NAMES.jeweller], [50_000, 'Jeweller\'s bench']);
   assert.equal(decorPlaceOf({ pos: [0, 0, 0], rot: [0, 0, 0], scale: 1, paid: 120, station: 'jeweller' })?.station, 'jeweller');
 });

@@ -65,7 +65,7 @@ import { layoutMessageBox, drawMessageBox, messageBoxHit, messageBoxArtLoaded, M
 import { noticeFrame, noticeRelease } from './enhancedNotice.js';   // ENH-NOTICE2: the window's own click-anywhere box, as the enhanced panel
 import { isEnhanced } from '../systems/uiSkin.js';   // CLK4: the enhanced skin's rest is a veil, not a wall
 import { dateFromClassicMinutes } from '../systems/gameDate.js';
-import { REST_ACT_TEXT, ambushNight, actAtChannelEnd, channelBroken } from '../systems/restAct.js';   // REST1: the act's words   // AUDIT REST-PARTY A2: and the night it runs   // OL2: the world's clock, read for the counter page
+import { REST_ACT_TEXT, ambushNight, actAtChannelEnd, channelBroken, channelHealTick, campNightStep } from '../systems/restAct.js';   // REST1: the act's words   // AUDIT REST-PARTY A2: and the night it runs   // OL2: the world's clock, read for the counter page
 
 /** CLK4 (the Clock arc): on the ENHANCED skin the resting page is a
  *  translucent veil over the world instead of DFU's opaque black, so
@@ -165,6 +165,9 @@ export const restArtLoaded = () => !!_art;
  *  hours are the character's OWN - their clock runs through the night
  *  (worldTick.js ownMinutes) while the world's sky stays where it is -
  *  so the line says whose time the counter is spending. */
+/** LOITER-ANYWHERE: what an act's refusal adds - Loiter in its place (3, or the RestLoiter binding). */
+export const LOITER_OFFER_LINE = '3 - Loiter instead';
+
 export function restClockLine(worldMinutes, { loiter = false } = {}) {
   const d = dateFromClassicMinutes(worldMinutes);
   const two = (n) => String(n).padStart(2, '0');
@@ -209,6 +212,7 @@ export class RestWindow {
     this.endLines = null;
     this.notice = null;         // the cannot-loiter refusal lines
     this.refusalLines = null;   // CanRest's own message box
+    this._loiterOffer = false;  // LOITER-ANYWHERE: an act refusal offers Loiter in its place (online only - offline there is no act)
     this.done = false;
     this.isRestWindow = true;   // the scene's tick tag
     this.ignoreAllocatedBed = ignoreAllocatedBed;
@@ -237,7 +241,7 @@ export class RestWindow {
     // (InputManager.cs:634-637) - so the opening release is already
     // spent when DFU's window first runs, and :193's bare `GetKeyUp`
     // is safe there. Every host here opens on the key DOWN
-    // (world.js:14406, exterior.js:3359, ui/input.js:922), and that same
+    // (world.js:14755, exterior.js:3401, ui/input.js:922), and that same
     // key's release is then routed straight into the freshly mounted
     // window, so the release door needs the deferral DFU gives every
     // window whose open edge IS the down: DaggerfallAutomapWindow.cs
@@ -274,14 +278,21 @@ export class RestWindow {
    *  building's own law (CanRest: the rented room, the house, the hall), and then the channel. */
   _openAct() {
     if (this._act.meditate) { this.mode = 'act'; this.state = 'channel'; return; }   // REST6: a candle's kneel - anywhere a rest may begin
+    // LOITER-ANYWHERE (2026-10-04, Discord: "the new rest system ... has no loiter"; "adding loitering without a camp
+    // needed would be a solution"): every refusal of the act offers Loiter in its place - DFU's loiter is never gated
+    // (no bed, no camp, no crime: _restButton never asks CanRest of it), and REST1 had left it no door online
+    this._loiterOffer = true;
     const place = this.deps.restPlace?.();
     if (place?.inTownOutside) { this.refusalLines = [REST_ACT_TEXT.inTown]; this.state = 'refused'; return; }
     if (!this._act.point) { this.refusalLines = [REST_ACT_TEXT.noPoint]; this.state = 'refused'; return; }
     if (!this._canRest(false)) return;
+    this._loiterOffer = false;   // LOITER-ANYWHERE: the act holds - Loiter is still a key away (the channel's RestLoiter)
     this._moveToBed();
     this.mode = 'act';
     this.state = 'channel';
     this._actHealth = this.deps.vitals?.()?.health;   // AUDIT REST-PARTY A5: a blow while holding interrupts
+    this.deps.restChannelOpen?.();   // REST-CHANNEL-HEAL: the bar heals as it fills (restAct.js openChannelHeal)
+    this.deps.camp?.open?.(!!this._act.night);   // CAMP-ROLL: my act is open on a night - the camp's roll may be mine
   }
 
   /** REST1: the channel held to its end - an enemy in reach (or a spawn latched while holding) is the enemies line;
@@ -295,8 +306,17 @@ export class RestWindow {
     }
     const act = actAtChannelEnd(this._act, this.deps.restAct?.() ?? null, this._actHealth, this.deps.vitals?.()?.health);   // AUDIT REST-PARTY A5: the point asked again
     if (!act) { this._end({ textId: null, text: REST_ACT_TEXT.interrupted, enemyBroke: false, died: false }); return; }
-    const r = act.meditate ? this.deps.restMeditate?.() : act.night ? this.deps.restNight?.({ rentedHours: this._remainingHoursRented }) : this.deps.restShort?.();
-    this._end(r ?? { textId: REST_TEXT.wakeUp, enemyBroke: false, died: false });
+    if (act.meditate) { this._end(this.deps.restMeditate?.() ?? { textId: REST_TEXT.wakeUp, enemyBroke: false, died: false }); return; }
+    this._actPlan = act;
+    this._campStep();
+  }
+
+  /** CAMP-ROLL: the night is the camp's (restAct.js campNightStep) - rolled here, slept as a camp mate's, broken with
+   *  theirs, or awaited ('campWait', its own page, Esc stops it as it stops the channel). */
+  _campStep() {
+    const s = campNightStep(this.deps, this._actPlan, this._remainingHoursRented);
+    if (s.wait) { this.state = 'campWait'; this._campWho = s.wait; return; }
+    this._end(s.r ?? { textId: REST_TEXT.wakeUp, enemyBroke: false, died: false });
   }
 
   /** REST1: the channel's words - where, and how far along. */
@@ -304,7 +324,7 @@ export class RestWindow {
     const where = this._act?.point?.where;
     const frac = Math.max(0, Math.min(1, this._actT / (this._act?.channelSeconds || 1)));
     const n = Math.round(frac * 20);
-    return [this._act?.meditate ? REST_ACT_TEXT.meditating : where ? REST_ACT_TEXT.channel(where) : REST_ACT_TEXT.channelBed, `[${'#'.repeat(n)}${'.'.repeat(20 - n)}]`, '', 'Esc - stop'];
+    return [this._act?.meditate ? REST_ACT_TEXT.meditating : where ? REST_ACT_TEXT.channel(where) : REST_ACT_TEXT.channelBed, `[${'#'.repeat(n)}${'.'.repeat(20 - n)}]`, '', '3 - loiter instead', 'Esc - stop'];   // LOITER-ANYWHERE
   }
 
   /** OnPop (:271-285) clears both flags. Every exit from this window
@@ -500,7 +520,7 @@ export class RestWindow {
    * `back` - so one spelling serves both.
    */
   keyup(action, e = null) {
-    if (this.state !== 'selection' && this.state !== 'resting' && this.state !== 'channel') return;   // REST1: the act's channel is the window too
+    if (this.state !== 'selection' && this.state !== 'resting' && this.state !== 'channel' && this.state !== 'campWait') return;   // REST1: the act's channel is the window too   // CAMP-ROLL: and its wait
     if (this.state === 'resting' && this.isCloseWindowDeferred
       && hotkeyHit('RestStop', action, e)) {
       this.isCloseWindowDeferred = false;
@@ -564,15 +584,22 @@ export class RestWindow {
     // `GetBackButtonDown() || GetKeyDown(automapBinding)`). It does NOT
     // consume the press: the button hotkeys below must still see a
     // colliding binding, which is the whole point of E1's split.
-    if ((this.state === 'selection' || this.state === 'resting' || this.state === 'channel')
+    if ((this.state === 'selection' || this.state === 'resting' || this.state === 'channel' || this.state === 'campWait')
       && (normalizeCode(action, e) === 'Escape' || this._togglePressed(action, e))) {
       this._toggleArmed = true;
     }
-    if (this.state === 'channel') return;   // REST1: the channel answers only its release (keyup)
+    // LOITER-ANYWHERE: the act's channel and its refusal both take Loiter (3, or the RestLoiter binding) - the hours
+    // prompt, the loiter limit and the loiter session, classic's whole arm; nothing of the act is kept
+    if ((this.state === 'channel' || (this.state === 'refused' && this._loiterOffer)) && (action === 'char:3' || hot('RestLoiter'))) {
+      audio.playOneShot(SOUND.ButtonClick, 1);
+      this._loiter();
+      return;
+    }
+    if (this.state === 'channel' || this.state === 'campWait') return;   // REST1: the channel answers only its release (keyup)   // CAMP-ROLL: and its wait
     if (this.state === 'refused') { this._close(); return; }
     // F144: the over-cap box is click-anywhere; dismissing lands on
     // the selection page, NOT back in a prompt - the prompt is gone.
-    if (this.state === 'hoursRefused') { this.notice = null; this.state = 'selection'; return; }
+    if (this.state === 'hoursRefused') { this.notice = null; this._home(); return; }
     if (this.state === 'confirm') {
       // ConfirmIllegalRest*_OnButtonClick (:659-666, :684-691): the box
       // closes either way, and only Yes carries on - No leaves the
@@ -611,7 +638,7 @@ export class RestWindow {
       return;
     }
     // hours entry: digits, backspace, confirm
-    if (action === 'back') { this.state = 'selection'; this.notice = null; return; }
+    if (action === 'back') { this.notice = null; this._home(); return; }
     if (action === 'backspace') { this.value = this.value.slice(0, -1); return; }
     if (action === 'confirm') {
       // int.TryParse then the RANGE arms (:741-757, :763-784). An
@@ -631,7 +658,7 @@ export class RestWindow {
       // unparseable answer (ReturnPlayerInputEvent :298-304 closes
       // first), so an empty Return lands the player on the selection
       // page - the first cut kept the field up.
-      if (this.value === '') { this.state = 'selection'; this.notice = null; this.value = PROMPT_INITIAL; return; }
+      if (this.value === '') { this.notice = null; this.value = PROMPT_INITIAL; this._home(); return; }
       const hours = Number(this.value);
       // AUDIT 26 F144: the refusal is a NEW box over the SELECTION
       // page - the input box has already closed itself before the
@@ -667,6 +694,22 @@ export class RestWindow {
    *  no window over this one. */
   _isTop() { return this.deps.topWindow ? this.deps.topWindow() === this : true; }
 
+  /** LOITER-ANYWHERE: from the act (its refusal or its channel) to classic's loiter prompt. */
+  _loiter() {
+    this._loiterOffer = true;
+    this.deps.camp?.settle?.();   // CAMP-ROLL: a loiter is no night - the camp's roll is no longer mine to make
+    this.state = 'hours'; this.mode = 'loiter'; this.value = PROMPT_INITIAL; this.notice = null;
+  }
+
+  /** Where a prompt goes BACK to: classic's selection page offline; online (REST1's act - there is no selection page
+   *  there, and its Rest buttons would start a rest with no fire or bed) the act's refusal again, Loiter still offered,
+   *  or, when the act had held, out. LOITER-ANYWHERE. */
+  _home() {
+    if (!this._act) { this.state = 'selection'; return; }
+    if (this.refusalLines?.length) { this.state = 'refused'; return; }
+    this._close();
+  }
+
   _start(mode, hours) {
     this.mode = mode;
     this.session = new RestSession(mode, hours, this.deps, this._remainingHoursRented, () => this._isTop());
@@ -689,6 +732,7 @@ export class RestWindow {
   }
 
   _end(result) {
+    this.deps.camp?.settle?.();   // CAMP-ROLL: an act that ended with no night heard is no camp's roller any more
     // EndRest's else-block FIRST arm (:480-486): the expired-room line
     // outranks
     // "You wake up." and "You are healed." both. It carries a STRING
@@ -779,7 +823,13 @@ export class RestWindow {
     // REST1: the channel counts real seconds and lands at its end
     // AUDIT REST II P8: and ends the moment the hold is broken - a foe stood or in reach, a blow taken - through the end
     // check itself, so its lines are the end's and no night lands early
-    if (this.state === 'channel') { this._actT += dt; if (this._actT >= this._act.channelSeconds || channelBroken(this._act, this._pendingEnemySpawn, () => this.deps.enemiesNearby?.(), this._actHealth, this.deps.vitals?.()?.health, () => this.deps.restAct?.() ?? null)) this._finishAct(); return; }   // AUDIT REST III C6: and the point, while held
+    // REST-CHANNEL-HEAL: and while the hold stands the bar pays its share (restAct.js channelHealTick) - kept however it
+    // ends - and the health it leaves is the hold's new mark for a blow; the break is asked FIRST, so a broken hold
+    // pays nothing more, and the end lands on a full bar
+    if (this.state === 'channel') { this._actT += dt; if (channelBroken(this._act, this._pendingEnemySpawn, () => this.deps.enemiesNearby?.(), this._actHealth, this.deps.vitals?.()?.health, () => this.deps.restAct?.() ?? null)) this._finishAct(); else { this._actHealth = channelHealTick(this._act, this.deps, this._actT, this._actHealth); if (this._actT >= this._act.channelSeconds) this._finishAct(); } return; }   // AUDIT REST III C6: and the point, while held
+    // CAMP-ROLL: the wait is still the hold - a foe, a blow or the point gone ends it through the channel's own end
+    // check (its lines); otherwise the camp is asked again
+    if (this.state === 'campWait') { if (channelBroken(this._act, this._pendingEnemySpawn, () => this.deps.enemiesNearby?.(), this._actHealth, this.deps.vitals?.()?.health, () => this.deps.restAct?.() ?? null)) this._finishAct(); else this._campStep(); return; }
     if (this.state !== 'resting') return;
     const r = this.session.tick(dt);
     if (r) this._end(r);
@@ -919,7 +969,7 @@ export class RestWindow {
       } else if (this.state === 'hoursRefused') {
         rows = [...(this.notice ?? [''])];
       } else if (this.state === 'refused') {
-        rows = this.refusalLines ?? [''];
+        rows = [...(this.refusalLines ?? ['']), ...(this._loiterOffer ? ['', LOITER_OFFER_LINE] : [])];   // LOITER-ANYWHERE
       } else {
         rows = this.endLines ?? [''];
       }
@@ -945,6 +995,8 @@ export class RestWindow {
       lines = [...(this.notice ?? [])];
     } else if (this.state === 'channel') {
       lines = this.actLines();   // REST1
+    } else if (this.state === 'campWait') {
+      lines = [REST_ACT_TEXT.campWait(this._campWho ?? 'A party member'), '', 'Esc - stop'];   // CAMP-ROLL
     } else if (this.state === 'resting') {
       // ShowStatus (:317-346): FullRest shows hours PAST against the
       // hoursPastTexture; TimedRest and Loiter show hours REMAINING
@@ -957,7 +1009,7 @@ export class RestWindow {
       // OL2: the lines moved into restingLines() so the pin reads them.
       lines = this.restingLines();
     } else if (this.state === 'refused') {
-      lines = this.refusalLines ?? [''];
+      lines = [...(this.refusalLines ?? ['']), ...(this._loiterOffer ? ['', LOITER_OFFER_LINE] : [])];   // LOITER-ANYWHERE
     } else {
       lines = this.endLines ?? [''];
     }

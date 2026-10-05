@@ -6,11 +6,11 @@
 //    1032-1036). DFU's billboard is CENTRE-anchored, so that puts the
 //    base ON the marker inside a building and half a height BELOW it
 //    inside a dungeon. This port's shader is BOTTOM-anchored (position
-//    = base - the C11 law stated at dungeonContext.js:2438, learned
+//    = base - the C11 law stated at dungeonContext.js:2444, learned
 //    when a centre-anchor holdover floated every corpse), so the same
 //    visual result needs the shift on the DUNGEON side. It is the very
 //    shift the dungeon's own RDB flats already take
-//    (dungeonContext.js:2327) and that a building's flats correctly do
+//    (dungeonContext.js:2333) and that a building's flats correctly do
 //    not (interiorContext.js passes its centers through).
 //
 //    B2 stood dungeon quest flats at the raw marker y, so every quest
@@ -78,7 +78,7 @@ test('questflatanchor: AlignBillboardToGround runs on the NPC stand, distance 4,
   assert.match(s, /if \(Number\.isFinite\(drop\)\) by = \(origin - drop\) \+ size\.h \* 0\.02;/);
   // ...and the ray is the NPC arm's ALONE - an item never reaches it.
   assert.match(s, /if \(isItem\) \{/, 'the two laws are split by resource');
-  assert.equal((s.match(/standQuestFlat\(t\.worldTextureArchive[^\n]*true\)/g) ?? []).length, 1);
+  assert.equal((s.match(/standQuestFlat\(t\.worldTextureArchive[^\n]*, null, null, true[,)]/g) ?? []).length, 1);   // QUEST-MARKERS: the building's backstop rides after it
   assert.equal((s.match(/standDungeonQuestFlat\(t\.worldTextureArchive[^\n]*true\)/g) ?? []).length, 1);
   // No floor within 4 -> C# returns without moving anything. The
   // guard, not a fallback, is what expresses that.

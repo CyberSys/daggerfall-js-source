@@ -83,6 +83,20 @@ export const MOD_SETTINGS = Object.freeze({
       }),
     }),
   }),
+  // LPT1 (2026-10-05): LOW POLY TREES 5 (SquidKamer). No modsettings of its own - 253 prefabs - so one switch: the
+  // port's Enabled, read once when the world loads (a flip reaches it as it next loads). The player's own online: it
+  // changes how the trees are drawn, never where they stand (bible/07-Rendering/Low-Poly-Trees.md).
+  'low-poly-trees': Object.freeze({
+    title: 'Low Poly Trees',
+    author: 'SquidKamer',
+    keys: Object.freeze({
+      Enabled: Object.freeze({
+        default: true,
+        description: 'The wilderness’s trees, bushes and stumps in 3D, made from Daggerfall’s own tree pictures, '
+          + 'out to the whole view distance. They change with Seasons of the Iliac Bay and with winter.',
+      }),
+    }),
+  }),
   // AUDIT BASIC ROADS (BR3, 2026-09-13, Mac: "can you do an audit on
   // basic roads, I dont think its working"). THIS MOD HAD NO `Enabled`
   // AND NO GATE - the only one of the six. MO1 gave every mod the
@@ -1112,7 +1126,7 @@ export const MOD_SETTINGS = Object.freeze({
       // you to a destination and theres no travel". DEPARTURE FROM THE
       // MOD'S SHIPPED DEFAULT, on Mac's word, and it is the whole of that
       // report. IsPlayerControlledTravel is an AND over three toggles
-      // (travelPopUp.js:191): `(cautiousTravel || !speedCautious) &&
+      // (travelPopUp.js:192): `(cautiousTravel || !speedCautious) &&
       // (stopAtInnsTravel || !sleepModeInn) && !travelShip`. The popup
       // opens with `sleepModeInn = true` - classic Daggerfall's own
       // default, stopping at inns - so with this key false the second
@@ -1206,6 +1220,48 @@ export const MOD_SETTINGS = Object.freeze({
       'LocationColours.City': Object.freeze({ default: '#e3b490ff', color: true, description: "The colour shown on the travel map" }),
       'LocationColours.Hamlet': Object.freeze({ default: '#c18564ff', color: true, description: "The colour shown on the travel map" }),
       'LocationColours.Village': Object.freeze({ default: '#a56446ff', color: true, description: "The colour shown on the travel map" }),
+    }),
+  }),
+  // IT1 (2026-10-04, the owner: "Actually lets let this be the next mod we integrate 1:1"): IMMERSIVE TRAVEL - kkgobkk's
+  // carriages outside the city gates, 1.5, its three sections restated verbatim (vendor/immersive-travel/modsettings.json),
+  // the author's own words and spellings, a null or empty description carried as empty. Read live: the map reads them
+  // as it opens (systems/immersiveTravel.js readImmersiveTravelSettings), the calculator as it bills - where the mod's
+  // static constructors read four of them once a session (the bible's page records it).
+  'immersive-travel': Object.freeze({
+    title: 'Immersive Travel',
+    author: 'kkgobkk',
+    keys: Object.freeze({
+      Enabled: Object.freeze({
+        default: true,
+        description: 'Carriage drivers wait outside the gates of the walled cities. Talk to one and pay the fare to fast '
+          + 'travel to a town or village; with Disable Normal Travel on, a carriage is the only fast travel there is.',
+      }),
+      // IT1: DEPARTURE FROM THE MOD'S SHIPPED DEFAULT (it ships true), on the owner's word that the carriage is instant
+      // travel "as an option" - TO-FIELD2's shape. On, the travel map refuses every trip to a place (the mod's
+      // ImmersiveTravelPopUp in DFU's) and Travel Options' walked journeys from the map go with it; online the room
+      // holds it off (systems/onlineLane.js). The key is still a key: turning it on restores the mod's own default.
+      'General.DisableNormalTravel': Object.freeze({ default: false, description: 'If this option is eabled, you will no longer be able to travel from the map and you will have to use ONLY carriages and ships.' }),
+      'General.DailyCarriageFee': Object.freeze({ default: 1, min: 0, max: 99, description: 'The fee you must pay to travel with a carriage for every day of travel' }),
+      'General.ClearerMapDots': Object.freeze({ default: true, description: 'Draws larger dots depending on town size in the travel map.' }),
+      'General.DrawRoads': Object.freeze({ default: true, description: 'Draw roads on the map (if the BasicRoads mod is installed and enabled).' }),
+      'General.DrawTracks': Object.freeze({ default: true, description: 'Draw dirt tracks on the map (if the BasicRoads mod is installed and enabled).' }),
+      'General.RegionLockedCarriages': Object.freeze({ default: false, description: 'Prevent carriages from travelling to a different region. You must travel from the capital city to leave the region.' }),
+      'ShipTravel.DisableShipTravelOutsideDocks': Object.freeze({ default: true, description: 'Prevents you from choosing ship transport mode during land travel' }),
+      'ShipTravel.DailyShipCost': Object.freeze({ default: 15, min: 0, max: 99, description: 'Daily cost of renting a ship. Only applies if the player doesn\'t own their own ship' }),
+      'ShipTravel.DailyCaptainFee': Object.freeze({ default: 10, min: 0, max: 99, description: 'Daily cost of hiring a ship captain and his crew to man a ship. You will have to pay a captain even if you own the ship.' }),
+      'ShipTravel.LimitedRangeInSmallDocks': Object.freeze({ default: true, description: 'Ships in smaller locations will only take you to ports in the same region. To travel to a different region you\'ll need to sail from a city' }),
+      'ShipTravel.ShowLargerDocks': Object.freeze({ default: true, description: 'Uses larger dots on the map for loactions with a dock' }),
+      'ShipTravel.ShowOnlyDocks': Object.freeze({ default: false, description: 'Hides every location on the map except those that have a dock' }),
+      'AllowedDestinations.Cities': Object.freeze({ default: true, description: '' }),
+      'AllowedDestinations.Covens': Object.freeze({ default: false, description: '' }),
+      'AllowedDestinations.Dungeons': Object.freeze({ default: false, description: '' }),
+      'AllowedDestinations.Graveyards': Object.freeze({ default: false, description: '' }),
+      'AllowedDestinations.Farms': Object.freeze({ default: false, description: '' }),
+      'AllowedDestinations.Hamlets': Object.freeze({ default: true, description: '' }),
+      'AllowedDestinations.Homes': Object.freeze({ default: false, description: '' }),
+      'AllowedDestinations.Temples': Object.freeze({ default: false, description: '' }),
+      'AllowedDestinations.Taverns': Object.freeze({ default: false, description: '' }),
+      'AllowedDestinations.Villages': Object.freeze({ default: true, description: '' }),
     }),
   }),
   // HCC (2026-09-23, Mac: "Next mod I want to implement 1 to 1 and also

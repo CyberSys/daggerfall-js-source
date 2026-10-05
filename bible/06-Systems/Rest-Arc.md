@@ -23,7 +23,8 @@ byte (section 11).
 
 - **Online, a rest is an act at a rest point, not hours on a dial.** A rest point is a lit fire (a dungeon's own
   campfire, a placed Campfire, a tent's fire, a world brazier or hearth), a bed (a rented room, an owned house, a ship,
-  a guild hall where DFU lets you rest) or, as the poor substitute, a Bedroll. You face it, the loot plaque offers
+  a guild hall where DFU lets you rest; a dungeon's bed since FIELD BUGS 2026-10-05 DUNGEON-BEDS) or, as the poor
+  substitute, a Bedroll. You face it, the loot plaque offers
   **Rest**, you hold still for a few seconds, and you wake.
 - **A rest is one night.** The recommended model (OPEN 1) moves the character's own clock eight hours at once - the
   same raise a rest makes today, made once and never chosen - so every system that reads the character's time
@@ -89,11 +90,13 @@ byte (section 11).
 | A world fire: DFU's fire bowl, flame or brazier (TEXTURE.210 records 0, 1, 20) | `src/systems/survival/hearth.js` `collectHearths`, dungeons' `dungeonHearths` | Camp |
 | An Ember Jar's fire (new, section 6) | `camps.js` pool, kind Fire, no pick-up | Camp |
 | A bed: rented room, owned house (`homeBed`), ship, guild hall | `restSession.js` `canRest` / `interiorRestPlace` | Bed |
+| A dungeon's bed (FIELD BUGS 2026-10-05 DUNGEON-BEDS; none in a palace, AUDIT FB1005 B3) | `dungeonContext.js` `dungeonBeds`, `restAct.js` `bedInReach` | Bed |
 | A Bedroll (new, section 6) | the item, laid where a camp could stand, and in dungeons | Rough |
 
 A rest point is **in reach** within `BY_FIRE_REACH` (4 m) of a fire, inside the room where DFU allows the rest for a
-bed (the rented room, the house, the ship's cabin, a guild hall - `canRest`'s own answer), and on the spot for a
-Bedroll. Climates & Calories off, the rest kinds still decide nothing but the yield (every rest priced as a bed today,
+bed (the rented room, the house, the ship's cabin, a guild hall - `canRest`'s own answer), within `BY_FIRE_REACH` of a
+dungeon's bed on its own floor (`bedInReach`: to the bed's nearest point, the feet within 1.5 m of its foot), and on the
+spot for a Bedroll. Climates & Calories off, the rest kinds still decide nothing but the yield (every rest priced as a bed today,
 `src/scenes/shared.js` `createRestDeps`; section 2.4 keeps that).
 
 ### 2.2 The act
@@ -165,7 +168,8 @@ can still walk up.
   member rests a night, every member within 15 m who keeps "Rest with my party" on (`uiPrefs` `restWithParty`, shared
   on the pose as `nr`) gets the same night in the same step - each on their own clock, each their own yield and their
   own ambush-free wake (only the rester rolls). A follower who is mid-fight or swimming is skipped, not refused. One
-  pose field (the night's stamp) replaces the mirrored rest record.
+  pose field (the night's stamp) replaces the mirrored rest record. [CAMP-ROLL: and members who press Rest together
+  roll once - the camp's acts elect one roller, and the others sleep its night - As built]
 
 ---
 
@@ -187,7 +191,9 @@ same item; the name is the template's).
 
 - **Cold, not gone.** A cold Campfire is still a record: its owner can relight it (free) or pick it up. Online a
   stale owner's records are swept with the owner (`camps.js` `sweepOwners`), as today. The cap stays
-  `CAMPS_PER_OWNER` 4.
+  `CAMPS_PER_OWNER` 4, and a placing at it is never refused: it packs the owner's OLDEST camp away where it stands,
+  its gear home as Pack gives it (FIELD BUGS 2026-10-04d CAMP-CAP - the refusal had locked characters out of camping
+  for good, `01-Overview/Field-Bugs-2026-10-04d.md`).
 - **The record.** `campWire` already carries `w` (0..255) and `k` 1 (fire): charges ride `w`, so a client one build
   behind still validates the record (`validCampRecord` refuses a new `k`, not a new meaning of `w`). Pick-up mints
   541 with `currentCondition = w` (`mintCondition`'s field, `src/systems/itemTemplates.js`), the info card's "N uses
@@ -272,6 +278,10 @@ Existing TEXTURE.210 fires are rest points too (2.1); the law only adds where no
 - **Where DFU lets you rest indoors, a bed is the rest point.** A rented room (with nights left), an owned house
   (`homeBed` online counts as a permanent scene), a ship's cabin, a guild hall that allows it: `canRest`'s answer,
   unchanged. Indoors the R key rests there without targeting the bed; the RRI bed click and a ship's bed press stay.
+- **A dungeon's bed is a rest point** (FIELD BUGS 2026-10-05 DUNGEON-BEDS, the Discord: "Beds in dungeons should count
+  as beds so I can rest in a dungeon"). The page named no dungeon bed and the dungeon's point was a fire alone; its 108
+  beds (Roleplay Realism's 41000-41002, 42 RDB blocks) are a bed's rest within a fire's reach of the box
+  (`restAct.js` bedInReach), as is a bed pressed below deck. `01-Overview/Field-Bugs-2026-10-05.md`.
 - **Rooms count nights** (OPEN 10). Today `checkRent` counts rested hours down and the room's own expiry counts the
   character's days (`src/systems/tavern.js`'s sweep), and the two can disagree (the room's text says it expired while
   the sweep keeps it). Online under REST a room rented for N days buys **N nights**: a night at its bed spends one,
@@ -360,7 +370,7 @@ The census (every system an online rest moves today; the night model's answer, a
 | 29 | A placed fire's burn-down (`camps.js`, world minutes) | the event clock; a rest at your own tent stokes it | unchanged; cold, not gone (section 3) | unchanged |
 
 **Raises that stay raises** (not rests, untouched by REST): fast travel and the journey's walk, training's own hours,
-TrainPc, the tavern meal and blackout, cooking and hunting at a camp, the exhaustion collapse (an hour: a penalty),
+TrainPc, the tavern meal and blackout, cooking at a camp (and the hunt's search, until HUNT-OUT, 2026-10-04), the exhaustion collapse (an hour: a penalty),
 the vampire's fortnight, the cures, a prison sentence. Cautious travel's full heal stays.
 
 **The dungeon's second rest.** The dungeon host runs its own copy of the rested minute (`dungeonContext.js`
@@ -847,9 +857,62 @@ Mac: "Go" - every recommendation of section 15 taken. Slices REST1-REST6 and RES
   carried short rest take it). With the arc off there is no need to pay, and a vampire has none (the minute law freezes
   the debt). `test/restsleep1_shortrest.test.js`, `tools/mutants/restsleep1.json` (11, all dead); SURV1's and AUDIT
   SURV's floor records re-aimed by content to the lifted lines.
+- **CAMP-ROLL** (2026-10-04, from play: *"In a party, or with other players. Every player spawns their own enemies when
+  resting. What's a detailed way to handle this?"*, then *"Do it"*). 2.6 carried a member who stood by, but a member who
+  pressed Rest themselves was "busy" and slept a night of their own: REST5 retired the vote that had let one real rest
+  run at a time, so a party at one fire opened an act each, and each act's night rolled its own ambush (a rest is its
+  rester's own roll - AUDIT PSCALE1 COUNT-1), each hit standing a pack already sized for the party (`partyExtraFoes`).
+  Four sleepers, up to four party-sized packs; underground, one host ask a sleeper (REST-SYNC). Now **the act's night is
+  the camp's.** The members resting with the party within its 15 m whose acts open on a night say so on the pose -
+  `restStartedAt` with a camp mark (`src/systems/restAct.js` CAMP_MARKS: `open` 774 and `done` 773, beside the nights'
+  775-777, never read as a night) and `rs` - and every client elects the same one roller with no message of its own:
+  the lowest account id among them (`src/systems/partyRestLaw.js` createCampWatch). The roller's night is DFU's, rolled
+  once at the odds it always had. Every other member's channel ends in a wait, "Resting with Ada..." (both skins; Esc
+  or Stop ends it with nothing slept), which ends when the roller's night lands (slept as theirs through the bag's one
+  carried-night sequence, `src/scenes/shared.js` createRestDeps `restCampNight`: their spot or mine, whichever is
+  better, its rolls quiet - `encounters.js` quietNights), when their ambush breaks it (`restEnemyAt` moved: the same
+  foes, the same break, and mine said on so the next waiter hears it), when a foe, a blow or the point gone breaks my
+  own hold (the channel's own end check), when the roller leaves (their `done` mark, or `rs` dropped: the next lowest
+  rolls), or after CAMP_WAIT_MS (15 s) - my own roll, today's behaviour, the fail-open. The open is the baseline, so a
+  camp mate's night that lands while I still hold the channel is mine to sleep. A night heard is never overwritten by
+  `done` (`settle` asks for the open mark first), and the party's carry loop says nothing of a night my window is
+  watching. The ambush a resting roller stands outdoors keeps its band (minDistance) from every camp mate's feet as DFU
+  keeps it from mine, where the ground allows - else DFU's own placement, so the odds stay DFU's (`world.js`
+  `_standEncounterFoe` through partyRestLaw.js `campPasses`); underground the arm keeps DFU's flag-false placement
+  (PlayerEntity.cs:610 - a foe may stand over a sleeper), and the roller's ask is the camp's one. THE FOUR HOSTS: the
+  outdoor host (`world.js` outdoorRestDeps) and the dungeon (`dungeonContext.js`, forwarded through `worldModes.js`)
+  carry the camp (createRestDeps `camp`); a building rolls nothing (encounters.js: inside, no dungeon), so worldModes'
+  interior bag carries none; the `?exterior` dev host (`exterior.js`) has no party. NOT DONE, and why: strangers, and
+  members resting alone, at one fire still each roll - a stranger's stamps ride no pose I can read (the party pose goes
+  to the party alone), and a member who chose to rest alone chose their own night. No relay change (the marks are
+  values of a field the pose carries). `test/camproll.test.js` (11), `tools/mutants/camproll.json` (32, all dead); the
+  carried night's pins moved to the bag's sequence (`rest5_partynight`, `auditrestparty`, their mutants re-aimed by
+  content), RESTFIX1's and REST6's window pins re-aimed, AUDIT REST III's C6 records aimed at the channel's own line,
+  and AUDIT OW5b E1's stander scope given the two new names.
 - **REST7 - crafting: NOT BUILT, deliberately.** The recipes are a source like the shelves, so they could not open
   before `REST_ITEMS_ONLINE` does; adding them now changes the account service's bundle (an `acct` bump) for rows that
   stay shut. They ride the release that turns the switch on, with the shelves.
+- **DECK-CAMP (2026-10-04, from the field: "Campfires placed on a boat dont attach to a boat")** - a Campfire or a tent
+  placed on a boat's deck rides her. Come Sail Away's boats stand in the world's collider, so the placing's probe found
+  her deck - and the camp kept the scene point it was stood at as she sailed on. Now the host reads the boat under the
+  spot off the collider's surface probe (`world.js campDeckAt`: her bucket; mine by her number, another player's by
+  theirs and hers; a sea ship or a boat with no number takes none) and the record carries `deck` - which boat, the point
+  in her deck's frame (`navalDeck.js intoDeck`, the swell's roll and pitch with it) and the heading on her
+  (`survival/camp.js validDeck`). Each exterior frame, after the boats move and before the lights and the world pass,
+  the pool poses every deck camp off her (`scenes/camps.js ride`): its point, its heading, the flame's batch (built
+  about its foot, moved by its origin - never rebuilt), its light, its box and its tent (laid by her rotation alone,
+  never her model's scale). Out of sight (Come Sail Away hides her past a pixel and indoors), or while a load's boats
+  are still standing, it is hidden with her and kept. Once she is GONE - mine packed, laid up or purged with the boats
+  settled (`campDeckResolve`: no load, no restore pending), another player's no longer in her owner's word or her owner
+  gone - a camp of mine is struck after DECK_GONE_S (2 s) and its gear packed back with its charges ("Your camp aboard
+  was struck and stowed in your pack."); a peer's waits on its owner's word. The save keeps the address (a restored camp
+  waits hidden for her), the streaming sweep never takes a deck's camp (no pixel), a floating-origin move moves its
+  flame, and the wire says `d` - [her owner ('' the sender's own), her number, the point, the heading] - read back from
+  where each player stands (`campFromWire`: the sender's own boat is that peer's, one named by my id mine); a peer's
+  word that only moves her keeps its camp standing. A camp on a deck is a fire to rest at and cook by like any other.
+  THE FOUR HOSTS: `scenes/world.js` hands the boats; a building (`worldModes.js`) and a dungeon (`dungeonContext.js`)
+  stand no boat of the camps', the standalone street (`exterior.js`) no Come Sail Away. `test/deckcamp.test.js`,
+  `tools/mutants/deckcamp.json` (20, all dead).
 
 ## Record
 
@@ -899,3 +962,5 @@ Mac: "Go" - every recommendation of section 15 taken. Slices REST1-REST6 and RES
   corrected.
 - 2026-10-04: REST-SLEEP1 (As built, from play): a short rest pays the sleep need as a night of its kind pays it -
   Tired or Drowsy no longer waits out the night interval at the fire; still no clock moved.
+- 2026-10-04: CAMP-ROLL (As built, from play): one ambush roll a camp - members who press Rest together elect one
+  roller off the pose, and the others wait on its night and sleep it, or break with its ambush.

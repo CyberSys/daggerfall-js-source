@@ -285,7 +285,7 @@ test('PROF5 service: a cancel returns a material\'s units with their origins (th
 
 // ─── BUY ORDERS ──────────────────────────────────────────────────────
 
-test('PROF5 service: a buy order - its Marks escrowed to the ledger\'s escrow end; filled in part from a filler\'s Stores (bought first) at a board of its region, the pay less the tax out of the escrow, the units to the orderer\'s Stores as bought; its own poster refused, another region refused, the orderer\'s room asked; withdrawn and expired, the rest returned once; the twenty', async () => {
+test('PROF5 service: a buy order - its Marks escrowed to the ledger\'s escrow end; filled in part from a filler\'s Stores (bought first) at a board of its region, the pay less the tax out of the escrow, the units to the orderer\'s Stores as bought; its own poster refused, another region\'s fill its courier would eat refused, the orderer\'s room asked; withdrawn and expired, the rest returned once; the twenty', async () => {
   const s = await stand();
   const mac = await s.registered('Mac');
   const ann = await s.registered('Ann');
@@ -312,7 +312,9 @@ test('PROF5 service: a buy order - its Marks escrowed to the ledger\'s escrow en
   assert.deepEqual({ ...ord() }, { left_units: 140, escrow: 1120, state: 'open', returned: 0 });
   assert.equal((await s.call('/v1/market/fill', fill, ann.secret)).body.repeat, true);
   assert.deepEqual((await s.call('/v1/market/fill', { ...fill, units: 11, rid: rid() }, ann.secret)).body, { error: 'stores-short' });
-  assert.deepEqual((await s.call('/v1/market/fill', { ...fill, region: WR, units: 1, rid: rid() }, ann.secret)).body, { error: 'market-elsewhere' });
+  // GLOBAL-MARKET (PIN MOVED: another region's board was refused `market-elsewhere`): one unit from Wayrest - its courier
+  // would take all it pays, so it is refused before anything moves
+  assert.deepEqual((await s.call('/v1/market/fill', { ...fill, region: WR, units: 1, rid: rid() }, ann.secret)).body, { error: 'market-courier-dear' });
   s.give(mac, 'ore:mithril', 'own', 5);
   assert.deepEqual((await s.call('/v1/market/fill', { ...fill, character: mac.character, units: 1, rid: rid() }, mac.secret)).body, { error: 'market-own' });
   s.give(mac, 'ore:mithril', 'own', 4940);

@@ -228,12 +228,12 @@ test('REST6 the cards: each item\'s lines under its name and weight', () => {
 test('REST6 by source: the windows kneel by the candle, the hosts\' rest points read the Bedroll, the shelves stock at their end, the loot hooks subscribe last, the cards read the seven', () => {
   for (const f of ['src/ui/restWindow.js', 'src/ui/enhancedRest.js']) {
     const s = rd(f);
-    assert.match(s, /meditate \? (this\.)?deps\.restMeditate\?\.\(\)/, f);
+    assert.match(s, /meditate\) \{ (this\.|overlay\.)_end\((this\.)?deps\.restMeditate\?\.\(\)/, f);   // CAMP-ROLL (RE-AIMED): the kneel ends on its own line - a night goes to the camp's step
     assert.match(s, /REST_ACT_TEXT\.meditating/, f);
     assert.match(s, /deps\.snuffCandle\?\.\(\)/, f);
   }
   assert.match(rd('src/scenes/world.js'), /camps\.restPointAt\(walkMode && playerSpawned \? player\.pos : cam\.pos\)/);
-  assert.match(rd('src/scenes/dungeonContext.js'), /restPoint: \(\) => \(_fpFeet \? camps\.restPointAt\(_fpFeet\) : null\),/);
+  assert.match(rd('src/scenes/dungeonContext.js'), /restPoint: \(\) => \(_restFromBed \|\| bedInReach\(dungeonBeds, _fpFeet\) \? \{ kind: 'bed', where: null \} : _fpFeet \? camps\.restPointAt\(_fpFeet\) : null\),/);   // FIELD BUGS 2026-10-05 DUNGEON-BEDS: a bed first, then the fire or the Bedroll
   const shop = rd('src/systems/shopStock.js');
   const at = shop.indexOf("restItemsStock(buildingType === BUILDING_TYPES.GeneralStore ? 'GeneralStore' : 'Alchemist'");
   assert.ok(at > shop.indexOf("const pairs = SHOP_ITEM_GROUPS[buildingType]") && at < shop.indexOf('add(mintHealingPotion());'), 'after DFU\'s draws, before the healing supply');

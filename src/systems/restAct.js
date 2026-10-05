@@ -29,6 +29,7 @@ import { restCost, REST_KIND } from './survival/rest.js';
 import { paySleep } from './survival/needs.js';   // REST-SLEEP1: the short rest sleeps by the minute law's own pay
 import { liveVampirism } from './racialLive.js';
 import { roomRemainingHours } from './tavern.js';   // AUDIT REST II P6: an old save's room, its nights read off its hours
+import { BY_FIRE_REACH } from './survival/camp.js';   // FIELD BUGS 2026-10-05 DUNGEON-BEDS: a bed's reach is a fire's
 
 /** A night: DFU's customary eight hours, on the character's own clock. */
 export const NIGHT_HOURS = 8;
@@ -56,7 +57,28 @@ export const REST_ACT_TEXT = Object.freeze({
   carriedSkipped: (name) => `${name} rests here - you are too busy to rest with them.`,
   carriedFar: (name) => `${name} rested a night without you - come within 15 m of them to rest with the party.`,   // AUDIT REST-PARTY: PARTY-REST-FAR1's word, online
   carriedTown: (name) => `${name} rests here - it is illegal to camp in town.`,   // AUDIT REST II P4: the act's own town law, for a member it would carry
+  campWait: (name) => `Resting with ${name}...`,   // CAMP-ROLL: a camp mate's night is the camp's - held until it lands
 });
+
+/**
+ * FIELD BUGS 2026-10-05 DUNGEON-BEDS (Discord, "Dungeon Beds (Sleeping)": "Beds in dungeons should count as beds so I
+ * can rest in a dungeon" - "Find a fire or a bed to rest." beside one). Whether the feet stand within `reach` of a
+ * bed - each `{ aabb }` a placed bed model's world box (Roleplay Realism's three, rrRealism.js BED_MODELS) - measured
+ * to the box's nearest point, a fire's own BY_FIRE_REACH. The dungeon host's rest point (dungeonContext.js): 108 beds
+ * stand in 42 of Daggerfall's 187 RDB blocks, in 2,056 of its 4,232 dungeons, and the online rest saw none of them.
+ * AUDIT FB1005 B4: on the bed's own floor - the feet within BED_STOREY_M of the bed's foot; a dungeon's storeys stand
+ * some 3.2 m apart, and five of the 108 beds were in reach from the storey above or below.
+ */
+export const BED_STOREY_M = 1.5;
+export function bedInReach(beds, pos, reach = BY_FIRE_REACH) {
+  if (!pos || !beds?.length) return false;
+  for (const { aabb } of beds) {
+    if (Math.abs(pos[1] - aabb.min[1]) > BED_STOREY_M) continue;   // AUDIT FB1005 B4: the bed's own floor, not the storey above or below
+    const d = [0, 1, 2].map((k) => Math.max(aabb.min[k] - pos[k], 0, pos[k] - aabb.max[k]));
+    if (Math.hypot(d[0], d[1], d[2]) <= reach) return true;
+  }
+  return false;
+}
 
 /** Whether a night may pass now: none yet, the interval run out, or a clock behind the stamp (a load from another
  *  timeline) - never a night refused for a stamp from the future. */
@@ -173,6 +195,55 @@ export function topUpRest(entity, kind, rules, { night = true, maxFatigueOf = (e
   if (Number.isFinite(entity.maxMagicka)) entity.magicka = fill(entity.magicka, entity.maxMagicka, frac);
 }
 
+/** REST-CHANNEL-HEAL (2026-10-04, from play: "make it so when you rest on the campfire the loading bar you see also
+ *  heals you so you dont wake up with 1% stamina bar as example when it gets canceled half way through"; "not only
+ *  stamina all other magicka and health aswell"): THE BAR HEALS AS IT FILLS. The channel paid nothing until its end, so
+ *  a hold broken at its fifth second - a foe in reach, the fire gone out, Stop pressed - left the sleeper exactly as
+ *  they sat down. Now health, fatigue and magicka rise with the bar toward what the rest gives at its end - topUpRest's
+ *  yield: full where the tier prices the rest whole, half of what was missing where it does not (Hard's rough ground,
+ *  its short rest's own price) - and whatever the bar has paid is KEPT however the hold ends. The end still lands the
+ *  rest as before (the night, or the short rest), from where the bar left the sleeper.
+ *  `openChannelHeal` reads the plan once, at the channel's open (the tier and the kind the window opened on): per field
+ *  where it starts and where the bar ends it, or null with no body. */
+export function openChannelHeal(entity, kind, rules, { maxFatigueOf = (e) => e.maxFatigue ?? 0 } = {}) {
+  if (!entity) return null;
+  const frac = restPricedWhole(kind, rules) ? 1 : 0.5;
+  const field = (cur, max) => {
+    const from = Number.isFinite(cur) ? cur : 0;
+    return { from, to: Math.min(max, Math.round(from + Math.max(0, max - from) * frac)) };
+  };
+  return {
+    health: field(entity.health, entity.maxHealth ?? 0),
+    fatigue: field(entity.fatigue, maxFatigueOf(entity)),
+    magicka: Number.isFinite(entity.maxMagicka) ? field(entity.magicka, entity.maxMagicka) : null,
+  };
+}
+/** REST-CHANNEL-HEAL: the bar at `frac` (0..1) of its hold - each field raised to its share of the way from the open to
+ *  the end, NEVER lowered (a potion drunk while holding stays drunk), never past the plan's end. Answers the health it
+ *  leaves. A field already at or past its end (a buff over the maximum) is left alone. */
+export function stepChannelHeal(entity, plan, frac) {
+  if (!entity || !plan) return entity?.health;
+  const f = Number.isFinite(frac) ? Math.max(0, Math.min(1, frac)) : 0;
+  for (const key of ['health', 'fatigue', 'magicka']) {
+    const p = plan[key];
+    if (!p || p.to <= p.from) continue;
+    const want = Math.round(p.from + (p.to - p.from) * f);
+    if (!((entity[key] ?? 0) >= want)) entity[key] = want;
+  }
+  return entity.health;
+}
+/** REST-CHANNEL-HEAL: one frame of the channel (both skins - restWindow.js, enhancedRest.js): the bar's share paid
+ *  through the host's bag (createRestDeps restChannelHeal), and the health that leaves the sleeper with, which is the
+ *  hold's NEW MARK for a blow (channelBroken, actAtChannelEnd compare health against it) - a bar that heals would
+ *  otherwise hide any blow smaller than what it had already paid. A candle's kneel heals nothing here (meditate is its
+ *  own), and a bag without the door answers the old mark. Called only while the hold stands: a broken hold pays no
+ *  more, and keeps what it was paid. */
+export function channelHealTick(opened, deps, t, mark) {
+  if (!opened || opened.meditate || typeof deps?.restChannelHeal !== 'function') return mark;
+  const hp = deps.restChannelHeal(Math.max(0, Math.min(1, t / (opened.channelSeconds || 1))));
+  return Number.isFinite(hp) ? hp : mark;
+}
+
 /** REST-SLEEP1 (2026-10-04, from play: "if you have to wait for night to pass you cannot rest again to remove the
  *  tiredness/drowsy debuffs until the time passes"): A SHORT REST SLEEPS. Inside the night interval a rest paid nothing
  *  of the sleep need, and the need has no other payer (the arc's census, row 9) - so a night that left its sleeper
@@ -269,3 +340,35 @@ export const nightKindOf = (t) => {
   return null;
 };
 export const isNightStamp = (t) => nightKindOf(t) !== null;
+
+/** CAMP-ROLL (2026-10-04): THE CAMP'S TWO MARKS, on the same field and the same law as a night's - `open`, my act's
+ *  channel opened on a night (I may roll the camp's night), and `done`, it ended with no night heard (a short rest, a
+ *  stop, a foe, a prevent-rest condition). Neither is a night: nightKindOf answers null for both, so the party's night
+ *  watch never carries anyone on one. An older build's window open lands on `open` one time in a thousand, and costs a
+ *  follower at most CAMP_WAIT_MS (partyRestLaw.js). */
+export const CAMP_MARKS = Object.freeze({ open: 774, done: 773 });
+export const campStamp = (t, which) => Math.floor(t / 1000) * 1000 + (which === 'open' ? CAMP_MARKS.open : CAMP_MARKS.done);
+/** 'open', 'done', or null for a stamp that is neither. */
+export const campMarkOf = (t) => {
+  if (!Number.isFinite(t)) return null;
+  const ms = ((t % 1000) + 1000) % 1000;
+  return ms === CAMP_MARKS.open ? 'open' : ms === CAMP_MARKS.done ? 'done' : null;
+};
+
+/** CAMP-ROLL: THE ACT'S NIGHT IS THE CAMP'S. At the channel's end, and every frame of the wait after it, both rest
+ *  windows (restWindow.js, enhancedRest.js) hand the act's plan here, and the host's camp (`deps.camp`, world.js
+ *  campRest) answers whose night it is: mine to roll (no camp, no party, offline, or I am the camp's roller), a camp
+ *  mate's to await (`wait`), a camp mate's that landed (`night` - slept as theirs: their spot, no roll of mine), or a
+ *  camp mate's that a foe broke (`enemy`). A short rest and a candle's kneel roll nothing and ask nothing. Answers
+ *  `{ wait: name }` while the wait holds, else `{ r }` - the result the window ends on. */
+export function campNightStep(deps, act, rentedHours = -1) {
+  const v = act?.night && !act.meditate ? deps.camp?.verdict?.() ?? null : null;
+  if (v?.act === 'wait') return { wait: v.name || 'A party member' };
+  if (v?.act === 'enemy') { deps.onEnemyBreak?.(); return { r: { textId: REST_TEXT.enemiesNearby, enemyBroke: true, died: false } }; }
+  if (v?.act === 'night') {
+    const r = deps.restCampNight?.(v.kind, true) ?? null;
+    const end = carriedNightEnd(v.name || 'A party member', true, r, deps.endLines);
+    return { r: r && end.text ? { ...r, textId: null, text: end.text } : r };
+  }
+  return { r: act?.night ? deps.restNight?.({ rentedHours }) : deps.restShort?.() };
+}

@@ -101,8 +101,8 @@
   {
     "name": "RESCUE-SAVE-a-held-save-kept",
     "file": "src/systems/realmSaves.js",
-    "old": "      if (holding) return Promise.resolve({ ok: false, error: 'held' });\n      // RESCUE-SAVE: NEVER IN THIS PAGE'S MEMORY ALONE",
-    "new": "      if (holding) { unkept = text; return Promise.resolve({ ok: false, error: 'held' }); }\n      // RESCUE-SAVE: NEVER IN THIS PAGE'S MEMORY ALONE",
+    "old": "      if (holding) return Promise.resolve({ ok: false, error: 'held' });\n      // SCALE2b: A SAVE THAT SAYS NOTHING NEW IS NOT SENT.",
+    "new": "      if (holding) { unkept = text; return Promise.resolve({ ok: false, error: 'held' }); }\n      // SCALE2b: A SAVE THAT SAYS NOTHING NEW IS NOT SENT.",
     "tests": [
       "test/rescuesave.test.js"
     ]

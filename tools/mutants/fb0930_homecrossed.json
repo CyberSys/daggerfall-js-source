@@ -29,8 +29,8 @@
   {
     "name": "HOME-CROSSED-the-status-unsaid",
     "file": "server-account/src/index.js",
-    "old": " : r.error === 'home-crossed' || r.error === 'home-tenants' ? 409 : 404, origin);   // HOME-CROSSED",
-    "new": " : r.error === 'home-tenants' ? 409 : 404, origin);   // HOME-CROSSED",
+    "old": " : r.error === 'home-crossed' || r.error === 'home-tenants' || r.error === 'home-vendor-stocked' ? 409 : 404, origin);   // HOME-CROSSED",
+    "new": " : r.error === 'home-tenants' || r.error === 'home-vendor-stocked' ? 409 : 404, origin);   // HOME-CROSSED",
     "tests": [
       "test/fb0930_homecrossed.test.js"
     ]
@@ -38,20 +38,22 @@
   {
     "name": "HOME-CROSSED-every-house-of-mine-crossed",
     "file": "server-account/src/homes.js",
-    "old": "      const crossed = mine && REALM_ID_RE.test(String(h.char_id)) && !(Number(h.paid) > 0);",
-    "new": "      const crossed = mine && REALM_ID_RE.test(String(h.char_id));",
+    "old": "      const crossed = mine && realmHome && !(Number(h.paid) > 0);",
+    "new": "      const crossed = mine && realmHome;",
     "tests": [
       "test/fb0930_homecrossed.test.js"
-    ]
+    ],
+    "note": "HOME-PRICE (PIN MOVED, re-aimed by content): the realm test is named once (`realmHome`) - the refund reads it too."
   },
   {
     "name": "HOME-CROSSED-anothers-house-marked",
     "file": "server-account/src/homes.js",
-    "old": "      const crossed = mine && REALM_ID_RE.test(String(h.char_id)) && !(Number(h.paid) > 0);",
-    "new": "      const crossed = REALM_ID_RE.test(String(h.char_id)) && !(Number(h.paid) > 0);",
+    "old": "      const crossed = mine && realmHome && !(Number(h.paid) > 0);",
+    "new": "      const crossed = realmHome && !(Number(h.paid) > 0);",
     "tests": [
       "test/fb0930_homecrossed.test.js"
-    ]
+    ],
+    "note": "HOME-PRICE (PIN MOVED, re-aimed by content): the realm test is named once (`realmHome`) - the refund reads it too."
   },
   {
     "name": "HOME-CROSSED-the-mark-dropped-by-the-client",

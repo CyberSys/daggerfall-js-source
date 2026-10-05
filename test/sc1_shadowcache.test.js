@@ -181,7 +181,7 @@ test('SC1: STICKY SLOTS - a light keeps its slot, matched by position, when the 
   // DISC29-E: the cadence is the EYE's rank still; the lamps nearest the player's own card join it (they draw it
   // every frame - DISC24-C's law, ranked from the card now so an orbiting camera does not move its shadow)
   assert.match(rd('src/render/shadowPass.js'), /const near = nearestRank\(casters, L, f\.eye, rank\) < SHADOW_NEAR_CASTERS;/, 'the cadence by rank');
-  assert.match(rd('src/render/shadowPass.js'), /const selfNear = selfAt \? \(SHADOW_TUNING\.steady \|\| nearestRank\(casters, L, selfAt, rank, this\._selfHeld, this\._selfHeldN\) < SHADOW_NEAR_CASTERS\) : near;[^\n]*\n[^\n]*\n[^\n]*\n[^\n]*\n\s*const due = SHADOW_TUNING\.steady \|\| near \|\| selfNear \|\| \(this\.frameNo \+ k\) % SHADOW_FAR_CASTER_EVERY === 0;/, 'and the card\'s own two, every frame');
+  assert.match(rd('src/render/shadowPass.js'), /const selfNear = selfAt \? \(nearestRank\(casters, L, selfAt, rank, this\._selfHeld, this\._selfHeldN\) < selfLamps\) : near;[^\n]*\n[^\n]*\n[^\n]*\n[^\n]*\n\s*const due = SHADOW_TUNING\.steady \|\| near \|\| selfNear \|\| \(this\.frameNo \+ k\) % SHADOW_FAR_CASTER_EVERY === 0;/, 'and the card\'s own two, every frame');
 });
 
 test('SC1: a flat whose origin moves is a dynamic (per batch, on the batch), a still one is in the cache; the door restores the old path whole - every caster in range at the cadence into the live layers, no cache, no blit (mutants: the batch\'s word ignored; the door ignored)', () => {

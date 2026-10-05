@@ -213,6 +213,13 @@ async function writeDoor({ db, nowS }, player, { mapId, buildingKey, character }
  * first; never more than the cap.
  * @param {{db: any}} ctx
  */
+/** HOME-VENDOR: whether a home's trader (the piece `id` in town `mapId`) still has goods standing at it - its open
+ *  market listings (net/vendorLaw.js). A stocked trader is neither removed nor unmade: its stock would stand nowhere. */
+export async function vendorStocked(db, mapId, id) {
+  const r = await db.prepare(`SELECT COUNT(*) AS n FROM market_listings WHERE vendor_map = ? AND vendor_id = ? AND state = 'open'`).bind(mapId, id).first();
+  return Number(r?.n ?? 0) > 0;
+}
+
 export async function decorOf({ db }, _player, { mapId, buildingKey, seat = false } = {}) {
   if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey)) return { error: 'bad-home' };
   const S = storeOf(seat);   // SEAT-HALL: a palace's Charter Room, its own table - nothing taken out of a palace
@@ -384,6 +391,8 @@ export async function moveDecor(ctx, player, { mapId, buildingKey, character, id
   // gold or hold things (a piece the law refuses reads as nothing, and its cost would be owed at a sale)
   const was = pieceOfRow(row);
   if (!was || !decorPieceOf({ ...was, ...pl })) return { error: 'bad-decor' };
+  // HOME-VENDOR: a trader with goods for sale stays one - its stock is bought at it alone (market.js)
+  if (was.station === 'vendor' && (pl.station ?? null) !== 'vendor' && await vendorStocked(db, mapId, id)) return { error: 'vendor-stocked' };
   if (row.yard === 1 && !decorYardPlaceOf(pl)) return { error: 'bad-decor' };   // HOME-YARD: a yard's piece stays a yard's
   const { delta, ledger } = decorGoldMove(was, pl, row.paid);   // AUDIT REALM L1-F3: half back of what records paid
   const hall = delta > 0 ? await S.guildOf(db, mapId, buildingKey) : null;
@@ -435,6 +444,7 @@ export async function removeDecor(ctx, player, { mapId, buildingKey, character, 
     const row = await db.prepare(`SELECT * FROM ${S.table} WHERE map_id = ? AND building_key = ? AND id = ? AND ${S.owns}`)
       .bind(mapId, buildingKey, id, mapId, buildingKey, player.id, character).first();
     const was = row ? pieceOfRow(row) : null;
+    if (was?.station === 'vendor' && await vendorStocked(db, mapId, id)) return { error: 'vendor-stocked' };   // HOME-VENDOR
     const delta = was ? decorGoldMove(was, null, row.paid).delta : 0;   // AUDIT REALM L1-F3: half of what records paid
     const hall = delta > 0 ? await S.guildOf(db, mapId, buildingKey) : null;
     if (hall) {

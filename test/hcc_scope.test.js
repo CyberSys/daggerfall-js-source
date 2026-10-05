@@ -545,3 +545,20 @@ test('HCC scope: the bible page states THIS table, and a 1:1 claim for this mod 
     }
   }
 });
+
+// AUDIT WAGON-HITCH (D, the records lens): WAGON-HITCH took the drawn wagon off the IL's trail and grounded ease, and the
+// table went on counting those six rows ported as if the port still drew by them. They are ported - the arithmetic is
+// translated and test/hcc_follow.test.js pins it - and RETIRED from the drawn wagon: the table says which, the page says
+// so beside the count, and no runtime module may call them again unnoticed.
+export const RETIRED_BY_WAGON_HITCH = Object.freeze([
+  'TrailingWagonRuntime::SeedTrail', 'TrailingWagonRuntime::IsDiscontinuity', 'TrailingWagonRuntime::RecordPlayerMovement',
+  'TrailingWagonRuntime::PruneTrail', 'TrailingWagonRuntime::TryGetTrailingPoint', 'TrailingWagonRuntime::ApplyGroundedPose',
+]);
+test('HCC scope: WAGON-HITCH retired six ported rows from the drawn wagon - still ported in horseFollow.js (the record), called by no runtime module, and the page says so beside the count (mutant: the runtime drawing by the trail again)', () => {
+  for (const k of RETIRED_BY_WAGON_HITCH) assert.equal(IL[k]?.mod, 'horseFollow.js', `${k} is a ported row of horseFollow.js`);
+  for (const f of ['src/systems/horseCart.js', 'src/scenes/horseCartPool.js']) {
+    const code = rd(f).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    assert.doesNotMatch(code, /\bWagonTrail\b|\bgroundedPoseStep\b/, `${f} draws by the IL's trail again - WAGON-HITCH's departure would be silently undone`);
+  }
+  assert.match(rd('bible/06-Systems/Horse-Cart-And-Cargo.md'), /six of the 340 \(the trail's five and ApplyGroundedPose\) are retired from the drawn wagon by WAGON-HITCH/);
+});

@@ -144,7 +144,9 @@ test('PROF5b service: only a Masterwork of a listable family, its owner\'s, on n
   assert.equal((await s.call('/v1/market/list', { character: mac.character, region: DF, kind: 'piece', provenance: P(7), wear: 1000, price: 50, hubs: HUBS, rid: rid() }, mac.secret)).status, 200);
   clock(T0 + 72 * 3600);
   s.raw.prepare(`UPDATE market_listings SET state = 'expired', closed_at = ? WHERE provenance = ?`).run(_now, P(7));
-  assert.equal((await s.post(mac, P(7), 100)).body.error, 'market-listed', 'auctioned while its return was still to come - two of it');
+  // MARKET-AUDIT (PIN MOVED: `market-listed`): an auction posted settles first, as a listing does - the listing past its hours
+  // is closed and its piece a delivery to collect, said so; refused either way, never two of it
+  assert.equal((await s.post(mac, P(7), 100)).body.error, 'market-uncollected', 'auctioned while its return was still to come - two of it');
   clock(T0);
   s.piece(mac, P(6));
   const a = (await s.post(mac, P(6), 100)).body.auction;

@@ -29,8 +29,26 @@
   {
     "name": "PUDDLE-RAIN-the-rain-reads-nothing",
     "file": "src/scenes/world.js",
-    "old": "      if (!_travelWeatherOff && !_dwPrecipOff) {",
-    "new": "      if (!_travelWeatherOff) {",
+    "old": "        if ((!_travelWeatherOff || tvf) && !_dwPrecipOff) {",
+    "new": "        if ((!_travelWeatherOff || tvf)) {",
+    "tests": [
+      "test/fb1001_puddlerain.test.js"
+    ]
+  },
+  {
+    "name": "RAIN-OVER-GRASS-drawn-before-the-grass",
+    "file": "src/scenes/world.js",
+    "old": "    };\n    // BOLT: the burning channels",
+    "new": "    };\n    drawFalling();\n    // BOLT: the burning channels",
+    "tests": [
+      "test/fb1001_puddlerain.test.js"
+    ]
+  },
+  {
+    "name": "OW-RAIN-the-journeys-switch-unexcepted",
+    "file": "src/scenes/world.js",
+    "old": "        if ((!_travelWeatherOff || tvf) && !_dwPrecipOff) {",
+    "new": "        if (!_travelWeatherOff && !_dwPrecipOff) {",
     "tests": [
       "test/fb1001_puddlerain.test.js"
     ]

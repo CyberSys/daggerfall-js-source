@@ -687,8 +687,8 @@
   {
     "name": "AUDIT-CC-F-layer-clear-keeps",
     "file": "src/scenes/crewAshore.js",
-    "old": "clear() { liftAll(); placeKey = undefined; epoch++; },",
-    "new": "clear() { placeKey = undefined; epoch++; },",
+    "old": "clear() { liftAll(); placeKey = undefined; epoch++; trail.length = 0; leaderWas = null; },",
+    "new": "clear() { placeKey = undefined; epoch++; trail.length = 0; leaderWas = null; },",
     "tests": [
       "test/auditcrew.test.js",
       "test/crewcompanions.test.js"

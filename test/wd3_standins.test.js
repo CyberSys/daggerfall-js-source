@@ -28,9 +28,10 @@ import zlib from 'node:zlib';
 import {
   TOWN_BED_FIRST, TOWN_BED_COUNT, TOWN_BED_ARCHIVE, TOWN_BED_MODELS, TOWN_BEDCLOTHS, TOWN_BED_COLOURS, townBedOf, bedclothRecord,
   isBedclothGreen, recolourBedcloth, CLASSIC_PAINTINGS, TOWN_PAINTINGS, paintingModel, ROSYS_PIECES, TOWN_CROP_FIELDS, RMBRP_ROCKS,
-  RMBRP_HILLS, RMBRP_STALLS, RMBRP_DOCKS, DOCK_SCALE, RMBRP_PIECES, TOWN_CLUTTER, TOWN_CLUTTER_ARCHIVE, TOWN_GARDEN, TOWN_GARDEN_ARCHIVE,
+  RMBRP_HILLS, blockHillSeat, RMBRP_STALLS, RMBRP_DOCKS, DOCK_SCALE, RMBRP_PIECES, TOWN_CLUTTER, TOWN_CLUTTER_ARCHIVE, TOWN_GARDEN, TOWN_GARDEN_ARCHIVE,
   installTownStandIns, _resetTownStandIns,
 } from '../src/world/townStandIns.js';
+import { RMBRP_HILL_SHAPES, SHAPE_BEARINGS, SHAPE_RINGS } from '../src/world/rmbrpHillShapes.js';   // FIELD BUGS 2026-10-05 HILL-SHAPES
 import { DET_TOWN_MODELS, DET_FLAT_STAND_INS, DET_FLAT_DRAWINGS, DET_TOWN_FLATS, DET_OLD_ARCHIVES, detStandInsOn, _resetDetStandIns } from '../src/world/detStandIns.js';
 import { TOWN_PICTURE_ARCHIVE, TOWN_PICTURES, PICTURE, townPictureEntries } from '../src/world/townPictures.js';
 import { STAND_IN_SPRITES } from '../src/world/standInSprites.js';
@@ -212,10 +213,14 @@ test('WD3 stand-ins, every built piece is sound - Rosy\'s hangings and rugs, the
     assert.ok(near(hi[1], up) && near(lo[1], -Math.max(down, 0.05)), `${id}: ${up} up, ${down} down`);
     assert.ok(hi[0] - lo[0] <= w * 1.13 && hi[0] - lo[0] >= w * 0.75 && hi[2] - lo[2] <= l * 1.13 && hi[2] - lo[2] >= l * 0.75, `${id}: ${w} x ${l}`);
   }
-  for (const [id, [r, h, surface]] of Object.entries(RMBRP_HILLS)) {
-    const { lo, hi, tex } = box[id];
+  // FIELD BUGS 2026-10-05 HILL-SHAPES: each hill at its measured polar profile - its top the highest of its rings, its
+  // foot the rim (the pack's base), its x across the reach of its bearings
+  for (const [id, surface] of Object.entries(RMBRP_HILLS)) {
+    const { lo, hi, tex } = box[id], s = RMBRP_HILL_SHAPES[id], K = SHAPE_BEARINGS;
     assert.deepEqual([...tex], [surface === 'rock' ? '302_3' : '302_2'], id);
-    assert.ok(near(hi[1], h - 0.3, 1e-5) && near(lo[1], -0.3, 1e-5) && near(hi[0], r, 1e-5) && near(lo[0], -r, 1e-5), `${id}: radius ${r}, ${h} high, sunk 0.3`);
+    const xs = s.reach.map((r, k) => s.c[0] + Math.cos((k / K) * Math.PI * 2) * r);
+    assert.ok(near(hi[1], Math.max(s.top, ...s.rings.flat()), 1e-5) && near(lo[1], Math.min(...s.rings.map((r) => r[SHAPE_RINGS - 1])), 1e-5), `${id}: its top and its rim`);
+    assert.ok(near(hi[0], Math.max(...xs), 1e-5) && near(lo[0], Math.min(...xs), 1e-5), `${id}: across its reach`);
   }
   for (const [id, [a, r]] of Object.entries(RMBRP_STALLS)) {
     const { lo, hi, tex } = box[id];
@@ -238,7 +243,9 @@ test('WD3 stand-ins, every built piece is sound - Rosy\'s hangings and rugs, the
   // the platform, the foundation, the domes
   assert.deepEqual([box[53160].lo, box[53160].hi], [[-2, -1, -2], [2, 1, 2]]);
   assert.deepEqual([box[53170].lo, box[53170].hi].map((v) => v.map((x) => +x.toFixed(3))), [[-8, -6.4, -8], [8, 1.6, 8]], 'the temples\' floor its top - their doors never walled up (AUDIT WD3 T1)');
-  for (const id of [53182, 53187, 53194]) assert.ok(near(box[id].hi[1], 3.6, 1e-5) && near(box[id].lo[1], -1.2, 1e-5), id);
+  // FIELD BUGS 2026-10-04d DOMES: the pack's own meshes at their prefabs' scale - the drum's foot on the origin, the crown at
+  // 8.43 m, 03's spire (53182, 53194) at 10.75 m (test/fb1004d_domes.test.js holds the whole profile)
+  for (const id of [53182, 53187, 53194]) assert.ok(near(box[id].lo[1], 1.15 * 0.046875, 1e-5) && near(box[id].hi[1], (id === 53187 ? 179.8 : 229.4) * 0.046875, 1e-5) && near(box[id].hi[0], 4.8, 1e-5), id);
   // Rosy's: the small hangings hang from their rod, the rugs lie on the floor
   for (const id of [69467, 69468, 69469]) assert.ok(box[id].tex.has(`${TOWN_PICTURE_ARCHIVE}_${PICTURE.smallHanging(id - 69467)}`) && near(box[id].lo[1], -0.6, 1e-5), id);
   for (const id of [69471, 69472]) assert.ok(near(box[id].lo[1], 0) && near(box[id].hi[1], 0.012, 1e-5), id);
@@ -290,15 +297,14 @@ test('WD3 stand-ins, the crop fields: the four prefabs a grid of the climate\'s 
   for (const winter of [505, 507, 509, 511]) assert.deepEqual(cropRecordsFor(winter), [511, [22]], `${winter}: snowed stubble`);
   const spec = TOWN_CROP_FIELDS[53211];
   const field = sowField(spec, 504, 50, -0.3, 60, 0);
-  assert.equal(field.length, 22 * 22, 'u and v from -42.5 to 41.5 in fours');
+  assert.equal(field.length, 22 * 22, 'u and v from -42 to 42 in fours (C#\'s int halves: FIELD BUGS 2026-10-04d CROPS)');
   assert.ok(field.every((f) => f.archive === 301 && [19, 21].includes(f.record) && f.y === -0.3));
   assert.ok(field.every((f) => Math.abs(f.x - 50) <= 42.5 + 0.5 + 1e-9 && Math.abs(f.z - 60) <= 42.5 + 0.5 + 1e-9), 'within the range and its nudge');
   assert.deepEqual(sowField(spec, 504, 50, -0.3, 60, 0), field, 'the same every visit');
   assert.notDeepEqual(sowField(spec, 504, 54, -0.3, 60, 0).map((f) => f.x - 4), field.map((f) => f.x), 'another spot, other nudges');
-  // a field turned a quarter: the same plants, the grid turned about its spot
-  const turned = sowField(spec, 504, 50, -0.3, 60, Math.PI / 2);
-  assert.equal(turned.length, field.length);
-  for (let i = 0; i < field.length; i++) assert.ok(near(Math.hypot(turned[i].x - 50, turned[i].z - 60), Math.hypot(field[i].x - 50, field[i].z - 60), 1e-9), 'distances kept');
+  // FIELD BUGS 2026-10-04d CROPS: the grid is laid in the world's axes round the batch (`transform.position + position`) -
+  // a field takes no turn (test/fb1004d_crops.test.js: a turned record sows the same plants)
+  assert.equal(sowField.length, 5, 'a spot and its climate; no turn');
   assert.equal(sowField(TOWN_CROP_FIELDS[53214], 511, 0, 0, 0).every((f) => f.archive === 511 && f.record === 22), true);
   assert.equal(sowField(TOWN_CROP_FIELDS[53214], 511, 0, 0, 0).length, 9 * 9);
   assert.equal(sowField({ ...spec, firstRecordOnly: true }, 504, 0, 0, 0).every((f) => f.record === 21), true);
@@ -530,6 +536,13 @@ test('WD3 with ARENA2: no stand-in walls up a door - every exterior door of both
       for (const m of rmb.Misc3dObjectRecords) if (box(m.ModelIdNum)) pieces.push({ id: m.ModelIdNum, M: trs(m.XPos * G, (-m.YPos - 4) * G, (m.ZPos + 4096) * G, -m.XRotation / RD, -m.YRotation / RD, -m.ZRotation / RD, m.XScale || 1, m.YScale || 1, m.ZScale || 1) });
       doorCount += ds.length;
       for (const pc of pieces) {
+        // AUDIT FB1005 T3: a hill is a surface, not a box - since HILL-SHAPES drew the pack's hills at their size, a
+        // door BESIDE one stood inside its bounding box (27 of 29); a hill walls a door that stands under its top
+        if (RMBRP_HILLS[pc.id]) {
+          const seat = blockHillSeat([{ modelIdNum: pc.id, matrix: pc.M }]);
+          for (const d of ds) for (const pt of d.pts) if ((seat.topAt(pt[0], pt[2]) ?? -Infinity) > pt[1]) walled.push(`${v} ${name}: ${pc.id} at the door of record ${d.ri} (model ${d.id})`);
+          continue;
+        }
         const b = box(pc.id), inv = local(pc.M);
         for (const d of ds) for (const pt of d.pts) if (inv(pt).every((x, i) => x > b.lo[i] + 0.02 && x < b.hi[i] - 0.02)) walled.push(`${v} ${name}: ${pc.id} at the door of record ${d.ri} (model ${d.id})`);
       }
@@ -537,7 +550,11 @@ test('WD3 with ARENA2: no stand-in walls up a door - every exterior door of both
     p.release();
   }
   assert.ok(doorCount > 10000, `${doorCount} doors`);
-  assert.deepEqual([...new Set(walled)], []);
+  // AUDIT FB1005 T3: ONE door, and it is the pack's own - Beautiful Villages' TEMPASD1 stands its House2 #6 (model 159)
+  // inside hills 52458 and 52713, and the pack's published meshes stand 10.5-11.2 m over the door's foot there (measured with the
+  // clone; the stand-ins 10.1-10.4 m): DFU with the RMB Resource Pack buries it too. Carried, named, Mac's call (FIELD
+  // BUGS 2026-10-05's audit) - any other door a stand-in walls is still a failure here.
+  assert.deepEqual([...new Set(walled)].sort(), ['beautiful-villages TEMPASD1.RMB.json: 52458 at the door of record 6 (model 159)', 'beautiful-villages TEMPASD1.RMB.json: 52713 at the door of record 6 (model 159)']);
   resetAll();
 });
 

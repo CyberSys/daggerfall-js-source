@@ -380,8 +380,8 @@
   {
     "name": "EVENT1-host-every-link-hears",
     "file": "src/scenes/world.js",
-    "old": "if (tab.room === SOCIAL_ROOM) link.onEvent = (ev, o) => dread.set(ev, o);",
-    "new": "link.onEvent = (ev, o) => dread.set(ev, o);",
+    "old": "if (tab.room === SOCIAL_ROOM) link.onEvent = (ev, o) => { dread.set(ev, o); sunbaby.set(ev, o); };",
+    "new": "link.onEvent = (ev, o) => { dread.set(ev, o); sunbaby.set(ev, o); };",
     "tests": [
       "test/event1_live_event.test.js"
     ]

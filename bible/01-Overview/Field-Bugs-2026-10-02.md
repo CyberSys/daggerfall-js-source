@@ -216,6 +216,9 @@ traced by hand only (CORNER-TOP above).
 
 ## HUNT-FOES: a foe come near closes the hunt (2)
 
+**RETIRED by HUNT-OUT (2026-10-04)**: the text hunt is removed whole, and this fix with it - its tests and its
+mutant records went with the hunt (`06-Systems/Climates-Calories.md`). The record below is what shipped.
+
 **Reproduced first** (`test/fb1002_fieldbugs.test.js`, on surv6's composed hunt): the box opens, a foe comes near, and
 the box stays. On Yes the search runs its 4-8 s with the player frozen. At the turn to the result, `onSearched` called
 `advanceMinutes`, whose encounter tick (`world.js` `runEncounterTick(feet, true)`) replays 30-60 minutes of wanderer

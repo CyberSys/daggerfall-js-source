@@ -130,10 +130,10 @@ test('REST-ROUNDS: the rested window is fanned out to the foe pools too - one br
 });
 
 test('REST-ROUNDS by source (LIVED1): every rest the four hosts drive spends its minutes through the ticker (outdoors, the party mirror, a building, the fixed city) or the dungeon\'s own arm - and nothing hands a session counter over', () => {
-  const hosts = { 'src/scenes/world.js': 4, 'src/scenes/worldModes.js': 3, 'src/scenes/dungeonContext.js': 2, 'src/scenes/exterior.js': 2 };   // the rest, the party mirror, a camp's cooking, the hunt, a meal
+  const hosts = { 'src/scenes/world.js': 3, 'src/scenes/worldModes.js': 3, 'src/scenes/dungeonContext.js': 2, 'src/scenes/exterior.js': 2 };   // the rest, the party mirror, a camp's cooking, a meal (the hunt's retired, HUNT-OUT 2026-10-04)
   for (const [f, want] of Object.entries(hosts)) {
     const s = src(f);
-    const bodies = [...s.matchAll(/advanceMinutes: \(n(?:, \{ quiet = false \} = \{\})?\) => ([^\n]*)/g)].map((m) => m[1]);   // the hunt's takes `quiet` too (AUDIT of FIELD BUGS 2026-10-02)
+    const bodies = [...s.matchAll(/advanceMinutes: \(n\) => ([^\n]*)/g)].map((m) => m[1]);
     assert.equal(bodies.length, want, `${f}: its time-passing deps take the minutes`);
     for (const b of bodies) assert.match(b, /(?:playerTicker|interiorTicker)\.advance\(n\)|_restAdvance\(n\)/, `${f}: ...and spend them on the character's clock: ${b.slice(0, 80)}`);
     assert.doesNotMatch(s, /sharedEnd/, `${f}: no session counter is handed over any more`);

@@ -32,7 +32,7 @@ import { seedCustomSpellIndex } from './spellMaker.js';   // S1: made spells car
 import { seedBundleSeq, effectKindLoaded } from './effects.js';   // X10: the live-bundle counter's restore half; AUDIT PRE-MERGE 0928 S3: a mod's effect restores only while its mod is loaded
 import { repairLostCurses } from './curseRepair.js';   // CURSE-REPAIR1: a curse the round clock pruned, given back
 import { repairUnmintedConditions } from './conditionRepair.js';   // DISC21-A: a wearable minted with no condition, minted
-import { restackStones, nameEmbers } from './gateSpoils.js';   // SS1: Sigil Stones saved before they stacked, folded into one stack; WB12a: and named Deadlands Embers
+import { restackStones, nameEmbers, PORTAL_GIFT, givePortalGift } from './gateSpoils.js';   // SS1: Sigil Stones saved before they stacked, folded into one stack; WB12a: and named Deadlands Embers
 import './profTemplates.js';   // PROF2: the ores, ingots and stone a pack may hold, known to every scene a save loads in
 import './restItems.js';   // REST6: the seven rest supplies (1700-1706), known to every scene a save loads in
 import { repairRarityNames, repairRarityBases } from './lootRarity.js';   // DISC29-B: a Magic or Rare Roleplay & Realism: Items piece given back its make's word; RARITY-WEAR: a rolled wand worn as an Amulet
@@ -374,7 +374,8 @@ export function snapshotPlayer(entity, { position = null, pose = null, classicMi
   snap.ownedShip = entity.ownedShip ?? -1;
   snap.boatCabinLink = readBankCabinLink(entity.boatCabinLink);
   if (entity.shipCrossed === true) snap.shipCrossed = true;   // RESTORE: a ship that came through customs, which the realm's bank never buys back (banking.js)
-  snap.loanAmnesty = Number.isSafeInteger(entity.loanAmnesty) ? entity.loanAmnesty : LOAN_AMNESTY;   // LOAN-AMNESTY: which amnesty this character has had - a character never restored from an older save is born after the last
+  snap.loanAmnesty = Number.isSafeInteger(entity.loanAmnesty) ? entity.loanAmnesty : LOAN_AMNESTY;
+  snap.portalGift = Number.isSafeInteger(entity.portalGift) ? entity.portalGift : PORTAL_GIFT;   // PORTAL-GIFT: which gift this character has had - one never restored from an older save is born after it   // LOAN-AMNESTY: which amnesty this character has had - a character never restored from an older save is born after the last
   // TR4: SerializablePlayer.cs:180 - the BOARDING MEMORY is saved
   // beside the deed. Without it a save taken at sea loads with no way
   // back: IsOnShip needs the memory to answer true, so disembarking
@@ -622,11 +623,17 @@ export function resolvePendingSpells(entity, spellsByIndex) {
   return got;
 }
 
+/** PORTAL1 (AUDIT PORTAL1 U9): how many saves this page has restored - every load, whichever host runs it, passes the one
+ *  door below, so a host that must end something at EVERY load (scenes/world.js: the portals standing) asks this count
+ *  rather than each branch of each load. */
+let _restores = 0;
+export const restoresSoFar = () => _restores;
 export function restorePlayer(entity, snap, spellsByIndex = null) {
   if (!snap || snap.v !== SAVE_VERSION) {
     console.warn(`[save] version mismatch (got ${snap?.v}, want ${SAVE_VERSION}); refusing`);
     return null;
   }
+  _restores++;   // PORTAL1: a load that lands - the world host ends its portals on the count's move
   // AUDIT LIVED1b F3 (S4): THE ENVELOPE'S CLOCKS ARE READ ONCE, HERE. A clock is an unsigned minute count (DFU's
   // ToClassicDaggerfallTime answers a uint), and nothing legitimate writes another - but a tampered or corrupted one
   // reached every reader raw: at 2^53 the calendar loop's `i++` stands still and the page froze for good, a
@@ -733,6 +740,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   entity.boatCabinLink = readBankCabinLink(snap.boatCabinLink);
   if (snap.shipCrossed === true) entity.shipCrossed = true; else delete entity.shipCrossed;   // RESTORE: its customs mark, or none
   entity.loanAmnesty = Number.isSafeInteger(snap.loanAmnesty) ? snap.loanAmnesty : 0;   // LOAN-AMNESTY: a save from before the first amnesty has had none
+  entity.portalGift = Number.isSafeInteger(snap.portalGift) ? snap.portalGift : 0;   // PORTAL-GIFT: a save from before the gift has had none
   entity.boardShipPosition = snap.boardShipPosition ?? null;   // TR4 (:425)
   entity.anchorPosition = snap.anchorPosition ? { ...snap.anchorPosition } : null;   // TP-slice
   // A4: the three stragglers' restore arms (see the snapshot side).
@@ -801,6 +809,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
     const n = restackStones(list);
     if (n) console.info(`[save] SS1: ${n} Deadlands Ember record(s) folded into their stacks`);
   }
+  givePortalGift(entity);   // PORTAL-GIFT: a character from before the gift is given its stones once - below the relinks and the fold, onto the pack's stack
   entity.activeEffects = (snap.activeEffects ?? []).filter((a) => !a.heldItem && !a.bundleDuel).filter((a) => effectKindLoaded(a.kind)).map(copyEffectEntry);   // E2: a stale pin in an old snapshot cannot re-link - drop it (DFU :2312); AUDIT DUEL1 B4: nor a duel's spell a save from before the filter kept; AUDIT PRE-MERGE 0928 S3: nor an effect of a mod not loaded (Come Sail Away's water walk)
   // DISC10-D/E V11: THE DREAM'S PUSH IS NOT SAVED. CustomSaveData_v1 keeps
   // the two PLAYED flags and the day (VampirismInfection.cs:221-251,

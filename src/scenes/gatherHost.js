@@ -885,7 +885,12 @@ export function createGatherHost(deps) {
         act.act.tick(dt, { held: input.held || act.heldByUse === true, attack, view: v, pos: { x: feet[0], z: feet[2] }, aim: aimAt(pos, act.world, v) });   // TOOL-USE: a hold the Use made
         const away = gone || Math.hypot(act.world[0] - pos[0], act.world[2] - pos[2]) > (act.node.reach ?? NODE_REACH) + 1;
         const here = act.dungeon ? inDungeon() : deps.active();
-        if (act.act.state.cancelled || away || !here) { act = null; hud.setMeter(null); hud.toast(ACT_STOPPED_LINE); }   // GATHER-SAID: said, never only the meter gone (Escape ends it in `cancel`, unsaid)
+        if (act.act.state.cancelled || away || !here) {   // GATHER-SAID: said, never only the meter gone (Escape ends it in `cancel`, unsaid)
+          // AUDIT FB1005 W2: an act dropped is ENDED, as at every other drop - a window, a door, the helm, a pixel's
+          // edge: Fishing's live cast stayed neither done nor cancelled and kept the bank a target (SHORE-CAST)
+          if (!act.act.state.done && !act.act.state.cancelled) act.act.cancel();
+          act = null; hud.setMeter(null); hud.toast(ACT_STOPPED_LINE);
+        }
         else if (act.act.state.done) { hud.setMeter(act.act, act.label ?? '', { byUse: act.heldByUse === true }); finish(act); }   // PROF-SCENES: the last frame drawn (its blow's cue) before the marks go
         else hud.setMeter(act.act, act.label ?? '', { byUse: act.heldByUse === true });   // TOUCH-HOLD: a Use's hold says no key
         hud.setPrompt(null);
@@ -1010,7 +1015,7 @@ export function createGatherHost(deps) {
             const tr = deps.pixelTranslation(g.s.entry.px, g.s.entry.py, _t);
             const d = Math.hypot(at.local[0] + tr[0] - pos[0], at.local[2] + tr[2] - pos[2]);
             if (!(d <= GROUP_M)) continue;
-            all.push({ d, s: g.s, local: at.local, mark: { key: `gather:${key}`, at: [0, 0, 0], label: groupLabel(g.profession, g.nodes.length), kind: `gather ${g.profession}`, color: nodeMarkCss(g.profession) } });
+            all.push({ d, s: g.s, local: at.local, mark: { key: `gather:${key}`, at: [0, 0, 0], label: groupLabel(g.profession, g.nodes.length), kind: `gather ${g.profession}`, color: nodeMarkCss(g.profession), dist: d / 1000 } });   // OW-NODE-KM: how far off, km - the Overworld's node reach reads it
           }
           all.sort((a, b) => a.d - b.d || (a.mark.key < b.mark.key ? -1 : 1));
           groupsKept = all.slice(0, GROUP_MAX);

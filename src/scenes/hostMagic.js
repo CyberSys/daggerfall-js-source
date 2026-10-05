@@ -52,7 +52,7 @@ import { potentEffect } from '../net/alchemyLaw.js';   // PROF12: a Potent potio
 import { SPELL_CAST_SOUND } from '../systems/enemySpells.js';
 import { tallySkill } from '../systems/skills.js';
 import { morphSelf } from '../systems/lycanthropy.js';   // V2a: the MorphSelf arm the ONE cast engine wires
-import { allyCastable, allyReachFor, allyCastFrame, allyCastCasterLine, allyCastCasterLineMany, allyCastSpell, PERSON_RADIUS, ALLY_TOUCH_REACH, ALLY_ARM_RADIUS, ALLY_ARMED_LINE, COMPANION_ARMED_LINE, companionCastable } from '../systems/allyCast.js';   // SPELL-GIFT: the arm near a mate, the line it says, and the area's one line; AUDIT WK-M4: what my companion can use
+import { allyCastable, allyReachFor, allyCastFrame, allyCastCasterLine, allyCastCasterLineMany, allyCastSpell, PERSON_RADIUS, ALLY_TOUCH_REACH, ALLY_ARM_RADIUS, ALLY_ARMED_LINE, COMPANION_ARMED_LINE, companionCastable, createGiftLineGate } from '../systems/allyCast.js';   // SPELL-GIFT: the arm near a mate, the line it says, and the area's one line; AUDIT WK-M4: what my companion can use
 import { hasResurrect, RESURRECT_REACH, RESURRECT_TEXT, pickFallenBody } from '../systems/resurrect.js';   // RESURRECT1: a fallen party member's body is the target   // ALLY-CAST: a beneficial spell at the party mate under the crosshair
 import { billboardSize, centredBase } from '../world/rmbFlats.js';
 import { createMagicCandle } from './magicCandle.js';   // X11: the Light effect's candle
@@ -62,10 +62,16 @@ import { createHitEffects } from './hitEffects.js';   // AUDIT 26 F033: Daggerfa
 import { duelSpellOf } from '../combat/duelCombat.js';   // DUEL1: the harmful half of a spell, which alone may reach a duel opponent
 import { markPlayerHarm } from '../systems/harmMark.js';   // REVENANT-HARM: a foe's spell on the player leaves its mark (a death no blow names is its)
 import { knockedDown } from '../systems/blowEffects.js';   // TELL6e: knocked down, no cast
-import { sparedByPlayer, isShipmate } from '../combat/friendlyFire.js';   // SHIPMATES: who the player's spells pass by, and whose blasts pass the player by
+import { sparedByPlayer, isShipmate, boutTeammates } from '../combat/friendlyFire.js';   // SHIPMATES: who the player's spells pass by, and whose blasts pass the player by
 import { coverDistance, coverStep } from '../ai/cover.js';   // TACT1: billboards are cover; AUDIT TACT B5: met by touch
 import { blowTaken } from '../systems/blowTaken.js';   // TELL1: what a spell's target takes (a staggered foe a quarter more)
 import { noteFeudHarm, elementFeudClass } from '../systems/feudLedger.js';   // RVN1: my spell, in its fight's ledger (a leaf)
+import { sandSpellRefusal } from '../systems/arenaKit.js';   // AUDIT ARENA-LADDER: the sand's kit law
+
+/** SUNBABY2: a sky fireball (skyFire) is drawn this many times its flat's size, its flash too - a ball a sun throws,
+ *  seen falling from far up - and heard this far (metres) from where it lands. */
+export const SKY_FIRE_SCALE = 3;
+export const SKY_FIRE_HEARD_M = 48;
 
 /**
  * AUDIT SET M4: whether a burst from feet `a` reaches feet `b` through `collider` - chest to chest, a wall between is
@@ -176,8 +182,20 @@ export function createPlayerMagic({
   // SPELL HERE - a sentence refusing it where the player stands (a battle's wards: scenes/world.js), or null. Asked where
   // castRefusal is, with the spell, after it; a host that hands none refuses no spell for what it is.
   spellRefusal = null,
+  // GIFT-QUIET: the clock a gift's lines are held back by, in ms - the real one (performance.now) unless a test hands one
+  giftClockMs = undefined,
 }) {
   const playerCaster = () => ({ entity: playerEntity, sinks: playerSinks });
+  /** GIFT-QUIET (systems/allyCast.js GIFT_LINE_QUIET_S): a gift's line - an armed ready's, a caster's - said at most once
+   *  in the window (createGiftLineGate); `fresh` says it whatever the window. */
+  const giftGate = createGiftLineGate(giftClockMs);
+  function sayGift(line, fresh = false) { if (line && giftGate(line, fresh)) say(line); }
+  /** GIFT-QUIET (the 2026-10-04 audit): the arm the last ready took - 'mate-aim', 'mine-aim', 'mate-near', 'mine-near' -
+   *  or null for a ready that armed none. An arm unlike the last one is said whatever the window: a heal that armed with
+   *  my companion near, then fired on the spot once she stepped off, then armed again as she came back, said nothing,
+   *  and the casting hands were the only sign it waited. */
+  let _lastArm = null;
+  function sayArm(kind, prev, ...lines) { _lastArm = kind; for (const l of lines) sayGift(l, prev !== kind); }
   /** HOME-MAGIC: the place's refusal SAID, and the ready dropped with it (the silence gate's own shape) - true when a
    *  cast is barred here. A host's seam that throws bars nothing. */
   function barredHere() {
@@ -192,7 +210,7 @@ export function createPlayerMagic({
    *  true when it is. A host's seam that throws refuses nothing. */
   function wardedHere(sp) {
     let why = null;
-    try { why = spellRefusal?.(sp) ?? null; } catch { why = null; }
+    try { why = spellRefusal?.(sp) ?? sandSpellRefusal(sp); } catch { why = null; }   // AUDIT ARENA-LADDER: and the sand's kit law, in every host (systems/arenaKit.js)
     if (!why) return false;
     readiedSpell = null; readiedFree = false; readiedCost = 0;
     say(why);
@@ -264,7 +282,7 @@ export function createPlayerMagic({
     const gift = allyCastSpell({ name: sp?.name, element: sp?.element, effects: sp?.effects, icon: sp?.icon }, { companion: true });
     if (!gift) return false;
     applySpellToFoe(gift, effectiveLevel(playerEntity), rec, null, { allyCast: true }, foeSinks(rec, false));
-    if (!quiet) say(allyCastCasterLine(sp.name, mark.name));
+    if (!quiet) sayGift(allyCastCasterLine(sp.name, mark.name));   // GIFT-QUIET
     return true;
   }
   /** COMPANION-KIT: a blast's gift to every companion in it - one line for all of them, as SPELL-GIFT's. */
@@ -272,7 +290,7 @@ export function createPlayerMagic({
     const names = [];
     for (const t of marks) if (giveToCompanion(t, sp, { quiet: true })) names.push(t.name);
     const line = allyCastCasterLineMany(sp.name, names);
-    if (line) say(line);
+    if (line) sayGift(line);   // GIFT-QUIET
     return names.length;
   }
   /** COMPANION-KIT: the companion the crosshair is on within `reach` - the aim passing within his body's radius of his
@@ -370,7 +388,7 @@ export function createPlayerMagic({
   function giveToAlly(mark, sp, { quiet = false } = {}) {
     let sent = false;
     try { sent = !!castAtAlly?.(mark.id, allyCastFrame(sp, effectiveLevel(playerEntity), mark.id)); } catch { sent = false; }
-    if (sent && !quiet) say(allyCastCasterLine(sp.name, mark.name));
+    if (sent && !quiet) sayGift(allyCastCasterLine(sp.name, mark.name));   // GIFT-QUIET
     return sent;
   }
   /** SPELL-GIFT (Tabitha: "Area at Range & Area around Caster don't have good tooltips or UI elements"): a blast that
@@ -379,7 +397,7 @@ export function createPlayerMagic({
     const names = [];
     for (const t of marks) if (giveToAlly(t, sp, { quiet: true })) names.push(t.name);
     const line = allyCastCasterLineMany(sp.name, names);
-    if (line) say(line);
+    if (line) sayGift(line);   // GIFT-QUIET
     return names.length;
   }
   // Classic click-to-cast: DFU's armed state IS the readied spell -
@@ -467,7 +485,10 @@ export function createPlayerMagic({
    *  `elementType != None && targetType != ByTouch` (rangeType 1). */
   function showImpactFlash(m, pos) {
     if (!m.spell || m.spell.element == null || m.spell.rangeType === 1) return;
-    impacts.showImpactFlash(missileArchive(m.spell.element), pos);
+    impacts.showImpactFlash(missileArchive(m.spell.element), pos, m.scale ?? 1);   // SUNBABY2: a sky fireball's, at its own size
+    // SUNBABY2: and a sky fireball is HEARD where it lands - its element's cast clip (DFU has no impact clip; the
+    // missile's sound is its cast's), from the impact, as far as SKY_FIRE_HEARD_M
+    if (m.sky) { try { audio.play3dId?.(SPELL_CAST_SOUND[m.spell.element] ?? SPELL_CAST_SOUND[4], pos, 1, { maxDistance: SKY_FIRE_HEARD_M }); } catch { /* a sound never costs the flash */ } }
   }
 
   /** Every spell landing ON THE PLAYER rides this: the S19 Paralyze
@@ -643,6 +664,7 @@ export function createPlayerMagic({
       if (excludeFoe && t === excludeFoe) continue;
       if (caster?.entity === playerEntity && sparedFromPlayer(t)) continue;   // DISC19-F (AUDIT DISC19): my blast passes the defenders by
       if (crewBlast && isShipmate(t)) continue;
+      if (caster?.foe && boutTeammates(caster.foe, t)) continue;   // ARENA-TEAMS: a bout fighter's blast passes its teammate by
       if (t.puppet && caster?.entity && caster.entity !== playerEntity) continue;   // AUDIT WORLD6b-iii(a) C15: a FOE's blast lands nothing on a PUPPET here - its owner's world resolves that foe (my own blast on a puppet still goes to its owner as my hit)
       applySpellToFoe(spell, casterLevel, t, caster);
     }
@@ -811,7 +833,7 @@ export function createPlayerMagic({
       lastCastCost = cost;
       tallyCastSkills(sp);
       surfacePlayer();
-      say(allyCastCasterLine(sp.name, ally.name));
+      sayGift(allyCastCasterLine(sp.name, ally.name));   // GIFT-QUIET
       return done(true);
     }
     // COMPANION-KIT: ...or MY COMPANION under the crosshair - the same reach, given here
@@ -960,6 +982,7 @@ export function createPlayerMagic({
    *  Answers as SetReadySpell does (AUDIT CONTRIB H3): true when the spell
    *  is in hand or cast, false when a gate refused it. */
   function readySpell(sp, { free = false } = {}) {
+    const prevArm = _lastArm; _lastArm = null;   // GIFT-QUIET: a ready that arms nothing ends the arm
     if (barredHere()) return false;   // HOME-MAGIC: before every other gate, a free ready's too (an item's spell)
     if (wardedHere(sp)) return false;   // AUDIT-SEATS G5: a battle's wards, before it costs anything
     if (!free && silenceBlocksCast(playerEntity)) { readiedSpell = null; readiedCost = 0; say(SILENCED_TEXT); return false; }
@@ -990,7 +1013,7 @@ export function createPlayerMagic({
       // the mate says "Cast Heal on Bran", and the next click resolves through releaseFrame's ally arm, or through
       // the CasterOnly arm as ever if they moved. A free ready (A7) fires on the spot as DFU's does; so does one
       // with nobody there.
-      if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); return true; }
+      if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { sayArm('mate-aim', prevArm, PRESS_BUTTON_TO_FIRE_SPELL); return true; }
       // COMPANION-KIT: a CasterOnly gift ARMS with my companion under the crosshair, or near - the two arms of ALLY-CAST
       // here for a body of mine (companionMarksFor holds a free ready and a spell not his to him): the click gives it to
       // him, or, aimed anywhere else, to me.
@@ -998,13 +1021,13 @@ export function createPlayerMagic({
       // and both crosshair arms before either near arm. My companion's two used to stand ahead of all of ALLY-CAST's, so a
       // ready with a mate under the crosshair and my companion near said "Aim at your companion..." and the click gave it
       // to the mate; with a mate near as well, the near line is the mate's (ALLY_ARMED_LINE).
-      if (companionInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); return true; }
+      if (companionInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { sayArm('mine-aim', prevArm, PRESS_BUTTON_TO_FIRE_SPELL); return true; }
       // SPELL-GIFT (2026-09-27, Tabitha: "a LARGE amount of buffs & spells just don't work when cast on another person"):
       // ...AND WITH A MATE NEAR, not only one already under the crosshair (systems/allyCast.js ALLY_ARM_RADIUS). Readied
       // first and aimed after - the way anyone casts - the buff had gone off on the caster on the spot. Armed, the click
       // gives it to the mate under the crosshair, or, aimed anywhere else, to the caster, as CasterOnly always does.
-      if (!free && allyCastable(sp) && allyNear(lastAim?.eye ?? null, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); say(ALLY_ARMED_LINE); return true; }
-      if (companionNear(lastAim?.eye ?? null, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); say(COMPANION_ARMED_LINE); return true; }
+      if (!free && allyCastable(sp) && allyNear(lastAim?.eye ?? null, sp)) { sayArm('mate-near', prevArm, PRESS_BUTTON_TO_FIRE_SPELL, ALLY_ARMED_LINE); return true; }
+      if (companionNear(lastAim?.eye ?? null, sp)) { sayArm('mine-near', prevArm, PRESS_BUTTON_TO_FIRE_SPELL, COMPANION_ARMED_LINE); return true; }
       if (!free && hasResurrect(sp)) { say(fallenInReach(lastAim?.eye ?? null, lastAim?.dir ?? null) ? PRESS_BUTTON_TO_FIRE_SPELL : RESURRECT_TEXT.aim); return true; }   // RESURRECT1: a caster-only Resurrect waits for the click, aimed at the body
       return castInput(null, null) !== false;
     }
@@ -1029,7 +1052,8 @@ export function createPlayerMagic({
     // the scene. Check before publishing.
     if (m.dead) { m.batch = null; return; }
     uploadRecord(archive, 0);
-    const size = billboardSize(t, 0);
+    const own = billboardSize(t, 0);
+    const size = m.scale ? { ...own, w: own.w * m.scale, h: own.h * m.scale } : own;   // SUNBABY2: a sky fireball is drawn larger
     m.firePos = [...m.pos];
     m.batch = renderer.createBillboardBatch(archive, 0, size, [centredBase(m.firePos, size)]);   // FIELD-GUN20: a missile is CENTRED on its position (DaggerfallMissile.cs:601-602, no AlignToBase) - the base is half a height under it
     // FA1 slice 2: the missile flat ANIMATES while it flies -
@@ -1105,6 +1129,12 @@ export function createPlayerMagic({
       // SPELLFX1: A PEER'S MISSILE, DRAWN - it flies, meets a wall (above), a body or me, flashes and is gone, and
       // applies NOTHING: the caster's own world decided what it hit (a beneficial one of theirs reached its target as ALLY-CAST's cast frame)
       if (m.visual) {
+        // SUNBABY2: a sky fireball lands where it was thrown - on the ground the host found under it, which the
+        // collider's ray (buildings, not the terrain) would not stop it at
+        if (m.sky) {
+          m.left -= _adv * _len;
+          if (m.left <= 0) { showImpactFlash(m, m.to); retireMissile(m); continue; }
+        }
         const body = (playerFeet && missileHitsCapsule(m.pos, playerFeet, playerHeight, PLAYER_BODY_RADIUS))
           || foes().some((f) => !f.dead && missileHitsFoe(m.pos, f))
           || (peerBodies?.() ?? []).some((q) => q && q.id !== m.casterId && Array.isArray(q.feet) && missileHitsCapsule(m.pos, q.feet, q.height ?? CAPSULE_HEIGHT, PLAYER_BODY_RADIUS));
@@ -1423,6 +1453,18 @@ export function createPlayerMagic({
       // a touch goes off at arm's length along the aim; a self or area cast on the caster's own body
       const at = rangeType === 1 && Array.isArray(dir) ? [from[0] + dir[0] * 1.5, from[1] + dir[1] * 1.5, from[2] + dir[2] * 1.5] : [from[0], from[1] - 0.6, from[2]];
       impacts.showImpactFlash(missileArchive(el), at);
+      return true;
+    },
+    /** SUNBABY2: a fireball the evil sun baby throws (world/sunbabySky.js sunbabyFireball) - a DRAWN fire missile,
+     *  spellVisual's kind, falling `from` the sky `to` the ground at the engine's own speed, SKY_FIRE_SCALE times the
+     *  flat's size. It flashes and is heard where it lands, or on a roof or a body it meets first. Visual only: nothing
+     *  is applied, spent or tallied - an event burns no one. */
+    skyFire({ from, to }) {
+      const ok = (p) => Array.isArray(p) && p.length === 3 && p.every(Number.isFinite);
+      if (!ok(from) || !ok(to)) return false;
+      const d = Math.hypot(to[0] - from[0], to[1] - from[1], to[2] - from[2]);
+      if (!(d > 0)) return false;
+      missiles.push({ spell: { element: 0, rangeType: 2 }, pos: [...from], dir: [(to[0] - from[0]) / d, (to[1] - from[1]) / d, (to[2] - from[2]) / d], age: 0, batch: null, fromPlayer: null, visual: true, casterId: null, sky: true, to: [...to], left: d, scale: SKY_FIRE_SCALE });
       return true;
     },
     /** X3-slice: an enemy spell missile joins the engine's pool -

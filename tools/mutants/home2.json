@@ -29,11 +29,12 @@
   {
     "name": "HOME2-the-arm-unsaid",
     "file": "src/systems/onlineHomes.js",
-    "old": "label: armed ? `Click again to buy: ${price} gold` : `Buy it: ${price} gold` },",
-    "new": "label: `Buy it: ${price} gold` },",
+    "old": "label: armed ? `Click again to buy: ${gold(price)} gold` : `Buy it: ${gold(price)} gold` },",
+    "new": "label: `Buy it: ${gold(price)} gold` },",
     "tests": [
       "test/home2.test.js"
-    ]
+    ],
+    "note": "HOME-PRICE (PIN MOVED, re-aimed by content): the line now says every sum with its thousands (gold())."
   },
   {
     "name": "HOME2-the-entry-stuck",
@@ -140,6 +141,15 @@
     "file": ".github/workflows/account-deploy.yml",
     "old": "            for i in $(seq 1 7); do",
     "new": "            for i in $(seq 1 1); do",
+    "tests": [
+      "test/home2.test.js"
+    ]
+  },
+  {
+    "name": "DEPLOY-FLAKE-a-5xx-not-asked-again",
+    "file": ".github/workflows/account-deploy.yml",
+    "old": "if [ \"$got\" != \"404\" ] && [ \"${got#5}\" = \"$got\" ]; then break; fi",
+    "new": "if [ \"$got\" != \"404\" ]; then break; fi",
     "tests": [
       "test/home2.test.js"
     ]

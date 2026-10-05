@@ -33,7 +33,7 @@
 import { getPref } from '../systems/uiPrefs.js';
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { MOBILE_TYPES } from '../characters/mobileTypes.js';
-import { throwsBlows, blowShapesOf, blowFamily, makeBlow, fitBlowToGround, inBlow, setLiveBlow, shatterBlow, windupNear, offsetBlows, BLOW, BLOW_CHANCE, BLOW_COLOR, IRON_COLOR, BLOW_VERDICT_LIFE, BLOW_STALE } from './foeBlows.js';   // TACT4; TELL3: iron; TELL5: the family, the shapes' lengths
+import { throwsBlows, blowShapesOf, blowFamily, makeBlow, fitBlowToGround, inBlow, setLiveBlow, shatterBlow, windupNear, offsetBlows, BLOW, BLOW_CHANCE, BLOW_COLOR, IRON_COLOR, BLOW_VERDICT_LIFE, BLOW_STALE, setBlowTargetOf } from './foeBlows.js';   // TACT4; TELL3: iron; TELL5: the family, the shapes' lengths
 import { coverDistance } from './cover.js';   // TELL6: a charge's lane must be free of cover
 import { GRAVITY } from '../player/motor.js';   // TELL6c: a leap's hop on the motor's own gravity
 import { tacticsNow, setTacticsClock, tickTactics } from './tacticsClock.js';   // AUDIT TACT D10/A3
@@ -117,21 +117,36 @@ const LOCAL = Object.freeze({ local: true });
  *  finite, as the fold reads `Number.isFinite` (staggeredNow); its home here, so a foe handed over (tacticsStep) can tell
  *  its owner's word from its own. ai/puppetBlows.js writes it. */
 export const PUPPET_HELD_UNTIL = 1e9;
-/** TELL8 (bible/12-Enhanced-AI/Feud-Arc.md 10.2, OPEN 9): the feet a telegraphed blow is aimed at - mine for the
- *  local player's key, else a PEER's the foe hunts (its candidate's, refreshed each frame in this frame's coordinates);
- *  null for any other target (a foe, a peer with no pose). Each client judges its own feet at the landing (10.3); the
- *  owner's own view of a peer's decides only its foe's window (6.3). */
+/**
+ * THE MARK - the feet a telegraphed blow is aimed at: mine for the local player's key (TACT4's law); TELL8
+ * (bible/12-Enhanced-AI/Feud-Arc.md 10.2, OPEN 9) a PEER's the foe hunts (its candidate's, refreshed each frame in this
+ * frame's coordinates); and AUDIT ARENA-LADDER (the owner, 2026-10-05: "Ensure AI enemies sometimes receive telegraphed
+ * attacks") on the arena's sand a BOUT-MATE's: a fighter of the same live bout on another side (the pair
+ * characters/enemyTargets.js boutGate keeps, read off the two entities' own tags), so an exhibition's fighters, a Grand
+ * Melee's and a two-against-one's wind up at each other as they wind up at the player. Null for any other target
+ * (street infighting, a peer's foe, a peer with no pose). Each client judges its own feet at the landing (10.3) - and a
+ * bout-mate's are judged here, where both fighters run (`judgedHere`); the owner's own view of a peer's decides only its
+ * foe's window (6.3).
+ */
 function targetFeet(ai, key) {
   if (key === LOCAL) return _me?.feet ?? null;
   const t = ai?.target;
-  return t?.isPeer && Array.isArray(t.feet) && t.feet.length === 3 ? t.feet : null;
+  if (t?.isPeer) return Array.isArray(t.feet) && t.feet.length === 3 ? t.feet : null;
+  const sb = ai?.vitals?.()?.bout, tb = t?.entity?.bout;
+  if (!sb || !tb || t.dead || !t.ai?.feet) return null;
+  if (String(sb.id) !== String(tb.id) || sb.out || tb.out || sb.hold || tb.hold || (sb.side | 0) === (tb.side | 0)) return null;
+  return t.ai.feet;
 }
+/** AUDIT ARENA-LADDER: is a landing at the mark `key` (one targetFeet found) judged on this client - mine, or a
+ *  bout-mate's on the sand? A peer's is the peer's own (TELL8 10.3). */
+const judgedHere = (ai, key) => (key === LOCAL ? !!_me : !ai?.target?.isPeer);
 /** The board's key for an ai's target: the local player is one key; a peer by its owner; a foe by itself. */
 export function targetKey(ai) {
   const t = ai._armedTargeting ? ai.target : null;
   if (!t || (t.isPlayer && !t.isPeer)) return LOCAL;
   return t.owner ?? t.peerId ?? t;
 }
+setBlowTargetOf(targetKey);   // AUDIT ARENA-LADDER 2: a landed verdict is its mark's alone (ai/foeBlows.js blowConnects)
 function board(key) {
   let b = _boards.get(key);
   if (!b) _boards.set(key, b = { melee: new Map(), ranged: new Map(), waiting: new Map() });
@@ -171,7 +186,7 @@ export function breakWindup(ai) {
  *  its frames (ai/puppetBlows.js). */
 const unseen = (s, now) => s?.seen != null && now - s.seen > BLOW_STALE;
 /** AUDIT TACT A4/D5/D6: a blow's landing state, spent - no verdict, weight or forced swing left for a later swing. */
-function clearBlowState(ai) { ai._blowVerdict = null; ai._blowMult = undefined; ai._blowSwing = false; }
+function clearBlowState(ai) { ai._blowVerdict = null; ai._blowMult = undefined; ai._blowSwing = false; ai._blowFor = undefined; }
 /** TELL2: a wind-up's held swing dropped (its wind-up broke, a paralysis, its place gone) - the sprite and the attack
  *  component let it go and strike nothing (characters/mobileUnit.js, characters/enemyAttack.js). */
 function dropSwing(ai) { ai._blowHold = 'cancel'; ai._blowWind = false; }
@@ -501,9 +516,10 @@ export function tacticsStep(ai, dx, dz) {
     s.state = 'engage';
   }
   if (s.state === 'engage' && !b.melee.has(ai) && !open) s.state = 'wait';
-  // TACT4: a telegraphed blow - a holder in reach of the tier, its cooldown spent, nobody else winding up near me
+  // TACT4: a telegraphed blow - a holder in reach of the tier, its cooldown spent, nobody else winding up near its mark
   // TELL6: in reach, a blow of reach; out of it, a gap-closer whose lane is free (the charge, 5-12 m)
-  // TELL8 (10.2): at a peer it hunts as at me - one wind-up near each target, the peer's own feet its judge
+  // TELL8 (10.2): at a peer it hunts as at me - one wind-up near each target, the peer's own feet its judge; AUDIT
+  // ARENA-LADDER: on the sand at a bout-mate (targetFeet)
   const tf = s.state === 'engage' ? targetFeet(ai, key) : null;
   if (s.state === 'engage' && b.melee.has(ai) && tf && ai.canAct !== false && now >= (s.blowReady ?? 0)) {   // AUDIT TACT: a token holder's, never an opportunist's
     const ent = ai.vitals?.();
@@ -555,6 +571,7 @@ function beginWindup(ai, s, ent, shape, dx, dz, now, chain = 0, sig = null) {
   b.chain = chain; b.trackedAt = now;
   b.n = ai._blowN = ((ai._blowN ?? 0) + 1) & 255;   // AUDIT TELL O2: its serial on the wire (ai/puppetBlows.js `wn`)
   b.key = targetKey(ai);   // AUDIT TELL B8: whom it is aimed at - a foe that turns on another breaks it (the owner and the struck peer agree)
+  if (b.key !== LOCAL && !ai.target?.isPeer) b.sand = true;   // AUDIT ARENA-LADDER: one at a bout-mate (no other mark is begun at) is drawn for the stands (foeBlows.js SAND_DRAW_RANGE)
   if (shape === 'leap') { b.ahead = Math.min(BLOW.leap.range, Math.hypot(dx, dz)); b.jumpAt = b.land - BLOW.leap.arc; fitBlowToGround(b, ai.collider); }   // TELL6c: its point - my feet now, locked
   if (shape === 'aimed') b.ahead = Math.hypot(dx, dz);   // TELL6d: its line to me, locked
   if (shape === 'pyre') b.ahead = Math.min(BLOW.pyre.range, Math.hypot(dx, dz));   // RVN5: its disc at my feet, locked
@@ -647,12 +664,13 @@ function windupTurn(ai, s, now, skipped) {
   if (now >= s.blow.land) {
     if (b0.kind === 'leap') { ai._tacDir = null; ai.moving = false; }   // TELL6c: landed at its point
     // AUDIT TACT A4/D6: only ever at its target - a wind-up whose foe has turned on another lands on no one here.
-    // TELL8: at a peer as at me - the owner's view of the peer's feet decides its window; the peer's own, the blow
+    // TELL8: at a peer as at me - the owner's view of the peer's feet decides its window; the peer's own, the blow.
+    // AUDIT ARENA-LADDER: at a bout-mate on the sand as at me - both fighters run here, so the verdict is the blow's
     if (tf && s.blow.kind === 'charge') { beginDash(ai, s, s.blow, now, cooled); return true; }   // TELL6: its landing is its run
     ai._blowLandedAt = now;   // TELL2: the landing, for the LAND cue (scenes/hostCombat.js tellCues)
     // AUDIT TELL B3: a leap lands on its disc only where its foe got to - a ledge or a wall that stopped the jump whiffs
     const arrived = b0.kind !== 'leap' || Math.hypot(ai.feet[0] - (b0.origin[0] + Math.sin(b0.yaw) * b0.ahead), ai.feet[2] - (b0.origin[2] + Math.cos(b0.yaw) * b0.ahead)) <= BLOW.leap.r;
-    if (tf) return resolveLanding(ai, s, s.blow, arrived && inBlow(s.blow, tf[0], tf[2]), now, cooled, atMe);
+    if (tf) return resolveLanding(ai, s, s.blow, arrived && inBlow(s.blow, tf[0], tf[2]), now, cooled, atMe, judgedHere(ai, key));
     clearBlowState(ai); dropSwing(ai);
     s.blowReady = cooled; s.state = 'engage'; s.blow = null;
     ai._tacStrike = true;
@@ -663,14 +681,17 @@ function windupTurn(ai, s, now, skipped) {
 }
 
 /** TACT4: a landing at me decided - `verdict` (my feet in its shape; TELL6: a charge's run over them). The swing is
- *  released; TELL5 a chain may follow, hit or miss; TELL4 a miss overreaches. TELL8 (6.3, 10.3): at a peer (`atMe`
+ *  released; TELL5 a chain may follow, hit or miss; TELL4 a miss overreaches. TELL8 (6.3, 10.3): at a peer (`judged`
  *  false) the verdict is the owner's view of the peer's feet - it opens or withholds the window and the chain, never the
- *  damage (the struck peer's own judgement, through its puppet): no verdict, weight or effect is left to land here. */
-function resolveLanding(ai, s, b, verdict, now, cooled, atMe = true) {
+ *  damage (the struck peer's own judgement, through its puppet): no verdict, weight or effect is left to land here.
+ *  AUDIT ARENA-LADDER: at a bout-mate on the sand (`judged`, `atMe` false) the verdict and its weight land as mine do,
+ *  on that one alone (`_blowFor`); what a landing does to ME (TELL6e) is mine alone. */
+function resolveLanding(ai, s, b, verdict, now, cooled, atMe = true, judged = atMe) {
   ai._blowLandedAt = now;
   s.landed = { blow: b, at: now };   // AUDIT TELL O2: its landing, said to the peers for WIRE_LANDED_S (ai/puppetBlows.js)
-  ai._blowVerdict = atMe ? verdict : null;
-  ai._blowMult = atMe ? b.mult : undefined; ai._blowAt = now; ai._blowSwing = true;
+  ai._blowVerdict = judged ? verdict : null;
+  ai._blowMult = judged ? b.mult : undefined; ai._blowAt = now; ai._blowSwing = true;
+  ai._blowFor = judged ? (b.key ?? targetKey(ai)) : undefined;   // AUDIT ARENA-LADDER 2: whose verdict it is
   ai._blowFx = atMe && verdict ? { kind: b.kind, iron: b.guard === 'iron', at: now } : null;   // TELL6e: what it does where its damage lands (scenes/hostCombat.js landBlowEffect)
   ai._blowHold = false;   // TELL2: the held swing strikes on its next frame
   s.blowReady = cooled; s.blow = null;
@@ -785,7 +806,7 @@ function dashTurn(ai, s, now, skipped = false) {
   if (hit || now >= d.until || ai._tacBlocked) {
     ai._tacBlocked = false; ai._tacDir = null; ai.moving = false; s.dash = null;
     if (!tf) { clearBlowState(ai); dropSwing(ai); s.blowReady = d.cooled; s.state = 'engage'; ai._blowLandedAt = now; return false; }
-    return resolveLanding(ai, s, b, hit, now, d.cooled, !!_me && key === LOCAL);
+    return resolveLanding(ai, s, b, hit, now, d.cooled, !!_me && key === LOCAL, judgedHere(ai, key));
   }
   return dashStep(ai, b);
 }

@@ -2,8 +2,8 @@
   {
     "name": "T1-far-by-rank-slice-SLAM6",
     "file": "src/net/wire.js",
-    "old": "  const bucket = (((turn | 0) % share) + share) % share;\n  const out = sorted.slice(0, max);\n  for (let i = max; i < sorted.length; i++) if (hashKey(keyOf(sorted[i])) % share === bucket) out.push(sorted[i]);\n  return out;",
-    "new": "  const slice = Math.ceil((sorted.length - max) / share);\n  const start = max + ((((turn | 0) % share) + share) % share) * slice;\n  return sorted.slice(0, max).concat(sorted.slice(start, start + slice));",
+    "old": "  const bucket = (((turn | 0) % share) + share) % share;\n  for (const x of far) if (hashKey(keyOf(x)) % share === bucket) out.push(x);\n  return out;",
+    "new": "  const slice = Math.ceil(far.length / share);\n  const start = ((((turn | 0) % share) + share) % share) * slice;\n  return out.concat(far.slice(start, start + slice));",
     "tests": [
       "test/slam10.test.js",
       "test/slam6.test.js",
@@ -17,8 +17,8 @@
   {
     "name": "T2-bucket-by-rank-index",
     "file": "src/net/wire.js",
-    "old": "if (hashKey(keyOf(sorted[i])) % share === bucket)",
-    "new": "if (hashKey(i) % share === bucket)",
+    "old": "  for (const x of far) if (hashKey(keyOf(x)) % share === bucket) out.push(x);",
+    "new": "  far.forEach((x, i) => { if (hashKey(i) % share === bucket) out.push(x); });",
     "tests": [
       "test/slam10.test.js",
       "test/slam6.test.js",
@@ -90,10 +90,10 @@
     ]
   },
   {
-    "name": "T7-gap-collapses-in-one-step",
+    "name": "T7-catch-up-unbounded",
     "file": "src/net/online.js",
-    "old": "      p.gap = p.gap != null ? Math.max(g, p.gap * 0.5) : g;",
-    "new": "      p.gap = g;",
+    "old": "export const PLAY_RATE_MAX = 2;",
+    "new": "export const PLAY_RATE_MAX = 4;",
     "tests": [
       "test/slam10.test.js",
       "test/slam6.test.js",
@@ -105,10 +105,10 @@
     ]
   },
   {
-    "name": "T8-gap-shrinks-too-slowly",
+    "name": "T8-catch-up-too-timid",
     "file": "src/net/online.js",
-    "old": "      p.gap = p.gap != null ? Math.max(g, p.gap * 0.5) : g;",
-    "new": "      p.gap = p.gap != null ? Math.max(g, p.gap * 0.9) : g;",
+    "old": "export const PLAY_RATE_MAX = 2;",
+    "new": "export const PLAY_RATE_MAX = 1.25;",
     "tests": [
       "test/slam10.test.js",
       "test/slam6.test.js",
@@ -120,10 +120,10 @@
     ]
   },
   {
-    "name": "T9-growth-also-bounded",
+    "name": "T9-slower-rate-walked-at-the-old-cadence",
     "file": "src/net/online.js",
-    "old": "      p.gap = p.gap != null ? Math.max(g, p.gap * 0.5) : g;",
-    "new": "      p.gap = p.gap != null ? Math.min(Math.max(g, p.gap * 0.5), p.gap * 2) : g;",
+    "old": "  return wasMoving ? Math.max(cadence, Math.min(GAP_MAX_MS, since) / 2) : cadence;",
+    "new": "  return cadence;",
     "tests": [
       "test/slam10.test.js",
       "test/slam6.test.js",

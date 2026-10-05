@@ -557,9 +557,9 @@ test('QUAYS THE FLEET\'S WORD: a ship shown made fast at a port\'s quay reads so
   assert.match(src, /const berth = n\?\.freeBerth\?\.\(rec\.hull\) \?\? null;/);
 });
 
-test('QUAYS THE WORLD\'S WIRING: the pool made beside the farms over the naval host\'s harbours and gangways, the sea\'s top and the ground; stood each frame before the lights, drawn in the world pass, its lanterns in the lanterns\' hours, down with a re-anchor and a load; Come Sail Away handed the warp, the naval host the Fleet\'s word and her name - THE FOUR HOSTS: a building\'s and a dungeon\'s frames have no sea, the standalone street no naval host', () => {
+test('QUAYS THE WORLD\'S WIRING: the pool made beside the farms over the world\'s harbours (HARBOUR-BOOK - whatever runs on the water) and the naval host\'s gangways, the sea\'s top and the ground; stood each frame before the lights, drawn in the world pass, its lanterns in the lanterns\' hours, down with a re-anchor and a load; Come Sail Away handed the warp, the naval host the Fleet\'s word and her name - THE FOUR HOSTS: a building\'s and a dungeon\'s frames have no sea, the standalone street no naval host', () => {
   const w = read('src/scenes/world.js');
-  assert.match(w, /quays = createQuayPool\(\{\n    renderer,\n    prepare: async \(model\) => \{ for \(const sm of model\.subMeshes\) \{ await getTexture\(sm\.textureArchive\); uploadRecord\(sm\.textureArchive, sm\.textureRecord, \{ opaque: true \}\); \} \},\n    collider: \(\) => collider,\n    harbours: \(\) => \(navalOn\(\) \? naval\?\.harbourList\?\.\(\) \?\? \[\] : \[\]\),\n    seaY: \(\) => tvSeaY\(\),/);
+  assert.match(w, /quays = createQuayPool\(\{\n    renderer,\n    prepare: async \(model\) => \{ for \(const sm of model\.subMeshes\) \{ await getTexture\(sm\.textureArchive\); uploadRecord\(sm\.textureArchive, sm\.textureRecord, \{ opaque: true \}\); \} \},\n    collider: \(\) => collider,\n    harbours: \(\) => harbourBook\.list\(\),   \/\/ HARBOUR-BOOK: whatever runs on the water - a port's quays are its town's\n    seaY: \(\) => tvSeaY\(\),/);
   // AUDIT HOLDINGS Q6: a full-detail pixel's ground alone
   assert.match(w, /groundAt: \(x, z\) => \{ const p = csaPixelAt\(x, z\); return p && \(p\._stride \?\? 1\) === 1 \? surfaceAt\(x, z\) : NaN; \},/);
   assert.match(w, /quays\?\.offsetAll\(\);/);

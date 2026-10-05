@@ -74,7 +74,7 @@ let towns = true;
 _resetCustomModels(); _resetTownStandIns();
 installTownStandIns(() => towns);
 
-test('TREES-SEATED: every tree the six blocks stand over the port\'s mounds is seated on the top drawn under it - 121 of 130 hung more than 1.5 m over it where they were authored', () => {
+test('TREES-SEATED: every tree the six blocks stand over the port\'s hills is seated on the top drawn under it - 121 of 130 hung more than 1.5 m over the catalogue\'s mounds where they were authored, and 1 over the measured hills (HILL-SHAPES)', () => {
   towns = true;
   let raised = 0, hung = 0, over = 0;
   for (const block of packBlocks(SIX)) {
@@ -95,7 +95,9 @@ test('TREES-SEATED: every tree the six blocks stand over the port\'s mounds is s
     }
   }
   assert.equal(raised, 130, 'the trees the author stood a metre or more over the plane');
-  assert.equal(hung, 121, 'as authored, 121 of them hung more than 1.5 m over what the port draws (the stand-ins are the catalogue\'s size, not the pack\'s)');
+  // FIELD BUGS 2026-10-05 HILL-SHAPES: the stand-ins were the catalogue's size, and 121 hung over them; drawn at the
+  // pack's measured shape (world/rmbrpHillShapes.js), one does - the seat still stands it
+  assert.equal(hung, 1, 'as authored, one of them hangs more than 1.5 m over what the port draws (it was 121 over the catalogue\'s mounds)');
   assert.ok(over > 0, 'some stand over a mound, and stand on it');
 });
 
@@ -150,7 +152,7 @@ test('TREES-SEATED by source: the streamed world and the one-location exterior s
   assert.match(w, /addFlat\(flat\.archive, flat\.record, fx, locLocal\[1\] \+ \(hillSeat && isNatureArchive\(flat\.archive\) \? seatNatureFlat\(hillSeat, flat\.x, flat\.z, NATURE_FLATS_Y \+ groundOffPlane\(samples, avg, fx, fz\)\) : flat\.y \+ lift\), fz\);/,
     'the higher of the drawn ground (NATURE-GROUND\'s) and the mounds, for the whole nature range; else the plane and its lift');
   const e = src('src/scenes/exterior.js');
-  assert.match(e, /const blockFlats = collectBlockFlats\(b\.dfBlock, natureArchive\), hillSeat = blockHillSeat\(b\.layout\.models\);/);
+  assert.match(e, /const blockFlats = collectBlockFlats\(b\.dfBlock, natureArchive, \{ climateIndex: locClimateIndex, solid: fieldSolids \}\), hillSeat = blockHillSeat\(b\.layout\.models\);/);   // FIELD BUGS 2026-10-04d CROPS: a field's batch handed the climate and the block's solids
   assert.match(e, /\[flat\.x \+ b\.originX, hillSeat && isNatureArchive\(flat\.archive\) \? seatNatureFlat\(hillSeat, flat\.x, flat\.z, NATURE_FLATS_Y\) : flat\.y, flat\.z \+ b\.originZ\]/, 'this host\'s ground is the plane');
   for (const host of ['src/scenes/worldModes.js', 'src/scenes/dungeonContext.js']) assert.doesNotMatch(src(host), /collectBlockFlats/, `${host}: no RMB exterior flats`);
 });

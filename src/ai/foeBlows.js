@@ -11,19 +11,17 @@
 // resolution asks `blowConnects` (the shape's verdict, in place of the reach test) and `blowScaled` (the shape's
 // weight on DFU's own damage roll - armour, skill and all).
 //
-// Sparingly: a cooldown per foe, at most one wind-up near the player at a time, only from a foe holding a melee token
-// in reach (TACT2; since TELL6 a charge and a leap from their own bands, an aimed shot from a bow's) - TELL8: at the local player or a peer it hunts (each client judging its own feet, ai/puppetBlows.js),
-// one at a time near each. With the Enhanced AI switch off the brain never starts one, and both helpers answer the
-// classic value.
+// Sparingly: a cooldown per foe, at most one wind-up near its mark at a time, only from a foe holding a melee token
+// in reach (TACT2; since TELL6 a charge and a leap from their own bands, an aimed shot from a bow's) - at the local
+// player, a peer it hunts (TELL8: each client judging its own feet, ai/puppetBlows.js) or, on the arena's sand, a
+// bout-mate (AUDIT ARENA-LADDER: judged where both fighters run), one at a time near each (ai/tactics.js targetFeet).
+// With the Enhanced AI switch off the brain never starts one, and both helpers answer the classic value.
 
-import { MOBILE_TYPES } from '../characters/mobileTypes.js';
 import { tacticsNow } from './tacticsClock.js';   // AUDIT TACT: the foes' own time
-import { TELL, isElite, wholeSet } from './tells.js';   // TELL7: the tier, the whole set, the cooldowns' one home
+import { TELL, isElite } from './tells.js';   // TELL7: the tier, the cooldowns' one home
 
-const M = MOBILE_TYPES;
-
-export { BLOW } from './blowShapes.js';   // the shapes' one home - a leaf the ground's pass reads too
-import { BLOW, TELL_NEAR_M, TELL_NEAR_FLOOR, TELL_IRON_EXTRA, TELL_FEINT_FADE as FEINT_FADE } from './blowShapes.js';
+export { BLOW, blowShapesOf, blowFamily, extraShapesOf, inBlow } from './blowShapes.js';   // the shapes' one home - a leaf the ground's pass reads too; AUDIT ARENA-LADDER: the families and the verdict too (the relay reads them); TELL7's whole set beside them
+import { BLOW, blowShapesOf, TELL_NEAR_M, TELL_NEAR_FLOOR, TELL_IRON_EXTRA, TELL_FEINT_FADE as FEINT_FADE } from './blowShapes.js';
 export const BLOW_TIER_LEVEL = 10;      // Mac: level 10 and up, or an elite
 export const BLOW_COOLDOWN_MIN = TELL.COOLDOWN.ordinary[0];   // seconds between one foe's blows (TELL7: an ordinary foe's; ai/tells.js blowCooldown by tier)
 export const BLOW_COOLDOWN_MAX = TELL.COOLDOWN.ordinary[1];
@@ -33,54 +31,8 @@ export const BLOW_FLASH = 0.3;          // the landing's flash on the ground (se
 export const BLOW_VERDICT_LIFE = 1;     // a verdict the swing never spent (a knock, a death) goes stale - a swing's own length
 export const BLOW_STALE = 0.3;          // AUDIT TACT D4: a blow whose foe the brain has not seen this long (dead, gone, another host's) is gone
 
-/** The families: which shapes a kind may throw (one or two). Not here: no telegraphed blow (the casters, the
- *  spectral, the small and the flying). */
-const BEAST = ['lunge'];
-const BRUTE = ['slam', 'sweep'];
-const BLADE = ['sweep', 'lunge'];
-const FAMILY = new Map([
-  [M.GrizzlyBear, BEAST], [M.SabertoothTiger, BEAST], [M.Spider, BEAST], [M.Werewolf, BEAST], [M.Wereboar, BEAST],
-  [M.GiantScorpion, BEAST], [M.Dragonling, BEAST], [M.Dragonling_Alternate, BEAST], [M.Centaur, BLADE],
-  [M.Giant, BRUTE], [M.OrcWarlord, BRUTE], [M.Daedroth, BRUTE], [M.DaedraLord, BRUTE], [M.IronAtronach, BRUTE],
-  [M.FleshAtronach, BRUTE], [M.Gargoyle, BRUTE], [M.Dreugh, BRUTE],
-  [M.Orc, BLADE], [M.OrcSergeant, BLADE], [M.SkeletalWarrior, BLADE], [M.Mummy, BLADE], [M.Vampire, BLADE],
-  [M.VampireAncient, BLADE], [M.FrostDaedra, BLADE], [M.FireDaedra, BLADE], [M.DaedraSeducer, BLADE], [M.Lamia, BLADE],
-]);
-const CASTERS = new Set([M.Mage, M.Sorcerer, M.Healer]);
-/** TELL7 (section 9): what an elite, a champion or a revenant adds to its family's - the ring (the massive brute, the
- *  atronachs, the Daedra Lord), the charge (the chargers), the leap (the leapers). A shape joins only once it exists
- *  (TELL6 brings them; `BLOW` is their one home). The archers' aimed shot is a ranged token's, not a family's. */
-const RING_KINDS = new Set([M.Giant, M.IronAtronach, M.FleshAtronach, M.DaedraLord]);
-const CHARGERS = new Set([M.GrizzlyBear, M.SabertoothTiger, M.Wereboar, M.Centaur, M.OrcWarlord]);
-const LEAPERS = new Set([M.Spider, M.Werewolf, M.SabertoothTiger, M.Vampire]);
-/** TELL7: the shapes the whole set adds to this kind's family, whether or not they exist yet. */
-export function extraShapesOf(mobileType) {
-  const out = [];
-  if (RING_KINDS.has(mobileType)) out.push('ring');
-  if (CHARGERS.has(mobileType)) out.push('charge');
-  if (LEAPERS.has(mobileType)) out.push('leap');
-  return out;
-}
-
-/** The kind's family's own shapes (TACT4's one or two). */
-function familyShapes(mobileType) {
-  if (FAMILY.has(mobileType)) return FAMILY.get(mobileType);
-  if (mobileType >= 128 && mobileType !== M.None) return CASTERS.has(mobileType) ? [] : BLADE;   // the classes and the watch
-  return [];
-}
-/** TELL5: the kind's family - 'beast', 'brute' or 'blade' (null: none throws a telegraphed blow). */
-export function blowFamily(mobileType) {
-  const s = familyShapes(mobileType);
-  return s === BEAST ? 'beast' : s === BRUTE ? 'brute' : s === BLADE ? 'blade' : null;
-}
-/** The shapes this kind may throw ([] for none). TELL7: an elite, a champion or a revenant (`entity`) throws its
- *  family's whole set; an ordinary foe of the tier keeps TACT4's one or two (Mac, 2026-10-02). */
-export function blowShapesOf(mobileType, entity = null) {
-  const base = familyShapes(mobileType);
-  if (!base.length || !wholeSet(entity)) return base;
-  const add = extraShapesOf(mobileType).filter((k) => k in BLOW && !base.includes(k));
-  return add.length ? [...base, ...add] : base;
-}
+// The families (which shapes a kind may throw), TELL5's family, TELL7's whole set and the landing's verdict (`inBlow`)
+// live in ai/blowShapes.js - AUDIT ARENA-LADDER moved them to the leaf the relay can read, and they are handed on above.
 /** Is this body of the tier that telegraphs (Mac: level 10 and up, or an elite)? TELL7: a champion too, and a revenant
  *  at any level; the level is the entity's live one (Meaner Monsters' too, after its row). */
 export function blowTier(entity) {
@@ -123,25 +75,6 @@ export function fitBlowToGround(b, collider) {
 }
 const DOWN = Object.freeze([0, -1, 0]);
 
-/** Is the point (px, pz) inside the blow's shape? The verdict at the landing. */
-export function inBlow(b, px, pz) {
-  const fx = Math.sin(b.yaw), fz = Math.cos(b.yaw);
-  const rx = px - b.origin[0], rz = pz - b.origin[2];
-  const along = rx * fx + rz * fz, across = -rx * fz + rz * fx;
-  if (b.kind === 'lunge' || b.kind === 'charge') { const P = BLOW[b.kind]; return along >= -0.3 && along <= P.len && Math.abs(across) <= P.halfW; }   // TELL6: the charge's lane is a lunge's, longer and wider
-  if (b.kind === 'sweep') {
-    const P = BLOW.sweep, d = Math.hypot(rx, rz);
-    if (d > P.r) return false;
-    if (d < 0.5) return true;   // at its feet
-    return Math.acos(Math.max(-1, Math.min(1, along / d))) <= P.halfArc;
-  }
-  if (b.kind === 'slam') { const P = BLOW.slam; return Math.hypot(along - P.ahead, across) <= P.r; }
-  if (b.kind === 'ring') { const P = BLOW.ring, d = Math.hypot(rx, rz); return d >= P.rIn && d <= P.rOut; }   // TELL6: safe at its feet
-  if (b.kind === 'leap') return Math.hypot(along - (b.ahead ?? 0), across) <= BLOW.leap.r;   // TELL6: a disc at its point
-  if (b.kind === 'aimed') return along >= -0.3 && along <= (b.ahead ?? 0) && Math.abs(across) <= BLOW.aimed.halfW;   // TELL6: its line to its target
-  if (b.kind === 'pyre') return Math.hypot(along - (b.ahead ?? 0), across) <= BLOW.pyre.r;   // RVN5: a disc at its target's feet
-  return false;
-}
 
 /** The ground's own question: how far through its wind-up (0..1), and the landing's flash (1 at the landing, 0 after
  *  BLOW_FLASH) - null once it is gone. */
@@ -186,13 +119,16 @@ export function windupNear(feet, now, except = null) {
 /** What the ground draws now: each live blow within `range` of `near` (the player's feet in the host's frame) with its
  *  phase, and TELL2's `nearFloor` - the fog's floor for a mark within TELL_NEAR_M of the player; a blow past its flash is
  *  dropped from the registry here. */
+/** AUDIT ARENA-LADDER: a blow wound up between two fighters on the sand (`b.sand`, ai/tactics.js) is drawn for the
+ *  stands - the colosseum is 93 m end to end, and a watcher on its far tier is past the 40 m a street's blow is drawn. */
+export const SAND_DRAW_RANGE = 100;
 export function drawableBlows(now, near = null, range = 40) {
   const out = [];
   for (const [ai, b] of _live) {
     const phase = blowPhase(b, now);
     if (!phase || (now < b.land && gone(ai, now))) { _live.delete(ai); continue; }   // AUDIT TACT D4: a dead foe's wind-up goes with it
     const d = near ? Math.hypot(b.origin[0] - near[0], b.origin[2] - near[2]) : Infinity;
-    if (near && d > range) continue;
+    if (near && d > (b.sand ? Math.max(range, SAND_DRAW_RANGE) : range)) continue;
     out.push({ blow: b, phase, nearFloor: d <= TELL_NEAR_M ? TELL_NEAR_FLOOR : 0 });
   }
   for (let i = _shards.length - 1; i >= 0; i--) {   // AUDIT TELL (3.2): the broken ones, going out
@@ -200,7 +136,7 @@ export function drawableBlows(now, near = null, range = 40) {
     const after = now - at;
     if (!(after >= 0 && after <= BLOW_SHATTER)) { _shards.splice(i, 1); continue; }
     const d = near ? Math.hypot(b.origin[0] - near[0], b.origin[2] - near[2]) : Infinity;
-    if (near && d > range) continue;
+    if (near && d > (b.sand ? Math.max(range, SAND_DRAW_RANGE) : range)) continue;
     const t = Math.max(0, Math.min(1, (at - b.start) / (b.land - b.start)));
     out.push({ blow: b, phase: { t, flash: 0, shatter: 1 - after / BLOW_SHATTER }, nearFloor: d <= TELL_NEAR_M ? TELL_NEAR_FLOOR : 0 });
   }
@@ -223,11 +159,27 @@ export function blowConnects(ai, classic, now = tacticsNow()) {
   const v = ai?._blowVerdict;
   if (v == null) return classic;
   const fresh = now == null || ai._blowAt == null || now - ai._blowAt <= BLOW_VERDICT_LIFE;
+  // AUDIT ARENA-LADDER 2: a verdict is its mark's alone (`_blowFor`, the target key it landed on - ai/tactics.js): a foe
+  // whose target changed between the landing and its damage frame (the motor turns on an attacker at once, the brain
+  // only at its next tick) swings classically - a lunge landed on a bout-mate never decided a blow at me, nor mine one
+  // at a foe in the street
+  const turned = ai._blowFor !== undefined && !!_blowTargetOf && _blowTargetOf(ai) !== ai._blowFor;
   ai._blowVerdict = null;
-  if (!fresh) { ai._blowMult = undefined; return classic; }
-  if (!v) ai._blowMult = undefined;   // dodged: the weight is spent with it
+  if (!fresh || turned) { ai._blowMult = undefined; return classic; }
+  if (!v) { ai._blowMult = undefined; tellDodged(ai); }   // dodged: the weight is spent with it, and the dodge is told
   return v;
 }
+/** AUDIT ARENA-LADDER 2: the brain's own spelling of a foe's target (ai/tactics.js targetKey), registered upward - the
+ *  brain imports this file. */
+let _blowTargetOf = null;
+export function setBlowTargetOf(fn) { _blowTargetOf = typeof fn === 'function' ? fn : null; }
+/** AUDIT ARENA-LADDER: A DODGED BLOW IS A MISS - the hosts' hit resolution returns before DFU's damage roll on a dodge,
+ *  so the formula's resolution observer (combat/formulas.js) never heard it: the arena's judges counted no miss for the
+ *  fighter whose lunge was stepped out of, and its replay showed no swing. Keyed listeners (the formula's own shape):
+ *  `fn(ai)` for the foe whose telegraphed blow was dodged. */
+const _dodged = new Map();
+export function registerBlowDodgedListener(name, fn) { if (typeof fn === 'function') _dodged.set(name, fn); else _dodged.delete(name); }
+function tellDodged(ai) { for (const fn of _dodged.values()) { try { fn(ai); } catch { /* a listener's fault is not the blow's */ } } }
 /** ...and its weight on the damage DFU rolled (spent once). */
 export function blowScaled(ai, dmg) {
   const m = ai?._blowMult;

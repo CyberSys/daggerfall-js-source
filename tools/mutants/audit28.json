@@ -505,15 +505,6 @@
     "note": "CHOP-WAIT (FIELD BUGS 2026-09-30, PIN MOVED): re-aimed BY CONTENT - the release's `while` is a `for` bounded by the boxes held when it began now; the slot test it drops is the same law, same killer."
   },
   {
-    "name": "AUDIT28-H7-escape-never-heard",
-    "file": "src/ui/huntWindow.js",
-    "old": "      if ((code === 'Escape' || code === 'back') && this._escape) this._end(false);",
-    "new": "      if (code === 'Escape' && this._escape) this._end(false);",
-    "tests": [
-      "test/audit28_forage.test.js"
-    ]
-  },
-  {
     "name": "AUDIT28-H11-a-buttons-enter-prevented",
     "file": "src/ui/input.js",
     "old": "  return !!t && (t.tagName === 'BUTTON' || t.tagName === 'SELECT' ||",

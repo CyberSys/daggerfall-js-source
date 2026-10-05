@@ -182,6 +182,10 @@ export const DPAD_CHOICES = Object.freeze([
   // Controller bindings window already lets you put on a single button (ui/plusPadBinds.js PLUS_BIND_ROWS), now
   // also choosable per d-pad direction and per tap/hold, same as every other entry here.
   ['FreeMouse', 'Mouselook on / off'], ['WalkMode', 'Walk mode on / off'],
+  // PAD-BINDS (FIELD BUGS 2026-10-04e, Discord: "Overworld and Quick Dial are missing from the controller binding
+  // options"): the two Windows-group actions the keyboard pane always drew. TravelView ships with no key in either
+  // dict, so its d-pad press is the host's own door (gamepadInput.js fireDpad's `padAction`), not a synthetic key.
+  ['QuickDial', 'Quick dial'], ['TravelView', 'Overworld'],
 ]);
 export const dpadChoiceWord = (a) => DPAD_CHOICES.find(([v]) => v === (a ?? null))?.[1] ?? String(a);
 const DPAD_ACTION_OK = new Set(DPAD_CHOICES.map(([v]) => v));
@@ -445,12 +449,19 @@ function promptNode() {
   }
   return promptEl;
 }
-/** The prompts for a window up under a live pad: [codes[], words] pairs. Pure, for the pin. */
-export function windowPrompts({ tabs = false, quick = false, uiBack = 'JoystickButton1', uiClick = 'JoystickButton0' } = {}) {
+/** PAD-ARRANGE (FIELD BUGS 2026-10-04e): LT in a window raises the hotbar to be arranged, and lowers it again. LT is
+ *  the world's (Interact) and stands down under a window, so in one it was nothing. */
+export const HOTBAR_ARRANGE_CODE = 'JoystickAxis9Button0';
+/** The prompts for a window up under a live pad: [codes[], words] pairs. Pure, for the pin. `hotbar` is the bar's
+ *  state under the window (PAD-ARRANGE): null (no bar to arrange), 'off', 'on' (raised), 'hand' (a slot or a new
+ *  entry in hand) or 'handxb' (in hand, on the crossbar - the bumpers then pick the slot, never the tabs). */
+export function windowPrompts({ tabs = false, quick = false, uiBack = 'JoystickButton1', uiClick = 'JoystickButton0', hotbar = null } = {}) {
   const rows = [[[uiClick], 'Select']];
   if (quick) rows.push([['JoystickButton2'], 'Equip / Use']);   // PADPLUS5
   rows.push([['JoystickButton3'], 'Options'], [[uiBack], 'Back']);
-  if (tabs) rows.push([['JoystickButton4', 'JoystickButton5'], 'Tabs']);
+  if (hotbar === 'handxb') rows.push([['JoystickButton4', 'JoystickButton5'], 'Hold + a slot\'s button: put it there']);
+  else if (tabs) rows.push([['JoystickButton4', 'JoystickButton5'], 'Tabs']);
+  if (hotbar) rows.push([[HOTBAR_ARRANGE_CODE], hotbar === 'off' ? 'Arrange hotbar' : 'Hotbar done']);
   rows.push([['Dpad'], 'Jump to'], [['StickR'], 'Scroll']);
   return rows;
 }

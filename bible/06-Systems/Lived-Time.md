@@ -117,7 +117,7 @@ Everything DFU calls RaiseTime:
 - a guild's training (three hours), and a quest's TrainPc;
 - a prison sentence (its days), plus the four release hours;
 - the vampire's turn: the fortnight to dusk;
-- a tavern meal, a drink, a blackout night, a camp's cooking and the hunting search;
+- a tavern meal, a drink, a blackout night and a camp's cooking (and the hunting search, until HUNT-OUT removed the hunt, 2026-10-04);
 - the exhaustion collapse (an hour);
 - the cures' minute (DFU's `RaiseTime(60)` is seconds - AUDIT LIVED1b D3).
 

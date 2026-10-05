@@ -65,8 +65,8 @@
   {
     "name": "HOLD-stats-rail-keeps-the-stores",
     "file": "src/ui/enhancedMenu.js",
-    "old": "const statsSections = () => [...STATS_SECTIONS, ...(profPagesShown() ? PROF_STATS_SECTIONS : [])];",
-    "new": "const statsSections = () => [...STATS_SECTIONS, ...(profPagesShown() ? PROF_PAGE_SECTIONS : [])];",
+    "old": "...(profPagesShown() ? PROF_STATS_SECTIONS : []), ...(vendorPageShown()",
+    "new": "...(profPagesShown() ? PROF_PAGE_SECTIONS : []), ...(vendorPageShown()",
     "tests": [
       "test/holdings.test.js"
     ]

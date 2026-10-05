@@ -218,8 +218,8 @@
   {
     "name": "CA-door-keeps-bodies",
     "file": "src/scenes/crewAshore.js",
-    "old": "    if (key !== placeKey) { liftAll(); placeKey = key; epoch++; }",
-    "new": "    if (key !== placeKey) { placeKey = key; epoch++; }",
+    "old": "    if (key !== placeKey) { liftAll(); placeKey = key; epoch++; trail.length = 0; leaderWas = null; }",
+    "new": "    if (key !== placeKey) { placeKey = key; epoch++; trail.length = 0; leaderWas = null; }",
     "tests": [
       "test/crewcompanions.test.js"
     ]
@@ -254,8 +254,8 @@
   {
     "name": "CA-heel-one-distance",
     "file": "src/scenes/crewAshore.js",
-    "old": "const followOf = (i) => ({ feet: () => deps.leader()?.feet ?? null, stop: HEEL_M + i * HEEL_STEP_M });",
-    "new": "const followOf = (i) => ({ feet: () => deps.leader()?.feet ?? null, stop: HEEL_M });",
+    "old": "const followOf = (i) => ({ feet: () => deps.leader()?.feet ?? null, stop: HEEL_M + i * HEEL_STEP_M, trail: () => trail });",
+    "new": "const followOf = (i) => ({ feet: () => deps.leader()?.feet ?? null, stop: HEEL_M, trail: () => trail });",
     "tests": [
       "test/crewcompanions.test.js"
     ]

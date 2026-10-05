@@ -491,8 +491,8 @@
   {
     "name": "PROF5-svc-own-bought",
     "file": "server-account/src/market.js",
-    "old": "  if (l.seller === me) return { error: 'market-own' };\n  // GOLD-MARKET: a gold listing",
-    "new": "  // GOLD-MARKET: a gold listing",
+    "old": "  if (l.seller === me) return { error: 'market-own' };\n  // HOME-VENDOR: a trader's piece is bought at its trader alone",
+    "new": "  // HOME-VENDOR: a trader's piece is bought at its trader alone",
     "tests": [
       "test/prof5_service.test.js"
     ]
@@ -649,15 +649,6 @@
     "file": "server-account/src/market.js",
     "old": "        AND (SELECT COUNT(*) FROM market_orders WHERE poster = ?1 AND state = 'open') < ?13\n",
     "new": "        AND (SELECT COUNT(*) FROM market_orders WHERE poster = ?1 AND state = 'open') <= ?13\n",
-    "tests": [
-      "test/prof5_service.test.js"
-    ]
-  },
-  {
-    "name": "PROF5-svc-fill-anywhere",
-    "file": "server-account/src/market.js",
-    "old": "  if (Number(o.region) !== region) return { error: 'market-elsewhere' };",
-    "new": "",
     "tests": [
       "test/prof5_service.test.js"
     ]
@@ -917,7 +908,7 @@
   {
     "name": "PROF5-window-market-always",
     "file": "src/ui/noticeWindow.js",
-    "old": "  const marketShown = () => !!marketHost && marketHost.book?.state?.open !== false;",
+    "old": "  const marketShown = () => !!marketHost && (marketHost.book?.state?.open !== false || tab === 'market');",
     "new": "  const marketShown = () => !!marketHost;",
     "tests": [
       "test/prof5_client.test.js"
@@ -926,8 +917,8 @@
   {
     "name": "PROF5-window-market-hidden",
     "file": "src/ui/noticeWindow.js",
-    "old": "...(workShown() ? [['work', 'Work']] : []), ...(marketShown() ? [['market', 'Market']] : []), ...(guildsShown() ? [['guilds', 'Guilds']] : []), ...(seatShown() ? [['seat', 'Seat']] : [])];",
-    "new": "...(workShown() ? [['work', 'Work']] : []), ...(guildsShown() ? [['guilds', 'Guilds']] : []), ...(seatShown() ? [['seat', 'Seat']] : [])];",
+    "old": "...(workShown() ? [['work', 'Work']] : []), ...(marketShown() ? [['market', 'Market']] : []), ...(vendorTab ? [['vendors', 'Vendors']] : []), ...(guildsShown() ? [['guilds', 'Guilds']] : []), ...(seatShown() ? [['seat', 'Seat']] : [])];",
+    "new": "...(workShown() ? [['work', 'Work']] : []), ...(vendorTab ? [['vendors', 'Vendors']] : []), ...(guildsShown() ? [['guilds', 'Guilds']] : []), ...(seatShown() ? [['seat', 'Seat']] : [])];",
     "tests": [
       "test/prof5_client.test.js"
     ],

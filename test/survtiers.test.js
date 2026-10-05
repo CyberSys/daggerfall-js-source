@@ -17,7 +17,6 @@ import { REST_COST, REST_TEXT_SURVIVAL, STIFF_HOURS, restCost, restHour, stiffen
 import { survivalFeed, installSurvivalGate, survivalGateOn } from '../src/systems/survival/env.js';
 import { TEMPLATE, FOOD, FOOD_STAGE, eatLaw } from '../src/systems/survival/food.js';
 import { createSurvivalItem, useSurvivalItem } from '../src/systems/survival/items.js';
-import { huntOutcome, HUNT_EVENTS, HUNT_SAFE_TWIN, HUNT_TEXT } from '../src/systems/survival/hunting.js';
 import { tavernMenu, tavernOrder, tavernPour, tavernEat, tavernDrink, TAVERN_MENU_TEXT, DRINK_MINUTES, MEAL_MINUTES } from '../src/systems/survival/tavernMenu.js';
 import { intermittentEnemySpawn } from '../src/systems/encounters.js';
 import { liveStat } from '../src/systems/statMods.js';
@@ -25,7 +24,6 @@ import { useItem } from '../src/systems/useItem.js';
 import { NOT_ENOUGH_GOLD_ID } from '../src/systems/tavern.js';
 import { TavernWindow } from '../src/ui/tavernWindow.js';
 import { mountEnhancedTavern } from '../src/ui/enhancedTavern.js';
-import { createHunting } from '../src/scenes/hunting.js';
 import { FEATURES, FEATURE_PREF_DEFAULTS } from '../src/systems/features.js';
 import { onlineForcedPref, ONLINE_PLAYERS_OWN_PREFS } from '../src/systems/onlineLane.js';
 import { setPref, loadPrefs, _resetForTests } from '../src/systems/uiPrefs.js';
@@ -194,7 +192,7 @@ test('SURV-TIERS: Hard is the arc as it stood - the rough rest, the drains, the 
   assert.deepEqual({ ...HARD.roughRest }, { recovery: 0.5, encounters: 2, stiffHours: STIFF_HOURS });
   assert.equal(REST_COST.rough, HARD.roughRest, 'rest.js prices the rough kind off the table - one source');
   assert.deepEqual({ ...HARD.stamina }, { floor: 0, hotFrom: 20, coldFrom: -20, bareFeet: true, duringRest: true, repaid: false, fireWarms: false }, 'twenty either way - `abs >= 20`, as it was; a rest pays the band, as it did; a fire is its fifteen degrees');
-  for (const k of ['attributes', 'health', 'rust', 'sickness', 'huntHarms', 'restGate', 'blackout', 'wastedMeal']) assert.equal(HARD[k], true, k);
+  for (const k of ['attributes', 'health', 'rust', 'sickness', 'restGate', 'blackout', 'wastedMeal']) assert.equal(HARD[k], true, k);
   assert.equal(HARD.roughSleepFloor, 'tired');
   assert.deepEqual({ ...DRAIN }, { heatPer20: 6, starving: 4, parched: 6, dehydrated: 12, exhausted: 8, wellFed: 64, bareFeet: 4 }, 'the body\'s rates, unchanged');
   // the defaults
@@ -207,7 +205,7 @@ test('SURV-TIERS: Hard is the arc as it stood - the rough rest, the drains, the 
 
 test('SURV-TIERS: Casual is five rules written out - stamina only, red stages only, borrowed down to half the pool and repaid, nothing refused, rolled against you or wasted', () => {
   assert.deepEqual({ ...CASUAL.stamina }, { floor: 0.5, hotFrom: 51, coldFrom: -31, bareFeet: false, duringRest: false, repaid: true, fireWarms: true });
-  for (const k of ['attributes', 'health', 'rust', 'sickness', 'huntHarms', 'restGate', 'blackout', 'wastedMeal']) assert.equal(CASUAL[k], false, k);
+  for (const k of ['attributes', 'health', 'rust', 'sickness', 'restGate', 'blackout', 'wastedMeal']) assert.equal(CASUAL[k], false, k);
   assert.deepEqual({ ...CASUAL.roughRest }, { recovery: 1, encounters: 1, stiffHours: 0 }, 'a Casual rough night is DFU\'s own hour');
   assert.equal(CASUAL.roughSleepFloor, null);
 });
@@ -531,47 +529,6 @@ test('SURV-TIERS: the meal - Casual makes no sickness roll at all (Hard\'s lucky
   _resetForTests();
 });
 
-test('SURV-TIERS: the hunt - on the SAME rolls, a Casual hunt is the Hard hunt with every harm swapped for its safe twin: the same catch, the same skills, no bite, no fall, no beast', () => {
-  const HARM = (o) => !!(o.poison || o.disease || o.hurt > 0 || o.tired || o.beast);
-  const harmful = new Set();
-  let n = 0;
-  for (const [climate, kinds] of Object.entries(HUNT_EVENTS)) for (const kind of kinds) for (const hasBow of [true, false]) for (const skill of [0, 50, 100]) {
-    const skills = { archery: skill, stealth: skill, criticalStrike: skill, climbing: skill };
-    for (let seed = 1; seed <= 200; seed++) {
-      const hard = huntOutcome({ climate, kind }, { hasBow, skills, luck: 50, rolls: seeded(seed) });
-      const casual = huntOutcome({ climate, kind }, { hasBow, skills, luck: 50, rolls: seeded(seed), rules: CASUAL });
-      n++;
-      if (HARM(hard)) harmful.add(hard.key);
-      assert.equal(HARM(casual), false, `${climate}/${kind}/${hasBow}/${skill}/#${seed}: ${casual.key} carries a harm in Casual`);
-      assert.equal(casual.key, HUNT_SAFE_TWIN[hard.key] ?? hard.key, 'the twin, or the same outcome');
-      assert.equal(casual.meat, hard.meat); assert.equal(casual.fruit, hard.fruit); assert.deepEqual(casual.skills, hard.skills);
-    }
-  }
-  assert.ok(n > 10000);
-  assert.deepEqual([...harmful].sort(), Object.keys(HUNT_SAFE_TWIN).sort(), 'every harmful outcome has a twin, and every twin answers a real harm');
-  for (const [from, to] of Object.entries(HUNT_SAFE_TWIN)) {
-    assert.ok(Array.isArray(HUNT_TEXT[to]), `${from}'s twin ${to} has its words`);
-    assert.equal(Object.hasOwn(HUNT_SAFE_TWIN, to), false, `${to} is not itself a harm`);
-  }
-  // composed, through the host's own hunt (scenes/hunting.js reads the live tier): the rolls that stand three
-  // grizzlies in Hard (surv6_hunting.test.js) stand none in Casual
-  const WILD = { minute: 10 * 60, luck: 50, winter: false, outdoors: true, inLocationRect: false, night: false, enemiesNear: false, resting: false, climateIndex: 232 };
-  const seq = (...v) => { let i = 0; return () => v[Math.min(i++, v.length - 1)]; };
-  for (const [tier, beasts] of [['casual', 0], ['hard', 1]]) {
-    _resetForTests(); setPref(SURVIVAL_PREF, tier);
-    const spawned = [];
-    const env = { ...WILD, hasBow: true, skills: { archery: 100, stealth: 100, criticalStrike: 100, climbing: 100 } };
-    const hunter = { isPlayer: true, level: 5, health: 30, maxHealth: 40, fatigue: 20 * 64, items: [], survival: newSurvival(1000), stats: { luck: 50 }, career: {} };
-    const hunt = createHunting({ entity: hunter, env: () => env, rolls: seq(0.029, 0.69, 0.5, 0.2, 0.5, 0.95, 0), showOverlay: () => {}, spawnBeast: (b) => spawned.push(b) });
-    const w = hunt.tick();
-    assert.ok(w, `${tier}: the event opens`);
-    w.input('KeyY'); w.tick(100); w.click(0, 0);
-    assert.equal(spawned.length, beasts, `${tier}: ${beasts ? 'the beast stands' : 'no beast - the hunted is the dust'}`);
-    assert.equal(hunter.health, 30, `${tier}: and no wound either way`);
-  }
-  _resetForTests();
-});
-
 test('SURV-TIERS: the tavern - the house asks after the gold and before the coin: Casual\'s barkeep will not pour the drink that would take the night, nor the kitchen sell a meal a full stomach would waste; Hard pours, charges and wastes as the mod does', () => {
   const s = (drunk = 45) => ({ ...newSurvival(0), drunk });
   const drink = (strength) => ({ kind: 'drink', strength, price: 5 });
@@ -701,7 +658,6 @@ test('SURV-TIERS: composed - the feed hands the live tier\'s rules, and a Casual
   _resetForTests(); setWorldMinutes(0);
   // the composition points hand the tier - by source
   assert.match(read('src/systems/survival/env.js'), /const deps = \{ worn: entity\.equip\?\.slots \?\? null, ctx: survivalCtx\(entity, full\), rules \};/);
-  assert.match(read('src/scenes/hunting.js'), /huntOutcome\(ev, \{ hasBow: !!now\.hasBow, skills: now\.skills \?\? \{\}, luck: now\.luck \?\? 50, rolls, rules: survivalRules\(\) \?\? undefined \}\);/);
   assert.match(read('src/scenes/shared.js'), /stiffen\(entity, ownMinutes\(\), REST_KIND\.Rough, _rules\)/);   // LIVED1: the body's morning, on its own clock
 });
 
@@ -759,8 +715,6 @@ test('AUDIT SURV-TIERS: null is no rules - survivalRules() answers null for Off,
   const st = sleeper(); assert.equal(stiffen(st, 0, 'rough', null), true);
   assert.equal(eatLaw(createSurvivalItem(TEMPLATE.RawMeat), { lastAte: 0, now: 5000, luck: 10, rolls: () => 0.99, rules: null }).sick, 'mild');
   assert.equal(tavernDrink({ ...newSurvival(0), drunk: 45 }, 35, { endurance: 50, rules: null }).blackout, true);
-  const hunted = huntOutcome({ climate: Object.keys(HUNT_EVENTS)[0], kind: HUNT_EVENTS[Object.keys(HUNT_EVENTS)[0]][0] }, { rolls: seeded(3), rules: null });
-  assert.deepEqual(hunted, huntOutcome({ climate: Object.keys(HUNT_EVENTS)[0], kind: HUNT_EVENTS[Object.keys(HUNT_EVENTS)[0]][0] }, { rolls: seeded(3) }));
 });
 
 test('AUDIT SURV-TIERS: Off\'s minutes are nobody\'s needs - a short Off span is paused whole, a long one is a fresh start (WORLD5\'s rule for an absence); a meal eaten Off is not moved twice; a gap the arc was ON for (WORLD5\'s short absence) still counts', async () => {
@@ -990,7 +944,7 @@ test('AUDIT SURV-TIERS (the second pass): before six the enhanced tavern says th
 // see another player's now - the flame, its light, the tent - and nothing
 // of any camp is its to use. Its own, stood while the arc was on, stay out
 // of sight with the rest of the arc.
-test('SURV-OFFSIGHT: Off sees another player\'s camp - the flame, its light, the tent, and (the third pass) the ray, its name and a look - and uses none of it; its own stay out of sight; on, every camp is seen and used', async () => {
+test('SURV-OFFSIGHT: Off sees another player\'s camp - the flame, its light, the tent, and (the third pass) the ray, its name and a look - and (ENDLESS PROVISIONS) uses all of it too; on, every camp is seen and used', async () => {
   const { createCamps, FIRE_LIGHT_UP } = await import('../src/scenes/camps.js');
   const { TENT_MODEL, FIRE_LIGHT_RANGE, CAMP_TEXT } = await import('../src/systems/survival/camp.js');
   setWorldMinutes(100);
@@ -1030,11 +984,13 @@ test('SURV-OFFSIGHT: Off sees another player\'s camp - the flame, its light, the
     assert.deepEqual(use(), { warm: [true, true], clicked: [true, true], menus: 2 }, `${tier}: and used - warmth, and a menu on each`);
   }
   setPref(SURVIVAL_PREF, SURVIVAL_STORED[SURVIVAL_OFF]);
+  // ENDLESS PROVISIONS (2026-10-04, Mac: the Campfire Kit and Rations for EVERYONE): supersedes SURV-OFFSIGHT. Off
+  // sees every camp and uses every camp - the menu, the click, the rest, the cooking - and only the WARMTH stays the arc's.
   assert.deepEqual(sight(), {
-    flames: [[20, 0, 20]], lights: [[20, FIRE_LIGHT_UP, 20, FIRE_LIGHT_RANGE]], tents: 1,
-    targets: ['camp:p:1', 'camp:p:1'], names: [null, { title: 'Camp' }],
-  }, 'Off: the peer\'s flame, its light, its tent, the ray on it and its name - and none of this player\'s own');
-  assert.deepEqual(use(), { warm: [false, false], clicked: [false, true], menus: 0 }, 'Off: no warmth, and the click the peer\'s camp takes opens nothing - seen, not used');
+    flames: [[1, 0, 1], [20, 0, 20]], lights: [[1, FIRE_LIGHT_UP, 1, FIRE_LIGHT_RANGE], [20, FIRE_LIGHT_UP, 20, FIRE_LIGHT_RANGE]], tents: 2,
+    targets: ['camp:pOLD:1:90', 'camp:pOLD:1:90', 'camp:p:1', 'camp:p:1'], names: [{ title: 'Camp', actions: [{ id: 'rest', label: 'Rest here' }, { id: 'cook', label: 'Cook food' }, { id: 'pack', label: 'Pack up the camp' }] }, { title: 'Camp', actions: [{ id: 'rest', label: 'Rest here' }, { id: 'cook', label: 'Cook food' }] }],   // REST2: the plaque's rows - its own tent packs, a peer's does not
+  }, 'Off: every camp seen - this player\'s own too');
+  assert.deepEqual(use(), { warm: [false, false], clicked: [true, true], menus: 2 }, 'Off: no warmth (the felt temperature is the arc\'s), but a menu on each camp');
   said.length = 0;
   assert.deepEqual([pool.activate('camp:p:1', 'dialogue'), said], [true, [CAMP_TEXT.seeCamp]], 'a look says what it is');
   assert.equal(pool.fireNear([20, 0, 20]), true, 'the world still has the fire - the rest\'s place reads it (AUDIT SURV-TIERS)');

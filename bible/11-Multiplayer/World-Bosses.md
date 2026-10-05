@@ -778,6 +778,13 @@ Mac: *"Discord live gates?"*, then the moments - *"Omen (15 min before), Boss sl
 
 Relay world123 (world126 on its branch, renumbered at the merge with main). Pinned in `test/discordgates.test.js` (11); mutants `tools/mutants/discordgates.json` (45, all dead).
 
+**At sea (SERPENT2, 2026-10-04).** The sea serpent has its own herald on the same door and channel
+(`net/serpentHerald.js`; `Sea-Serpent.md` section 14). It posts its bells fifteen minutes before it rises, pinging
+`SERPENT_DISCORD_ROLE` or else this role, and its kill. It keeps its own vote of where the serpent lies (a `serpent`
+`site` word, folded by this law) and posts the kill AT the agreed site alone, since a cell keeps a forged site's fight
+too. Its beat runs on the hub's alarm after this one. `test/discordgates.test.js` stubs it, so the pins above are the
+gate's alone.
+
 ## 13. The Warden's marks (WB8, 2026-09-28)
 
 Mac: "Make the oblivion gate boss not be able to be pacified, continue to refine and add detail to his encounters, and
@@ -1070,7 +1077,11 @@ pressable meanwhile); pressed, the piece's card. The account card (`ui/enhancedA
 titles, in the Gatebreaker's own fire (`ui/playerBadge.js`: coal-crimson through fire to ember, edged in black).
 AEGIS (2026-10-03) added a second aura that is not sold here: the Oblivion Ward, granted by name with Sureme's Aegis of
 Oblivion title (`06-Systems/Accounts-And-Cloud-Saves-Arc.md`, AEGIS) and drawn by the same pass; each aura's card
-button wears its own title's paint (`ui/playerBadge.js AURA_PAINT`).
+button wears its own title's paint (`ui/playerBadge.js AURA_PAINT`). PRIMARCH (2026-10-04) added a third, not sold here
+either: the Golden Radiance, granted by name with GA00250's Primarch title (the same arc, PRIMARCH), its button in the
+Primarch's gold. SHADOW-CLOAK (2026-10-04) a fourth: the Holo Shadow Cloak, granted with SirMcMobdon's Shadow Fang title (the same
+arc, SHADOW-CLOAK), its button in the Shadow Fang's black and crimson. SERAPH-WINGS (2026-10-05) a fifth: the Seraph
+Wings, held by every developer (DEVELOPER_HANDLES - the same arc, SERAPH-WINGS), its button in the Founder's gold.
 
 THE FIRE (`render/auraRing.js`), two draws a wearer. THE GROUND: one quad under the feet, answered per pixel about the
 wearer - a ring band broken by value-noise fire flowing round it and outward, bright crests chasing about it, ten embers
@@ -2816,3 +2827,13 @@ day."). Main's SEAT1b: a gate claim carries its region and is the war-guild's in
 region and earns no influence, the rite alone being no kill. Main's siege tick runs before the rite's tell in a room's
 alarm. The patch notes ride the pull request (REL6). Merging deploys world151 and acct62, which drops connected players
 once.
+
+## At sea - the sea serpent (SERPENT1, 2026-10-04)
+
+The gate's law at sea: `Sea-Serpent.md`. Sethrakul, the Old Coil, rises every other game day on the event clock, at
+the dawn watch so it never stands beside a gate. It hunts one of the Bay's packet lanes, and its fight is kept by the
+cell room its site stands in. Like the gate it follows Option B, with the claim sets what a fighter brings and deals,
+receipts under the relay's one key (`l1`), the hub's word of the kill, and the account service's one row per (day,
+account). It reuses the gate's boss bar (`ui/gateBossBar.js`, theme `sea`) and its map ring's reader and painter.
+SERPENT2 gave it the gate's two other features: a row in the Timers window and a Discord herald (`Sea-Serpent.md`
+section 14; this page's herald, at sea).

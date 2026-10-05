@@ -111,6 +111,7 @@ import { mountHotbarDock, drawEnhancedHotbar, detachHotbarDock, hotbarMode } fro
 import { setEnhancedMidTextScale } from './enhancedHudText.js';   // AUDIT FONT F2: the mid-screen label is a layer beside this one, not inside it (the popup column it once scaled too is a toast in the notice stack since ENH-NOTICE3)
 import { QUEST_MARK_CSS } from './questMarks.js'; import { nodeMarkCss } from './nodeMarks.js';   // GUIDE5: the tracker's quest on the compass, in the marks' one gold; NODE-MARKS: a profession's nodes in its own colour
 import { BOAT_GLYPH_URL } from './boatMarks.js';   // BOAT-MARK: my boats on the strip, a sail over a hull
+import { SERPENT_RING_MAP_CSS } from './serpentMapMark.js';   // SERPENT1: the sea serpent on the strip, in its ring's green
 
 /**
  * PX30c (Mac: "is there anyway I can adjust the sizing?"): THE HUD'S
@@ -262,6 +263,25 @@ function drawGateMark(gate, playerXZ, heading01) {
   if (!gate || !playerXZ) { if (node.style.display !== 'none') node.style.display = 'none'; return; }
   if (node.style.display === 'none') node.style.display = '';
   const at = Math.min(1, Math.max(0, compassMarkerLerp(gate, playerXZ, heading01)));
+  const l = `${(at * 100).toFixed(1)}%`;
+  if (node.style.left !== l) node.style.left = l;
+}
+
+// SERPENT1: THE SEA SERPENT'S MARK - the gate's diamond in the sea's green (ui/serpentMapMark.js), where it hunts while
+// the player sails inside its ring (scenes/world.js serpentCompassMark); the gate's bearing law, hidden never removed.
+const serpentMarkCss = () => 'position:absolute;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;transform:rotate(45deg);'
+  + `background:${SERPENT_RING_MAP_CSS};box-shadow:0 0 6px 2px rgba(63,214,198,0.75);pointer-events:none`;
+function drawSerpentMark(sp, playerXZ, heading01) {
+  if (!parts.serpentMark) {
+    const node = el('i', 'hud-serpent');
+    node.style.cssText = serpentMarkCss();
+    parts.compass.append(node);
+    parts.serpentMark = node;
+  }
+  const node = parts.serpentMark;
+  if (!sp || !playerXZ) { if (node.style.display !== 'none') node.style.display = 'none'; return; }
+  if (node.style.display === 'none') node.style.display = '';
+  const at = Math.min(1, Math.max(0, compassMarkerLerp(sp, playerXZ, heading01)));
   const l = `${(at * 100).toFixed(1)}%`;
   if (node.style.left !== l) node.style.left = l;
 }
@@ -808,7 +828,7 @@ function build(doc) {
   cells.main.cell.addEventListener('pointerdown', tap(() => { liveOpts.quickSwitchHand?.(); }));
 
   doc.body.append(root);
-  return { root, bottom, compass, marks, detectMarks: [], partyMarks: [], shipMarks: [], nodeMarks: [], boatMarks: [], gateMark: null, questMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, foePoise, foePoiseFill, foePoiseWord, magicka, health, fatigue,
+  return { root, bottom, compass, marks, detectMarks: [], partyMarks: [], shipMarks: [], nodeMarks: [], boatMarks: [], gateMark: null, serpentMark: null, questMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, foePoise, foePoiseFill, foePoiseWord, magicka, health, fatigue,
     stat, quickCap: cap, quickDiamond: diamond, top,   // UI3: the status widget, the caption it stands on, the diamond it may stand beside and the top block over it (its band is measured from them)
     renown, renownBox, renownFill, renownGhost, renownNum,
     breath, breathFill, grip, gripFill, readied, reticle, cross, centreWord, cornerWord,
@@ -952,6 +972,7 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
   // ...and the Detect markers over the same strip.
   drawDetectMarkers(opts.detected ?? null, opts.playerXZ ?? null, heading01);
   drawGateMark(opts.gate ?? null, opts.playerXZ ?? null, heading01);   // WB1
+  drawSerpentMark(opts.serpent ?? null, opts.playerXZ ?? null, heading01);   // SERPENT1
   drawQuestMark(opts.quest ?? null, opts.playerXZ ?? null, heading01);   // GUIDE5
   drawPartyMarks(opts.party ?? null, opts.playerXZ ?? null, heading01);   // COMPASS-PARTY
   drawShipMarks(opts.ships ?? null, opts.playerXZ ?? null, heading01);   // AUDIT NAV1: the sea's ships

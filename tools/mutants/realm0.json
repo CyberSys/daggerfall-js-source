@@ -456,8 +456,8 @@
   {
     "name": "REALM0-frame-never-checkpoints",
     "file": "src/scenes/world.js",
-    "old": "    if (checkpointDue(now, _checkpointAt)) onlineCheckpoint();   // REALM P0.5",
-    "new": "    // REALM P0.5",
+    "old": "    if (checkpointDue(now, _checkpointAt)) { if (realmSession?.idle) realmSession.idle(() => onlineCheckpoint()); else onlineCheckpoint(); }   // SCALE2b",
+    "new": "    // SCALE2b",
     "tests": [
       "test/realm0.test.js"
     ]

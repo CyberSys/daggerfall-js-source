@@ -5,8 +5,9 @@
 //               a deck over the open sea stepped in deep water: the floor under the feet decides now (the host's `deck`
 //               off the down probe's collider bucket), the mod's own wooden-floor rule for a deck.
 //   SEA-HUNT  - the hunt's gate asked "outdoors and not swimming", which was the whole of "on land" before Come Sail Away
-//               put a deck under the player, and the coast's first sea pixels read as land's climate: `afloat` rolls
-//               nothing now, off one predicate the hunt, a bounty's trail and a wilderness band all read.
+//               put a deck under the player, and the coast's first sea pixels read as land's climate: `afloat` rolled
+//               nothing, off one predicate the hunt, a bounty's trail and a wilderness band all read. (The text hunt was
+//               removed 2026-10-04; the trail and the band still read the predicate.)
 //   GUN-HOLD  - a laid broadside could only be fired: Activate while the guns are laid puts them down unfired (the bow's own
 //               cancel), before the helm's ladder boards or heaves to - and the readout says so.
 import { test } from 'node:test';
@@ -21,7 +22,6 @@ import { TRANSPORT_MODES } from '../src/systems/transport.js';
 import { EQUIP_SLOTS } from '../src/characters/paperdoll.js';
 import { ARMOR_MATERIAL } from '../src/systems/armorMaterials.js';
 import { equipTableOf } from '../src/systems/equip.js';
-import { huntRoll } from '../src/systems/survival/hunting.js';
 import { navalHudText, navalPadPrompts } from '../src/ui/navalHud.js';
 import { sea } from './navalSea.mjs';
 
@@ -99,19 +99,8 @@ test('SHIP-DECK: the host says what the feet stand on - the down probe keeps the
 
 // ── SEA-HUNT ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-test('SEA-HUNT: afloat, nothing is hunted - the same minute, climate and dice that stand an event ashore stand none from a deck (mutant: the afloat gate dropped)', () => {
-  const env = { minute: 600, luck: 50, winter: false, outdoors: true, inLocationRect: false, night: false, enemiesNear: false, resting: false, climateIndex: 231 };
-  const ashore = huntRoll({ huntAt: 0 }, env, () => 0);
-  assert.ok(ashore, 'ashore in the woods the dice stand an event');
-  assert.equal(huntRoll({ huntAt: 0 }, { ...env, afloat: true }, () => 0), null, 'from a deck, none');
-  const s = { huntAt: 0 };
-  huntRoll(s, { ...env, afloat: true }, () => 0);
-  assert.equal(s.huntAt, 0, 'and no cooldown spent on a roll that never ran');
-});
-
-test('SEA-HUNT: one predicate for "afloat" - a helm, a boat\'s own deck, another player\'s boat, a sea ship\'s deck, the water - read by the hunt, a bounty\'s trail and a wilderness band; the naval host says whether the player stands aboard', () => {
+test('SEA-HUNT: one predicate for "afloat" - a helm, a boat\'s own deck, another player\'s boat, a sea ship\'s deck, the water - read by a bounty\'s trail and a wilderness band; the naval host says whether the player stands aboard', () => {
   assert.match(WORLD, /const playerAfloat = \(\) => !!csaRuntime\?\.isSailing\?\.\(\) \|\| \(playerEntity\.activeEffects \?\? \[\]\)\.some\(\(e\) => isBoatEffectBundle\(e\?\.bundleName\)\)\n\s+\|\| !!csaAboard\.aboard\?\.boat \|\| !!naval\?\.aboard\?\.\(\) \|\| \(walkMode && playerSpawned && !!player\.isPlayerSwimming\);/);
-  assert.match(WORLD, /afloat: playerAfloat\(\), inLocationRect: _musicInLocationRect\(\)/, 'the hunt');
   assert.match(WORLD, /&& !travelOptions\?\.isTravelActive && !\(walkMode && player\.isPlayerSwimming\) && !playerAfloat\(\),/, 'a bounty\'s trail and pack');
   assert.match(WORLD, /const aboard = playerAfloat\(\);/, 'a wilderness band\'s chase');
   assert.match(src('src/scenes/navalHost.js'), /aboard: \(\) => aboardShip\(\),/);

@@ -90,11 +90,12 @@ function pool(entity, said = []) {
 test('REST2 the pool: online a Campfire stands with the arc Off; a night at your own spends its charge (a friend\'s nothing); the plaque\'s rows name it and its fuel; the lit row is what a press does - Pick up hands it back', () => {
   _resetForTests(); setPref('survival', false);
   setWorldMinutes(1000);
-  const entity = { items: [createSurvivalItem(TEMPLATE.Campfire)] };
+  const entity = { items: [createSurvivalItem(TEMPLATE.Campfire), createSurvivalItem(TEMPLATE.Campfire)] };
   const said = [];
   const off = pool(entity, said);
-  assert.equal(off.placeItem(entity.items[0], entity.items), false, 'offline with the arc Off: no camp, as ever');
-  assert.equal(said.at(-1), CAMP_TEXT.arcOff);
+  // PIN MOVED (ENDLESS PROVISIONS, 2026-10-04: a camp is every tier's): offline with the arc Off a Campfire stands too
+  assert.equal(off.placeItem(entity.items[0], entity.items), true, 'offline with the arc Off: the Campfire stands');
+  assert.notEqual(said.at(-1), CAMP_TEXT.arcOff);
   setSharedClock(() => 1000);
   const p = pool(entity, said);
   assert.equal(p.placeItem(entity.items[0], entity.items), true, 'online: the rest\'s tool, the arc Off');
@@ -130,7 +131,9 @@ test('REST2 a world fire rests too: its plaque rows are Rest and Cook; online th
 test('REST2 by source: the hosts hand the plaque\'s lit row to the camps and spend a night\'s charge; the online night and the offline six-hour rest both call it; the start kit and the shelf carry the Campfire online with the arc Off', () => {
   for (const f of ['src/scenes/world.js', 'src/scenes/exterior.js']) assert.match(rd(f), /camps\.activate\(_campPick\.key, getInteractionMode\(\), plaqueActionFor\(_campPick\.key\)\)/, f);
   assert.match(rd('src/scenes/dungeonContext.js'), /camps\.activate\(key, mode, plaqueActionFor\(key\)\)/);
-  for (const f of ['src/scenes/world.js', 'src/scenes/exterior.js', 'src/scenes/dungeonContext.js']) assert.match(rd(f), /onNightSlept: \(\) => camps\.spendNightNear\(/, f);
+  for (const f of ['src/scenes/world.js', 'src/scenes/exterior.js']) assert.match(rd(f), /onNightSlept: \(\) => camps\.spendNightNear\(/, f);
+  // AUDIT FB1005 B1: the dungeon's spends it unless the night was a bed's (a Bedroll or a Campfire laid by a bed keeps it)
+  assert.match(rd('src/scenes/dungeonContext.js'), /onNightSlept: \(\) => \(_restFromBed \|\| bedInReach\(dungeonBeds, _fpFeet\) \? false : camps\.spendNightNear\(_fpFeet\)\),/, 'src/scenes/dungeonContext.js');
   assert.match(rd('src/scenes/shared.js'), /out\.onNightSlept\?\.\(\);/);
   assert.match(rd('src/ui/restWindow.js'), /if \(this\.mode !== 'loiter' && \(this\.session\?\.totalHours \?\? 0\) >= 6\) this\.deps\.onNightSlept\?\.\(\);/, 'AUDIT REST F5: a loiter is no night');
   assert.match(rd('src/ui/enhancedRest.js'), /if \(overlay\.mode !== 'loiter' && \(overlay\.session\?\.totalHours \?\? 0\) >= 6\) deps\.onNightSlept\?\.\(\);/);

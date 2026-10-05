@@ -77,19 +77,30 @@ test('STREAM1: the expensive direction is the one that is queued, and it is expe
   // THREEFOLD inflation survives the best of seven batches instead of
   // a few preempted singles moving a median. The whole arm costs
   // about a quarter of a second.
+  //
+  // DEPLOY-FLAKE (2026-10-04, the owner: "A test failed on deploy" - the site's deploy of PR #592, its verify shard 3/4,
+  // read 1.30 ms against 0.36: the stride-4 window still three times its honest cost through the best of seven
+  // batches). Two more changes of the same kind:
+  //
+  //   BOTH STRIDES ARE WARMED, THEN TIMED IN TURN. The stride-4 arm used to be warmed and timed only after
+  //   the stride-1 arm had run alone, so the first stride-4 build met code tuned on stride 1 alone and could
+  //   be re-optimised in the middle of its own window. Warming both first and taking one batch of each in
+  //   turn puts a pause on a shared runner across both minimums, not across one arm's.
+  //
+  //   UP TO THREE ROUNDS, and the minimums kept across them. More samples only bring each minimum closer to
+  //   the work. A real regression - a stride-4 grid as dear as a stride-1 one - reads about 1x in every
+  //   round and still fails. Only noise that survives twenty-one batches of each passes as a regression.
   const BATCH = 24;
-  const time = (stride) => {
-    for (let i = 0; i < 5; i++) buildTerrainGrid(samples, stride, ghost);   // warm the JIT before anything is timed
-    let best = Infinity;
-    for (let r = 0; r < 7; r++) {
-      const t = process.hrtime.bigint();
-      for (let i = 0; i < BATCH; i++) buildTerrainGrid(samples, stride, ghost);
-      const ms = Number(process.hrtime.bigint() - t) / 1e6 / BATCH;
-      if (ms < best) best = ms;
-    }
-    return best;
+  const batch = (stride) => {
+    const t = process.hrtime.bigint();
+    for (let i = 0; i < BATCH; i++) buildTerrainGrid(samples, stride, ghost);
+    return Number(process.hrtime.bigint() - t) / 1e6 / BATCH;
   };
-  const one = time(1), four = time(4);
+  for (let i = 0; i < 5; i++) { buildTerrainGrid(samples, 1, ghost); buildTerrainGrid(samples, 4, ghost); }   // warm the JIT on both before anything is timed
+  let one = Infinity, four = Infinity;
+  for (let round = 0; round < 3 && !(one > four * 4); round++) {
+    for (let r = 0; r < 7; r++) { one = Math.min(one, batch(1)); four = Math.min(four, batch(4)); }
+  }
   assert.ok(one > four * 4, `a stride-1 grid is far dearer than a stride-4 one (${one.toFixed(2)} ms against ${four.toFixed(2)})`);
   const g1 = buildTerrainGrid(samples, 1, ghost), g4 = buildTerrainGrid(samples, 4, ghost);
   assert.equal(g1.positions.length / 3, hDim * hDim, 'stride 1 is every sample');

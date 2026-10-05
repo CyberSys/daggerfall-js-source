@@ -95,7 +95,7 @@ test('AUDIT ONLINE2 F3: A LOAD IN THE SESSION IS A STAND-UP - a town\'s thanks g
   const w = rd('src/scenes/world.js'), dc = rd('src/scenes/dungeonContext.js');
   assert.match(w, /townTalk\.say\('Game loaded\.'\);\n\s*slotLoaded\(playerEntity\.characterId \?\? null\);/, 'the world\'s load says it');
   assert.match(dc, /if \(announce\) hudText\.add\('Game loaded\.'\);[^\n]*\n\s*slotLoaded\(playerEntity\.characterId \?\? null\);/, 'and the dungeon\'s');
-  assert.match(w, /onSlotLoaded\(\(characterId\) => \{ spoilsPool\.loaded\(characterId\); raidSpoils\.loaded\(characterId\); _spoilsAskedFor = null; \}\);/, 'the pools let go and the door asks again');
+  assert.match(w, /onSlotLoaded\(\(characterId\) => \{ spoilsPool\.loaded\(characterId\); raidSpoils\.loaded\(characterId\); serpentSpoils\.loaded\(characterId\); _spoilsAskedFor = null; \}\);/, 'the pools let go and the door asks again');   // AUDIT SERPENT D5: the Old Coil's hoard's too
   assert.ok(w.indexOf('let _spoilsAskedFor = null;') < w.indexOf('onSlotLoaded((characterId)'), 'registered after what it resets');
 });
 

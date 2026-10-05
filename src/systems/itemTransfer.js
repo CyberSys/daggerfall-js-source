@@ -96,6 +96,34 @@ export const REFUSAL = Object.freeze({
 });
 
 /**
+ * "Send click to quest system" (DaggerfallInventoryWindow.cs:2027-2037)
+ * - the FIRST act of RemoteItemListScroller_OnItemClick, ahead of the
+ * action-mode branch, so a quest item clicked on the REMOTE list (a
+ * pile, a body, a container) clicks its quest's Item whatever the mode,
+ * a look included. The ClickedItem trigger polls that click
+ * (`clicked item _x_` - O0A0AL00's note in the stolen robes, the
+ * letters a foe carries). The right click is the same member
+ * (RemoteItemListScroller_OnItemRightClick, :2070-2073).
+ *
+ * WHERE-ROBES (FIELD BUGS 2026-10-04c): ONE HOME, because the port has
+ * more doors onto a remote row than DFU's one list - each skin's row,
+ * the enhanced skin's menu and its pad's quick act, and quick loot,
+ * which takes a row with no window at all. Three of those took the
+ * item and never sent the click, and the trigger never fired.
+ *
+ * C# guards the quest and then NREs on a missing symbol (its second
+ * `if` re-tests the quest); the port answers nothing, as
+ * questTransferRefused below does. Answers whether an Item was clicked.
+ */
+export function sendQuestItemClick(item, getQuest = null) {
+  if (!item?.questItem) return false;
+  const questItem = getQuest?.(item.questUID)?.getItem?.(item.questSymbol) ?? null;
+  if (!questItem) return false;
+  questItem.setPlayerClicked();
+  return true;
+}
+
+/**
  * TransferItem's QUEST arm (DaggerfallInventoryWindow.cs:1480-1505) as
  * ONE export, because DFU's is one member with THREE callers - the
  * local list's Remove click, the remote list's, and every staging

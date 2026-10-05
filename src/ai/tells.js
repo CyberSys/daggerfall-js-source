@@ -15,7 +15,7 @@
 import { weaponSkillUsed } from '../characters/weapons.js';
 import { SKILLS } from '../systems/skills.js';
 import { getItemHands, ITEM_HANDS } from '../characters/equipTable.js';
-import { TELL_NOW, TELL_NEAR_M, TELL_NEAR_FLOOR, TELL_IRON_EXTRA, TELL_FEINT_FADE } from './blowShapes.js';   // TELL2: the ground's numbers, homed in the leaf the renderer reads; TELL3: the iron wind-up's extra
+import { TELL_NOW, TELL_NEAR_M, TELL_NEAR_FLOOR, TELL_IRON_EXTRA, TELL_FEINT_FADE, isElite, wholeSet } from './blowShapes.js';   // TELL2: the ground's numbers, homed in the leaf the renderer reads; TELL3: the iron wind-up's extra
 
 /** Every TELL number on one table (section 27). Seconds, shares, multipliers. */
 export const TELL = Object.freeze({
@@ -219,8 +219,9 @@ export function punishSeconds(kind, guard = 'poise', perfect = false) {
 }
 
 // ── TELL5: PATTERNS (bible/12-Enhanced-AI/Feud-Arc.md section 7) ─────────────────────────────────────────────────
-/** An elite: the ELITE FOES gold or an Elite Dungeon's (section 9's "an elite (`elite`, `eliteFoe`)"). */
-export const isElite = (ent) => ent?.eliteFoe === true || ent?.elite === true;
+/** An elite: the ELITE FOES gold or an Elite Dungeon's - the leaf's (ai/blowShapes.js, beside the whole set it decides),
+ *  handed on. */
+export { isElite };
 /** The revenant's rank (0 for none). */
 export const revenantRank = (ent) => (Number.isFinite(ent?.revenant?.rank) ? ent.revenant.rank : 0);
 /** The higher tier (7.3): an elite, a champion, a revenant of rank 2 or more - never an ordinary level-10 foe. */
@@ -272,8 +273,9 @@ export function trackYaw(yaw, want, dt) {
 }
 
 // ── TELL7: THE TIER AND THE COOLDOWNS (bible/12-Enhanced-AI/Feud-Arc.md section 9) ───────────────────────────────────
-/** TELL7: an elite, a champion or a revenant (any rank) - who throws its family's whole set of shapes. */
-export const wholeSet = (ent) => isElite(ent) || !!ent?.champion || !!ent?.revenant;
+/** TELL7: an elite, a champion or a revenant (any rank) - who throws its family's whole set of shapes: the leaf's
+ *  (ai/blowShapes.js, where the whole set is), handed on. */
+export { wholeSet };
 /** TELL7 (9): the seconds before this foe's next telegraphed blow - an ordinary foe's 8-15, a champion's 7-13, an elite's
  *  6-11 (the best of its tiers), a revenant's less 8% a rank (rank 5: 4.8-9 of an ordinary's). `roll` in [0, 1). A last
  *  stand's x0.7 joins with RVN4. */

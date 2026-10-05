@@ -39,6 +39,7 @@ import { survivalRules } from './survival/switch.js';   // SURV-TIERS: a meal's 
 import { SURVIVAL_RULES } from './survival/difficulty.js';   // AUDIT SURV-TIERS: and with the arc off, Casual's - none
 import { setLightSource } from './lightSource.js';   // DISC7: the light in hand's one door
 import { hoodCapable, hoodUp } from './survival/temperature.js';   // HOOD-SAID: the one hood law, for toggleHood
+import { sandPotionRefusal } from './arenaKit.js';   // AUDIT ARENA-LADDER: no potion on the sand
 
 /** THE ARMS WHOSE DESTINATION WINDOW THE PORT HAS NOT BUILT, named so a use
  *  SAYS something rather than eating itself. Keyed by this module's own result
@@ -55,6 +56,7 @@ export const USE_PENDING = Object.freeze({
   spellbook: 'You cannot open your spellbook here.',
   pitchCamp: 'There is nowhere to set that up here.',   // SURV3: a host with no ground for a camp
   placeFire: 'There is nowhere to set that up here.',
+  openPortal: 'A portal can only be opened under the open sky.',   // PORTAL1: a host with no open world (systems/portalStone.js PORTAL_TEXT.notHere)
 });
 
 /** The template indices the predicates name (ItemEnums.cs). */
@@ -355,12 +357,15 @@ export function useItem(item, collection, {
   // the arc off it was Hard's roll (the law's default for no rules), so a meal carried over from a session with
   // the arc on could give a disease in the classic game - the one tier that promises no survival cost at all.
   // Off eats as Casual does: fed, never sickened.
-  if (isSurvivalItem(item)) out = useSurvivalItem(item, collection, { entity, now: nowMinute, rolls, currentDay: Math.trunc(nowMinute / 1440), inflict: inflictDisease, rules: survivalRules() ?? SURVIVAL_RULES.casual });
+  if (isSurvivalItem(item)) out = useSurvivalItem(item, collection, { entity, now: nowMinute, rolls, currentDay: Math.trunc(nowMinute / 1440), inflict: inflictDisease, rules: survivalRules() ?? SURVIVAL_RULES.casual, offMeal: survivalRules() == null });   // ENDLESS PROVISIONS: Off, a meal is never refused for hunger - it gives stamina
   // B1: the book arm hands the ITEM to the window's openBook hook
   // (DaggerfallInventoryWindow pushes the reader; a failed open shows
   // the ruined-book box - failText - which the WINDOW shows on the
   // hook's failure callback, not immediately).
   else if (isBook(item)) out = { kind: 'book', item, failText: named('bookUnavailable') };
+
+  // AUDIT ARENA-LADDER: the sand's kit law - no potion in a bout of one's own, and the bottle is kept (systems/arenaKit.js)
+  else if (isPotion(item) && sandPotionRefusal()) out = { kind: 'refused', refused: true, text: sandPotionRefusal() };
 
   else if (isPotion(item)) {
     // DrinkPotion + RemoveOne. AUDIT 22 F5: RemoveOne takes THIS
@@ -444,7 +449,7 @@ export function useItem(item, collection, {
     // ItemCollection.GetItem verbatim now, allowQuestItem: false
     // included (:1791) - the port grew quest items (item.questItem,
     // read at :211) and inventory.getItem already ports that filter
-    // (inventory.js:398), so a quest lantern is invisible to the oil
+    // (inventory.js:399), so a quest lantern is invisible to the oil
     // exactly as it is in DFU and the bottle refuses instead.
     const lantern = getItem(bag ?? [], 'UselessItems2', TEMPLATES.Lantern, { allowQuestItem: false });
     const oil = item.currentCondition ?? 0;

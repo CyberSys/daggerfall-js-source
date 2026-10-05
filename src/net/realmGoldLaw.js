@@ -185,10 +185,12 @@ export function stashedItemLists(snap) {
  *  stashes, then the wagon, then the pack. (The banks and the purse are counts, not lists.) */
 export const carriedItemLists = (/** @type {any} */ snap) => [...stashedItemLists(snap), ...lists(snap?.wagonItems), ...lists(snap?.bagItems), ...lists(snap?.items)];   // BAG1: the Materials Bag's, between the wagon and the pack
 
-/** OPEN (AUDIT REALM2 T3), as the allowance is: the price customs counts a Daggerfall house at. The realm's bank buys a
- *  house back at the deed's share of its building's model radius x 1280 (banking.js houseSellPrice), a measure no save
- *  carries - the bank reads it off the building at its counter - and a Daggerfall house costs tens of thousands
- *  (net/homeLaw.js, HOME_PRICE_MAX's note), so every house counts at the deed's share of the top of that range. */
+/** OPEN (AUDIT REALM2 T3), as the allowance is: the price customs counts a Daggerfall house at. A save carries no measure
+ *  of its house - the bank reads it off the building at its counter - so customs counts every deed at one figure.
+ *  Daggerfall's own price (banking.js housePrice, the model's radius x 1280) runs from a few thousand to over 800,000
+ *  (FIELD BUGS 2026-09-30b, 2026-10-03), and the realm's bank buys a deed back online at the deed share of the house's
+ *  online price (net/homeLaw.js homeOnlinePrice, at most 212,500 - AUDIT HOME-PRICE C1, L4); 100,000 sits inside
+ *  both. */
 export const CUSTOMS_HOUSE_PRICE = 100_000;
 /** The realm's bank's buy-back and where it files a ship's room, as the game has them - systems/banking.js DEED_SELL_MULT,
  *  SHIP_PRICES, shipSellPrice, ownedShipType, ownsShip and SHIP_INTERIOR_MAP_IDS, talkTopics.js BUILDING_KEY_0 (the
@@ -236,4 +238,24 @@ export function liquidWealthOf(/** @type {any} */ snap) {
   const items = carriedItemLists(snap).reduce((s, list) => s + list.reduce((t, it) => t + liquidWorthOf(it), 0), 0);
   const deeds = deedsOf(snap).reduce((s, d) => s + d.value, 0);
   return purse + banks + items + deeds;
+}
+
+/**
+ * MARKET-AUDIT (2026-10-04): A REALM ACT'S RESERVE OVER A WALLET - `reserve` pays `n` at once (the wallet's `pay`: the
+ * purse, its letters, then a bank account) and answers `back`, which gives back EXACTLY what that payment took - the undo
+ * the wallet's `pay` answers (systems/court.js payUndoable) - and only for a wallet that answers none, its `credit` of the
+ * whole. Once, whoever asks: a refusal (systems/realmSaves.js realmGoldAct runs the reserve's answer) or a `repeat` that
+ * moved no gold on the record (the act's apply calls `back`). Every reserve gave back its whole cost as `credit` - coins in
+ * the purse, or the bank's - whatever had paid it: a refused act turned a letter of credit into a purse past carrying.
+ * @param {{ pay: (n: number) => ((() => void) | void), credit?: (n: number) => void }} wallet @param {number} n
+ */
+export function walletReserve(wallet, n) {
+  let undo = /** @type {(() => void) | null} */ (null), paid = false, done = false;
+  const back = () => {
+    if (!paid || done) return;
+    done = true;
+    if (undo) undo(); else wallet.credit?.(n);
+  };
+  const reserve = () => { const u = wallet.pay(n); undo = typeof u === 'function' ? u : null; paid = true; return back; };
+  return { reserve, back };
 }

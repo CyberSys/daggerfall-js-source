@@ -31,8 +31,8 @@
  {
   "name": "GRASS-PATH1-every-tile-is-marked-whether-the-painter-wrote-it-or-not",
   "file": "src/world/roadPainter.js",
-  "old": "      const ctx = { tilemap, i, x, y, ground, rect: locationRect, paths };",
-  "new": "      const ctx = { tilemap, i, x, y, ground, rect: locationRect, paths };\n      if (paths) paths[i] = 1;",
+  "old": "      ctx.i = i; ctx.x = x; ctx.y = y; ctx.ground = ground;",
+  "new": "      ctx.i = i; ctx.x = x; ctx.y = y; ctx.ground = ground;\n      if (paths) paths[i] = 1;",
   "tests": [
    "test/grasspath.test.js"
   ]

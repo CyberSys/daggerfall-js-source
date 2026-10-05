@@ -86,6 +86,13 @@ export function restoreTravelMapSaveData(data) {
 }
 
 /** A new game (and every test) starts from DFU's defaults. */
+/** AUDIT IT1 C1: a NEW window's four filters and the rest - the struct's own defaults, every place shown. The mod's
+ *  CarriageMap and SeafarersMap are each a new DaggerfallTravelMapWindow (`newobj`), never DaggerfallUI's persistent
+ *  one the store stands for. */
+export function freshTravelMapFilters() { return { ...DEFAULT_FILTERS }; }
+/** AUDIT IT1 C2: a NEW DaggerfallTravelPopUp's three (:85-87) - Cautious, By ship, At inns. */
+export function freshTravelMapPopUpState() { return { ...DEFAULT_POPUP }; }
+
 export function resetTravelMapState() {
   _filters = { ...DEFAULT_FILTERS };
   _popUp = { ...DEFAULT_POPUP };

@@ -254,7 +254,7 @@
   {
     "name": "GUIDE5-compass-call-dropped",
     "file": "src/scenes/world.js",
-    "old": "          quest: questCompassMark(),   // GUIDE5: the tracker's quest's place on the compass, on the street\n",
+    "old": "          quest: vendorCompassMark() ?? questCompassMark(),   // GUIDE5: the tracker's quest's place on the compass, on the street; HOME-VENDOR: a trader's waypoint first, while it is set\n",
     "new": "",
     "tests": [
       "test/guide5_marks.test.js"

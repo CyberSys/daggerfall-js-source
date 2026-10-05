@@ -145,6 +145,7 @@ export const ONLINE_PLAYERS_OWN_PREFS = [
   'hudLocked',        // HUD-MOVE: where THIS player keeps their HUD - a layout on one screen, nothing the room agrees on
   'hudBarsSplit',     // HUD-MOVE: whether this player's three bars move apart - the same screen's
   'hudSnap',          // HUD-SNAP: whether this player's pieces catch on each other while moved - the same screen's
+  'shotDownload',     // LOAD1: whether THIS player's screenshot key also saves a file - their disk, nobody else's
   'skipStartVideo',   // UXB1-A: whether THIS player sits through the opening film - read at the front door, before any room
   'chatHidden',       // CHAT-R2: whether THIS player wants the chat on screen - the room does not get a say in what someone looks at
   'peerClassSprites', // 2026-09-17: how OTHER players are drawn on THIS machine (animated class sprite vs paperdoll) -
@@ -328,6 +329,19 @@ export const ONLINE_ROOM_MOD_KEYS = Object.freeze({
     'StopAtInnsTravel.PlayerControlledInnsTravel': true,
     'ShipTravel.OnlyFromPorts': true,
   }),
+  // IT1 (2026-10-04, the owner, on instant travel online "as an option but with a cost", then "let this be the next mod
+  // we integrate 1:1" - and the choice put to them, "a driver's trip is Daggerfall's fast travel online ... the map's own
+  // trips stay walked"): IMMERSIVE TRAVEL. Its switch is the room's for the floor's reason: it stands a carriage, two
+  // horses and a driver at every city gate (its four gate blocks, laid onto Beautiful Cities' as well), collidable
+  // models a player without them would walk through. And DisableNormalTravel is the room's, OFF - the port's shipped
+  // default (IT1's recorded departure: the mod ships it on) - so online the travel map's trips stay Travel Options'
+  // walked journeys and a driver's fare is fast travel over land (a port's ship passage, TRAVEL-ONLINE item 9, the other
+  // fast travel online - AUDIT IT1 W5); on, the map would refuse every trip to a place.
+  // The fares and the driver's rules are the room's too, whole (ONLINE_WHOLE_MODS below).
+  'immersive-travel': Object.freeze({
+    Enabled: true,
+    'General.DisableNormalTravel': false,
+  }),
   // DW-A to DW-D (2026-09-25): the fourth floor, and more than a floor. Iliac
   // Puddle No More carves the sea out from under the terrain - the switch
   // and the depth decide where the seafloor stands, so two players who
@@ -430,6 +444,7 @@ export const ONLINE_PLAYERS_OWN_MODS = [
   'warm-ashes-ships',       // WA1: my own voyage's ambush - my quest, my crew and pirates (a spawner's foes, WORLD2: a peer on the same deck sees them fight), my lent ship; the pirate vessels are my blocks' variant and stand 40-140 m off in open water, where a peer without them sees sea
   'foraging',               // FORAGE1: my own tools, my own pack, my own quests - a use, a food, a fetch quest all run on my save
   'aquatic-sprites',        // AS1: 119 flats of scenery in three flooded dungeon blocks - no collider, no action, no marker; a peer without them walks the same rooms (the editor's seven sub-degree turns of a room model are under half a degree)
+  'low-poly-trees',         // LPT1: how the wilderness's trees are DRAWN - a 3D tree or its far picture where the same flat stands; the tree's cover, its sway, its Logging node and its fall are the flat's own, so a peer without it walks the same wood
   'come-sail-away',         // CSA-A: a boat is a possession in my save, placed and sailed by me - HCC's wagon's shape: whose boat stands where is the player's own, and a peer only SEES me move (my pose); its wind is my machine's own roll (ComeSailAway.UpdateWind, UnityEngine.Random), as it is each DFU player's
 ];
 
@@ -460,6 +475,10 @@ export const ONLINE_WHOLE_MODS = Object.freeze({
   'roleplay-realism-items': Object.freeze([]),
   'roleplay-realism': Object.freeze(['variantNpcs', 'variantResidents']),   // who stands behind a counter and in a house: looks
   'oblivion-remaster-leveling': Object.freeze(['Enabled']),                 // which leveling a character uses stays its own; the dials are the room's
+  // IT1: a driver's fare is the price of fast travel over land online - a fee of 0, a dungeon on his list or the region
+  // lock off would be a free or a wider teleport a dial away, so every rule is the room's at the mod's own value. Only
+  // the map's looks stay the player's: the dots' sizes, the roads drawn on the page, a captain's map showing docks alone.
+  'immersive-travel': Object.freeze(['General.ClearerMapDots', 'General.DrawRoads', 'General.DrawTracks', 'ShipTravel.ShowLargerDocks', 'ShipTravel.ShowOnlyDocks']),
 });
 
 /** The forced value of a mod's switch on an online page, else undefined -

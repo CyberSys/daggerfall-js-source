@@ -24,6 +24,7 @@ import { weightForMaterial, WEAPONS } from '../characters/weapons.js';   // AUDI
 import { mintCondition, rollPaintingMessage, templateByIndex, isAmmunition } from './itemTemplates.js';
 import { ammoTemplateFor } from '../characters/thunderlockIds.js';   // what a ranged weapon spends - a leaf, so no cycle (see the file)
 import { isRriStackable } from './rriRealism.js';   // RRI2: the IsItemStackable override - an added yes (FormulaHelper.cs:2100-2102)
+import { noteShot } from './shotTally.js';   // ARENA-ARROWS: the shots a bout loosed - a leaf, so no cycle
 
 /** DaggerfallUnityItem.IsEnchanted verbatim
  *  (DaggerfallUnityItem.cs:266-269): DERIVED from the enchantment
@@ -463,9 +464,15 @@ export const spendArrow = (list) => removeOne(list, ARROW_TEMPLATE,
  * A bow, or anything else that reaches here, still spends an Arrow:
  * the answer for every classic weapon is unchanged.
  */
-export const spendAmmoFor = (list, weapon) =>
-  removeOne(list, ammoTemplateFor(weapon) ?? ARROW_TEMPLATE,
-    { group: 'Weapons', allowQuestItem: false, priorityToConjured: true });
+export function spendAmmoFor(list, weapon) {
+  const template = ammoTemplateFor(weapon) ?? ARROW_TEMPLATE;
+  const opts = { group: 'Weapons', allowQuestItem: false, priorityToConjured: true };
+  // ARENA-ARROWS: a REAL round spent is a shot the bout's tally counts (systems/shotTally.js) - asked before it goes
+  const real = !isSummoned(getItem(list, opts.group, template, opts));
+  if (!removeOne(list, template, opts)) return false;
+  if (real) noteShot(list, template);
+  return true;
+}
 
 /** How much ammunition the pack holds for that weapon - the number the
  *  out-of-ammo sheathe and the quiver both read. */

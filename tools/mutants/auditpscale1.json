@@ -283,9 +283,10 @@
   },
   {
     "name": "AUDIT-PSCALE1-a-squad-of-liches",
-    "file": "src/scenes/world.js",
-    "old": "n = SOLITARY_TYPES.has(hit.mobileType) ? 1 : 1 + partyExtraFoes(partySize());",
-    "new": "n = 1 + partyExtraFoes(partySize());",
+    "file": "src/systems/roadEncounters.js",
+    "old": "  if (solitary(mobileType)) return 1;\n",
+    "new": "",
+    "note": "re-aimed BY CONTENT (FIELD BUGS 2026-10-04e WILD-ROAD): the count's one home is roadEncounters.js wandererCount",
     "tests": [
       "test/pscale1.test.js",
       "test/auditpscale1.test.js"

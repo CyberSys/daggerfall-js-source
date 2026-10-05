@@ -4417,7 +4417,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1499`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1505`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4786,7 +4786,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7946` read, on one physical line:
+`src/scenes/worldModes.js:8133` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4801,7 +4801,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:6034`). With the property missing that call is a
+(`dungeonContext.js:6053`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4928,9 +4928,9 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:9430` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:9595` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
-  provenance argument `applySpellToFoe` hands them (`hostMagic.js:484`)
+  provenance argument `applySpellToFoe` hands them (`hostMagic.js:505`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
   Threading it touches four hosts.
 - **A building interior streams no foes at all.** `makeInteriorFoes`
@@ -5464,6 +5464,9 @@ A peer is eased over the interval **it is actually keeping** now,
 measured at arrival and bounded both ways: a burst must not snap it, a
 long silence must not make it crawl back. A peer that has not moved
 twice yet has no interval and falls back to the default.
+*(NET-SMOOTH, 2026-10-04: still the interval it keeps, now the median of
+its last five, a bunch and a pause not counted at all; the ease itself is a
+play-out along waypoints - see NET-SMOOTH at the end of this arc.)*
 
 Measured MOVE TO MOVE, never from the welcome. The first cut took it
 from `at`, which is also stamped when a roster entry first names a peer
@@ -6042,6 +6045,10 @@ the catch-up is capped at twice the peer's real speed and converges in two
 intervals (1000 → 500 → 250, pinned), growth is unbounded as before so a
 silence still ceilings rather than crawls, and the steady state is
 untouched.
+*(Superseded by NET-SMOOTH, 2026-10-04: halving per pose let a stall's
+backlog, landing as a burst, halve the interval to the floor and dash. The
+2x bound is now on the drawn speed itself - the play-out rate is held within
+`PLAY_RATE_MIN`..`PLAY_RATE_MAX` - and the pin reads the speed frame by frame.)*
 
 `RELAY_VERSION` is `world71` (this line first read `world72`: the later slices' version-bump seds relabelled it - the same in-place rewrite the ledger pin forbids for its rows, caught by the final audit); the version bump was run with
 `test/relayversion.test.js` excluded, as that file now says to.
@@ -7151,7 +7158,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1186`, `src/net/online.js:2452`):**
+**Now (`src/net/wire.js:1198`, `src/net/online.js:2533`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -7821,7 +7828,8 @@ cast engine's own line of sight (`allyInReach`) - within touch reach (ALLY_TOUCH
 reach) for a CasterOnly or ByTouch spell and within ALLY_RANGE_REACH (24 m) for a SingleTargetAtRange one; the
 two area types are never redirected, nor is a free ready (a trap's). Found, the cast leaves as the frame (a
 CasterOnly leaves as a TOUCH, range type 1 - it is one, on the ally), the magicka is spent and the skills tallied
-as for any cast, and the caster reads "You cast Heal on Bran." Not found, or the link refusing, the spell does
+as for any cast, and the caster reads "You cast Heal on Bran." (GIFT-QUIET, 2026-10-04: at most once in ten seconds,
+`03-World/Naval-Combat.md`.) Not found, or the link refusing, the spell does
 what it always did. CastReadySpell's touch gate admits the mate as it admits a foe. The departure is the
 CasterOnly conversion: DFU's spellbook is almost all CasterOnly, and kept 1:1 healing a friend would mean buying a
 ByTouch copy first - so a Heal readied with the crosshair on a party mate ARMS for them instead of firing on the
@@ -8063,8 +8071,9 @@ nothing, and the "Cast Heal on Bran" plaque stood only while the peer menu was o
 **A CASTERONLY GIFT ARMS WHILE A MATE STANDS NEAR** (`systems/allyCast.js` ALLY_ARM_RADIUS, 10 m;
 `scenes/hostMagic.js` allyNear). The ready says DFU's "Press button to fire spell." and where the click will land
 ("Aim at a party member to cast it on them, or anywhere else to cast it on yourself."); the click gives it to the
-mate under the crosshair, or - aimed at no one - to the caster, as CasterOnly always does. With nobody near it still
-fires on the spot, DFU's instant cast; a free ready (a trap's payload) never arms (allyMarksFor's law). The stock
+mate under the crosshair, or - aimed at no one - to the caster, as CasterOnly always does (GIFT-QUIET, 2026-10-04:
+the two lines said again only for an arm unlike the last ready's, or ten seconds on; `03-World/Naval-Combat.md`). With
+nobody near it still fires on the spot, DFU's instant cast; a free ready (a trap's payload) never arms (allyMarksFor's law). The stock
 Shield the players took for "hard-coded self-only" is this: the maker lets Shield onto any target
 (`SELF_TARGET_KEYS` has no 35), and the CasterOnly copy now arms like any other.
 
@@ -9393,10 +9402,12 @@ took: three town homes a character, no upkeep.
   owner when party (the handles the relay signs), and - Daggerfall's own rung - a player whose active quest is set
   in it, so a quest never strands its player. It is shut to everyone else by no pick, no bash and no Open spell, the
   refusal "This is <owner>'s home. The door is locked." A house anyone may buy is its offer (HOME-OFFER below): "This house
-  can be your home. It costs N gold, from your purse and this region's bank account. Buy it?" - the price Daggerfall's
-  bank asks for that house (its model's radius x 1280 - the model the door's own record now carries,
-  `systems/talkTopics.js buildingDataForDoor`, the town directory's for the same building); Yes claims it first and takes the gold only once the claim
-  lands (the purse, letters of credit too, then the region's account, as Daggerfall's PurchaseHouse pays), asking the
+  can be your home. It costs N gold, from your purse and your account at the Bank of the Empire. Buy it?" - HOME-PRICE
+  (2026-10-04, `06-Systems/Economy-Arc.md`): the ground its model stands on at 300 gold a square metre, raised by its
+  town's size, 5,000 to 250,000 (`net/homeLaw.js homeOnlinePrice`; the model the door's own record carries,
+  `systems/talkTopics.js buildingDataForDoor`, and the town's blocks, `townBlocks`), never Daggerfall's radius x 1280,
+  which stays the bank's offline; Yes claims it first and takes the gold only once the claim
+  lands (the purse, letters of credit too, then the Empire's account - EMPIRE-ACCOUNT - as Daggerfall's PurchaseHouse pays), asking the
   purse again after the answer and giving the claim back if it can no longer be paid; No goes on to the door, as
   Daggerfall's Info click does. HOME-OFFER (2026-09-26, Mac: "Enhanced plus cant buy house"): HOME1 asked in Info
   mode alone, which nothing on the enhanced skins says, and the default mode is Grab - so a press on a house for sale
@@ -9404,7 +9415,7 @@ took: three town homes a character, no upkeep.
   Info always asks) - `systems/onlineHomes.js homeDoorPrompt`, `test/homeoffer.test.js`. A house is a candidate when it is Daggerfall's for-sale house or an ordinary
   residence (House1-4) - never a faction's House2 - and is for sale when no active quest is set in it. In Info mode
   my own door is my menu: G go in, W who may enter (Only me, My party, Anyone), S sell it back - at Daggerfall's deed
-  share (85%) of what the SERVICE says was paid, into the region's account, credited only once the service agrees;
+  share (85%) of what the SERVICE says was paid, into the Empire's account, credited only once the service agrees;
   anything left inside is lost with the next clearing of the scene cache, as a sold house's is. The hover names a
   home "Your home" or "<owner>'s home", with "Locked" when it will not open for me and no Lock Level (its lock is a
   word, not a mechanism), and a house for sale "Can be your home: N gold"; the Info click names it the same way.
@@ -9461,7 +9472,10 @@ red deploy reads as a service that is not there.
   reads the lit verb for ITS door alone (`plaqueActionFor(key)`), against the door as it stands at the press.
 - **The deploy's smoke asks again** (`.github/workflows/account-deploy.yml`, `post`): a call that answers 404 is
   asked again, seven times five seconds apart, before the deploy is failed - an old instance wrote nothing for a
-  path it does not know. Every new route's call goes through it.
+  path it does not know. Every new route's call goes through it. DEPLOY-FLAKE (2026-10-04, the owner: "A test
+  failed on deploy"): a 5xx is asked again too. PR #592's run took its migration and its Worker, then read
+  `renown/xp -> 500` once, seconds after the gate-key probe had read 500 and then 400. A 5xx comes from a batch that
+  failed whole and wrote nothing; one that still fails after half a minute is a broken route.
 
 Pinned: `test/home2.test.js` (4) - the law, the plaque's fold executed, the door by source, the deploy; re-aimed by
 content in `test/home1.test.js` (House5, the Info-only offer) and `test/worldhover.test.js` (the door cache).
@@ -10031,6 +10045,39 @@ home's alone - they are about other players.
 - Known limits: the lot is a box round the footprint (a building turned off the grid has a wider lot); yard pieces are
   not activation targets; the street's wandering folk are not steered round them.
 
+### KNIGHT-HOUSE - a house a Knightly Order gives is its knight's on every door (FIELD BUGS 2026-10-04d)
+
+The Discord: "Houses earned through Knightly Orders still possibly purchaseable? ... I don't want to risk my Knight
+House being bought out from under me" - at the knight's own door, "To Arde's residence", "Go in", "Buy it: 554330
+gold". The order's gift (KnightlyOrder.ReceiveHouse, `systems/banking.js` allocateHouseToPlayer) is Daggerfall's deed in
+the save and nothing else, and HOME1's offer read only the service's list: the knight was offered their own house, every
+other player the same - whose claim then took it (measured on the real service: 200) - and the knight's own claim paid
+for it again. Online the bank sells no house (HOME1), so the order's gift is the one deed made in the realm.
+
+- **The knight's door.** A building the character's own deed names - one the realm gave, standing in its layout
+  (`net/homeLaw.js` homeDeedOf, `systems/onlineHomes.js` realmDeedAt) - is never priced to it (`homeOfferPrice`). A deed
+  customs carried in is an offline house and stays HOME1's ("Stay offline only").
+- **Held from everyone else.** The account service HOLDS such a deed's building (`/v1/homes/deed`,
+  `server-account/src/homes.js` holdDeed, migration 0079 `homes.deed`): read off the character's realm record (the deed
+  must stand in it, to that building, in the layout the hold names), written as a claim's row marked `deed` - nothing
+  paid, outside the three homes a character may buy. Every other claim on it is `home-taken`; the owner's is a repeat
+  that pays nothing. To every other reader it is the knight's home, shut; the knight's own answer leaves it out (its
+  door, storage and bed are Daggerfall's, off the deed). The Seneschal holds the house it gives once the checkpoint
+  carrying it lands, waiting first for the room's town layouts (a building key names a building only in its layout); a
+  building taken meanwhile gives the gift back (the deed, the order's flag, the scene, the discovery). Every boot holds
+  the deeds from before.
+- **The market and the bank.** The houses for sale (the bank's and the Seneschal's, `banking.js` housesForSale `owned`)
+  leave out any building the town's answer names - a player's home or another knight's house. The deed's sale at the
+  bank gives the hold up first (`releaseDeed`); a deed the service never held sells as Daggerfall's.
+- **Deploy the account service first** (migration 0079, then the `acct77` Worker). A new client on an old service: the
+  holds answer 404 and the deed is kept - the knight's door is mended, nobody else is kept off until the service
+  lands. An old client on a new service: the knight's house is the knight's to everyone else; the knight's old build
+  still offers "Buy it", and its claim is answered as a repeat that pays nothing.
+- **Not reconciled:** a knight's house another player claimed before this stands theirs (the knight's hold answers
+  `home-taken`). Four hosts: `worldModes.js` (the door, the market, the Seneschal, the bank) and `world.js` (the boot's
+  holds) WIRED; `exterior.js` builds worldModes offline with no registry (Daggerfall's law stands); `dungeonContext.js`
+  has no house door. Pinned by `test/fb1004d_knight_house.test.js`; `tools/mutants/fb1004d_knight_house.json`.
+
 ### THE AUDIT (2026-09-30, asked: "let's do a nice audit on this. Just want to make sure it's perfect")
 
 Four lanes read the slices adversarially (the rent and its gold, the doors, the look and the yard, the merge and the
@@ -10079,6 +10126,36 @@ Pinned: `test/homedoors.test.js` (14), `test/homerent.test.js` (10), `test/homel
 `test/accountworker.test.js` (the tables), `test/renown_char.test.js` (the migrations after 0035), `test/decor1e.test.js`
 and `test/decor2b.test.js` (the sale's line, the tap under a flight) and the ACCOUNT_VERSION pins (`acct37`).
 
+
+### HOME-VENDOR (2026-10-03, Mac: "add the ability for players that own houses to buy npcs that sell goods for them when someone visits the house ... make the available npcs visible on the board with a tab and item search filter"; asked, "Yes only in the house and you should be able to set a waypoint where the trader is ... Selfplaced npcs should sell stuff waaaaay longer") - a hired trader in a home
+
+- **The law** (`net/vendorLaw.js`, both ends): a trader is a placed piece of a home's decor made the `vendor` station
+  (`net/decorLaw.js` DECOR_STATIONS, "Hired trader", a 25,000 gold licence paid once as every station's). Its STOCK is
+  market listings of pieces from the owner's pack, for gold (MARKET-ANY's route, `market.js` listGood), carried AT the
+  trader: they stand VENDOR_LISTING_S (thirty days, not the market's 72 hours) and are bought at that trader alone. A
+  vendor on the wire is `{ map, id }` - the home's town and the decor id. The directory is searched by EVERY word over
+  the item, the owner and the town (vendorSearch).
+- **The catalogue** (`systems/decorCatalogue.js`): the people Daggerfall stands in its rooms (`blockPeopleRecords`) are
+  catalogue pieces too, kind Vendors (Mac: "People category sounds wrong call it vendors") - placed, one is made the
+  trader.
+- **The service** (`server-account/src/market.js` over `migrations/0080_home_vendors.sql` - `market_listings.vendor_map`,
+  `vendor_id`; routes `/v1/market/vendor`, `/vendors`, `/myvendors`). A listing named at a trader is the owner's
+  character's own trader (`vendor-not-yours`), in the HOME's region whatever the client says; it is filtered out of the
+  goods view, so no regional board shows it. A buy of a trader's piece must name its own stall (`vendor-only`,
+  `vendor-not-here`) and the stall must still stand (`vendor-gone`). A stocked trader is neither removed nor unmade
+  (`decor.js` vendorStocked, `vendor-stocked`) and its house is not sold (`homes.js`, `home-vendor-stocked`). The
+  region's directory says each house's door as the town answer says it (entry, mine, guildmate, tenant); the client
+  keeps only the traders `homeMayEnter` lets the character in on. A guild's hall stands no trader.
+- **The client.** A trader pressed in its home (`scenes/worldModes.js` openHomeVendor -> `scenes/world.js`
+  openHomeVendorWindow) opens its stall in the Notice Board's window (`ui/noticeWindow.js` `traderOnly`,
+  `ui/vendorTab.js`): a visitor buys off the purse; the owner takes a piece back or puts one up from the pack. The
+  board's Vendors tab lists the region's reachable traders, searched, a row setting the WAYPOINT
+  (`systems/vendorWaypoint.js`) - a gold coin on both world maps (`ui/vendorMapMark.js`, apart from the map's one yellow
+  mark, which stays the player's), the house named on the town map, the compass on the town from the street, a mark in
+  the Overworld's travel view; walking into the house clears it. The Vendor page (`ui/vendorPage.js`) on the pause
+  window's Character rail under the Professions (Mac: "add a Vendor tab under professions (not in)") holds my traders,
+  their stock, what they sold and the takings, collected into the account of the region I stand in.
+- **Pinned** in `test/homevendor_service.test.js` and `test/homevendor_ui.test.js`; `tools/mutants/homevendor.json`.
 
 ## GUILD1 (2026-09-25, Mac: "future ownership for online guilds"; asked, founding takes "Gold and Renown", a guild is joined "Per character", its ranks are "Four, renamed by the guildmaster", and the treasury is the "Guildmaster only" to take from) - a guild the players found, and the service keeps
 
@@ -10259,7 +10336,8 @@ own module (`src/net/hallLaw.js`), never net/guildLaw.js, which is in the relay'
   (`realm_gold`, AUDIT REALM L1-F3's part) in ONE batch with the row - the treasury's UPDATE guarded by what it holds,
   the guild holding no hall and the buyer still its guildmaster, then the INSERT (a building somebody owns is the
   primary key's refusal, and the batch goes back); a claim asked again finds the building already this guild's hall
-  (`repeat`). The price is the client's word, as a home's claim takes it. **Sold** (`/v1/guilds/hall/sell`): the
+  (`repeat`). The price is the client's word inside the online range (HOME-PRICE: `homePriceOk`, a build asking
+  another `home-update`), as a home's claim takes it. **Sold** (`/v1/guilds/hall/sell`): the
   deed share of what the treasury paid (`homeSaleRefund`) and half of what records paid for its pieces, back into the
   treasury and its realm part, in one batch with the row's DELETE - held to the pieces as they were read (their count
   and their sum), so none is sold unpaid. **Who may walk in** (`/v1/guilds/hall/entry`, an Officer's too).
@@ -13726,7 +13804,8 @@ numbered, is one now:
 - **Main's own red, fixed here:** `test/tv6_dungeons.test.js` pinned travelViewWalkTo's options before TO-ROADS added
   `roads`.
 - **LIVED1 (#442, "your own time") came in last:** a character keeps its own clock online. Foraging's quest time
-  (FORAGE4's wait on the hunt's page) now also passes on that clock, as the hunt's minutes do after its page
+  (FORAGE4's wait on the hunt's page - the wait page alone since HUNT-OUT, 2026-10-04) now also passes on that clock,
+  after the page, as the hunt's minutes did
   (`systems/quest/questActionsExtension.js` RaiseTime: the wait online, the host's raiseTime - the character's time -
   in both lanes); MAC-LVL1's `restSimMinutes`, which LIVED1 retired, left the save's fields beside FORAGE4's
   `foragingWait`; DEATH-PENALTY's screen-loss pair rides the encounter loop's lift beside LIVED1's sky.
@@ -14271,6 +14350,337 @@ record; in short:
   `test/guild1b.test.js` re-aimed at the one account, and `test/fb0930b_bankregion.test.js`'s online half. Mutants:
   `tools/mutants/empireaccount.json` (41, all dead); `realm0.json` (4), `realm5.json` (1), `auditrealm.json` (1),
   `fb0930b_bankregion.json` (3) and `survtiers3.json` (2) re-aimed by content.
+
+## NET-SMOOTH (2026-10-04, Mac: "Sometimes other players rubberband, I want to continue to improve performance and future proof for larger amounts of players") - other players drawn without jumping back
+
+Asked first, Mac chose **client fixes first** (no relay deploy now; a batched relay deploy - a sequence and timestamp
+on the pose, SCALE2b's O(1) index - comes later as its own slice) and **onto the open PR**. Every cause found was on
+the client, in `src/net/online.js`; the relay is untouched and stays on its version.
+
+**Four causes, read in the code:**
+1. **The snap in the wrong units.** A pose farther than the snap from where the peer is drawn is a teleport. The snap
+   was `SNAP_WORLD_UNITS` for a room whose name starts `world:` and the scene frame's 30 units for every other - but a
+   siege's battle, a Royal Tourney and an owned interior or boat carry their poses in MapsFile's frame
+   (`scenes/world.js` `nativeFrame`), 40 units to the metre. There the snap was 0.75 m, and a runner at 10 Hz goes
+   0.8 m a pose: they teleported on nearly every pose. The snap is the frame of the ROOM the pose was heard in now
+   (`nativePoseRoom`, `snapUnitsFor`).
+2. **One pose, several rooms, no order.** `sendPose` sends down the cell's socket and every halo's, and each room is a
+   Durable Object of its own. A listener holding two of them hears every pose twice, and the copies race. Only an
+   identical copy was dropped (AUDIT WORLD6b-iii(b) C6); an OLDER copy landing second was eased toward and the peer
+   walked backwards. The frame has no sequence to order by, so a peer is heard through ONE room at a time (`src`).
+   Another room's copy says the peer is alive and moves nothing, until the source falls silent (`SOURCE_STALE_GAPS`
+   intervals, `SOURCE_STALE_MIN_MS` at least), lets the peer go (its leave, the room forgotten), or proves itself
+   behind: a pose the source brings that another room brought `SOURCE_LEAD_MIN_MS` sooner, `SOURCE_LEADS` times in a
+   row, hands that room the peer. It takes it at the moment it has just shown itself ahead, so its next pose is newer
+   than anything the old source said - no step back at the hand-over. One socket's frames arrive in the order they
+   were sent, so one source is one ordered stream.
+3. **A hello's pose replayed.** A peer opening a halo is announced to that room by a `join` carrying the pose it said
+   hello with, and a halo of mine opening hears a roster of the poses that room last held. Each is older than what the
+   peer's source room is saying. An introduction's pose moves the peer only from its source room, or when no source is
+   live; the introduction itself (name, look, badge) always lands.
+4. **An ease that restarted on every pose.** The ease ran from where the peer was drawn to the newest pose over the
+   newest interval between arrivals, halved at most per pose (SLAM10). A stall's backlog, landing as one burst, halved
+   it to the floor: the peer parked, then cut the corners at up to 4x. And it restarted from where the peer was drawn
+   the frame BEFORE, so every pose cost one frozen frame. A peer is **played out** now. Its poses are waypoints on a
+   path (`path`), spaced in the peer's own time (`c`, ms of its walk), and a cursor (`cur`) walks the path at a rate
+   (`rate`) set at each arrival (`rateFor`):
+   - it aims to keep one interval and a jitter cushion of path ahead of the cursor; a steady stream plays at exactly 1;
+   - it never goes faster than `PLAY_RATE_MAX` (2, SLAM10's own bound on a catch-up) or slower than `PLAY_RATE_MIN`
+     (0.75, while the cushion fills);
+   - the cushion is the farthest of the recent intervals from the cadence, at most one interval (`cushionOf`) - the
+     farthest because it is there for the late pose. On a line jittering 0-60 ms, a cushion of twice the mean distance
+     let the peer stand still on 12 frames in four seconds; this one, on none;
+   - the cadence is the median of the last `CADENCE_SAMPLES` (5) intervals between moves (`cadenceOf`). An interval
+     under `GAP_MIN_MS` (faster than any client may speak: two poses delivered together) or past `PAUSE_MS` (a pause)
+     is not counted, so neither a backlog nor standing still is read as a rate;
+   - a pose's own segment is the cadence (`segmentFor`), unless its own spacing says the rate changed before the median
+     can: under a third of it, a faster rate (the far tier promoting me) walked at its own spacing; past twice it after
+     a moving pose, a slower rate or a stall, walked over half the silence and never played faster than 1;
+   - a backlog past `PATH_MAX` (8) lets its oldest waypoints go past the one being walked: the path straightens, the
+     peer's time along it is kept, nothing dashes.
+
+**Measured** beside the old law in a scratch simulation (one peer walking 5 m/s, heard through a cell and a halo, each
+socket in order, nine lines). Every figure is from that simulation, not from live play:
+
+| line | backward steps (old → new) | fastest frame | standing frames |
+|---|---|---|---|
+| clean | 0 → 0 | 1.6x → 1.5x | 161 → 7 |
+| the halo 0-150 ms slower | 15 → 0 | 4.5x → 1.1x | 297 → 0 |
+| jitter 0-120 ms | 0 → 0 | 4.3x → 2.0x | 302 → 29 |
+| a 400 ms stall every 3 s | 0 → 0 | 1.6x → 1.3x | 177 → 0 |
+| promoted 1 Hz → 10 Hz and back | 0 → 0 | 5.5x → 2.3x | 265 → 274 |
+
+How far behind a peer is drawn moved little:
+- within about 10 ms of the old law on a clean line, a slow halo and stalls;
+- higher by the cushion where the line jitters: about 25 ms at a crowd's 4 Hz with 40 ms of jitter, and about 55 ms at
+  0-120 ms of jitter;
+- slower to close after a promotion: the far tier's second of lag closes in about 1 to 1.5 s at 2x, where the old law
+  closed it in about half a second by dashing at up to 5.5x.
+
+The standing frames left in promotion come from the first far interval after a demotion. No client can know it is coming
+before the pose that ends it.
+
+**Not changed:** the relay, the wire, the send rates, the far tier. Without a sequence on the wire, order is "one source
+room at a time" and a peer's real send times are estimated from arrivals. The relay batch can add both, and NET-SMOOTH
+would then read them. *(It did, the same day - SCALE2b, below. Everything above stays as the fallback for a pose without
+a send time: an older relay strips it, an older client sends none.)*
+
+**Pinned** in `test/netsmooth.test.js` (9). Re-aimed: `test/slam3.test.js`'s bounds pin (a bunch measures nothing, a
+pause is not an interval, stop-and-go never moves it), `test/slam10.test.js`'s catch-up pin (the drawn speed frame by
+frame through a promotion and a demotion), and ONLINE1's merge pin (where Bob is drawn is read off his walk; the test
+had written `shown` by hand). `tools/mutants/netsmooth.json`: 23 mutants, 22 dead, 1 equivalent as recorded. The three
+easing mutants in `slam10.json` were re-aimed at the new law (all dead), and `slam14.json`'s Y6 was re-aimed by content.
+
+## SCALE2b (2026-10-04, Mac: "I definitely want to do all these changes in full. No exceptions") - a pose says when it was said
+
+NET-SMOOTH's second half, in the relay deploy SCALE2b is (`11-Multiplayer/Scale-Arc.md` SCALE2b has the relay's
+side). The wire gains one field and the client reads it.
+
+**The field** (`src/net/wire.js`): `ts`, the sender's wall clock in ms when it said the pose, modulo `POSE_TS_MOD`
+(2^24, 4.6 hours), never less than one past the last it said (`OnlineSession._stampTs`). `validPose` keeps it when it
+is an integer inside the modulus and drops it otherwise - never clamped, which would order every later pose behind it.
+`poseTsDiff` orders two across the wrap. Omitted by an older client, stripped by an older relay: a receiver that sees
+none plays the pose as NET-SMOOTH does. Every room's copy of one pose carries the same `ts` (one stamp, then the cell's
+socket and every halo's); the hello's pose is stamped as it is said; a pose that goes nowhere spends no stamp.
+Wall clock, so a reload's poses are never older than the last page's.
+
+**The receiver** (`OnlineSession._arriveTimed`):
+- **Order.** The newest send time wins whichever room brings it; an older or repeated copy moves nothing. So every
+  pose arrives by the quicker room - the source-room logic is the untimed fallback's alone - and an introduction's old
+  pose (a halo's join or roster) is simply older. A sender whose clock went back is followed again after
+  `TS_RESYNC_MS` (2 s) with nothing newer.
+- **Spacing.** A waypoint's place on the path is its send time, so the path is walked at the pace the sender kept. The
+  cadence is the median of the sender's own intervals - no jitter in them.
+- **Delay.** Each arrival's lateness against its send time (`offs`, the last `OFFSET_SAMPLES` = 8) gives the line's
+  fastest and its jitter. The cursor is steered to the send time `now - (fastest + one interval + the jitter, at most
+  one interval)`: one interval so a pose is always ahead of it, the jitter so a late one still lands first. Steady, the
+  rate is exactly 1 whatever the line does; behind (a backlog, a promotion), at most `PLAY_RATE_MAX`; ahead, at least
+  `PLAY_RATE_MIN`.
+- **Standing.** A step after a still pose starts one interval before its send time, a moving segment is at most
+  `GAP_MAX_MS`; a cursor waiting at the end of the path is moved across the standing rather than racing it.
+
+**Measured** in the same scratch simulation as NET-SMOOTH's table, the send time added to every pose (simulation, not
+live play):
+
+| line | untimed lag → timed | fastest frame | standing frames |
+|---|---|---|---|
+| clean | 175 → 163 ms | 1.5x → 1.1x | 7 → 4 |
+| the halo 0-150 ms slower | 184 → 176 ms | 1.1x → 1.0x | 0 → 0 |
+| jitter 0-120 ms | 266 → 246 ms | 2.0x → 1.6x | 29 → 16 |
+| a 400 ms stall on one room every 3 s | 186 → 176 ms | 1.3x → 1.0x | 0 → 0 |
+| stop and go, 2 s / 1 s | 141 → 120 ms | 2.0x → 1.1x | 3 → 3 |
+
+The stall row is the order paying off: the other room never stalled, and every pose came by it.
+
+**Pinned** in `test/scale2b.test.js` (the stamp, the order, the resync, the pace on a jittering line, the standing),
+beside the relay's half. ONLINE1's and CHAT1's pose-frame pins re-aimed at the stamped pose.
+
+## SUNBABY1 (2026-10-04, "develop a command like /event dread that turns the sky into pretty flowers, clears weather and shows the sun as a big laughing baby ... Like teletubbies") - a second live event: the sun baby, world163
+
+EVENT1's door, a second word on it: `/event sunbaby` (or `/event sunbaby on`) stages it, `/event sunbaby off` or `/event off` ends it - the dev glyph, asked of the token by the relay, online players only, exactly as the dread. Everything EVENT1 built carries it (the `stage` frame, the hub's storage, the welcome's `ev`, `OnlineSession._setEvent`); the parts below are what is new.
+
+**The wire - a word, and the relay that first knows it.** `LIVE_EVENTS` appends `sunbaby` (`['dread', 'sunbaby']` - never reordered). The relay's `stage` arm reads LIVE_EVENTS, so it takes the word with no change of its own - but a relay before it answers the word `bad stage` and CLOSES the socket, so knowing the frame (`EVENT_RELAY_MIN` 110) is no longer knowing every word on it. `LIVE_EVENT_RELAY_MIN` names the first relay that knows each word (`dread` 110, `sunbaby` 163) and `relayKnowsLiveEvent(v, kind)` reads it; the session keeps the welcome's version (`eventV`) and `sendStage` sends a word only to a relay that knows it (the end, `''`, is any stage relay's). world.js says a word an older relay does not know in words ("The server cannot stage that event yet."). RELAY_VERSION world163 (`test/relayversion.test.js` row; world162 on its branch, renumbered past main's PRIMARCH at the merge); the exact-version pins moved to it, each marked. An old client reads the word as no event (EVENT1's law), so it is safe against every build before it.
+
+**The look - world/sunbabySky.js and render/sunbabySkyRenderer.js.** The dread is a grade because it keeps the sky's own light; this event replaces the sky, so it is ONE fullscreen pass drawn by the sky controller after the sky and its volumetric clouds (`createSkyController().draw`), at the far plane under LEQUAL (the land stands over it, as over any sky), blended by the event's weight - over the classic panorama, the port's dome and Dynamic Skies alike. A nursery-blue dome (`SUNBABY_ZENITH`, `SUNBABY_HORIZON`) full of drifting, slowly turning five- and six-petalled flowers in six colours on two layers of a ceiling grid (big overhead, small toward the horizon, faded into a pale band at it), and the SUN BABY: a big baby face (`SUNBABY_SUN_RADIUS` 0.19 rad, the rays reaching ~1.8 times it) in a gold rim with turning rays - eyes squeezed shut with laughing, rosy cheeks, a button nose, one curl, and a wide open mouth that giggles in bursts while the head bobs and tilts. All procedural, no texture and no game data; the GLSL (`SUNBABY_GLSL`) is generated from the tables, so a colour lives in one place, and every derivative its anti-aliasing reads is taken before a branch. The pass is built the first time the event shows (a session that never sees one never compiles it; a failed build warns and costs only the flowers) and draws nothing at weight 0.
+
+**The weather clears.** While the word is staged (`createSunbaby().on`, at once - the sky fades on its own clock) the host SHOWS `SUNBABY_WEATHER` ('sunny'): `shownWeather()` is what every door that applies the weather applies (the frame's drain, the teleport's, the travel's, the respawn roll's), so the rain, the snow, the storm and its thunder, the overcast haze and the sky's own word all go; the weather front walks the falling drops off as it walks any change. It is the SHOWN weather, never the sim's - the sim's word is the world's (rolled on the shared clock, carried on the weather map, saved) and comes back the frame the event ends. While staged the sky's frame (`use`) stands on the clear day whole - no weather-map storm cell in the clouds, no violence, no approaching front (`setSunbaby(w, on)`) - and the distant storms (WEATHER3d) strike nowhere.
+
+**Always a bright day under it.** The flower sky is a day sky at any hour, so the land sits under the sky it sees: the ambient is lifted toward `SUNBABY_AMBIENT` (noon's, warmed) by the weight and never dimmed (`sunbabyLight`, over the dread's light in the one `setLighting` call), the haze leans to the flower sky's horizon (`sunbabyHaze`, in `fogColorFor`), and the water mirrors its blue (`sunbabyWaterSky`, in `waterSky` on either lane).
+
+**It rises.** `createSunbaby`: a change the player watched walks over `SUNBABY_FADE_S` (8 s) each way and the sun baby rises with it out of the east (`sunbabySunDir`: from `SUNBABY_SUN_SET_DEG` -24 under the land to `SUNBABY_SUN_ELEV_DEG` 30, eased so it slows as it climbs, on `SUNBABY_SUN_BEARING`), and sets the same way; a welcome's word is whole.
+
+**The four hosts.** world.js (the streaming world - the online host, where the hub link lives) is WIRED. exterior.js (`?exterior`) has no hub link and stages no event - FLAGGED, as EVENT1 left it. worldModes.js (interiors) and dungeonContext.js draw no sky - FLAGGED: the event is outside, where the sky is (an indoor ear still hears the street's clear day: `setHeardWeather` takes the shown word).
+
+**Records.** test/sunbaby1_event.test.js (12): the word and its relay row, a real Room staging it and saying it on a late welcome, the session's word gate, the command, the fade and the rise, the land's haze, light and water, the GLSL from the tables, the pass over a recording GL (nothing at 0, every state put back, every allocation freed), and the host seams in shared.js and world.js. tools/mutants/sunbaby1.json (20, all dead). EVENT1's pins moved where the host's text moved (the hub's `onEvent`, the light) and two were made to fail again: the word's gate stands before the frame's, so `EVENT1-session-old-relay-sent` and `EVENT1-session-off-hub-sent` SURVIVED until the old-relay pin asked the END of an event and the off-hub session was given a relay that knows its words (event1.json: 44, all dead). The cite shift applied. Deploying world163 drops every connected player once (the relay's own law).
+
+## PARTY-LEAD (2026-10-04, the player: "add a make person party leader option for the leader when in a party") - the lead handed on
+
+The party's lead moved only when its leader left (the longest-standing seat that is online took it - AUDIT PARTY8). Now
+the leader's Party tab offers **Make leader** beside Kick on every other seat (`src/ui/socialPanel.js`): an offline seat
+draws it dead and says "offline", and a member, my own seat and a hub that does not know the act draw none. The hub's
+`party.lead` act (`server/src/index.js` `_partyLead`) is the leader's alone, as a kick is; never oneself; a seated
+member; and online - a lead handed to an away seat would leave nobody able to kick (AUDIT PARTY8). Every member hears
+the `party.leader` note a leave already says ("You lead the party now" / "Ada leads the party now"), then the party as
+it stands; the old leader is a member, and the new one may hand it back.
+
+THE RELAY: world164 (world162 on its branch, renumbered past main's PRIMARCH and SUNBABY1 at the merge). `SOCIAL_ACTS`
+gains the kind, and an older hub's parser CLOSES the socket on an act it does not
+know (validSocialAct, CLOSE_POLICY) - so the client sends it only through world164 or later (`PARTY_LEAD_RELAY_MIN`,
+`OnlineSession.partyLeadOk` off the welcome, `sendSocial` refusing it otherwise), and the panel offers it only then,
+repainting when the hub's word changes. NOT YET DEPLOYED: the merge deploys the relay (`relay-deploy.yml`, keyed on
+RELAY_VERSION). Not DFU's - Daggerfall Unity has no parties.
+
+Pinned: `test/partylead.test.js` (3: the wire and the floor, the hub's refusals and the hand-over, the client's gate),
+`test/soc3_socialpanel.test.js` PARTY-LEAD (the button), `tools/mutants/partylead.json` (14, all dead). The relay pins
+moved to world164 (`test/relayversion.test.js` its row); soc1's S25 record aimed at the kick's own check (the lead asks
+the same first question), and relayversion's R1 at the hub's new last method.
+
+## SUNBABY2 (2026-10-04, "using the /event command, let's improve sunbaby, give it phases where it turns evil and starts raining fireballs upon daggerfall", then "and also a phase where it turns into todd howard") - the sun baby's phases: the wrath, its fire, and Todd
+
+SUNBABY1's event, unchanged at the door: `/event sunbaby` stages it, `/event off` ends it. What is new is that the sun
+now goes through PHASES while it is up. **No relay change** - the phases are read off the stage's own moment (the
+hub's `at`, already on every `event` frame and welcome) on the shared clock (`Date.now() + _sharedOffsetMs`, the one
+the dread's strikes read), so every player online wears the same face in the same second, a joiner comes in on it, and
+no world version moves.
+
+**The cycle - world/sunbabySky.js.** `SUNBABY_PHASES`: the laughing baby 60 s, the WRATH 45 s, the baby 30 s, TODD 30 s
+(`SUNBABY_CYCLE_S` 165), wrapping until a dev ends the event. `sunbabyPhase(sinceS)` answers the face and the two
+weights the look reads (`evil`, `todd` - the baby is the rest), each face smoothstepped in over `SUNBABY_MORPH_S` (6 s; 1 s since SUNBABY3)
+at the head of its phase from the face before; `fire` only while the wrath is WHOLE. The first phase of the first cycle
+comes whole - the event rises laughing, it does not morph out of Todd. `createSunbaby` keeps the stage's moment (kept
+through the end's fade, so the sky sets on the face it wore - another word moves nothing) and `frame(sharedMs)` answers
+the phase and a `line` (`SUNBABY_FACE_LINES`) for a change of face under a player who saw the face before - never on the
+first frame after any word, so a joiner is told nothing they did not watch change.
+
+**The look.** One pass still (render/sunbabySkyRenderer.js), handed the face as `uFace`. The WRATH: the dome burns from
+nursery blue to blood over ember (`SUNBABY_WRATH_ZENITH`, `SUNBABY_WRATH_HORIZON`), the flowers char and burn
+(`SUNBABY_EMBERS`, their hearts glowing), and the sun turns red in a dark rim with fiery rays, spikier and turning
+faster - slit eyes glaring yellow under brows that slant down to the nose, two horns from the crown, and a wide jagged
+grin of fangs over a furnace, cackling open as the giggle quickens, the whole face shuddering. TODD (SUNBABY3: his photograph now - the cartoon only until it loads): a cartoon of Todd
+Howard - swept dark hair over a side part, friendly brows, open eyes with a twinkle, a sure toothy grin and a five
+o'clock shadow, holding still while the baby bobbed - over a flower grid `SUNBABY_TODD_DETAIL` (4) times finer each
+way: sixteen times the detail. The cartoon is drawn from nothing but the tables (SUNBABY3 ships the photograph beside it); every
+colour lives once, in `world/sunbabySky.js`, and the GLSL is generated from it. Under the wrath the land sits under the
+sky it sees: the lifted ambient and the sun's key are reddened by `SUNBABY_WRATH_TINT` (`sunbabyLight`, `sunbabyKey`),
+and the haze and the water's sky lean to the burning horizon (`sunbabyHaze`, `sunbabyWaterSky`, through the sky
+controller's `setSunbabyFace`). At no wrath every one of them is SUNBABY1's exactly. The weather stays the clear day.
+
+**The fire.** While the word is staged and the wrath is whole, FIREBALLS FALL round every player. The dread's strike
+law (`sunbabyFireballs`, beside `dreadStrikes`, `slotHash` now exported from world/dreadSky.js for both): the shared
+clock's `SUNBABY_FIRE_SLOT_MS` (250 ms) slots each hold one when the seed's first draw falls under `SUNBABY_FIRE_CHANCE`
+(0.7 - about 2.8 a second), at a seeded moment in the slot, salted apart from the dread's schedule; at most
+`SUNBABY_FIRE_SLOTS_MAX` a tick. Each lands round the eye (8-30 m for 35% of them, out to 120 m for the rest) on the
+ground there (the terrain's height; my feet's where nothing is streamed), falling `SUNBABY_FIRE_FALL_M` (90 m) down a
+steep line (58-80 degrees) out of the sun's side of the sky - 3.6 s at the engine's missile speed. `createSunbabyRain`
+drops nothing on its first tick and walks its clock on while the fire does not hold, so the wrath brings no backlog;
+a jump resets it. Each fireball is the spell engine's own (scenes/hostMagic.js `skyFire`, beside SPELLFX1's
+`spellVisual`): a DRAWN fire missile - DFU's TEXTURE.375 flat, animated, `SKY_FIRE_SCALE` (3) times its size - that
+lands where it was thrown (the collider's ray meets buildings, not the terrain, so the engine counts the fall down and
+lands it), or on the roof or the body it meets first, and flashes there (record 1 of its archive, at the same scale,
+`hitEffects.showImpactFlash` taking a scale) and is HEARD there: fire's cast clip (352 - DFU has no impact clip, a
+missile's sound is its cast's) out to `SKY_FIRE_HEARD_M` (48 m). DRAWN ONLY: nothing is applied, spent or tallied - an
+event burns no one, and no player dies to a live event.
+
+**The four hosts.** world.js (the online host, where the hub link lives) is WIRED: the face framed each exterior frame
+and said through `townTalk.say`, handed to the sky (`sky.setSunbabyFace`, before its frame) and the light; the fire
+ticked round the traveller (`tvStand`, the dread's eye) and thrown through `magic.skyFire`. exterior.js (`?exterior`)
+has no hub link - FLAGGED, as EVENT1 and SUNBABY1 left it. worldModes.js (interiors) and dungeonContext.js draw no sky
+and drop no fire - FLAGGED: the event is outside; a player who steps out of a building into a changed face is told it.
+
+**Records.** test/sunbaby2_phases.test.js (11): the cycle and its morphs, the frame's lines and the joiner, the fire's
+slots, its landing and its rain, the land under the wrath, the GLSL from the tables and the pass's face, the engine's
+skyFire through a real `createPlayerMagic`, and the host seams. tools/mutants/sunbaby2.json (24, all dead). SUNBABY1's
+GLSL, fog, water and light pins and EVENT1's two light pins moved where the text moved (marked), and SUNBABY1's fog
+mutant was re-aimed at the new call (sunbaby1.json 20 and event1.json 44, all dead). The faces were rendered in headless
+Chromium and eyeballed (the baby, the wrath, the half-turned morph, Todd).
+
+## SUNBABY3 (2026-10-04, "Have it transition much faster and use this for todd howard", with his photograph) - Todd's photograph, and faster turns
+
+**Faster.** `SUNBABY_MORPH_S` 6 -> 1: each face turns into the next in one second, smoothstepped as before; the phases'
+lengths are unchanged (the baby 60 s, the wrath 45 s, the baby 30 s, Todd 30 s), and the fire still waits for the wrath
+to be whole (now one second in).
+
+**Todd's photograph.** The photograph Mac supplied, cropped to the face (a 360-pixel square of the 400, the face's
+circle half of it) and recompressed to a 256 JPEG of 11 KB by ImageMagick, ships as `src/assets/sunbaby/todd.jpg`
+(Vite bundles it: `SUNBABY_TODD_PHOTO_URL`, render/sunbabySkyRenderer.js). It is NOT the port's own art - a
+third-party photograph, kept at Mac's explicit request; the doctrine allow-list's row says so (`SUPPLIED`, no ARENA2
+pixel - test/doctrine.test.js). The pass fetches it when it is first built (the event's first showing, minutes before
+Todd's phase), uploads it inside its next draw (mipmapped - it is drawn small; the unpack flip held off and put back as
+another pass left it), and only then tells the shader (`uToddPhotoOn`); until then, or if it never loads (a warning),
+the SUNBABY2 cartoon stands in. A black texel stands in the texture before it, so the sampler never reads an incomplete
+one. The GLSL maps it into the face's disk (`SUNBABY_TODD_PHOTO_FIT` 0.9 face radii, the crop's circle) inside the gold
+rim, square to the eye and the right way up, by `textureGrad` with uv's derivatives taken before the sun's branch;
+the cartoon's every stroke is weighted by `todd x (1 - photoOn)`. The rays stay gold, and the photograph morphs in and
+out by Todd's weight like any face.
+
+**The four hosts.** Unchanged from SUNBABY2: the pass is the sky controller's; world.js WIRED, the other three
+FLAGGED.
+
+**Records.** test/sunbaby3_todd_photo.test.js (4): the file (a square 256 JPEG, small) and its doctrine row; the GLSL's
+mapping from the table, right way up, the cartoon only where the photograph is not on; the pass's load, its one
+upload inside a frame with the flip guarded, the uniform, a failed load and a Node without Image. SUNBABY2's morph pins
+and the GLSL call pin, and SUNBABY1's derivative, outColor and dispose pins moved (marked). tools/mutants/sunbaby3.json
+(10, all dead); sunbaby1.json and sunbaby2.json re-run, 44 all dead. The photograph was rendered in the pass in headless
+Chromium and eyeballed (whole, and half-morphed from the baby).
+
+## SERPENT1 (2026-10-04, Mac: "A new world event that requires players with a ship to meet up and take on a large scale sea serpent in the ocean"; "You make the decisions and online only") - the sea serpent
+
+The design and the record are `11-Multiplayer/Sea-Serpent.md`. What it asks of the online arc:
+
+- **A fight kept by a CELL room.** It has no room of its own: the cell its site stands in keeps it, and a ship near
+  it always holds that cell, as its own room or as a halo (`RANGE_PIXELS`). `net/online.js` `sendSerpent(word, cell)`
+  says a word down the socket of the cell named; `serpentReady(cell)` asks whether that socket's relay holds a serpent
+  (`serpentOk`, from its welcome, carried through a halo's promotion). The cell's alarm is shared: the serpent's beat
+  every 250 ms, the cell's own duties every 5 s and at their own firings.
+- **The `serpent` frame** (relay world165 - world162 on its branch, renumbered past PRIMARCH and SUNBABY1, then past PARTY-LEAD's world164, at the merges; `net/wire.js` `validSerpentIn`, `validSerpentOut`, `serpentGate`,
+  `SERPENT_RELAY_MIN`). In: `in`, `hit`, `held`, `esc`. Out: the fight's sixteen words. The hub's only word is the
+  kill, said to everyone online and to a hello while its day holds.
+- **The receipt** is `l1`, under the relay's one key, and the account service (acct78) counts it once a (day,
+  account).
+- **When:** the relay first, then the service (migration 0081 first), then the client. A client on an older relay sees
+  the omen and no fight. Merging deploys world165 and acct78, which drops connected players once.
+- Pins: `test/serpent1_law.test.js`, `test/serpent1_relay.test.js`, `test/serpent1_client.test.js`. Mutants:
+  `tools/mutants/serpent1.json` (43, all dead). Re-aimed by content: `auditrealm2_client.json` (2), `eventtip.json`,
+  `gatekeys.json`, `gateux.json`, `raid4.json`, `seapeace.json`, `survtiers3.json` (2) and `wb12d.json`.
+- **AUDIT SERPENT 2** (`01-Overview/Audit-Sea-Serpent.md`): every word a fight fans names its site (`sx`/`sz` on every
+  `serpent` frame of a fight; `validSerpentOut` projects it) and the client folds its own site's alone - a forged
+  site's fight heard on a halo socket in the next cell never reads as the client's serpent; a socket about two fights
+  hears both. A refusal no longer mutes the client; the cell's other changes are the brain's and the room's (one
+  timeline rule, the far newcomer, the slain kept, a still fight unwritten). Pins: `test/serpent1_audit2.test.js`;
+  mutants: `tools/mutants/serpent1_audit2.json` (14, all dead).
+
+## SERPENT2 (2026-10-04, the owner: "So this also shows in the pause menu timer?", then "This needs to happen, the discord integration needs to happen") - the serpent's herald and its timers
+
+The record is `11-Multiplayer/Sea-Serpent.md` section 14. What it asks of the online arc:
+
+- **A `site` word to the hub** (relay world166; `net/wire.js` `SERPENT_KINDS`, `validSerpentIn`,
+  `SERPENT_SITE_RELAY_MIN`, `relaySupportsSerpentSite`). The `serpent` frame's sixth kind, said to the hub alone - in a
+  cell it is junk: the day, the site's native point to the whole unit, and the port it lies off (`gatePlaceWire`'s
+  law). `net/online.js` `sendSerpentSite` says it once a socket and day, under the serpent frames' own bucket, only to
+  a hub that welcomed the primary socket with 166 or later (`serpentSiteOk`) - an older one closes the socket on a
+  kind it does not know. The world host says it on the serpent's frame from `serpentOmen.ahead()`, the site found from
+  its quiet on.
+- **The hub's vote and its herald** (`server/src/index.js`). The site is kept by the gate's vote law (`serpentsite`,
+  `foldGateSite`, two accounts agreeing). The herald's beat runs on the hub's alarm after the gate's (`_serpentHeraldBeat`,
+  its state `sherald`), and the bells arm that alarm from the first hello (`_serpentHeraldArm`). A kill a cell tells
+  the hub arms it now. Its posts go through the gate's door (`_heraldOf`, `_heraldSend`; `GATE_DISCORD_WEBHOOK`). The
+  bells ping `SERPENT_DISCORD_ROLE` (a var, empty by default) or else the gate's role. The kill is posted for the
+  agreed site alone, never a forged one.
+- **When:** the relay alone (world166) - the service is untouched. A client before it says no site; the herald then
+  names no port and posts no kill until two accounts on a current client agree. Merging deploys world166, which drops
+  connected players once.
+- Pins: `test/serpent2_herald.test.js` (13). `test/discordgates.test.js` stubs the serpent's herald on its hub, so it
+  pins the gate's alone. Mutants: `tools/mutants/serpent2.json` (49, all dead). Re-aimed by content:
+  `discordgates.json` (8: the serpent's copy of the `site` law, the beat and the place made their old text stand twice;
+  `heraldStamp` renamed), `wb12d.json` and `wb13b.json` (`heraldList`).
+
+## AURA-LIVE (2026-10-05, Mac: "Ensure other players can sew all auras") - a badge worn now reaches the room now
+
+The relay reads a badge - the aura, the title, the glyphs - off the token alone (ACC3, WB9g), and a token rides a
+hello. So an aura put on at the account card or the Broker was drawn at the wearer's own feet at once and at nobody
+else's until they changed area; the Broker said as much ("Others see it once you change area.").
+
+- `OnlineSession.rehello()` (`src/net/online.js`): each open socket - the room's and every halo's - says hello again on
+  a fresh token through a NEW socket of the same id. The relay already reads that as a reconnect
+  (`server/src/index.js`, the hello's replace loop): the old socket loses the id first, so its close says no leave;
+  it is closed CLOSE_REPLACED; the first hello's stamp is kept, so a world room's host keeps the seat (AUDIT WORLD A4);
+  and the new hello's join is fanned with the new badge, which every client reads through `_refresh`.
+- The old socket speaks for the room until the new one's token (and, in a battle's room, its pass) is minted, and only
+  then does the new one take its place (`_promote`) - so nothing goes unsaid but a hello's round trip, and the own lane
+  waits for the new welcome as `_open`'s does (OWN1 O2). From then on the old socket is no room's, so its replaced
+  close is ignored and is never the one-seat verdict; the welcome closes it by this hand if the relay has not.
+- A replacement whose room went while it minted (a leave, a crossing, a drop) is closed and the old socket's own paths
+  stand; one the relay refuses (busy) takes the old socket with it and the ordinary retry says hello; one that never
+  opens is dropped past BACKOFF_MAX_MS and the badge is owed again. At most once a REHELLO_GAP_MS (3 s) - a run of
+  changes costs the room's hello budget one hello a socket, and the latest badge goes.
+- The host, `src/scenes/world.js`: the minter's hook (`adoptIssued`) keeps the aura the last token said
+  (`_auraHeard`); `auraFrame` asks `online.rehello()` when my own (`ownAura`) differs from it - a wear since, from any
+  door - and never after a mint, which said it already. THE FOUR HOSTS: world.js WIRED; `worldModes.js`,
+  `dungeonContext.js` and `exterior.js` hold no session of their own - unchanged.
+- No relay change and no version: the relay's own reconnect law does it.
+- Pins: `test/auralive.test.js` (6) - end to end through the real Room (a peer draws the wings; no leave; the host's
+  seat kept; not superseded; taken off the same way), a run of changes one hello, the halo's socket, the refusals, the
+  host's ask; `tools/mutants/auralive.json` (12).
 
 ## RVN13 - a revenant on the foe stream (2026-10-05)
 

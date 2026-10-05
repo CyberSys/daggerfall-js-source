@@ -40,9 +40,12 @@ import {
 } from './overworldModel.js';
 import { getPixelColorIndex, FILTER_SRC } from './travelMapWindow.js';   // MAP-KEY: the classic's filter law and its four buttons, asked of - never copied
 import { GATE_RING_CSS, GATE_FILL_CSS } from './gateMapMark.js';   // WB1: the Oblivion Gate's ring, in the omen's own colours
+import { SERPENT_MAP_INK } from './serpentMapMark.js';   // SERPENT1: the sea serpent's ring, in the sea's colours
 import { BOUNTY_RING_CSS, BOUNTY_FILL_CSS, REVENANT_RING_CSS, REVENANT_FILL_CSS } from './bountyMapMark.js';   // BOUNTY1: a held bounty's black circle; RVN7c: a revenant's lair in blood red
 import { RAID_MARK_CSS } from './eventMapMarks.js';   // EVENT-TIP: a town under attack
 import { QUEST_MARK_CSS, QUEST_MARK_LIFT } from './questMarks.js';   // GUIDE5: where a quest points
+import { wheelPath } from './carriageWheel.js';   // OW-HUBS: a carriage town's wheel beside its mark
+import { paintVendorMark } from './vendorMapMark.js';   // HOME-VENDOR: the trader's waypoint's coin
 import { seatMapMark, SEAT_RING_SIEGE } from '../net/townSeatLaw.js';   // SEAT1a: how a seat is marked - its ring, a crown, a second ring; SEAT1c: held, Contested, a siege week
 
 // ── THE INK (skin): the pen and its washes ───────────────────────────────────────────────
@@ -585,9 +588,10 @@ export function buildInkModel(deps) {
  * mark carries it and how the map marks it (net/townSeatLaw.js seatMapMark).
  * @param {{ summaries?: Iterable<any>, filters?: any,
  *   isDiscovered?: (summary: any) => boolean, nameOf?: (summary: any) => string,
- *   isPort?: (summary: any) => boolean, hubAt?: (summary: any) => any, seatAt?: (summary: any) => any }} deps
+ *   isPort?: (summary: any) => boolean, hubAt?: (summary: any) => any, seatAt?: (summary: any) => any,
+ *   carriageAt?: (summary: any) => boolean }} deps   OW-HUBS: `carriageAt` - a carriage stands at the town's gate
  */
-export function buildInkMarks({ summaries = [], filters = {}, isDiscovered = undefined, nameOf = () => '', isPort = () => false, hubAt = () => null, seatAt = () => null }) {
+export function buildInkMarks({ summaries = [], filters = {}, isDiscovered = undefined, nameOf = () => '', isPort = () => false, hubAt = () => null, seatAt = () => null, carriageAt = () => false }) {
   const opts = isDiscovered ? { isDiscovered } : {};
   return buildMarkerModel(summaries, filters, opts).map((m) => ({
     x: m.x, y: -m.z,             // the pixel's centre, in map pixels (y down)
@@ -597,6 +601,7 @@ export function buildInkMarks({ summaries = [], filters = {}, isDiscovered = und
     summary: m.summary,
     mapId: m.summary?.mapID ?? m.summary?.mapId ?? null,
     port: !!isPort(m.summary),
+    carriage: !!carriageAt(m.summary),   // OW-HUBS
     hub: hubAt(m.summary) ?? null,
     ...seatMarkOf(seatAt(m.summary)),
   }));
@@ -830,6 +835,10 @@ export function placeNames(marks, view, band, { paperW, paperH, measure }) {
     const [px, py] = toPaper(view, m.x, m.y);
     const r = markReach(m) + 1;   // HUB1: a hub's circle is ground its glyph holds
     boxes.push({ x: px - r, y: py - r, w: r * 2, h: r * 2 });
+    if (m.carriage) {   // OW-HUBS: and a carriage town's wheel beside it
+      const [wx, wy] = carriageWheelAt(m, px, py), wr = CARRIAGE_WHEEL_R + 1;
+      boxes.push({ x: wx - wr, y: wy - wr, w: wr * 2, h: wr * 2 });
+    }
   }
   const hits = (box) => boxes.some((b) => b.x < box.x + box.w && b.x + b.w > box.x && b.y < box.y + box.h && b.y + b.h > box.y);
   for (const m of sorted) {
@@ -855,7 +864,7 @@ export function placeNames(marks, view, band, { paperW, paperH, measure }) {
     // that matched none of them. The box is RETURNED now.
     const cands = [
       { x: px + glyph + 3, base: py + size * 0.35 },
-      { x: px - glyph - 3 - w, base: py + size * 0.35 },
+      { x: px - (m.carriage ? markReach(m) + 2 * CARRIAGE_WHEEL_R + 2 : glyph) - 3 - w, base: py + size * 0.35 },   // OW-HUBS: past a carriage town's wheel
       { x: px - w * 0.5, base: py - glyph - 5 },
       { x: px - w * 0.5, base: py + glyph + 2 + size * 0.85 },
     ];
@@ -990,11 +999,13 @@ export function paintInkStatic(ctx, model, view, opts) {
   // is worse than the tangle the halo is here to fix.
   const inked = [];
   const harbours = [];   // PORT-MAP: [beside, x, y] - a port's anchor, at every band
+  const wheels = [];   // OW-HUBS: [beside, x, y] - a carriage town's wheel, at every band, as a port's anchor
   for (const m of model.marks) {
     if (!visible(m.x, m.y)) continue;
     const ink = shown.has(m.colorIndex);
     if (ink) inked.push([m, ...toPaper(view, m.x, m.y)]);
     if (opts.ports && m.port) harbours.push([ink, ...toPaper(view, m.x, m.y)]);
+    if (m.carriage) wheels.push([ink, ...toPaper(view, m.x, m.y), m]);
   }
   // HUB1: a hub's circle goes down FIRST - its glyph's halo and ink then sit on it, so the town reads on the colour
   for (const [m, x, y] of inked) if (m.hub) paintHubCircle(ctx, x, y, markReach(m) - (m.seat ? SEAT_RING_PAD : 0), !!m.hub.capital);
@@ -1008,6 +1019,7 @@ export function paintInkStatic(ctx, model, view, opts) {
   // the band inks the place, ON the place where it does not (far inks the cities alone, and the map opens far) - so the
   // ports the quays stand at read from the first look. MAP2 drew them at mid and near only.
   for (const [beside, x, y] of harbours) paintHarbour(ctx, x, y, beside);
+  for (const [beside, x, y, m] of wheels) paintCarriageWheel(ctx, x, y, beside, m);   // OW-HUBS
   // MAP2: the mod's MARK (TravelOptionsMapWindow.cs:532-550, drawn in
   // MarkLocationColor) - a ring on the marked place at EVERY band, whether
   // or not the band inks the place itself: the mark is the thing the
@@ -1070,6 +1082,8 @@ export function paintInkOverlay(ctx, view, opts) {
   const pulse = opts.pulse ?? 0;
   // WB1: the gate's ring under everything else that breathes - a party member standing in it reads over it
   if (opts.gate && visible(opts.gate.cx, opts.gate.cy, opts.gate.r + 2)) paintGateRing(ctx, view, opts.gate, pulse);
+  // SERPENT1: the sea serpent's ring beside it, in the sea's colours
+  if (opts.serpent && visible(opts.serpent.cx, opts.serpent.cy, opts.serpent.r + 2)) paintGateRing(ctx, view, opts.serpent, pulse, SERPENT_MAP_INK);
   // BOUNTY1: each held bounty's black circle, under the party too
   for (const b of opts.bounties ?? []) if (visible(b.cx, b.cy, b.r + 2)) paintBountyRing(ctx, view, b, pulse);
   // RVN7c: each revenant lair the player has heard of - the same circle in blood red, under the party too
@@ -1079,6 +1093,8 @@ export function paintInkOverlay(ctx, view, opts) {
   // GUIDE5: where the quests point, over the raids and under the party - the diamond above its place, the followed
   // quest's filled
   for (const m of opts.quests ?? []) if (visible(m.x, m.y)) paintQuestMark(ctx, view, m);
+  // HOME-VENDOR: the trader's waypoint - its coin over the quests' diamonds, its town ringed in gold, under the party
+  if (opts.vendor && visible(opts.vendor.x, opts.vendor.y)) paintVendorMark(ctx, view, opts.vendor, toPaper, { halo: PEN.halo, name: PEN.name });
   // TV3: the region's travellers, under the party - a smaller ring and a smaller name, a stranger's; OWS1: one at sea
   // inked as a ship
   for (const t of opts.travellers ?? []) {
@@ -1148,14 +1164,14 @@ export function inkShip(ctx, x, y) {
  * @param {CanvasRenderingContext2D} ctx @param {{ox:number, oy:number, scale:number}} view
  * @param {{cx:number, cy:number, r:number, label?:string}} g @param {number} [pulse] 0..1
  */
-export function paintGateRing(ctx, view, g, pulse = 0) {
+export function paintGateRing(ctx, view, g, pulse = 0, ink = null) {   // SERPENT1: `ink` {ring, fill} - the sea serpent's ring in its own colours
   const [x, y] = toPaper(view, g.cx, g.cy);
   const r = Math.max(10, g.r * view.scale);
   ctx.save();
   ctx.setLineDash([]);
-  ctx.fillStyle = GATE_FILL_CSS;
+  ctx.fillStyle = ink?.fill ?? GATE_FILL_CSS;
   ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = GATE_RING_CSS; ctx.lineWidth = 2.4;
+  ctx.strokeStyle = ink?.ring ?? GATE_RING_CSS; ctx.lineWidth = 2.4;
   ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
   // the inner ring breathes, broken like a fire's edge
   ctx.globalAlpha = 0.45 + 0.45 * pulse; ctx.lineWidth = 1.3; ctx.setLineDash([4, 5]);
@@ -1166,7 +1182,7 @@ export function paintGateRing(ctx, view, g, pulse = 0) {
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.lineJoin = 'round';
     ctx.strokeStyle = PEN.halo; ctx.lineWidth = 2 * HALO_PEN;
     ctx.strokeText(g.label, x, y - r - 3);
-    ctx.fillStyle = GATE_RING_CSS;
+    ctx.fillStyle = ink?.ring ?? GATE_RING_CSS;
     ctx.fillText(g.label, x, y - r - 3);
   }
   ctx.restore();
@@ -1264,6 +1280,21 @@ export function paintHarbour(ctx, x, y, beside = true) {
   ctx.stroke();
   ctx.strokeStyle = PEN.line; ctx.lineWidth = HARBOUR_PEN;
   anchorPath(ctx, ax, ay);
+  ctx.stroke();
+}
+/** OW-HUBS (FIELD BUGS 2026-10-04e): a carriage town's wheel - LEFT of its mark (the anchor stands right), clear of all
+ *  the mark's ink (markReach: its glyph, a hub's circle, a seat's ring - and names keep clear of it, placeNames), or on
+ *  the place where the band inks no mark there; the anchor's halo and pen. Skin. */
+export const CARRIAGE_WHEEL_R = 3.6;
+/** Where mark `m`'s wheel stands, its mark at paper (x, y). */
+export const carriageWheelAt = (m, x, y, beside = true) => (beside ? [x - markReach(m) - CARRIAGE_WHEEL_R - 1, y - 1] : [x, y]);
+export function paintCarriageWheel(ctx, x, y, beside = true, m = {}) {
+  const [wx, wy] = carriageWheelAt(m ?? {}, x, y, beside);
+  ctx.strokeStyle = PEN.halo; ctx.lineWidth = HARBOUR_HALO;
+  wheelPath(ctx, wx, wy, CARRIAGE_WHEEL_R);
+  ctx.stroke();
+  ctx.lineWidth = HARBOUR_PEN; ctx.strokeStyle = PEN.line;
+  wheelPath(ctx, wx, wy, CARRIAGE_WHEEL_R);
   ctx.stroke();
 }
 /** The anchor's one path: its shank, its stock and its flukes. */

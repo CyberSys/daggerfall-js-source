@@ -47,12 +47,13 @@
   },
   {
     "name": "TELL6d-line-endless",
-    "file": "src/ai/foeBlows.js",
+    "file": "src/ai/blowShapes.js",
     "old": "along <= (b.ahead ?? 0) && Math.abs(across) <= BLOW.aimed.halfW;",
     "new": "along <= 99 && Math.abs(across) <= BLOW.aimed.halfW;",
     "tests": [
       "test/tell6d_aimed.test.js"
-    ]
+    ],
+    "note": "FEUD's MERGE of main's #586-#622 (PIN MOVED): inBlow lives in the leaf ai/blowShapes.js since AUDIT ARENA-LADDER - the same line, its new file."
   },
   {
     "name": "TELL6d-mirror-endless",

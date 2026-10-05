@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL, RVN1-RVN13, AUDIT FEUD, FEUD BALANCE, AUDIT FEUD 2, FEUD WIRE and FEUD HARNESS built)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL, RVN1-RVN13, AUDIT FEUD, FEUD BALANCE, AUDIT FEUD 2, FEUD WIRE and FEUD HARNESS built; merged up to main 2026-10-05)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -7,7 +7,7 @@ detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
 (section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts), AUDIT
-TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), RVN8, RVN9, RVN10, RVN11 in three parts (RVN11a loyalty, RVN11b desertion, RVN11c betrayal), RVN12 in two (RVN12a the words, RVN12b the page and the card), RVN13, AUDIT FEUD (its balance table measured three of RVN's targets missed - section 31's OPEN 22-24) FEUD BALANCE (Mac's calls on them, built), AUDIT FEUD 2 (both read again; the duel harness made faithful to the pools - every target of section 28 holds), FEUD WIRE (a revenant's blows - its rank's, wrath's, night's, last stand's and signature's - reach a peer; relay world165) and FEUD HARNESS (the harness fights its band and its flight - every target still holds; a fault it found fixed); each slice's record is at the foot.**
+TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), RVN8, RVN9, RVN10, RVN11 in three parts (RVN11a loyalty, RVN11b desertion, RVN11c betrayal), RVN12 in two (RVN12a the words, RVN12b the page and the card), RVN13, AUDIT FEUD (its balance table measured three of RVN's targets missed - section 31's OPEN 22-24) FEUD BALANCE (Mac's calls on them, built), AUDIT FEUD 2 (both read again; the duel harness made faithful to the pools - every target of section 28 holds), FEUD WIRE (a revenant's blows - its rank's, wrath's, night's, last stand's and signature's - reach a peer; relay world165) and FEUD HARNESS (the harness fights its band and its flight - every target still holds; a fault it found fixed); THE MERGE OF MAIN (2026-10-05: one aim law with AUDIT ARENA-LADDER's bout-mates, the shapes' and TELL7's whole set's one home in the relay's leaf, the four wire changes one version - relay world170); each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -2741,3 +2741,66 @@ goes to Mac. TELL's half is unchanged (its fights stand no band).
   never running), `auditfeud2` (the dodger waits on every wind-up at me). Mutants `tools/mutants/feudharness.json` (25):
   25 dead. Re-aimed by content (2): `auditfeud`'s AF-S28-dodge-early and `auditfeud2`'s AF2-S1-dodger-early; every
   record on the harness (16) judged again: all dead.
+
+### THE MERGE OF MAIN - 2026-10-05 (the owner: "pick up the revenant PR and get it merged and deployed")
+
+The arc was built on `claude/gracious-noether-8qvhzz` off main's `64f0a4ec` and never opened as a pull request; main had
+moved 232 commits (#586-#622) when it was picked up. `origin/main` `cc7585cb` merged in:
+
+- **The conflicts** - 208 files, 487 hunks. 404 were numbers-only: a cite taken from main and mapped by
+  `tools/citeMerge.mjs` (543 cites moved; the struck rows held, as the tool holds them), any other number from the side
+  that changed it, a count both changed counted again. 83 were real, resolved by hand, below. By content after the
+  tool: Port-Status section 2's fourteen row identifiers, its loose row cites and section C's bounds (THE TELEGRAPHED
+  FIGHT's row moved sections B, C and D down a line), citedrift's CD4 cites (25, their file and number on separate
+  comment lines, and three range ends by their blocks' unchanged length).
+- **One aim law** (`ai/tactics.js`). Main's AUDIT ARENA-LADDER taught the brain to wind up at a BOUT-MATE on the
+  arena's sand (`blowAim`, the blow's `tg` and `sand`, `_blowFor` its verdict's mark); TELL8 taught it to wind up at a
+  PEER it hunts (`targetFeet`, the blow's `key`). They are one law now: `targetFeet` answers my feet, a hunted peer's,
+  or a bout-mate's (main's arm, whole), and `judgedHere` says whose landing this client decides - mine and a
+  bout-mate's here, a peer's on the peer's own screen (10.3). `resolveLanding` writes the verdict, its weight and
+  `_blowFor` for a judged one, and what a landing does to ME (TELL6e), the dodge's tag and the feud's ledger for mine
+  alone (`atMe`); the charge's run lands the same way. `b.key` is the one record of whom a blow was wound up at (main's
+  `tg` folded into it: AUDIT TELL B8 already breaks a wind-up whose foe turned, which main's landing check asked
+  again), and a wind-up at a bout-mate is drawn for the stands (`b.sand`, set in `beginWindup`; no other mark is begun
+  at). Every TELL law now reaches a bout-mate as it reaches me - the patterns, the shapes of its tier, the overreach of
+  a miss - since the mark is one; a bout fighter is never a revenant (AUDIT ARENA-LADDER 2's `revenantCandidate`), so
+  no RVN law does. AUDIT TELL's shards are drawn to the sand's range as the live marks are (`drawableBlows`).
+- **One home for the shapes** (`ai/blowShapes.js`). Main moved the families and `inBlow` into the leaf the relay
+  reads; TELL6's and RVN5's verdicts (the ring, the charge's lane, the leap's disc, the aimed line, the pyre's disc),
+  TELL5's `blowFamily` and TELL7's whole set - `extraShapesOf` (its kinds by MobileTypes number, as the families are),
+  `isElite`, `wholeSet` and `blowShapesOf(mobileType, entity)` - join them there, beside TELL2's numbers. All of it is
+  field tests and tables, so the leaf still imports nothing; `ai/foeBlows.js` and `ai/tells.js` hand the leaf's own
+  functions on (audit24's ratchet: a second `blowShapesOf` in the brain was a duplicate declaration). The relay's
+  ladder brain asks a kind's family alone (no entity), so its fighters throw and are judged as before - the lunge,
+  sweep and slam numbers are unchanged - and the arena's wire still takes exactly the shapes a family throws
+  (`ARENA_BLOW_SHAPES`; `arenaladder_audit` T5's pin moved from all of `BLOW` to the families').
+- **The relay is world170.** The branch's world162 (TELL8), world163 (AUDIT TELL), world164 (RVN13) and world165 (FEUD
+  WIRE) were all taken by main (PRIMARCH, SUNBABY1, PARTY-LEAD, SERPENT1 - main stands at AUDIT ARENA-LADDER's world169).
+  The four wire changes are one version past it: `RELAY_VERSION` world170, its `relayversion` row the merged bundle's
+  hash (the branch's four rows recorded beside it as unpublished), every live-version pin moved and composed (34
+  files). FEUD's new foe-record fields gate on no version - a relay before it drops them - so no `*_RELAY_MIN` moved.
+- **Unions** - the map marks (RVN7c's lairs beside SERPENT1's ring and HOME-VENDOR's trader, on both maps and in the
+  legend), the HUD's return (TELL9's poise track beside SERPENT1's mark), the hosts' imports and swing sounds (TELL8's
+  wind-up gate beside main's companion barks), the GL-state shadows and the minted batch fields (TELL2's glint beside
+  LPT1's handover and tree fields), the motor's recentre (AUDIT TELL B10's charge head beside COMPANION-TRAIL),
+  `revenantCandidate` (RVN6's band follower beside AUDIT ARENA-LADDER 2's bout fighter), the exterior host's Recall
+  harness (RVN10's three beside the arena's hold).
+- **The records** - Port-Ledger section A: THE TELEGRAPHED FIGHT is the 279th row (the 271st on the branch), under main's
+  LPT1; Systems.md: 415 modules; Testing.md: the suite counted again.
+- **Pins moved** (each marked): the 34 live-version pins; `arenaladder_audit` (T2's mark is `b.key`; T3's three landings
+  and ARENA-LADDER 2 T1's are STEPPED at 16 Hz - AUDIT TELL B1 breaks a wind-up the brain was not asked about for
+  BLOW_STALE, and main's tests jumped the clock to the landing; T5 the families' shapes), `audittact` (the token
+  holder's wind-up line, TELL8's), `combatVisuals` (the glint's reset filtered beside LPT1's), `hard3_types` (52 minted
+  fields), `la_cost` (106 billboard uploads; the glint's and LPT1's shadows), `qx1_exterior_host` (both sides' names),
+  `fb1004e_overworld` (the legend's stub carries the lairs), `rvn7c_map` (the lairs' clause, the trader asked after
+  it), `tell8_online` (TELL8's wire is world170's row), `travelmap` (U41's window to 10800 - the last needle at 10563 on
+  main, 10533 on the branch, 10685 merged).
+- **New** - `test/feudmerge.test.js` (FM1 a sand shard drawn for the stands; FM2 one mark, two judges, through the real
+  brain) and `tools/mutants/feudmerge.json` (5). Mutant records re-aimed by content (35): `arenaladder` (5), `tell7`
+  (7), `rvn5` (3), `tell8` (3), `tact4` (3), `survtiers3` (3), `tell6a` (2), `tell5` (2), `audittact`, `rvn7c`, `soc1`,
+  `survtiers`, `tell6b`, `tell6c`, `tell6d` (one each). The 40 records the merge re-aimed or added, judged again (`node tools/mutate.mjs`): 39 dead, 1 equivalent as
+  recorded (`TELL7-unbuilt-shapes`).
+- **Verified** - lint and the types clean; the whole suite on the merged tree (21,372 tests, 303 skipped without the game's data):
+  the 19 it failed were the pins moved above and the duplicate `blowShapesOf`, each fixed at its cause and its file
+  run again; the bible's five gates (manifest, citedrift, mutantdrift, audit18_bible_docs, ledger) green; CI's verify
+  on the pull request.

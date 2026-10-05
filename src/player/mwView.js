@@ -400,6 +400,7 @@ export function mwViewNewGame(inside = false) {
 export function mwViewRebase(delta) {
   eotbCamera.onPositionUpdate(delta);
   eotbWagon.rebase(delta);
+  eotbBody.rebase(delta);   // HORSE-FACE: the sprite's own feet too - an origin shift read as a placing
 }
 
 // ═══ EOTB-IL: THE CART's three doors ═════════════════════════════════
@@ -454,7 +455,7 @@ export function mwViewDrawBody(canvas, { proj, view, eye, feet, yaw, viewYaw = y
   // AUDIT CLIMB-ARC N1: the sprite lane's `yaw` is its QUAD's plane and its camera's (eotbBody.js) - the view's - never
   // the body's on the wall (CLIMB5 handed it the body's, and a hanging player looking along the wall saw the sprite
   // edge-on); the Morrowind body below turns to the wall (`yaw`, the body's)
-  if (eotbLane()) return drawEotbBody(canvas, { proj, view, eye, feet, yaw: viewYaw, face });   // AUDIT DEEP R-2: `face` - the travel view's basis for the quad
+  if (eotbLane()) { const drawn = drawEotbBody(canvas, { proj, view, eye, feet, yaw: viewYaw, face }); spriteFigure = drawn ? eotbFigure() : null; return drawn; }   // AUDIT DEEP R-2: `face` - the travel view's basis for the quad; SERAPH-WINGS: the figure it drew kept for the aura on its back
   if (!mwCamera.thirdPerson()) return false;
   // AUDIT OW3 J6: OW-BIG's grown traveller is the Morrowind body's too - `face.grow` (player/travelCamera.js tvOwnGrow)
   // reached the sprite body alone, and under the travel view the Morrowind body stood a speck at its own size.
@@ -462,8 +463,20 @@ export function mwViewDrawBody(canvas, { proj, view, eye, feet, yaw, viewYaw = y
   return fpArm.drawThird(canvas, { proj, view, eye, feet, yaw, grow: face?.grow > 1 ? face.grow : 1, up: face?.up ?? null });
 }
 
+/** SHADOW-CLOAK: the third-person Morrowind body's named bones where they stand this frame, in its own frame
+ *  (fpArm.thirdBones) - or null: the sprite lane's body has no bones, and first person poses no third-person body. */
+export function mwViewBodyBones(names) {
+  if (eotbLane() || !mwCamera.thirdPerson()) return null;
+  return fpArm.thirdBones(names);
+}
+/** SERAPH-WINGS: the sprite lane's body as drawn this frame - { base, h } over its feet (player/eotbBody.js figure()) - or
+ *  null: another lane, or no sprite drawn. */
+let spriteFigure = null;
+export function mwViewSpriteFigure() { return eotbLane() ? spriteFigure : null; }
+
 /** EOTB5's door, matching `setEotbBodyReady`: the host hands the seam
  *  the one call that paints the mod's sprite. Null until then, which
  *  is why `eotbBodyReady` answers false. */
 let drawEotbBody = () => false;
-export function setEotbDrawBody(fn) { drawEotbBody = typeof fn === 'function' ? fn : () => false; }
+let eotbFigure = () => null;   // SERAPH-WINGS: the figure the sprite drew
+export function setEotbDrawBody(fn, figure = null) { drawEotbBody = typeof fn === 'function' ? fn : () => false; eotbFigure = typeof figure === 'function' ? figure : () => null; }

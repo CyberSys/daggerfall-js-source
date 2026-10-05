@@ -704,7 +704,7 @@ window class under `src/systems`.
 `test/enhancedNotice.test.js` +3 (`noticeHold`, `drawEnhancedToasts`, the box
 above the toasts), the roster widened; `test/tavernwindow.test.js` +3,
 `test/enhancedInventory.test.js` +3, `test/heldmap.test.js` +1 and two
-re-pinned, `test/surv6_hunting.test.js` +2; the old-law pins in
+re-pinned, `test/surv6_hunting.test.js` +2 (DELETED with the hunt, HUNT-OUT 2026-10-04); the old-law pins in
 `roadb_push_doors`, `ba1_betterambience`, `audit63_quests_talk`,
 `audit64_hud`, `audit24_wave22`, `waveD_dungeonHost` and `automap`
 moved to the new law. Campaign: `tools/mutants/enhnotice3.json` 101
@@ -947,17 +947,17 @@ still push CLASSIC canvas windows as children under the DOM, and so
 does the pack's USE arm.
 
     THE SPELLBOOK       FIVE construction sites across FOUR hosts:
-                        worldModes.js:2564 (the factory) and :1904 (a
+                        worldModes.js:2609 (the factory) and :1904 (a
                         HAND-ROLLED second one, 342 lines below it in
                         the same file),
-                        dungeonContext.js:1398, world.js:5042,
-                        exterior.js:2802. It is the only window TWO
+                        dungeonContext.js:1404, world.js:5172,
+                        exterior.js:2844. It is the only window TWO
                         enhanced screens already push - the sheet's
                         button and the pack's USE hand-off, whose
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:13828, dungeonContext.js:9225. A seam
+    / NOTEBOOK          world.js:14175, dungeonContext.js:9253. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -992,7 +992,7 @@ None of these blocks anything; all are real.
                         makes it worth fixing: the overworld is the
                         first map a thumb could actually drive.
 
-    THE SPLIT POPUP     systems/itemTransfer.js:288. TransferItem
+    THE SPLIT POPUP     systems/itemTransfer.js:316. TransferItem
                         opens a numeric field DEFAULTED to maxAmount
                         when a stack will not fit whole (:1515);
                         BOTH skins take exactly what fits and never
@@ -8711,7 +8711,7 @@ same answer: `ui/spellbookDoor.js`, with each host handing it only
 what that host knows.
 
 THE "HAND-ROLLED DUPLICATE" WAS NOT ONE. The board recorded
-worldModes.js:3471 as a second book built by hand 342 lines below the
+worldModes.js:3583 as a second book built by hand 342 lines below the
 factory. Read closely it is the SPELL MERCHANT'S SHOP - buyMode, with
 `offered`, the building's quality, the shop name, the haggling skills
 and the classic clock. A different question with different deps, and
@@ -8794,7 +8794,7 @@ mutations, 4 dead.
 
 PX24 (Mac: "with the logbook and history, I want them as one detailed
 UI"): THE CHRONICLE. Two classic windows built at four sites -
-questJournal.js from charSheetNav:53, world.js:5502 and
+questJournal.js from charSheetNav:53, world.js:5629 and
 dungeonContext.js, playerHistory.js from charSheetNav:61 - become ONE
 seam (ui/chronicleDoor.js, the U52/U53/PX23 shape a sixth time) and,
 on the enhanced skin, ONE WINDOW.
@@ -9421,7 +9421,7 @@ and firing THAT twice is a second PopToHUD.
 
 ### Why only two of the four hosts crashed
 
-`worldModes.js:8594` and `dungeonContext.js:2260` answer the same
+`worldModes.js:8781` and `dungeonContext.js:2266` answer the same
 `onClose` by nulling their slot and never disposing - nothing to
 re-enter. Only the two hosts that come through `townTalk.closeOverlay`
 dispose. **The four-hosts rule caught this one by accident**: the two
@@ -10674,9 +10674,9 @@ re-resolved the `exterior.js` half of a three-file sentence and left the
 `ExteriorAutomapWindow` construction, `:4101` on a `locationName:`
 field). Both halves are now read by `test/citedrift.test.js` - the
 existing entries only ever captured the exterior number, which is how
-the other half went stale unnoticed. (The rest cite named `world.js:14288`,
+the other half went stale unnoticed. (The rest cite named `world.js:14637`,
 the first of the host's TWO identical `act === 'Rest'` arms; ROAD-H H5
-deleted the second and the cite is `world.js:14294` now.)
+deleted the second and the cite is `world.js:14643` now.)
 
 ## AUDIT 62 F24/F25 - THE SENTINEL SWEEP WAS TWO WINDOWS SHORT (2026-09-07)
 
@@ -14340,7 +14340,7 @@ items off your character."*
 
 It did not, and the whole of the reason is one line. INV1 hung the
 gesture on the pack's rows - `itemRow`'s `if (from === 'local')
-dragFrom(row, item)` (`ui/enhancedInventory.js:2402`) - and made the
+dragFrom(row, item)` (`ui/enhancedInventory.js:2428`) - and made the
 body a drop TARGET, with `equippedList` saying so in its own comment:
 *"the body is the equip target - `dragFrom`'s pointerup finds it by hit
 test, so the map needs no handler of its own"*. True for the direction
@@ -14837,8 +14837,8 @@ exactly as the classic did; the enhanced HUD has no arrow counter (AUDIT
 28 W2a's classic-arm feature) - not a font matter. AND THE CANVAS NATIVE
 WINDOWS, which the first record did not name: under the enhanced skin the
 death screen (`ui/deathScreen.js:183-185`), the rest window's rows
-(`ui/restWindow.js:925`), the save window (`ui/saveWindow.js`, eight
-`shadowText` sites), the travel popup (`ui/travelPopUp.js:743`), the quest
+(`ui/restWindow.js:974`), the save window (`ui/saveWindow.js`, eight
+`shadowText` sites), the travel popup (`ui/travelPopUp.js:820`), the quest
 journal (`ui/questJournal.js:628-629`), every MessageBox row
 (`ui/messageBox.js:501, 434`) and every ActionTextBox (`ui/actionText.js:45,
 152`) still draw in the bitmap font - each a native window under THE
@@ -15575,9 +15575,9 @@ whether an entry MATCHES and asserts nothing.
 Following it out was worse than the symptom. Five Ledger rows cite a
 PAIR - `` `world.js:N`, `exterior.js:M` `` - and the table captured `M`
 alone. So `M` was re-resolved at every wave for a year and `N` was never
-read: `world.js:11464` named a line that is 8950, `:1941` one that is
+read: `world.js:11639` named a line that is 8950, `:1982` one that is
 1215, `:1094` one that is 2194, `:3903` one that is 3066, `:3920` one
-that is 8907. `world.js:11166-11203` and `dungeonContext.js:2063` were
+that is 8907. `world.js:11341-11378` and `dungeonContext.js:2069` were
 stale the same way. Seven numbers re-resolved BY CONTENT, every
 uncaptured half de-baked to `\d+`, and eight new entries added so every
 number in a pair is captured. The half nobody reads cannot rot in
@@ -15878,7 +15878,7 @@ that through `InputManager` (:1084-1108, one poll a frame in
 `GetKeyDown` at all, so every consumer wrote its own out of the only
 read there was.
 
-`motor.js:1477` had already named this bug's twin from the other side:
+`motor.js:1481` had already named this bug's twin from the other side:
 "a render frame that accumulates less than one physics step swallowed
 the press" - the fix there moved `_heightAction` out of the fixed-step
 loop. The half that remained was the host's.
@@ -17148,7 +17148,7 @@ says in its own header that a second `--apply` against the same base
 moves every cite AGAIN. Recovering this slice's line shifts by
 reverting the tree except the files it had edited re-created exactly
 that: the kept files still carried the first pass's moves, and the
-second pass moved them a second time - `dungeonContext.js:3240` became
+second pass moved them a second time - `dungeonContext.js:3258` became
 2221 where the line had gone to 2215. The repair is a pairing walk:
 read HEAD's number at the same position in the same file, resolve it
 BY CONTENT in the working tree, and write that. Forty-seven cites came
@@ -17234,7 +17234,7 @@ three of the block's four rows empty and the box it measured was 30px
 tall where an ordinary fight makes it 111.
 
 The fix is not a better number, it is the tree's own rule read the
-right way round. QS3 (`ui/enhancedHud.js:651-654`) already says it, for
+right way round. QS3 (`ui/enhancedHud.js:671-674`) already says it, for
 the quickslot diamond, in the opposite direction: the diamond lives on
 the HUD root rather than in `.hud-bottom` **because** it is a CORNER,
 "and a corner block inside a centred flex column moves whenever a bar
@@ -17864,7 +17864,7 @@ draws, and it is a DEPARTURE recorded as one (Ledger A).
 
 DFU's own precedent for taking with no window is real and narrow: a
 body holding nothing but arrows is taken whole and no window opens
-(PlayerActivate.cs:948-952). This generalises that one case to any row
+(PlayerActivate.cs:949-954). This generalises that one case to any row
 the player has picked out, which is exactly the size of the departure.
 
 **Where the parts live.** The HIGHLIGHT's law is `systems/worldHover.js
@@ -18768,7 +18768,9 @@ name).
 ## TIMERS1 - THE HOURGLASS: EVERY SHARED MOMENT, COUNTED DOWN (2026-10-02, Mac: "we need to create a new unique UI element for reset times like the Sunday wars, oblivion gates, town raids, and anything else so the player can keep track of when things are and watch countdowns. Im thinking maybe an enhanced plus button on the pause menu next to the profile icon")
 
 **Where.** An hourglass beside the profile mark on the pause face (`ui/enhancedTimers.js` `timersMark`; `placeBeside`
-measures the mark, whose width is its caption's). Online only: the hosts hand `hooks.timers`, which answers null
+measures the mark, whose width is its caption's). The glass stands alone, with no word beside it (HOURGLASS-ALONE,
+2026-10-04, the owner: *remove the text "timer" from next of the hourglass*); its name is its label's and its
+title's. Online only: the hosts hand `hooks.timers`, which answers null
 offline, and no source means no hourglass. A press opens the timers window in the pause window's own frame
 (`.px-win.px-timerswin`) on its own scrim: a tap outside or Escape closes the window alone and leaves the pause face
 standing (the one back stack, ahead of the resume; the OT1 pin counts four scrims now). The street's pause bag, the
@@ -18778,6 +18780,11 @@ modes host (a building's pause) and the dungeon's opts all carry the world host'
 or COMING (counting to its start), live first. It derives nothing: each row is its own law's answer -
 - the OBLIVION GATE (`net/gateLaw.js` `gateAt`/`gatePhase`/`gateTimes`): coming to its opening, live to its seal, then
   live to its collapse; the gate after it once this one is under way; where it stands from the omen's site;
+- the SEA SERPENT (`net/serpentLaw.js` `serpentAt`/`serpentPhase`/`serpentTimes` - SERPENT2, 2026-10-04, the owner:
+  "So this also shows in the pause menu timer?", then "This needs to happen"): coming to its rising, live to the storm
+  that closes its waters, then live to its dive; the next serpent once this one is under way; a kill ends its row; the
+  port it lies off from its bells on (the omen's `site.near`). Its own kind, `serpent`, after the gate's, in its ring's
+  colour (`Sea-Serpent.md` section 14);
 - the TOWN RAIDS (the mod's day, `raidState().raids`, in relay ms through `sharedWallMs`): the player's own region's
   whole, coming to a raid's start, live to its withdrawal; every other region's as one row, the soonest and how many
   more (AUDIT TIMERS1 D3); a cleansed or ended raid says nothing;
@@ -18804,6 +18811,87 @@ the live pause face online (no relay or ARENA2 here). Pins: `test/timers1.test.j
 (9: the gate, the seat week, the battles, the raids and the two days, the order, the words, the window over a fake
 document - drawn, moved, a row gone, offline said - the hourglass and its placing, the wiring through all the hosts);
 `test/outsideTap.test.js` (the fourth scrim, the hourglass in the keep list).
+
+## WAGON-FILTER and SHIFT-STOW - the player's own stores, filtered and filled (2026-10-04, Mac: "The wagon needs a filter option and shift click to deposit items (like materials) needs to be a thing")
+
+Port-Ledger A: THE PLAYER'S OWN STORES, FILTERED and SHIFT AND A CLICK STOW THE WHOLE STACK.
+
+**The filter (enhanced skin).** DFU's window filters only the local list. Its four tabs are AddLocalItem's
+(`nativeInventory.js tabAccepts`), and the remote list - the wagon, a chest, a corpse - is shown whole. A wagon holds
+750 kg, so finding one ingot in it meant scrolling the lot.
+
+- **Where it shows.** The remote pane of the player's OWN store: the wagon, their storage (SHIP-STORE) and the
+  Materials Bag (`ui/storeFilter.js STORE_FILTER_KINDS`). It sits between the head and the rows as ONE row of fixed
+  furniture, 44 px - the search beside a category menu (PX21e: the rows scroll, never the frame).
+- **The search.** It reads the row's own name (`itemLine` - an unidentified piece is found by what it shows, never by
+  the name it hides), trimmed, lower-cased and capped at 40. Typing refills the rows in place, so the field is never
+  rebuilt under the caret; a repaint from elsewhere (an icon landing, a resize) gives it back its focus and caret.
+  Back in the field clears it, then leaves it, and the pack never sees that Back.
+- **The menu.** All, then MATERIALS, then the pack's nine pages, each with its count ("Materials (2)"). Materials is
+  the Materials Bag's own test (`materialsBag.js isMaterialItem`) and crosses the pages: an ingot is Misc and a herb
+  Ingredients. The pages are `packPages.js pageOf`, never a second copy. Only what the store holds is listed, and the
+  chosen one stays at nought rather than vanishing from under the hand. A choice refills the rows in place - a card
+  open on a pack item stays open.
+- **What does not change.** A take is `take(item)`, so a filtered list takes that piece out of the whole store. A
+  corpse, a container, the ground and a reward tray keep their whole list. The filter is fresh for every store shown:
+  each open, each wagon or bag door pressed, and a store emptied.
+- **The classic skin draws none.** THE NATIVE-WINDOW RULE: DFU's parchment has no such control and no source for one.
+
+**Shift (both skins).**
+
+- **The gesture.** Shift and the left button on a pack item put the whole stack - or what the store still takes -
+  into the player's own store, in one press and in any action mode, through the one ladder (`planStore`).
+- **Enhanced.** The arm is `itemRow`'s, ahead of the double click, so a refused piece clicked twice is never worn.
+  The card's how-many field does not apply. A line under the store's head says the gesture (`SHIFT_STOW_HINT`, in the
+  store's own verb), its own element, hidden on a touch screen (no Shift) and a short one (the list first).
+- **Classic.** Shift is held as Control is - `_shiftDown`: each Shift key's down and up edge, the pointer's `shiftKey`
+  on every hover, and never trusted across the page losing the keyboard (a Shift let go out there sends no key-up, and
+  `click` carries no event of its own). A held Shift's repeated down edge answers no box. `_pick(slot, 'remove', true)`
+  is Remove's own transfer, without TransferItem's split popup. Only the wagon and the player's storage take it
+  (`_shiftStores`); the classic skin has no bag pane; the middle button is `_middleClick`'s, as it was.
+- **Known.** Shift is also Run's default key: a player still holding Run as they click a pack item beside their wagon
+  deposits it. Taking it back is one click.
+
+**Seen.** At the slice, by execution on the fake document (`test/invdrag.mjs`). Its audit drove the real pack in
+Chromium through vite and Playwright, from the scratchpad (below).
+
+**Proof.** `test/shiftstow.test.js` (9 after the audit): the filter law; the one row, the menu and the search
+refilling in place, a take from the narrowed list, Back, no bar over a corpse; the filter fresh per store; the search
+blind to a hidden name; Shift into the wagon, a plain click still a pick, the refused piece never worn, nothing on the
+ground; the how-many field not applying; the 750 kg taking what fits, and the storage; the classic latch, the arm in
+Info mode, no popup on a partial fit, the ground, a right and a middle click unchanged, the repeat, the focus loss and
+the two keys. Mutants: `tools/mutants/shiftstow.json` (23, all dead).
+
+### AUDIT WAGON-FILTER AND SHIFT-STOW (2026-10-04, Mac: "Audit this")
+
+The UI lens of `06-Systems/Horse-Cart-And-Cargo.md`'s AUDIT WAGON-HITCH, run in a real Chromium (vite and Playwright
+from the scratchpad, the pack mounted over a wagon of thirteen):
+
+- **C1 (MAJOR - BLOCKER on a phone): the filter took the list away.** The first cut stood a search, a WRAPPING row of
+  chips and the hint as fixed furniture - 202 px on a touch screen, 236 with the hint, in the frame PX21e keeps from
+  scrolling. The list it left: a phone on its side 1 px (it had 203: 3 rows to 0), 1366x625 170 px (7 rows to 3),
+  1366x768 292 px (9 to 5); at 390x500 head and bar overran the frame. The fake document has no layout, so the PX21e
+  pin could not see it. ONE row now (the search beside a menu), the hint its own line and hidden where it costs most.
+  Re-measured in the same probe after the fix: a phone on its side 157 px (2 whole rows), 1366x625 360 px (6 rows),
+  1366x768 452 px (8 rows) - a row short of no filter at all - and nothing past the frame at any size.
+- **C2: the filter followed the player from store to store** - the wagon's Weapons and "mace" carried into the bag
+  ("Nothing here matches." over a bag holding an ingot), and a wagon emptied on Materials hid the dagger shift-stowed
+  into it next. Reset at each door and each emptied store.
+- **C3 / C4 (classic):** a held Shift's repeated keydown (Windows) took a shift-stow's refusal away in about 30 ms; a
+  Shift seen before an alt-tab turned the next unmoved click into a whole-stack deposit. Both closed (above), with the
+  two-keys nit.
+- **The nits:** the chip-focus claim (false in Chromium: a clicked button takes the focus and the repaint dropped it -
+  the menu refills in place now); a chip closing a pack card (likewise); an empty band where the hint hid on a touch
+  screen; the search's focus restore now `preventScroll`, as domRepaint's.
+- **M3 (the records lens): claims with no pin** - the how-many field, the classic storage, the middle button (its
+  guard was unreachable: `_middleClick` answers first, so the guard is gone and the click's path pinned), the focus,
+  the mount's reset, Back, the cap, the search's name - each pinned now and killed by a mutant.
+- **Checked and fine** (the lens's own): all four hosts deliver Shift's raw down and up to the classic window and real
+  DOM events to its hover; the pack's key handlers, Tab's registry, the hotbar, chat and the hosts' routing step aside
+  for a text field; in Chromium the first Escape cleared the field and the second left it, the pack staying open; a
+  real Shift+click stowed with no text selected; `itemRow` is the pack's alone (trade, bank and the hold untouched).
+
+
 
 ## TELL9 - THE FIGHT ON SCREEN (2026-10-04)
 

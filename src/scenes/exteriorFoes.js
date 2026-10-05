@@ -21,7 +21,7 @@ import { damageShieldPool, playerBlowCameToNothing } from '../characters/playerE
 import { lycanthropeAttackVoice } from '../systems/lycanthropy.js';   // V4: the beast's attack voice
 import { copyEffectEntry } from '../systems/save.js';   // AUDIT 26 F216: the caster-stripping effect copy, one home
 import { EnemyAI, isBackFacing, withinYaw, MELEE_DISTANCE, foeFrameDt } from '../characters/enemyMotor.js';   // AUDIT WORLD6b-iii(a) B4: the puppet's cast is read against the owner's own bands
-import { spaceFoes } from '../characters/foeSpacing.js';   // FOE-SPACING: the pack keeps apart
+import { spaceFoes, freeLodgedFeet } from '../characters/foeSpacing.js';   // FOE-SPACING: the pack keeps apart; FIELD BUGS 2026-10-04d CRATE-FREE: and no foe stands in a crate
 import { blowConnects, blowScaled } from '../ai/foeBlows.js';   // TACT4
 import { foeGlint, tacticsNow, beginRoar } from '../ai/tactics.js';   // TELL2: a wind-up's glint (bible/12-Enhanced-AI/Feud-Arc.md section 4.2); TELL8: the record's wind-up on the foes' clock; RVN4: a last stand's roar
 import { feudRevealWeak, feudWeakBlow } from '../systems/feudLedger.js';   // RVN13: a peer's blow of its weakness; AUDIT FEUD: and mine on a puppet
@@ -73,7 +73,7 @@ import { renownFoeStruck, renownFoeDied } from '../net/renownTracker.js';   // R
 import { reportPlayerKill } from '../systems/playerKills.js';   // SET2: my own kills, told
 import { partyFoeLoses, partyFoeHits, partyFoeHeals, noteFighter, foeFighters, takeWholeBlow, PARTY_ME } from '../systems/partyScale.js';   // PSCALE1: a shared foe weighs whoever fights it
 import { stampWonWeapons } from '../systems/lootRarity.js';   // SIGIL1: a body's weapons won online
-import { corpseName, mobileEntityName, liveEntityName } from '../systems/worldTooltips.js';   // WORLD-HOVER: "<who> (dead)", the mod's own word (.cs:526); H2: and a LIVE one's, when it is not hostile (.cs:304-312)
+import { corpseName, mobileEntityName, liveEntityName } from '../systems/worldTooltips.js'; import { questFoeSubs } from '../systems/questFoeLine.js';   // QUEST-FOE-LINE: a quest's foe says whose it is; WORLD-HOVER: "<who> (dead)", the mod's own word (.cs:526); H2: and a LIVE one's, when it is not hostile (.cs:304-312)
 import { enemyDisplayName } from '../characters/enemyBasics.js';   // GetLocalizedEnemyName, the index law in one place
 import { bloodCentre } from './hitEffects.js';   // AUDIT 24 (wave 39): EnemyBlood.ShowBloodSplash
 import { bloodHit } from '../combat/bloodDecals.js';   // BLOOD1b: the blow, in the shape the mark's ladder reads
@@ -308,6 +308,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   let _onNavalClear = null;     // NAV-G: called wherever the teams' clear runs - the peers' ships go with the puppets
   let _onDuel = null;           // DUEL1: (from, record | null, nowMs) - the duel ring a peer stands in, off their foes frame (null: theirs is down)
   let _onDuelClear = null;      // DUEL1: called wherever clearPuppets runs - the peers' rings go with the puppets
+  let _onPortals = null;        // PORTAL1: (from, record) - the portal a peer opened, off their foes frame (systems/portalStone.js validPortalRecord)
   let _foesSeq = 0;             // my frames out, numbered
   // AUDIT WORLD6b B4/C3: an OWNER's record - the last frame number applied (a stale frame is not the world), when it
   // arrived (an owner whose stream has died is swept after staleMs), and the build generation (a build the clear or
@@ -442,11 +443,9 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // CreateFoe.cs:341-359; CreateEnemy skips the ground align for
       // Flying, GameObjectHelper.cs:1227) - the motor keeps FEET.
       const idleH = idleSpriteHeight(tex);
-      // REVIEW 2026-09-05: a DELTA on the live pending array (offsetAll may
-      // have recentred it during the awaits), taking the walker's +0.1
-      // lift back with it; `feetGiven` is the restore's word that `pos`
-      // already IS feet (SerializableEnemy restores the position it
-      // wrote - no FinalizeFoe, no drop).
+      // REVIEW 2026-09-05: a DELTA on the live pending array (offsetAll may have recentred it during the awaits), taking
+      // the walker's +0.1 lift back with it; `feetGiven` is the restore's word that `pos` already IS feet (SerializableEnemy
+      // restores the position it wrote - no FinalizeFoe, no drop).
       if (transformY) {
         // DW-E4: the transform SET STRAIGHT after CreateEnemy (UnderwaterEnemySpawner.ConfigureSpawnedEnemy) - the
         // caller answers where, given the capsule the sprite sizes (AlignFloorEnemyController reads its height)
@@ -459,6 +458,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         const centreY = behaviour === 'Flying' ? pos[1] : alignControllerToGround(pos[1], groundAlign.hitDist, enemyControllerHeight(idleH, behaviour));
         pending.feet[1] += centreY - idleH / 2 - pos[1];
       } else if (behaviour === 'Flying' && !feetGiven) pending.feet[1] -= idleH / 2 + 0.1;
+      // FIELD BUGS 2026-10-04d CRATE-FREE: a stand inside a model - a building's quest marker in a house's crate, a save that kept a foe in one - is set beside it on its floor (characters/foeSpacing.js); a puppet is its owner's
+      if (!puppet) freeLodgedFeet(collider, pending.feet, { height: enemyControllerHeight(idleH, behaviour), airborne: behaviour === 'Flying' });
       const ai = new EnemyAI(collider, pending.feet, yaw ?? rolls() * Math.PI * 2, {
         liveSpeed: () => liveStat(entity, 'speed'),   // AUDIT 39: EnemyMotor.cs:432 re-reads LiveSpeed per FixedUpdate
         seesThroughInvisibility: basics.seesThroughInvisibility ?? false,
@@ -1442,7 +1443,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         f._castPending = false;
         if (edge && f.ai._tac?.state !== 'windup') playEnemyClip(audio, f.sounds.attack(), f.ai.feet, acuteHearingMultiplier(playerEntity));   // TELL8: a wind-up's swing is its cues'
         tellCues(f, audio, acuteHearingMultiplier(playerEntity));   // TELL8: its wind, its release and its landing in the ear - a peer's foe's as my own's
-        tickEnemySound(f.sounds, f.ai.feet, playerFeet, dt, { audio, collider, hearing: acuteHearingMultiplier(playerEntity) });
+        tickEnemySound(f.sounds, f.ai.feet, playerFeet, dt, { audio, collider, hearing: acuteHearingMultiplier(playerEntity), companion: f.companion != null });
         // WORLD6b-ii: a puppet lands no blow of its own (WORLD2) - unless the blow is at ME, and a shaft at anyone flies.
         // AUDIT WORLD6b-iii(a) A3: at ME by the SWING's own recipient (b), latched at its edge - not the hunt's live word
         const _blowMine = f._pupBlowAt != null && recipientIsMe(f, f._pupBlowAt);
@@ -1609,7 +1610,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // AUDIT 24 (wave 41): EnemySounds.FixedUpdate - the attract
       // cadence this pool never had. The counter steps every frame and
       // the sound fires only inside the 16m radius.
-      tickEnemySound(f.sounds, f.ai.feet, playerFeet, dt, { audio, collider, hearing: acuteHearingMultiplier(playerEntity) });
+      tickEnemySound(f.sounds, f.ai.feet, playerFeet, dt, { audio, collider, hearing: acuteHearingMultiplier(playerEntity), companion: f.companion != null });
       const seq = f.attack.swingSeq;   // AUDIT 68 S04-strike-edge-cut: EnemyAttack's own start count, not an Idle->strike state edge
       const strikeEdge = seq !== f._swingSeq;
       f._swingSeq = seq;
@@ -1656,7 +1657,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
           // falls through to its hand-to-hand attack.
           const fwpn = chooseEnemyWeapon(dropWeaponIfTargetImmune(f.entity.weapon, _foeTarget.entity), ENEMY_BASICS[f.mobileType]);
           const ffwd = [Math.sin(f.ai.yaw), 0, Math.cos(f.ai.yaw)];   // transform.forward (:208)
-          if (meleeHitConnects(f.ai._dist, f.ai.inSight, withinYaw(f.ai.yaw, fdx, fdz, MELEE_HIT_YAW_DEG))) {
+          // AUDIT ARENA-LADDER: a telegraphed blow at a bout-mate (ai/tactics.js targetFeet) - decided and weighed by its shape
+          if (blowConnects(f.ai, meleeHitConnects(f.ai._dist, f.ai.inSight, withinYaw(f.ai.yaw, fdx, fdz, MELEE_HIT_YAW_DEG)))) {
             applyDamageToNonPlayer(f, _foeTarget, {
               weapon: fwpn, direction: ffwd, rolls,
               calculateAttackDamage,
@@ -1665,7 +1667,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
               // guard pool's door (the host wires that through the
               // candidate's `hurtFromFoe`, the `_encounter` split
               // world.js already uses for spell sinks).
-              dealDamage: (t, d) => (t.hurtFromFoe ? t.hurtFromFoe(d, ffwd, f) : damageFoe(t, d, null, ffwd)),
+              dealDamage: (t, d) => { d = blowScaled(f.ai, d); return t.hurtFromFoe ? t.hurtFromFoe(d, ffwd, f) : damageFoe(t, d, null, ffwd); },   // AUDIT ARENA-LADDER: the shape's weight
               audio, hitEffects,
               // AUDIT 58: FormulaHelper.cs:691-696 has NO player gate -
               // a poisoned foe blade doses the foe it strikes. Without
@@ -1868,7 +1870,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     const f = liveFoeFor(foes, key, 'mobileFoe', { idOf });
     if (!f) return null;
     const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile && !f.yielded && !f._pupYield });   // HOVER-PLAIN: a hostile foe is never named here, a champion, an elite or a revenant included - its name stands on its health bar alone; a kneeling revenant (mine or a peer's, still hostile in its motor) is done fighting, so it says so below
-    return t ? { title: f.yielded || f._pupYield ? `${t} - beaten` : t } : null;   // REVENANT-FATE: a kneeling revenant says so
+    return t ? { title: f.yielded || f._pupYield ? `${t} - beaten` : t, subs: questFoeSubs(f) } : null;   // REVENANT-FATE: a kneeling revenant says so; QUEST-FOE-LINE (FIELD BUGS 2026-10-04f): a quest's foe at peace says whose it is
   };
   // MAC-E: and the general arm is the WINDOW now (PlayerActivate.cs:957),
   // not a bulk transfer - `openWindow` is the host's own inventory door.
@@ -2262,6 +2264,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   function setOnCsa(fn, onClear = null) { _onCsa = typeof fn === 'function' ? fn : null; _onCsaClear = typeof onClear === 'function' ? onClear : null; }   // CSA-J
   function setOnCsaAboard(fn, onClear = null) { _onCsaAboard = typeof fn === 'function' ? fn : null; _onCsaAboardClear = typeof onClear === 'function' ? onClear : null; }   // CSA-K
   function setOnNaval(fn, onClear = null) { _onNaval = typeof fn === 'function' ? fn : null; _onNavalClear = typeof onClear === 'function' ? onClear : null; }   // NAV-G
+  function setOnPortals(fn) { _onPortals = typeof fn === 'function' ? fn : null; }   // PORTAL1
   function setOnDuel(fn, onClear = null) { _onDuel = typeof fn === 'function' ? fn : null; _onDuelClear = typeof onClear === 'function' ? onClear : null; }   // DUEL1
   const _now = () => (_net?.now ? _net.now() : Date.now());
   /** My foes out, and my watch behind them (WATCH1) - every one of MINE whose streamed state changed since its last
@@ -2424,7 +2427,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       seen.add(r.i);
       // Only the nominated heir receives the inventory. A rejected list must never become an empty reward.
       if (heirIsMe(r) && r.it !== undefined) {
-        const items = validLootList(r.it);
+        const items = unbound(validLootList(r.it));   // AUDIT PORTAL1 I4: SS3's law - a list a peer hands over lands without a bound piece (a forged Portal Stone is a free portal)
         if (!items) continue;
         r.it = items;
         // A retried handover must not replace a living adopted foe or resurrect a dead one with fresh loot.
@@ -2514,6 +2517,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (data.sa !== undefined) _onCsa?.(from, data.sa, _now());   // CSA-J: the owner's boats (null: none stand) - a frame without the field leaves the last word standing; past the same room test
     if (data.ab !== undefined) _onCsaAboard?.(from, data.ab, _now());   // CSA-K: the sender's place aboard a boat (null: aboard none) - the same law, the same test
     if (data.nv !== undefined) _onNaval?.(from, data.nv, _now());   // NAV-G: the owner's sea (null: none) - the ships they stand, their last volleys and barrels; past the same room test
+    if (data.pg !== undefined) _onPortals?.(from, data.pg);   // PORTAL1: the owner's portal - a frame without it leaves the copy to run out on its own time; past the same room test
     if (data.hv !== undefined) _onHcc?.(from, data.hv, _now());   // HCC-ONLINE: the owner's horse and wagon (null: none stand) - a frame without the field leaves the last word standing; past the same room test the camps pass
     if (Array.isArray(data.c)) _onCamps?.(from, data.c, _now());   // SURV3: the owner's camps ride the same frame, past the same room test - the host's pool lands them
     return true;
@@ -3079,5 +3083,6 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     setOnSeaRaiders,   // OW6
     setOnCsaAboard,   // CSA-K
     setOnNaval,   // NAV-G
+    setOnPortals,   // PORTAL1
     setOnCamps, setOnHcc, setOnDuel };   // SURV3; HCC-ONLINE
 }

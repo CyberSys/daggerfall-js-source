@@ -49,21 +49,23 @@
   },
   {
     "name": "TELL7-whole-set-everyone",
-    "file": "src/ai/tells.js",
+    "file": "src/ai/blowShapes.js",
     "old": "export const wholeSet = (ent) => isElite(ent) || !!ent?.champion || !!ent?.revenant;",
     "new": "export const wholeSet = (ent) => true;",
     "tests": [
       "test/tell7_tier.test.js"
-    ]
+    ],
+    "note": "FEUD's MERGE of main's #586-#622 (PIN MOVED): TELL7's whole set lives in the leaf ai/blowShapes.js beside the families (one home: the relay's leaf takes no import, and isElite and wholeSet are field tests) - the same line, its new file; ai/tells.js hands it on."
   },
   {
     "name": "TELL7-whole-set-no-revenant",
-    "file": "src/ai/tells.js",
+    "file": "src/ai/blowShapes.js",
     "old": "export const wholeSet = (ent) => isElite(ent) || !!ent?.champion || !!ent?.revenant;",
     "new": "export const wholeSet = (ent) => isElite(ent) || !!ent?.champion;",
     "tests": [
       "test/tell7_tier.test.js"
-    ]
+    ],
+    "note": "FEUD's MERGE of main's #586-#622 (PIN MOVED): TELL7's whole set lives in the leaf ai/blowShapes.js beside the families (one home: the relay's leaf takes no import, and isElite and wholeSet are field tests) - the same line, its new file; ai/tells.js hands it on."
   },
   {
     "name": "TELL7-tier-no-champion",
@@ -85,51 +87,56 @@
   },
   {
     "name": "TELL7-ring-kinds",
-    "file": "src/ai/foeBlows.js",
-    "old": "const RING_KINDS = new Set([M.Giant, M.IronAtronach, M.FleshAtronach, M.DaedraLord]);",
-    "new": "const RING_KINDS = new Set([M.Giant, M.IronAtronach, M.FleshAtronach, M.DaedraLord, M.Daedroth]);",
+    "file": "src/ai/blowShapes.js",
+    "old": "const RING_KINDS = Object.freeze(new Set([16, 36, 37, 31]));",
+    "new": "const RING_KINDS = Object.freeze(new Set([16, 36, 37, 31, 27]));",
     "tests": [
       "test/tell7_tier.test.js"
-    ]
+    ],
+    "note": "FEUD's MERGE of main's #586-#622 (PIN MOVED): TELL7's whole set lives in the leaf ai/blowShapes.js beside the families (one home: the relay's leaf takes no import, and isElite and wholeSet are field tests) - by MobileTypes number as the families are (Daedroth 27 added)."
   },
   {
     "name": "TELL7-chargers",
-    "file": "src/ai/foeBlows.js",
-    "old": "const CHARGERS = new Set([M.GrizzlyBear, M.SabertoothTiger, M.Wereboar, M.Centaur, M.OrcWarlord]);",
-    "new": "const CHARGERS = new Set([M.GrizzlyBear, M.SabertoothTiger, M.Wereboar, M.Centaur]);",
+    "file": "src/ai/blowShapes.js",
+    "old": "const CHARGERS = Object.freeze(new Set([4, 5, 14, 8, 24]));",
+    "new": "const CHARGERS = Object.freeze(new Set([4, 5, 14, 8]));",
     "tests": [
       "test/tell7_tier.test.js"
-    ]
+    ],
+    "note": "FEUD's MERGE of main's #586-#622 (PIN MOVED): TELL7's whole set lives in the leaf ai/blowShapes.js beside the families (one home: the relay's leaf takes no import, and isElite and wholeSet are field tests) - by MobileTypes number as the families are (OrcWarlord 24 dropped)."
   },
   {
     "name": "TELL7-leapers",
-    "file": "src/ai/foeBlows.js",
-    "old": "const LEAPERS = new Set([M.Spider, M.Werewolf, M.SabertoothTiger, M.Vampire]);",
-    "new": "const LEAPERS = new Set([M.Spider, M.Werewolf, M.SabertoothTiger]);",
+    "file": "src/ai/blowShapes.js",
+    "old": "const LEAPERS = Object.freeze(new Set([6, 9, 5, 28]));",
+    "new": "const LEAPERS = Object.freeze(new Set([6, 9, 5]));",
     "tests": [
       "test/tell7_tier.test.js"
-    ]
+    ],
+    "note": "FEUD's MERGE of main's #586-#622 (PIN MOVED): TELL7's whole set lives in the leaf ai/blowShapes.js beside the families (one home: the relay's leaf takes no import, and isElite and wholeSet are field tests) - by MobileTypes number as the families are (Vampire 28 dropped)."
   },
   {
     "name": "TELL7-unbuilt-shapes",
-    "file": "src/ai/foeBlows.js",
+    "file": "src/ai/blowShapes.js",
     "old": "  const add = extraShapesOf(mobileType).filter((k) => k in BLOW && !base.includes(k));",
     "new": "  const add = extraShapesOf(mobileType).filter((k) => !base.includes(k));",
     "tests": [
       "test/tell7_tier.test.js"
     ],
     "equivalent": true,
-    "why": "Every shape the whole set adds (the ring, the charge, the leap) has its BLOW row since TELL6 built them, so the filter keeps all of them and no pin can tell it from none. Kept as the guard for a shape named in the set before its row exists - found surviving when RVN4 re-judged the file, recorded rather than dropped."
+    "why": "Every shape the whole set adds (the ring, the charge, the leap) has its BLOW row since TELL6 built them, so the filter keeps all of them and no pin can tell it from none. Kept as the guard for a shape named in the set before its row exists - found surviving when RVN4 re-judged the file, recorded rather than dropped.",
+    "note": "FEUD's MERGE of main's #586-#622 (PIN MOVED): TELL7's whole set lives in the leaf ai/blowShapes.js beside the families (one home: the relay's leaf takes no import, and isElite and wholeSet are field tests) - the same line, its new file."
   },
   {
     "name": "TELL7-set-ignored",
-    "file": "src/ai/foeBlows.js",
+    "file": "src/ai/blowShapes.js",
     "old": "  if (!base.length || !wholeSet(entity)) return base;",
     "new": "  return base;",
     "tests": [
       "test/tell7_tier.test.js",
       "test/tell6a_ring.test.js"
-    ]
+    ],
+    "note": "FEUD's MERGE of main's #586-#622 (PIN MOVED): TELL7's whole set lives in the leaf ai/blowShapes.js beside the families (one home: the relay's leaf takes no import, and isElite and wholeSet are field tests) - the same line, its new file."
   },
   {
     "name": "TELL7-brain-ordinary-clock",

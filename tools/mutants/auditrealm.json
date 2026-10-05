@@ -11,8 +11,8 @@
   {
     "name": "AUDIT-REALM-F1-the-stone-unlisted",
     "file": "src/net/realmTradeLaw.js",
-    "old": "export const BOUND_TEMPLATES = Object.freeze([570, 571]);",
-    "new": "export const BOUND_TEMPLATES = Object.freeze([571]);",
+    "old": "export const BOUND_TEMPLATES = Object.freeze([570, 571, 572]);",
+    "new": "export const BOUND_TEMPLATES = Object.freeze([571, 572]);",
     "tests": [
       "test/auditrealm.test.js"
     ]
@@ -242,8 +242,10 @@
     "old": "  const refund = homeSaleRefund(Math.max(0, Number(home.paid) || 0));",
     "new": "  const refund = homeSaleRefund(home.price);",
     "tests": [
-      "test/auditrealm.test.js"
-    ]
+      "test/auditrealm.test.js",
+      "test/homeprice.test.js"
+    ],
+    "note": "AUDIT HOME-PRICE D2: it survived its own pins (every fixture paid its price); test/homeprice.test.js sells a home whose price and payment differ."
   },
   {
     "name": "AUDIT-REALM-L1F3-the-realm-claim-paid-nothing",
@@ -320,7 +322,7 @@
   {
     "name": "AUDIT-REALM-a-repeated-claim-paid-twice",
     "file": "src/systems/onlineHomes.js",
-    "old": "        apply: (/** @type {any} */ res) => { if (res?.repeat) refund?.(price); },\n",
+    "old": "        apply: (/** @type {any} */ res) => { if (res?.repeat) paid.back(); },\n",
     "new": "",
     "tests": [
       "test/auditrealm.test.js"
@@ -329,7 +331,7 @@
   {
     "name": "AUDIT-REALM-a-repeated-placement-paid-twice",
     "file": "src/scenes/decorTool.js",
-    "old": "          apply: (/** @type {any} */ a) => { if (a.data?.repeat) wallet.credit?.(price); },\n",
+    "old": "          apply: (/** @type {any} */ a) => { if (a.data?.repeat) paid.back(); },\n",
     "new": "",
     "tests": [
       "test/realm6.test.js"

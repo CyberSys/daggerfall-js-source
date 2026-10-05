@@ -153,17 +153,19 @@ test('AUDIT 68 S22-door-repeated-block-identity: the second instance of a shared
   const resolve = lift(WORLD, '    buildingDataForDoor: (hit) => {', '\n    },');
   // ARENA1: the door's location and exit group are arenaDoorTarget's (the pixel's town, or the arena's undercroft) - lifted too
   const arenaTarget = lift(WORLD, '  function arenaDoorTarget(e) {', '\n  }');
-  const host = new Function('buildingDoors', 'state', 'locationIndex', 'built', 'setLastLocationKeyTo', 'buildingDataForDoor', 'townTalk', 'isUndercroftDoor', 'DOOR_TYPE', 'isArenaCity', 'undercroftLocation', '_undercrofts',
+  const { homeTownBlocks } = await import('../src/systems/onlineHomes.js');   // HOME-PRICE: the door's building carries its town's size
+  const host = new Function('buildingDoors', 'state', 'locationIndex', 'built', 'setLastLocationKeyTo', 'buildingDataForDoor', 'townTalk', 'isUndercroftDoor', 'DOOR_TYPE', 'isArenaCity', 'undercroftLocation', '_undercrofts', 'homeTownBlocks',
     `${shifted}\n${arenaTarget}\nreturn ({\n${targets}\n${resolve}\n});`)(
     buildingDoors, { pixelTranslation: () => [500, 0, -300] }, new Map([['4,4', dfLoc]]),
     new Map([['4,4', { locBlocks: loc.blocks, locOrigin }]]), () => {}, talk.buildingDataForDoor, { directory: [] },
-    () => false, { DUNGEON_ENTRANCE: 2 }, () => false, () => null, new WeakMap());
+    () => false, { DUNGEON_ENTRANCE: 2 }, () => false, () => null, new WeakMap(), homeTownBlocks);
   const [first, second] = host.doorTargets();
   assert.notEqual(second.door.matrix[12], at(RMB_SIDE + 10)[12], 'a door hit is world-frame');
   assert.equal(host.buildingDataForDoor(first).buildingKey, talk.makeBuildingKey(0, 0, 0));
   const b = host.buildingDataForDoor(second);
   assert.equal(b.buildingKey, talk.makeBuildingKey(1, 0, 0), 'the second copy\'s door is the second copy\'s building');
   assert.equal(b.nameSeed, 22, 'and its shop is the second pool draw, not the first\'s');
+  assert.equal(b.townBlocks, 2, 'HOME-PRICE: and its town\'s size, 2 x 1 blocks, off the door\'s own location');
   // the static-building arm (buildingUnderRay's pixel-local hit) agrees
   assert.equal(host.buildingDataForDoor({ dfBlock: B, recordIndex: 0, pixelKey: '4,4', door: { matrix: at(RMB_SIDE + 10) }, pixelLocal: true }).buildingKey, talk.makeBuildingKey(1, 0, 0));
 });

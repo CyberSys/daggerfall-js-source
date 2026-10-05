@@ -12,7 +12,11 @@
 //    behind the player in the new one. A body a place swept itself (a fast travel's clear) stands again the same way.
 //  - THE FOLLOW BRAIN is the motor's (enemyMotor.js `follow`, the navmesh's in enhancedMotor.js): no foe to fight,
 //    each keeps to the leader - the first nearer, the second a pace further - and one left CATCH_UP_M behind (or a
-//    floor away) is stood behind the player again.
+//    floor away) is stood behind the player again. COMPANION-TRAIL (FIELD BUGS 2026-10-04b): the layer drops a crumb
+//    every TRAIL_STEP_M the leader walks on a floor, the last TRAIL_MAX kept, and hands them to the motor
+//    (`follow.trail`) - out of sight of the leader a companion walks where the player walked, round the corner and
+//    through the doorway, never straight into the wall beside it. A new place, or a leader moved TRAIL_JUMP_M in one
+//    frame (a teleport, the floating origin's recentre), begins the trail again.
 //  - FIGHTING: each stands as the player's ally (allied: team PlayerAlly - enemyTargets.js getTargets), a `shipmate`
 //    none of the player's blows can reach (combat/friendlyFire.js), and a `companion` every hostile may fight.
 //  - KNOCKED OUT: the pools' death arms hold a companion at 1 and mark him (`_knockedOut`); here he is taken out and
@@ -33,6 +37,11 @@ export const CATCH_UP_DY = 6;
 /** How near each keeps to the leader (m): the first, then each after a pace further. */
 export const HEEL_M = 2.5;
 export const HEEL_STEP_M = 1.2;
+/** COMPANION-TRAIL: a crumb each this far the leader walks (m), the newest this many kept (48 m - past CATCH_UP_M),
+ *  and a leader moved this far in one frame (m) begins it again. */
+export const TRAIL_STEP_M = 0.75;
+export const TRAIL_MAX = 64;
+export const TRAIL_JUMP_M = 8;
 
 export const companionKeyOf = (c) => c.key ?? `${c.boat}:${c.name}`;
 
@@ -53,6 +62,22 @@ export function createCrewAshore(deps) {
   const stood = new Map();
   const pending = new Set();
   let placeKey, epoch = 0;
+  /** COMPANION-TRAIL: where the leader walked in this place, oldest first. @type {number[][]} */
+  const trail = [];
+  /** @type {number[]|null} the leader's feet the frame before */
+  let leaderWas = null;
+  /** COMPANION-TRAIL: the leader's feet this frame - moved TRAIL_JUMP_M since the last frame, the trail begins again;
+   *  on a floor, a crumb past TRAIL_STEP_M from the last. */
+  function drop(L) {
+    const f = L.feet;
+    if (leaderWas && Math.hypot(f[0] - leaderWas[0], f[1] - leaderWas[1], f[2] - leaderWas[2]) > TRAIL_JUMP_M) trail.length = 0;
+    leaderWas = [f[0], f[1], f[2]];
+    if (L.grounded === false) return;   // a jump's arc, a swim, a levitation leave no crumb in the air
+    const last = trail[trail.length - 1];
+    if (last && Math.hypot(f[0] - last[0], f[2] - last[2]) < TRAIL_STEP_M) return;
+    trail.push([f[0], f[1], f[2]]);
+    if (trail.length > TRAIL_MAX) trail.shift();
+  }
   /** AUDIT WK-M3: HIS SPELLS RIDE WITH HIM, as his health does. Each place stands a fresh body, so every effect on him -
    *  a gift of mine (COMPANION-KIT), a foe's poison - was lost at every door, dungeon, helm and sweep (a fast travel, a
    *  Recall, a respawn). A body leaving its place (lifted at a change of place, or swept by the place itself) leaves its
@@ -77,7 +102,7 @@ export function createCrewAshore(deps) {
     return place.spot ? place.spot(L.feet, dx, dz) : [L.feet[0] + dx, L.feet[1], L.feet[2] + dz];
   }
   /** The motor's follow handle: the leader's live feet, and how near this one keeps. */
-  const followOf = (i) => ({ feet: () => deps.leader()?.feet ?? null, stop: HEEL_M + i * HEEL_STEP_M });
+  const followOf = (i) => ({ feet: () => deps.leader()?.feet ?? null, stop: HEEL_M + i * HEEL_STEP_M, trail: () => trail });   // COMPANION-TRAIL
 
   /** One frame: the place read, the bodies there kept to the party, the missing stood. */
   function frame() {
@@ -86,9 +111,10 @@ export function createCrewAshore(deps) {
     party?.wake(now);
     const place = party && (party.party.length || stood.size) ? deps.place() : null;   // COMPANION-PORTAL: the last one sent away still leaves through its portal (no party: everyone out)
     const key = place ? place.key : undefined;
-    if (key !== placeKey) { liftAll(); placeKey = key; epoch++; }
+    if (key !== placeKey) { liftAll(); placeKey = key; epoch++; trail.length = 0; leaderWas = null; }   // COMPANION-TRAIL: a new place, a new trail
     if (!party) return;
     const L = deps.leader();
+    if (place && L) drop(L);   // COMPANION-TRAIL
     const list = party.party;
     // the bodies standing: knocked, swept, sent back, left behind
     for (const [k, s] of [...stood]) {
@@ -164,6 +190,8 @@ export function createCrewAshore(deps) {
     /** The companions standing here - their bodies (the bars' list). */
     bodies: () => [...stood.values()].map((s) => s.rec),
     /** Everyone out of the place (the naval arc switched off, a new game) - the party keeps them. */
-    clear() { liftAll(); placeKey = undefined; epoch++; },
+    clear() { liftAll(); placeKey = undefined; epoch++; trail.length = 0; leaderWas = null; },
+    /** COMPANION-TRAIL: the leader's crumbs in this place (tests). */
+    trail: () => trail,
   };
 }

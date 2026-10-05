@@ -59,6 +59,7 @@ import { MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_
 import { GUILD_WRITS_MAX, GUILD_STORES_MAX, COMMISSIONS_MAX, COMMISSIONS_FOR_MAX, WRIT_POSTS_MAX, WRIT_OPS_MAX, GUILD_CONTRACTS_MAX, CONTRACT_PAY_MAX, CONTRACT_DEEDS_MAX } from './writLaw.js';   // PROF6: the bounds its refusals name; SILVER-WAYS: a contract's
 import { RENOWN_TRACKS_MAX } from './renown.js';   // RENOWN1: the tracks' bound, in its refusal's own sentence (RENOWN-CHAR: back with the tracks)
 import { HERALDRY_CHANGE_DRAKES } from './heraldryLaw.js';   // GUILD1d: a change's cost, in its refusal's own sentence
+import { VENDOR_REFUSAL_WORDS } from './vendorLaw.js';   // HOME-VENDOR: a trader's refusals
 import { ARENA_TEXT } from '../systems/arenaText.js';   // ARENA4b: the arena's refusals, in its own frozen table
 
 /** WHERE THE SERVICE IS. Its own constant beside the relay's
@@ -153,6 +154,11 @@ export const REFUSALS = Object.freeze({
   guest: 'Insignia need a registered account. Add a username and password first.',
   // ARENA4, the banners (server-account/src/arena.js arenaTeam)
   'bad-banner': 'The arena knows only the Red Banner and the Blue. The game may need updating.',
+  // AUDIT ARENA-LADDER, a ladder attempt's ticket (arena.js arenaAttempt): a bout that is not the climb's next, and a
+  // tier or bout out of the ladder's
+  'order': 'That is not your next ladder bout. Open the Arena window to see where you stand.',
+  'bad-bout': 'The arena has no such ladder bout. The game may need updating.',
+  'ladder-needs-account': 'The ladder online needs a username and a password. Give this account one and your climb is kept.',   // AUDIT ARENA-LADDER 2: a guest climbs nothing online
   joined: 'You already fight under a banner. Quit it at its own recruiter first.',
   season: 'You quit the other banner this season. You may join it when the next season opens.',
   // PATREON-LINK, a patron's own Patreon (server-account/src/patreon.js). `signature` is the webhook's, met by Patreon
@@ -191,6 +197,7 @@ export const REFUSALS = Object.freeze({
   // HOME1, the online homes (server-account/src/homes.js). A player meets these at a front door, beside the price.
   'homes-need-account': 'Owning a home needs a username and a password. Give this account one and you can buy one.',
   'home-taken': 'Somebody else owns this home now.',
+  'no-deed': 'Your house\'s deed is not in your saved game yet. It will be kept for you once the game has saved.',   // FIELD BUGS 2026-10-04d KNIGHT-HOUSE: the hold reads the deed off the realm record
   'home-update': 'This game is out of date. Reload it to buy a home.',   // WD3 (AUDIT WD3 B2): a build from before the town mods
   'home-towns': 'The towns could not be loaded as the other players here see them. Reload the game to buy a home.',   // WD3 (AUDIT WD3 B1): a town mod's pack did not load
   'home-layout': 'The town records here are still being read. Try again in a moment.',   // WD3: the town is built again as the room's (scenes/world.js hearHomeLayouts)
@@ -306,6 +313,7 @@ export const REFUSALS = Object.freeze({
   ...SIEGE_WHY,   // SEAT2a part three: the pass and the Honours
   ...ROYAL_WHY,   // CROWN1 part two: the Royal Tourney's pass and bouts
   ...FEALTY_WHY,   // CROWN2: fealty and Pacts
+  ...VENDOR_REFUSAL_WORDS,   // HOME-VENDOR
   // NOTICE1: the Notice Board (server-account/src/board.js)
   'board-need-account': 'Notes are pinned by registered accounts. Add a username to pin one.',
   'board-closed': 'The notice board is not open yet.',
@@ -410,6 +418,8 @@ export const REFUSALS = Object.freeze({
   'market-listed': 'That piece is on the market already.',
   'market-order-full': 'The buyer\'s Stores cannot hold that many more.',
   'market-elsewhere': 'That order is filled at the boards of its own region.',
+  'market-courier-dear': 'The courier to that order\'s region would cost all it pays. Fill it nearer, or fill more at once.',   // GLOBAL-MARKET
+  'market-taxed-out': 'Filled alone, that would pay you nothing once the tax is taken. Fill more at once.',   // MARKET-AUDIT S2
   'market-other-character': 'That is on its way to another of your characters.',
   'market-on-road': 'The courier has not arrived yet.',
   // AUDIT 30
@@ -559,6 +569,11 @@ export const REFUSALS = Object.freeze({
   // REALM P2.2: an act that moves a realm character's gold on its record (server-account/src/realm.js)
   'realm-needed': 'This online character must be playing in the realm to do that. Rejoin and try again.',
   'realm-gold': 'The realm holds less gold for this character than that costs.',
+  // MARKET-AUDIT (P6): a realm act's own words (systems/realmSaves.js realmGoldAct), as the market's tab and the stall read
+  // them - said "The account service had a problem" (realmRefusalText says the realm door's own)
+  'held': 'A trade or a purchase is being settled - try again in a moment.',
+  'left': 'You left the realm.',
+  'unknown': 'The realm did not answer. Join again - the realm holds how it ended.',
   // CUSTOMS-PASS: the developer's route (server-account/src/realm.js grantCustomsPass), said by tools/customsPass.mjs - its
   // `not-developer` is MARKS1's one word above (MERGE 2: both sides wrote it; the one refusal says both routes)
   ambiguous: 'More than one account goes by that name - name the account by its id instead.',
@@ -585,7 +600,7 @@ export const handleShapeOk = (handle) => typeof handle === 'string' && HANDLE_RE
  * @param {boolean} [io.keepalive]  AUDIT RENOWN1 GAME-8: finish the call after the page is gone (the pagehide report)
  * @param {string} path  a `/v1/...` route
  * @param {object|null} [body]  POST body, or null for a GET
- * @returns {Promise<{ok: boolean, data?: any, error?: string, status?: number}>}
+ * @returns {Promise<{ok: boolean, data?: any, error?: string, status?: number, unknown?: boolean}>}
  */
 export async function call({ fetch, base = DEFAULT_ACCOUNT_SERVICE, secret = null, keepalive = false }, path, body = null) {
   const headers = { accept: 'application/json' };
@@ -612,8 +627,8 @@ export async function call({ fetch, base = DEFAULT_ACCOUNT_SERVICE, secret = nul
     return { ok: false, error: 'offline' };
   }
 
-  let data = null;
-  try { data = await res.json(); } catch { data = null; }
+  let data = null, read = false;
+  try { data = await res.json(); read = true; } catch { data = null; }
 
   if (!res.ok) {
     // The service says `{ error: '<word>' }`. A proxy, a 502 or an
@@ -621,6 +636,11 @@ export async function call({ fetch, base = DEFAULT_ACCOUNT_SERVICE, secret = nul
     // honest answer for that rather than a guess at which word it meant.
     return { ok: false, error: typeof data?.error === 'string' ? data.error : 'server', ...(typeof data?.why === 'string' ? { why: data.why } : {}), ...(Number.isSafeInteger(data?.seq) ? { seq: data.seq } : {}), ...(Number.isSafeInteger(data?.at) ? { at: data.at } : {}), status: res.status };   // AUDIT WB A5: and the rung, where the service names one; REALM P2.2: and a realm record's sequence; AUDIT2 GUILD2 S7: and when a refused act may come again
   }
+  // MARKET-AUDIT (P1): every JSON route answers a body, so a 2xx whose body never came (the door's wait ended mid-body, a
+  // dropped connection) is no word on the act - `offline`, as a request that never left: an act is kept and asked again
+  // with its own id (the service's `repeat` answers one that landed), a read shows the last good view. As `ok` with no
+  // data it let a kept purchase go unminted and cached a blank market for a minute. A 204 says it has nothing to say.
+  if (!read && res.status !== 204) return { ok: false, error: 'offline', unknown: true, status: res.status };
   return { ok: true, data, status: res.status };
 }
 
@@ -1033,6 +1053,24 @@ export function accountRaids({ fetch, storage }) {
   };
 }
 
+/** SERPENT1: a sea serpent's receipt the relay signed for this account, carried to the service with the character that
+ *  fought it and this device's claim id (the hoard's key) - `{ recorded, slain, renown, spoils, order }`, or
+ *  `{ recorded: false, why }` (`claimed`, `guest`). */
+export const claimSerpentReceipt = (io, receipt, character, name = null, cid = null) => call(io, '/v1/serpent/claim', { receipt, character, name, ...(cid ? { cid } : {}) });
+
+/**
+ * SERPENT1: THE SERPENTS' ONE CALL, bound to this device's stored session (the raids' own shape). With no session there
+ * is no account to claim for: `{ ok: false, error: 'no-session' }`, never a knock - and net/serpentClaims.js keeps the
+ * receipt for when there is one.
+ */
+export function accountSerpents({ fetch, storage }) {
+  const io = () => { const s = storedSession(storage); return s ? { fetch, base: serviceBase(storage), secret: s.secret } : null; };
+  return {
+    claim: async (receipt, character, name = null, cid = null) => { const i = io(); return i ? claimSerpentReceipt(i, receipt, character, name, cid) : { ok: false, error: 'no-session' }; },
+    me: () => storedSession(storage)?.id ?? null,
+  };
+}
+
 /**
  * ARENA4: THE ARENA (server-account/src/arena.js) through the one door - a bout's receipt the relay signed, carried here
  * by an account it names (`claim`); the boards, counted from the rows (`board` - the season's ratings, the climb, the
@@ -1047,6 +1085,8 @@ export function accountArena({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     claim: (receipt, character = null, name = null) => post('/v1/arena/claim', { receipt, ...(character ? { character } : {}), ...(name ? { name } : {}) }),
     board: () => post('/v1/arena/board', {}),
     team: (banner) => post('/v1/arena/team', { banner: banner ?? null }),
+    // AUDIT ARENA-LADDER: an attempt at the account's next ladder bout - its ticket, which the relay opens the bout for
+    attempt: (tier, bout, room) => post('/v1/arena/attempt', { tier, bout, room }),   // AUDIT ARENA-LADDER 2: for the room it is fought in
     me: () => storedSession(storage)?.id ?? null,
   };
 }
@@ -1108,6 +1148,10 @@ export function accountHomes({ fetch, storage }) {
     arenaMove: ({ mapId, from, to, character, realm = null }) => post('/v1/homes/arena-move', { mapId, from, to, character, ...(realm ? { realm } : {}) }),
     arenaMoves: (character) => post('/v1/homes/arena-moves', { character }),
     arenaSeen: (mapId, from) => post('/v1/homes/arena-seen', { mapId, from }),
+    // FIELD BUGS 2026-10-04d KNIGHT-HOUSE: the building a deed the realm gave names (a Knightly Order's house), held off the
+    // character's record from anyone else's claim; and that hold given up as the deed sells at the bank
+    deed: ({ mapId, buildingKey, region, character, layout = null }) => post('/v1/homes/deed', { mapId, buildingKey, region, character, layout: layout || null }),
+    releaseDeed: (mapId, buildingKey) => post('/v1/homes/release', { mapId, buildingKey, deed: true }),
   };
 }
 
@@ -1319,6 +1363,10 @@ export function accountMarket({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) 
     fill: (req) => post('/v1/market/fill', req),
     unorder: (order, rid) => post('/v1/market/unorder', { order, rid }),
     // MARKET-ANY: a piece from a pack goes into the record - where it stands (`realm`) with it
+    // HOME-VENDOR: a home's trader's stock, and the region's traders
+    vendor: (vendor) => post('/v1/market/vendor', { vendor }),
+    vendors: (region, character = null) => post('/v1/market/vendors', { region, ...(character ? { character } : {}) }),   // HOME-VENDOR: each house's door, for this character
+    myVendors: (character) => post('/v1/market/myvendors', { character }),
     collect: (character, delivery, rid, realm = null) => post('/v1/market/collect', { character, delivery, rid, ...(realm ? { realm } : {}) }),
     report: (listing) => post('/v1/market/report', { listing }),
     remove: (listing) => post('/v1/market/remove', { listing }),

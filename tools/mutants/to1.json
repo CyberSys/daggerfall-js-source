@@ -834,12 +834,13 @@
   {
     "name": "c1-enhanced-map-never-player-controlled",
     "file": "src/ui/heldMap.js",
-    "old": "      playerControlled: isPlayerControlledTravel(st.to?.settings, st.opts),",
+    "old": "      playerControlled: st.it ? false : isPlayerControlledTravel(st.to?.settings, st.opts),",
     "new": "      playerControlled: false,",
     "tests": [
       "test/to1_travelOptions.test.js",
       "test/heldmap.test.js"
-    ]
+    ],
+    "note": "IT1 (PIN MOVED): re-aimed by content - Immersive Travel’s arm sits beside the line this record mutates."
   },
   {
     "name": "g4-mark-per-window-again",
@@ -926,8 +927,8 @@
   {
     "name": "j1-rain-falls-through-the-journey",
     "file": "src/scenes/world.js",
-    "old": "      if (!_travelWeatherOff && !_dwPrecipOff) {\n        precip.draw(precipShown, proj, view, new Float32Array(wxEye), camRight, now / 1000);",
-    "new": "      if (!_dwPrecipOff) {\n        precip.draw(precipShown, proj, view, new Float32Array(wxEye), camRight, now / 1000);",
+    "old": "        if ((!_travelWeatherOff || tvf) && !_dwPrecipOff) {\n          precip.draw(precipShown, proj, view, new Float32Array(wxEye), camRight, now / 1000);",
+    "new": "        if (!_dwPrecipOff) {\n          precip.draw(precipShown, proj, view, new Float32Array(wxEye), camRight, now / 1000);",
     "tests": [
       "test/to1_travelOptions.test.js"
     ]
@@ -1128,15 +1129,6 @@
     "file": "src/systems/travelAutopilot.js",
     "old": "  return Math.max(floor, speed * Math.min(dt, maxFrameDt) * Math.max(1, scale) * margin);",
     "new": "  return Math.max(floor, speed * dt * Math.max(1, scale) * margin);",
-    "tests": [
-      "test/to1_travelOptions.test.js"
-    ]
-  },
-  {
-    "name": "TOFIELD3-the-hunting-roll-is-held-at-the-mods-clock-again",
-    "file": "src/scenes/world.js",
-    "old": "    if (_mode() === 'exterior') hunting.tick();   // SURV6: the minute's hunting roll; the window takes the slot",
-    "new": "    if (_mode() === 'exterior' && worldTimeScale() <= 1) hunting.tick();   // SURV6: the minute's hunting roll; the window takes the slot",
     "tests": [
       "test/to1_travelOptions.test.js"
     ]

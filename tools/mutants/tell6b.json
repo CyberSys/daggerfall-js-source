@@ -46,12 +46,13 @@
   },
   {
     "name": "TELL6b-lane-lunge",
-    "file": "src/ai/foeBlows.js",
+    "file": "src/ai/blowShapes.js",
     "old": "  if (b.kind === 'lunge' || b.kind === 'charge') { const P = BLOW[b.kind];",
     "new": "  if (b.kind === 'lunge' || b.kind === 'charge') { const P = BLOW.lunge;",
     "tests": [
       "test/tell6b_charge.test.js"
-    ]
+    ],
+    "note": "FEUD's MERGE of main's #586-#622 (PIN MOVED): inBlow lives in the leaf ai/blowShapes.js since AUDIT ARENA-LADDER - the same line, its new file."
   },
   {
     "name": "TELL6b-run-not-near",

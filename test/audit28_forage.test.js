@@ -1,14 +1,14 @@
 // AUDIT 28 (2026-09-28, Mac: "let's audit everything we have so far before we continue") - Foraging's findings and the
-// hosts' seams: the online wait (scenes/foragingWait.js), the hunt page's Escape (ui/huntWindow.js), a switched-off
-// mod's console command (systems/consoleCommands.js), a DOM window's button keys (scenes/townTalk.js), the bounty
-// notice kept until read (ui/bountyDoor.js, scenes/bountyHost.js) - each failing on the code before the fix.
+// hosts' seams: the online wait (scenes/foragingWait.js), a switched-off mod's console command
+// (systems/consoleCommands.js), a DOM window's button keys (scenes/townTalk.js), the bounty notice kept until read
+// (ui/bountyDoor.js, scenes/bountyHost.js) - each failing on the code before the fix. (H7, the hunt page's Escape, retired
+// with the text hunt, 2026-10-04: the wait page that remains takes no key at all.)
 // bible/06-Systems/Foraging.md 13 (AUDIT 28).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import { createForagingWait, FORAGING_WAIT_MAX_SECONDS, FORAGING_WAIT_HELD_MAX, saneWait } from '../src/scenes/foragingWait.js';
-import { HuntWindow, HUNT_PHASE } from '../src/ui/huntWindow.js';
 import { consoleCommands, hasConsoleCommand, executeConsoleCommand } from '../src/systems/consoleCommands.js';
 import { installForaging, _resetForagingInstall } from '../src/systems/foragingInstall.js';
 import { FORAGING_COMMAND } from '../src/systems/foragingLaw.js';
@@ -87,18 +87,6 @@ test('AUDIT 28 F2: the wait ticks in every mode - the modal frame ticks it too',
   const w = src('src/scenes/world.js');
   const modal = w.slice(w.indexOf("try { bountyHost?.tick(dt); } catch (e) { console.warn('[bounty] tick', e); }\n      try { gatherHost?.tick(dt); }"), w.indexOf('// AUDIT F2-I1: the modal frame RETURNS'));   // PROF1: the herbs tick beside the bounties (PROF2: every gathering, one host)
   assert.match(modal, /\n\s*foragingWait\.tick\(\);/, 'a live call, not a word about one');
-});
-
-test('AUDIT 28 H7: the hunt page hears Escape as townTalk hands it - the `back` action', () => {
-  let ended = null;
-  const page = new HuntWindow({ busy: 'Searching', seconds: 10, ask: false, escape: true, result: false, onClosed: (searched) => { ended = searched; } });
-  assert.equal(page.phase, HUNT_PHASE.Busy);
-  page.input('back');
-  assert.equal(page.done, true);
-  assert.equal(ended, false, 'walked away, nothing found');
-  const held = new HuntWindow({ busy: 'Waiting', seconds: 10, ask: false, escape: false, result: false });
-  held.input('back');
-  assert.equal(held.done, false, 'a wait with no Escape stays');
 });
 
 test('AUDIT 28 F7: a switched-off mod has no console command - no HELP line, no HasCommand, "not found" to its name', () => {

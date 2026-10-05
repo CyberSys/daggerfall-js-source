@@ -65,6 +65,7 @@ import { FOG_GLSL as EL_FOG_GLSL } from './fogGlsl.js';   // AUDIT 68 S17-fog-gl
 import { COLUMN_GLSL } from './columnGlsl.js';   // DW-F: the water column's share, the lane's flats too
 import { AIR_ADAPT_GLSL, AIR_CONTACT_GLSL, AIR_CONTACT_RANGE_FRACTION, airOn, contactOn, glslFloat } from './airPass.js';   // EL6: no AO block - the resolve's; EL8: the contact block
 import { BAYER_GLSL, BAYER_MEAN, DISSOLVE_GLSL } from './orderedDither.js';   // SHIP-FADE: and the mesh shader's dissolve
+import { LPT_FS_HEAD, LPT_FS_KEEP, LPT_FS_TEXEL } from './lowPolyTreesGlsl.js';   // LPT1: a low-poly tree's fragment half (the classic lane's BB_FS takes the same)
 import { CLOUD_SHADOW_GLSL } from './cloudShadow.js';   // AUDIT 68 S16-el-cloudshadow-dup: the reader's one home, as the classic lane and the shafts take it - five hand copies were here
 import { CLUSTER_X, CLUSTER_Y, CLUSTER_Z, CLUSTER_LIST_W, clustersOn } from './lightClusters.js';   // LC1: the grid the lantern loop walks, and its door   // EL6: the dither at the encode - the port's one Bayer
 import { SHADE_DARK } from '../systems/concealDraw.js';   // AUDIT-EL F14: the shade's pull toward black, interpolated as the classic BB_FS does   // EL3: the ambient occlusion image by screen position, and its kill door; EL4: the adapted exposure
@@ -618,6 +619,7 @@ export const EL_BB_FS = `#version 300 es
 precision highp float;
 in vec2 vUV;
 in vec3 vBBWorld;
+${LPT_FS_HEAD}
 in vec3 vBBBase;   // EL2: the flat's placement base (BB_VS)
 flat in float vBBSunVis;   // LA-COST3: the sun map's word at that base, read once a quad by the lane's vertex shader (EL_BB_VS_EXT)
 uniform sampler2D uTex;
@@ -661,8 +663,8 @@ void main() {
   // inside non-uniform control flow is undefined, and on Apple's GPUs it drew a dark box round every flat
   vec4 tex = texture(uTex, uv);
   vec3 emissionTexel = texture(uEmissionTex, uv).rgb;
-  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) tex = vec4(0.0);   // ELITE FOES: the widened quad's margin is empty; ECV1: nor the ripple's reach past the edge
-  if (tex.a < ((uSpectral == 1 || uConceal.x > 0.0) ? 0.1 : 0.5)) {
+${LPT_FS_KEEP}  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) tex = vec4(0.0);   // ELITE FOES: the widened quad's margin is empty; ECV1: nor the ripple's reach past the edge
+${LPT_FS_TEXEL}  if (tex.a < ((uSpectral == 1 || uConceal.x > 0.0) ? 0.1 : 0.5)) {
     // TELL2: a wind-up's glint outlines the sprite in its blow's colour, in display colour as the elite rim (over it while it lasts)
     if (uGlint.a > 0.0 && uConceal.x == 0.0 && uDissolve.x <= 0.0 && eliteRim(uTex, uv) > 0.0) { outColor = vec4(dwColumn(dwWaterFog(mix(uFogColor, glintRimColor(uGlint), fogFactorAt(vBBWorld)), vBBWorld), vBBWorld), 1.0); return; }
     // ELITE FOES: the rim and the embers, bright enough in linear light for the bloom to catch
@@ -729,7 +731,7 @@ uniform vec3 uBBSun;
 flat out float vBBSunVis;   // LA-COST3: the sun map's word at the flat's base, one value for the whole quad
 ${SHADOW_GLSL}`,
   main: `
-  vBBSunVis = dot(uBBSun, uBBSun) > 0.0 ? sunShadowSoftAt(vBBBase + vec3(0.0, 0.5, 0.0), vec3(0.0, 1.0, 0.0), uSize.y) : 1.0;   // LA-COST3: EL2's point, TREES1's kernel, PERF-SUN2's gate; AUDIT FLICKER S1: its height, off its own card`,
+  vBBSunVis = dot(uBBSun, uBBSun) > 0.0 ? (uMesh > 0.5 ? sunShadowAt(vBBBase + vec3(0.0, 0.5, 0.0), vec3(0.0, 1.0, 0.0)) : sunShadowSoftAt(vBBBase + vec3(0.0, 0.5, 0.0), vec3(0.0, 1.0, 0.0), uSize.y)) : 1.0;   // LA-COST3: EL2's point, TREES1's kernel, PERF-SUN2's gate; AUDIT FLICKER S1: its height, off its own card; AUDIT LPT B4: a low-poly tree's every VERTEX runs this, so one tap at its root`,
 });
 
 /** MAC-BUG W6 (2026-09-20, Mac: "super dark coloring instead of red") -

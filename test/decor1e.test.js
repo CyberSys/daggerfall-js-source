@@ -482,8 +482,9 @@ test('DECOR1e a room sold takes its placed pieces: online, the service\'s count 
   const credited = [];
   assert.deepEqual(await sellOnlineHome(homes, { mapId: 5, buildingKey: 9, credit: (n) => credited.push(n) }), { ok: true, refund: homeRefund(42000), decorBack: 120 });
   assert.deepEqual(credited, [homeRefund(42000) + 120], 'one credit, the home\'s share and the pieces\' half');
-  assert.equal(homeSoldLine(25500, 120), 'You sold your home. 25620 gold went to this region\'s bank account, 120 of it for its placed pieces.');
-  assert.equal(homeSoldLine(25500), 'You sold your home. 25500 gold went to this region\'s bank account.', 'none placed: the sentence it always was');
+  // HOME-PRICE: the thousands, and the Empire's account (EMPIRE-ACCOUNT) - online, never the region's
+  assert.equal(homeSoldLine(25500, 120), 'You sold your home. 25,620 gold went to your account at the Bank of the Empire, 120 of it for its placed pieces.');
+  assert.equal(homeSoldLine(25500), 'You sold your home. 25,500 gold went to your account at the Bank of the Empire.', 'none placed: the sentence it always was');
   assert.equal(homeSaleLines(25500)[2], 'Its placed pieces go too, for half of what they cost; your own things come back to your pack.', 'DECOR2a: and the owner\'s own things');
   // offline: the scene's pieces, taken once
   const p = (id, paid) => ({ id, model: 41000, flat: null, pos: [0, 0, 0], rot: [0, 0, 0], scale: 1, light: null, storage: true, paid });

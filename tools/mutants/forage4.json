@@ -1,35 +1,26 @@
 [
   {
-    "name": "FORAGE4-1-the-wait-asks-first",
-    "file": "src/ui/huntWindow.js",
-    "old": "    this.phase = ask ? HUNT_PHASE.Ask : HUNT_PHASE.Busy;",
-    "new": "    this.phase = HUNT_PHASE.Ask;",
-    "tests": [
-      "test/forage4_wait.test.js"
-    ]
-  },
-  {
     "name": "FORAGE4-2-escape-walks-out-of-the-wait",
-    "file": "src/ui/huntWindow.js",
-    "old": "      if ((code === 'Escape' || code === 'back') && this._escape) this._end(false);",
-    "new": "      if (code === 'Escape' || code === 'back') this._end(false);",
+    "file": "src/ui/waitWindow.js",
+    "old": "  input() {}",
+    "new": "  input(code) { if (code === 'Escape' || code === 'back') this._end(false); }",
     "tests": [
       "test/forage4_wait.test.js"
     ]
   },
   {
     "name": "FORAGE4-3-a-foe-never-interrupts",
-    "file": "src/ui/huntWindow.js",
-    "old": "    if (this._interruptWhen?.()) { this._end(false); return; }\n",
+    "file": "src/ui/waitWindow.js",
+    "old": "    if (this._interruptWhen?.()) { this._end(false); return; }   // a foe near ends it, the rest forgiven\n",
     "new": "",
     "tests": [
       "test/forage4_wait.test.js"
     ]
   },
   {
-    "name": "FORAGE4-4-the-wait-ends-on-a-result-page",
-    "file": "src/ui/huntWindow.js",
-    "old": "    if (!this._result) { this._onSearched?.(); this._end(true); return; }   // FORAGE4: the wait's end, no result page\n",
+    "name": "FORAGE4-4-the-wait-never-ends",
+    "file": "src/ui/waitWindow.js",
+    "old": "    if (this._elapsed >= this.seconds) this._end(true);\n",
     "new": "",
     "tests": [
       "test/forage4_wait.test.js"
@@ -37,7 +28,7 @@
   },
   {
     "name": "FORAGE4-5-a-second-wait-is-lost",
-    "file": "src/ui/huntWindow.js",
+    "file": "src/ui/waitWindow.js",
     "old": "  extend(seconds) { if (!this.done && seconds > 0) this.seconds += seconds; }",
     "new": "  extend(seconds) { void seconds; }",
     "tests": [
@@ -47,8 +38,8 @@
   {
     "name": "FORAGE4-6-an-hour-a-real-minute",
     "file": "src/scenes/foragingWait.js",
-    "old": "    const real = huntRealSeconds(gameSeconds / 60);",
-    "new": "    const real = huntRealSeconds(gameSeconds / 3600);",
+    "old": "    const real = waitRealSeconds(gameSeconds / 60);",
+    "new": "    const real = waitRealSeconds(gameSeconds / 3600);",
     "tests": [
       "test/forage4_wait.test.js"
     ]

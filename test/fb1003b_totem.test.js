@@ -240,7 +240,7 @@ test('TOTEM-CAGE: the hosts wire it - the dungeon adapter hands its item stand t
   assert.match(dungeonAdapter, /standItem: \(\{ item, marker, position, behaviour \}\) => \{/, 'the item arm takes the marker');
   assert.match(dungeonAdapter, /host\?\.follow\(dungeonCtx\?\.questMarkerMover\?\.\(marker\?\.markerID\)\?\.offset\);/, 'and hands the stand the marker\'s travel');
   const interiorAdapter = wm.slice(wm.indexOf('const questAdapter = {'), wm.indexOf('standFoe:', wm.indexOf('const questAdapter = {')));
-  assert.match(interiorAdapter, /standItem: \(\{ item, position, behaviour \}\) => \{/);
+  assert.match(interiorAdapter, /standItem: \(\{ quest, item, marker, position, behaviour \}\) => \{/);   // QUEST-MARKERS: the marker for the backstop's spots, never a follow
   assert.doesNotMatch(interiorAdapter, /follow\(/, 'a building has no DaggerfallMarker: its quest item never rides');
   const standIn = wm.slice(wm.indexOf('function standQuestFlatIn('), wm.indexOf('const standQuestFlat = '));
   assert.match(standIn, /width: 0, height: 0, batch: null, active: true, dead: false, behaviour, off: null \};/, 'the stand the law reads');

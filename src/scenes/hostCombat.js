@@ -497,7 +497,7 @@ export function enemySoundOccluded(collider, feet, playerFeet) {
  * means and DFU's own comment says why: an inverse curve leaves the
  * sound "audible almost everywhere".
  */
-export function tickEnemySound(source, feet, playerFeet, dt, { audio = null, collider = null, hearing = 1 } = {}) {
+export function tickEnemySound(source, feet, playerFeet, dt, { audio = null, collider = null, hearing = 1, companion = false } = {}) {
   if (!source || !feet) return null;
   const dx = (playerFeet?.[0] ?? 0) - feet[0];
   const dy = (playerFeet?.[1] ?? 0) - feet[1];
@@ -505,7 +505,7 @@ export function tickEnemySound(source, feet, playerFeet, dt, { audio = null, col
   // No player position yet: the counter still steps, exactly as DFU's
   // does with playerInAttractRadius false.
   const dist = playerFeet ? Math.hypot(dx, dy, dz) : Infinity;
-  const out = source.tick(dt, dist, () => enemySoundOccluded(collider, feet, playerFeet));
+  const out = source.tick(dt, dist, () => enemySoundOccluded(collider, feet, playerFeet), { companion });   // QUIET-COMPANIONS
   if (out) playEnemyClip(audio, out, feet, hearing);
   return out;
 }

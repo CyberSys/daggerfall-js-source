@@ -22,8 +22,6 @@ import { setPref, _resetForTests } from '../src/systems/uiPrefs.js';
 import { SKILLS } from '../src/systems/skills.js';
 import { RACES } from '../src/systems/races.js';
 import { EQUIP_SLOTS } from '../src/systems/equip.js';
-import { HuntWindow, HUNT_PHASE, BUSY_DOTS } from '../src/ui/huntWindow.js';
-import { createHunting } from '../src/scenes/hunting.js';
 import { TavernWindow } from '../src/ui/tavernWindow.js';
 import { itemLine, localPrimaryAct } from '../src/ui/enhancedInventory.js';
 import { usableItem } from '../src/systems/useItem.js';
@@ -173,45 +171,6 @@ test('AUDIT SURV B/C: the rest gate - a host that does not own the mode answers 
   clearPreventRestConditions(); _resetForTests();
 });
 
-test('AUDIT SURV C: the hunt window - dropped from under, it closes without a search; Escape abandons the busy page; the result page is a click-anywhere box; the last dot is drawn; the beast stands only after a search', () => {
-  _resetForTests();
-  let closed = [], searched = 0;
-  let w = new HuntWindow({ prompt: ['A?'], seconds: 2, onSearched: () => { searched++; return ['x']; }, onClosed: (s) => closed.push(s) });
-  assert.equal(w.isChoiceWindow, true, 'the Yes/No page takes raw keys');
-  w.input('KeyY'); w.tick(0.5);
-  w.dispose();
-  assert.equal(w.done, true); assert.deepEqual(closed, [false]); assert.equal(searched, 0, 'a death screen over the search: no search, no beast');
-  closed = [];
-  w = new HuntWindow({ prompt: ['A?'], seconds: 2, onSearched: () => { searched++; return ['x']; }, onClosed: (s) => closed.push(s) });
-  w.input('KeyY'); w.tick(1); w.input('Escape');
-  assert.equal(w.done, true); assert.deepEqual(closed, [false]); assert.equal(searched, 0, 'Escape walks away from the search, nothing charged');
-  closed = [];
-  w = new HuntWindow({ prompt: ['A?'], seconds: 1, onSearched: () => { searched++; return ['x']; }, onClosed: (s) => closed.push(s) });
-  w.input('KeyY'); w.tick(1);
-  assert.equal(w.phase, HUNT_PHASE.Result); assert.equal(w.isChoiceWindow, false, 'the result page goes through the action route like every click-anywhere box');
-  assert.equal(searched, 1);
-  w.click(0, 0); assert.deepEqual(closed, [true]);
-  // the dots
-  w = new HuntWindow({ prompt: ['A?'], seconds: 10, onSearched: () => [] });
-  w.input('KeyY'); w.tick(9.99);
-  assert.equal(w.dots.length, BUSY_DOTS, 'the row fills before the page turns');
-  w = new HuntWindow({ prompt: ['A?'], seconds: 10, onSearched: () => [] });
-  w.input('KeyY'); w.tick(5);
-  assert.equal(w.dots.length, BUSY_DOTS / 2 + 1, 'halfway: the seventh dot is being drawn, not the sixth finished');
-  w = new HuntWindow({ prompt: ['A?'], seconds: 10, onSearched: () => [] });
-  w.input('KeyY'); w.tick(0.01);
-  assert.equal(w.dots.length, 1);
-  // composed: an external drop frees the slot for the next minute's roll; the beast only after a search
-  const p = player(); const spawned = [], shown = [];
-  const e = { minute: 600, luck: 50, winter: false, outdoors: true, inLocationRect: false, night: false, enemiesNear: false, resting: false, climateIndex: 232, hasBow: false, skills: {} };
-  const h = createHunting({ entity: p, env: () => e, rolls: () => 0, showOverlay: (x) => shown.push(x), spawnBeast: (b) => spawned.push(b) });
-  const w1 = h.tick(); assert.ok(w1);
-  w1.input('KeyY'); w1.dispose();
-  assert.equal(h.window, null, 'the slot is free'); assert.deepEqual(spawned, [], 'no search, no beast');
-  p.survival.huntAt = 0; e.minute += 1;
-  assert.ok(h.tick(), 'the next minute rolls again');
-});
-
 test('AUDIT SURV C/D: the tavern - the divider keeps the picker; before six the kitchen refuses in the mod\'s two words and the drinks still pour; breakfast runs to ten', () => {
   assert.equal(breakfastHours(10), true, 'ten is breakfast (the mod\'s hour <= 10)');
   assert.equal(breakfastHours(11), false);
@@ -303,7 +262,7 @@ test('AUDIT SURV B: the camps - the sweep spares them and the scene cache carrie
   // camp and an Off host dropped its peers' camps from the room it passes on. Off hides; it does not burn.
   assert.doesNotMatch(campsSrc, /if \(!survivalOn\(\)\) return null;/, 'Off refuses no record');
   // the merge
-  const { createCamps, FIRE_LIGHT_UP } = await import('../src/scenes/camps.js');
+  const { createCamps, FIRE_LIGHT_UP, CAMP_LIGHTS_MAX } = await import('../src/scenes/camps.js');
   const { TENT_MODEL, FIRE_LIGHT_RANGE } = await import('../src/systems/survival/camp.js');
   // AUDIT SURV-TIERS (the third pass): a renderer that mounts the flame (the pin on it was vacuous), and a window and
   // a voice to hear what a click opens and says
@@ -330,34 +289,35 @@ test('AUDIT SURV B: the camps - the sweep spares them and the scene cache carrie
   assert.equal(pool.snapshot().length, 4, '...and the next save still carries it');
   assert.equal(pool.applyOwner('peer', [{ i: 'p:1', k: 1, p: [20, 0, 20], y: 0, u: 500, w: 0 }]), true, 'a peer\'s word lands too');
   assert.equal(pool.camps.length, 5);
-  // SURV-OFFSIGHT (Mac: "really only being able to see other people's campfires makes sense"): Off SEES another
-  // player's camp and uses none of any; its own stay out of sight. AUDIT SURV-TIERS (the third pass): sight is the
-  // ray, the name and the look too - the ray stops at what is seen and names it; the click opens nothing
-  assert.deepEqual([pool.targets().map((t) => t.key), pool.lights(), pool.batches().map((b) => b.at), tents()],
-    [['camp:p:1'], [{ x: 20, y: FIRE_LIGHT_UP, z: 20, range: FIRE_LIGHT_RANGE }], [[20, 0, 20]], 0],
-    'of the ray, the lights and the flames, the peer\'s fire\'s alone - its own fires and its own tent are out of sight');
-  assert.deepEqual([pool.byFire([1, 0, 1]), pool.byFire([20, 0, 20])], [false, false], 'no warmth and no camp\'s rest for this player, by its own fire or the peer\'s');
-  assert.deepEqual([pool.hoverName('camp:me:1'), pool.hoverName('camp:p:1')], [null, { title: 'Campfire' }], 'the seen one is named; its own is not there to name');
+  // ENDLESS PROVISIONS (2026-10-04, Mac: the Campfire Kit and Rations for EVERYONE, Climates & Calories or not):
+  // this supersedes SURV-OFFSIGHT's "Off sees another's camp and uses none". A camp is every tier's - the ray, the
+  // lights, the flames, the tent, the name and the menu are all there with the arc Off. What stays the arc's is the
+  // WARMTH (byFire reads `shown`: there is no felt temperature to warm).
+  assert.deepEqual([pool.targets().map((t) => t.key), pool.lights().length, pool.batches().length, tents()],
+    [['camp:me:1', 'camp:me:2', 'camp:me:2', 'camp:me:3', 'camp:me:4', 'camp:p:1'], CAMP_LIGHTS_MAX, 5, 1],
+    'Off: every camp is seen - the ray on each (the tent twice: its fire and its mesh), every flame, the tent, and the nearest few lights');
+  assert.deepEqual([pool.byFire([1, 0, 1]), pool.byFire([20, 0, 20])], [false, false], 'no warmth: the felt temperature is the arc\'s');
+  assert.deepEqual([pool.hoverName('camp:me:1'), pool.hoverName('camp:p:1')], [{ title: 'Your Campfire', subs: ['0 nights of fuel'], actions: [{ id: 'rest', label: 'Rest here' }, { id: 'cook', label: 'Cook food' }] }, { title: 'Campfire', actions: [{ id: 'rest', label: 'Rest here' }, { id: 'cook', label: 'Cook food' }] }], 'and every camp is named, its rows on the plaque (REST2)');
   lines.length = 0;
-  assert.deepEqual([pool.activate('camp:me:1', 'grab'), pool.activate('camp:p:1', 'info'), pool.activate('camp:p:1', 'grab')], [false, true, true], 'the click lands on what is seen');
-  assert.deepEqual([lines, menus.length], [[CAMP_TEXT.seeFire], 0], 'a look says what it is; nothing opens a menu');
+  assert.deepEqual([pool.activate('camp:me:1', 'grab'), pool.activate('camp:p:1', 'info'), pool.activate('camp:p:1', 'grab')], [true, true, true], 'the click lands on what is seen');
+  assert.deepEqual([lines, menus.length], [[CAMP_TEXT.seeFire], 2], 'a look says what it is; a grab opens the camp\'s menu - in Off too');
   assert.equal(pool.fireNear([1, 0, 1]), true, 'the world still has the fire - the rest\'s PLACE reads it (shared.js createRestDeps)');
   const said = [];
-  const off = createCamps({ entity, camera: () => ({ feet: [0, 0, 0], yaw: 0 }), say: (l) => said.push(l) });
-  assert.equal(off.placeItem(createSurvivalItem(TEMPLATE.Campfire), [createSurvivalItem(TEMPLATE.Campfire)]), false, 'Off stands no new camp');
-  assert.deepEqual([said, off.camps.length], [[CAMP_TEXT.arcOff], 0], '...and says what would change that (CAMP-SILENT)');
+  const offPool = createCamps({ entity, camera: () => ({ feet: [0, 0, 0], yaw: 0 }), say: (l) => said.push(l) });
+  offPool.placeItem(createSurvivalItem(TEMPLATE.Campfire), [createSurvivalItem(TEMPLATE.Campfire)]);
+  assert.ok(!said.includes(CAMP_TEXT.arcOff), 'Off no longer refuses a camp with "turn Climates & Calories on" - the placing runs the camp law\'s own checks');
   _resetForTests();
   assert.deepEqual([pool.byFire([1, 0, 1]), pool.byFire([20, 0, 20]), tents()], [true, true, 1], 'on again, every kept camp is back where it was');
   setWorldMinutes(0);
 });
 
-test('AUDIT SURV D: the save carries the record - the markers and the cooldown round-trip, the notes do not', () => {
-  const e = { ...player(), skillUses: [] }; e.survival = { ...newSurvival(1000), lastAte: 900, thirst: 33, huntAt: 4321, notes: { 'hunger:peckish': 'on' } };
+test('AUDIT SURV D: the save carries the record - the markers round-trip, the notes do not', () => {
+  const e = { ...player(), skillUses: [] }; e.survival = { ...newSurvival(1000), lastAte: 900, thirst: 33, notes: { 'hunger:peckish': 'on' } };
   const snap = snapshotPlayer(e, { classicMinutes: 1000 });
-  assert.equal(snap.survival.lastAte, 900); assert.equal(snap.survival.huntAt, 4321); assert.equal(snap.survival.notes, undefined);
+  assert.equal(snap.survival.lastAte, 900); assert.equal(snap.survival.notes, undefined);
   const back = { ...player(), skillUses: [] };
   restorePlayer(back, JSON.parse(JSON.stringify(snap)));
-  assert.equal(back.survival.lastAte, 900); assert.equal(back.survival.thirst, 33); assert.equal(back.survival.huntAt, 4321);
+  assert.equal(back.survival.lastAte, 900); assert.equal(back.survival.thirst, 33);
   assert.deepEqual(back.survival.notes, {});
   const none = { ...player(), skillUses: [] }; restorePlayer(none, JSON.parse(JSON.stringify(snapshotPlayer({ ...player(), skillUses: [] }, { classicMinutes: 1 }))));
   assert.equal(none.survival, null, 'a pre-arc save starts fresh at the first tick');

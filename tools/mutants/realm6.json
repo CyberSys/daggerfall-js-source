@@ -65,11 +65,12 @@
   {
     "name": "REALM6-second-press-pays",
     "file": "server-account/src/homes.js",
-    "old": "  if (held) return held.player === player.id && held.char_id === claim.character ? { ok: true, repeat: true, home: homeOf(held), realm: { seq: at.seq } } : { error: 'home-taken' };\n",
+    "old": "  if (held) return held.player === player.id && held.char_id === claim.character ? { ok: true, repeat: true, home: homeOf(held), ...realmSaleOf(held), realm: { seq: at.seq } } : { error: 'home-taken' };\n",
     "new": "  if (held && held.player !== player.id) return { error: 'home-taken' };\n",
     "tests": [
       "test/realm6.test.js"
-    ]
+    ],
+    "note": "AUDIT HOME-PRICE (PIN MOVED, re-aimed by content): the repeat's answer carries the sale's sum (C2)."
   },
   {
     "name": "REALM6-landed-claim-unsaid",
@@ -110,7 +111,7 @@
   {
     "name": "REALM6-buy-never-reserves",
     "file": "src/systems/onlineHomes.js",
-    "old": "        reserve: () => { pay(price); return () => refund?.(price); },\n",
+    "old": "        reserve: paid.reserve,\n",
     "new": "",
     "tests": [
       "test/realm6.test.js"
@@ -129,7 +130,7 @@
   {
     "name": "REALM6-tool-place-unreserved",
     "file": "src/scenes/decorTool.js",
-    "old": "          reserve: () => { wallet.pay(price); return () => wallet.credit?.(price); },\n          // AUDIT REALM: a placement answered",
+    "old": "          reserve: paid.reserve,\n          // AUDIT REALM: a placement answered",
     "new": "          // AUDIT REALM: a placement answered",
     "tests": [
       "test/realm6.test.js"
@@ -165,7 +166,7 @@
   {
     "name": "REALM6-tool-licence-unreserved",
     "file": "src/scenes/decorTool.js",
-    "old": "      reserve: pay > 0 ? () => { wallet.pay(pay); return () => wallet.credit?.(pay); } : null,\n",
+    "old": "      reserve: pay > 0 ? walletReserve(wallet, pay).reserve : null,   // MARKET-AUDIT: a refusal gives back exactly what it took\n",
     "new": "",
     "tests": [
       "test/realm6.test.js"

@@ -463,20 +463,22 @@
   {
     "name": "TELL8-brain-peer-unaimed",
     "file": "src/ai/tactics.js",
-    "old": "  return t?.isPeer && Array.isArray(t.feet) && t.feet.length === 3 ? t.feet : null;",
-    "new": "  return null;",
+    "old": "  if (t?.isPeer) return Array.isArray(t.feet) && t.feet.length === 3 ? t.feet : null;",
+    "new": "  if (t?.isPeer) return null;",
     "tests": [
       "test/tell8_online.test.js"
-    ]
+    ],
+    "note": "FEUD's MERGE of main's #586-#622 (PIN MOVED): targetFeet's peer arm, ahead of AUDIT ARENA-LADDER's bout-mate's."
   },
   {
     "name": "TELL8-brain-verdict-kept",
     "file": "src/ai/tactics.js",
-    "old": "  ai._blowVerdict = atMe ? verdict : null;",
+    "old": "  ai._blowVerdict = judged ? verdict : null;",
     "new": "  ai._blowVerdict = verdict;",
     "tests": [
       "test/tell8_online.test.js"
-    ]
+    ],
+    "note": "FEUD's MERGE of main's #586-#622 (PIN MOVED): the verdict's gate is judgedHere's (a peer's landing is the peer's own; a bout-mate's is judged here, as mine)."
   },
   {
     "name": "TELL8-brain-fx-kept",
@@ -490,11 +492,12 @@
   {
     "name": "TELL8-brain-mult-kept",
     "file": "src/ai/tactics.js",
-    "old": "  ai._blowMult = atMe ? b.mult : undefined;",
+    "old": "  ai._blowMult = judged ? b.mult : undefined;",
     "new": "  ai._blowMult = b.mult;",
     "tests": [
       "test/tell8_online.test.js"
-    ]
+    ],
+    "note": "FEUD's MERGE of main's #586-#622 (PIN MOVED): the weight's gate is judgedHere's."
   },
   {
     "name": "TELL8-brain-puppet-kept",

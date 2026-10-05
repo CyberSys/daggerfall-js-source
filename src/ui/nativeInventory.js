@@ -44,12 +44,12 @@
 // as the computed remote target, the 750kg gates, the dungeon exit
 // rule); Use mode, the 1016 info text and the IsLightSource equip
 // branch at U25 (AUDIT 23 trimmed that list). The LETTER OF CREDIT
-// went last and whole: minted at systems/inventory.js:69
+// went last and whole: minted at systems/inventory.js:70
 // (DaggerfallTradeWindow.cs:1044-1048), summed by creditAmount at
 // systems/court.js:249 (ItemCollection.GetCreditAmount, ItemCollection
 // .cs:108-118), spent letters-before-coins with the shortfall returned
 // by deductGold at court.js:291 (DeductGoldAmount, PlayerEntity.cs
-// :1324-1354), banked at systems/banking.js:744/:762, and described by
+// :1324-1354), banked at systems/banking.js:749/:767, and described by
 // the 1007 text at systems/itemInfo.js:106. Nothing was ever owed at
 // THIS surface anyway - DaggerfallInventoryWindow.cs has no
 // letter-of-credit arm at all.
@@ -84,7 +84,7 @@ import {
 // AUDIT 26's quest arm is a rung of it and travelled with it, so the
 // window no longer carries the settings or quest-resource imports it
 // needed to run that rung itself.
-import { planStore, planTake, applyTransfer, planDropGold, WAGON_KG_LIMIT as WAGON_KG_LIMIT_LOCAL, HOW_MANY_ITEMS, SPLIT_INPUT_MAX, parseSplitAmount, splitRequired } from '../systems/itemTransfer.js';
+import { planStore, planTake, applyTransfer, planDropGold, WAGON_KG_LIMIT as WAGON_KG_LIMIT_LOCAL, HOW_MANY_ITEMS, SPLIT_INPUT_MAX, parseSplitAmount, splitRequired, sendQuestItemClick } from '../systems/itemTransfer.js';
 // U57: which list is the remote one, and what opening and closing
 // this window decide.
 import {
@@ -266,6 +266,19 @@ const isControlCode = (code, e = null) =>
   code === 'ControlLeft' || code === 'ControlRight'
   || e?.code === 'ControlLeft' || e?.code === 'ControlRight'
   || e?.key === 'Control';
+/** SHIFT-STOW: the Shift key's two codes, read the way Control's are. */
+const isShiftCode = (code, e = null) =>
+  code === 'ShiftLeft' || code === 'ShiftRight'
+  || e?.code === 'ShiftLeft' || e?.code === 'ShiftRight'
+  || e?.key === 'Shift';
+/** Which of the two Shift keys a press is (AUDIT SHIFT-STOW: one let go while the other is held is not Shift up). */
+const shiftSide = (code, e = null) => (code === 'ShiftRight' || e?.code === 'ShiftRight' ? 'R' : 'L');
+/** AUDIT SHIFT-STOW C4: the page losing the keyboard (a switch of window) - a Shift let go out there sends this page no
+ *  key-up, and `click` carries no event of its own to say so, so a Shift seen before the loss is not trusted after it
+ *  until a key or the pointer says it again. One listener for the module's life. */
+let _focusLosses = 0;
+export const noteFocusLost = () => { _focusLosses++; };
+if (typeof globalThis.addEventListener === 'function') globalThis.addEventListener('blur', noteFocusLost);
 
 /** AUDIT 17e F36 - RefreshArmourValues' displayed number
  *  (PaperDoll.cs:159-173): (100 - armorValue) / 5, plus armorMod
@@ -455,6 +468,11 @@ export class NativeInventoryWindow {
     // exactly what TransferItem polls (:1516).
     this.inputBox = null;
     this._controlDown = false;
+    // SHIFT-STOW (2026-10-04, Mac: "shift click to deposit items (like materials) needs to be a thing"): Shift held as
+    // Control is - a state from its down edge to its up edge, per key, and the pointer's own word on every move (hover);
+    // read through `_shiftDown`
+    this._shiftKeys = new Set();
+    this._shiftSeen = _focusLosses;
     this._icon = makeIconDrawer(hooks.icons, () => hooks.entity);   // AUDIT 17f: icons follow the wearer's morphology
     this._accessoryIcon = makeAccessoryIconDrawer(hooks.icons, () => hooks.entity);   // the twelve worn slots
     if (hooks.entity) refreshPaperDoll(hooks.entity);   // U8g: the doll composes fresh on open
@@ -774,6 +792,13 @@ export class NativeInventoryWindow {
       else this.boxes = [{ rows: [{ text: USE_PENDING[r.kind], center: true }] }];
       return;
     }
+    // PORTAL1: a Portal Stone opens the host's travel map - the pack closes first (the camp's law, the one overlay slot)
+    // and the host's door says where the portal stands, or why not. A host with no open world keeps the window and says so.
+    if (r.kind === 'openPortal') {
+      if (this.hooks.openPortal) { this._closeSilently(); this.hooks.openPortal(r.item, collection); }
+      else this.boxes = [{ rows: [{ text: USE_PENDING.openPortal, center: true }] }];
+      return;
+    }
     // MEND-AIM: a use that asks WHICH (a repair kit, with more than one piece to mend) pushes DFU's list picker over
     // the pack, the choices in the law's order; a row chosen uses the item again, aimed at it, and a click outside
     // keeps the kit. With no picker art the law's own first choice is taken, as the quick keys take it.
@@ -891,7 +916,19 @@ export class NativeInventoryWindow {
     return this.mode;
   }
 
-  _pick(slot, mode = this.mode) {
+  /** SHIFT-STOW: Shift is down - a key of the two held, and seen since the page last lost the keyboard. */
+  get _shiftDown() { return this._shiftKeys.size > 0 && this._shiftSeen === _focusLosses; }
+
+  /** SHIFT-STOW: whether the remote list is one of the player's own stores - the wagon, or their storage (SHIP-STORE's
+   *  `loot.storage`). A corpse, a container, a reward tray and the ground keep the plain click. */
+  _shiftStores() {
+    const t = remoteTargetType(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne });
+    return t === REMOTE_TARGET_TYPES.Wagon || (t === REMOTE_TARGET_TYPES.Loot && this.hooks.loot?.storage === true);
+  }
+
+  /** `whole` (SHIFT-STOW): the Remove moves what the plan allows - the whole stack, or what the store still takes -
+   *  without TransferItem's split popup. */
+  _pick(slot, mode = this.mode, whole = false) {
     this._clampScroll();
     const it = this._filtered()[this.scroll + slot];
     if (!it) return;
@@ -952,7 +989,7 @@ export class NativeInventoryWindow {
         audio.playOneShot(SOUND.ButtonClick, 1);   // DoTransferItem (:1583)
         applyTransfer(it, { ...plan, amount }, this.hooks.items(), to, { entity: this.hooks.entity, fromLocal: true });   // F157: a lit torch leaving the pack goes out
       };
-      if (this._splitRequired(it, plan)) { this._openSplit(it, plan.amount, perform); return; }
+      if (!whole && this._splitRequired(it, plan)) { this._openSplit(it, plan.amount, perform); return; }
       perform(plan.amount);
       return;
     }
@@ -1032,7 +1069,7 @@ export class NativeInventoryWindow {
     // as taking it. The ClickedItem trigger polls hasPlayerClicked.
     // Only the REMOTE list does this; LocalItemListScroller_OnItemClick
     // (:1974-2007) has no such call.
-    if (it.questItem) this.hooks.getQuest?.(it.questUID)?.getItem?.(it.questSymbol)?.setPlayerClicked();
+    sendQuestItemClick(it, this.hooks.getQuest ?? null);   // WHERE-ROBES: the one home every remote door shares
     if (mode === 'info') { this._info(it); return; }
     if (mode === 'use') { this._use(it, remote); return; }   // U25 (:2048-2051)
     if (mode === 'remove' || mode === 'equip') {
@@ -1094,6 +1131,10 @@ export class NativeInventoryWindow {
   input(code, e = null) {
     // CM5: Input.GetKey(Control)'s down edge; keyup below is the other
     if (isControlCode(code, e)) this._controlDown = true;
+    if (isShiftCode(code, e)) {   // SHIFT-STOW
+      this._shiftKeys.add(shiftSide(code, e)); this._shiftSeen = _focusLosses;
+      if (e?.repeat) return;   // AUDIT SHIFT-STOW C3: a HELD Shift repeats its down edge (Windows) - never a key that answers a box
+    }
     if (this.inputBox) {
       this.inputBox.input(code, e);   // the pushed box owns the keyboard
       if (this.inputBox.done) this.inputBox = null;
@@ -1290,6 +1331,13 @@ export class NativeInventoryWindow {
     // (BaseScreenComponent.cs:725-733 dispatches per component rect),
     // so record it ahead of every guard below.
     this._mouse = [vx, vy];
+    // SHIFT-STOW: the pointer says whether Shift is down on every move - a Shift pressed before the window opened, or
+    // let go while the page had no focus, is right again by the time the cursor reaches a row
+    if (typeof e?.shiftKey === 'boolean') {
+      if (!e.shiftKey) this._shiftKeys.clear();
+      else if (!this._shiftKeys.size) this._shiftKeys.add('L');
+      this._shiftSeen = _focusLosses;
+    }
     // MAC-N2: VerticalScrollBar.Update (:101-130) - while button 0 is
     // held the latched thumb follows the cursor, wherever the cursor
     // goes (DFU keeps dragging off the bar); the frame it reads the
@@ -1507,7 +1555,10 @@ export class NativeInventoryWindow {
     // needs the scroll index and the list length.
     const hit = scrollerHit(R.localList, vx, vy, this.scroll, this._filtered().length);
     if (hit) {
-      if (hit.kind === 'slot') this._pick(hit.slot, mode);
+      // SHIFT-STOW: Shift and the left button on a pack row put the whole stack into the player's own store beside it
+      // (the wagon, their storage) whatever the action mode - Remove's own transfer, with no how-many popup
+      if (hit.kind === 'slot' && !right && this._shiftDown && this._shiftStores()) this._pick(hit.slot, 'remove', true);   // (the middle button never reaches here - _middleClick answers it above)
+      else if (hit.kind === 'slot') this._pick(hit.slot, mode);
       // MAC-N2: a press ON the thumb latches the drag (VerticalScrollBar
       // .Update :110-113) - button 0 alone, as GetMouseButton(0) is.
       else if (hit.kind === 'thumb') { if (!right) this._drag = { which: 'scroll', latch: beginScrollerDrag(R.localList, vy, this.scroll) }; }
@@ -1537,6 +1588,7 @@ export class NativeInventoryWindow {
   /** ROAD-E E1's key-up half: only the Control state reads it here. */
   keyup(code, e = null) {
     if (isControlCode(code, e)) this._controlDown = false;
+    if (isShiftCode(code, e)) this._shiftKeys.delete(shiftSide(code, e));   // SHIFT-STOW
   }
 
   draw(renderer, canvas, font) {

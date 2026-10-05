@@ -126,12 +126,13 @@
   },
   {
     "name": "TELL5-dungeon-not-elite",
-    "file": "src/ai/tells.js",
+    "file": "src/ai/blowShapes.js",
     "old": "export const isElite = (ent) => ent?.eliteFoe === true || ent?.elite === true;",
     "new": "export const isElite = (ent) => ent?.eliteFoe === true;",
     "tests": [
       "test/tell5_patterns.test.js"
-    ]
+    ],
+    "note": "FEUD's MERGE of main's #586-#622 (PIN MOVED): TELL7's whole set lives in the leaf ai/blowShapes.js beside the families (one home: the relay's leaf takes no import, and isElite and wholeSet are field tests) - the same line, its new file; ai/tells.js hands it on."
   },
   {
     "name": "TELL5-tier-rank1",
@@ -252,12 +253,13 @@
   },
   {
     "name": "TELL5-family-lost",
-    "file": "src/ai/foeBlows.js",
+    "file": "src/ai/blowShapes.js",
     "old": "  return s === BEAST ? 'beast' : s === BRUTE ? 'brute' : s === BLADE ? 'blade' : null;",
     "new": "  return s === BEAST ? 'beast' : s === BLADE ? 'blade' : null;",
     "tests": [
       "test/tell5_patterns.test.js"
-    ]
+    ],
+    "note": "FEUD's MERGE of main's #586-#622 (PIN MOVED): blowFamily lives beside the families in the leaf ai/blowShapes.js - the same line, its new file."
   },
   {
     "name": "TELL5-no-cut",

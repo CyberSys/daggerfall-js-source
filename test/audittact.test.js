@@ -241,7 +241,8 @@ test('AUDIT TACT A7: a board for a target nobody fights any more is dropped - no
 });
 
 test('AUDIT TACT: an opportunist (no token, a turned back) strikes but never telegraphs - a blow is a token holder\'s', () => {
-  // PIN MOVED (TELL8: at me or at a peer it hunts - `tf` its target's feet; still a token holder's alone)
+  // PIN MOVED (TELL8: at me or at a peer it hunts - `tf` its target's feet; still a token holder's alone. The FEUD merge:
+  // AUDIT ARENA-LADDER's bout-mate on the sand is targetFeet's own arm - blowAim folded into it)
   assert.match(rd('src/ai/tactics.js'), /s\.state === 'engage' && b\.melee\.has\(ai\) && tf && ai\.canAct !== false/);
 });
 

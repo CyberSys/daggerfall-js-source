@@ -69,6 +69,8 @@ THE KEYBINDING STANDARD records every departure from DFU's table.
 - **DFU's dead rows: build two, hide two.** `CenterView` (Home) levels the view through the look filter;
   `PrintScreen` (F8) saves the game canvas as a PNG (`ui/screenshot.js`, routed by the hosts like every world
   action, so an automap's own F8 - its third background - stays the automap's) - DFU binds both and reads neither.
+  LOAD1 (2026-10-05): the same PNG is also kept in the menu's Screenshots gallery (`systems/shotGallery.js`), where
+  the loading screens stand on it; the download is the player's switch on that pane (`10-UI/Loading-Screens.md`).
   `ToggleConsole` and `Slide` ship unbound and off the page, freeing `` ` `` and Left Ctrl. The dungeon's
   diagnostics readout, a raw F8 that answered only while F8 was unbound, is the `DebugOverlay` action, unbound.
 
@@ -119,10 +121,12 @@ HELM-KEYS (2026-09-29, the player: "Arrow keys should not only control your ship
 sails. I also want to find a way to make the ship controls more intuitive instead of a bunch of buttons and key
 binds") - THE ARROWS ARE THE HELM (DECLARED, the Port-Ledger's HELM-KEYS row):
 
-- **Up and down make and take in sail** - `BoatSailUp` (More sail) and `BoatSailDown` (Less sail), the port's own two
-  steps through the mod's own sail states (`systems/comeSailAway.js MoreSail, LessSail`): stowed, raised; and where the
-  square sails are the player's own (the assist's AutoStowSquareSails off, a hull with both kinds) all her canvas, the
-  fore-and-aft alone, none. A step with nowhere to go says so. End still toggles, the brackets still trim.
+- **Up and down, W and S: one ladder** (HELM-LADDER, 2026-10-04, from the field: "WASD and Arrow keys should function
+  the same when controlling") - `MoveForwards` or `BoatSailUp` climbs a rung a press, `MoveBackwards` or `BoatSailDown`
+  comes down one (`systems/comeSailAway.js ladderUp, ladderDown`): the oars backing water, at rest, pulling ahead, then
+  her sails and, where the square sails are the player's own (the assist's AutoStowSquareSails off, a hull with both
+  kinds), all her canvas - More sail and Less sail's steps above the oars. The oars keep their rung with no key held. A
+  step with nowhere to go says so. End still toggles all her canvas, the brackets still trim.
 - **Left and right steer**: at a helm DFU's `TurnLeft` and `TurnRight` - the arrows - are the RUDDER's, as A and D are
   (`inputActions.js HELM_RUDDER_ACTIONS`, read through the mod's own input seam, its rudder's swing too), and the
   keyboard look does not turn the view with them there. One action, one meaning - a turn - read by whoever the hands
@@ -132,9 +136,8 @@ binds") - THE ARROWS ARE THE HELM (DECLARED, the Port-Ledger's HELM-KEYS row):
   onto the partner's own key (a player's own rebind of the arrow is never shared onto) and, on a saved file, only
   while More sail is keyless and not unbound on purpose. The two are never live together: a helm's hands are on the
   wheel, and the professions read no choice there (`world.js`). The down arrow was free.
-- **The helm panel teaches them**: its line under the name is the helm's hand at a glance - the sails on the arrows,
-  the rudder on the turn keys, as bound now - and its sails' button presses More and Less sail, so its hint is the
-  arrow. IN IRONS (her sails up, her bow within IRONS_TELL_DEG of the wind's eye, her way ahead through the water under
+- **The helm panel teaches them**: its line under the name is the helm's hand at a glance - her oars and her sails on
+  W, S and the arrows, the rudder on A, D and the turn keys, as bound now - and its sails' button is the toggle (End). IN IRONS (her sails up, her bow within IRONS_TELL_DEG of the wind's eye, her way ahead through the water under
   IRONS_TELL_WAY - sternway counts, never the sea's current: AUDIT NAV2 F15) the helm is told once how she comes out -
   under the Classic helm strike sail and row her round, under the Responsive one put the helm over first (AUDIT NAV2
   F18) - and the panel's line says it, with the keys, while it lasts. AUDIT NAV2 F17: while an Overworld journey holds
@@ -203,6 +206,18 @@ hold - so a common herb, a body and the net's haul could not be played there. No
   is) - the mode cycle and F a slot further in, the corner 16..344 px, inside the widest the HUD keeps clear of.
 - **The prompts**: with a pad in hand the professions' prompts and lines name its button (B, LT, Circle) - the sea's
   readout's law (AUDIT NAV1); else the key.
+
+## SHIFT-STOW - Shift in the pack (2026-10-04, Mac: "shift click to deposit items (like materials) needs to be a thing")
+
+Law 2's: Shift is the pack's own modifier, not a registry action. It is read the way the classic window reads Control
+(CM5) - a state from its down edge to its up edge - and, on both skins, off the pointer itself (`shiftKey` on the
+click, the classic window's hover). Shift and the LEFT button on a pack item put the whole stack into the player's own
+store beside it - the wagon, their storage, and (enhanced) the Materials Bag - in any action mode, with no how-many
+popup; Control's popup is DFU's and stays as it was. The ground, a corpse, a container and a reward tray keep the
+plain click. A right click stays the mode swap. The classic window's latch is per key (one Shift let go while the
+other is held is still Shift), is never trusted across the page losing the keyboard, and a held Shift's repeated down
+edge answers no box (AUDIT SHIFT-STOW). Shift is also Run's default key: holding Run while clicking a pack item beside
+the wagon deposits it. Port-Ledger A, SHIFT AND A CLICK STOW THE WHOLE STACK.
 
 ## The defaults
 
@@ -403,3 +418,12 @@ buttons on its fixed art, Slide's among them, unbound.
   post-processing) and the Transport window's letters - F, H, C, S behind the Transport key - read off the shortcut
   table, as words and keys with no buttons. A mod's own keys are named on its Features tile too, read-only, with one
   press through to this page.
+
+## PAD-BINDS and PAD-ARRANGE (FIELD BUGS 2026-10-04e)
+
+The Controller bindings window (Enhanced Plus) has an Overworld and a Quick dial row, and both are d-pad tap or hold
+choices while the crossbar is in force - the Overworld on no key at all is the host's own door (`padAction`, the
+Overworld's alone). Under a window LT raises the hotbar to be arranged: A takes a slot in hand and puts it down on the
+press's click (a swap or a move), Y clears one; with the pad in hand "Add to hotbar" puts the new entry in hand and
+asks for a slot - A on it, or a bumper and the slot's own button on the crossbar (LB + X places too, never the quick
+act); on the row of ten the bumpers stay the tabs'. The mouse taking the hands back lets go of the hand. The record: `01-Overview/Field-Bugs-2026-10-04e.md`.

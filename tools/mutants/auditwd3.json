@@ -275,8 +275,8 @@
   {
     "name": "AWD3-SITE-NOT-RESEATED",
     "file": "src/systems/quest/place.js",
-    "old": "    if (sd?.siteType !== SITE_TYPES.Building || !(sd.buildingKey > 0) || recordStands(sd)) return false;",
-    "new": "    return false;",
+    "old": "    if (sd?.siteType !== SITE_TYPES.Building) return false;\n    const held =",
+    "new": "    return false;\n    const held =",
     "tests": [
       "test/wd3_layoutPins.test.js"
     ]

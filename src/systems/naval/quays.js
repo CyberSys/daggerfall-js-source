@@ -13,7 +13,10 @@
 // PILE_STEP down to the bed (PILE_DEPTH at most). Behind it the shore is walked (`planQuay`) along +x in JETTY_STEP: a
 // bank that meets the deck within STEP_M takes a JETTY of JETTY_WIDTH onto it, JETTY_LAND in; dry ground under the deck
 // takes the jetty to it and a RAMP down to the ground at RAMP_SLOPE (RAMP_MAX at most); no land within JETTY_MAX, a
-// quay that stands alone (a sandbar's). Bollards stand on its face by her bow, her waist and her stern, a lantern post
+// quay that stands alone (a sandbar's). HARBOUR-BOOK: the jetty is a PIER as long as the shelf asks - a berth is sounded
+// where the deepest keel floats, which Iliac Puddle's Deep Waters (its floor lifted to the sea's top at the coast and
+// carved full depth only SHORE_TERRAIN_FIT_METERS out) puts some 80 m off the land; a 40 m walk stood every such quay
+// alone out on the water, and a player in the town saw no dock. Bollards stand on its face by her bow, her waist and her stern, a lantern post
 // at each landward corner (lit in the lanterns' hours), and the port's cargo on its back - crates and barrels, off the
 // harbour's key and the berth's number on QUAY_SALT, so every player in the port sees the same quay.
 //
@@ -26,6 +29,7 @@ import { alongside, hullSize, BERTH_HULL } from './shipLife.js';
 import { hullBuild, MOD_SMALL_SHIP_BUILD } from './navalShips.js';   // GALLEON-HOLDINGS: hull 2's gangway follows the build that stands
 import { hash32 } from '../../world/spawnedDungeons.js';
 import { mulberry32 } from '../../combat/bloodArt.js';
+import { SHORE_TERRAIN_FIT_METERS } from '../../world/deepWaterFloor.js';   // HARBOUR-BOOK: the shelf a pier crosses
 
 /** The water between her widest and the quay's face (m) - the fenders' room. */
 export const QUAY_GAP = 0.8;
@@ -40,10 +44,14 @@ export const QUAY_ENDS = 3;
 export const PILE_STEP = 4;
 export const PILE_R = 0.22;
 export const PILE_DEPTH = 6;
-/** The jetty to the shore: its width, the walk's step and its reach from the quay's back, and how far onto a bank (m). */
+/** The jetty to the shore: its width, the walk's step and its reach from the quay's back, and how far onto a bank (m).
+ *  HARBOUR-BOOK: its reach the Deep Waters shelf's whole shore fit - past it the floor is carved full depth (no shallower
+ *  than min(11.2 m, Water Depth), deepBathymetry.js), so the deepest keel's berth lies within it - and JETTY_BEACH more
+ *  over a beach standing under DRY_M at the water's edge. */
 export const JETTY_WIDTH = 3;
 export const JETTY_STEP = 1;
-export const JETTY_MAX = 40;
+export const JETTY_BEACH = 20;
+export const JETTY_MAX = SHORE_TERRAIN_FIT_METERS + JETTY_BEACH;
 export const JETTY_LAND = 2;
 /** Ground this far over the sea's top is dry land; within STEP_M of the deck it meets the deck (m). */
 export const DRY_M = 0.1;

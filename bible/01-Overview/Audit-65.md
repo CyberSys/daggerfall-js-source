@@ -362,7 +362,7 @@ half the lanes' own mutation tallies could not see.
   `Hand-to-Hand 30%` on one line and a damage range computed from 60 on
   the next. `charsheet.js:817` and `enhancedCharSheet.js:163` read
   `skillValue` now, which moves the enhanced skin's meter with its
-  number (`enhancedMenu.js:3029-3030`) - correctly, since the attribute
+  number (`enhancedMenu.js:3035-3036`) - correctly, since the attribute
   bars beside it were already live. The art-less `_drawFallback` pane
   still prints `''` for an absent skill (both refuters: decide the
   blank case first); DFU has no such pane.
@@ -672,8 +672,8 @@ it left for a person were resolved by content: four `pauseWindow.js`
 cites that were already wrong at the base (the mapper renumbers a wrong
 number onto a differently wrong line), the renderer's `setClearColor`
 self-cite (a bare `:N` inside its own file, which the mapper does not
-spell), and two escaped-regex cites in tests (`dungeon\.js:562`,
-`worldModes\.js:687`), which the mapper cannot see - the CS1 edge AUDIT
+spell), and two escaped-regex cites in tests (`dungeon\.js:561`,
+`worldModes\.js:693`), which the mapper cannot see - the CS1 edge AUDIT
 64's integration hit first. The Suite line restamped once; the full
 suite green over the merged tree. Round two (after the reset) took the
 five remaining reviews and the activation lane, merged onto round one's

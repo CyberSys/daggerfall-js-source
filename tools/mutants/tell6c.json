@@ -46,12 +46,13 @@
   },
   {
     "name": "TELL6c-disc-at-feet",
-    "file": "src/ai/foeBlows.js",
+    "file": "src/ai/blowShapes.js",
     "old": "  if (b.kind === 'leap') return Math.hypot(along - (b.ahead ?? 0), across) <= BLOW.leap.r;",
     "new": "  if (b.kind === 'leap') return Math.hypot(along, across) <= BLOW.leap.r;",
     "tests": [
       "test/tell6c_leap.test.js"
-    ]
+    ],
+    "note": "FEUD's MERGE of main's #586-#622 (PIN MOVED): inBlow lives in the leaf ai/blowShapes.js since AUDIT ARENA-LADDER - the same line, its new file."
   },
   {
     "name": "TELL6c-fit-near",

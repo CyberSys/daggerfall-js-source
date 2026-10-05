@@ -14,7 +14,9 @@
 // This is the whole design and it is the repo's own law (DERIVED OVER
 // ENUMERATED) applied to the one place a grant is usually a row:
 //
-//   FOUNDER   your registered account first played by FOUNDER_UNTIL.
+//   FOUNDER   your registered account first played by FOUNDER_UNTIL -
+//             its row's first contact, or (FOUNDER4) the first contact of
+//             a row it shares a character with (`first_played_at`).
 //   DEVELOPER your handle is in the service's DEVELOPER_HANDLES.
 //   SPROUT    your account is younger than SPROUT_S.
 //   DEV       the same list as the Developer title.
@@ -25,13 +27,19 @@
 //             account you linked is an active patron entitled to that
 //             tier now (patreon.js) - Patreon's word, stored as WB9g's
 //             sale is, and read against the config at every ask.
-//   SHADOW FANG (SHADOW-FANG, 2026-09-26) the same, one player's own.
+//   SHADOW FANG (SHADOW-FANG, 2026-09-26) the same, one player's own -
+//             and since SHADOW-CLOAK (2026-10-04) an aura beside it: the
+//             Holo Shadow Cloak, granted with the title as the Oblivion
+//             Ward is.
 //   PENITENT (PENITENT, 2026-09-29) the same, Diggleborf's own.
 //   HERALD (HERALD, 2026-10-01) the same, and the Patreon tier's.
 //   AEGIS OF OBLIVION (AEGIS, 2026-10-03) the same, Sureme's own - and
 //             the list grants an AURA beside the title and its glyph
 //             (TIER_AURA): the Oblivion Ward, held while the handle is
 //             listed, as the glyph is. The first aura not bought.
+//   PRIMARCH (PRIMARCH, 2026-10-04) the same, GA00250's own - the title,
+//             its glyph and an aura: the Golden Radiance, a light about
+//             the body, granted with them as the Oblivion Ward is.
 //   GRAND CHAMPION, ARENA CHAMPION and THE LAUREL (ARENA4, 2026-10-02)
 //             the arena's rows (server-account/src/arena.js): a Grand
 //             Champion row the relay signed; the season's #1 of the
@@ -91,7 +99,16 @@ import { patreonTitlesOf } from './patreon.js';   // PATREON-LINK: a Patreon tie
  *  title befire the original cut off date. A lot of people are missing
  *  it"): the SAME instant, read off when the account FIRST PLAYED rather
  *  than when it registered (`firstPlayed`, below). The instant does not
- *  move, in either direction: nobody who holds it loses it. */
+ *  move, in either direction: nobody who holds it loses it.
+ *
+ *  FOUNDER4 (2026-10-04, Mac: "We need to find a way to grant the founder
+ *  title to everyone before the previous cut off date. Since people are
+ *  still missing their founders title"; asked how, "Link shared
+ *  characters"): the SAME instant again, and when the account first
+ *  played may now be proven by ANOTHER row - one it shares a character
+ *  with (migration 0078 `first_played_at`): a guest in one browser who
+ *  registered in another place, the desktop app's own storage above all,
+ *  first played when that guest did. */
 export const FOUNDER_UNTIL = 1_790_294_400;
 
 /** How long the sprout stays on a new account: two weeks, in seconds,
@@ -145,7 +162,8 @@ export const TIER_LISTS = Object.freeze({
   apostle: 'APOSTLE_HANDLES',
   hierophant: 'HIEROPHANT_HANDLES',
   // SHADOW-FANG (2026-09-26, Mac): "SirMcMobdon gets a brand new title/glyph. Remove them from Apostle" - a title
-  // made for one player, granted the tiers' way: a list in the config, the title and its glyph together.
+  // made for one player, granted the tiers' way: a list in the config, the title and its glyph together. SHADOW-CLOAK
+  // (2026-10-04): and the third list to grant an aura with it (TIER_AURA, below).
   shadowfang: 'SHADOW_FANG_HANDLES',
   // PENITENT (2026-09-29, Mac): "This new custom title/glyph is for the user Diggleborf" - a second title made for one
   // player, granted the same way.
@@ -158,13 +176,17 @@ export const TIER_LISTS = Object.freeze({
   // Title: Aegis of Oblivion. Theme: Purple"): a third title made for one player, granted the same way - and the first
   // list to grant an aura with it (TIER_AURA, below).
   aegis: 'AEGIS_HANDLES',
+  // PRIMARCH (2026-10-04, GA00250, relayed by the owner: "the title will be Primarch, the color will be that light gold
+  // color that you guys use in some places in the game menu"; "can the aura be a golden light around the character?"):
+  // a fourth title made for one player, and the second list to grant an aura with it (TIER_AURA, below).
+  primarch: 'PRIMARCH_HANDLES',
 });
 /** The glyph each of those titles carries, in the vocabulary's words. */
-export const TIER_GLYPH = Object.freeze({ dungeonmaster: 'dm', disciple: 'disciple', apostle: 'apostle', hierophant: 'hierophant', shadowfang: 'shadowfang', penitent: 'penitent', herald: 'herald', aegis: 'aegis' });
+export const TIER_GLYPH = Object.freeze({ dungeonmaster: 'dm', disciple: 'disciple', apostle: 'apostle', hierophant: 'hierophant', shadowfang: 'shadowfang', penitent: 'penitent', herald: 'herald', aegis: 'aegis', primarch: 'primarch' });
 /** AEGIS: THE AURA A LIST'S TITLE CARRIES, where it carries one - held while the handle is listed, exactly as its glyph
  *  is, and gone on the next token once it is not. A grant like the glyph and unlike the Broker's: derived from the
  *  config at every ask, never a sale recorded on the row. */
-export const TIER_AURA = Object.freeze({ aegis: 'oblivionward' });
+export const TIER_AURA = Object.freeze({ aegis: 'oblivionward', primarch: 'radiance', shadowfang: 'shadowcloak' });   // PRIMARCH: the Golden Radiance; SHADOW-CLOAK (2026-10-04, the owner, for SirMcMobdon: "I want to build a new unique AURA specifically for his account. A holo shadow cloak with red accents. Extremely detailed"): the Holo Shadow Cloak
 
 /** Does this player hold that list's title? A guest holds none, for the developer's reason. PATREON-LINK (2026-10-01,
  *  Mac: "having to manually hand out titles ... its really hard to keep up with it"): AND a Patreon tier's title is held
@@ -199,9 +221,15 @@ export const canModerate = (player, env) => isModerator(player, env) || isDevelo
  *  after it held nothing (Field-Bugs 2026-09-26b, report 3). `created_at`
  *  is stamped at a row's first contact, guest or not, and registering is
  *  an upgrade IN PLACE of that same row (0002), so it is still there. A
- *  row without one is judged by its registration, as before. */
-const firstPlayed = (player) =>
-  Math.min(player.registered_at, Number.isFinite(player.created_at) ? player.created_at : Infinity);
+ *  row without one is judged by its registration, as before. FOUNDER4:
+ *  AND `first_played_at` - the first contact of a row this one shares a
+ *  character with, where it is earlier (migration 0078 says how a
+ *  character is shared); a row without one is judged as before. */
+const firstPlayed = (player) => Math.min(
+  player.registered_at,
+  Number.isFinite(player.created_at) ? player.created_at : Infinity,
+  Number.isFinite(player.first_played_at) ? player.first_played_at : Infinity,   // FOUNDER4
+);
 
 /**
  * THE TITLES THIS PLAYER HOLDS, in the order they are offered.
@@ -237,12 +265,18 @@ export function titlesHeld(player, env) {
   return held;
 }
 
+/** SERAPH-WINGS (2026-10-05, Mac: "I want to build an aura for the developers ... Golden Angel wings that flow"): THE
+ *  DEVELOPERS' AURA - held while the handle is in DEVELOPER_HANDLES, as the developer title and glyph are, and gone on
+ *  the next token once it is not. */
+export const DEVELOPER_AURA = 'seraphwings';
 /** WB9g: THE AURAS THIS PLAYER HOLDS - the Broker's, bought (the row's `insignia`), in the offers' order. AEGIS: and,
- *  first, the auras their listed titles carry (TIER_AURA), in TIER_LISTS' order - read off the config as the title is,
- *  so `env` is owed wherever a list could grant one (a caller without it reads the Broker's alone, as before). */
+ *  first, the auras their listed titles carry (TIER_AURA), in TIER_AURA's own order - read off the config as the title is,
+ *  so `env` is owed wherever a list could grant one (a caller without it reads the Broker's alone, as before).
+ *  SERAPH-WINGS: and, after those, a developer's wings (DEVELOPER_AURA). */
 export function aurasHeld(player, env) {
   const held = [];
   for (const [t, a] of Object.entries(TIER_AURA)) if (holdsTier(t, player, env) && !held.includes(a)) held.push(a);
+  if (isDeveloper(player, env) && !held.includes(DEVELOPER_AURA)) held.push(DEVELOPER_AURA);
   for (const a of insigniaKeys(player?.insignia, 'aura')) if (!held.includes(a)) held.push(a);
   return held;
 }

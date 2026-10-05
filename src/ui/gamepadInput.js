@@ -58,7 +58,7 @@ import { getBinding as getBindingOf, isPadCode } from '../systems/inputActions.j
 // PADPLUS1: the Enhanced Plus controller layer - its layout, the crossbar, the menus, the prompts (ui/plusPad.js)
 import {
   plusPadActive, ensurePlusPadLayout, plusToggleRun, crossbarInForce, crossbarApi, crossbarSlot, CROSSBAR_CODES, CROSSBAR_HOLD,
-  LOOT_DPAD, HELM_DPAD, plusDpadByCode, NEXT_MODE, plusStickSens, scaleStick, plusBindCapturing, lootPrompts, quickActApi, cycleTab, spatialStep, scrollAt, domTargetAt, domPointer, domHoverChange, interactiveAt, markHover, showPrompts, windowPrompts, activeTabStrip,
+  LOOT_DPAD, HELM_DPAD, plusDpadByCode, NEXT_MODE, HOTBAR_ARRANGE_CODE, plusStickSens, scaleStick, plusBindCapturing, lootPrompts, quickActApi, cycleTab, spatialStep, scrollAt, domTargetAt, domPointer, domHoverChange, interactiveAt, markHover, showPrompts, windowPrompts, activeTabStrip,
 } from './plusPad.js';
 import { GAUNTLET_POINT, GAUNTLET_PRESS } from './plusCursor.js';
 import { dfuCursorUrl } from './cursor.js';   // CLASSIC-CURSOR: the pad's arrow is DFU's controllerCursorImage, the mouse's own
@@ -174,7 +174,7 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
   // PADPLUS1: the Plus layer's own state - the run latch, the crossbar's held buttons, the menu buttons' last frame,
   // the DOM element the cursor pressed on and the one it is over
   const P = { layout: false, runLatch: false, runPrev: false, runIdle: 0, lbPrev: false, rbPrev: false, setOrder: 0,
-    stale: new Set(), lastOverlay: false, lastFreed: false, btnPrev: null, stickPrev: false, handsOff: false, lootUp: false, lootRep: {}, helmUp: false, helm: {}, xbSet: null, xbHeld: new Set(), xbPrev: new Set(), menuPrev: new Set(), dh: {}, padMap: null, padMapCode: null, padMapSeen: false, padMapAge: 0, scroll: 0, domOver: null, promptAt: 0, tabs: false, plusCursor: null };
+    stale: new Set(), lastOverlay: false, lastFreed: false, btnPrev: null, stickPrev: false, handsOff: false, lootUp: false, lootRep: {}, helmUp: false, helm: {}, xbSet: null, xbHeld: new Set(), xbPrev: new Set(), menuPrev: new Set(), placeTaken: new Set(), dh: {}, padMap: null, padMapCode: null, padMapSeen: false, padMapAge: 0, scroll: 0, domOver: null, promptAt: 0, tabs: false, plusCursor: null };
   let paneCapturing = () => false;   // the controls pane's capture (ui/enhancedControls.js captureArmed), loaded lazily - no import ring
   import('./enhancedControls.js').then((m) => { if (typeof m.captureArmed === 'function') paneCapturing = m.captureArmed; }).catch(() => {});
   const capturing = () => paneCapturing() || plusBindCapturing();   // PADPLUS10: and the Plus bindings window's
@@ -284,7 +284,9 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
       if (!action) return;
       const name = action === NEXT_MODE ? modeActionOf(nextInteractionMode(getInteractionMode())) : action;
       const c = name ? codeOf(b, name) : null;
-      if (!c) return;
+      // PAD-BINDS (FIELD BUGS 2026-10-04e): an action on no key at all (TravelView ships unbound) is the host's own
+      // door - a synthetic press of nothing reached nothing
+      if (!c) { try { hooks.padAction?.(name); } catch (e) { console.warn('[gamepad] pad action:', e?.message ?? e); } return; }
       wanted.add(c);
       if (action === 'AutoMap' || action === 'TravelMap') { P.padMap = action; P.padMapCode = code; P.padMapSeen = false; P.padMapAge = 0; }
     };
@@ -391,8 +393,28 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
       for (const c of MENU_BUTTONS) if (padDown(c)) menuDown.add(c);
       const edge = (c) => menuDown.has(c) && !P.menuPrev.has(c);
       for (const c of MENU_BUTTONS) { wanted.delete(c); if (c !== 'JoystickButton0' && c !== 'JoystickButton1' && c !== 'JoystickAxis10Button0') swallowed.add(c); }
-      if (edge('JoystickButton4')) cycleTab(-1);
-      if (edge('JoystickButton5')) cycleTab(1);
+      // PAD-ARRANGE (FIELD BUGS 2026-10-04e): THE HOTBAR UNDER A WINDOW. LT raises the bar to be arranged (again lowers
+      // it); with a slot or a new entry IN HAND on the crossbar, a bumper held and a slot's own button puts it there -
+      // the bumpers are then the bar's, never the tabs' (on the row of ten they place nothing, so they stay the tabs').
+      // A button that placed is the bar's until it is let go, so the A under LB never also clicks. A press held across
+      // the window's edge (P.stale) is nothing here.
+      const xbApi = crossbarApi();
+      for (const c of [...P.placeTaken]) if (!menuDown.has(c)) P.placeTaken.delete(c);
+      if (edge(HOTBAR_ARRANGE_CODE) && !P.stale.has(HOTBAR_ARRANGE_CODE)) { try { if (xbApi?.canArrange?.()) xbApi.arrange?.(); } catch (e) { console.warn('[gamepad] arrange:', e?.message ?? e); } }
+      let inHand = false;
+      try { inHand = !!xbApi?.holding?.() && !!xbApi?.crossbar?.(); } catch { inHand = false; }
+      if (inHand && (lb || rb)) {
+        const hset = lb && rb ? P.setOrder : lb ? 0 : 1;
+        for (const code of CROSSBAR_CODES) {
+          if (!edge(code) || P.stale.has(code) || P.placeTaken.has(code)) continue;
+          P.placeTaken.add(code);
+          try { xbApi.place?.(crossbarSlot(hset, code)); } catch (e) { console.warn('[gamepad] place:', e?.message ?? e); }
+        }
+      }
+      for (const c of P.placeTaken) swallowed.add(c);
+      const free = (c) => edge(c) && !P.placeTaken.has(c);
+      if (!inHand && edge('JoystickButton4')) cycleTab(-1);
+      if (!inHand && edge('JoystickButton5')) cycleTab(1);
       // PADPLUS9: THE MAP THE D-PAD OPENED, THE D-PAD CLOSES - down again is Back (the automap closes on Escape as on
       // its own key). Only the automap: the travel map has buttons below buttons, and down is how the cursor
       // reaches them (B closes it). The press that opened a window is stale until let go, so it never closes it too.
@@ -405,13 +427,13 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
       }
       if (cursor) {
         for (const [c, dir] of DPAD_DIRS) {
-          if (!edge(c) || (closeMap && c === mapCode)) continue;
+          if (!free(c) || (closeMap && c === mapCode)) continue;
           const to = spatialStep(cursor, dir);
           if (to) { cursor[0] = to[0]; cursor[1] = to[1]; usingController = true; pointerAt('pointermove', 0); cursorShow(true); }
         }
-        if (edge('JoystickButton3')) { pointerAt('pointerdown', 2); pointerAt('pointerup', 2); }
+        if (free('JoystickButton3')) { pointerAt('pointerdown', 2); pointerAt('pointerup', 2); }
         // PADPLUS5: X is the quick act on the item under the cursor - wear, take off, light, use
-        if (edge('JoystickButton2')) { try { quickActApi()?.act?.(globalThis.document?.elementFromPoint?.(cursor[0], cursor[1]) ?? null); } catch (e) { console.warn('[gamepad] quick act:', e?.message ?? e); } }
+        if (free('JoystickButton2')) { try { quickActApi()?.act?.(globalThis.document?.elementFromPoint?.(cursor[0], cursor[1]) ?? null); } catch (e) { console.warn('[gamepad] quick act:', e?.message ?? e); } }
         // the right stick: its vertical, as a wheel (Axis5 is up-positive)
         const rv = ax[5] ?? 0;
         if (Math.abs(rv) > 0.25) {
@@ -422,13 +444,23 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
       }
       P.menuPrev = menuDown;
     } else {
-      P.menuPrev.clear();
+      P.menuPrev.clear(); P.placeTaken.clear();
       // PADPLUS9: the map the d-pad opened is forgotten once it has closed (by B, by down, by its key), or if no
       // window came up for it within a second - so a later window's down is never taken for the map's close
       if (P.padMap) { P.padMapAge += dt; if (P.padMapSeen || P.padMapAge > 1) { P.padMap = null; P.padMapSeen = false; } }
     }
     return swallowed;
   }
+
+  /** PAD-ARRANGE: the hotbar's state under a window, as windowPrompts reads it - every frame, so a pick shows at once. */
+  const hotbarPrompt = () => {
+    try {
+      const xb = crossbarApi();
+      if (!xb?.canArrange?.()) return null;
+      if (xb.holding?.()) return xb.crossbar?.() ? 'handxb' : 'hand';
+      return xb.arranging?.() ? 'on' : 'off';
+    } catch { return null; }
+  };
 
   // PADPLUS2: a full-screen enhanced door on the page (#enhanced-inventory, #enhanced-pause, ...), looked for five
   // times a second - the doors' hosts are fixed, inset 0, direct children of the body
@@ -652,7 +684,7 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
     if (plus && overlay && usingController) {
       P.promptAt -= dt;
       if (P.promptAt <= 0) { P.promptAt = 0.25; P.tabs = !!activeTabStrip(); P.quick = !!quickActApi()?.available?.(); }
-      showPrompts(windowPrompts({ tabs: P.tabs, quick: P.quick, uiBack: getJoystickUIBinding(b, 'Back') ?? 'JoystickButton1', uiClick: getJoystickUIBinding(b, 'LeftClick') ?? 'JoystickButton0' }), padFamilyOf(pad.id));
+      showPrompts(windowPrompts({ tabs: P.tabs, quick: P.quick, uiBack: getJoystickUIBinding(b, 'Back') ?? 'JoystickButton1', uiClick: getJoystickUIBinding(b, 'LeftClick') ?? 'JoystickButton0', hotbar: hotbarPrompt() }), padFamilyOf(pad.id));
     } else if (plus && P.lootUp && usingController) showPrompts(lootPrompts({ take: getJoystickUIBinding(b, 'LeftClick') ?? 'JoystickButton0' }), padFamilyOf(pad.id));   // PADPLUS6
     else if (plus && P.helmUp && usingController) showPrompts(hooks.helm?.prompts?.() ?? null, padFamilyOf(pad.id));   // CSA-L: the helm's d-pad
     else showPrompts(null);

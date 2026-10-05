@@ -988,6 +988,13 @@ redrawn); `tools/mutants/tv3.json` and `tv5.json` (the OVERWORLD-NAMES records).
   sprites (`net/remotePlayers.js`), the Morrowind bodies (`net/peerBodies.js`, `drawThird`'s `grow` and the view's
   lean, culled by their grown reach); their names over the grown heads; none casts a giant's shadow, no walker hangs
   a lantern. `test/fb1001_overworld.test.js`.
+- **OW-WAGON** (WAGON-HITCH, 2026-10-04, Mac: "the wagon when attached to the horse should show in the overworld if
+  attached"): the cart's trailing wagon is drawn grown with its rider, about the point it hangs from - mine by the
+  view's own step (`frame().grow`, handed to `hcc.draw` as `selfGrow`), another player's by `peerGrow` at their rider.
+  A wagon at its own size hung a speck under the grown horse. Only the draw grows; the pose the runtime keeps, parks,
+  saves and sends is the wagon's own. Its AUDIT (WAGON-HITCH B1/B2/B7): the grown wagon casts no giant's shadow (the law
+  above), finds its ground with a probe that rises with its reach (a hill its own length tall swallowed the mod's fixed
+  8 m), and its grown wheels turn g times slower for the same road. `06-Systems/Horse-Cart-And-Cargo.md` WAGON-HITCH, `test/wagonhitch.test.js`.
 
 **Proof.** `test/heldmap.test.js`, `test/tv5_far_places.test.js`, `test/eotb_body.test.js`,
 `test/tv1_travel_view.test.js`; `tools/mutants/ow1.json` (14 records, all dead).
@@ -1821,3 +1828,15 @@ drops its group. The diamond stood at the nodes' mean, which in a scattered pixe
 stands on the node nearest that mean now. `scenes/travelView.js` copied every mark but its colour, so every diamond was
 brass in play - the colour is carried. And the decluttered travellers went last in the draw order, a crowd's dot over
 my party's - every mark keeps its order now, a crowd where its first member stood.
+
+## OW-NODE-KM, OW-HUBS, OW-KIN, OW-WHO, SEAT-TIP, HORSE-FACE (FIELD BUGS 2026-10-04e)
+
+The Overworld's block gains a Players section (Friends, Guild, Others, the least Renown) and the node reach (any, 0.5,
+1, 2 km) - one store with the travel map's (`systems/travelViewFilters.js`); a friend's name is drawn in the friends'
+blue and a guild-mate's in violet; a town whose gate stands a carriage driver wears a brass wheel; a seat's plate under
+the pointer shows its card (who holds it, this week's battle) - made only for the hovered plate, measured once, never
+over the block's own controls, and not on a touch screen (no hover there). On a touch screen the filters scroll within
+their section. Every new field a mark carries rides `scenes/travelView.js`
+through to the readout. The rider's Eye Of The Beholder sprite faces its travel again: a gallop under the time scale had
+been read as a placing every frame (ARENA-FIX 14's -1, painted as orientation 7). The record:
+`01-Overview/Field-Bugs-2026-10-04e.md`.

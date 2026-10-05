@@ -1337,10 +1337,10 @@ test('TO1: the map and the popup carry the mod\'s own additions', () => {
   assert.match(p, /return \(settings\.cautiousTravel \|\| !speedCautious\) && \(settings\.stopAtInnsTravel \|\| !sleepModeInn\) && !travelShip;/);
   assert.match(p, /isPlayerControlledTravel\(\) \{\s*\n\s*return isPlayerControlledTravel\(this\._to\?\.settings, this\);/, 'the method is the pure law over its own three toggles');
   const ov = read('src/ui/heldMap.js');
-  assert.match(ov, /playerControlled: isPlayerControlledTravel\(st\.to\?\.settings, st\.opts\),/, 'and the DEFAULT skin commits the same word - the mod was unreachable from it before');
+  assert.match(ov, /playerControlled: st\.it \? false : isPlayerControlledTravel\(st\.to\?\.settings, st\.opts\),/, 'and the DEFAULT skin commits the same word - the mod was unreachable from it before');   // IT1 (PIN MOVED): a driver's trip is never walked
   assert.match(ov, /enforceShipRestriction\(st\.to\.settings, st\.opts, this\._shipCtx\(\)\)/, 'OnPush\'s guard on the default skin');
   assert.match(ov, /const refusal = shipTravelRefusal\(\{ settings, \.\.\.this\._shipCtx\(\) \}\);/, 'and the ship click\'s');
-  assert.match(p, /if \(this\.coordsOnly \|\| this\.isPlayerControlledTravel\(\)\) \{/, 'the fork is in CallFastTravelGoldCheck, where the mod puts it');
+  assert.match(p, /if \(!this\.itKind && \(this\.coordsOnly \|\| this\.isPlayerControlledTravel\(\)\)\) \{/, 'the fork is in CallFastTravelGoldCheck, where the mod puts it');   // IT1 (PIN MOVED): Immersive Travel's popups have no walked arm
   assert.match(p, /playerControlled: true,/);
   assert.match(p, /_scaleTripCost\(c0\)/);
   assert.match(p, /shipTravelRefusal\(\) \{/);
@@ -1694,7 +1694,7 @@ test('AUDIT-TO1 G1/G2/G3/I2/I3/I4/I6/J1/K2/H1/H2: the host seams the sweep found
   assert.match(w, /return loc\?\.name \? discoveredBuildings\(`\$\{summary\.regionIndex\}:\$\{loc\.name\}`\) : \[\];/);
   assert.match(w, /discoveryLocationId: \(\) => `\$\{_questLoc\(\)\?\.regionIndex \?\? -1\}:\$\{_questLoc\(\)\?\.name \?\? ''\}`,/, 'the writer\'s own key shape');
   // J1: the two switches have readers
-  assert.match(w, /\} else if \(precipShown && precip\) \{[\s\S]{0,2500}?if \(!_travelWeatherOff(?: && !_dwPrecipOff)?\) \{\s*\n\s*precip\.draw\(precipShown, proj, view/, 'the rain (the branch literal is W1/WX2/WEATHER2d\'s; the switch wraps the draw; DW-D: and the sea\'s own stand-down beside it)');
+  assert.match(w, /\} else if \(precipShown && precip\) \{[\s\S]{0,2500}?if \((?:\(!_travelWeatherOff \|\| tvf\)|!_travelWeatherOff)(?: && !_dwPrecipOff)?\) \{\s*\n\s*precip\.draw\(precipShown, proj, view/, 'the rain (the branch literal is W1/WX2/WEATHER2d\'s; the switch wraps the draw; DW-D: and the sea\'s own stand-down beside it)');
   assert.match(w, /const _step = _travelSoundsOff (?:\|\| _csaFootstepsOff )?\? null : footsteps\.update\(player\.pos, \{/, 'the classic stride: the component does not RUN (the one-gate line is BA1/IF1\'s literal; CSA-D\'s helm disables it too)');
   assert.match(w, /paused: _overlayHeld \|\| _seasonHeld \|\| _travelSoundsOff(?: \|\| _csaFootstepsOff)?, entity: playerEntity,/, 'the mod\'s stride (DECK-FIELD: and the helm\'s footsteps-off - test/deckfield.test.js)');
   assert.match(w, /ridingVolumeScale: \(\) => \(_travelSoundsOff \? 0 : 1\),/, 'the riding loop');
@@ -1722,7 +1722,7 @@ test('AUDIT-TO1 G1/G2/G3/I2/I3/I4/I6/J1/K2/H1/H2: the host seams the sweep found
   assert.match(m, /this\.popUp\.enforceShipRestriction\(\);/, 'OnPush\'s guard has a caller');
   assert.equal((m.match(/this\.popUp\.enforceShipRestriction\(\);/g) || []).length, 2, 'at both construction sites');
   // I5: the popup's I, and the box drawn above it
-  assert.match(read('src/ui/travelPopUp.js'), /if \(key === 'KeyI' && !this\.coordsOnly\) \{ this\.deps\.displayLocationInfo\?\.\(\); return; \}/);
+  assert.match(read('src/ui/travelPopUp.js'), /if \(key === 'KeyI' && !this\.coordsOnly && this\._to\) \{ this\.deps\.displayLocationInfo\?\.\(\); return; \}/);   // AUDIT IT1 C5 (PIN MOVED): TravelOptionsPopUp's Update alone polls I
   assert.match(m, /displayLocationInfo: \(\) => this\._displayLocationInfo\(\),/);
   assert.match(m, /this\.popUp\.draw\(renderer, canvas, font\);\s*\n[\s\S]{0,300}?if \(this\.infoBox\) \{\s*\n\s*this\._box = layoutMessageBox\(font, this\.infoBox\.rows, \[\]\);/);
   // C3: the fee on the default skin
@@ -1826,7 +1826,7 @@ test('BOOT-TDZ: every Travel Options binding the STREAM reads is declared above 
 // exhaustion". Three defects, and none of them is the mod's model being
 // wrong - the port does run the mod's continuous accelerated journey, as
 // its own readme describes it, and never teleports on that path.
-test('TO-FIELD: the accelerated journey waits for the ground; TO-FIELD3 took the needs and the hunting roll back off the mod\'s clock (mutants: travel-drive-ungated)', () => {
+test('TO-FIELD: the accelerated journey waits for the ground; TO-FIELD3 took the needs back off the mod\'s clock (mutants: travel-drive-ungated)', () => {
   const w = read('src/scenes/world.js');
 
   // 1. THE WALK WAITS. The journey drives the motor at up to sixty times
@@ -1871,16 +1871,14 @@ test('TO-FIELD: the accelerated journey waits for the ground; TO-FIELD3 took the
   // own fatigue surcharge off a 60x ride. Mac removed it: "journeys no
   // longer sit as resting (needs charge normally again, health ticks
   // back)". `resting` is not a fatigue knob - it is the needs' one word
-  // for "sat still" - and it was holding four laws, not one: the two
-  // fatigue drains it was aimed at, the bare-skin block's naked-cold
-  // and sunburn ticks and the byFire exposure damage (the health), and
-  // - never counted by the change that set it - SURV6's hunting roll,
-  // which refuses outright on `resting` (hunting.js:120).
+  // for "sat still" - and it was holding more laws than one: the two
+  // fatigue drains it was aimed at, and the bare-skin block's naked-cold
+  // and sunburn ticks and the byFire exposure damage (the health).
   assert.match(w, /survivalEnv: \(\) => \(_mode\(\) === 'dungeon' \? \(playerEntity\.isResting \? modes\?\.dungeonCtx\?\.survivalEnvNow\?\.\(\) \?\? null : null\) : survivalEnvNow\(\)\),/,
     'the journey feeds the needs the world it is actually in');
   assert.doesNotMatch(w, /resting: true \}\n?\s*: survivalEnvNow/, 'and no travel arm sits the traveller down');
   assert.doesNotMatch(w, /worldTimeScale\(\) > 1 \? \{ \.\.\.survivalEnvNow\(\)/, 'the mod\'s clock does not reach the needs at all');
-  // the four laws that flag was holding, each still keyed on `resting`
+  // the laws that flag was holding, each still keyed on `resting`
   // in the leaf - which is WHY one flag could never have been the right
   // shape for a fatigue surcharge
   const n = read('src/systems/survival/needs.js');
@@ -1888,24 +1886,12 @@ test('TO-FIELD: the accelerated journey waits for the ground; TO-FIELD3 took the
   assert.match(n, /if \(hungerAfter === 'starving' && !resting\) tire\(DRAIN\.starving, 'hunger'\);/, 'the starving drain');
   assert.match(n, /if \(sleepNow === 'exhausted' && !resting && !wakingHeld\(s, now\)\) tire\(DRAIN\.exhausted, 'sleep'\);/, 'the exhausted drain (REST6: held while the Waking Salts last - AUDIT REST II H15: asked, not optional)');
   assert.match(n, /if \(!env\.insideBuilding && !vampire && !ctx\.beastForm && !sleeping && !resting\) \{/, 'the bare-skin health ticks');
-  assert.match(read('src/systems/survival/hunting.js'), /if \(!climate \|\| !outdoors \|\| (?:afloat \|\| )?inLocationRect \|\| night \|\| enemiesNear \|\| resting\) return null;/,
-    'and the hunting roll, which is the one the flag took without saying so');
 
   // 3. THE FOLLOW KEY IS NAMED WHERE THE TRIP IS BOUGHT. The mod does not
   // route along roads to a destination - road following is a mode the
   // player starts with a key, and the port had to move that key off the
   // mod's own F (this skin spends F on the social card), so the only
   // place it was named was the help inside a running journey.
-  // TO-FIELD3: and SURV6's roll is NOT held with them any more - Mac:
-  // "hunting rolls fire during travel again". The consequence is real
-  // and is the point: the roll fires once a game minute, a journey
-  // spends those at up to a hundred times real time, and every event
-  // opens a box the mod answers with interruptTravel() - so a long
-  // wilderness ride will be interrupted, often. The wilderness is alive
-  // while you cross it; the survival mod's own switch is the way out.
-  assert.match(w, /if \(_mode\(\) === 'exterior'\) hunting\.tick\(\);/,
-    'the wilderness rolls at the traveller whatever pace they are moving at');
-  assert.doesNotMatch(w, /worldTimeScale\(\) <= 1\) hunting\.tick\(\)/, 'no clock gate survives on the roll');
 
   const m = read('src/ui/heldMap.js');
   assert.match(m, /const _fk = this\._to\?\.followKeyText\?\.\(\);/, 'KB1: the registry\'s FollowPaths, as Controls binds it');

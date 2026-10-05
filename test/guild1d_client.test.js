@@ -139,8 +139,8 @@ test('GUILD1d the homes\' registry reads a hall: its guild, whether the characte
 
 test('GUILD1d the door\'s rows: "Buy it for <guild>" to a guildmaster whose guild holds no hall, at half again, armed by its first press; a hall\'s "Go in" to its members and "Who may enter" to its keepers (mutants: an Officer offered the buy; a guild with a hall offered it; the entry row to a member)', () => {
   const gm = { name: 'The Hand', rank: 0, hall: false, treasury: 50_000 };
-  assert.deepEqual(homeHallBuyRow(20_000, gm), { id: HALL_VERB.buy, label: 'Buy it for The Hand: 30000 gold from the treasury' });
-  assert.equal(homeHallBuyRow(20_000, gm, true).label, 'Click again to buy it for The Hand: 30000 gold');
+  assert.deepEqual(homeHallBuyRow(20_000, gm), { id: HALL_VERB.buy, label: 'Buy it for The Hand: 30,000 gold from the treasury' });   // HOME-PRICE: the thousands
+  assert.equal(homeHallBuyRow(20_000, gm, true).label, 'Click again to buy it for The Hand: 30,000 gold');
   assert.equal(homeHallBuyRow(20_000, { ...gm, rank: 1 }), null, 'the guildmaster\'s alone');
   assert.equal(homeHallBuyRow(20_000, { ...gm, hall: true }), null, 'one hall');
   assert.equal(homeHallBuyRow(20_000, null), null);

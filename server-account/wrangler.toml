@@ -76,7 +76,7 @@ mode = "smart"
 [vars]
 # Answered by /health so a deploy that did not happen cannot look like
 # one that did. Kept in step with ACCOUNT_VERSION in src/service.js.
-ACCOUNT_VERSION = "acct74"
+ACCOUNT_VERSION = "acct82"
 # WB5b: THE RELAY'S PUBLIC HALF, GATE_PUBLIC_KEY - the key an Oblivion
 # Gate's kill receipts verify with (src/net/gateReceipt.js) - is NOT a
 # var here. GATE-KEYS (2026-09-26): the account deploy mints the pair
@@ -144,7 +144,11 @@ HIEROPHANT_HANDLES = ""
 # SHADOW-FANG (2026-09-26, Mac): Shadow Fang - the black-and-crimson title,
 # the wolf's-head glyph beside the name and the werewolf's own skin, one
 # player's. The same law as the tiers: a handle here grants the title and
-# the glyph, and taking it off takes both on the next token.
+# the glyph, and taking it off takes both on the next token. SHADOW-CLOAK
+# (2026-10-04, the owner: "I want to build a new unique AURA specifically
+# for his account. A holo shadow cloak with red accents"): and the Holo
+# Shadow Cloak - the third list that grants an aura (titles.js TIER_AURA);
+# taking the handle off takes it too.
 SHADOW_FANG_HANDLES = "SirMcMobdon"
 # MARKS1 (PROF0 20): Marks open by this switch - "off", "dev" (the DEVELOPER_HANDLES alone) or "on". Shipped at "dev":
 # the currency is struck and spent by the developers first, and opened to everyone by this one line.
@@ -194,6 +198,15 @@ HERALD_HANDLES = ""
 # AURA as well as a title and a glyph (titles.js TIER_AURA); taking the
 # handle off takes all three on the next token.
 AEGIS_HANDLES = "Sureme"
+# PRIMARCH (2026-10-04, GA00250, relayed by the owner: "the title will be
+# Primarch, the color will be that light gold color that you guys use in
+# some places in the game menu"; "can the aura be a golden light around the
+# character? like i've seen some rare mobs with it"): Primarch - the title
+# in the menu's own light gold, the primarch glyph (GA00250's own
+# three-barred cross, in the same gold) and the Golden Radiance, a column of
+# golden light about the body. The second list that grants an aura (titles.js TIER_AURA);
+# taking the handle off takes all three on the next token.
+PRIMARCH_HANDLES = "GA00250"
 # PATREON-LINK (2026-10-01, Mac: "With patron and having to manually hand
 # out titles. Im running into a workflow where its really hard to keep up
 # with it"; asked, "Patreon auto-link"): A PATRON'S TITLE FOLLOWS THEIR

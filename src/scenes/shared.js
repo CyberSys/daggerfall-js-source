@@ -5,6 +5,7 @@
 // feature can never land in one host and miss its three siblings -
 // the shape that has recurred at every audit since 17h.
 
+import { stepAsideLoading, syncLoading } from '../ui/loadingScreen.js';   // LOAD1: a full-screen film's hold takes the loading screen aside; a claimed loop lets its hold go
 import { DFPalette } from '../formats/dfPalette.js';
 import { swingHeld } from '../ui/input.js';   // FIX-F: the swing button through the registry
 import { ImgFile } from '../formats/imgFile.js';
@@ -17,6 +18,8 @@ import { releaseUnloadGuard } from '../systems/unloadGuard.js';   // MAC-L3: a d
 import { EnhancedSkyRenderer, skyState, easeWeather, weatherRow, CLOUD_SHADOW, moonlightTerm, WEATHER_EASE_MINUTES, WIND_SECONDS_PER_MINUTE } from '../render/enhancedSky.js';   // ES1: the enhanced sky, behind the skin; EV5: its moons light the world
 import { meterFor } from '../render/perfMeter.js';   // VC6d: `?perf=zones` - the sky's own span
 import { dreadGrade, DREAD_SKY_WORD } from '../world/dreadSky.js';   // EVENT1: the live event's grade and the sky it wears
+import { sunbabyHaze, sunbabyWaterSky } from '../world/sunbabySky.js';   // SUNBABY1: the sun baby's haze and the sky the water mirrors under it
+import { SunbabySkyRenderer } from '../render/sunbabySkyRenderer.js';   // SUNBABY1: its flower sky, over every sky
 import { VolumetricClouds, QUALITY as CLOUD_QUALITY } from '../render/volumetricClouds.js';   // VC3: the clouds over the dome
 import { cloudsStateUnderMod, dynamicMoonState, dynamicMoonlight } from '../render/dynamicSkiesBridge.js';   // DS1/DS2: the mod's state in the port's shapes - the moons, the clouds, and the moons' own term (AUDIT 65 MC-3: the bridge's third export had no caller and this file carried its body inline)
 import { isEnhanced } from '../systems/uiSkin.js';
@@ -54,8 +57,10 @@ import { killIfAnyLiveStatZero } from '../systems/statMods.js';   // AUDIT 24 (w
 import { hasSpecialAbility, SPECIAL_ABILITY, healthRecoveryRate, fatigueRecoveryRate, spellPointRecoveryRate, restIgnoresNoRegen } from '../systems/rest.js';
 import { entityImprovedAthleticism } from '../systems/enchantments.js';   // AUDIT 26 F044: the ImprovesTalents fatigue arm   // the rested hour's three rates, one home for every host (V5 + S40, same line from two lanes)
 import { getPreventedRestMessage } from '../systems/restSession.js';
-import { nightDue, nightRealMinutesLeft, stampNight, runRestNight, topUpRest, sleepShortRest, spendRoomNight, roomNightsLeft, heardNight, REST_CHANNEL_SECONDS, REST_ACT_TEXT, NIGHT_HOURS } from '../systems/restAct.js';   // REST1: the rest act online
+import { nightDue, nightRealMinutesLeft, stampNight, runRestNight, topUpRest, sleepShortRest, spendRoomNight, roomNightsLeft, heardNight, REST_CHANNEL_SECONDS, REST_ACT_TEXT, NIGHT_HOURS, openChannelHeal, stepChannelHeal } from '../systems/restAct.js';   // REST1: the rest act online
 import { registerPreventRestCondition } from '../systems/restSession.js';   // SURV7: the survival rest gate's seam
+import { quietNights } from '../systems/encounters.js';   // CAMP-ROLL: a camp mate's night rolls nothing of mine
+import { carriedRestKind } from '../systems/partyRestLaw.js';   // CAMP-ROLL: and is slept at the better of their spot and mine
 import { survivalFeed, installSurvivalGate } from '../systems/survival/env.js';   // SURV7: the needs' feed and the gate, composed from the entity   // ROAD-B B5: TickRest's per-frame poll (:357-360, :407-410)
 import { createNearbyScan, updateNearbyObjects, detectedMarkers, hasLiveDetector } from '../systems/nearbyObjects.js';   // X4: the Detect scan
 import { liveStat, maxFatigue } from '../systems/statMods.js';
@@ -86,8 +91,9 @@ import { installSmithing } from '../systems/smithItems.js';   // PROF3: the Repa
 import { installCooking, dishStaminaFactor } from '../systems/cookItems.js';   // PROF9: a dish eaten, and the Tart's stamina
 import { installHealingSupply } from '../systems/healingSupply.js';   // POTION-COMMON: Potions of Healing in the loot
 import { installRaidingParties } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties' save slot
-import '../systems/gateSpoils.js';   // WB5: the Sigil Stone's own template (570) registers in every host, so a save carrying one loads it in any of the four
+import '../systems/gateSpoils.js'; import '../systems/portalStone.js';   // WB5: the Sigil Stone's own template (570) registers in every host, so a save carrying one loads it in any of the four; PORTAL1: and the Portal Stone's Use (572)
 import '../systems/sigilBroker.js';   // SET7: the Broker's record (what this character bought today) registers its save slot in every host, so a save made anywhere carries it
+import { installImmersiveTravel } from '../systems/immersiveTravel.js';   // IT1: Immersive Travel's Init - the drivers' and sailors' factions, their Fast Travel services
 import { installRoleplayRealism } from '../systems/rrInstall.js';   // RR1: Roleplay & Realism's InitMod - after Items', as DFU loads them (Items is the one it looks up)   // RRI1: the templates, the patches, the art - the same seam, the same reason   // DW3: its icons, on the replacement door - here and not at worldTick's module scope, where the mod's law sits in an import cycle (a TDZ)
 import { getBool, getInt } from '../systems/settings.js';   // M-FM: Audio/AlternateMusic, read once for all three hosts; MAC-O4: Controls/WeaponSwingMode, the drag route's own missing term
 import { SongManager, musicEnvironment, holdEnvironment } from '../systems/songManager.js';
@@ -266,8 +272,21 @@ export function createSkyController(gl, params) {
   const dynamic = dynamicOn ? new DynamicSkies(dynamicSkiesAssets(), modSettingsOf('dynamic-skies')) : null;   // no clock here: the first use() is Init's WorldTime.Now, and its tick runs ChangeLunarPhases first
   let dreadW = 0;   // EVENT1: the live event's weight this frame (setDread) - 0 is no event, and nothing below changes
   let dreadGlow = 0;   // EVENT1: and the red strikes' glow in the cloud deck this frame (the composite's flash, beside the storm's)
-  /** EVENT1: a reflected sky ({zenith, horizon}) under the dread - the water mirrors the sky it is under, on either lane. */
-  const dreaded = (ws) => (dreadW > 0 ? { zenith: dreadGrade(ws.zenith, dreadW), horizon: dreadGrade(ws.horizon, dreadW) } : ws);
+  // SUNBABY1: the sun baby's weight this frame (setSunbaby) - 0 is no event, and nothing below changes - and its pass,
+  // built the first time the event shows (a session that never sees one never compiles it); null after a failed build
+  let sunbabyW = 0;
+  let sunbabyOn = false;   // ...and whether it is staged now (the clear day below), apart from the weight that fades
+  let sunbabyEvil = 0, sunbabyTodd = 0;   // SUNBABY2: and the face it wears (setSunbabyFace) - the wrath's weight burns the fog and the water's sky
+  let sunbabySky;
+  const sunbabyPass = () => {
+    if (sunbabySky === undefined) {
+      try { sunbabySky = new SunbabySkyRenderer(gl); } catch (e) { console.warn('[sunbaby] the flower sky could not be built', e); sunbabySky = null; }
+    }
+    return sunbabySky;
+  };
+  /** EVENT1: a reflected sky ({zenith, horizon}) under the dread - the water mirrors the sky it is under, on either lane;
+   *  SUNBABY1: and under the sun baby, its flower sky's blue. */
+  const dreaded = (ws) => sunbabyWaterSky(dreadW > 0 ? { zenith: dreadGrade(ws.zenith, dreadW), horizon: dreadGrade(ws.horizon, dreadW) } : ws, sunbabyW, sunbabyEvil);   // SUNBABY2: the wrath's sky
   setLightCurve(dynamic ? dynamic.lightCurve : null);
   if (dynamicSky) {
     // the presets' textures land as they decode; a slot shows the
@@ -375,7 +394,8 @@ export function createSkyController(gl, params) {
      *  any other sky, SetSkyFogColor's law over the sky's own horizon,
      *  as before. */
     fogColorFor(fogNow) {
-      const c = dynamic?.fogColor ?? outdoorFogColor(fogNow, (enhancedSky ?? dynamicSky ?? sky).clearColor);
+      const own = dynamic?.fogColor ?? outdoorFogColor(fogNow, (enhancedSky ?? dynamicSky ?? sky).clearColor);
+      const c = sunbabyW > 0 ? sunbabyHaze(own, sunbabyW, sunbabyEvil) : own;   // SUNBABY1: the land's haze is the flower sky's horizon (SUNBABY2: the wrath's, burning)
       return dreadW > 0 ? dreadGrade(c, dreadW) : c;   // EVENT1: the land's haze is the sky's colour under the dread too
     },
     /** EVENT1: the live event's weight this frame, 0..1 (world/dreadSky.js createDread) - every pass that draws the sky
@@ -386,6 +406,24 @@ export function createSkyController(gl, params) {
       dreadW = Math.max(0, Math.min(1, Number(w) || 0));
       dreadGlow = dreadW > 0 ? Math.max(0, Math.min(1, Number(glow) || 0)) : 0;
       for (const r of [sky, enhancedSky, dynamicSky, clouds]) if (r) r.dread = dreadW;
+    },
+    /** SUNBABY1: the sun baby's weight this frame, 0..1 (world/sunbabySky.js createSunbaby) - its flower sky is drawn over
+     *  the sky and its clouds by it, the fog and the water's sky lean to it - and `on`, whether it is staged now: while
+     *  it is, the sky's frame (use) stands on the clear day the host shows, without the weather map's storm cells, its
+     *  violence or its approaching front. 0 and false are exactly the sky there was. */
+    setSunbaby(w, on = false) {
+      sunbabyW = Math.max(0, Math.min(1, Number(w) || 0));
+      sunbabyOn = !!on;
+      if (sunbabyW > 0) { const p = sunbabyPass(); if (p) p.weight = sunbabyW; }
+      else if (sunbabySky) sunbabySky.weight = 0;
+    },
+    /** SUNBABY2: the face the sun baby wears this frame (world/sunbabySky.js sunbabyPhase) - `evil` the wrath's weight
+     *  and `todd` Todd's, 0..1, the baby the rest: its pass draws the face and the wrath's burning sky, and the fog and
+     *  the water's sky lean to that sky. 0 and 0 are the laughing baby. */
+    setSunbabyFace(evil = 0, todd = 0) {
+      sunbabyEvil = Math.max(0, Math.min(1, Number(evil) || 0));
+      sunbabyTodd = Math.max(0, Math.min(1, Number(todd) || 0));
+      if (sunbabySky) { sunbabySky.evil = sunbabyEvil; sunbabySky.todd = sunbabyTodd; }
     },
     /** DS1: AmbientEffectsPlayer.OnPlayEffect reaches the mod's
      *  LightningFlashListener here (a no-op under any other sky). */
@@ -520,6 +558,7 @@ export function createSkyController(gl, params) {
      *  and the classic clock too (`extra`), for the clouds and the moons;
      *  it is synchronous - numbers into uniforms, nothing to load. */
     use(skyIndex, minuteOfDay, showNightSky = true, extra = null) {
+      if (sunbabyOn && extra) extra = { ...extra, violence: extra.weather, cells: null, cloudBase: null, approach: 0 };   // SUNBABY1: the clear day, whole
       if (enhancedSky || dynamic) {
         const now = (typeof performance !== 'undefined' ? performance.now() : 0);
         const seconds = (now - t0) / 1000;
@@ -694,6 +733,7 @@ export function createSkyController(gl, params) {
       meter?.mark('sky');
       (enhancedSky ?? dynamicSky ?? sky).draw(yaw, pitch, fovY, aspect);
       if (clouds) { clouds.update(viewport); clouds.draw(yaw, pitch, fovY, aspect); }   // VC3: over the dome, under the host's marker
+      if (sunbabyW > 0) sunbabySky?.draw(yaw, pitch, fovY, aspect);   // SUNBABY1: the flower sky over all of it, by the event's weight
       meter?.mark('world');
     },
   };
@@ -1289,6 +1329,7 @@ export function ensureAudio(fetch = fetchBytes) {
   // M-TEX: textures register on the SAME seam, for the same reason.
   // Registration is a name list and a loader - no PNG is read until an
   // archive that has replacements is actually loaded.
+  installImmersiveTravel();   // IT1: Carriage Drivers (8642) and Sailors (8643), and their Fast Travel - before the faction dictionary is built at the load
   installDetailedShipsArt();   // DS1: archives 1210/1230 on the texture door (their pictures built from your own records at the archive's load) and the six xml scales
   installForaging();   // FORAGE1: the ForagingQuests list (before any quest bridge is built), the six tools' and five foods' UseItem, the seven pictures, Foraging_Tools
   installWarmAshesShips();   // WA1: the WA_Ships quest list (before any quest bridge is built - LoadQuestLists reads it) and the mod's save record
@@ -2064,7 +2105,9 @@ export function wireInfectionVideos(renderer, { textAt = null, factionDict = nul
 // check: guarding feet?.[0] would draw foes against a dead world and
 // call it working.
 let _frameGeneration = 0;
-export function claimFrame() { return ++_frameGeneration; }
+// LOAD1: a loop claimed is a loop ended, and the loading screen the old loop's frames were holding (ui/loadingScreen.js
+// syncLoading) goes with it - no frame of that loop will ever find the world still and end it.
+export function claimFrame() { syncLoading(false); return ++_frameGeneration; }
 export const frameAlive = (token) => token === _frameGeneration;
 
 // AUDIT 39 (#160): THE HOLD - claimFrame's other half. A full-screen
@@ -2076,11 +2119,15 @@ export const frameAlive = (token) => token === _frameGeneration;
 // while the video owns the canvas, and must still be there afterwards.
 // So the hold is a counter, taken by the seam and released on every
 // path out, and the hosts wait on it instead of dying.
+// LOAD1: and the loading screen (ui/loadingScreen.js, a DOM layer over the canvas) steps aside for the film's
+// lifetime - a dream on a fast travel's arrival plays while the travel's screen still stands, and the hosts' frames,
+// which raise and end it, are exactly what the hold stops.
 let _frameHold = 0;
 export function holdFrame() {
   _frameHold++;
+  stepAsideLoading(true);
   let released = false;   // release once, however many paths call it
-  return () => { if (released) return; released = true; _frameHold = Math.max(0, _frameHold - 1); };
+  return () => { if (released) return; released = true; _frameHold = Math.max(0, _frameHold - 1); if (!_frameHold) stepAsideLoading(false); };
 }
 export const frameHeld = () => _frameHold > 0;
 
@@ -2291,6 +2338,10 @@ export function createRestDeps(entity, opts = {}) {
     // null (none in reach). Read only under the shared clock: offline the rest is DFU's window, which asks nothing of it.
     restPoint = null, ...rest
   } = opts;
+  // CAMP-ROLL: the host's camp (world.js campRest: open, verdict, settle, close) - whose night an act's is, when a party
+  // rests together. Null where nothing rolls (a building) or nobody is near (offline, the dev host). It rides the
+  // pass-through to the window too (`out.camp`).
+  const camp = rest.camp ?? null;
   let _kind = REST_KIND.Rough;   // the running rest's kind as the laws PRICE it, read at the open - DFU's bed with the arc off
   let _place = REST_KIND.Rough;  // AUDIT SURV-TIERS: WHERE the running rest is, read at the open in every tier (see setResting)
   let _rules = null;             // SURV-TIERS: the running rest's tier rules (survival/difficulty.js), read at the open - null with the arc off
@@ -2315,6 +2366,7 @@ export function createRestDeps(entity, opts = {}) {
   // so an override always belongs to exactly the one session it was set for and can never bleed into this same
   // entity's next real rest.
   let _restKindOverride = null, _draughtFrom = null;
+  let _channel = null;   // REST-CHANNEL-HEAL: the channel's heal plan (restAct.js openChannelHeal), read at its open - one a rest
   let _spot = REST_KIND.Rough;   // AUDIT REST-PARTY: the rest's own spot at its open, before a Draught makes it a bed's - the party sleeps the spot   // REST6: the own minute a Sleeping Draught's night began (spent by a night slept through)
   const out = {
     // PlayerEntity.IsResting / IsLoitering (:268, :284, :789, :285).
@@ -2324,6 +2376,7 @@ export function createRestDeps(entity, opts = {}) {
     // spread if it needs to observe the edge.
     setResting: (b) => {
       entity.isResting = !!b;
+      _channel = null;   // REST-CHANNEL-HEAL: a plan belongs to the one rest that opened it
       // SURV4: the kind is read at the OPEN (the fire may die under a long night - it was lit when you lay down);
       // `entity.restKind` is the needs law's `sleeping` for the hosts' env feed and the kind the party pose broadcasts
       // PARTY-REST4b: `_restKindOverride`, when one is set, wins over the inherited `restKind()` position check -
@@ -2356,6 +2409,7 @@ export function createRestDeps(entity, opts = {}) {
       // forget it, so a later real rest (this same entity choosing to actually rest for themselves) never
       // silently inherits a stale kind broadcast by whoever they last mirrored.
       if (!b) { _restKindOverride = null; if (_draughtFrom != null && ownMinutes() - _draughtFrom >= DRAUGHT_SPENT_MINUTES) spendDraught(entity); _draughtFrom = null; }
+      if (!b) camp?.close?.();   // CAMP-ROLL: every window's every exit clears the flag here, so the camp's watch closes with it
     },
     setLoitering: (b) => { entity.isLoitering = !!b; },
     // THE PASS-THROUGH IS LOAD BEARING, and it is here because a review
@@ -2449,6 +2503,21 @@ export function createRestDeps(entity, opts = {}) {
     surfacePlayer();
     return result;
   };
+  // CAMP-ROLL: THE CARRIED NIGHT'S ONE SEQUENCE - a camp mate's night slept as theirs: the better of their spot and mine
+  // (AUDIT REST-PARTY carriedRestKind), read by a fresh open, and the night (or, inside my interval, the short rest)
+  // with its rolls quiet (encounters.js quietNights: only the roller rolls). world.js sleepCarriedNight (a member
+  // standing by) and the rest windows' camp wait (restAct.js campNightStep) both run it; the caller closes the rest.
+  out.camp = camp;
+  out.restCampNight = (theirs, night = nightDue(entity, ownMinutes())) => {
+    const kind = carriedRestKind(restKind(), theirs);
+    let r = null;
+    quietNights(() => {
+      if (kind) _restKindOverride = () => kind;
+      out.setResting(true);
+      r = night ? out.restNight({ carried: true }) : out.restShort();
+    });
+    return r;
+  };
   out.restShort = () => {
     topUpRest(entity, _kind, _rules, { night: false, maxFatigueOf: maxFatigue });
     sleepShortRest(entity, _kind, _rules, Math.floor(ownMinutes()));   // REST-SLEEP1: and it sleeps - a Tired or Drowsy sleeper is not kept waiting out the interval
@@ -2456,6 +2525,11 @@ export function createRestDeps(entity, opts = {}) {
     const left = nightRealMinutesLeft(entity, ownMinutes());
     return { textId: null, text: REST_ACT_TEXT.shortRest, extra: left > 0 ? REST_ACT_TEXT.nextNight(left) : null, enemyBroke: false, died: false };
   };
+  // REST-CHANNEL-HEAL (restAct.js openChannelHeal): the channel's bar heals as it fills - the plan read at the channel's
+  // open, under the kind and tier the rest opened with (setResting), and each frame's share paid; what it paid is kept
+  // when the hold breaks, and the end lands the night or the short rest from there. Answers the health it leaves.
+  out.restChannelOpen = () => { _channel = openChannelHeal(entity, _kind, _rules, { maxFatigueOf: maxFatigue }); };
+  out.restChannelHeal = (frac) => stepChannelHeal(entity, _channel, frac);
   return out;
 }
 

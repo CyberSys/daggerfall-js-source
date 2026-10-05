@@ -232,6 +232,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
   let stateCurrent = 'Idle';
   let stateLast = null;
   let lastOrientation = 0;
+  let forceOrient = false;      // HORSE-FACE: a placing's repaint, owed to the next UpdateOrientation - never an orientation of its own
   let lastMoveDirection = null;
   let currentAngle = 0;
   let orientationTimer = 0;
@@ -258,7 +259,8 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
   const decoded = new Map();    // key -> the decoded pixels, so a mirrored twin needs no second fetch
   let batch = null;
   let batchRec = null;
-  let batchSize = null;
+  let batchSize = null, batchPx = 0;   // AUDIT 3 (SERAPH-WINGS): and the frame's own pixels tall - the figure's metres a pixel
+  let figure = null;   // SERAPH-WINGS: the frame last drawn, as an aura reads it - its base over the feet (m), its metres a pixel, its form and its facing (AUDIT 3)
   /** The one sprite that decides whether this lane may open at all. See `ready()`. */
   let firstUp = false;
 
@@ -274,6 +276,17 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
   /** HT-WAIST-BACK: is it DRAWN this frame - it hangs, and the sprite is painted from behind (eotbLantern.js
    *  isRearView: orientation 4). */
   const lanternShown = () => lanternHangs() && isRearView(shown?.orientation);
+  /** WINGS-FIT (2026-10-05): the way the drawn sprite faces, as a yaw (forward (sin, cos)) - its walk's facing
+   *  (UpdateOrientation's `lastMoveDirection`); with none (Vector3.zero, before a first walk or placing) SignedAngle reads
+   *  the camera's own line and the sprite shows the eye its FRONT (ARENA-FIX 14), so it faces the eye. It answered null
+   *  there, and the camera's yaw stood in: the wings were hung on the side toward the eye, laid over a sprite showing its
+   *  face and turning with the camera round it. Null only with neither. */
+  function figureYaw() {
+    const f = lastMoveDirection;
+    if (f && Math.hypot(f[0], f[2]) > 1e-6) return Math.atan2(f[0], f[2]);
+    const ex = cam.pos[0] - cam.feet[0], ez = cam.pos[2] - cam.feet[2];
+    return Math.hypot(ex, ez) > 1e-6 ? Math.atan2(ex, ez) : null;
+  }
   /** The frame the sprite faces: its walk's facing (UpdateOrientation's `lastMoveDirection`), else the yaw. */
   function facingBasis() {
     const f = lastMoveDirection && (lastMoveDirection[0] || lastMoveDirection[2]) ? lastMoveDirection : cam.forward;
@@ -525,11 +538,16 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
     return startClip(table, forwardFrames(frameCount(table)), DEATH_TICK, { freeze: true });
   }
 
-  /** ARENA-FIX 14: the facing a placing writes (the object's `faceYaw`, below). */
+  /** ARENA-FIX 14: the facing a placing writes (the object's `faceYaw`, below).
+   *  HORSE-FACE (FIELD BUGS 2026-10-04e, "When on the horse in the overworld, the sprite doesnt face the direction of
+   *  travel"): it asks the next UpdateOrientation for a repaint (`forceOrient`). It wrote -1 into `lastOrientation`
+   *  for that, and every repaint the walk loop queued in the meantime painted -1 - which stateFor wraps to 7, one
+   *  fixed front-three-quarter view whatever the heading. A gallop under the Overworld's time scale passes
+   *  PLACE_JUMP_M in a frame, so it was placed every frame and the walk loop's sixteen repaints a second won. */
   function faceYaw(yaw) {
     if (!Number.isFinite(yaw)) return;
     lastMoveDirection = [Math.sin(yaw), 0, Math.cos(yaw)];
-    lastOrientation = -1;
+    forceOrient = true;
   }
 
   // ── UpdateOrientation ─────────────────────────────────────────────
@@ -557,7 +575,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
     lastMoveDirection = facing;
     currentAngle = signedAngleY(toCamera, facing);
     const o = orientationFor(facing, toCamera);
-    if (o !== lastOrientation || force || !shown) updateBillboardDelayed(frameCurrent, o, stateCurrent);
+    if (o !== lastOrientation || force || forceOrient || !shown) { forceOrient = false; updateBillboardDelayed(frameCurrent, o, stateCurrent); }
     // [IL] TorchOffset (IL_47df-IL_48bd), third person only: Selfie (2)
     // parks PlayerTorch half way from the head to the camera; Billboard
     // (1) puts it 0.45 up the sprite and half a metre along the facing.
@@ -778,6 +796,10 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
      * camera), so the player's own sprite stood facing the lens at the head of every bout. A placing writes the facing
      * it places with, as the walk it stands for would; the next orientation pass repaints it. `yaw` the facing's.
      */
+    /** SERAPH-WINGS (2026-10-05): THE FIGURE LAST DRAWN - { base, h }, the quad's foot and its height over the feet (m),
+     *  this frame's; null when nothing was drawn or in the saddle. What an aura on the back reads for the bones a sprite
+     *  has not got (render/auraRing.js auraSpriteBones). */
+    figure() { return figure; },
     faceYaw,
     /**
      * Called by `combat/weaponRig.js` beside `fpArm.attach`.
@@ -804,7 +826,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
       if (renderer) {
         preload();
         setEotbBodyReady(() => this.ready());
-        setEotbDrawBody((canvas, f) => this.draw(canvas, f));
+        setEotbDrawBody((canvas, f) => this.draw(canvas, f), () => this.figure());   // SERAPH-WINGS: and the figure it drew
         setEotbPlayerState(playerState);
       }
       eotbCamera.setBillboard(this);
@@ -830,6 +852,11 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
     /** HT-WAIST: another body has the frame (mwView's Morrowind lane) - the sprite's lantern, its batch and the
      *  light point it wrote, stand down, so the Morrowind body's hip is lit from its own hook. */
     standDown() { dropLantern(); },
+    /** HORSE-FACE: the floating origin moved the world under the feet - they move with it, so the shift is no placing. */
+    rebase(delta) {
+      if (!delta || !cam.feet) return;
+      cam.feet = [cam.feet[0] + delta[0], cam.feet[1] + delta[1], cam.feet[2] + delta[2]];
+    },
 
     /**
      * EOTB4's gate. The lane may open when the mod is on, the build
@@ -865,8 +892,10 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
       if (Number.isFinite(state.yaw)) { cam.yaw = state.yaw; cam.forward = [Math.sin(state.yaw), 0, Math.cos(state.yaw)]; }
       if (state.cameraForward) cam.forward = state.cameraForward;
       // ARENA-FIX 14: a PLACING (feet carried further in one frame than any walk, fall or ride goes - a door, a warp, a
-      // fighter stood on its mark in the arena's instance) faces the body the way the view was placed facing
-      if (state.feet && was && Math.hypot(state.feet[0] - was[0], state.feet[2] - was[2]) > PLACE_JUMP_M) faceYaw(Math.atan2(cam.forward[0], cam.forward[2]));
+      // fighter stood on its mark in the arena's instance) faces the body the way the view was placed facing.
+      // HORSE-FACE: never while the body is moving under its own input - the Overworld's time scale carries a walk or a
+      // ride further than that in a frame, and the facing is the move's (UpdateOrientation's moveDir)
+      if (state.feet && was && !(last.forward || last.strafe) && Math.hypot(state.feet[0] - was[0], state.feet[2] - was[2]) > PLACE_JUMP_M) faceYaw(Math.atan2(cam.forward[0], cam.forward[2]));
       // the first-person billboard stands ON the camera point (IL_3e48-IL_3e6d):
       // the parent's head, so the orientation reads 0 through the zero vector
       if (FP) cam.pos = [cam.feet[0], cam.feet[1] + FP_HEAD, cam.feet[2]];
@@ -881,6 +910,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
 
     draw(canvas, { eye, feet, yaw, face: faceNow = null } = {}) {
       face = faceNow && Number.isFinite(faceNow.yaw) ? faceNow : null;
+      figure = null;
       if (!renderer || !activeFlag || !shown) return false;
       if (!cfg.graphic) { dropLantern(); return false; }   // HT-WAIST: no body drawn, no lantern on it
       if (feet) cam.feet = feet;
@@ -908,12 +938,13 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
           batch.noShadow = grow > 1;   // AUDIT OW5 R2: OW-BIG's giant casts NOTHING - selfCard off was never that (render/shadowPass.js: it only keeps the card out of the lamps' maps when it is not the player's own; the sun's cascades drew the tenfold card, a fifty-metre shadow at a low sun, and the lamps' maps baked it)
           batchRec = key;
         }
-        batchSize = size;
+        batchSize = size; batchPx = up.h;
       }
       if (!batch) return false;                 // nothing up yet: the last sprite stays until one is
       const c = place();
       if (!c) return false;
       batch.origin[0] = c[0]; batch.origin[1] = c[1]; batch.origin[2] = c[2];
+      figure = last.riding || FP ? null : { base: c[1] - cam.feet[1], mpp: batchPx > 0 ? batchSize.h * grow / batchPx : 0, beast: !!last.transformed, yaw: figureYaw() };   // SERAPH-WINGS: a rider's frame is the horse's too - no shoulders read off it; AUDIT 3: nor the first-person billboard's (the camera is in it), and its metres a pixel (the shoulders by the pixel - auraSpriteBones), its form, and the way it FACES (UpdateOrientation's facing - not the camera's: a sprite walking back shows its face)
       batch.conceal = material();
       // AUDIT DEEP R-2: under the travel view the quad turns to the VIEW's eye (and leans with the flats) - on the
       // traveller's own heading it went edge-on as the view orbited, a sliver at 90 degrees, mirrored at 180
