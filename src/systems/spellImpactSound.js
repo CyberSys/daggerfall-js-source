@@ -110,7 +110,7 @@ function addShaped(out, x, e, gain) { for (let i = 0; i < out.length && i < x.le
 function addTone(out, f, e, gain, from = 0, to = Infinity) {
   let ph = 0;
   const a = Math.max(0, Math.floor(from * R)), b = Math.min(out.length, Math.floor(to * R));
-  for (let i = a; i < b; i++) { const t = i / R; ph += (TAU * f(t)) / R; out[i] += Math.sin(ph) * e(t) * gain; }
+  for (let i = a; i < b; i++) { const t = i / R; ph += f(t) / R; const v = Math.sin(TAU * ph); out[i] += v * e(t) * gain; }   // ONCRASH1 C2: the phase in turns, never a value stepped by a turn
 }
 /** Short clicks of filtered noise, at a rate `rate(t)` a second, each `amp(t)` loud. */
 function addCrackle(out, rng, rate, amp, toneHz, until) {
@@ -119,8 +119,8 @@ function addCrackle(out, rng, rate, amp, toneHz, until) {
     const t = i / R;
     if (rng() >= rate(t) / R) continue;
     const len = Math.floor((0.002 + rng() * 0.006) * R), a = amp(t) * (0.4 + 0.6 * rng());
-    let ph = rng() * TAU;
-    for (let k = 0; k < len && i + k < out.length; k++) { ph += (TAU * toneHz * (0.7 + 0.6 * rng())) / R; out[i + k] += (rng() * 2 - 1) * 0.6 * a * Math.exp(-k / (len * 0.35)) + Math.sin(ph) * 0.4 * a * (1 - k / len); }
+    let ph = rng();   // the phase in turns (ONCRASH1 C2), from a random point in the cycle
+    for (let k = 0; k < len && i + k < out.length; k++) { ph += (toneHz * (0.7 + 0.6 * rng())) / R; const v = Math.sin(TAU * ph); out[i + k] += (rng() * 2 - 1) * 0.6 * a * Math.exp(-k / (len * 0.35)) + v * 0.4 * a * (1 - k / len); }
   }
 }
 
@@ -193,8 +193,8 @@ export function buildImpactSound(kind, voices = {}, seed = IMPACT_SOUND_SEED) {
         const nz = noise(n, rng), buzz = new Float32Array(n);
         for (let i = 0; i < n; i++) {
           if (i >= hop) { f = r(55, 140); on = rng() < 0.72 ? 1 : 0; hop = i + Math.floor(r(0.012, 0.03) * R); }
-          ph += (TAU * f) / R;
-          const s = (Math.sin(ph) >= 0 ? 1 : -1) * 0.7 + nz[i] * 0.3;
+          ph += f / R;   // the phase in turns (ONCRASH1 C2)
+          const s = (Math.sin(TAU * ph) >= 0 ? 1 : -1) * 0.7 + nz[i] * 0.3;
           buzz[i] = Math.round(s * on * env(i / R, 0.002, 0.3) * 7) / 7;
         }
         lowpass(buzz, R, 2500);
