@@ -15,6 +15,7 @@
 import { gateAt, gateTimes, gatePhase, GATE_EVERY_DAYS, gameDayAt, GATE_DAY_MINUTES } from '../net/gateLaw.js';
 import { wallMsForClassicMinutes } from '../net/wire.js';
 import { seatWeekOf, seatWeekStartMs, seatPhaseOf, SEAT_RECKONING_MS, seasonOf, seatSeasonName, battleLengthMs, SIGN_CLOSES_MS, guildWords } from '../net/townSeatLaw.js';
+import { serpentAt, serpentTimes, serpentPhase, serpentBossOf, SERPENT_EVERY_DAYS } from '../net/serpentLaw.js';   // SERPENT-TIMERS: the sea serpent's day
 
 const DAY_MS = 86_400_000;
 
@@ -26,6 +27,7 @@ const capital = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 /**
  * @param {{ now: number,
  *           gate?: { place?: string|null, fellAt?: (day: number) => (number|null) } | null,
+ *           serpent?: { place?: string|null, fellAt?: (day: number) => (number|null) } | null,
  *           seatsOpen?: boolean, seats?: Array<any> | null, zero?: number | null, region?: string | null,
  *           raids?: Array<{ name: string, region?: string, type?: string, startMs: number, endMs: number, done?: boolean }> | null }} src
  */
@@ -49,6 +51,23 @@ export function eventTimerRows(src) {
   else if (phase === 'closed') live(`gate:${t.day}`, 'gate', 'Dagon\'s Breach sealed', t.wrathAt, place, 'Collapses when this runs out');
   // ...and the gate after it, once this one is under way
   if (phase !== 'quiet') coming(`gate:${t.day + GATE_EVERY_DAYS}`, 'gate', 'Next Dagon\'s Breach opens', gateTimes(t.day + GATE_EVERY_DAYS).openAt);
+
+  // ── THE SEA SERPENT (serpentLaw: every other game day at the dawn watch - every four real hours: the bells, the
+  // rising, the storm closing its waters, its dive) ── SERPENT-TIMERS (2026-10-04, the owner: "This needs to happen" -
+  // the serpent was the one shared event the window did not count). Where it lies is said from its bells on, as the
+  // chat says it; the next serpent's rising stands beside it once this one is under way.
+  const s = serpentAt(now);
+  const sPhase = serpentPhase(s, now, src?.serpent?.fellAt?.(s.day) ?? null);
+  const sName = serpentBossOf(s.day).name;
+  const off = src?.serpent?.place ? `Off ${src.serpent.place}` : null;
+  if (sPhase === 'quiet') coming(`serpent:${s.day}`, 'serpent', `${sName} rises`, s.riseAt, null, 'The harbour bells ring 15 minutes before');
+  else if (sPhase === 'omen') coming(`serpent:${s.day}`, 'serpent', `${sName} rises`, s.riseAt, off, 'The harbour bells are ringing - its waters are ringed on your map');
+  else if (sPhase === 'rising' || sPhase === 'hunt') live(`serpent:${s.day}`, 'serpent', `${sName} hunts`, s.sealAt, off, 'A storm closes its waters when this runs out - sail out to join');
+  else if (sPhase === 'late') live(`serpent:${s.day}`, 'serpent', `${sName}'s waters are closed`, s.soundAt, off, 'It dives when this runs out');
+  if (sPhase !== 'quiet') {
+    const nextDay = s.day + SERPENT_EVERY_DAYS;
+    coming(`serpent:${nextDay}`, 'serpent', 'Next sea serpent rises', serpentTimes(nextDay).riseAt);
+  }
 
   // ── THE TOWN RAIDS (the mod's day: each town's raid a two-hour classic window) ──
   // AUDIT TIMERS1 D3: the day rolls about twenty-two across the Iliac Bay - the window held them all, twenty-seven rows.

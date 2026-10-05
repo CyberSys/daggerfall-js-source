@@ -205,7 +205,7 @@ in the tree).
 
 **Not changed, and why.**
 - **The cite quotes in `test/citedrift.test.js`'s comments moved (+1).** Pre-existing: `tools/citeShift.mjs` moves
-  them on every run - the same sentence read `world.js:16260` on 09-25, `:21531` on 09-28, `:21773` before this PR -
+  them on every run - the same sentence read `world.js:16262` on 09-25, `:21536` on 09-28, `:21778` before this PR -
   because it cannot tell a quoted stale cite from a live one (its own header says what it cannot do). Recorded for the
   tool's next pass, not re-derived by hand here.
 - **The one-entry memo re-parses when two searches interleave.** The only reader of a search other than the page's is

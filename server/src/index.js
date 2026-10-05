@@ -221,6 +221,10 @@ import { mintReceipt, importReceiptKey, readReceipt, RECEIPT_TTL_S } from '../..
 import { serpentAt, serpentAdmits, serpentHolds, serpentBossOf, serpentRiseYaw, serpentSiteKey, sameSerpentSite, SERPENT_DIVE_MS, SERPENT_BRAIN_MIN, SERPENT_NATIVE_PER_M } from '../../src/net/serpentLaw.js';
 import * as serpentBrain from '../../src/net/serpentBrain.js';
 import { mintSerpentReceipt, readSerpentReceipt } from '../../src/net/serpentReceipt.js';
+// SERPENT2 (2026-10-04, the owner: "the discord integration needs to happen"): ONE FILE JOINS THE BUNDLE -
+// net/serpentHerald.js (the serpent's Discord posts and when they are owed, pure law - it imports serpentLaw.js,
+// gateHerald.js and wire.js, all here). The hub posts off its own alarm, beside the gate's herald.
+import { serpentHeraldRole, serpentOmenPost, serpentFellPost, serpentHeraldOmenDue, serpentHeraldKill, serpentSiteDayOk, agreedSerpentSite } from '../../src/net/serpentHerald.js';
 // RAID3 (2026-09-27, Mac, on World Events - Raiding Parties online: "1. Server"): TWO FILES JOIN THE BUNDLE -
 // net/raidLaw.js (a town raid's ledger, pure law - it imports nothing) and net/raidReceipt.js (a raid's receipt, the
 // relay's second signature under the gate's one key - it imports identityToken.js and raidLaw.js, both here).
@@ -503,6 +507,7 @@ export class Room {
     this._helloBy = new Map();   // AUDIT-SEATS R3: a battle room's hello buckets, by verified account (_battleHelloGate) - a wake forgets them, as the meters
     this._receiptKey = undefined;   // WB3: the relay's signing key (GATE_SIGNING_KEY), imported once; null = none (the receipts go out unsigned)
     this._gateFell = undefined;     // WB3: the hub's last word of a kill, said to a hello while its gate still holds
+    this._serpentSiteRec = undefined; // SERPENT2: the hub's record of where the serpent lies, as accounts said it (net/gateHerald.js foldGateSite) - undefined: not read yet
     this._serpentFells = undefined; // SERPENT1: the hub's kills of the latest serpent day, one a site (SERPENT_FELLS_KEY), said to a hello while that day holds
     this._event = undefined;        // EVENT1: the hub's live event, read once (_liveEvent) - undefined: not read yet
     this._raids = new Bounded(RAID_CACHE_MAX);        // RAID3: a cell's raid ledgers read so far (net/raidLaw.js) - AUDIT RAID R1: its identity (key and signature) -> ledger|null; storage is the truth; R6: at most RAID_CACHE_MAX
@@ -1071,7 +1076,7 @@ export class Room {
    *  drain, re-armed by every later one - unless someone is in the room when it fires: a world parked in a room
    *  nobody plays would cost storage for ever, and the rooms a client can name are many. */
   async alarm() {
-    if (await this.state.storage.get('hub')) { await this._sweepHub(Date.now()); await this._heraldBeat(Date.now()); return; }   // AUDIT SOC A3: the hub's alarm is its sweep, whoever is in the room; DISCORD-GATES: and its herald's posts
+    if (await this.state.storage.get('hub')) { await this._sweepHub(Date.now()); await this._heraldBeat(Date.now()); await this._serpentHeraldBeat(Date.now()); return; }   // AUDIT SOC A3: the hub's alarm is its sweep, whoever is in the room; DISCORD-GATES: and its herald's posts; SERPENT2: and the serpent's
     // AUDIT 68 X8-park-registry-unbounded: an owner's registry (HCC-PARK) is one object per account and character a
     // client names - its word goes PARK_TTL_MS after it was said, as the cell's record it points at does
     const reg = await this.state.storage.get('reg');
@@ -1939,6 +1944,12 @@ export class Room {
       // bucket, in a cell alone (anywhere else junk), credited to the VERIFIED account (`sub`, off the token)
       const now = Date.now();
       if (!this._spend(ws, now, serpentGate, 'serpentBucket', 'serpentDrops', 'too many serpent frames')) return;
+      // SERPENT2: where this account's game found the serpent the clock is about - the hub's alone (the gate's `site` law)
+      if (m.k === 'site') {
+        if (!isSocialRoom(a.key) || typeof a.sub !== 'string' || !a.sub) { this._junk(ws); return; }
+        try { await this._serpentSite(a.sub, m, now); } catch (e) { console.warn('[hub] serpent site failed', e?.message ?? e); }
+        return;
+      }
       if (!isCellRoom(a.key) || typeof a.sub !== 'string' || !a.sub) { this._junk(ws); return; }
       try { await this._serpentFrame(ws, a, m, now); } catch (e) { console.warn('[serpent] word failed', e?.message ?? e); }
       return;
@@ -4295,6 +4306,7 @@ export class Room {
       const list = kept && kept.d === fell.d ? kept.list.filter((g) => !sameSerpentSite(g, fell)) : [];
       this._serpentFells = { d: fell.d, list: [...list, fell].slice(-SERPENT_FELLS_MAX) };
       await this.state.storage.put(SERPENT_FELLS_KEY, this._serpentFells);
+      if (this._heraldOf()) await this._hubArm(now);   // SERPENT2: and to the channel, if it is the agreed site's (_serpentHeraldBeat)
     }
     const said = newer && serpentHolds(fell.d, now) ? JSON.stringify({ t: 'serpent', ...fell }) : null;
     const here = new Set(Array.isArray(body.here) ? body.here.filter((x) => typeof x === 'string').slice(0, serpentBrain.SERPENT_FIGHTERS_MAX) : []);
@@ -4312,7 +4324,8 @@ export class Room {
     if (this._herald === undefined) {
       const hook = heraldWebhook(this.env?.GATE_DISCORD_WEBHOOK);
       if (!hook && this.env?.GATE_DISCORD_WEBHOOK) console.warn('[herald] GATE_DISCORD_WEBHOOK is not a Discord webhook\'s URL - nothing is posted');
-      this._herald = hook ? { hook, role: heraldRole(this.env?.GATE_DISCORD_ROLE) } : null;
+      // SERPENT2: and the role the serpent's bells ping - SERPENT_DISCORD_ROLE when the operator names one, else the gate's
+      this._herald = hook ? { hook, role: heraldRole(this.env?.GATE_DISCORD_ROLE), serpentRole: serpentHeraldRole(this.env?.SERPENT_DISCORD_ROLE, this.env?.GATE_DISCORD_ROLE) } : null;
     }
     return this._herald;
   }
@@ -4360,11 +4373,13 @@ export class Room {
     const had = await this.state.storage.getAlarm();
     if (had == null || had > at) await this.state.storage.setAlarm(at);
   }
-  /** The alarm armed for the herald's next post, when it owes one before the sweep's. */
+  /** The alarm armed for the herald's next post, when it owes one before the sweep's - the gate's, and SERPENT2: the
+   *  serpent's (_serpentHeraldArm). */
   async _heraldArm(now) {
     if (!this._heraldOf()) return;
     const at = this._heraldNextAt(await this._heraldState(), now);
     if (at != null) await this._hubArm(at);
+    await this._serpentHeraldArm(now);
   }
   /** A gate's kill, owed to the channel once a day while it is news: kept first (the alarm posts it, and posts it again
    *  until Discord takes it - one poster, so never twice), the alarm armed now. */
@@ -4428,6 +4443,62 @@ export class Room {
       const next = [retry, owed && owed.at > now ? owed.at : null].filter((x) => x != null);
       if (next.length) await this._hubArm(Math.min(...next));
     } catch (e) { console.warn('[herald] beat failed', e?.message ?? e); await this._hubArm(now + HERALD_RETRY_MS); }
+  }
+
+  // ───────────────────────────── SERPENT2: THE SERPENT'S HERALD ─────────────────────────────
+  // net/serpentHerald.js. The gate's channel and door (_heraldOf, _heraldSend); its own record of where the serpent lies
+  // (`serpentsite` - the gate's vote law), its own state (`sherald`: the last serpent day whose bells and whose kill
+  // went), and the kill read off the hub's own kept kills (_serpentFellsOf - one a site), posted for the agreed site alone.
+  /** The hub's record of where the serpent lies - the instance's, else storage's. */
+  async _serpentSiteOf() {
+    if (this._serpentSiteRec === undefined) this._serpentSiteRec = (await this.state.storage.get('serpentsite')) ?? null;
+    return this._serpentSiteRec;
+  }
+  /** An account's word of where the serpent the clock is about lies, folded into the record (one word an account a day -
+   *  net/gateHerald.js foldGateSite, the site's native point in its pixel slots) and kept when it moved it. */
+  async _serpentSite(sub, m, now) {
+    if (!serpentSiteDayOk(m.d, now)) return;
+    const had = await this._serpentSiteOf();
+    const rec = foldGateSite(had, m.d, sub, m.sx, m.sz, m.pl);
+    if (rec === had) return;
+    await this.state.storage.put('serpentsite', rec);
+    this._serpentSiteRec = rec;
+  }
+  /** What the serpent's herald has posted: the last serpent day whose bells and whose kill went. */
+  async _serpentHeraldState() {
+    const v = await this.state.storage.get('sherald');
+    return { omen: Number.isSafeInteger(v?.omen) ? v.omen : -1, fell: Number.isSafeInteger(v?.fell) ? v.fell : -1 };
+  }
+  /** The alarm armed for the serpent's next bells, when the herald owes them before the sweep's. */
+  async _serpentHeraldArm(now) {
+    const bells = serpentHeraldOmenDue(now, (await this._serpentHeraldState()).omen);
+    if (bells) await this._hubArm(bells.at);
+  }
+  /** THE SERPENT'S HERALD'S BEAT, on the hub's alarm beside the gate's: the kill at the agreed site posted while it is
+   *  news (waited for while none is agreed), the bells posted in their window, and the alarm armed for what is owed next -
+   *  a post Discord did not take, HERALD_RETRY_MS on. */
+  async _serpentHeraldBeat(now) {
+    const h = this._heraldOf();
+    if (!h) return;
+    try {
+      const st = await this._serpentHeraldState();
+      const was = JSON.stringify(st);
+      let retry = null;
+      const rec = await this._serpentSiteOf();
+      const kill = serpentHeraldKill(await this._serpentFellsOf(), rec, st.fell, now);
+      if (kill?.wait) retry = now + HERALD_RETRY_MS;
+      else if (kill) { if (await this._heraldSend(serpentFellPost(kill))) st.fell = kill.day; else retry = now + HERALD_RETRY_MS; }
+      const due = serpentHeraldOmenDue(now, st.omen);
+      if (due && due.at <= now) {
+        const site = agreedSerpentSite(rec, due.day);
+        if (await this._heraldSend(serpentOmenPost({ day: due.day, place: site?.place ?? null, role: h.serpentRole }))) st.omen = due.day;
+        else retry = now + HERALD_RETRY_MS;
+      }
+      if (JSON.stringify(st) !== was) await this.state.storage.put('sherald', st);   // the alarm alone writes it (its beats never overlap)
+      const owed = serpentHeraldOmenDue(now, st.omen);
+      const next = [retry, owed && owed.at > now ? owed.at : null].filter((x) => x != null);
+      if (next.length) await this._hubArm(Math.min(...next));
+    } catch (e) { console.warn('[herald] serpent beat failed', e?.message ?? e); await this._hubArm(now + HERALD_RETRY_MS); }
   }
 
   // ───────────────────────────── RAID3: A TOWN'S RAID ─────────────────────────────

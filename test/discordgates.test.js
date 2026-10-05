@@ -153,6 +153,8 @@ const quiet = (fn) => { const warn = console.warn; console.warn = () => {}; retu
 async function withHerald(fn, { env = { GATE_DISCORD_WEBHOOK: HOOK, GATE_DISCORD_ROLE: ROLE }, start = TT.omenAt - 10 * 60_000 } = {}) {
   const r = fakeRoom(SOCIAL_ROOM);
   Object.assign(r.env, env);
+  // SERPENT2: the gate's herald alone - the serpent's posts and alarms on the same door are serpent2_herald.test.js's
+  r.room._serpentHeraldBeat = async () => {}; r.room._serpentHeraldArm = async () => {};
   const realNow = Date.now, realFetch = globalThis.fetch;
   let clock = start;
   const posts = [];

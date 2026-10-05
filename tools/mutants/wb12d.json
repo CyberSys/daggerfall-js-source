@@ -2530,8 +2530,8 @@
   {
     "name": "AUDIT-WB12d-T-herald-rite-by-nobody",
     "file": "src/net/gateHerald.js",
-    "old": "const who = names.length ? `, by ${listOf(",
-    "new": "const who = true ? `, by ${listOf(",
+    "old": "const who = names.length ? `, by ${heraldList(",
+    "new": "const who = true ? `, by ${heraldList(",
     "tests": [
       "test/wb12d_rite_relay.test.js",
       "test/discordgates.test.js",

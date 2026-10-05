@@ -85,7 +85,7 @@ test('SERPENT1 receipt: minted by the relay, verified by its public half - the d
 // ═══ THE WIRE ════════════════════════════════════════════════════════════════════════════════════
 
 test('SERPENT1 wire: the client says five things - `in` with its day, law, level, hull and site, `hit` with a damage and where it struck, `wr` its ship wrecked or afloat, the coiled ship\'s `held` and `esc` - projected field by field after a hello alone; the first relay that holds a serpent is SERPENT_RELAY_MIN (mutants: an extra field carried; a hull past the table; a damage past the wire\'s bound; a wreck word not 0 or 1)', () => {
-  assert.deepEqual(SERPENT_KINDS, ['in', 'hit', 'held', 'esc', 'wr']);
+  assert.deepEqual(SERPENT_KINDS, ['in', 'hit', 'held', 'esc', 'wr', 'site'], 'PIN MOVED (SERPENT2): and `site`, to the hub alone (test/serpent2_herald.test.js) - the cell takes these five');
   const IN = { k: 'in', d: 363, bv: 1, lv: 20, hl: 4, sx: 205.5 * PIXEL_UNITS, sz: 285.5 * PIXEL_UNITS };
   assert.deepEqual(validSerpentIn({ ...IN, extra: 1 }), IN);
   assert.equal(validSerpentIn({ ...IN, hl: 5 }), null);
@@ -108,7 +108,7 @@ test('SERPENT1 wire: the client says five things - `in` with its day, law, level
   assert.equal(parseClient(JSON.stringify({ t: 'serpent', k: 'hit', d: -1, z: 0 }), { hasHello: true }).error, 'bad serpent');
   assert.equal(SERPENT_RELAY_MIN, 165);
   assert.ok(relayVersionAtLeast(SERPENT_RELAY_MIN), 'the relay this tree builds holds a serpent');
-  assert.equal(RELAY_VERSION, 'world166');   // SHADOW-CLOAK moved it on last (world166: the cloak's aura word on the token - world165 on its branch, renumbered past SERPENT1 at the merge); SERPENT1's own was world165
+  assert.equal(RELAY_VERSION, 'world167');   // SHADOW-CLOAK moved it on last (world167: the cloak's aura word on the token - world165 on its branch, renumbered past SERPENT1 and SERPENT2 at the merges); SERPENT2 moved it on (world166: the serpent herald)
   assert.ok(relaySupportsSerpent('world165') && !relaySupportsSerpent('world164') && !relaySupportsSerpent(undefined));
   let b = null, pass = 0;
   for (let i = 0; i < 40; i++) { const g = serpentGate(b, 1000); b = g.bucket; if (g.pass) pass++; }
