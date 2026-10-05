@@ -295,7 +295,8 @@ test('AUDIT SEATS-3 D2: THE MARKET\'S READ SAYS THE BOARD\'S LISTING CAP - `list
   assert.equal(marketHallListings(MARKET_LISTINGS_MAX, 1), 37);
   const mk = src('market.js');
   assert.match(mk, /if \(kind === 'item'\) return listGood\(ctx, player, env, \{ character, region, item, pick, price, hubs, rid, currency, realm, board, vendor \}\);/);   // PIN MOVED (HOME-VENDOR): and the trader it is stocked at
-  assert.match(mk, /const listingsMax = await listingsCapAt\(db, nowS, boardOf\(board\)\);[^\n]*\n\s*if \(Number\(open\?\.n \?\? 0\) >= listingsMax\) return \{ error: 'market-listings-max' \};\n\s*\/\/ THE RECORD'S OWN PIECE/);
+  // MARKET-AUDIT (PIN MOVED): a trader's stock is its own count (VENDOR_STOCK_MAX) - a board listing's cap the board's still
+  assert.match(mk, /const listingsMax = vend \? VENDOR_STOCK_MAX : await listingsCapAt\(db, nowS, boardOf\(board\)\);[^\n]*\n\s*if \(Number\(open\?\.n \?\? 0\) >= listingsMax\) return \{ error: vend \? 'vendor-full' : 'market-listings-max' \};\n\s*\/\/ THE RECORD'S OWN PIECE/);
   assert.match(mk, /JSON\.stringify\(moved\), listingsMax,\n\s*vend\?\.map \?\? null, vend\?\.id \?\? null\),/);   // PIN MOVED (HOME-VENDOR): the trader's stall after the cap
 });
 

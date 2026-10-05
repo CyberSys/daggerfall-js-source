@@ -547,7 +547,8 @@ test('DECOR1d the host (worldModes.js, world.js) by source: one tool on the room
   assert.match(m, /isTownBlock: \(t\) => t === BLOCK_TYPES\.Rmb,/);
   assert.match(m, /return r > 0 \? r \* GLOBAL_SCALE : null;/);
   assert.match(m, /return Math\.hypot\(size\.w, size\.h\) \/ 2;/);
-  assert.match(m, /pay: \(n\) => \{ const short = purse\.deductGold\(n\); if \(account\) account\.accountGold -= short; \},/);
+  assert.match(m, /pay: \(n\) => purse\.pay\(n, account\),/);   // MARKET-AUDIT (PIN MOVED): the purse, then the account - answering its exact undo
+  assert.match(m, /pay: \(n, account = null\) => payUndoable\(playerEntity, n, account\),/);
   assert.match(m, /decorTool\.frame\(\{ dt, cam, overlayUp: overlayHeld, interior: mode === 'interior' \}\);/);
   assert.doesNotMatch(m, /_decorFly/, 'the motor is untouched - the flight never hands it a press');
   assert.match(m, /if \(mode === 'dungeon'\) dungeonCtx\?\.deathTilt\?\.\(cam\);\n    if \(mode === 'interior'\) decorTool\.cameraOverride\(cam\);/);

@@ -4581,7 +4581,7 @@ homes bought (`deed = 0`); `/v1/homes/release` with `deed: true` removes only th
 is never sold as a home. `HOME_MOVE_CARRIED` carries `deed`. `ACCOUNT_VERSION` acct77 in both the Worker and
 `wrangler.toml`; twelve version pins moved. Deploy order: the service (0079, then acct77), then the client.
 
-## SHADOW-CLOAK — SirMcMobdon's own: the Holo Shadow Cloak (2026-10-04, world167, acct79)
+## SHADOW-CLOAK — SirMcMobdon's own: the Holo Shadow Cloak (2026-10-04, world167, acct80)
 
 Mac: "So for SirMcMobdon, I want to build a new unique AURA specifically for his account. A holo shadow cloak with red
 accents. Extremely detailed". (Its name keeps the owner's word "Holo"; after the revision below nothing holographic is
@@ -4594,8 +4594,8 @@ left in it.) SirMcMobdon already holds SHADOW-FANG's title and glyph (black #0d0
   case-folded, never a guest's. Held is not worn: SirMcMobdon wears it from the account card's Aura row (`player.aura`),
   as every aura is.
 - **The vocabulary** (`src/net/identityToken.js`, in the relay bundle): `shadowcloak` joins AURAS last. A relay before it
-  refuses a token carrying it (`claimsValid`), so the relay is **world167** and the account service **acct79** (world165 and acct78 on its branch, both renumbered
-  past main's SERPENT1, then the relay past SERPENT2, at the merges); the account deploy waits on the relay's `/health` to serve world167 (SHADOW-FANG's
+  refuses a token carrying it (`claimsValid`), so the relay is **world167** and the account service **acct80** (world165 and acct78 on its branch, both renumbered
+  past main's SERPENT1, then the relay past SERPENT2 and the account past GLOBAL-MARKET, at the merges); the account deploy waits on the relay's `/health` to serve world167 (SHADOW-FANG's
   AUDIT B1). No frame changes shape.
 - **The face** (`src/ui/playerBadge.js`): "Holo Shadow Cloak" (`AURA_TEXT`), its button on the account card in the
   Shadow Fang's own paint (`AURA_PAINT.shadowcloak = 'shadowfang'`).
@@ -4739,17 +4739,17 @@ left in it.) SirMcMobdon already holds SHADOW-FANG's title and glyph (black #0d0
   All of the shader RUN in `test/glsl.mjs`. `tools/mutants/shadowcloak.json` (150, all dead). The vocabulary's
   newest-word and one-list pins in `aegis.test.js` and `primarch.test.js` moved (PIN MOVED), `shadowfang.test.js`'s
   wardrobe holds the cloak; the relay's pins moved to world167 crediting SHADOW-CLOAK (`auditbounty1.test.js` holds the
-  credit), the account's to acct79 (past SERPENT1's world165 and acct78, then the relay alone past SERPENT2's world166, at the merges of main). Re-aimed by
+  credit), the account's to acct80 (past SERPENT1's world165 and acct78, then the relay past SERPENT2's world166 and the account past GLOBAL-MARKET's acct79, at the merges of main). Re-aimed by
   content, all dead: `aegis.json` (4), `primarch.json` (4), `wb9g.json` (1) and the version records in `soc1.json`,
   `gatekeys.json` and `fb1004d_knight_house.json`. The revisions changed nothing on the wire: the relay and the account
-  are world167 and acct79.
+  are world167 and acct80.
 - **AUDIT** (Mac: "Tie the cape to animations and also perform a comprehensive audit"): four read-only lenses over the
   whole of it - the grant, the wire and the deploy; the frame's wiring in its hosts; the shader and the draw; the pins,
   the mutants, the probe and the docs. Found and fixed:
   - BLOCKER: the aura draw call had landed after a `//` on its own line in `drawAuras` when the cape's pose was wired
     in - no aura of any kind would have been drawn - and the hosts pin's `[^\n]*` read through the comment. Moved out;
     the pin now reads the line's code half and a mutant comments the call out.
-  - The version: main's SERPENT1 took world165 and acct78 first - renumbered to world166 and acct79 at the merge; then main's SERPENT2 took world166 - the relay renumbered to world167 at the next.
+  - The version: main's SERPENT1 took world165 and acct78 first - renumbered to world166 and acct79 at the merge; then main's SERPENT2 took world166 - the relay renumbered to world167 at the next; then main's GLOBAL-MARKET took acct79 - the account renumbered to acct80 at the merge before the pull request.
   - The side split (above), the farthest-first order (a farther cloak's shadow or a farther aura's light used to lie
     over a nearer cloak), the emblems before the cloth for an eye in front of the wearer, no cloth worked out round
     the wearer's own eye, the shreds' cards alone once torn through, the frame's state handed back in a `finally`.

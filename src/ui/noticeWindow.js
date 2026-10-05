@@ -23,8 +23,8 @@
 // the reader's own guild's board (net/noticeBook.js readGuild), which its members pin to and its Officers keep. The
 // board standing in a guild's hall opens this tab alone (`guildOnly`): the hall's private board, Seats-Arc 8.2.
 //
-// PROF5 (2026-09-29, Mac: "Continue"): THE MARKET TAB beside them (ui/marketTab.js) - the Bay's listings, the region's
-// buy orders, this account's own and the History - shown while the market is this account's (`market`, the host's: the
+// PROF5 (2026-09-29, Mac: "Continue"): THE MARKET TAB beside them (ui/marketTab.js) - the Bay's listings, the Bay's
+// buy orders (GLOBAL-MARKET: every board's), this account's own and the History - shown while the market is this account's (`market`, the host's: the
 // board, the professions and the Marks all open to it). Its region is handed to it on its own, not through Work's.
 //
 // THE HOUSE'S SHAPE, as the bounty board's (ui/bountyWindow.js) and the Broker's before it: a lazy chunk the door
@@ -176,7 +176,8 @@ export function mountNoticeBoard(host, deps) {
   const workShown = () => !!work && work.book?.state?.open === true;
   // PROF5: the Market tab - its own state and views, the window's one-at-a-time door and its status line
   const marketHost = deps.market ?? null;
-  const marketShown = () => !!marketHost && marketHost.book?.state?.open !== false;
+  // MARKET-AUDIT U4: a market that shuts while its tab is read stays the tab, its shut word said (AUDIT 30 U11) - it vanished
+  const marketShown = () => !!marketHost && (marketHost.book?.state?.open !== false || tab === 'market');
   // AUDIT 30 U12: the market's door is its own - a board read under way never greys Buy, and a market act never the board
   let marketBusy = false;
   const market = marketHost ? createMarketTab(marketHost, {
@@ -185,12 +186,13 @@ export function mountNoticeBoard(host, deps) {
       if (marketBusy) return;
       marketBusy = true; render();
       let r = null;
-      try { r = await start(); } finally { marketBusy = false; }
+      try { r = await start(); } catch (e) { console.warn('[board] act', e); r = { ok: false, text: accountRefusalText('server') }; } finally { marketBusy = false; }   // MARKET-AUDIT: an act that threw left every button greyed
       if (!alive) return;
       word = { ok: !!r?.ok, text: r?.text ?? '' };
       render();
     },
     rerender: () => render(),
+    hush: () => { word = null; },   // MARKET-AUDIT U6: an act's word stays with the view it was said in
     nowS,
     alive: () => alive,
   }) : null;
@@ -204,7 +206,7 @@ export function mountNoticeBoard(host, deps) {
       if (vendorBusy) return;
       vendorBusy = true; render();
       let r = null;
-      try { r = await start(); } finally { vendorBusy = false; }
+      try { r = await start(); } catch (e) { console.warn('[board] act', e); r = { ok: false, text: accountRefusalText('server') }; } finally { vendorBusy = false; }   // MARKET-AUDIT: an act that threw left every button greyed
       if (!alive) return;
       word = { ok: !!r?.ok, text: r?.text ?? '' };
       render();
@@ -224,7 +226,7 @@ export function mountNoticeBoard(host, deps) {
       if (seatBusy) return;
       seatBusy = true; render();
       let r = null;
-      try { r = await start(); } finally { seatBusy = false; }
+      try { r = await start(); } catch (e) { console.warn('[board] act', e); r = { ok: false, text: accountRefusalText('server') }; } finally { seatBusy = false; }   // MARKET-AUDIT: an act that threw left every button greyed
       if (!alive) return;
       word = { ok: !!r?.ok, text: r?.text ?? '' };
       render();
@@ -246,7 +248,7 @@ export function mountNoticeBoard(host, deps) {
       if (workBusy) return;
       workBusy = true; render();
       let r = null;
-      try { r = await start(); } finally { workBusy = false; }
+      try { r = await start(); } catch (e) { console.warn('[board] act', e); r = { ok: false, text: accountRefusalText('server') }; } finally { workBusy = false; }   // MARKET-AUDIT: an act that threw left every button greyed
       if (!alive) return;
       word = { ok: !!r?.ok, text: r?.text ?? '' };
       render();

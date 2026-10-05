@@ -310,7 +310,7 @@ import { drinkAtSource, isWaterSourceFlat, isDrySourceFlat, WATER_SOURCE_MODELS,
 import { survivalOn } from '../systems/survival/switch.js';   // HT1: Handheld Torches' dropped lights, thrown torches and burning foes   // AUDIT 24 (wave 39): EnemyBlood.ShowBloodSplash
 import { createCityGuards } from './cityGuards.js';   // G1
 import { createArrestFlow } from './arrestFlow.js';
-import { clearCrimeOnLocationExit, addGold, goldAmount, deductGold, totalGoldAmount, deductGoldPieces } from '../systems/court.js';   // AUDIT 17e F6   // G2   // F-slice: travel gold; U41: GetGoldAmount + the pieces half of DeductFastTravelGold
+import { clearCrimeOnLocationExit, addGold, goldAmount, deductGold, payUndoable, totalGoldAmount, deductGoldPieces } from '../systems/court.js';   // AUDIT 17e F6   // G2   // F-slice: travel gold; U41: GetGoldAmount + the pieces half of DeductFastTravelGold
 import { makeInView } from '../player/cameraView.js';   // AUDIT 17e F24
 import { isBackFacing, SIGHT_RADIUS, foeFrameDt } from '../characters/enemyMotor.js';   // OW6: SIGHT_RADIUS, a foe's own sight (a camp's is its own)   // DUEL1: a duel opponent's blow from behind me is a backstab's chance
 import { markFoeStruck } from '../ui/hudFoeTarget.js';   // DUEL1: my duel opponent's health, on the enhanced HUD's target bar
@@ -1423,7 +1423,9 @@ export async function bootWorld(canvas, renderer, params, status) {
         const account = playerEntity.bankAccounts[goldRegion(playerEntity.bankAccounts, region)] ?? null;   // EMPIRE-ACCOUNT: the Empire's account
         return {
           gold: () => totalGoldAmount(playerEntity) + Math.max(0, account?.accountGold ?? 0),
-          pay: (n) => { const owed = deductGold(playerEntity, n); if (account && owed > 0) account.accountGold -= owed; },
+          // MARKET-AUDIT: and its undo - exactly what it took back where it was (court.js deductGoldUndoable); a refusal's
+          // `credit` of the whole cost turned letters and the bank's gold into purse coins
+          pay: (n) => payUndoable(playerEntity, n, account),
           credit: (n) => addGold(playerEntity, n),
           // collected: into that region's account, the purse where there is none (realmGoldLaw creditSave's `bank`)
           bank: (n) => { if (account) account.accountGold = (Number.isFinite(account.accountGold) ? account.accountGold : 0) + n; else addGold(playerEntity, n); },
@@ -9553,7 +9555,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:3071 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:7284
+  // that context through modes.dungeonCtx - so worldModes.js:7286
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -9898,7 +9900,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const a = playerEntity.bankAccounts[goldRegion(playerEntity.bankAccounts, region)] ?? null;   // EMPIRE-ACCOUNT: the Empire's account
     return {
       gold: totalGoldAmount(playerEntity) + (a?.accountGold ?? 0),
-      pay: (n) => { const short = deductGold(playerEntity, n); if (a) a.accountGold -= short; },
+      pay: (n) => payUndoable(playerEntity, n, a),   // MARKET-AUDIT: answering the undo of exactly what it took
       credit: (n) => { addGold(playerEntity, n); },
     };
   };
@@ -15540,7 +15542,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10981-11045 -
+  // worldModes answers it in BOTH modes (worldModes.js:10983-11047 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -18320,7 +18322,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         const account = playerEntity.bankAccounts[goldRegion(playerEntity.bankAccounts, _questRegionIndex() ?? 0)] ?? null;   // EMPIRE-ACCOUNT: the Empire's account
         return {
           gold: () => totalGoldAmount(playerEntity) + (account?.accountGold ?? 0),
-          pay: (n) => { const short = deductGold(playerEntity, n); if (account && short > 0) account.accountGold -= short; },
+          pay: (n) => payUndoable(playerEntity, n, account),   // MARKET-AUDIT: answering the undo of exactly what it took
           // GUILD-LETTER (FIELD BUGS 2026-09-30): a withdrawal the pack cannot carry as coin is paid as a letter of credit -
           // the trade window's test on the live pack and ceiling (sellProceeds; the bank's weight gate reads the same two),
           // and the letter the service writes on a realm record, at the front of the pack as the game puts one
@@ -21032,12 +21034,18 @@ export async function bootWorld(canvas, renderer, params, status) {
     // PROF5: the Market tab - the board's region handed on its own (not through Work's), while the professions are this
     // account's; the service says whether the market is (its book's `open`)
     // AUDIT 30 U11: and the Marks - a shut currency is a market nobody can pay on
-    const market = marketBook && profBook?.state.open === true && marksBook?.state?.open !== false && Number.isInteger(region) ? {
+    // MARKET-AUDIT: while the professions' read is unanswered too (a slow or failed first read hid the tab until the board
+    // was opened again) - the market's own read says whether it is this account's (`market-closed`)
+    const market = marketBook && profBook && profBook.state.open !== false && marksBook?.state?.open !== false && Number.isInteger(region) ? {
       book: marketBook, stores: () => profBook.state.stores, region, regionName: REGION_NAMES[region] ?? 'the region',
       regionNameOf: (r) => REGION_NAMES[r] ?? 'another region', hubs: marketHubs, name: (k) => materialLabel(k), countName: materialCountLabel,
       board: [town.px, town.py],   // SEAT1d (Seats-Arc 7.2): the board's town - the seat whose bailiwick takes the Tithe
       tithe: () => (seatBook?.open === true ? boardTithePct(seatBook.data?.seats ?? [], region, [town.px, town.py]) : null),   // AUDIT SEATS-3 D3: its rate as the seats' list says it (null: not read)
       pieces: marketPieces, take: marketTake, putBack: marketPutBack, mint: marketMint, pieceName: marketPieceName, drop: marketDrop, goods: () => marketGoods.goods(), good: (it) => marketGoods.good(it), goodName: (rec) => marketGoods.goodName(rec),   // MARKET-ANY: a piece from the pack, for gold
+      // MARKET-BAG (FIELD, 2026-10-04: "the market board is broken"): since BAG1 a harvest is carried - what the bag and the
+      // pack hold counts toward a silver listing and a fill, its shortfall put into the Stores first, as a station's inputs
+      carried: () => new Map([...profBook.state.carried.keys()].map((k) => [k, profBook.carriedUsable(k)])),
+      putIn: (key, n) => profBook.ensureInStores([{ key, n }]),
       weavers: WEAVERS_STOCK,
       apothecaries: APOTHECARY_STOCK,   // PROF12 (PROF0 4.5): the supplier's second counter - the potion recipes' sixteen
       stock: async (key, n) => {
