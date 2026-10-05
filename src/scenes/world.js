@@ -744,6 +744,8 @@ import { hudShortcutKey, retroToggleKey, hudRenderEnabled } from '../ui/hudShort
 import { createActivateGate, activateFrame, setClickDelay } from '../systems/activateGate.js';   // A8: PlayerActivate's ActivateCenterObject frame
 import { openPauseFlow, preloadPauseFlowArt, pauseDoorReady, pauseOpts } from '../ui/pauseDoor.js';   // I3/I4; U51 picks the skin; MAC-L1: pauseOpts is the ONE reader of the door's options
 import { isEnhanced, isEnhancedPlus } from '../systems/uiSkin.js';   // WM2d: the mills are an enhanced-only addition
+import { beginLoading, syncLoading, setLoadingPlace, bootLine, BOOT_HOLD_MAX_MS } from '../ui/loadingScreen.js';   // LOAD1: the loading screen - the boot's, and every world move's
+import { setShotPlace } from '../ui/screenshot.js';   // LOAD1: a kept screenshot says where it was taken
 import { drawEnhancedTextLayer, hideEnhancedTextLayer } from '../ui/enhancedTextLayer.js';   // FONT3: a draw list's words in the enhanced face (Come Sail Away's position reading)
 import { pageParam } from '../systems/pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 import { drawEnhancedStatusLine } from '../ui/enhancedHudText.js';   // FONT1: the online status line in the skin's own face
@@ -851,6 +853,13 @@ export async function bootWorld(canvas, renderer, params, status) {
   // browser's own idle answer, swallows every failure (MENU1's notice is
   // the door's to show), and boots nothing if the player never opens one.
   void import('../ui/enhancedChunk.js').then((m) => m.warmEnhancedChunks()).catch(() => {});
+  // LOAD1 (2026-10-05, ui/loadingScreen.js): THE BOOT'S FACE. From the menu's choice to the first frame the player saw
+  // a bare canvas, the boot's steps named only on the window's title. Every step `status` names is the loading screen's
+  // line too, from here - the realm's join, the data, the first pixel's people, the save - until the boot hands the
+  // first frame its turn (`status(null)`, below). Up at once: no boot is shorter than the screen's delay.
+  const bootLoading = beginLoading({ delay: 0, line: 'Opening the world', maxMs: BOOT_HOLD_MAX_MS, why: 'the boot' });
+  const titleStatus = status;
+  status = (msg) => { if (msg == null) bootLoading.end(); else bootLoading.line(bootLine(msg)); titleStatus(msg); };
   // REALM P1.3 (bible/06-Systems/Realm-Arc.md section 2): AN ONLINE CHARACTER IS THE REALM'S. The Online door boots one
   // with ?realm=<id>: joined under a new lease and its save read from the service before anything below reads a save -
   // never a local slot. A join that fails says why at the door; an online boot with no realm character in it (a stale
@@ -11210,6 +11219,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (walkMode) player.spawn(TERRAIN_SIZE / 2, player.pos[1], TERRAIN_SIZE / 2);
       cam.pos = walkMode ? player.eyeAt() : [TERRAIN_SIZE / 2, cam.pos[1], TERRAIN_SIZE / 2];
     }
+    _loadingDest = { x: px, y: py }; setLoadingPlace(placeAtPixel(px, py));   // LOAD1: the loading screen's place, named before the build is waited on
     const first = queue.shift();
     if (seasonsActive && modEvent === 'travel') await seasons.onPostFastTravel().catch((e) => console.warn('[seasons] travel:', e?.message ?? e));   // SIB1: OnPostFastTravel, off the arrival month (SIB2: the travel popup's arm alone)
     if (seasonsActive && modEvent === 'load') await seasons.onLoad().catch((e) => console.warn('[seasons] load:', e?.message ?? e));   // SIB2: SaveLoadManager.OnLoad - the forced apply now, the unforced one next frame (seasons.tick)
@@ -12450,6 +12460,9 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  spawnFoe lands it. */
   const _reviveQuestBehaviour = (data) => reviveQuestBehaviour(questBridge?.machine ?? null, data);
   let _loading = false;
+  /** LOAD1: the map pixel a world move is bound for, from its core's first line (_teleportToPixel) until the frame
+   *  finds the world still again (ui/loadingScreen.js syncLoading). Null for a door's build, which is here. */
+  let _loadingDest = null;
   /** AUDIT 68 S22: IS THE WORLD BEING MOVED - one question for every mover. The private latches never asked each
    *  other, so F11 during a fast travel's build ran a second teleport and the travel's tail landed on the LOADED
    *  character. The core's own window is the arrival latch (WOD6's `arriving` reads it too); a death is never refused. */
@@ -15075,6 +15088,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   console.log(`world: streaming from ${startPixel.x},${startPixel.y}, ${initialCount} initial pixels, ` +
     `player pixel ${playerPixel.location || 'wilderness'}, ${playerPixel.natureCount} nature flats`);
   status(`streaming world - ${locationName}`);
+  if (!params.has('load') && !params.has('classicload')) setLoadingPlace(startLoc?.name || locationName);   // LOAD1: where the boot is opening onto - a load's teleport names the save's place itself
 
   // Shot-mode hooks: __move displaces the camera; __streamIdle reports
   // whether the build queue has drained.
@@ -15592,6 +15606,19 @@ export async function bootWorld(canvas, renderer, params, status) {
     const px = playerTravelPixel();
     return maps.getRegionIndexAt(px.x, px.y);
   }
+  // LOAD1: WHERE A LOADING SCREEN AND A KEPT SCREENSHOT SAY THE PLAYER IS - the location at a map pixel, else its region
+  // (the wilderness, the sea); underground, the dungeon's own record, as the quest system's own read has it.
+  function placeAtPixel(px, py) {
+    return locationIndex.get(`${px},${py}`)?.name || REGION_NAMES[maps.getRegionIndexAt(px, py)] || '';
+  }
+  function placeHere() {
+    const px = playerTravelPixel();
+    return _questLoc()?.name || placeAtPixel(px.x, px.y);
+  }
+  setShotPlace(placeHere);
+  const loadingPlaceNow = () => (_loadingDest ? placeAtPixel(_loadingDest.x, _loadingDest.y) : (worldMoveBusy() ? '' : placeHere()));
+  const loadingLineNow = () => (_loading ? 'Loading the saved game' : _traveling ? 'Travelling' : _recalling ? 'Recalling'
+    : _respawning ? 'Returning' : _teleporting ? 'Teleporting' : modes?.transitioning ? 'Entering' : 'Loading');
   /** AUDIT NAV1 (B2) - WARM ASHES' RAID, PARSED WHERE ITS PLACES STAND. The mod parses its raid on arrival from a
    *  voyage, in the destination's land region, and the raid's Person `_KnightlyGuard_` (message 1013's "on your way to
    *  ...") takes a home among that region's houses. Started at sea - the sea fight's boarders (navalHost.js beginFight),
@@ -25483,6 +25510,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // its heartbeat noticed the frames had stopped
     if (frameHeld()) { frameAbort(); hideWorldPlaque(); last = now; requestAnimationFrame(frame); drawGateBanner(null); drawGateMarksCard(null); drawGateDamageChart(null); drawGateGround(null); travelView?.exit('video', true); return; }
     const dt = Math.min(0.1, (now - last) / 1000);
+    // LOAD1: THE LOADING SCREEN STANDS WHILE THE WORLD IS MOVED - AUDIT 68 S22's one question (every mover's latch, the
+    // teleport core's window, the abyss) and a door's build in this host's modes. Below the video's wait: a film's hold
+    // takes the screen aside for its lifetime (scenes/shared.js holdFrame), and the first frame after it asks again.
+    const _moving = worldMoveBusy() || !!modes?.transitioning;
+    syncLoading(_moving, { place: loadingPlaceNow, line: loadingLineNow });
+    if (!_moving) _loadingDest = null;
     // AUDIT 28 W7 + F-C1/F-C2 (self-audit 3): PlayerMouseLook.Update's
     // three answers - paused (:241-244) returns before ApplyLook and the
     // owed look WAITS; a held swing (:248-253, WeaponSwingMode 0, not a
