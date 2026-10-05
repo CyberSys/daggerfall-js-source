@@ -56,8 +56,8 @@
   {
     "name": "REVENANT-no-cap",
     "file": "src/systems/revenant.js",
-    "old": "    if (living.length > REVENANT_MAX) {",
-    "new": "    if (living.length > REVENANT_MAX * 10) {",
+    "old": "  if (living.length > REVENANT_MAX) {",
+    "new": "  if (living.length > REVENANT_MAX * 10) {",
     "tests": [
       "test/revenant.test.js"
     ]

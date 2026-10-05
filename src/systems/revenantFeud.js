@@ -439,6 +439,17 @@ export const loyaltyLabel = (v) => (LOYALTY_LABELS.find(([at]) => (Number(v) || 
 /** RVN11: a loyalty moved by `d`, kept 0-100. */
 export const movedLoyalty = (v, d) => Math.max(0, Math.min(100, Math.round((Number.isFinite(v) ? v : 0) + d)));
 export const isDevoted = (v) => Number.isFinite(v) && v >= DEVOTED.AT;
+/** RVN11b (22.2): DESERTION - a sworn one under DESERT.AT, once a day, one time in DESERT.CHANCE, leaves. */
+export const DESERT = Object.freeze({ AT: 20, CHANCE: 0.15 });
+/** RVN11b (22.2, OPEN 18): a deserter's pack split - it keeps the more valuable half (an odd one its way - decided here),
+ *  at most `room` (what its record may hold), never gold; the rest, and its gold, come back. `value` an item's worth,
+ *  `isGold` the purse's test. Answers { kept, back }, each in the pack's order of worth. */
+export function deserterSplit(items, { value, isGold, room }) {
+  const list = Array.isArray(items) ? items.filter((it) => it && typeof it === 'object') : [];
+  const goods = list.filter((it) => !isGold(it)).sort((a, b) => value(b) - value(a));
+  const kept = goods.slice(0, Math.max(0, Math.min(Math.ceil(goods.length / 2), room | 0)));
+  return { kept, back: [...goods.slice(kept.length), ...list.filter((it) => isGold(it))] };
+}
 /** RVN11 (22.1): of its own kind - one kind, or one faction (characters/mobileFactions.js: the orcs, the dead, people). */
 export const sameKin = (a, b) => Number.isInteger(a) && Number.isInteger(b) && (a === b || (factionOf(a) != null && factionOf(a) === factionOf(b)));
 

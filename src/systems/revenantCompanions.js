@@ -19,7 +19,7 @@
 //    it is kept - a fight won at the player's side, a day with the player, a call after its rest; a day sent away, a
 //    fall, a second sending-away in a day, one of its own kind executed in its sight. Devoted (90 and up), it strikes
 //    harder and warns of a blow from behind.
-import { swornRevenants, revenantCompanionUpdate, revenantRecord, REVENANT_HEALTH_PER_RANK, REVENANT_DAMAGE_PER_RANK } from './revenant.js';
+import { swornRevenants, revenantCompanionUpdate, revenantRecord, REVENANT_HEALTH_PER_RANK, REVENANT_DAMAGE_PER_RANK, setSwornLeftListener } from './revenant.js';
 import { registerCompanionCount, companionsWithYou, COMPANION_SLOTS } from './companionSlots.js';
 import { addItem, addGoldPieces, isGoldPieces } from './inventory.js';   // a released one's pack, handed back
 import { LOYALTY, DEVOTED, movedLoyalty, isDevoted, sameKin } from './revenantFeud.js';   // RVN11 (bible/12-Enhanced-AI/Feud-Arc.md 22.1): its loyalty
@@ -237,5 +237,7 @@ export function swornWitness(mobileType) {
 }
 /** A Devoted one at the player's side whose body stands here - its warning's voice - or null. */
 export const devotedWithYou = () => revenantsWithYou().find((r) => isDevoted(r.companion?.loyalty) && swornBodyOf(r.id)?.health > 0) ?? null;
+// RVN11b (Feud-Arc.md 22.2): a deserter's member forgotten - its carried spells are no next oath's
+setSwornLeftListener((id) => forgetSwornMember(id));
 /** Tests only. */
 export function _resetRetinueForTests() { _members.clear(); _heldUntil.clear(); _player = null; _listener = null; _bodies = null; }

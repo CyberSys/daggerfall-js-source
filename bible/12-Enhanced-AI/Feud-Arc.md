@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL, RVN1-RVN10 and RVN11a built; RVN11b-RVN13 next)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL, RVN1-RVN10, RVN11a and RVN11b built; RVN11c-RVN13 next)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -7,7 +7,7 @@ detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
 (section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts), AUDIT
-TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), RVN8, RVN9, RVN10, and RVN11 in three parts (RVN11a loyalty built; RVN11b desertion, RVN11c betrayal next); each slice's record is at the foot.**
+TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), RVN8, RVN9, RVN10, and RVN11 in three parts (RVN11a loyalty and RVN11b desertion built; RVN11c betrayal next); each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -880,6 +880,14 @@ The deed union (`RevenantDeed` in `revenant.js`), the epithet pools (`REVENANT_E
 Under `DESERT_AT` (20), once a day, a 15% roll: it leaves through its portal. Its record is no longer sworn - a living
 revenant again (rank kept, the `deserted` deed, "the Oathbreaker"), due in 1-3 days. **Its pack**: it keeps the better
 half by value and leaves the rest, gold to your purse (OPEN 18).
+
+- **As built (RVN11b; the record at the foot)**: the roll rides RVN9's day walk, after the day's loyalty move (a day
+  with me first lifts it +2), once a day for each sworn one under 20 whatever its place (a resting one too); never on the
+  first count. "The Oathbreaker" is its name whatever its rank (the risen bank passed over). "The better half" keeps the
+  more valuable half of its pack, an odd one its way, on its record as RVN8's `took` (carried at its stands, given back
+  as a theft is: slain, executed, spared) - so at most TOOK_MAX less what it took already; the rest comes back to my pack
+  and its gold to my purse. A living one again, it holds the cap as a new one does (`trimLiving`, never itself). A save
+  that held it sworn with a pack, reloaded after it deserted, stands it as the save had it (the release's own rule).
 
 ### 22.3 Betrayal
 
@@ -2253,3 +2261,26 @@ and `dungeonContext.js`.
   `revenant_audit` C3/C7 (the slots' hold passes `byYou: false`). Mutant records re-aimed by content (5): `tell9`'s two
   (the wind-up line now tells the host too), `revenantaudit`'s C5 (the knock's line moves loyalty), `survtiers3`'s two
   (the cites the shift moved) - each judged again: dead.
+
+### RVN11b - BUILT 2026-10-05 (the loot-rarity row on; every host's encounter tick)
+
+- **The law** - `systems/revenantFeud.js`: `DESERT` (under 20, 0.15), `deserterSplit(items, { value, isGold, room })`
+  (the more valuable half, an odd one its way, at most its room, never gold - OPEN 18).
+- **The roll** - `revenant.revenantFester`'s day walk: after the sworn's day, each sworn one under `DESERT.AT` rolls
+  once (`rolls() < DESERT.CHANCE`).
+- **The deserter** - `revenant.revenantDeserts(player, r)`: not sworn (`fate` none, `companion` none), its rank kept,
+  "the Oathbreaker" (`REVENANT_EPITHETS.deserted`), the `deserted` deed at that day, due in one to three days, its notice;
+  its pack split - the kept half onto `took` (room `TOOK_MAX` less what it took), the rest into my pack (`addItem`) and
+  gold into my purse (`addGoldPieces`); the cap held (`trimLiving` - the cap's law, now one function for a new one and a
+  deserter); the party told (`setSwornLeftListener` - `revenantCompanions.js` forgets its member). Its card:
+  `revenantDesertEvent` - *Oathbreaker*, "Grushnak broke its oath and left you. It kept your Ebony Longsword. It left the
+  rest of its pack to you." (through `takeRevenantNotice`).
+- **The save** - `ensureMirror`: a deserter the save holds sworn with a pack comes back as the save had it.
+- **Four hosts** - `scenes/world.js` and `scenes/exterior.js` WIRED through their encounter tick's `takeRevenantNotice`
+  (the day walk; its card); a body at my side leaves through its portal by the companion layer (no longer the party's),
+  in every mode (`scenes/worldModes.js`, `scenes/dungeonContext.js`); `exterior.js` stands no companions (FLAGGED,
+  section 32) - a record there deserts all the same.
+- **Not built here** - its voice (`deserted`, RVN12); betrayal (RVN11c).
+- Pins `test/rvn11b_desert.test.js` (7). Mutants `tools/mutants/rvn11b.json` (30): 30 dead. Mutant records re-aimed by
+  content (4): `revenantaudit`'s A6 and `revenant`'s no-cap (the cap's lines now `trimLiving`'s), `rvn11a`'s
+  warn-kicker and `rvn9`'s card-unsaid (their lines carry the deserter's too) - each judged again: dead.

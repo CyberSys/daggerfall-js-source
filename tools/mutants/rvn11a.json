@@ -209,8 +209,8 @@
   {
     "name": "RVN11a-warn-kicker",
     "file": "src/systems/revenant.js",
-    "old": "  // RVN11: a Devoted one's warning\n  warn: 'Companion',\n",
-    "new": "",
+    "old": "  warn: 'Companion', deserted: 'Oathbreaker',",
+    "new": "  deserted: 'Oathbreaker',",
     "tests": [
       "test/rvn11a_loyalty.test.js"
     ]

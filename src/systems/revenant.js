@@ -57,7 +57,7 @@ import { characterIdOf, mintCharacterId } from './characterId.js';
 import { ownMinutes, skyMinutes } from './worldTick.js';
 import { isNight } from '../world/worldClock.js';   // RVN1: a fight begun by night
 import { tieredGear } from './eliteFoes.js';
-import { goldStack, isSummoned, isGoldPieces } from './inventory.js';   // RVN8: never a summoned piece or gold taken
+import { goldStack, isSummoned, isGoldPieces, addItem, addGoldPieces } from './inventory.js';   // RVN11b: a deserter's pack, handed back   // RVN8: never a summoned piece or gold taken
 import { unequipItem, equipTableOf, EQUIP_SLOTS } from './equip.js';   // RVN8: what it takes, off the hand that held it
 import { isLocked } from './itemLock.js';   // RVN8: LOCK1's promise - a locked piece stays yours
 import { isBagItem } from '../net/bagLaw.js';   // RVN8: never the Materials Bag
@@ -70,7 +70,7 @@ import { getSeed, setSeed, srand } from '../formats/dfRandom.js';
 import { personalityFor, isPersonality, personalityLabel, voiceLine, beastBody, possessive, MUTE_KINDS } from './revenantPersonality.js';   // REVENANT-VOICE: who it is, and how it talks
 // FEUD, Part B (bible/12-Enhanced-AI/Feud-Arc.md sections 12-26): what a revenant remembers - its record's new fields and
 // the draws it is born with (systems/revenantFeud.js), and the fight's ledger (systems/feudLedger.js, a leaf)
-import { LOYALTY, movedLoyalty, ROUT, FESTER, festersOn, WRATH_MAX, idStream, TOOK_MAX, LAIR_RING_R, RUMOR_CHANCE, RUMOR_PX, RUMOR_WEAK, RUMOR_NAMED, RUMOR_HINTS, weaknessKind, lairAfter, sameLair, feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK, lessonOf, withLesson, adaptEdge, adaptBlowClass, ADAPT, isWeakBlow, metalOf, WEAK, WEAK_NAMES, FLINCH_LINES, FLINCH_HEALTH, WEAKNESS_ELEMENTS, signatureStamp } from './revenantFeud.js';
+import { DESERT, deserterSplit, LOYALTY, movedLoyalty, ROUT, FESTER, festersOn, WRATH_MAX, idStream, TOOK_MAX, LAIR_RING_R, RUMOR_CHANCE, RUMOR_PX, RUMOR_WEAK, RUMOR_NAMED, RUMOR_HINTS, weaknessKind, lairAfter, sameLair, feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK, lessonOf, withLesson, adaptEdge, adaptBlowClass, ADAPT, isWeakBlow, metalOf, WEAK, WEAK_NAMES, FLINCH_LINES, FLINCH_HEALTH, WEAKNESS_ELEMENTS, signatureStamp } from './revenantFeud.js';
 import { tagHit, HIT_TAGS } from '../ui/hitNumbers.js';   // RVN3: the "Weakness" word on my blow's number
 import { SOUND } from './soundClips.js';   // RVN3: the hiss of a weakness found
 import { revenantSay as sayRevenant } from './revenantVoice.js';   // RVN3: the reveal's card (the re-export below binds no local name)
@@ -141,6 +141,8 @@ export const REVENANT_EPITHETS = Object.freeze({
   // RVN10 (bible/12-Enhanced-AI/Feud-Arc.md 21): it knocked out my companion (`{a}` the companion's name); I ran from it
   felled: Object.freeze(['Bane of {a}', 'the Companion-Killer', 'Breaker of Oaths']),
   routed: Object.freeze(['Who Made {p} Run', 'the Pursuer']),
+  // RVN11b (22.2): it broke its oath - whatever its rank, this is its name
+  deserted: Object.freeze(['the Oathbreaker']),
   // from rank 3, whatever the deed
   risen: Object.freeze(['the Thrice-Risen', 'the Undying', 'the Dread', 'Revenant of {p}', 'the Relentless', '{p}\'s Shadow']),
 });
@@ -313,7 +315,10 @@ function ensureMirror(player) {
   for (let i = 0; i < _state.list.length; i++) {
     const r = _state.list[i], s = saved.get(r.id);
     if (r.gone) continue;
-    if (s?.sworn && s.companion?.items?.length && !r.sworn && r.fate === 'released') { _state.list[i] = { ...s, rev: (r.rev | 0) + 1 }; continue; }
+    // RVN11b (22.2): and one that deserted since - its pack was split between its record and the player's, who reloaded
+    // to before it: it comes back as the save had it
+    const left = r.fate === 'released' || (r.history ?? []).some((h) => h.deed === 'deserted' && h.at >= (s?.swornAt ?? 0));
+    if (s?.sworn && s.companion?.items?.length && !r.sworn && left) { _state.list[i] = { ...s, rev: (r.rev | 0) + 1 }; continue; }
     if (r.companion) r.companion.items = s?.companion?.items ? s.companion.items.slice() : [];
     r.took = s?.took ? s.took.slice() : [];   // RVN8 (Feud-Arc.md 19): what it took is inventory too - the save's copy wins (the mirror never brings back a piece the save holds)
   }
@@ -339,6 +344,16 @@ function prune() {
   if (tombs.length > REVENANT_TOMBS_MAX) {
     const drop = new Set(tombs.slice(0, tombs.length - REVENANT_TOMBS_MAX));
     _state.list = _state.list.filter((r) => !drop.has(r));
+  }
+}
+/** Past the cap: the weakest, oldest living one is forgotten - a tombstone, so no older save raises it again - never
+ *  `keep` (the one just made, or one just turned from the sworn - RVN11b), one standing in the world, or one holding a
+ *  piece of mine. */
+function trimLiving(keep) {
+  const living = livingRevenants();
+  if (living.length > REVENANT_MAX) {
+    const drop = living.filter((x) => x !== keep && !x.out && !x.took?.length).sort((x, y) => x.rank - y.rank || x.born - y.born)[0];   // RVN8: never one holding a piece of mine   // AUDIT (2026-10-02): never one standing in the world
+    if (drop) bury(drop);
   }
 }
 const deed = (r, d, at, ally = null) => { r.history.push({ deed: d, at, ...(ally ? { ally } : {}) }); if (r.history.length > HISTORY_MAX) r.history.splice(0, r.history.length - HISTORY_MAX); };   // RVN10: a felling names its companion
@@ -390,12 +405,7 @@ export function revenantDeed(player, entity, deedName, { mobileType = entity?.mo
       ...newFeudFields(id, mobileType, 1, entity.career ?? null),   // RVN1 (section 26): its draws (the weakness never what its career shrugs off), and nothing yet learned
     };
     _state.list.push(r);
-    // past the cap: the weakest, oldest living one is forgotten - a tombstone, so no older save raises it again
-    const living = livingRevenants();
-    if (living.length > REVENANT_MAX) {
-      const drop = living.filter((x) => x !== r && !x.out && !x.took?.length).sort((x, y) => x.rank - y.rank || x.born - y.born)[0];   // RVN8: never one holding a piece of mine   // AUDIT (2026-10-02): never one standing in the world
-      if (drop) bury(drop);
-    }
+    trimLiving(r);
   }
   r.name = joinName(r.given, r.epithet);
   if (deedName === 'slew') { r.kills++; r.notice = 'slew'; _lastSlew = { id: r.id, at: Date.now() }; } else { if (deedName === 'fled') r.escapes++; r.notice = null; }   // RVN8: this death's killer, for the respawn   // RVN10: a felling or a rout is no escape of its own
@@ -871,8 +881,8 @@ const KICKERS = Object.freeze({
   signature: 'Signature', lair: 'Its lair', festered: 'Grows bolder',
   // RVN10: it knocked out my companion; I ran from it
   felled: 'Felled', routed: 'Routed',
-  // RVN11: a Devoted one's warning
-  warn: 'Companion',
+  // RVN11: a Devoted one's warning; RVN11b: a deserter
+  warn: 'Companion', deserted: 'Oathbreaker',
 });
 /** @typedef {{ kind: string, kicker: string, id: string|null, name: string, rank: number, sub: string, mood: string|null,
  *   portrait: { archive: number, record: number } | null, speech: string|null, body: string|null, line: string }} RevenantEvent */
@@ -1043,10 +1053,55 @@ export function revenantFester(player, { now = nowMinutes(), rolls = Math.random
       r.companion.loyalty = movedLoyalty(r.companion.loyalty, st === 'with' ? LOYALTY.DAY_WITH : LOYALTY.DAY_AWAY);
       touch(r);
     }
+    // RVN11b (22.2): DESERTION - under DESERT.AT, once a day (a resting one too), one time in DESERT.CHANCE
+    for (const r of swornRevenants()) {
+      if (r.companion?.loyalty < DESERT.AT && rolls() < DESERT.CHANCE) revenantDeserts(player, r, { now: d * MINUTES_PER_DAY, rolls });
+    }
   }
   _state.lastDay = day;
   persist();
   return up;
+}
+/** RVN11b (bible/12-Enhanced-AI/Feud-Arc.md 22.2): the host's ear for a sworn one leaving the party by its own will (its
+ *  member forgotten - systems/revenantCompanions.js registers it). */
+let _swornLeft = null;
+export function setSwornLeftListener(fn) { _swornLeft = typeof fn === 'function' ? fn : null; }
+/** RVN11b: what a deserter kept and gave back, for its card (this session's; a reload's card says less). */
+const _desertWords = new Map();
+/** RVN11b (22.2): DESERTED - a sworn one under DESERT.AT leaves: no longer sworn, a living revenant again (its rank kept,
+ *  the `deserted` deed, "the Oathbreaker" whatever its rank), due in one to three days; its pack split (OPEN 18) - the
+ *  more valuable half kept on its record (RVN8's `took`, room for TOOK_MAX: carried at its stands and given back as a
+ *  theft is), the rest into my pack and its gold into my purse. Its body leaves through its portal (the companion layer:
+ *  no longer the party's); its notice is its card. Answers the record, or null. */
+export function revenantDeserts(player, r, { now = nowMinutes(), rolls = Math.random } = {}) {
+  if (!r?.sworn || r.defeated) return null;
+  const { kept, back } = deserterSplit(r.companion?.items ?? [], { value: itemValueOf, isGold: isGoldPieces, room: TOOK_MAX - (r.took?.length ?? 0) });
+  if (player) {
+    player.items ??= [];
+    for (const it of back) { if (isGoldPieces(it)) addGoldPieces(player, it.stackCount ?? 1); else addItem(player.items, it); }
+  }
+  r.took = [...(r.took ?? []), ...kept];
+  r.sworn = false; r.fate = null; r.companion = null; r.out = false;
+  r.epithet = REVENANT_EPITHETS.deserted[0];
+  r.name = joinName(r.given, r.epithet);
+  r.dueAt = dueFrom(now, rolls);
+  r.notice = 'deserted';
+  deed(r, 'deserted', now);
+  trimLiving(r);   // a living one again: the cap holds
+  _desertWords.set(r.id, { kept: kept.map((it) => itemLongName(it)), back: back.length });
+  touch(r);
+  persist();
+  try { _swornLeft?.(r.id); } catch { /* the party's bookkeeping is no record's failure */ }
+  return r;
+}
+/** RVN11b (22.2): the desertion, told - "Grushnak broke its oath and left you. It kept your Ebony Longsword." */
+export function revenantDesertEvent(r, { archive = null } = {}) {
+  const w = _desertWords.get(r.id);
+  _desertWords.delete(r.id);
+  const kept = w?.kept?.length ? ` It kept your ${w.kept.length === 1 ? w.kept[0] : `${w.kept.slice(0, -1).join(', ')} and ${w.kept.at(-1)}`}.` : '';
+  const back = w?.back ? ` It left the rest of its pack to you.` : '';
+  const body = `${r.given} broke its oath and left you.${kept}${back}`;
+  return revenantEvent('deserted', r, { body, line: `${r.name}: ${body}`, archive });
 }
 /** RVN9 (20): its rank-up, told - "Grushnak grows bolder - it has waited too long." */
 export function revenantFesterEvent(r, { archive = null } = {}) {
@@ -1193,7 +1248,7 @@ export function takeRevenantNotice(player, { now = nowMinutes(), rolls = Math.ra
   revenantFester(player, { now, rolls });   // RVN9: the days it waited, caught up first - a rank-up is its own notice
   const r = _state.list.find((x) => x.notice && !x.defeated);
   if (!r) return null;
-  const ev = r.notice === 'slew' ? revenantRiseEvent(r, player.name) : r.notice === 'festered' ? revenantFesterEvent(r) : null;
+  const ev = r.notice === 'slew' ? revenantRiseEvent(r, player.name) : r.notice === 'festered' ? revenantFesterEvent(r) : r.notice === 'deserted' ? revenantDesertEvent(r) : null;   // RVN11b: a deserter's card
   r.notice = null;
   touch(r);
   persist();

@@ -202,8 +202,8 @@
   {
     "name": "RVN9-card-unsaid",
     "file": "src/systems/revenant.js",
-    "old": "r.notice === 'festered' ? revenantFesterEvent(r) : null;",
-    "new": "null;",
+    "old": "r.notice === 'festered' ? revenantFesterEvent(r) : r.notice === 'deserted'",
+    "new": "r.notice === 'festered' ? null : r.notice === 'deserted'",
     "tests": [
       "test/rvn9_fester.test.js"
     ]

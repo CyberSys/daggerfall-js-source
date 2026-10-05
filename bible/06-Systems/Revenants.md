@@ -480,3 +480,10 @@ out, being sent away twice in a day, and seeing one of its own kind executed. Th
 word - Devoted, Loyal, Wavering or Restless. A Devoted one strikes harder and calls a warning when a foe winds up behind
 the player ("Behind you, Ayla!"). The law: `bible/12-Enhanced-AI/Feud-Arc.md` section 22 and its RVN11a record.
 
+## 28. Desertion (FEUD RVN11b, 2026-10-05)
+
+A sworn revenant whose loyalty falls under 20 may leave - one day in seven or so. It goes through its portal, a living
+revenant again under its own rank, now called the Oathbreaker, and comes back within three days to fight. It keeps the
+more valuable half of what was in its pack (killing, executing or sparing it again returns it) and leaves the rest, and
+any gold, to the player. The law: `bible/12-Enhanced-AI/Feud-Arc.md` section 22.2 and its RVN11b record.
+
