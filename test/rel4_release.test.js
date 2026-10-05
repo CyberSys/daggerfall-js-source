@@ -350,6 +350,20 @@ test('REL6: the notes command, spawned as the publish job spawns it - the pull r
   }
 });
 
+/** REL7: a path a Windows checkout refuses - a segment that is a DOS device name (with any extension: `lpt1.json` is LPT1),
+ *  a character NTFS will not hold, or a segment ending in a dot or a space. */
+const winRefuses = (p) => p.split('/').some((s) => /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\.|$)/i.test(s) || /[<>:"|?*\\\x00-\x1f]/.test(s) || /[. ]$/.test(s));
+
+test('REL7: every path in the tree checks out on Windows - the desktop release\'s Windows leg checks the whole tree out, and Git for Windows refuses a device name (2026-10-05: `tools/mutants/lpt1.json` - LPT1 - stopped the release at checkout; the pull request\'s CI, on Linux alone, never met it)', () => {
+  for (const p of ['tools/mutants/lpt1.json', 'a/CON', 'nul.txt', 'docs/Com3.md', 'aux', 'a:b.js', 'q?.md', 'trail.', 'dir /x.js']) assert.ok(winRefuses(p), `${p} is refused`);
+  for (const p of ['tools/mutants/lpt1_trees.json', 'test/lpt1_lowpolytrees.test.js', 'src/console.js', 'src/null.js', 'com.js', 'lpt.json', 'a.b/c']) assert.ok(!winRefuses(p), `${p} is not`);
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  const files = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root, encoding: 'utf8', maxBuffer: 1 << 26 })
+    .split('\0').filter(Boolean);
+  assert.ok(files.length > 1000, `the sweep read the tree (${files.length} files)`);
+  assert.deepEqual(files.filter(winRefuses), [], 'a path a Windows checkout refuses - rename it (a device name is reserved with any extension)');
+});
+
 test('REL6: patch notes live on the pull request - no file in the tree is one, and the template asks for them where the release reads them', () => {
   for (const p of ['PATCH-NOTES-Boats-on-the-Compass.md', 'docs/patch-notes/v1.md', 'PatchNotes.md', 'notes/patch_notes.txt', 'Release Patch Notes 1.2.md']) {
     assert.match(p, PATCH_NOTES_PATH_RE, `${p} is patch notes`);

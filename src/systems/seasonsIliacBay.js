@@ -341,6 +341,12 @@ export class SeasonHelper {
    *  RefreshLoadedNatureBatches filters batches by.) */
   manages(archive) { return this.vanillaAtlasByArchive.has(archive); }
 
+  /** Is an install under way (`apply` running, its cache cleared and
+   *  refilling)? The port's, not the mod's: a cache that outlives the
+   *  pixels it was painted for (LPT1's tree atlases) paints nothing
+   *  seasonal while one is (AUDIT LPT B3). */
+  get installing() { return !!this._applying; }
+
   // ---- the events Awake subscribes ----
 
   /** DaggerfallTerrain.OnInstantiateTerrain. */
