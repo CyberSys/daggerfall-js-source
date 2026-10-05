@@ -310,7 +310,7 @@ const q3 = (v) => Math.round(v * 1000) / 1000; const GENDER_BIT = ['male', 'fema
 const HIT_POS_MAX = 1e6;
 // AUDIT FOES FOE5: the most damage one peer's blow may claim. The host TRUSTS the number (it never recomputes - the
 // striker's own calc is the game's), so without a bound any joiner could one-shot every foe in the room and empty it
-// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2877); the dungeon
+// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2893); the dungeon
 // had none. Past anything a legal swing, shaft or blast can roll.
 const HIT_DMG_MAX = 10000;
 /** REST-SYNC: a joiner's ask is answered - or given up on - inside this long: its rest breaks once, at the next hour. */
@@ -1054,6 +1054,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // The ray starts at chest height so a step or a floor seam does not read as a wall.
   // ARENA-FIX 4: the hall stands no random foe - only the beast tier's chained beasts, passive at their markers (the undercroft is the city's own keep, never an elite spawn); UNDERCROFT-DEEP: past the hall's reach the keep's own foes stand again (below)
   const _hallBeasts = _undercroftHall ? _undercroftHall.beasts.map((b, i) => ({ x: b.x, y: b.y, z: b.z, mobileType: b.mobileType, fixed: true, reaction: 'passive', gender: 'unspecified', spawnDistanceType: 0, loadID: 0x55430100 + i, blockIndex: -1, arenaChained: i })) : null;
+  /** @type {number[][] | null} LW6b: the dungeon's resting places, sounded once (restingSpots) */
+  let _restingSpots = null;
   const enemies = dfLocation?.elite
     ? expandEliteEnemies(_layoutEnemies, {
       copies: ELITE_FOE_MULTIPLIER,
@@ -2305,7 +2307,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:16894 / exterior.js:3987), set
+  // host's own townTalk sink (world.js:17585 / exterior.js:3987), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -3538,7 +3540,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1129 against :1159; worldModes.js:8695 against :8715).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1129 against :1159; worldModes.js:8705 against :8725).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -4451,8 +4453,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:28054,
-              // exterior.js:5654 and worldModes.js:9421 already ran;
+              // playerArrowHitFoe is the one copy world.js:28812,
+              // exterior.js:5654 and worldModes.js:9431 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -5346,7 +5348,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const i = data.i | 0, dmg = Number(data.dmg);
     const xs = data.xs === 1;   // REST-SYNC: a shared encounter, by the room's number - not a layout index
     const f = xs ? (_sharedById.get(i) ?? null) : foes[i];
-    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2877). The number is a peer's
+    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2893). The number is a peer's
     // word and the host trusts it without recomputing, so an unbounded one let any joiner one-shot every foe in the
     // room - and, through the kill door, empty it. 10000 is past anything a legal swing, shaft or blast can roll.
     if (!f || (!xs && i >= _layoutFoes) || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
@@ -5926,7 +5928,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // InstantiatePrefab's a fresh GameObject per saved record, so
     // EnemyEntity's `PickpocketByPlayerAttempted` default is the loaded
     // truth for every enemy. The re-minting pools match that by
-    // construction (exteriorFoes.js:2216's restoreWorld goes through
+    // construction (exteriorFoes.js:2232's restoreWorld goes through
     // spawnFoe), but this host patches the LIVE foes in place, so a
     // same-dungeon reload kept a raised latch and a failed pickpocket
     // could never be retried - falsifying the law
@@ -8461,6 +8463,12 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     arenaHall: _undercroftHall?.hall ?? null,   // ARENA5: the Hall of Champions' place - its plaque wall hangs about it (scenes/worldModes.js standArenaWall)
     spawnLooseFoe,   // SD1: the same chain with no quest behaviour bound - the enchant ctx's spawner
     questSpawnSpots: () => dungeonQuestSpawnSpots(dungeon.blocks),   // FIELD BUGS 29h (BOUNTY-LAIR): where DFU stands a quest's foe here
+    // LW6b (bible/06-Systems/Living-World.md "LW6b"): THE FALLEN IN THE DEEP - where the dungeon's own foes stand (its
+    // random enemy markers, each on the floor under it, in the layout's order: every reader the same), a fallen diver's
+    // remains laid there as a pile of the dungeon's own (its class's corpse picture), and whether a pile still lies at one
+    restingSpots: () => (_restingSpots ??= _layoutEnemies.filter((e) => !e.fixed).map((e) => floorLanding(collider, [e.x, e.y + 0.2, e.z]))),
+    layRemains: (items, feet, icon) => droppedLoot.dropPile(items, feet, null, icon),
+    pileNear: (feet, r) => droppedLoot._piles.some((p) => Math.hypot(p.pos[0] - feet[0], p.pos[2] - feet[2]) <= r && Math.abs(p.pos[1] - feet[1]) <= 2),
     questMarkerMover: (markerID) => sceneMarkerMover(dungeon.blocks, actions, markerID),   // TOTEM-CAGE: the acting marker a quest item rides (AddQuestItem's parenting), or null
     replaceFoe: replaceFoeInPool,   // AUDIT 58 (review): the hosted route's enchant mount routes the Wabbajack here by pool membership
     drawFoes,

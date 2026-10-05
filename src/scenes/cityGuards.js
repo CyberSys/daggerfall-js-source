@@ -760,7 +760,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
    *  which arrowFlight.js calls unconditionally (arrowFlight.js:325)
    *  because `dealDamage` is inside its own `dmg > 0` fork - so the
    *  door is PUBLIC (the returned surface below), exactly as the
-   *  encounter pool's is (exteriorFoes.js:3057). */
+   *  encounter pool's is (exteriorFoes.js:3073). */
   function handleAttackFromPlayer(g, playerFeet = null) {
     if (!g?.ai) return;
     // DISC19-F (AUDIT DISC19): A BLOW ON A DEFENDER IS ASSAULT. The
@@ -1437,7 +1437,8 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
       return { crime: 'murder' };
     }
     setCrimeCommitted(playerEntity, CRIME_ASSAULT);   // V4: through the one setter (SuppressCrime)
-    await spawnGuardAt(best.pos, best.fwdYaw, playerFeet ?? null);
+    const stood = await spawnGuardAt(best.pos, best.fwdYaw, playerFeet ?? null);
+    if (stood && best.person?.living) stood.livingFrom = best.person.living;   // LW-FIX2: the guard marks whom it stands for (the living world's turned watch, scenes/livingWatch.js)
     best.disable();
     const carriedHit = resolvePlayerHit(playerWeapon, eye, lookDir, playerFeet, inViewFn ?? _lastInView, onHitSound, { swing });   // AUDIT DISC19: the same swing, re-pointed - one grunt
     return { crime: 'assault', carriedHit };

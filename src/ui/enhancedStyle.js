@@ -2687,20 +2687,10 @@ html.plus-pad-prompts-visible .px-over > .px-stage:not(.px-acctstage):not(.px-ti
 .travelpanel.following .travelpanel-name { color: var(--brass); }
 .travelpanel-speed { display: flex; flex-direction: column; justify-content: center; gap: 2px;
   padding: 7px 14px; border-left: 1px solid rgba(192,138,62,0.25); }
-.travelpanel-stepper { display: flex; align-items: center; gap: 6px; }
-/* ENEMY-PACE: the second clock, under the first - only while enemies hold the journey (the node's hidden attribute takes it away) */
-.travelpanel-foe { display: flex; flex-direction: column; align-items: inherit; gap: 3px; margin-top: 8px; }
-.travelpanel-foe[hidden] { display: none; }
-.travelpanel-foe > .travelpanel-label { white-space: nowrap; }
-.travelpanel-foeaccel { color: #d9a441; }
-.travelpanel.foes .travelpanel-msg { top: calc(var(--tp-top, 66px) + 148px); }
-.travelpanel.foes .travelpanel-junction { top: calc(var(--tp-top, 66px) + 156px); }
 .travelpanel-accel { font-family: var(--display); font-size: 19px; min-width: 46px; text-align: center; color: var(--brass); }
-.travelpanel-accel.held { font-size: 15px; min-width: 84px; color: #d9a441; }   /* TV2: held while the land loads */
-.travelpanel-step { pointer-events: auto; width: 22px; height: 22px; line-height: 1;
-  background: rgba(43,50,59,0.9); color: var(--bone); border: 1px solid rgba(192,138,62,0.4);
-  border-radius: 2px; font-size: 14px; cursor: pointer; }
-.travelpanel-step:hover { background: rgba(78,127,114,0.35); border-color: var(--verdigris); }
+.travelpanel-accel.held { font-size: 15px; min-width: 84px; color: #d9a441; }   /* TV2: held while the land loads; OW6: or an alerted enemy near */
+/* RATE-LAW: the ground the rate is the ground's of, under the readout - a word, no control */
+.travelpanel-ground { font-size: 11px; letter-spacing: 0.06em; color: var(--dim); white-space: nowrap; text-align: center; }
 .travelpanel-acts { display: flex; align-items: center; gap: 6px; padding: 7px 12px;
   border-left: 1px solid rgba(192,138,62,0.25); }
 .travelpanel-act { pointer-events: auto; padding: 6px 12px; cursor: pointer;
@@ -2770,10 +2760,9 @@ html.plus-pad-prompts-visible .px-over > .px-stage:not(.px-acctstage):not(.px-ti
 #travel-view .tview-dock .travelpanel-name { display: block; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #travel-view .tview-dock .travelpanel-speed { flex: 0 0 auto; flex-direction: column; align-items: flex-start; justify-content: center; gap: 0; padding: 3px 0 9px 12px; }
 #travel-view .tview-dock .travelpanel-speed > .travelpanel-label { display: none; }
-/* ENEMY-PACE: the clock on the left (its near-enemies stepper under it while enemies hold the clock), Camp ABOVE Exit on the right */
+/* the clock on the left, Camp ABOVE Exit on the right */
 #travel-view .tview-dock .travelpanel-acts { flex: 0 0 auto; margin-left: auto; display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 6px; padding: 3px 12px 9px 8px; }
 #travel-view .tview-dock .travelpanel-acts .travelpanel-act { min-width: 78px; text-align: center; }
-#travel-view .tview-dock .travelpanel-foe { margin-top: 6px; }
 #travel-view .tview-dock .travelpanel-act[data-act="map"] { display: none; }
 #travel-view .tview-dock .travelpanel-act { padding: 5px 9px; }
 #travel-view .tview-dock > .travelpanel-msg { position: absolute; right: 0; left: auto; top: auto; bottom: calc(100% + 10px); transform: none;
