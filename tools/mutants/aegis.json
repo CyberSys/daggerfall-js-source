@@ -292,8 +292,8 @@
   {
     "name": "AEGIS-the-symbols-never-drawn",
     "file": "src/render/auraRing.js",
-    "old": "          if (look.glyphs) {   // AEGIS: the ward's floating symbols, a third draw",
-    "new": "          if (false) {   // AEGIS: the ward's floating symbols, a third draw",
+    "old": "          if (look.glyphs && !closed) {",
+    "new": "          if (false) {",
     "tests": [
       "test/aegis.test.js"
     ],

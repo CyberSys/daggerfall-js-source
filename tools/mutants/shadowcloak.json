@@ -499,8 +499,8 @@
   {
     "name": "SHADOWCLOAK-my-facing-the-views",
     "file": "src/scenes/world.js",
-    "old": "_auraSelf.yaw = player.bodyYawFor(cam.yaw);",
-    "new": "_auraSelf.yaw = cam.yaw;",
+    "old": "_auraSelf.yaw = mwViewSpriteFigure()?.yaw ?? player.bodyYawFor(cam.yaw);",
+    "new": "_auraSelf.yaw = mwViewSpriteFigure()?.yaw ?? cam.yaw;",
     "tests": [
       "test/shadowcloak.test.js"
     ]

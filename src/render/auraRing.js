@@ -76,16 +76,16 @@
 //
 // SERAPH-WINGS (2026-10-05, Mac: "I want to build an aura for the developers ... Golden Angel wings that flow", from a
 // painted angel whose wings are long ribbons of light): THE SERAPH WINGS, the fifth look - WINGS OF LIGHT on the body:
-//   - THE WINGS are their own mesh (auraWingsGrid): WING_PLUMES plumes a side fanned from below level to high over the
-//     head, each a broad strand and two fine ones beside it - ribbons of WING_SEGS segments laid along a curve out of the
-//     upper back (rising behind the shoulder, then out to its tip), turned to the eye along their length. Waves travel
-//     out along each, the more the further out, so they FLOW; the whole fan breathes open and closed. Gold, white-hot at
-//     each strand's heart, amber at its edge, wisps where the edge and the tip fray; light pulses running outward. Added
-//     whole (no shade), and nothing laid over the eye that stands among them (the wearer's own first person).
-//   - THE THIRD DRAW's cards are motes of gold drifting out along the strands and gone past their tips.
-//   - THE GROUND: a faint pool of gold light beneath.
-//   - Hung on the body as the cape is (auraCapeStep: `uCapeS` the shoulders), swung as it is (auraMotionStep: `uSwing`,
-//     trailing a run, lifting in a fall); unfurling from the root as it kindles. Every rate whole over the clock
+//   - THE WINGS are their own mesh (auraWingsGrid): WING_PLUMES primaries and WING_COVERTS short coverts a side, each a
+//     broad strand and four fine ones - ribbons of WING_SEGS segments out of the upper back, turned to the eye. Waves and
+//     a flutter run out along each so they FLOW; the fan breathes, and beats every eight seconds (wingBeat). Gold,
+//     white-hot at each heart, amber at a frayed edge and tip, light pulsing outward; added whole (no shade), nothing
+//     laid over an eye among them. The third draw: sparks streaking out past the tips, and a backlight card behind.
+//   - THE GROUND: a faint pool of gold; THE LIGHT on the world: auraWingLights (an aura's light, `aura` - gold).
+//   - ON THE BACK: laid along the torso's own axes (auraTorso: `uTorsoU`, `uTorsoF`) from the shoulders (`uCapeS`) - a
+//     Morrowind rig's bones, or a Beholder sprite's figure (auraSpriteBones, EOTB_FIGURE: by the pixel, the sprite's own
+//     facing; AUDIT 3), or the rest pose (a rider's over the saddle, AURA_SADDLE_M); closed when sunk to the neck. Swung
+//     as the cape is (auraMotionStep: `uSwing`); unfurling from the root as they kindle. Every rate whole over the clock
 //     (wingRatesWhole).
 //
 // Not a DFU member. Ledger A (WB).
@@ -101,14 +101,19 @@ export const AURA_FLAME_H = 0.62;
 export const AURA_LIFT_M = 0.05;
 /** The cylinder's steps round (its strip's resolution). */
 export const AURA_STEPS = 48;
-/** The most auras one frame draws, and the farthest one is drawn from the eye (m) - past it a ring is a few pixels. */
-export const AURA_DRAW_MAX = 16;
+/** The most auras one frame draws, and the farthest one is drawn from the eye (m) - past it a ring is a few pixels.
+ *  AUDIT 3 (2026-10-05, Mac: "Ensure other players can see all auras"): 32 - a crowd at a hub's fountain is more than
+ *  sixteen, and the seventeenth wearer within reach was drawn by nobody; a wearer is four draws at most. */
+export const AURA_DRAW_MAX = 32;
 export const AURA_RANGE_M = 90;
 /** The clock every rate is whole over (s): the ring's turn (AURA_TURN_HZ), the fire's flow and the flames' rise. */
 export const AURA_CLOCK_PERIOD = 120;
 export const AURA_TURN_HZ = 1 / 8;
 /** The seconds a wearer's aura takes to kindle when it first stands (or when they first put it on). */
 export const AURA_KINDLE_S = 0.8;
+/** AUDIT 3: the seconds a peer's aura is remembered unseen (a frame without their pose, a moment concealed or out of the
+ *  list) before it is forgotten - so it does not kindle again from nothing every time they blink out for a frame. */
+export const AURA_FORGET_S = 2;
 
 /** AEGIS: THE OBLIVION WARD'S MEASURES - the ring's radius (wider than the fire's, as the first reference's circle stands
  *  clear of the feet), the rune ring's within it, the wall's height (a veil to the shins), and how many of each round. */
@@ -267,7 +272,7 @@ export const WING_COVERT = Object.freeze({ spread: Object.freeze([-0.35, 1.0]), 
 /** A strand's width at its broadest (m) - the broad strand's taking its glow's sheath - and the fine's. */
 export const WING_W = Object.freeze({ broad: 0.34, fine: 0.08 });
 /** The wings' rates (Hz), each whole over the clock: the light running out along a strand, the waves along it, the fan's
- *  breath, the fine strands' flutter, the wings' beat and the backlight's rays turning. */
+ *  breath, every strand's flutter, the wings' beat and the backlight's rays turning. */
 export const WING_HZ = Object.freeze({ flow: 1 / 3, wave: 1 / 4, breathe: 1 / 6, flutter: 1 / 2, beat: 1 / 8, rays: 1 / 30 });
 /** The beat's stroke: how far down the fan sweeps (rad) and how far forward its tips (a share of their reach). */
 export const WING_BEAT = Object.freeze({ down: 0.32, forward: 0.35 });
@@ -515,7 +520,7 @@ vec3 radianceWall(vec2 q) {
   float shaft = vnoiseP(vec2(u * ${RADIANCE_ROUND.toFixed(1)}, v * 2.5 - uTime * ${RADIANCE_FLOW.shafts.toFixed(3)}), vec2(${RADIANCE_ROUND.toFixed(1)}, ${(RADIANCE_FLOW.shafts * AURA_CLOCK_PERIOD).toFixed(1)}));
   float rise = (1.0 - smoothstep(0.4, 1.0, v)) * (0.7 + 0.3 * (1.0 - v));   // whole to the chest, gone past the crown
   // never from inside it: the wearer's own first person sees no gold veil, only the motes, dimmer
-  float outside = smoothstep(uRingR + 0.1, uRingR + 0.6, length(uCamPos.xz - uAt.xz));
+  float outside = smoothstep(uRingR + 0.1, uRingR + 0.6, length(vec2(length(uCamPos.xz - uAt.xz), max(max(uAt.y - uCamPos.y, uCamPos.y - uAt.y - uFlameH), 0.0))));   // AUDIT 3: out of the column, over or under it too
   vec3 col = RAD_GOLD * rim * rise * (0.35 + 0.65 * shaft * shaft) * 0.75 * radianceBreath() * outside;
   // THE MOTES, rising the column's height each at its own place and pace, kindling off the ground and dimming as they go
   float circ = TAU * uRingR, sparks = 0.0;
@@ -1286,6 +1291,7 @@ export function auraCapePose(bones, out = null) {
   o.kneeL.set(bones['bip01 l calf'] ?? [0, 0, 0]);
   o.kneeR.set(bones['bip01 r calf'] ?? [0, 0, 0]);
   auraTorso(L, R, bones['bip01 spine2'] ?? null, N ?? null, H, o.torso ?? (o.torso = new Float32Array(6)));
+  o.sunk = bones.sunk === true;   // AUDIT 3: a sprite sunk to its neck (auraSpriteBones) - folded, closed
   return o;
 }
 /** SERAPH-WINGS: THE TORSO'S OWN AXES, written into `out` [up, forward] - up the spine (the upper spine to the neck, or
@@ -1308,18 +1314,27 @@ export function auraTorso(L, R, spine, neck, head, out) {
 }
 
 /** SERAPH-WINGS: THE EYE OF THE BEHOLDER FIGURE - a sprite body has no bones, so what stands for them is read off the frame
- *  it is drawn in: its base and its height over the feet (m - eotbBody figure(), peerRiders figureOf), the shoulder line
- *  at `shoulder` of its height (the sets' back frames: 0.78 - 0.83), the neck and the head's joint above it, the spine
- *  below; across as broad as its height is to the standing frame's (`refH`, the idle back frame's 110 px at 0.019 m). */
-export const EOTB_FIGURE = Object.freeze({ refH: 2.09, shoulder: 0.8, neck: 0.85, head: 0.89, spine: 0.7 });
-/** The bones a sprite figure stands for, in the body's frame - or null without a figure. Pure. */
+ *  it is drawn in: its base over the feet and its metres a pixel (eotbBody figure(), peerRiders figureOf).
+ *  AUDIT 3 (2026-10-05): BY THE PIXEL, NOT BY THE FRAME'S HEIGHT. A frame is as tall as what it holds - a sword up, a
+ *  staff, a hand raised to cast (to 174 px) - and the shoulders at 0.8 of it hung the cloak and the wings 0.3 - 1 m over
+ *  the head whenever a weapon was out, jumping as it was drawn or sheathed. The sets' own shoulders stand 78 - 88 px
+ *  over the frame's foot whatever it holds (measured off the frames' alpha: Idle 88, IdleMelee 80, IdleSpell 84,
+ *  IdleRanged 87). So: the shoulder line, the neck, the head's joint and the upper spine in the sets' pixels over the
+ *  frame's foot; a beast's frames (`beast` - drawn at 0.029 m a pixel, the beast smaller in them) stand them at `beast`
+ *  of that (shoulders 1.70 m, measured 1.65 - 1.74); across as broad as its metres a pixel are to the standing scale's
+ *  (`mpp`). */
+export const EOTB_FIGURE = Object.freeze({ mpp: 0.019, shoulder: 86, neck: 91, head: 96, spine: 75, beast: 0.68 });
+/** The bones a sprite figure stands for, in the body's frame - or null without a figure. `sunk` when its shoulders are
+ *  below the crouch's floor (the body sunk in water to its neck - its quad's top at the waterline): nothing hangs from
+ *  them, and the cloak folds and the wings close as on a rider (AUDIT 3: hung at the floor, it floated over the
+ *  swimmer). Pure. */
 export function auraSpriteBones(fig) {
-  if (!fig || !Number.isFinite(fig.base) || !(fig.h > 0)) return null;
-  const at = (f) => fig.base + fig.h * f, half = CLOAK_SHOULDER_HALF * fig.h / EOTB_FIGURE.refH;
+  if (!fig || !Number.isFinite(fig.base) || !(fig.mpp > 0)) return null;
+  const m = fig.mpp * (fig.beast === true ? EOTB_FIGURE.beast : 1), at = (px) => fig.base + px * m, half = CLOAK_SHOULDER_HALF * m / EOTB_FIGURE.mpp;
   return {
     'bip01 l upperarm': [-half, at(EOTB_FIGURE.shoulder), 0], 'bip01 r upperarm': [half, at(EOTB_FIGURE.shoulder), 0],
     'bip01 neck': [0, at(EOTB_FIGURE.neck), 0], 'bip01 head': [0, at(EOTB_FIGURE.head), 0], 'bip01 spine2': [0, at(EOTB_FIGURE.spine), 0],
-    'bip01 l calf': null, 'bip01 r calf': null,
+    'bip01 l calf': null, 'bip01 r calf': null, sunk: at(EOTB_FIGURE.shoulder) < CLOAK_SHOULDER_Y * 0.4,
   };
 }
 /** A peer's sprite figure as the pose `auraCapeStep` takes - at the wearer's own feet and facing - or null. Pure. */
@@ -1336,14 +1351,14 @@ export function auraWingLights(wearers, eye, out) {
   if (!Array.isArray(wearers) || !eye) return out;
   const L = WING_LIGHT;
   for (const w of wearers) {
-    if (!w || auraLookOf(w.aura).mesh !== 'wings' || !Array.isArray(w.at)) continue;
+    if (!w || auraLookOf(w.aura).mesh !== 'wings' || !Array.isArray(w.at) || w.cape?.sunk === true) continue;   // AUDIT 3: closed (sunk to the neck), unlit
     const k = Number.isFinite(w.kindle) ? Math.max(0, Math.min(1, w.kindle)) : 1;
     if (!(k > 0)) continue;
     const yaw = Number.isFinite(w.yaw) ? w.yaw : 0, c = Math.cos(yaw), sn = Math.sin(yaw), sh = (w.cape ?? CLOAK_REST_POSE).shoulders;
     const x = w.at[0] + c * sh[0] + sn * (sh[2] - L.back), y = w.at[1] + sh[1] + L.lift, z = w.at[2] - sn * sh[0] + c * (sh[2] - L.back);
     const d = Math.hypot(x - eye[0], y - eye[1], z - eye[2]);
     if (!(d <= L.reach)) continue;
-    out.push({ x, y, z, range: L.range * (0.5 + 0.5 * k), color: [L.rgb[0] * k, L.rgb[1] * k, L.rgb[2] * k], carried: true, _d: d });
+    out.push({ x, y, z, range: L.range * (0.5 + 0.5 * k), color: [L.rgb[0] * k, L.rgb[1] * k, L.rgb[2] * k], carried: true, aura: true, _d: d });   // AUDIT 3: `aura` - the dungeon's flame tint passes it by (worldModes.js _dgTint)
   }
   out.sort((a, b) => a._d - b._d);
   if (out.length > L.max) out.length = L.max;
@@ -1519,12 +1534,12 @@ export class AuraRingRenderer {
         gl.drawArrays(gl.TRIANGLES, 0, 6);
         if (look.mesh === 'cloak') this._drawCloak(w, look, torn, camAt);   // SHADOW-CLOAK: the cloak's cloth, not the strip
         else {
-          const wings = look.mesh === 'wings';   // SERAPH-WINGS: the strands, not the strip - and, as the cloak's, none of it with the ground's depth offset
+          const wings = look.mesh === 'wings', closed = wings && pose.sunk === true;   // SERAPH-WINGS: the strands, not the strip - and, as the cloak's, none of it with the ground's depth offset; AUDIT 3: closed on a body sunk to its neck
           if (wings) gl.disable(gl.POLYGON_OFFSET_FILL);
           gl.uniform1i(U.uKind, 1);
           gl.bindVertexArray(wings ? this.wingsVao : this.flameVao);
-          gl.drawArrays(gl.TRIANGLES, 0, wings ? WING_VERTS : AURA_STEPS * 6);
-          if (look.glyphs) {   // AEGIS: the ward's floating symbols, a third draw; SERAPH-WINGS: the wings' motes
+          if (!closed) gl.drawArrays(gl.TRIANGLES, 0, wings ? WING_VERTS : AURA_STEPS * 6);
+          if (look.glyphs && !closed) {   // AEGIS: the ward's floating symbols, a third draw; SERAPH-WINGS: the wings' motes
             gl.uniform1i(U.uKind, 2);
             gl.bindVertexArray(this.glyphVao);
             gl.drawArrays(gl.TRIANGLES, 0, look.glyphs * 6);
@@ -1555,7 +1570,7 @@ export class AuraRingRenderer {
    *  ground's depth offset, which is the ground's (AUDIT 2: a body before the cloth stays before it). */
   _drawCloak(w, look, torn, eye) {
     const gl = this.gl, U = this.u;
-    const folded = w.mounted === true;
+    const folded = w.mounted === true || w.cape?.sunk === true;   // AUDIT 3: and on a body sunk to its neck (auraSpriteBones)
     const dx = eye[0] - w.at[0], dz = eye[2] - w.at[2], yaw = Number.isFinite(w.yaw) ? w.yaw : 0, hd = (w.cape ?? CLOAK_REST_POSE).head, c = Math.cos(yaw), sn = Math.sin(yaw);
     const front = dx * sn + dz * c > 0, emblemsFirst = !folded && front && torn < CLOAK_RIP_S;
     gl.disable(gl.POLYGON_OFFSET_FILL);   // the ground's offset is the ground's

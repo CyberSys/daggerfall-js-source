@@ -338,5 +338,15 @@
       "test/primarch.test.js"
     ],
     "note": "Every wearer drawn at the world's origin, and the column's axis lost."
+  },
+  {
+    "name": "PRIMARCH-inside-by-the-ground-alone",
+    "file": "src/render/auraRing.js",
+    "old": "length(vec2(length(uCamPos.xz - uAt.xz), max(max(uAt.y - uCamPos.y, uCamPos.y - uAt.y - uFlameH), 0.0)))",
+    "new": "length(uCamPos.xz - uAt.xz)",
+    "tests": [
+      "test/primarch.test.js"
+    ],
+    "note": "AUDIT 3 (SERAPH-WINGS round): the column's inside fade read the distance across the ground alone - a camera high over a wearer saw no column."
   }
 ]

@@ -503,7 +503,7 @@
   {
     "name": "WB9g-the-flames-skipped",
     "file": "src/render/auraRing.js",
-    "old": "          gl.drawArrays(gl.TRIANGLES, 0, wings ? WING_VERTS : AURA_STEPS * 6);\n",
+    "old": "          if (!closed) gl.drawArrays(gl.TRIANGLES, 0, wings ? WING_VERTS : AURA_STEPS * 6);\n",
     "new": "",
     "tests": [
       "test/wb9g_insignia.test.js"

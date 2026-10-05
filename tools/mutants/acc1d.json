@@ -92,7 +92,7 @@
   {
     "name": "ACC1d-10-a-late-token-is-sent-down-a-dead-socket",
     "file": "src/net/online.js",
-    "old": "        this.token = await this._mint(room);\n        // the socket may have been replaced or closed while we waited\n        if (this._roomOf(ws) == null) return;",
+    "old": "        this.token = await this._mint(room);\n        // the socket may have been replaced or closed while we waited\n        if (!live()) return;",
     "new": "        this.token = await this._mint(room);",
     "tests": [
       "test/acc1dclient.test.js"

@@ -410,6 +410,11 @@ test('PRIMARCH the radiance\'s column, the shader RUN: light ROUND the body - fa
   let veil = 0, seen = 0;
   for (const [u, vv] of [[0.25, 0.5], [0.3, 0.4], [0.2, 0.7], [0.75, 0.5], [0, 0.3], [0.5, 0.6]]) { veil += lum(wallAt(u, vv, inside)); seen += lum(wallAt(u, vv, out)); }
   assert.ok(veil < 0.15 * seen, `no gold veil from inside it (${veil.toFixed(3)} against ${seen.toFixed(3)} from outside)`);
+  // AUDIT 3 (2026-10-05): inside is INSIDE - over its axis but high above its top (a balcony, a high camera), the eye is
+  // outside it, and the column shows; it faded by the distance across the ground alone
+  let over = 0;
+  for (const [u, vv] of [[0.25, 0.5], [0.3, 0.4], [0.2, 0.7], [0.75, 0.5], [0, 0.3], [0.5, 0.6]]) over += lum(wallAt(u, vv, { eye: [0, 7, 0.05] }));
+  assert.ok(over > 4 * veil + 0.05, `seen from high over it (${over.toFixed(3)} against ${veil.toFixed(3)} from inside)`);
   // kindled up: nothing, then the column to the waist and not past it
   assert.equal(lum(wallAt(0, 0.3, { kindle: 0 })), 0, 'unkindled: nothing');
   assert.ok(lum(wallAt(0, 0.2, { kindle: 0.5 })) > 0.15, 'half kindled: the column at the knee');

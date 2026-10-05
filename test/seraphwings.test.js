@@ -27,6 +27,8 @@ import {
   EOTB_FIGURE, AURA_SADDLE_M, WING_COVERT, WING_BEAT, WING_HALO_M, WING_MOTE_LEN, WING_MOTE_M, WING_LIGHT, auraWingLights,
 } from '../src/render/auraRing.js';
 import { createEotbBody } from '../src/player/eotbBody.js';
+import { createPeerWalkers, createPeerRiders, createEotbArt } from '../src/net/peerRiders.js';
+import { RIDE_EYE_HEIGHT, EYE_HEIGHT } from '../src/player/motor.js';
 import { glslFunctions, GlslDiscard } from './glsl.mjs';
 
 const rd = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
@@ -327,12 +329,13 @@ test('SERAPH-WINGS the draw: the wings\' mesh uploaded; a wearer of them drawn i
 
 test('SERAPH-WINGS the hosts: the draw hangs and swings every look with a mesh of its own - the cloak and the wings alike - on its wearer\'s body, read as code', () => {
   const w = rd('src/scenes/world.js');
-  assert.match(w, /import \{ AuraRingRenderer, auraWearers, auraLookOf, auraBeastStep, auraMotionStep, auraCapeStep, auraSpriteBones, auraSpritePosed, auraWingLights, CLOAK_BONES, AURA_KINDLE_S \} from '\.\.\/render\/auraRing\.js';/);
+  assert.match(w, /import \{ AuraRingRenderer, auraWearers, auraLookOf, auraBeastStep, auraMotionStep, auraCapeStep, auraSpriteBones, auraSpritePosed, auraWingLights, CLOAK_BONES, AURA_KINDLE_S, AURA_FORGET_S \} from '\.\.\/render\/auraRing\.js';/);
   const line = w.split('\n').find((l) => l.includes('for (const w of _auraDraw) if (auraLookOf(w.aura).mesh)'));
   assert.ok(line, 'the draw\'s line');
   const code = line.slice(0, line.indexOf('   //'));
   assert.ok(!code.trim().startsWith('//') && /for \(const w of _auraDraw\) if \(auraLookOf\(w\.aura\)\.mesh\) \{ auraCapeStep\(w, [^;]*\); auraMotionStep\(w, auraNow\); \}/.test(code), 'every meshed look hung on its body and swung');
-  assert.ok(code.includes('bones: mwViewBodyBones(CLOAK_BONES) ?? auraSpriteBones(mwViewSpriteFigure()) }') && code.includes(': peerBodies?.bonesOf(w.id, CLOAK_BONES) ?? auraSpritePosed(w, peerWalkers?.figureOf(w.id)),'), 'mine off my rig, else off my sprite as drawn; a peer\'s off their rig, else off their sprite');
+  assert.ok(code.includes('bones: mwViewBodyBones(CLOAK_BONES) ?? auraSpriteBones(mwViewSpriteFigure()) }') && code.includes(': peerBodies?.bonesOf(w.id, CLOAK_BONES) ?? auraSpritePosed(w, peerWalkers?.figureOf(w.id) ?? peerRiders?.figureOf?.(w.id)),'), 'mine off my rig, else off my sprite as drawn; a peer\'s off their rig, else off their sprite - a walker\'s, or a beast\'s on foot (AUDIT 3)');
+  assert.ok(code.includes('yaw: mwViewSpriteFigure()?.yaw ?? player.bodyYawFor(cam.yaw),'), 'AUDIT 3: mine facing the way my sprite faces, not the camera');
   assert.equal(auraLookOf('seraphwings').mesh, 'wings');
   assert.ok(Math.abs(CLOAK_REST_POSE.shoulders[1] - CLOAK_SHOULDER_Y) < 1e-6, 'without bones, the wings hang from the rest pose\'s shoulders as the cape does');
 });
@@ -363,22 +366,48 @@ test('SERAPH-WINGS on the back of a Morrowind body: the torso read off the rig -
   assert.ok(near(strandAt(k, 0, { pose: { uTorsoU: [0, c, sn], uTorsoF: [0, -sn, c] } }).mid, [WING_ROOT.apart, CLOAK_SHOULDER_Y - WING_ROOT.below * c - WING_ROOT.back * -sn, -WING_ROOT.below * sn - WING_ROOT.back * c], 1e-5), 'the roots on the back as it leans');
 });
 
-test('SERAPH-WINGS on the back of an Eye of the Beholder sprite: its bones read off the frame drawn - the shoulders at its own shoulder line, not the rest pose\'s; sunk with a crouch; broad (within bounds) and high with a beast\'s bigger frame; a peer\'s at their own feet; none without a figure; the sprite body hands the frame it drew - none undrawn, none in the saddle - the view keeps it for the aura, and a peer\'s walker its own; a rider without bones hangs from over the saddle (mutants: the figure ignored, the shoulder line, the crouch, the saddle)', async () => {
-  const standing = auraSpriteBones({ base: 0, h: EOTB_FIGURE.refH });
-  assert.ok(Math.abs(standing['bip01 r upperarm'][1] - EOTB_FIGURE.refH * EOTB_FIGURE.shoulder) < 1e-9 && standing['bip01 r upperarm'][1] > CLOAK_SHOULDER_Y + 0.2, `the shoulders at the figure's own line (${standing['bip01 r upperarm'][1].toFixed(2)} m), well over the rest pose's ${CLOAK_SHOULDER_Y}`);
+test('SERAPH-WINGS on the back of an Eye of the Beholder sprite: its bones read off the frame drawn BY THE PIXEL - the shoulders at the sets\' own shoulder line over the frame\'s foot, whatever the frame holds (AUDIT 3: a sword up or a hand raised made the frame taller and the cloak float over the head), not the rest pose\'s; sunk with a crouch; a beast\'s at its own line; broad by its metres a pixel (within bounds); folded and closed when sunk to the neck; a peer\'s at their own feet; none without a figure; the sprite body hands the frame it drew - its metres a pixel, its form and the way it FACES (walking back it faces the camera) - none undrawn, none in the saddle, none in first person - the view keeps it for the aura, and a peer\'s walker or beast its own; a rider without bones hangs from over the saddle, the saddle the motor\'s (mutants: the figure ignored, the shoulder line, the frame\'s height read, the beast, the breadth, the sunk fold, the facing, first person, the saddle)', async () => {
+  const shoulderOf = (fig) => auraSpriteBones(fig)['bip01 r upperarm'][1];
+  const standing = auraSpriteBones({ base: 0, mpp: EOTB_FIGURE.mpp });
+  const line = EOTB_FIGURE.shoulder * EOTB_FIGURE.mpp;
+  assert.ok(Math.abs(standing['bip01 r upperarm'][1] - line) < 1e-9 && line > CLOAK_SHOULDER_Y + 0.2, `the shoulders at the sets' own line (${line.toFixed(2)} m), well over the rest pose's ${CLOAK_SHOULDER_Y}`);
+  // AUDIT 3: measured off the frames' alpha - each frame's own shoulders, whatever it holds, within a hand of the line
+  for (const [frame, px] of [['Idle', 88], ['IdleMelee', 80], ['IdleSpell', 84], ['IdleRanged', 87]]) assert.ok(Math.abs(line - px * EOTB_FIGURE.mpp) < 0.12, `${frame}: ${px} px over the foot`);
+  assert.deepEqual(auraSpriteBones({ base: 0, mpp: EOTB_FIGURE.mpp, h: 3.3 }), standing, 'a taller frame (a staff, a raised hand) is not a taller body');
+  assert.equal(standing.sunk, false);
   const p = auraCapePose(standing);
-  assert.ok(Math.abs(p.shoulders[1] - EOTB_FIGURE.refH * EOTB_FIGURE.shoulder) < 1e-6 && Math.abs(p.shoulders[3] - 1) < 1e-6, 'hung there, as broad as the rest');
+  assert.ok(Math.abs(p.shoulders[1] - line) < 1e-6 && Math.abs(p.shoulders[3] - 1) < 1e-6 && p.sunk === false, 'hung there, as broad as the rest');
   assert.ok([...p.torso].every((x, i) => Math.abs(x - CLOAK_REST_POSE.torso[i]) < 1e-6), 'a flat figure stands upright');
   assert.ok(Math.abs(strandAt(broad(1, 3), 0, { pose: { uCapeS: [...p.shoulders], uTorsoU: [0, 1, 0], uTorsoF: [0, 0, 1] } }).mid[1] - (p.shoulders[1] - WING_ROOT.below)) < 1e-6, 'the wings grow from there');
-  assert.ok(Math.abs(auraCapePose(auraSpriteBones({ base: -0.45, h: EOTB_FIGURE.refH })).shoulders[1] - (EOTB_FIGURE.refH * EOTB_FIGURE.shoulder - 0.45)) < 1e-6, 'crouched, sunk with the sprite');
-  const beast = auraCapePose(auraSpriteBones({ base: 0, h: 3.2 }));
-  assert.ok(Math.abs(beast.shoulders[1] - 3.2 * EOTB_FIGURE.shoulder) < 1e-6 && Math.abs(beast.shoulders[3] - CLOAK_ACROSS[1]) < 1e-6, 'a beast\'s bigger frame: higher, and as broad as the bounds allow');
+  assert.ok(Math.abs(auraCapePose(auraSpriteBones({ base: -0.45, mpp: EOTB_FIGURE.mpp })).shoulders[1] - (line - 0.45)) < 1e-6, 'crouched, sunk with the sprite');
+  const beastS = shoulderOf({ base: 0, mpp: 0.029, beast: true });
+  assert.ok(beastS > 1.65 && beastS < 1.74, `a beast's frames (0.029 m a pixel): at its own shoulders, measured 1.65 - 1.74 m (${beastS.toFixed(2)})`);
+  assert.ok(shoulderOf({ base: 0, mpp: 0.029 }) > 2.4, 'read as a walker\'s it would float - the form is read');
+  const big = auraCapePose(auraSpriteBones({ base: 0, mpp: EOTB_FIGURE.mpp * 1.1 }));
+  assert.ok(Math.abs(big.shoulders[3] - 1.1) < 1e-6 && Math.abs(big.shoulders[1] - line * 1.1) < 1e-6, 'a sprite drawn bigger (BillboardScale): higher and broader');
+  assert.ok(Math.abs(auraCapePose(auraSpriteBones({ base: 0, mpp: EOTB_FIGURE.mpp * 3 })).shoulders[3] - CLOAK_ACROSS[1]) < 1e-6, 'within the bounds');
+  // sunk to the neck in water: the quad's top at the waterline - nothing hangs from shoulders under it
+  const sunk = auraSpriteBones({ base: 0.45 - 110 * EOTB_FIGURE.mpp, mpp: EOTB_FIGURE.mpp });
+  assert.equal(sunk.sunk, true); assert.equal(auraCapePose(sunk).sunk, true, 'the pose says so');
   assert.equal(auraSpriteBones(null), null);
-  assert.equal(auraSpriteBones({ base: 0, h: 0 }), null, 'no figure, no bones');
+  assert.equal(auraSpriteBones({ base: 0, mpp: 0 }), null, 'no figure, no bones');
+  assert.equal(auraSpriteBones({ base: 0, h: 2.09 }), null, 'a height alone is no figure');
   const w = { at: [3, 0, 4], yaw: 0.7 };
-  const posed = auraSpritePosed(w, { base: 0, h: 2 });
+  const posed = auraSpritePosed(w, { base: 0, mpp: EOTB_FIGURE.mpp });
   assert.ok(posed.feet === w.at && posed.yaw === 0.7 && posed.bones['bip01 head'], 'a peer\'s at their own feet and facing');
   assert.equal(auraSpritePosed(w, null), null);
+  // folded and closed when sunk: the cloth, the cards, the strands - none drawn; the ground still
+  const calls = [];
+  const gl = new Proxy({ TRIANGLES: 8, BLEND: 9, ONE: 10, CULL_FACE: 11, POLYGON_OFFSET_FILL: 12, ONE_MINUS_SRC_ALPHA: 13, FRONT: 14, BACK: 15 }, {
+    get(tg, k) { if (k in tg) return tg[k]; return (...a) => { calls.push([k, ...a]); if (k === 'getShaderParameter' || k === 'getProgramParameter') return true; if (k === 'getUniformLocation') return a[1]; return {}; }; },
+  });
+  const r0 = new AuraRingRenderer(gl);
+  const drawsOf = (aura, cape) => { calls.length = 0; r0.draw([{ at: [0, 0, 0], aura, yaw: 0, cape }], new Float32Array(I), new Float32Array(I), [0, 1.5, -5], 10); return calls.filter((c) => c[0] === 'drawArrays').length; };
+  const sunkPose = auraCapePose(sunk), upPose = auraCapePose(standing);
+  assert.equal(drawsOf('seraphwings', sunkPose), 1, 'the wings closed - the ground alone');
+  assert.ok(drawsOf('seraphwings', upPose) > 2, 'open on a body standing');
+  assert.equal(drawsOf('shadowcloak', sunkPose), 1, 'the cloak folded - the ground alone');
+  assert.ok(drawsOf('shadowcloak', upPose) > 2);
   // the sprite body hands the frame it drew
   const fake = () => ({ batches: [], uploadTexture() {}, createBillboardBatch(archive, rec, size) { const b = { archive, rec, size, origin: [0, 0, 0] }; this.batches.push(b); return b; }, destroyBillboardBatch() {}, drawBillboards() {} });
   const r = fake();
@@ -387,25 +416,86 @@ test('SERAPH-WINGS on the back of an Eye of the Beholder sprite: its bones read 
   b.attach(r, () => ({}));
   await new Promise((res) => setTimeout(res, 5));
   b.toggle(true, false);
-  for (let i = 0; i < 12; i++) b.tick(1 / 60, { motion: { forward: 0, standing: true, speed: 0, grounded: true, height: 1.8 }, feet: [0, 2, 0], yaw: 0, cameraPos: [0, 3.5, -2] });
+  const still = { motion: { forward: 0, standing: true, speed: 0, grounded: true, height: 1.8 }, feet: [0, 2, 0], yaw: 0, cameraPos: [0, 3.5, -2] };
+  for (let i = 0; i < 12; i++) b.tick(1 / 60, still);
   await new Promise((res) => setTimeout(res, 2));
   assert.equal(b.draw(null, { eye: [0, 3.5, -2], feet: [0, 2, 0], yaw: 0 }), true);
   const drawn = r.batches.at(-1), fig = b.figure();
-  assert.ok(fig && Math.abs(fig.h - drawn.size.h) < 1e-9 && Math.abs(fig.base - (drawn.origin[1] - 2)) < 1e-9, `the frame drawn, over its feet (${JSON.stringify(fig)})`);
+  assert.ok(fig && Math.abs(fig.mpp - drawn.size.h / 6) < 1e-9 && Math.abs(fig.base - (drawn.origin[1] - 2)) < 1e-9 && fig.beast === false, `the frame drawn, over its feet, its metres a pixel (${JSON.stringify(fig)})`);
+  assert.equal(fig.yaw, null, 'facing nowhere yet: the camera\'s stands');
+  // AUDIT 3: WALKING BACK, THE SPRITE FACES THE CAMERA - and so do the cloak and the wings (they were the camera's way: the cape over its face)
+  const yaw = 0.3, cp = [-Math.sin(yaw) * 2, 3.5, -Math.cos(yaw) * 2];
+  for (let i = 0; i < 40; i++) b.tick(1 / 60, { motion: { forward: -1, strafe: 0, standing: false, speed: 3, grounded: true, height: 1.8 }, feet: [0, 2, 0], yaw, cameraPos: cp });
+  await new Promise((res) => setTimeout(res, 2));
+  b.draw(null, { eye: cp, feet: [0, 2, 0], yaw });
+  const back = b.figure().yaw, d = Math.atan2(Math.sin(back - yaw), Math.cos(back - yaw));
+  assert.ok(Math.abs(Math.abs(d) - Math.PI) < 1e-6, `walking back: faced about (${back.toFixed(3)} against the camera's ${yaw})`);
+  for (let i = 0; i < 40; i++) b.tick(1 / 60, { motion: { forward: 0, strafe: 1, standing: false, speed: 3, grounded: true, height: 1.8 }, feet: [0, 2, 0], yaw, cameraPos: cp });
+  await new Promise((res) => setTimeout(res, 2));
+  b.draw(null, { eye: cp, feet: [0, 2, 0], yaw });
+  assert.ok(Math.abs(b.figure().yaw - (yaw + Math.PI / 2)) < 1e-6, 'strafing: side on');
+  // AUDIT 3: none in first person - the billboard stands on the camera, and a figure lifted the hood off the eye
+  b.toggle(true, true);
+  for (let i = 0; i < 12; i++) b.tick(1 / 60, still);
+  await new Promise((res) => setTimeout(res, 2));
+  assert.equal(b.draw(null, { eye: [0, 3.7, 0], feet: [0, 2, 0], yaw: 0 }), true, 'drawn (its shadow)');
+  assert.equal(b.figure(), null, 'but no figure');
   b.toggle(false, false);
   assert.equal(b.draw(null, { eye: [0, 3.5, -2], feet: [0, 2, 0], yaw: 0 }), false);
   assert.equal(b.figure(), null, 'nothing drawn this frame: no figure kept from the last');
-  // the plumbing: the door hands the figure, the view keeps it, a peer's walker gives its own
+  // the plumbing: the door hands the figure, the view keeps it, a peer's walker or beast gives its own
   const src = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
   assert.match(src('src/player/eotbBody.js'), /setEotbDrawBody\(\(canvas, f\) => this\.draw\(canvas, f\), \(\) => this\.figure\(\)\);/);
-  assert.match(src('src/player/eotbBody.js'), /figure = last\.riding \? null : \{ base: c\[1\] - cam\.feet\[1\], h: batchSize\.h \* grow \};/, 'none in the saddle - a rider\'s frame is the horse\'s too');
+  assert.match(src('src/player/eotbBody.js'), /figure = last\.riding \|\| FP \? null : \{ base: c\[1\] - cam\.feet\[1\], mpp: batchPx > 0 \? batchSize\.h \* grow \/ batchPx : 0, beast: !!last\.transformed, yaw: /, 'none in the saddle - a rider\'s frame is the horse\'s too - nor in first person');
   const mv = src('src/player/mwView.js');
   assert.match(mv, /const drawn = drawEotbBody\([^;]*\); spriteFigure = drawn \? eotbFigure\(\) : null; return drawn;/);
   assert.match(mv, /export function mwViewSpriteFigure\(\) \{ return eotbLane\(\) \? spriteFigure : null; \}/);
-  assert.match(src('src/net/peerRiders.js'), /figureOf: layer\.figureOf,   \/\/ SERAPH-WINGS/);
-  // a rider with no bones: from over the saddle
+  const pr = src('src/net/peerRiders.js');
+  assert.match(pr, /figureOf: layer\.figureOf,   \/\/ SERAPH-WINGS/);
+  assert.match(pr, /figureOf: layer\.figureOf,   \/\/ AUDIT 3 \(SERAPH-WINGS\): a beast's on foot/);
+  assert.match(pr, /r\.px > 0 && r\.form !== 'rider' \? \{ base: \(r\.xml\.y \/ r\.xml\.scale\) \* \(r\.g \?\? 1\), mpp: r\.size\.h \/ r\.px, beast: r\.form === 'beast' \} : null/);
+  assert.match(pr, /r\.px = up\.h; r\.form = mode\?\.riding \? 'rider' : mode\?\.transformed \? 'beast' : 'walker';/);
+  // a rider with no bones: from over the saddle - the motor's own saddle
   const rider = auraCapeStep({ at: [0, 0, 0], mounted: true }, null, 1);
   assert.ok(Math.abs(rider.cape.shoulders[1] - (CLOAK_SHOULDER_Y + AURA_SADDLE_M)) < 1e-6 && rider.cape !== CLOAK_REST_POSE && Math.abs(CLOAK_REST_POSE.shoulders[1] - CLOAK_SHOULDER_Y) < 1e-6, 'a rider\'s wings from over the saddle - the rest pose untouched');
+  assert.ok(Math.abs(AURA_SADDLE_M - (RIDE_EYE_HEIGHT - EYE_HEIGHT)) < 1e-9, 'the saddle the motor\'s: its eye in the saddle over its eye afoot');
+});
+
+test('SERAPH-WINGS AUDIT 3, the net: a crouched or mounted wearer without bones keeps an upright back - its wings reach (a zeroed torso collapsed every strand onto the shoulder); a back laid flat stands at rest; a peer\'s sprite figure, driven - a walker\'s by the pixel, a beast\'s on foot its own, none in the saddle or unknown; the wings\' light from the shoulders the pose holds, none when closed, and through the dungeon\'s flame tint gold (mutants: the torso reset, the flat back, the peer\'s figure, the light\'s pose, the sunk light, the tint)', async () => {
+  const near = (a, b, tol = 1e-6) => a.length === b.length && a.every((x, i) => Math.abs(x - b[i]) < tol);
+  const leaning = { shoulders: Float32Array.of(0, 1.5, 0, 1), head: Float32Array.of(0, 1.8, 0, 0), kneeL: new Float32Array(3), kneeR: new Float32Array(3), torso: Float32Array.of(0, 0.9, 0.436, 0, -0.436, 0.9) };
+  for (const [label, w, k] of [['a rider', { at: [0, 0, 0], mounted: true }, 1], ['crouched', { at: [0, 0, 0] }, 0.6], ['a reused leaning cape, crouched', { at: [0, 0, 0], cape: leaning }, 0.6]]) {
+    const cape = auraCapeStep(w, null, k).cape;
+    assert.ok(near([...cape.torso], [...CLOAK_REST_POSE.torso]), `${label}: the back upright (${[...cape.torso]})`);
+    const tip = strandAt(broad(1, 7), 1, { pose: { uCapeS: [...cape.shoulders], uTorsoU: [...cape.torso.slice(0, 3)], uTorsoF: [...cape.torso.slice(3)] } }).mid, root = strandAt(broad(1, 7), 0, { pose: { uCapeS: [...cape.shoulders], uTorsoU: [...cape.torso.slice(0, 3)], uTorsoF: [...cape.torso.slice(3)] } }).mid;
+    assert.ok(Math.hypot(...tip.map((x, i) => x - root[i])) > 0.9, `${label}: the wings reach`);
+  }
+  const out = new Float32Array(6), L = [-0.2, 1.4, 0], R = [0.2, 1.4, 0], tilt = 80 * Math.PI / 180;
+  assert.ok(near([...auraTorso(L, R, [0, 1.2, 0], [0, 1.2 + 0.3 * Math.cos(tilt), 0.3 * Math.sin(tilt)], [0, 1.25 + 0.4 * Math.cos(tilt), 0.4 * Math.sin(tilt)], out)], [...CLOAK_REST_POSE.torso]), 'a back laid 80 degrees over: at rest');
+  // a peer's sprite figure, driven through the real layers
+  const renderer = { uploadTexture() {}, createBillboardBatch: (archive, record, size) => ({ archive, record, size, origin: null }), destroyBillboardBatch() {} };
+  const art = createEotbArt({ renderer, urlFor: (k2) => `u:${k2}`, decode: async () => ({ width: 50, height: 110, colors: new Uint32Array(50 * 110) }) });
+  const toScene = (q) => [q.x, q.y, q.z], pose = (o = {}) => ({ x: 4, y: 0, z: 9, yaw: 0, pitch: 0, mv: 0, wd: 0, an: 0, sr: 0, cn: 0, ar: 0, ...o });
+  const walkers = createPeerWalkers({ art }), riders = createPeerRiders({ art });
+  const peers = [{ id: 'w', look: { eo: 0 }, shown: pose() }, { id: 'b', look: { eo: 0 }, shown: pose({ wb: 1 }) }, { id: 'h', look: { eo: 0 }, shown: pose({ rd: 1 }) }];
+  for (let i = 0; i < 2; i++) { walkers.sync(peers, toScene, { eye: [4, 1, 20], dt: 0.01 }); riders.sync(peers, toScene, { eye: [4, 1, 20], dt: 0.01 }); await new Promise((res) => setTimeout(res, 5)); }
+  const wf = walkers.figureOf('w'), wr = walkers.walkers.get('w');
+  assert.ok(wf && Math.abs(wf.mpp - wr.size.h / 110) < 1e-9 && Math.abs(wf.base - (wr.xml.y / wr.xml.scale) * (wr.g ?? 1)) < 1e-9 && wf.beast === false, `a walker's: by the pixel (${JSON.stringify(wf)})`);
+  assert.ok(Math.abs(wf.mpp - EOTB_FIGURE.mpp) < 0.002, 'at the standing scale');
+  const bf = riders.figureOf('b');
+  assert.ok(bf && bf.beast === true && bf.mpp > wf.mpp, `a beast on foot: its own, a beast's (${JSON.stringify(bf)})`);
+  assert.ok(riders.isRiding('h'), 'the horse drawn');
+  assert.equal(riders.figureOf('h'), null, 'none in the saddle - the frame is the horse\'s too');
+  assert.equal(walkers.figureOf('nobody'), null); assert.equal(riders.figureOf('nobody'), null);
+  // the wings' light from the pose's shoulders; none closed; tagged an aura's
+  const lit = [];
+  const cape = { ...CLOAK_REST_POSE, shoulders: Float32Array.of(0, 2.23, 0, 1) };
+  auraWingLights([{ at: [0, 0, 0], aura: 'seraphwings', yaw: 0, cape }], [0, 1.6, -5], lit);
+  assert.ok(Math.abs(lit[0].y - (2.23 + WING_LIGHT.lift)) < 1e-6 && lit[0].aura === true, 'from the shoulders the pose holds - and an aura\'s');
+  auraWingLights([{ at: [0, 0, 0], aura: 'seraphwings', yaw: 0, cape: { ...cape, sunk: true } }], [0, 1.6, -5], lit);
+  assert.equal(lit.length, 0, 'closed: unlit');
+  const wm = readFileSync(new URL('../src/scenes/worldModes.js', import.meta.url), 'utf8');
+  assert.match(wm, /const _dgTint = \(l\) => \(l && !l\.aura \? \{ \.\.\.l, color: _iilOn \? iilTorch\(l\)\.color : _dgColor \} : l\);/, 'the dungeon\'s flame tint passes an aura\'s light by');
 });
 
 // ── THE INSANE PARTS ────────────────────────────────────────────────

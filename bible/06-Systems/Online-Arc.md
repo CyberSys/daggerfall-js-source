@@ -14653,3 +14653,31 @@ The record is `11-Multiplayer/Sea-Serpent.md` section 14. What it asks of the on
   pins the gate's alone. Mutants: `tools/mutants/serpent2.json` (49, all dead). Re-aimed by content:
   `discordgates.json` (8: the serpent's copy of the `site` law, the beat and the place made their old text stand twice;
   `heraldStamp` renamed), `wb12d.json` and `wb13b.json` (`heraldList`).
+
+## AURA-LIVE (2026-10-05, Mac: "Ensure other players can sew all auras") - a badge worn now reaches the room now
+
+The relay reads a badge - the aura, the title, the glyphs - off the token alone (ACC3, WB9g), and a token rides a
+hello. So an aura put on at the account card or the Broker was drawn at the wearer's own feet at once and at nobody
+else's until they changed area; the Broker said as much ("Others see it once you change area.").
+
+- `OnlineSession.rehello()` (`src/net/online.js`): each open socket - the room's and every halo's - says hello again on
+  a fresh token through a NEW socket of the same id. The relay already reads that as a reconnect
+  (`server/src/index.js`, the hello's replace loop): the old socket loses the id first, so its close says no leave;
+  it is closed CLOSE_REPLACED; the first hello's stamp is kept, so a world room's host keeps the seat (AUDIT WORLD A4);
+  and the new hello's join is fanned with the new badge, which every client reads through `_refresh`.
+- The old socket speaks for the room until the new one's token (and, in a battle's room, its pass) is minted, and only
+  then does the new one take its place (`_promote`) - so nothing goes unsaid but a hello's round trip, and the own lane
+  waits for the new welcome as `_open`'s does (OWN1 O2). From then on the old socket is no room's, so its replaced
+  close is ignored and is never the one-seat verdict; the welcome closes it by this hand if the relay has not.
+- A replacement whose room went while it minted (a leave, a crossing, a drop) is closed and the old socket's own paths
+  stand; one the relay refuses (busy) takes the old socket with it and the ordinary retry says hello; one that never
+  opens is dropped past BACKOFF_MAX_MS and the badge is owed again. At most once a REHELLO_GAP_MS (3 s) - a run of
+  changes costs the room's hello budget one hello a socket, and the latest badge goes.
+- The host, `src/scenes/world.js`: the minter's hook (`adoptIssued`) keeps the aura the last token said
+  (`_auraHeard`); `auraFrame` asks `online.rehello()` when my own (`ownAura`) differs from it - a wear since, from any
+  door - and never after a mint, which said it already. THE FOUR HOSTS: world.js WIRED; `worldModes.js`,
+  `dungeonContext.js` and `exterior.js` hold no session of their own - unchanged.
+- No relay change and no version: the relay's own reconnect law does it.
+- Pins: `test/auralive.test.js` (6) - end to end through the real Room (a peer draws the wings; no leave; the host's
+  seat kept; not superseded; taken off the same way), a run of changes one hello, the halo's socket, the refusals, the
+  host's ask; `tools/mutants/auralive.json` (12).

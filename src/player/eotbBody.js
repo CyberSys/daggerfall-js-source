@@ -259,8 +259,8 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
   const decoded = new Map();    // key -> the decoded pixels, so a mirrored twin needs no second fetch
   let batch = null;
   let batchRec = null;
-  let batchSize = null;
-  let figure = null;   // SERAPH-WINGS: the frame last drawn, as an aura reads it - its base and its height over the feet (m)
+  let batchSize = null, batchPx = 0;   // AUDIT 3 (SERAPH-WINGS): and the frame's own pixels tall - the figure's metres a pixel
+  let figure = null;   // SERAPH-WINGS: the frame last drawn, as an aura reads it - its base over the feet (m), its metres a pixel, its form and its facing (AUDIT 3)
   /** The one sprite that decides whether this lane may open at all. See `ready()`. */
   let firstUp = false;
 
@@ -927,13 +927,13 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
           batch.noShadow = grow > 1;   // AUDIT OW5 R2: OW-BIG's giant casts NOTHING - selfCard off was never that (render/shadowPass.js: it only keeps the card out of the lamps' maps when it is not the player's own; the sun's cascades drew the tenfold card, a fifty-metre shadow at a low sun, and the lamps' maps baked it)
           batchRec = key;
         }
-        batchSize = size;
+        batchSize = size; batchPx = up.h;
       }
       if (!batch) return false;                 // nothing up yet: the last sprite stays until one is
       const c = place();
       if (!c) return false;
       batch.origin[0] = c[0]; batch.origin[1] = c[1]; batch.origin[2] = c[2];
-      figure = last.riding ? null : { base: c[1] - cam.feet[1], h: batchSize.h * grow };   // SERAPH-WINGS: a rider's frame is the horse's too - no shoulders read off it
+      figure = last.riding || FP ? null : { base: c[1] - cam.feet[1], mpp: batchPx > 0 ? batchSize.h * grow / batchPx : 0, beast: !!last.transformed, yaw: Math.hypot(lastMoveDirection?.[0] ?? 0, lastMoveDirection?.[2] ?? 0) > 1e-6 ? Math.atan2(lastMoveDirection[0], lastMoveDirection[2]) : null };   // SERAPH-WINGS: a rider's frame is the horse's too - no shoulders read off it; AUDIT 3: nor the first-person billboard's (the camera is in it), and its metres a pixel (the shoulders by the pixel - auraSpriteBones), its form, and the way it FACES (UpdateOrientation's facing - not the camera's: a sprite walking back shows its face)
       batch.conceal = material();
       // AUDIT DEEP R-2: under the travel view the quad turns to the VIEW's eye (and leans with the flats) - on the
       // traveller's own heading it went edge-on as the view orbited, a sliver at 90 degrees, mirrored at 180

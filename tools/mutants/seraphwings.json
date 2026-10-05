@@ -407,17 +407,17 @@
   {
     "name": "SERAPHWINGS-the-shoulder-line",
     "file": "src/render/auraRing.js",
-    "old": "shoulder: 0.8, neck: 0.85,",
-    "new": "shoulder: 0.68, neck: 0.85,",
+    "old": "shoulder: 86, neck: 91,",
+    "new": "shoulder: 72, neck: 91,",
     "tests": [
       "test/seraphwings.test.js"
     ]
   },
   {
-    "name": "SERAPHWINGS-the-figure-unscaled",
+    "name": "SERAPHWINGS-the-frames-height-read",
     "file": "src/render/auraRing.js",
-    "old": "const at = (f) => fig.base + fig.h * f,",
-    "new": "const at = (f) => fig.base + EOTB_FIGURE.refH * f,",
+    "old": "at = (px) => fig.base + px * m,",
+    "new": "at = (px) => fig.base + (fig.h > 0 ? fig.h * px / 110 : px * m),",
     "tests": [
       "test/seraphwings.test.js"
     ]
@@ -425,8 +425,8 @@
   {
     "name": "SERAPHWINGS-the-crouch-unsunk",
     "file": "src/render/auraRing.js",
-    "old": "const at = (f) => fig.base + fig.h * f,",
-    "new": "const at = (f) => fig.h * f,",
+    "old": "at = (px) => fig.base + px * m,",
+    "new": "at = (px) => px * m,",
     "tests": [
       "test/seraphwings.test.js"
     ]
@@ -452,7 +452,7 @@
   {
     "name": "SERAPHWINGS-a-peers-sprite-ignored",
     "file": "src/scenes/world.js",
-    "old": " ?? auraSpritePosed(w, peerWalkers?.figureOf(w.id))",
+    "old": " ?? auraSpritePosed(w, peerWalkers?.figureOf(w.id) ?? peerRiders?.figureOf?.(w.id))",
     "new": "",
     "tests": [
       "test/seraphwings.test.js"
@@ -461,7 +461,7 @@
   {
     "name": "SERAPHWINGS-the-figure-never-kept",
     "file": "src/player/eotbBody.js",
-    "old": "      figure = last.riding ? null : { base: c[1] - cam.feet[1], h: batchSize.h * grow };",
+    "old": "      figure = last.riding || FP ? null : { base: c[1] - cam.feet[1], mpp: batchPx > 0 ? batchSize.h * grow / batchPx : 0, beast: !!last.transformed, yaw: Math.hypot(lastMoveDirection?.[0] ?? 0, lastMoveDirection?.[2] ?? 0) > 1e-6 ? Math.atan2(lastMoveDirection[0], lastMoveDirection[2]) : null };   // SERAPH-WINGS: a rider's frame is the horse's too - no shoulders read off it; AUDIT 3: nor the first-person billboard's (the camera is in it), and its metres a pixel (the shoulders by the pixel - auraSpriteBones), its form, and the way it FACES (UpdateOrientation's facing - not the camera's: a sprite walking back shows its face)",
     "new": "",
     "tests": [
       "test/seraphwings.test.js"
@@ -470,8 +470,8 @@
   {
     "name": "SERAPHWINGS-a-riders-figure",
     "file": "src/player/eotbBody.js",
-    "old": "figure = last.riding ? null :",
-    "new": "figure = false ? null :",
+    "old": "figure = last.riding || FP ? null :",
+    "new": "figure = FP ? null :",
     "tests": [
       "test/seraphwings.test.js"
     ]
@@ -623,8 +623,8 @@
   {
     "name": "SERAPHWINGS-a-light-for-every-aura",
     "file": "src/render/auraRing.js",
-    "old": "if (!w || auraLookOf(w.aura).mesh !== 'wings' || !Array.isArray(w.at)) continue;",
-    "new": "if (!w || !w.aura || !Array.isArray(w.at)) continue;",
+    "old": "if (!w || auraLookOf(w.aura).mesh !== 'wings' || !Array.isArray(w.at) || w.cape?.sunk === true) continue;",
+    "new": "if (!w || !w.aura || !Array.isArray(w.at) || w.cape?.sunk === true) continue;",
     "tests": [
       "test/seraphwings.test.js"
     ]
@@ -670,6 +670,168 @@
     "file": "src/scenes/world.js",
     "old": "for (const l of auraWingLights(_auraWearers, cam.pos, _auraLights)) _peerLights.push(l); return _peerLights;",
     "new": "return _peerLights;",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-a-figure-in-first-person",
+    "file": "src/player/eotbBody.js",
+    "old": "figure = last.riding || FP ? null :",
+    "new": "figure = last.riding ? null :",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-camera-facing",
+    "file": "src/player/eotbBody.js",
+    "old": "yaw: Math.hypot(lastMoveDirection?.[0] ?? 0, lastMoveDirection?.[2] ?? 0) > 1e-6 ? Math.atan2(lastMoveDirection[0], lastMoveDirection[2]) : null };",
+    "new": "yaw: null };",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-my-sprites-facing-ignored",
+    "file": "src/scenes/world.js",
+    "old": "yaw: mwViewSpriteFigure()?.yaw ?? player.bodyYawFor(cam.yaw), bones:",
+    "new": "yaw: player.bodyYawFor(cam.yaw), bones:",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-beast-read-as-a-walker",
+    "file": "src/render/auraRing.js",
+    "old": "fig.mpp * (fig.beast === true ? EOTB_FIGURE.beast : 1)",
+    "new": "fig.mpp",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-breadth-unscaled",
+    "file": "src/render/auraRing.js",
+    "old": "half = CLOAK_SHOULDER_HALF * m / EOTB_FIGURE.mpp;",
+    "new": "half = CLOAK_SHOULDER_HALF;",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-never-sunk",
+    "file": "src/render/auraRing.js",
+    "old": "sunk: at(EOTB_FIGURE.shoulder) < CLOAK_SHOULDER_Y * 0.4,",
+    "new": "sunk: false,",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-pose-forgets-sunk",
+    "file": "src/render/auraRing.js",
+    "old": "o.sunk = bones.sunk === true;",
+    "new": "o.sunk = false;",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-cloak-hung-sunk",
+    "file": "src/render/auraRing.js",
+    "old": "const folded = w.mounted === true || w.cape?.sunk === true;",
+    "new": "const folded = w.mounted === true;",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-wings-open-sunk",
+    "file": "src/render/auraRing.js",
+    "old": "closed = wings && pose.sunk === true;",
+    "new": "closed = false;",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-a-sunk-light",
+    "file": "src/render/auraRing.js",
+    "old": "|| w.cape?.sunk === true) continue;   // AUDIT 3: closed (sunk to the neck), unlit",
+    "new": ") continue;   // AUDIT 3: closed (sunk to the neck), unlit",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-light-untagged",
+    "file": "src/render/auraRing.js",
+    "old": "carried: true, aura: true, _d: d",
+    "new": "carried: true, _d: d",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-dungeon-tints-the-wings",
+    "file": "src/scenes/worldModes.js",
+    "old": "const _dgTint = (l) => (l && !l.aura ? {",
+    "new": "const _dgTint = (l) => (l ? {",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-a-beasts-form-lost",
+    "file": "src/net/peerRiders.js",
+    "old": "beast: r.form === 'beast' } : null",
+    "new": "beast: false } : null",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-a-riders-figure-read",
+    "file": "src/net/peerRiders.js",
+    "old": "r.px > 0 && r.form !== 'rider' ?",
+    "new": "r.px > 0 ?",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-beasts-layer-figureless",
+    "file": "src/net/peerRiders.js",
+    "old": "    figureOf: layer.figureOf,   // AUDIT 3 (SERAPH-WINGS): a beast's on foot - none in the saddle\n",
+    "new": "",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-torso-left-zero",
+    "file": "src/render/auraRing.js",
+    "old": "(c.torso ?? (c.torso = new Float32Array(6))).set(CLOAK_REST_POSE.torso);",
+    "new": "c.torso ??= new Float32Array(6);",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-a-flat-back-stands",
+    "file": "src/render/auraRing.js",
+    "old": "uy / ul < 0.2)",
+    "new": "uy / ul < -0.5)",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-light-at-rest",
+    "file": "src/render/auraRing.js",
+    "old": "sh = (w.cape ?? CLOAK_REST_POSE).shoulders;",
+    "new": "sh = CLOAK_REST_POSE.shoulders;",
     "tests": [
       "test/seraphwings.test.js"
     ]
