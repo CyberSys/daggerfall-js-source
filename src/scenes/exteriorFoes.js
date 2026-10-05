@@ -1163,7 +1163,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     f.escaped = true;
     f.yielded = null;
     if (f.ai?.detected) setEnemyAlert(playerEntity, false);
-    const r = revenantDeed(playerEntity, f.entity, 'fled', { mobileType: f.mobileType, gender: f.gender, rec: f, archive: f.archive });
+    const r = revenantDeed(playerEntity, f.entity, 'fled', { mobileType: f.mobileType, gender: f.gender, rec: f, archive: f.archive, unbroken });   // RVN12b: an unbroken one's escape, so remembered
     if (r) revenantSay(slip ? slipEvent(playerEntity, r, { archive: f.archive }) : unbroken ? revenantUnbrokenEvent(r, playerEntity?.name, { archive: f.archive }) : revenantEscapeEvent(r, playerEntity?.name, { archive: f.archive }), say);   // REVENANT-FATE: a slip says the hesitation; RVN3: the unbroken its own
   }
   /** RVN10 (Feud-Arc.md 21.2): ROUTED - I ran from it: gone as the cull takes a foe (no corpse, no kill, its batch freed;

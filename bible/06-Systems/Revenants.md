@@ -502,3 +502,11 @@ your arrows now"), its signature blow by name, its last stand, the piece it took
 Its return speaks to its newest deed against the player. Beasts never speak: the narrator says what they do. The law:
 `bible/12-Enhanced-AI/Feud-Arc.md` section 23 and its RVN12a record.
 
+## 31. The page and the card (FEUD RVN12b, 2026-10-05)
+
+The Revenants page (Holdings) now shows, for each living revenant, what it learned as chips - each saying what it does
+to the player - what it took, and how far it has festered (three pips), beside its weakness, will, last stand,
+signature, band and lair; a sworn one's loyalty; and a fallen one that once tore away unbroken says so in its deeds. Its
+cards wear FEUD's edges: a last stand blood with an ember rim, a signature iron red, a theft amber, a betrayal black.
+The law: `bible/12-Enhanced-AI/Feud-Arc.md` section 24 and its RVN12b record.
+

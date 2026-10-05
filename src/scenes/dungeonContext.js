@@ -1616,7 +1616,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     f.escaped = true;
     f.yielded = null;
     if (f.ai?.detected) setEnemyAlert(playerEntity, false);
-    const r = revenantDeed(playerEntity, f.entity, 'fled', { mobileType: f.mobileType, gender: f.gender, rec: f, archive: f.mobileArchive });
+    const r = revenantDeed(playerEntity, f.entity, 'fled', { mobileType: f.mobileType, gender: f.gender, rec: f, archive: f.mobileArchive, unbroken });   // RVN12b: an unbroken one's escape, so remembered
     if (r) revenantSay(slip ? slipEvent(playerEntity, r, { archive: f.mobileArchive }) : unbroken ? revenantUnbrokenEvent(r, playerEntity?.name, { archive: f.mobileArchive }) : revenantEscapeEvent(r, playerEntity?.name, { archive: f.mobileArchive }), (l) => hudText.add(l));   // REVENANT-FATE: a slip says the hesitation; RVN3: the unbroken its own
   }
   /** RVN5 (Feud-Arc.md 16.1): its signature called once a stand, and a pyre's blast on me - the open world's law

@@ -247,7 +247,7 @@ const isNum = (v) => Number.isFinite(v);
 const ALLY_MAX = 40;
 const allyName = (v) => (isStr(v) && v.trim() ? v.trim().slice(0, ALLY_MAX) : null);
 /** A deed read back: its name and minute, and (RVN10) a felled companion's name. */
-const historyOf = (d) => { const ally = allyName(d.ally); return { deed: d.deed, at: d.at, ...(ally ? { ally } : {}) }; };
+const historyOf = (d) => { const ally = allyName(d.ally); return { deed: d.deed, at: d.at, ...(ally ? { ally } : {}), ...(d.deed === 'fled' && d.unbroken === true ? { unbroken: true } : {}) }; };   // RVN12b: an escape unbroken
 const FATES = new Set(['executed', 'sworn', 'released']);
 /** REVENANT-COMPANION: a sworn one's place read back - the shape checked; anything odd walks with the player whole. */
 function sanitizeCompanion(c, personality = null) {
@@ -358,7 +358,7 @@ function trimLiving(keep) {
     if (drop) bury(drop);
   }
 }
-const deed = (r, d, at, ally = null) => { r.history.push({ deed: d, at, ...(ally ? { ally } : {}) }); if (r.history.length > HISTORY_MAX) r.history.splice(0, r.history.length - HISTORY_MAX); };   // RVN10: a felling names its companion
+const deed = (r, d, at, extra = null) => { r.history.push({ deed: d, at, ...(extra ?? {}) }); if (r.history.length > HISTORY_MAX) r.history.splice(0, r.history.length - HISTORY_MAX); };   // RVN10: a felling names its companion
 const dueFrom = (now, rolls) => now + REVENANT_RETURN_MIN_MINUTES + Math.floor(rolls() * (REVENANT_RETURN_MAX_MINUTES - REVENANT_RETURN_MIN_MINUTES + 1));
 
 // ── who may become one ──────────────────────────────────────────────
@@ -379,7 +379,7 @@ export function revenantCandidate(entity, rec = null) {
 /** Make `entity` a revenant for what it just did (`deed` 'slew' or 'fled'), or rank up the one it already is. Answers
  *  the record, or null when it may not be one. `mobileType`/`gender` from the pool's record where the entity lacks
  *  them. */
-export function revenantDeed(player, entity, deedName, { mobileType = entity?.mobileType, gender = 'male', rec = null, archive = null, now = nowMinutes(), rolls = Math.random, ally = null } = {}) {   // RVN10: `ally` the companion a felling knocked out
+export function revenantDeed(player, entity, deedName, { mobileType = entity?.mobileType, gender = 'male', rec = null, archive = null, now = nowMinutes(), rolls = Math.random, ally = null, unbroken = false } = {}) {   // RVN10: `ally` the companion a felling knocked out; RVN12b: `unbroken` - its will held at the killing blow (RVN3's tear-away)
   const ledger = takeFeud(entity);   // RVN1: the fight is over - its ledger taken whatever the answer (it dies with the fight)
   if (!revenantCandidate(entity, rec) || !Number.isInteger(mobileType)) return null;
   ensureMirror(player);
@@ -412,7 +412,7 @@ export function revenantDeed(player, entity, deedName, { mobileType = entity?.mo
   r.name = joinName(r.given, r.epithet);
   if (deedName === 'slew') { r.kills++; r.notice = 'slew'; _lastSlew = { id: r.id, at: Date.now() }; } else { if (deedName === 'fled') r.escapes++; r.notice = null; }   // RVN8: this death's killer, for the respawn   // RVN10: a felling or a rout is no escape of its own
   r.dueAt = dueFrom(now, rolls);
-  deed(r, deedName, now, deedName === 'felled' ? allyName(ally) : null);
+  deed(r, deedName, now, deedName === 'felled' && allyName(ally) ? { ally: allyName(ally) } : deedName === 'fled' && unbroken ? { unbroken: true } : null);
   // RVN1 (section 12): the fight folded into its SCARS - its leading source, its lessons, the deed - and counted
   const kinds = feudScars(ledger, deedName);
   r.scars = withScars(r.scars, kinds, now);

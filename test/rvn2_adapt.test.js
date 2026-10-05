@@ -375,5 +375,7 @@ test('RVN2 THE EDGE: frozen, from its adaptations and its weakness - nothing tou
     return n;
   };
   drawRevenantsPage(el('div'), () => {}, { el, divider: () => el('hr'), player: p, kindName: () => 'Orc' });
-  assert.ok(made.some((n) => n.cls === 'rvn-learned' && n.text === 'Learned: Hewn-hard.'), 'the row says it');
+  // PIN MOVED (RVN12b, bible/12-Enhanced-AI/Feud-Arc.md 24.1): as chips, each with what it does
+  assert.ok(made.some((n) => n.cls === 'rvn-chip' && n.text === 'Hewn-hard'), 'the row says it');
+  assert.ok(made.some((n) => n.cls === 'rvn-effects' && n.text === 'Hewn-hard - your axes bite less.'), 'and what it does');
 });

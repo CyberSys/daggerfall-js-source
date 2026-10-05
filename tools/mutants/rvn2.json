@@ -506,8 +506,8 @@
   {
     "name": "RVN2-the-page-unnamed",
     "file": "src/ui/revenantPage.js",
-    "old": "  if (learned) text.append(el('span', 'rvn-learned', learned));\n",
-    "new": "",
+    "old": "    for (const c of chips) { const chip = el('span', 'rvn-chip', c.name); chip.title = c.title; box.append(chip); }\n    text.append(box);\n    text.append(el('span', 'rvn-effects',",
+    "new": "    text.append(box);\n    text.append(el('span', 'rvn-effects',",
     "tests": [
       "test/rvn2_adapt.test.js"
     ]

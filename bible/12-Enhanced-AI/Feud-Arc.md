@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL, RVN1-RVN11 and RVN12a built; RVN12b-RVN13 next)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL and RVN1-RVN12 built; RVN13 next)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -7,7 +7,7 @@ detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
 (section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts), AUDIT
-TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), RVN8, RVN9, RVN10, RVN11 in three parts (RVN11a loyalty, RVN11b desertion, RVN11c betrayal), and RVN12 in two (RVN12a the words built; RVN12b the page and the card next); each slice's record is at the foot.**
+TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), RVN8, RVN9, RVN10, RVN11 in three parts (RVN11a loyalty, RVN11b desertion, RVN11c betrayal), and RVN12 in two (RVN12a the words, RVN12b the page and the card); each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -955,6 +955,14 @@ For the living, under what it is:
 
 - Kickers: *Last stand*, *Signature*, *Grows bolder*, *It took*, *Oathbreaker*, *Betrayed*, *Weakness*.
 - Edges: blood with an ember rim for a last stand; iron red for a signature; amber for a theft; black for a betrayal.
+
+- **As built (RVN12b; the record at the foot)**: most of 24.1's rows came with their slices (RVN3's weakness - its words
+  as RVN3 built them, "Weakness: unknown." / its kind / its name - RVN3-RVN7's will, last stand, signature, band, lair,
+  RVN1's scars); RVN12b adds the learned chips (each its effect, on its title and in a line under them), *Took*,
+  *Festering*'s three pips (shown with a wrath), a sworn one's loyalty, and "escaped unbroken" (the record's `fled` deed
+  now remembers RVN3's tear-away: `unbroken` on its history entry). The kickers were each built with their moment
+  (*It took* with RVN12a); FEUD's other kinds take edges by their kin (decided here: a felling, a festering, its lair, a
+  weakness blood; a rout, an unbroken escape, a desertion amber; a warning the companion's violet).
 
 ## 25. Online (RVN13)
 
@@ -2347,3 +2355,21 @@ and `dungeonContext.js`.
   it). Mutant records re-aimed by content (9): `revenantaudit`'s A11 and `revenantvoice`'s name-unfilled (the fill
   widened), `rvn11a`'s warn-mute-speaks (the warning through the voice), `rvn11b`'s card-missing, `rvn11c`'s kicker and
   turn-untold, `rvn5`'s three street calls (each line now hands my name) - each judged again: dead.
+
+### RVN12b - BUILT 2026-10-05 (the Enhanced Plus page and card)
+
+- **The page** - `ui/revenantPage.js`: `ADAPT_EFFECTS` (13.2's table in a chip's words), `learnedChips(r)` (drawn as
+  `rvn-chip`s, each its effect on its title, and an `rvn-effects` line), `tookWords(r)` (RVN8's pieces by their pack
+  names), `festerPips(r)` (RVN9's wrath of WRATH_MAX, three pips and their words), `swornLoyaltyWords(r)` (RVN11's), and
+  `historyWords` saying "escaped unbroken".
+- **The record** - `revenant.js`: `revenantDeed(..., { unbroken })` writes `unbroken` on a `fled` entry (a history entry
+  now takes its extra fields whole - `deed(r, d, at, extra)`); `historyOf` keeps it for a `fled` alone. The tear-aways
+  (`scenes/exteriorFoes.js escapeFoe`, `scenes/dungeonContext.js escapeDungeonFoe`) pass it.
+- **The card** - `ui/revenantCard.js`: the edges for every FEUD kind (24.2's four, and the rest by their kin).
+- **Four hosts** - the page and the card are the Enhanced Plus menu's and HUD's, every host's; the record's `unbroken`
+  is written by the street's and the dungeon's tear-away (`scenes/worldModes.js`'s interiors the street pool's kind;
+  `scenes/exterior.js` - no `fates`, so no tear-away there: FLAGGED as ever, section 32).
+- Pins `test/rvn12b_page.test.js` (5). Mutants `tools/mutants/rvn12b.json` (25): 25 dead. Pin moved (1): `rvn2_adapt`
+  (the page's learned row is chips now). Mutant records re-aimed by content (4): `rvn10`'s ally-unsaved,
+  history-ally-dropped and page-name-dropped (the history's extra fields), `rvn2`'s page-unnamed (the chips) - each
+  judged again: dead.

@@ -182,8 +182,8 @@
   {
     "name": "RVN10-history-ally-dropped",
     "file": "src/systems/revenant.js",
-    "old": "  deed(r, deedName, now, deedName === 'felled' ? allyName(ally) : null);",
-    "new": "  deed(r, deedName, now);",
+    "old": "  deed(r, deedName, now, deedName === 'felled' && allyName(ally) ? { ally: allyName(ally) } : deedName === 'fled'",
+    "new": "  deed(r, deedName, now, false ? { ally: allyName(ally) } : deedName === 'fled'",
     "tests": [
       "test/rvn10_deeds.test.js"
     ]
@@ -191,8 +191,8 @@
   {
     "name": "RVN10-ally-unsaved",
     "file": "src/systems/revenant.js",
-    "old": "const historyOf = (d) => { const ally = allyName(d.ally); return { deed: d.deed, at: d.at, ...(ally ? { ally } : {}) }; };",
-    "new": "const historyOf = (d) => ({ deed: d.deed, at: d.at });",
+    "old": "return { deed: d.deed, at: d.at, ...(ally ? { ally } : {}), ...(d.deed === 'fled'",
+    "new": "return { deed: d.deed, at: d.at, ...(d.deed === 'fled'",
     "tests": [
       "test/rvn10_deeds.test.js"
     ]
@@ -578,8 +578,8 @@
   {
     "name": "RVN10-page-name-dropped",
     "file": "src/ui/revenantPage.js",
-    "old": "(d?.deed === 'felled' && typeof d.ally === 'string' && d.ally ? `felled ${d.ally}` : DEED_WORDS[d?.deed]",
-    "new": "(DEED_WORDS[d?.deed]",
+    "old": "(d?.deed === 'felled' && typeof d.ally === 'string' && d.ally ? `felled ${d.ally}` : d?.deed === 'fled'",
+    "new": "(d?.deed === 'fled'",
     "tests": [
       "test/rvn10_deeds.test.js"
     ]
