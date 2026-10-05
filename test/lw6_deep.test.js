@@ -145,6 +145,7 @@ function diverRig({ owner = true, fated = () => false } = {}) {
     leader: () => leader, spot: (from, dx, dz) => [from[0] + dx, from[1], from[2] + dz],
     owner: () => owner, relations: () => rel, turnKeyOf: (res) => `${res.id}@K`, dies: (res) => fated(res), day: () => 7,
     say: (t) => said.push(t),
+    died: (res, t) => rel.turn('died', `${res.id}@K`, { t, who: res.name }),   // AUDIT-C3: the host's hand turn at the minute
   });
   return { divers, pool, spawned, rel, said, setLeader: (l) => { leader = l; } };
 }
@@ -185,11 +186,11 @@ test('LW6 the companies met: a company diving the player\'s dungeon, this player
   // the first cut down; their hours done: the fated second spared, regard moved, the company gone
   rig.spawned[0].dead = true;
   rig.divers.frame([c], 1500);
-  assert.ok(rig.rel.turns().fallen.has('L5.t2@K'), 'cut down beside the player');
+  assert.deepEqual(rig.rel.turns().died.get('L5.t2@K'), { t: 1500, seen: false, who: 'Ada Lark' }, 'cut down beside the player: died at their side, at that minute (AUDIT-C3)');
   rig.divers.frame([c], 2000);
   assert.ok(rig.rel.turns().spared.has('L5.t6@K'), 'the fated, standing: spared');
   assert.deepEqual([rig.rel.regard('L5.t6', 7), rig.rel.regard('L5.t2', 7)], [35, 0], 'saved - and nothing for the fallen');
-  assert.equal(rig.pool.size, 0, 'the company gone to the surface');
+  assert.deepEqual([...rig.pool], [rig.spawned[0]], 'the company gone to the surface - the one cut down the pool\'s own (AUDIT-C4)');
   assert.match(rig.said[rig.said.length - 1], /make for the surface/);
   assert.equal(rig.divers.size, 0);
   // a company the dive lists no longer goes; clear forgets every one

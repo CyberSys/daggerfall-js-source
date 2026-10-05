@@ -46,7 +46,7 @@ export const foeStrength = (level) => 1 + 0.6 * Math.max(1, level);
 /**
  * @typedef {{ climateAt: (px: number, py: number) => number,
  *   foesOf: (q: { climateIndex: number, dungeonType?: number, minute: number, level: number, size: number, rolls: () => number }) => (number[] | null),
- *   foeLevel?: (type: number, level: number) => number, dies?: (res: any, trip: any) => boolean,
+ *   foeLevel?: (type: number, level: number) => number, dies?: (res: any, trip: any) => boolean, diced?: (res: any, trip: any) => boolean,
  *   turnOf?: (encId: string) => ('won'|'lost'|null) }} TroubleWorld - `turnOf` the character's own turn of an encounter
  *   (relations.js turns: a fight the player won for the party, or lost with it)
  */
@@ -64,15 +64,20 @@ export function troubleOf(trip, world) {
   if (!(walk > 0) || !(trip.pace > 0)) return null;
   const walkMin = walk / trip.pace;
   const days = Math.max(1, Math.ceil(walkMin / 720));
+  // AUDIT-B1: THE TROUBLE'S SHAPE IS THE DICE'S, ITS END THE CHARACTER'S. Whether it comes, where, when, how many and how
+  // it goes are the lives' own dice (`diced`: the character's turns of the cycle aside); who falls reads the turns
+  // (`dies`: one the player spared lives). Shaped by the turns, a party the player had just saved re-rolled its whole
+  // trouble - its fight gone from under it, its halt moved, met again elsewhere
+  const fated = trip.party.filter((m) => (world.diced ?? world.dies)?.(m, trip)).map((m) => m.id);
   const dead = trip.party.filter((m) => world.dies?.(m, trip)).map((m) => m.id);
-  if (trip.dive && dead.length) return diveTrouble(trip, dead, world);   // LW6: a dive's fated meet their end inside
+  if (trip.dive && (fated.length || dead.length)) return diveTrouble(trip, dead, world, fated);   // LW6: a dive's fated meet their end inside
   const rng = lwRng(textSeed(trip.id), TROU);
   const kinds = trip.way.kinds ?? [];
   const ground = kinds.length ? kinds.reduce((a, k) => a + (GROUND_RISK[/** @type {keyof typeof GROUND_RISK} */ (k)] ?? 1), 0) / kinds.length : 1;
   const risk = Math.min(RISK_MAX, RISK_PER_DAY * 2 * days * ground);
   const u = rng();
-  if (!dead.length && u >= risk) return null;
-  const leg = rng() < (dead.length ? 0.7 : 0.5) ? 'out' : 'back';
+  if (!fated.length && !dead.length && u >= risk) return null;
+  const leg = rng() < (fated.length ? 0.7 : 0.5) ? 'out' : 'back';
   const legStart = leg === 'out' ? trip.outT0 : trip.backT0;
   // where: a seeded stretch of the walk, or the camp of a leg's first night
   let wm = (0.15 + 0.7 * rng()) * walkMin;
@@ -87,34 +92,39 @@ export function troubleOf(trip, world) {
   const px = Math.floor(p.x / NATIVE_PIXEL), py = 499 - Math.floor(p.z / NATIVE_PIXEL);
   const armed = trip.party.filter((m) => m.cls != null);
   const level = Math.max(1, ...armed.map((m) => m.level ?? 1), 2);
-  const size = dead.length ? Math.min(FOES_MAX, trip.party.length + 2) : Math.min(FOES_MAX, 1 + Math.floor(rng() * (trip.party.length + 1)));
+  const size = fated.length ? Math.min(FOES_MAX, trip.party.length + 2) : Math.min(FOES_MAX, 1 + Math.floor(rng() * (trip.party.length + 1)));
   const foes = world.foesOf({ climateIndex: world.climateAt(px, py), minute: t0, level, size, rolls: rng }) ?? [];
-  if (!foes.length && !dead.length) return null;   // the sea, a climate with no table: nothing out there
-  /** @type {'driven'|'won'|'fled'|'fell'} */
-  let kind;
-  if (dead.length) kind = dead.includes(trip.leader.id) ? 'fell' : 'won';
+  if (!foes.length && !fated.length && !dead.length) return null;   // the sea, a climate with no table: nothing out there
+  /** @type {'driven'|'won'|'fled'|'fell'} the dice's - the halt and the fight's length */
+  let shape;
+  if (fated.length) shape = fated.includes(trip.leader.id) ? 'fell' : 'won';
   else {
     const sP = trip.party.reduce((a, m) => a + strengthOf(m), 0);
     const sF = foes.reduce((a, f) => a + foeStrength(world.foeLevel?.(f, level) ?? level), 0);
     const pWin = sP / (sP + sF);
     const r = rng();
-    kind = r < 0.55 * pWin ? 'driven' : r < pWin ? 'won' : 'fled';
+    shape = r < 0.55 * pWin ? 'driven' : r < pWin ? 'won' : 'fled';
   }
-  // the character's own turn: a fight they won for the party is won (its leader standing); one they lost with it, fled
+  // how it went: the leader dead (a turn) the party fell, the fated leader spared it stood; and the character's own turn -
+  // a fight they won for the party is won (its leader standing), one they lost with it, fled
+  /** @type {'driven'|'won'|'fled'|'fell'} */
+  let kind = dead.includes(trip.leader.id) ? 'fell' : shape === 'fell' ? 'won' : shape;
   const turn = world.turnOf?.(`${trip.id}:e`) ?? null;
   if (turn === 'won' && kind !== 'fell') kind = 'won';
   else if (turn === 'lost' && (kind === 'driven' || kind === 'won')) kind = 'fled';
-  return { id: `${trip.id}:e`, leg, camp, t0, t1: t0 + HALT_MIN[kind], fightEnd: t0 + FIGHT_MIN[kind], s, x: p.x, z: p.z, px, py,
-    foes, level, kind, dead };
+  return { id: `${trip.id}:e`, leg, camp, t0, t1: t0 + HALT_MIN[shape], fightEnd: t0 + FIGHT_MIN[shape], s, x: p.x, z: p.z, px, py,
+    foes, level, kind, shape, dead };
 }
 
 /**
  * LW6: THE DEEP'S TROUBLE - a dive carrying a fated death meets it INSIDE, at a seeded hour of its time there, among the
  * dungeon's own (its type's table - the host's `foesOf` with `dungeonType`): the leader among the fated, the party FELL
  * (the rest come out at once and walk home); else it WON at that cost. No halt on the road: it is under the ground.
- * @param {import('./trips.js').Trip} trip @param {string[]} dead @param {TroubleWorld} world
+ * AUDIT-B1/C2: its shape the dice's (`fated`: the leader among them, the company comes out at the fight's end - a spared
+ * leader with it, never diving on to be met again); `dead` the end.
+ * @param {import('./trips.js').Trip} trip @param {string[]} dead @param {TroubleWorld} world @param {string[]} [fated]
  */
-export function diveTrouble(trip, dead, world) {
+export function diveTrouble(trip, dead, world, fated = dead) {
   const dive = /** @type {{ t0: number, t1: number }} */ (trip.dive);
   const rng = lwRng(textSeed(trip.id), TROU, 0x64656570);   // 'deep'
   const t0 = dive.t0 + (dive.t1 - dive.t0) * (0.2 + 0.6 * rng());
@@ -124,9 +134,11 @@ export function diveTrouble(trip, dead, world) {
   const level = Math.max(1, ...armed.map((m) => m.level ?? 1), 2);
   const foes = world.foesOf({ climateIndex: -1, dungeonType: /** @type {any} */ (trip.to).dungeonType ?? 0, minute: t0, level, size: Math.min(FOES_MAX, trip.party.length + 2), rolls: rng }) ?? [];
   /** @type {'won'|'fell'} */
+  const shape = fated.includes(trip.leader.id) ? 'fell' : 'won';
+  /** @type {'won'|'fell'} */
   const kind = dead.includes(trip.leader.id) ? 'fell' : 'won';   // the character's turns are read in the lives (a member spared is no death)
-  return { id: `${trip.id}:e`, leg: 'dive', camp: false, t0, t1: t0 + HALT_MIN[kind], fightEnd: t0 + FIGHT_MIN[kind], s, x: p.x, z: p.z,
-    px: Math.floor(p.x / NATIVE_PIXEL), py: 499 - Math.floor(p.z / NATIVE_PIXEL), foes, level, kind, dead, inside: true };
+  return { id: `${trip.id}:e`, leg: 'dive', camp: false, t0, t1: t0 + HALT_MIN[shape], fightEnd: t0 + FIGHT_MIN[shape], s, x: p.x, z: p.z,
+    px: Math.floor(p.x / NATIVE_PIXEL), py: 499 - Math.floor(p.z / NATIVE_PIXEL), foes, level, kind, shape, dead, inside: true };
 }
 
 /**
@@ -158,11 +170,13 @@ export function troubledTrip(trip, enc) {
     // LW5b: lost at sea - gone from the party at the hour, nowhere to lie; the ship sails on with the rest
     return { ...trip, enc, fallen: enc.dead.map((id) => ({ res: byId.get(id), t: enc.t0, s: 0, atSea: true })).filter((f) => f.res), turned: false };
   }
-  const fallAt = enc.t0 + FIGHT_MIN[enc.kind] * 0.6;
+  const shape = enc.shape ?? enc.kind;   // AUDIT-B1: the fight's length and a dive's end are the dice's
+  const fallAt = enc.t0 + FIGHT_MIN[shape] * 0.6;
   if (enc.leg === 'dive') {
-    // LW6: under the ground - the fallen lie there; a party whose leader fell comes out at once and walks home
+    // LW6: under the ground - the fallen lie there; a party whose leader fell comes out at once and walks home (AUDIT-C2:
+    // the dice's fall - a leader the player spared comes out with them, never diving on to be met a second time)
     const fallen = enc.dead.map((id) => ({ res: byId.get(id), t: fallAt, s: enc.s, inside: true })).filter((f) => f.res);
-    if (enc.kind !== 'fell') return { ...trip, enc, fallen, turned: false };
+    if (shape !== 'fell') return { ...trip, enc, fallen, turned: false };
     const walk = Math.max(0, trip.way.len - trip.trim0 - trip.trim1) / trip.pace;
     const backT0 = Math.min(trip.backT0, enc.t1);
     return { ...trip, enc, fallen, turned: false, backT0, backT1: whenWalked(backT0, walk), dive: { t0: /** @type {any} */ (trip.dive).t0, t1: backT0 } };
@@ -170,6 +184,10 @@ export function troubledTrip(trip, enc) {
   const fallen = enc.dead.map((id) => ({ res: byId.get(id), t: fallAt, s: enc.s })).filter((f) => f.res);
   const halt = { t0: enc.t0, t1: enc.t1, fightEnd: enc.fightEnd, s: enc.s, leg: enc.leg };
   const turned = enc.leg === 'out' && (enc.kind === 'fled' || enc.kind === 'fell');
+  // AUDIT-B7: a halt that runs past its leg's planned end holds the arrival (never halted on the road and lodged in town
+  // at once; a way home's halt never cut by the party's being home)
+  if (!turned && enc.leg === 'out' && enc.t1 > trip.outT1) return { ...trip, enc, halt, fallen, turned: false, outT1: Math.min(enc.t1, trip.backT0) };
+  if (!turned && enc.leg === 'back' && enc.t1 > trip.backT1) return { ...trip, enc, halt, fallen, turned: false, backT1: enc.t1 };
   if (!turned) return { ...trip, enc, halt, fallen, turned: false };
   const home = Math.max(0, enc.s - trip.trim0) / trip.pace;
   const backT1 = whenWalked(enc.t1, home);

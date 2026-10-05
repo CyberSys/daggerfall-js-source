@@ -101,7 +101,7 @@ test('LW7 the regards keep the deeds: a hand\'s death (HAND_KINDS - `slain` by t
 test('LW7 the lives take a hand\'s dead from its minute: `handDeath` the minute (slain or died) in its cycle; a townsperson the road never takes empties as any place does - held to the minute, empty VACANT_CYCLES, a newcomer after; the road\'s fate (`dies`) stays the dice\'s and the fights\' own beside a hand\'s death; and a turn the character made always counts - a newcomer struck down after an uncounted roll empties the place (mutants: the hand unread, died unread, the hand made the road\'s, the turn uncounted)', () => {
   const res = { id: 'L7.3', town: 7, slot: 3, job: 'farmer', roll: 'h' };
   assert.equal(HAZARD.farmer, undefined, 'no hazard for a townsperson');
-  assert.deepEqual(placeAt(res, 50, {}), { vacant: false, holder: null, dies: false, since: null, hand: null }, 'the road never takes them');
+  assert.deepEqual(placeAt(res, 50, {}), { vacant: false, holder: null, dies: false, diced: false, since: null, hand: null }, 'the road never takes them');
   const turns = { slain: new Map([['L7.3@50', { t: 72000 }]]) };
   assert.equal(handDeath(res, 50, turns), 72000);
   assert.equal(handDeath(res, 51, turns), null);
@@ -362,7 +362,7 @@ test('LW7 the streaming host: every resident\'s place by the lives (`livingCycle
   assert.match(w, /if \(!turns\.slain\.size && !turns\.died\.size\) return false;\n\s*const h = livingPlaceOf\(res, livingCycleOf\(res, Math\.floor\(\(t - 240\) \/ 1440\)\)\)\.hand;\n\s*return h != null && h <= t;/);
   assert.match(w, /const livingSlay = \(res, t, seen\) => \{ livingRelations\.turn\('slain', turnKey\(res, livingCycleOf\(res, Math\.floor\(\(t - 240\) \/ 1440\)\)\), \{ t, seen, who: res\.name \}\); \};/);
   assert.match(w, /got = \{ holder, dies: !pl\.vacant && pl\.dies, hand: pl\.hand \};/);
-  assert.match(w, /return pl\.dies && pl\.hand == null;   \/\/ LW7/);
+  assert.match(w, /return pl\.dies && pl\.hand == null; \},   \/\/ LW7/);
   assert.match(w, /f = handsOn\(f, \(m\) => livingPlaceOf\(m, livingCycleOf\(m, Math\.floor\(\(trip\.outT0 - 240\) \/ 1440\)\)\)\.hand\);/);
   assert.match(w, /helped: won\.has\(n\.enc\) \}\)\);/);
   assert.match(w, /const res = livingPlaceOf\(c\.res, livingCycleOf\(c\.res, day\)\)\.holder;/);

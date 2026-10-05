@@ -114,7 +114,7 @@
   {
     "name": "LW6-deep-on-the-road",
     "file": "src/systems/livingWorld/trouble.js",
-    "old": "  if (trip.dive && dead.length) return diveTrouble(trip, dead, world);",
+    "old": "  if (trip.dive && (fated.length || dead.length)) return diveTrouble(trip, dead, world, fated);",
     "new": "  void diveTrouble;",
     "tests": [
       "test/lw6_deep.test.js"
@@ -177,8 +177,8 @@
   {
     "name": "LW6-meet-a-peers",
     "file": "src/scenes/dungeonDivers.js",
-    "old": "        if (!companies.has(trip.id) && deps.owner() && members.some((m) => m.cls != null)) meet(trip, members);",
-    "new": "        if (!companies.has(trip.id) && members.some((m) => m.cls != null)) meet(trip, members);",
+    "old": "        if (!companies.has(trip.id) && !ended.has(trip.id) && deps.owner() && members.some((m) => m.cls != null)) meet(trip, members);",
+    "new": "        if (!companies.has(trip.id) && !ended.has(trip.id) && members.some((m) => m.cls != null)) meet(trip, members);",
     "tests": [
       "test/lw6_deep.test.js"
     ]
@@ -213,8 +213,8 @@
   {
     "name": "LW6-fallen-unturned",
     "file": "src/scenes/dungeonDivers.js",
-    "old": "          turn('fallen', deps.turnKeyOf(rec.living.res, c.trip));   // cut down beside the player",
-    "new": "          void turn;   // cut down beside the player",
+    "old": "          if (deps.died) deps.died(rec.living.res, t); else turn('fallen', deps.turnKeyOf(rec.living.res, c.trip));",
+    "new": "          void turn;",
     "tests": [
       "test/lw6_deep.test.js"
     ]

@@ -699,6 +699,43 @@ found five in the town core; each is fixed and pinned (`test/lwfix3_town.test.js
   walker home asleep: a crewman or a visitor left the street mid-step, in plain view. A walk home that would run past
   the day's end is never begun; away to the end, the next day has them home.
 
+## LW-FIX4 - the turns' eleven (2026-10-05)
+
+The deep audit's road and deep findings; each is fixed and pinned (`test/lwfix4_turns.test.js`,
+`tools/mutants/lwfix4.json`).
+
+- **A turn never re-rolls the pure world** (`lives.js placeAt` `diced`; `trouble.js` the shape and the end; the host's
+  `fated` and the trouble world's `diced`). The character's turns - a spare, one cut down beside the player - were read
+  by the very dice that shape a trip and its trouble: a fated traveller's trip existed because the road would take them,
+  so the spare that saved them took the trip off the road mid-walk; the trouble's leg, hour, place, foes and halt were
+  drawn after the dead were counted, so a fight the player had just won moved, or vanished, under them. `diced` is the
+  dice's own death of a cycle (the turns of that cycle aside): it decides whether a trip sets out, a caravan's hire, and
+  the trouble's whole shape (`shape`: the halt's and the fight's length, a dive's end); the turns decide only who falls
+  and how it went (`kind`, `dead`: a fated leader spared, the party stood).
+- **A fight ended is never stood twice** (`roadFights.js` ENDED_MAX). A won or lost fight let go is not stood again for
+  the rest of its window (a won fight's re-read halt ran past the one it was stood on).
+- **Standing at the win.** The spared are those standing when the foes fall - every ally stood still on their feet, not
+  only the members the road has alive at that minute: a fated ally stood before the road's minute for their fall was
+  never spared (they died in the pure world though they lived beside the player), and their body was drawn beside them
+  while they fought (`livingRoads.js` draws no remains of an ally stood in a fight).
+- **The dead beside the player die at that minute** (`died`, the host's hand turn - LW7b's, for a friend). An ally cut
+  down in a road fight or a dive was `fallen`, read at the trouble's own hour: a company met again below stood them up
+  alive until then. And their body is the pool's own (a corpse to search, as a foe's) - the company's or the party's
+  going took it out, and the deep's remains pass them by as the pool's.
+- **One struck down on the road is never stood again** (`roadStands.js` `deadAt`): the roads' parties are read once a
+  second, so a hostile cut down drew on the player again the next frame, and their party was turned twice.
+- **The fight's own election** (the host's `owner(feet)`): the lowest id of those within LIVE_M of the fight - it was
+  centred on each player, so a chain of three left the one beside it deferring to one too far to stand it.
+- **A peer's fight** (`livingRoads.js`): its armed are the peer's allies, come through the stream - they were drawn here
+  too, doubled. The unarmed are drawn as ever.
+- **A halt past its leg's end holds the arrival** (`troubledTrip`): halted on the road and lodged in town at once, or a
+  way home's halt cut by the party being home.
+- **The memo's bound** (`livingMemoFresh`): only the towns' reader kept the trips' memo to its bound; a long stay below
+  grew it without end.
+- **The deep's end the dice's** (`troubledTrip`, a dive): a company whose fated leader the player spared comes out at the
+  fight's end all the same (it dove on for its full hours and was met again); a company that made for the surface is
+  not met again this visit (`dungeonDivers.js`).
+
 ## The four hosts
 
 - `scenes/world.js` - WIRED (LW2 the towns, LW3 the roads and the Overworld).

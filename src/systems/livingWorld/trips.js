@@ -180,7 +180,7 @@ export function ownTrip(res, home, k, world, { mpm }) {
   const phase = lwSeed(res.town, res.slot, 0x6379) % len;
   const start = k * len - phase;
   const rng = lwRng(res.town, res.slot, k, 0x74726970);   // 'trip'
-  if (rng() >= chance && !world.fated?.(res, k)) return null;   // LW4: a death the lives hold for this cycle is met on the road
+  if (rng() >= chance && !world.fated?.(res, k)) return null;   // LW4: a death the lives hold for this cycle is met on the road (AUDIT-B1: the dice's - a spare never takes the trip away)
   const pace = (TRIP_PACE[/** @type {keyof typeof TRIP_PACE} */ (res.job)] ?? 1) * mpm * NATIVE_PER_M;   // native a clock minute
   // LW6: an adventurer's cycle a DIVE now and then - its own dice, so a cycle that is none is the trip it always was
   if (res.job === 'adventurer' && world.dungeonsNear) {

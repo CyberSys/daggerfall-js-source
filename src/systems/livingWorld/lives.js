@@ -83,16 +83,22 @@ export function deathCounted(res, k, turns) {
  * LW7: `hand` the minute a hand took its holder this cycle (null: none) - dead from then, the road's day kept.
  * `res` is the slot's census resident (its id, town, slot and job - the dice are the slot's, whoever holds it).
  * @param {any} res @param {number} k @param {Turns} [turns]
- * @returns {{ vacant: boolean, holder: number|null, dies: boolean, since: number|null, hand: number|null }}
+ * AUDIT-B1: `diced` the dice's own death this cycle, the character's turns of it aside - the trip's and the trouble's shape.
+ * @returns {{ vacant: boolean, holder: number|null, dies: boolean, diced: boolean, since: number|null, hand: number|null }}
  */
 export function placeAt(res, k, turns) {
   let last = null;
   // back from the cycle to the first counted death (a slot's hazard is percents a cycle: a few dozen cycles at most) -
   // to the world's first cycle, never a window, so a death long ago never falls out of the reading and back to the census
   for (let j = k - 1; j >= 0; j--) if (deathCounted(res, j, turns)) { last = j; break; }
-  if (last != null && k - last <= VACANT_CYCLES) return { vacant: true, holder: null, dies: false, since: last, hand: null };
+  if (last != null && k - last <= VACANT_CYCLES) return { vacant: true, holder: null, dies: false, diced: false, since: last, hand: null };
   // the holder: the newcomer after the last death; before it, the generations back (each the death that came before it).
   // The road's own death this cycle reads the road's own count - a hand's death beside it never makes the road's fate
-  const dies = roadHits(res, k, turns) && (!!turns?.fallen?.has(turnKey(res, k)) || quietBefore(res, k, turns));
-  return { vacant: false, holder: last, dies, since: last, hand: handDeath(res, k, turns) };
+  const quiet = quietBefore(res, k, turns);
+  const dies = roadHits(res, k, turns) && (!!turns?.fallen?.has(turnKey(res, k)) || quiet);
+  // AUDIT-B1: the dice's own death this cycle - the character's turns of THIS cycle aside (a spare, one cut down beside
+  // them): what shapes the cycle's trip and its trouble, which a turn never re-rolls
+  const h = HAZARD[/** @type {keyof typeof HAZARD} */ (res.job)] ?? 0;
+  const diced = h > 0 && lwRoll(res.town, res.slot, k, FATE) < h && quiet;
+  return { vacant: false, holder: last, dies, diced, since: last, hand: handDeath(res, k, turns) };
 }

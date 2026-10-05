@@ -46,6 +46,7 @@ export const FIGHT_NEAR_M = 30;
  *   relations: () => any,
  *   slay: (res: any, t: number, seen: boolean) => void,
  *   died: (res: any, t: number) => void,
+ *   deadAt?: (res: any, t: number) => boolean,
  *   fighting: () => boolean,
  *   say?: (text: string) => void,
  *   door?: any,
@@ -106,6 +107,7 @@ export function createRoadStands(deps) {
         const fight = deps.fighting();
         for (const c of cands) {
           if (c.res?.cls == null || stands.has(c.res.id)) continue;
+          if (deps.deadAt?.(c.res, t)) continue;   // AUDIT-B4: one a hand took - the roads' parties, read once a second, still walked them
           const distM = Math.hypot(c.x - here.x, c.z - here.z) / NATIVE_PER_M;
           const standing = rel.standing(c.res.id, day);
           if (standing === 'hostile' && distM <= DRAW_M) stand(c, 'foe');

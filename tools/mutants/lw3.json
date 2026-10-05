@@ -445,7 +445,7 @@
   {
     "name": "LW3-host-network-memo-kept",
     "file": "src/scenes/world.js",
-    "old": "    livingWays.frame(); if (livingWays.generation !== _livingWaysSeen) { _livingTripMemo.clear(); _livingWaysSeen = livingWays.generation; }   // LW3: a new network, new ways",
+    "old": "    livingWays.frame(); livingMemoFresh();   // LW3: a new network, new ways",
     "new": "    livingWays.frame();   // LW3: a new network, new ways",
     "tests": [
       "test/lw3_roads.test.js"

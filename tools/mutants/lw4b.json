@@ -83,8 +83,8 @@
   {
     "name": "LW4b-fallen-unturned",
     "file": "src/scenes/roadFights.js",
-    "old": "      turn('fallen', deps.turnKeyOf(rec.living.res, f.trip));",
-    "new": "      void turn;",
+    "old": "      fell(rec.living.res, f.trip, t);   // cut down beside the player: the lives read it",
+    "new": "      void fell;   // cut down beside the player: the lives read it",
     "tests": [
       "test/lw4b_roadFights.test.js"
     ]
@@ -191,8 +191,8 @@
   {
     "name": "LW4b-roads-draw-live-foes",
     "file": "src/scenes/livingRoads.js",
-    "old": "        if (fight && !live && !(fights && !overworld && fights.peerStands(",
-    "new": "        if (fight && !(fights && !overworld && fights.peerStands(",
+    "old": "        if (fight && !live && !peerLive) {",
+    "new": "        if (fight && !peerLive) {",
     "tests": [
       "test/lw4b_roadFights.test.js"
     ]
@@ -200,8 +200,8 @@
   {
     "name": "LW4b-roads-draw-peer-foes",
     "file": "src/scenes/livingRoads.js",
-    "old": "        if (fight && !live && !(fights && !overworld && fights.peerStands({ x: /** @type {number} */ (at.x), z: /** @type {number} */ (at.z) }, here))) {",
-    "new": "        if (fight && !live) {",
+    "old": "        const peerLive = fight && !live && !!fights && !overworld && fights.peerStands(",
+    "new": "        const peerLive = fight && !live && !!fights && !overworld && false && fights.peerStands(",
     "tests": [
       "test/lw4b_roadFights.test.js"
     ]
@@ -227,8 +227,8 @@
   {
     "name": "LW4b-host-election-short",
     "file": "src/scenes/world.js",
-    "old": "peersNear() ?? [], LIVE_M * 2),",
-    "new": "peersNear() ?? [], LIVE_M),",
+    "old": "p.feet[2] - feet[2]) <= LIVE_M), Infinity),",
+    "new": "p.feet[2] - feet[2]) <= LIVE_M / 2), Infinity),",
     "tests": [
       "test/lw4b_roadFights.test.js"
     ]

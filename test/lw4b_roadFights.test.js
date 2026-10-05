@@ -29,6 +29,7 @@ function fightRig({ owner = true, ready = true, fated = () => false } = {}) {
     sceneOf: (nx, nz) => [nx / 40, 0, nz / 40],
     clock: () => 500 * DAY_MIN, relations: () => rel,
     turnKeyOf: (res) => `${res.id}@K`, dies: (res) => fated(res),
+    died: (res, t) => rel.turn('died', `${res.id}@K`, { t, who: res.name }),   // AUDIT-C3: the host's hand turn at the minute
     onTurn: () => turns.push(rel.turnsVersion()),
   });
   return { fights, pool, spawned, removed, rel, turns, can };
@@ -93,7 +94,7 @@ test('LW4b the end is what happens: an ally cut down FELL; every foe dead, the f
   const allies = rig.spawned.filter((r) => r.o.allied), foes = rig.spawned.filter((r) => !r.o.allied);
   allies[1].dead = true;
   rig.fights.frame([], here, 1005);
-  assert.ok(rig.rel.turns().fallen.has('L9.t5@K'), 'cut down beside the player: fallen');
+  assert.deepEqual(rig.rel.turns().died.get('L9.t5@K'), { t: 1005, seen: false, who: 'Cy Fenn' }, 'cut down beside the player: died at their side, at that minute (AUDIT-C3)');
   for (const f of foes) f.dead = true;
   rig.fights.frame([], here, 1010);
   assert.ok(rig.rel.turns().won.has(trip.enc.id), 'won');
@@ -104,7 +105,8 @@ test('LW4b the end is what happens: an ally cut down FELL; every foe dead, the f
   assert.ok(rig.turns.length >= 3, 'the host told of each turn');
   assert.equal(rig.removed.length, 0, 'the allies stand while the party halts');
   rig.fights.frame([], here, trip.enc.t1);
-  assert.ok(allies.every((a) => rig.removed.includes(a) || !rig.pool.has(a)), 'the party walks on: its allies out');
+  assert.ok(rig.removed.includes(allies[0]) && !rig.pool.has(allies[0]), 'the party walks on: its allies out');
+  assert.ok(rig.pool.has(allies[1]) && !rig.removed.includes(allies[1]), 'the one cut down the pool\'s own - a body to find (AUDIT-C4)');
   assert.equal(rig.fights.size, 0);
   // lost: every ally down, foes standing - the foes left to the pool
   const lost = fightRig();
@@ -151,11 +153,13 @@ test('LW4b the end is what happens: an ally cut down FELL; every foe dead, the f
   const peerRoads = mkRoads(peerRig.fights);
   peerRoads.frame(0.1, [0, 0, 0]);
   assert.ok(!synced.some((x) => x.key.startsWith(beset.enc.id)), 'a peer\'s fight: no foes of the road\'s own');
-  assert.ok(synced.some((x) => armedIds.includes(x.key)), 'its party drawn as ever');
+  assert.ok(!synced.some((x) => armedIds.includes(x.key)), 'its armed the peer\'s allies, come through the stream - never drawn here too (AUDIT-B6)');
+  const unarmedIds = membersAt(beset, m).filter((x) => x.cls == null).map((x) => x.id);
+  if (unarmedIds.length) assert.ok(synced.some((x) => unarmedIds.includes(x.key)), 'its unarmed drawn as ever');
   // the host
   const w = rd('src/scenes/world.js');
   assert.match(w, /spawn: \(type, feet, o\) => exteriorFoes\.spawnFoe\(type, feet, \{ yaw: o\.yaw, gender: o\.gender, level: o\.level, allied: o\.allied, loose: true, transient: true \}\),/);
-  assert.match(w, /owner: \(\) => amGroupRollOwner\(online\?\.id \?\? null, player\.feetAt\(\), peersNear\(\) \?\? \[\], LIVE_M \* 2\),/);
+  assert.match(w, /owner: \(feet\) => amGroupRollOwner\(online\?\.id \?\? null, player\.feetAt\(\), \(peersNear\(\) \?\? \[\]\)\.filter\(\(p\) => Math\.hypot\(p\.feet\[0\] - feet\[0\], p\.feet\[2\] - feet\[2\]\) <= LIVE_M\), Infinity\),/, 'AUDIT-B5: the fight\'s own election');
   assert.match(w, /ready: \(\) => !!walkMode && !!playerSpawned && !_loading && !modes\?\.transitioning && _mode\(\) === 'exterior' && !playerAfloat\(\),/);
   assert.match(w, /return turnKey\(place, placeCycle\(place, roster, Math\.floor\(trip\.outT0 \/ 1440\), livingScale\(\)\)\);/);
   assert.match(rd('src/scenes/livingRoads.js'), /clear\(\) \{ deps\.sprites\.clear\(\); deps\.fights\?\.clear\(\);/);

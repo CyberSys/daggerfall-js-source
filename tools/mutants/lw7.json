@@ -200,8 +200,8 @@
   {
     "name": "LW7-fallen-not-road",
     "file": "src/systems/livingWorld/lives.js",
-    "old": "  const dies = roadHits(res, k, turns) && (!!turns?.fallen?.has(turnKey(res, k)) || quietBefore(res, k, turns));",
-    "new": "  const dies = roadHits(res, k, turns) && quietBefore(res, k, turns);",
+    "old": "  const dies = roadHits(res, k, turns) && (!!turns?.fallen?.has(turnKey(res, k)) || quiet);",
+    "new": "  const dies = roadHits(res, k, turns) && quiet;",
     "tests": [
       "test/lw7_deeds.test.js"
     ]
@@ -209,8 +209,8 @@
   {
     "name": "LW7-hand-minute-dropped",
     "file": "src/systems/livingWorld/lives.js",
-    "old": "  return { vacant: false, holder: last, dies, since: last, hand: handDeath(res, k, turns) };",
-    "new": "  return { vacant: false, holder: last, dies, since: last, hand: null };",
+    "old": "  return { vacant: false, holder: last, dies, diced, since: last, hand: handDeath(res, k, turns) };",
+    "new": "  return { vacant: false, holder: last, dies, diced, since: last, hand: null };",
     "tests": [
       "test/lw7_deeds.test.js"
     ]
@@ -695,8 +695,8 @@
   {
     "name": "LW7-host-trouble-takes-hand",
     "file": "src/scenes/world.js",
-    "old": "      return pl.dies && pl.hand == null;   // LW7",
-    "new": "      return pl.dies;   // LW7",
+    "old": "    dies: (res, trip) => { const pl = livingTripPlace(res, trip); return pl.dies && pl.hand == null; },   // LW7",
+    "new": "    dies: (res, trip) => { const pl = livingTripPlace(res, trip); return pl.dies; },   // LW7",
     "tests": [
       "test/lw7_deeds.test.js"
     ]

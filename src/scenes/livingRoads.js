@@ -222,16 +222,19 @@ export function createLivingRoads(deps) {
         const fight = !!at.fight;
         const live = !!fights?.stood(p.trip.id);   // LW4b: its foes and its armed the pool's bodies now
         const allies = live ? fights?.alliesOf(p.trip.id) : null;
+        // AUDIT-B6: a peer stands it - its armed are the peer's allies, come through the stream (drawn here too, doubled)
+        const peerLive = fight && !live && !!fights && !overworld && fights.peerStands({ x: /** @type {number} */ (at.x), z: /** @type {number} */ (at.z) }, here);
         const places = fight ? fightPlaces(p.trip, at, members) : partyPlaces(members === p.trip.party ? p.trip : { ...p.trip, party: members }, at);
         for (const m of places) {
           if (allies?.has(m.res.id)) continue;
+          if (peerLive && m.res.cls != null) continue;
           if (deps.stands?.stood(m.res.id)) continue;   // LW7b: a body of the pool's now
           const distM = Math.hypot(m.x - here.x, m.z - here.z) / NATIVE_PER_M;
           if (distM > reach) continue;
           if (fight) busy.add(m.res.id);
           list.push({ key: m.res.id, res: m.res, feet: deps.sceneOf(m.x, m.z), yaw: m.yaw, moving: m.moving, distM, striking: fight && m.res.cls != null && strikesNow(m.res.id) });
         }
-        if (fight && !live && !(fights && !overworld && fights.peerStands({ x: /** @type {number} */ (at.x), z: /** @type {number} */ (at.z) }, here))) {
+        if (fight && !live && !peerLive) {
           for (const f of foePlaces(p.trip, at)) {
             const distM = Math.hypot(f.x - here.x, f.z - here.z) / NATIVE_PER_M;
             if (distM > reach) continue;
@@ -240,6 +243,7 @@ export function createLivingRoads(deps) {
         }
       }
       for (const r of remains) {
+        if (fights?.alliesOf(r.trip.id).has(r.res.id)) continue;   // AUDIT-B3: stood alive in a fight here - no body of theirs drawn beside them
         const distM = Math.hypot(r.x - here.x, r.z - here.z) / NATIVE_PER_M;
         if (distM > reach) continue;
         list.push({ key: r.key, res: r.res, feet: deps.sceneOf(r.x, r.z), yaw: r.yaw, moving: false, distM, talk: false, flat: corpseLook() });

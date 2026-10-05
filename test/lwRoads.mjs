@@ -71,7 +71,7 @@ export function livingMap({ turns = null, climate = 230, dives = false, sea = fa
     let g = book.get(key);
     if (!g) {
       const pl = placeAt(res, k, turns);
-      g = { holder: pl.vacant ? null : pl.holder == null ? res : mintResident(byId.get(res.town), 't', res.slot, res.job, { gen: pl.holder }), dies: !pl.vacant && pl.dies, hand: pl.hand };
+      g = { holder: pl.vacant ? null : pl.holder == null ? res : mintResident(byId.get(res.town), 't', res.slot, res.job, { gen: pl.holder }), dies: !pl.vacant && pl.dies, diced: !pl.vacant && pl.diced, hand: pl.hand };
       book.set(key, g);
     }
     return g;
@@ -83,10 +83,11 @@ export function livingMap({ turns = null, climate = 230, dives = false, sea = fa
       : rollGroupComposition({ climateIndex, skyMinutes: minute, inLocationRect: false, playerLevel: level, size }, rolls)?.mobileTypes ?? null),
     foeLevel: (type, level) => (type >= 128 ? level : ENEMY_BASICS[type]?.level ?? level),
     dies: (res, trip) => { const roster = world.rosterOf(byId.get(res.town)); const place = roster.find((r) => r.slot === res.slot) ?? res; const g = placeOf(place, placeCycle(place, roster, Math.floor(trip.outT0 / DAY_MIN), 1)); return g.dies && g.hand == null; },   // LW7: a hand's dead the trouble never takes
+    diced: (res, trip) => { const roster = world.rosterOf(byId.get(res.town)); const place = roster.find((r) => r.slot === res.slot) ?? res; return placeOf(place, placeCycle(place, roster, Math.floor(trip.outT0 / DAY_MIN), 1)).diced; },   // AUDIT-B1: the trouble's shape the dice's
     turnOf: (id) => (turns?.won?.has(id) ? 'won' : turns?.lost?.has(id) ? 'lost' : null),
   };
   world.holderOf = (res, k) => placeOf(res, k).holder;
-  world.fated = (res, k) => placeOf(res, k).dies;
+  world.fated = (res, k) => placeOf(res, k).diced;   // AUDIT-B1: a fated trip the dice's
   // LW7: a trip's hand deaths, gone from their minute (the member's place at the trip's cycle)
   const handOf = (m, trip) => { const roster = world.rosterOf(byId.get(m.town)); const place = roster.find((r) => r.slot === m.slot) ?? m; return placeOf(place, placeCycle(place, roster, Math.floor(trip.outT0 / DAY_MIN), 1)).hand; };
   world.fate = (trip) => handsOn(troubledTrip(trip, troubleOf(trip, trouble)), (m) => handOf(m, trip));

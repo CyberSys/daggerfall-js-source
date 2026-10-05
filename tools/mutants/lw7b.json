@@ -542,8 +542,8 @@
   {
     "name": "LW7b-host-deep-slay",
     "file": "src/scenes/world.js",
-    "old": "        slay: livingSlay,\n      }), { pool: d });",
-    "new": "        slay: null,\n      }), { pool: d });",
+    "old": "        slay: livingSlay,\n        died: livingDied,   // AUDIT-C3",
+    "new": "        slay: null,\n        died: livingDied,   // AUDIT-C3",
     "tests": [
       "test/lw7b_beyond.test.js"
     ]

@@ -29,8 +29,8 @@
   {
     "name": "LW4-vacancy-unread",
     "file": "src/systems/livingWorld/lives.js",
-    "old": "  if (last != null && k - last <= VACANT_CYCLES) return { vacant: true, holder: null, dies: false, since: last, hand: null };",
-    "new": "  if (false) return { vacant: true, holder: null, dies: false, since: last, hand: null };",
+    "old": "  if (last != null && k - last <= VACANT_CYCLES) return { vacant: true, holder: null, dies: false, diced: false, since: last, hand: null };",
+    "new": "  if (false) return { vacant: true, holder: null, dies: false, diced: false, since: last, hand: null };",
     "tests": [
       "test/lw4_trouble.test.js"
     ]
@@ -38,8 +38,8 @@
   {
     "name": "LW4-newcomer-unseeded",
     "file": "src/systems/livingWorld/lives.js",
-    "old": "  return { vacant: false, holder: last, dies, since: last, hand: handDeath(res, k, turns) };",
-    "new": "  return { vacant: false, holder: null, dies, since: last, hand: handDeath(res, k, turns) };",
+    "old": "  return { vacant: false, holder: last, dies, diced, since: last, hand: handDeath(res, k, turns) };",
+    "new": "  return { vacant: false, holder: null, dies, diced, since: last, hand: handDeath(res, k, turns) };",
     "tests": [
       "test/lw4_trouble.test.js"
     ]
@@ -110,7 +110,7 @@
   {
     "name": "LW4-fated-unmet",
     "file": "src/systems/livingWorld/trouble.js",
-    "old": "  if (!dead.length && u >= risk) return null;",
+    "old": "  if (!fated.length && !dead.length && u >= risk) return null;",
     "new": "  if (u >= risk) return null;",
     "tests": [
       "test/lw4_trouble.test.js"
@@ -119,8 +119,8 @@
   {
     "name": "LW4-fell-not-leader",
     "file": "src/systems/livingWorld/trouble.js",
-    "old": "  if (dead.length) kind = dead.includes(trip.leader.id) ? 'fell' : 'won';",
-    "new": "  if (dead.length) kind = 'fell';",
+    "old": "  if (fated.length) shape = fated.includes(trip.leader.id) ? 'fell' : 'won';",
+    "new": "  if (fated.length) shape = 'fell';",
     "tests": [
       "test/lw4_trouble.test.js"
     ]
@@ -173,8 +173,8 @@
   {
     "name": "LW4-halt-is-the-fight",
     "file": "src/systems/livingWorld/trouble.js",
-    "old": "  return { id: `${trip.id}:e`, leg, camp, t0, t1: t0 + HALT_MIN[kind],",
-    "new": "  return { id: `${trip.id}:e`, leg, camp, t0, t1: t0 + FIGHT_MIN[kind],",
+    "old": "  return { id: `${trip.id}:e`, leg, camp, t0, t1: t0 + HALT_MIN[shape],",
+    "new": "  return { id: `${trip.id}:e`, leg, camp, t0, t1: t0 + FIGHT_MIN[shape],",
     "tests": [
       "test/lw4_trouble.test.js"
     ]
@@ -200,7 +200,7 @@
   {
     "name": "LW4-fall-at-the-start",
     "file": "src/systems/livingWorld/trouble.js",
-    "old": "  const fallAt = enc.t0 + FIGHT_MIN[enc.kind] * 0.6;",
+    "old": "  const fallAt = enc.t0 + FIGHT_MIN[shape] * 0.6;",
     "new": "  const fallAt = enc.t0;",
     "tests": [
       "test/lw4_trouble.test.js"

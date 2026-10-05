@@ -2212,6 +2212,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   const _livingTripMemo = new Map();
   let _livingWaysSeen = 0;
+  /** AUDIT-B8: the trips' memo kept to its bound and to the network's generation by every reader (the roads', the deep's
+   *  and the towns' - only the towns' asked it, and a long stay below grew it unbounded). */
+  const livingMemoFresh = () => { if (_livingTripMemo.size > 40000 || livingWays.generation !== _livingWaysSeen) { _livingTripMemo.clear(); _livingWaysSeen = livingWays.generation; } };
   // LW4: THE LIVES AND THE TROUBLE (lives.js, trouble.js) - who holds each traveller's place in a cycle (the census's
   // newcomer after a death on the road; nobody while the place stands empty) and what befalls each party, read over the
   // character's own turns of fate (relations.js); each kept in a book, made again when a turn is made or a save loaded
@@ -2261,23 +2264,25 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   const livingSlay = (res, t, seen) => { livingRelations.turn('slain', turnKey(res, livingCycleOf(res, Math.floor((t - 240) / 1440))), { t, seen, who: res.name }); };
   const livingDied = (res, t) => { livingRelations.turn('died', turnKey(res, livingCycleOf(res, Math.floor((t - 240) / 1440))), { t, who: res.name }); };   // LW7b: at the player's side
+  /** A traveller's place on a trip, at the trip's own cycle (their town's roster's, by their slot). */
+  const livingTripPlace = (res, trip) => {
+    const town = livingTownOfId(res.town);
+    const roster = town ? livingTripWorld.rosterOf(town) : [];
+    const place = roster.find((r) => r.slot === res.slot) ?? res;
+    return livingPlaceOf(place, placeCycle(place, roster, Math.floor(trip.outT0 / 1440), livingScale()));
+  };
   const livingTroubleWorld = {
     climateAt: (px, py) => maps.getClimateIndex(px, py),
     foesOf: ({ climateIndex, dungeonType, minute, level, size, rolls }) => (dungeonType != null
       ? Array.from({ length: size }, () => chooseRandomEnemy({ dungeonType, playerLevel: level }, rolls)).filter((m) => m >= 0)   // LW6: the deep's own
       : rollGroupComposition({ climateIndex, skyMinutes: minute, inLocationRect: false, playerLevel: level, size }, rolls)?.mobileTypes ?? null),
     foeLevel: (type, level) => (type >= 128 ? level : ENEMY_BASICS[type]?.level ?? level),
-    dies: (res, trip) => {
-      const town = livingTownOfId(res.town);
-      const roster = town ? livingTripWorld.rosterOf(town) : [];
-      const place = roster.find((r) => r.slot === res.slot) ?? res;
-      const pl = livingPlaceOf(place, placeCycle(place, roster, Math.floor(trip.outT0 / 1440), livingScale()));
-      return pl.dies && pl.hand == null;   // LW7: one a hand took first the road's trouble never takes
-    },
+    dies: (res, trip) => { const pl = livingTripPlace(res, trip); return pl.dies && pl.hand == null; },   // LW7: one a hand took first the road's trouble never takes
+    diced: (res, trip) => livingTripPlace(res, trip).diced,   // AUDIT-B1: the dice's own death - the trouble's shape, never a turn's
     turnOf: (id) => { const t = livingRelations.turns(); return t.won.has(id) ? 'won' : t.lost.has(id) ? 'lost' : null; },
   };
   livingTripWorld.holderOf = (res, k) => livingPlaceOf(res, k).holder;
-  livingTripWorld.fated = (res, k) => livingPlaceOf(res, k).dies;
+  livingTripWorld.fated = (res, k) => livingPlaceOf(res, k).diced;   // AUDIT-B1: the dice's - a trip a spare re-rolled was gone from the road
   livingTripWorld.fate = (trip) => {
     const key = `${trip.id}|${trip.party.map((m) => m.id).join(',')}`;
     let f = _livingFates.get(key);
@@ -2292,7 +2297,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** A foe's word for the town's talk and a mark ("Orcs", "a Giant"). */
   const livingFoeWord = (type, n) => foeWord(enemyDisplayName(type) ?? '', n);
   const livingTripsOf = (town, day) => {
-    if (_livingTripMemo.size > 40000 || livingWays.generation !== _livingWaysSeen) { _livingTripMemo.clear(); _livingWaysSeen = livingWays.generation; }   // a new network, new ways
+    livingMemoFresh();   // a new network, new ways
     livingTurnsFresh();
     const o = { mpm: PERSON_MOVE_SPEED / livingBaseRate(), memo: _livingTripMemo };
     const noon = day * 1440 + 240 + 720;
@@ -2417,6 +2422,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         door: _livingRoadsDoor,
         spawnFoe: (type, feet, o) => d.spawnLooseFoe(type, feet, { yawRad: o.yaw, allied: false, gender: o.gender, level: o.level }),   // LW7b: one who draws on the player
         slay: livingSlay,
+        died: livingDied,   // AUDIT-C3: one cut down beside the player died at their side, at that minute
       }), { pool: d });
       _livingDiversAt = -Infinity;
     }
@@ -2424,6 +2430,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       _livingDiversAt = now;
       const here = livingDungeonHere();
       livingTurnsFresh();   // LW-FIX1: the books fresh below too
+      livingMemoFresh();   // AUDIT-B8
       _livingDiversList = here ? diversAt(here, skyMinutes(), livingTripWorld, { mpm: PERSON_MOVE_SPEED / livingBaseRate(), memo: _livingTripMemo }).divers : [];
     }
     livingDivers.frame(_livingDiversList, skyMinutes());
@@ -2465,6 +2472,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       _livingRemainsAt = now;
       const here = livingDungeonHere();
       livingTurnsFresh();   // LW-FIX1: a turn made below (a diver slain) makes the books again here as in the street
+      livingMemoFresh();   // AUDIT-B8
       const turns = livingRelations.turns();
       _livingRemainsList = here ? fallenIn(here, skyMinutes(), livingTripWorld, { mpm: PERSON_MOVE_SPEED / livingBaseRate(), memo: _livingTripMemo }).remains.filter((r) => {
         const key = livingTripTurnKey(r.res, r.trip);
@@ -2534,13 +2542,16 @@ export async function bootWorld(canvas, renderer, params, status) {
       spawn: (type, feet, o) => exteriorFoes.spawnFoe(type, feet, { yaw: o.yaw, gender: o.gender, level: o.level, allied: o.allied, loose: true, transient: true }),
       remove: (f) => exteriorFoes.removeFoe(f),
       inPool: (f) => exteriorFoes.foes.includes(f),
-      owner: () => amGroupRollOwner(online?.id ?? null, player.feetAt(), peersNear() ?? [], LIVE_M * 2),
+      // AUDIT-B5: the fight's own election - the lowest id of those within LIVE_M of IT (each player near it stands it or
+      // none; centred on each player, a chain of three left the one beside it deferring to one too far to stand it)
+      owner: (feet) => amGroupRollOwner(online?.id ?? null, player.feetAt(), (peersNear() ?? []).filter((p) => Math.hypot(p.feet[0] - feet[0], p.feet[2] - feet[2]) <= LIVE_M), Infinity),
       ready: () => !!walkMode && !!playerSpawned && !_loading && !modes?.transitioning && _mode() === 'exterior' && !playerAfloat(),
       sceneOf: (nx, nz) => tvSceneOf(nx, nz, 0),
       clock: skyMinutes,
       relations: () => livingRelations,
       turnKeyOf: livingTripTurnKey,
       dies: (res, trip) => livingTroubleWorld.dies(res, trip),
+      died: livingDied,   // AUDIT-C3: an ally cut down beside the player, at that minute
       door: _livingRoadsDoor,
     }),
     // LW7b: THE ARMED BEYOND THE WALLS - a traveller who counts the player hostile draws on them, a friend comes to their
@@ -2553,6 +2564,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       sceneOf: (nx, nz) => tvSceneOf(nx, nz, 0),
       relations: () => livingRelations,
       slay: livingSlay, died: livingDied,
+      deadAt: livingDeadAt,   // AUDIT-B4: one a hand took is never stood again (the roads' parties are read once a second)
       fighting: () => hccThreats().some((q) => Math.hypot(q[0] - player.pos[0], q[2] - player.pos[2]) <= FIGHT_NEAR_M),
       say: (text) => townTalk.say(text),
       door: _livingRoadsDoor,
@@ -27837,7 +27849,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     }
     // LW3: THE ROADS - the living world's parties near, in file by day and about their fires by night (scenes/
     // livingRoads.js), on the ground and grown under the Overworld; the planner asked a few ways a frame
-    livingWays.frame(); if (livingWays.generation !== _livingWaysSeen) { _livingTripMemo.clear(); _livingWaysSeen = livingWays.generation; }   // LW3: a new network, new ways
+    livingWays.frame(); livingMemoFresh();   // LW3: a new network, new ways (AUDIT-B8: and the memo's bound)
     livingTurnsFresh();   // LW4: a turn of fate made, or a save loaded - the books made again
     if (livingWorldOn() && _mode() === 'exterior') {
       livingRoadsOf().frame(townTalk.overlayActive ? 0 : dt, cam.pos, { overworld: tvf ? { grow: tvf.grow, blend: tvf.blend } : null });

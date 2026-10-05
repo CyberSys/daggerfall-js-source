@@ -36,6 +36,8 @@ export const LIVE_KEEP_M = 260;
 export const FOE_STAND_M = Object.freeze([7, 13]);
 /** A live fight not ended this long past its halt (minutes of the clock) is let go. */
 export const LIVE_GRACE_MIN = 90;
+/** AUDIT-B2: the ended fights remembered (never stood twice). */
+export const ENDED_MAX = 64;
 
 /**
  * @param {{
@@ -49,6 +51,7 @@ export const LIVE_GRACE_MIN = 90;
  *   relations: () => any,
  *   turnKeyOf: (res: any, trip: any) => string,
  *   dies: (res: any, trip: any) => boolean,
+ *   died?: (res: any, t: number) => void,
  *   door?: any,
  *   onTurn?: () => void,
  * }} deps - `owner(feet)` whether this player stands a fight at those feet (the election); `ready()` whether a fight can
@@ -59,6 +62,8 @@ export const LIVE_GRACE_MIN = 90;
 export function createRoadFights(deps) {
   /** @type {Map<string, { trip: any, enc: any, at: number[], foes: any[], allies: Map<string, any>, state: 'standing'|'live'|'won'|'lost', fell: Set<string> }>} */
   const fights = new Map();
+  /** AUDIT-B2: the fights that ENDED here (won or lost) - never stood again for the rest of their window. Bounded. */
+  const ended = new Set();
   const day = () => Math.floor((deps.clock() - 240) / 1440);
 
   const takeOut = (rec) => { try { if (deps.inPool(rec)) deps.remove(rec); } catch (e) { console.warn('[road fights] a body would not leave', e?.message ?? e); } };
@@ -66,8 +71,9 @@ export function createRoadFights(deps) {
   function letGo(id) {
     const f = fights.get(id);
     if (!f) return;
-    for (const rec of f.allies.values()) takeOut(rec);
+    for (const rec of f.allies.values()) if (!rec.dead) takeOut(rec);   // AUDIT-C4: one cut down is the pool's own (a corpse to search, as a foe's)
     if (f.state !== 'lost') for (const rec of f.foes) takeOut(rec);
+    if (f.state === 'won' || f.state === 'lost') { ended.add(id); if (ended.size > ENDED_MAX) ended.delete(ended.values().next().value); }
     fights.delete(id);
   }
 
@@ -115,6 +121,11 @@ export function createRoadFights(deps) {
     const rel = deps.relations?.();
     if (rel?.turn(kind, key)) deps.onTurn?.();
   }
+  /** AUDIT-C3: an ally cut down beside the player DIED at their side, at that minute (the host's hand turn - gone from the
+   *  party from then, their body the pool's, their town's talk); a host without one keeps the old `fallen`. */
+  function fell(res, trip, t) {
+    if (deps.died) { deps.died(res, t); deps.onTurn?.(); } else turn('fallen', deps.turnKeyOf(res, trip));
+  }
 
   /** Read a live fight: the fallen, the won, the lost. */
   function judge(f, t) {
@@ -122,7 +133,7 @@ export function createRoadFights(deps) {
     for (const [id, rec] of f.allies) {
       if (!rec.dead || f.fell.has(id)) continue;
       f.fell.add(id);
-      turn('fallen', deps.turnKeyOf(rec.living.res, f.trip));   // cut down beside the player: the lives read it
+      fell(rec.living.res, f.trip, t);   // cut down beside the player: the lives read it
     }
     const foesStanding = f.foes.filter((rec) => !rec.dead && deps.inPool(rec));
     const foesFell = f.foes.filter((rec) => rec.dead).length;
@@ -130,7 +141,12 @@ export function createRoadFights(deps) {
       f.state = 'won';
       turn('won', f.enc.id);
       const rel = deps.relations?.();
-      for (const m of membersAt(f.trip, t)) {
+      // AUDIT-B3: standing at the win - the party's members at this minute AND every ally stood still on their feet: a
+      // fated ally stood before the road's minute for their fall, alive at the win, is spared (read off the road alone
+      // they were already its dead, never spared - and their body drawn beside them)
+      const standing = new Map(membersAt(f.trip, t).map((m) => [m.id, m]));
+      for (const [id, rec] of f.allies) if (!rec.dead && rec.living?.res) standing.set(id, rec.living.res);
+      for (const m of standing.values()) {
         if (f.fell.has(m.id)) continue;
         const fated = deps.dies(m, f.trip);
         if (fated) turn('spared', deps.turnKeyOf(m, f.trip));
@@ -157,7 +173,7 @@ export function createRoadFights(deps) {
       if (can && ground) {
         for (const p of parties) {
           const { trip, at } = p;
-          if (!at?.fight || !trip?.enc?.foes?.length || fights.has(trip.enc.id)) continue;
+          if (!at?.fight || !trip?.enc?.foes?.length || fights.has(trip.enc.id) || ended.has(trip.enc.id)) continue;
           if (Math.hypot(at.x - here.x, at.z - here.z) / NATIVE_PER_M > LIVE_M) continue;
           if (!deps.owner(deps.sceneOf(at.x, at.z))) continue;
           stand(trip, at, t);

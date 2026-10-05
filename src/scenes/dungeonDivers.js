@@ -48,6 +48,7 @@ export const DIVER_HEEL_STEP_M = 1.2;
  *   door?: any,
  *   spawnFoe?: (mobileType: number, feet: number[], o: { yaw: number, level: number, gender: string }) => Promise<any>,
  *   slay?: (res: any, t: number, seen: boolean) => void,
+ *   died?: (res: any, t: number) => void,
  * }} deps - `spot(from, dx, dz)` a place walked out from the player's feet (never inside a wall); `owner()` whether
  *   this player stands the divers here (the election); `day()` the living day (the regards' clock); LW7b `spawnFoe` the
  *   dungeon's loose stand for one who draws on the player, `slay(res, t, seen)` the host's hand turn
@@ -55,12 +56,14 @@ export const DIVER_HEEL_STEP_M = 1.2;
 export function createDungeonDivers(deps) {
   /** @type {Map<string, { trip: any, allies: Map<string, any>, foes: Map<string, any>, fell: Set<string>, met: boolean }>} */
   const companies = new Map();
+  /** AUDIT-C2: the companies that made for the surface this visit - never met again in it. */
+  const ended = new Set();
 
   const takeOut = (rec) => { try { if (deps.inPool(rec)) deps.remove(rec); } catch (e) { console.warn('[divers] a body would not leave', e?.message ?? e); } };
   function letGo(id) {
     const c = companies.get(id);
     if (!c) return;
-    for (const rec of c.allies.values()) takeOut(rec);
+    for (const rec of c.allies.values()) if (!rec.dead) takeOut(rec);   // AUDIT-C4: one cut down is the pool's own (their body, to be found)
     for (const rec of c.foes.values()) if (!rec.dead) takeOut(rec);   // LW7b: one cut down is the pool's own
     companies.delete(id);
   }
@@ -131,14 +134,16 @@ export function createDungeonDivers(deps) {
       const listed = new Set();
       for (const { trip, members } of divers) {
         listed.add(trip.id);
-        if (!companies.has(trip.id) && deps.owner() && members.some((m) => m.cls != null)) meet(trip, members);
+        if (!companies.has(trip.id) && !ended.has(trip.id) && deps.owner() && members.some((m) => m.cls != null)) meet(trip, members);
       }
       for (const [id, c] of [...companies]) {
         for (const [mid, rec] of c.foes) if (rec.dead && !c.fell.has(mid)) slain(c, mid, rec, t);   // LW7b
         for (const [mid, rec] of c.allies) {
           if (!rec.dead || c.fell.has(mid)) continue;
           c.fell.add(mid);
-          turn('fallen', deps.turnKeyOf(rec.living.res, c.trip));   // cut down beside the player
+          // cut down beside the player - AUDIT-C3: died at their side, at that minute (the old `fallen` waited for the deep's
+          // own hour of the dive's trouble, and the company met again stood them up alive till then)
+          if (deps.died) deps.died(rec.living.res, t); else turn('fallen', deps.turnKeyOf(rec.living.res, c.trip));
         }
         if (t >= c.trip.backT0 || !listed.has(id)) {
           // their hours done: the survivors make for the surface, the fated among them spared
@@ -154,6 +159,7 @@ export function createDungeonDivers(deps) {
           }
           if (left) deps.say?.(`${c.trip.leader.name}'s company make for the surface.`);
           letGo(id);
+          ended.add(id);
         }
       }
     },
@@ -163,7 +169,7 @@ export function createDungeonDivers(deps) {
      *  (the host lays no remains of them). @param {string} tripId @param {string} resId */
     stood: (tripId, resId) => { const c = companies.get(tripId); return !!c && (c.allies.has(resId) || c.foes.has(resId)); },
     /** Every company forgotten (the dungeon left; a sweep) - its pool goes with it. */
-    clear() { for (const id of [...companies.keys()]) letGo(id); },
+    clear() { for (const id of [...companies.keys()]) letGo(id); ended.clear(); },
     get size() { return companies.size; },
   };
 }

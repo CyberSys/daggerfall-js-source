@@ -416,9 +416,11 @@ test('LW4 the streaming host: the trouble\'s world (the climate at the place, th
   const w = rd('src/scenes/world.js');
   assert.match(w, /: rollGroupComposition\(\{ climateIndex, skyMinutes: minute, inLocationRect: false, playerLevel: level, size \}, rolls\)\?\.mobileTypes \?\? null\),/, 'on the land, the campers\' themed group');
   assert.match(w, /foeLevel: \(type, level\) => \(type >= 128 \? level : ENEMY_BASICS\[type\]\?\.level \?\? level\),/);
-  assert.match(w, /const pl = livingPlaceOf\(place, placeCycle\(place, roster, Math\.floor\(trip\.outT0 \/ 1440\), livingScale\(\)\)\);\n\s*return pl\.dies && pl\.hand == null;/, 'LW7: one a hand took first the trouble never takes');
+  assert.match(w, /return livingPlaceOf\(place, placeCycle\(place, roster, Math\.floor\(trip\.outT0 \/ 1440\), livingScale\(\)\)\);/, 'each member at their own place\'s cycle (livingTripPlace)');
+  assert.match(w, /dies: \(res, trip\) => \{ const pl = livingTripPlace\(res, trip\); return pl\.dies && pl\.hand == null; \},/, 'LW7: one a hand took first the trouble never takes');
+  assert.match(w, /diced: \(res, trip\) => livingTripPlace\(res, trip\)\.diced,/, 'AUDIT-B1: the trouble\'s shape the dice\'s own');
   assert.match(w, /turnOf: \(id\) => \{ const t = livingRelations\.turns\(\); return t\.won\.has\(id\) \? 'won' : t\.lost\.has\(id\) \? 'lost' : null; \},/);
-  assert.match(w, /livingTripWorld\.holderOf = \(res, k\) => livingPlaceOf\(res, k\)\.holder;\n\s*livingTripWorld\.fated = \(res, k\) => livingPlaceOf\(res, k\)\.dies;/);
+  assert.match(w, /livingTripWorld\.holderOf = \(res, k\) => livingPlaceOf\(res, k\)\.holder;\n\s*livingTripWorld\.fated = \(res, k\) => livingPlaceOf\(res, k\)\.diced;/, 'AUDIT-B1: a fated trip the dice\'s - a spare never takes it away');
   assert.match(w, /if \(!f\) \{\n\s*f = troubledTrip\(trip, troubleOf\(trip, livingTroubleWorld\)\);/);
   assert.match(w, /const holder = pl\.vacant \? null : pl\.holder == null \? res\n\s*: \(town \? mintResident\(town, res\.roll \?\? 't', res\.slot, res\.job, \{ gen: pl\.holder, home: res\.home, work: res\.work, faction: res\.faction \}\) : res\);/, 'LW7: a townsperson\'s newcomer the census\'s own mint too');
   assert.match(w, /_livingPlaces\.clear\(\); _livingFates\.clear\(\); _livingTripMemo\.clear\(\);/, 'a turn of fate, or a load: the books made again');
