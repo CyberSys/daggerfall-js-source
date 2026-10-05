@@ -2,12 +2,12 @@
 // decoration"; asked which, the dungeons' furnishings among them). The catalogue read the town blocks' rooms alone, so
 // nothing Daggerfall stands only in its dungeons - a throne, a cage, a coffin, a statue, chains, a brazier - could be
 // set in a house. A dungeon block has no prop type, so its furnishings are told from the dungeon itself by their family
-// (41000-43999, the furniture and props) and a short list of free-standing pieces kept among the architecture's ids;
+// (41000-43999, the furniture and props) and the 37 things Daggerfall's dungeons stand outside them, as measured;
 // a piece that acts (a lever, a moving throne) or is a door is never one, nor an editor's marker, a flat that acts, or
-// the climate's nature. Pinned through the real collector, catalogue and scan, and the hosts' one deps constructor.
+// the climate's nature. Pinned through the real collector, catalogue and scan, and the hosts' one deps constructor; the
+// free-standing pieces are measured again over the player's own dungeons where ARENA2 is at hand.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import {
   collectDecor, decorCatalogue, decorRoomEntries, isDungeonFurnishing, DECOR_FREE_STANDING, DECOR_FURNITURE_FIRST,
   DECOR_FURNITURE_LAST, DECOR_KINDS, DECOR_FROM,
@@ -15,10 +15,22 @@ import {
 import { createDecorScan, decorScanDeps } from '../src/systems/decorScan.js';
 import { BLOCK_TYPES, RDB_RESOURCE_TYPES } from '../src/formats/blocksFile.js';
 import { LADDER_MODEL_ID } from '../src/player/enterExit.js';
+import { rdbObjects, rdbModelActs, isActionDoor, EXIT_DOOR_MODEL_ID } from '../src/world/rdbLayout.js';
 import { rmb, fakeBlocks } from './decorFakes.mjs';
+import { HAS_ARENA2, loadBlocks } from './arena1Data.mjs';
 
-const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { Model, Flat, Light } = RDB_RESOURCE_TYPES;
+/** THE FREE-STANDING PIECES AS MEASURED (2026-10-05, over the 187 dungeon blocks of BLOCKS.BSA): each one's tag in
+ *  Daggerfall's dungeon editor and how many times a dungeon stands it doing nothing. */
+const STANDS = Object.freeze({
+  60512: ['ST1', 1], 60520: ['ST9', 1], 62317: ['XA2', 3], 62318: ['BM0', 5], 62319: ['BM0', 30], 62321: ['BM1', 12],
+  62323: ['ST0', 26], 62324: ['ST1', 14], 62325: ['ST2', 5], 62326: ['ST3', 3], 62327: ['ST0', 6], 62328: ['ST1', 7],
+  62329: ['ST2', 8], 62330: ['ST3', 6], 74009: ['CLM', 18], 74069: ['CAS', 1], 74071: ['BCH', 2], 74072: ['BCX', 9],
+  74073: ['LID', 1], 74082: ['TRP', 1], 74086: ['TSP', 1], 74091: ['HT3', 1], 74094: ['MAN', 1], 74201: ['CLM', 19],
+  74221: ['BOW', 1], 74224: ['SWD', 7], 74225: ['AXE', 7], 74226: ['AMR', 10], 74227: ['SWD', 10], 74228: ['BW2', 5],
+  74229: ['ARC', 15], 74237: ['PED', 1], 74800: ['LRG', 5], 74804: ['LRG', 1], 74806: ['LRG', 5], 75800: ['SRG', 2],
+  99800: ['ARW', 2],
+});
 
 /** A parsed RDB block: `refs` its model reference list ([id, tag]), `objects` its objects - a model `['m', ref, acts]`,
  *  a flat `['f', archive, record, action]`, a light `['l']` - in one object group. */
@@ -44,16 +56,41 @@ const DUNGEON = rdb(
     ['f', 199, 15], ['f', 210, 0], ['f', 100, 2], ['f', 100, 2], ['f', 504, 12], ['f', 182, 3], ['f', 100, 7, 2]],
 );
 
-test('DECOR-DUNGEON the law: a dungeon\'s furnishing is of the furniture families (the ladder aside) or a free-standing piece kept among the architecture\'s ids - never the architecture (mutants: DECORDUNGEON-architecture-taken, DECORDUNGEON-free-standing-lost)', () => {
+test('DECOR-DUNGEON the law: a dungeon\'s furnishing is of the furniture families (the ladder aside) or a free-standing piece Daggerfall keeps outside them, as measured - never the dungeon itself (mutants: DECORDUNGEON-architecture-taken, DECORDUNGEON-free-standing-lost)', () => {
   assert.deepEqual([DECOR_FURNITURE_FIRST, DECOR_FURNITURE_LAST], [41000, 43999]);
   assert.deepEqual([41000, 41123, 41313, 42501, 43011, 43999].map(isDungeonFurnishing), [true, true, true, true, true, true]);
-  assert.deepEqual([LADDER_MODEL_ID, 40999, 44000, 55000, 56000, 61027, 70300, 72100, 74037].map(isDungeonFurnishing), Array(9).fill(false), 'the ladder, the architecture, the doors, the lever and the wheel');
+  assert.deepEqual([LADDER_MODEL_ID, 40999, 44000, 55000, 56000, 58012, 60506, 61026, 61027, 70300, 72100, 74037, 74044, 74204].map(isDungeonFurnishing), Array(14).fill(false),
+    'the ladder, the architecture, a portcullis, the lever and its housing, the exit and the doors, the wheel, a cone of rock, a platform');
+  assert.deepEqual([...DECOR_FREE_STANDING].sort((a, b) => a - b), Object.keys(STANDS).map(Number), 'the measured pieces, and only they');
   for (const id of DECOR_FREE_STANDING) {
     assert.equal(isDungeonFurnishing(id), true, `${id}`);
-    assert.ok(id >= 50000 && id < 99000, `${id} stands among the architecture's ids - the only reason it is listed`);
+    assert.ok(id < DECOR_FURNITURE_FIRST || id > DECOR_FURNITURE_LAST, `${id} stands outside the families - the only reason it is listed`);
   }
-  const helper = src('vendor/world-of-daggerfall/Scripts/LocationHelper.cs');
-  for (const id of DECOR_FREE_STANDING) assert.match(helper, new RegExp(`\\{\\s*"${id}",\\s*"[^"]+"\\s*\\}`), `${id} is World of Daggerfall's own standing piece`);
+});
+
+test('DECOR-DUNGEON the free-standing pieces, measured (ARENA2): each stands doing nothing in Daggerfall\'s own dungeons as many times as recorded, under the tag recorded - none listed that no dungeon stands; and the 187 dungeon blocks stand 731 models still outside the families, these and the dungeon itself', { skip: !HAS_ARENA2 && 'ARENA2_PATH not set' }, () => {
+  const blocks = loadBlocks();
+  const still = new Map();
+  let dungeons = 0;
+  for (let i = 0; i < blocks.count; i++) {
+    if (blocks.getBlockType(i) !== BLOCK_TYPES.Rdb) continue;
+    const rdb = blocks.readClassicBlock(i)?.rdbBlock;
+    if (!rdb) continue;
+    dungeons++;
+    for (const obj of rdbObjects(rdb)) {
+      if (obj.type !== Model) continue;
+      const ref = obj.resources.modelResource.modelIndex;
+      const { modelIdNum: id, description: tag } = rdb.modelReferenceList[ref];
+      if ((id >= DECOR_FURNITURE_FIRST && id <= DECOR_FURNITURE_LAST) || id === LADDER_MODEL_ID || id === EXIT_DOOR_MODEL_ID) continue;
+      if (rdbModelActs(obj) || isActionDoor(rdb, ref)) continue;
+      const s = still.get(id) ?? { tags: new Set(), n: 0 };
+      s.tags.add(tag);
+      s.n++;
+      still.set(id, s);
+    }
+  }
+  assert.deepEqual([dungeons, still.size], [187, 731]);
+  for (const id of DECOR_FREE_STANDING) assert.deepEqual([[...(still.get(id)?.tags ?? [])], still.get(id)?.n ?? 0], [[STANDS[id][0]], STANDS[id][1]], `${id}`);
 });
 
 test('DECOR-DUNGEON the collector: a dungeon block gives its furnishings - the throne that stands still (never the one that acts), the statue, a brazier, the chains, a prisoner - and none of its architecture, doors, ladder, markers, lights, acting flats or nature; a piece found in a room is the room\'s, every placement counted (mutants: DECORDUNGEON-actions-taken, DECORDUNGEON-doors-taken, DECORDUNGEON-markers-taken, DECORDUNGEON-acting-flats-taken, DECORDUNGEON-nature-taken, DECORDUNGEON-people-unread, DECORDUNGEON-room-reading-lost)', () => {

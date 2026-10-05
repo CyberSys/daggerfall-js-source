@@ -113,17 +113,27 @@ const OUTSIDE = new Set(['street', 'nature']);
  *  dungeon's furnishing is told from the dungeon itself. */
 export const DECOR_FURNITURE_FIRST = 41000;
 export const DECOR_FURNITURE_LAST = 43999;
-/** DECOR-DUNGEON: the pieces Daggerfall keeps among its architecture's ids that stand free all the same - its rocks, its
- *  arches, obelisks, pillars and slab, its statues, its pedestals, the anvil, the weapons and the knight's armour - each a
- *  piece World of Daggerfall's placement palette stands on its own (vendor/world-of-daggerfall/Scripts/LocationHelper.cs
- *  :89-391, its `models` table). Their ids alone are read there; a piece is in the catalogue only where Daggerfall
- *  itself stands it, and is named as the catalogue names every piece. */
+/** DECOR-DUNGEON: the pieces Daggerfall keeps among its architecture's ids that stand free all the same - MEASURED over
+ *  its 187 dungeon blocks: each of the 731 models a dungeon stands doing nothing outside the families was looked at, and
+ *  the THINGS kept (a statue, a sword, a pedestal, a hanging, a coffin) - never the dungeon itself: its structure (a
+ *  wall, a stair, a floor, a platform, a pit, a cave's cone of rock), its passages (a door, a trapdoor, a portcullis, a
+ *  ramp, a bridge) or its mechanisms (a lever and its housing). Each is named by the tag Daggerfall's own dungeon editor
+ *  gave its reference (BLOCKS.BSA's model list), with how many times it stands still there - test/decordungeon.test.js
+ *  measures both again over the player's own blocks. */
 export const DECOR_FREE_STANDING = Object.freeze([
-  60610, 60711, 60712, 60713, 60714, 60715, 60716, 60717, 60718, 60719, 60720,   // the rocks
-  62310, 62313, 62314, 62315, 62317, 62322,   // the arches, the obelisk, the pillar, the slab
-  62324, 62325, 62328, 62330,   // the stone statues
-  74009, 74082, 74086, 74091, 74094,   // a pillar, the pedestals, an open pillar
-  74095, 74212, 74219, 74221, 74222, 74224, 74225, 74226,   // a claymore, the anvil, a sickle, a crossbow, a spike, a sword, an axe, the knight's armour
+  60512, 60520,   // the boulders (ST1 1, ST9 1)
+  62317,   // the marble arch (XA2 3)
+  62318, 62319, 62321,   // the wooden beams (BM0 5, BM0 30, BM1 12)
+  62323, 62324, 62325, 62326, 62327, 62328, 62329, 62330,   // the statues - a figure standing and one seated, small and large, in pale stone and in dark (ST0-ST3 26, 14, 5, 3, 6, 7, 8, 6)
+  74009, 74201,   // the marble columns (CLM 18, 19)
+  74069,   // the stone casket (CAS 1)
+  74071, 74072, 74073,   // the marble coffins, open, and their lid (BCH 2, BCX 9, LID 1)
+  74082, 74086, 74091, 74237,   // the pedestals - wood and marble, marble, stone, wooden (TRP 1, TSP 1, HT3 1, PED 1)
+  74094,   // the domed pavilion (MAN 1)
+  74221, 74224, 74225, 74226, 74227, 74228,   // the great crossbow, a sword, an axe, the knight's armour, a sword, a crossbow (BOW 1, SWD 7, AXE 7, AMR 10, SWD 10, BW2 5)
+  74229,   // the arcane cage (ARC 15)
+  74800, 74804, 74806, 75800,   // the hangings - large and small (LRG 5, 1, 5; SRG 2)
+  99800,   // an arrow (ARW 2) - the archers' own shot (combat/arrowFlight.js), lying where Daggerfall left it
 ]);
 const FREE_STANDING = new Set(DECOR_FREE_STANDING);
 /** DECOR-DUNGEON: whether a dungeon's model is a furnishing - of the furniture families (the ladder aside, as in a room)

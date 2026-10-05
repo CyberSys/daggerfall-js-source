@@ -18,6 +18,15 @@
     ]
   },
   {
+    "name": "DECORDUNGEON-statues-halved",
+    "file": "src/systems/decorCatalogue.js",
+    "old": "  62323, 62324, 62325, 62326, 62327, 62328, 62329, 62330,   // the statues - a figure standing and one seated, small and large, in pale stone and in dark (ST0-ST3 26, 14, 5, 3, 6, 7, 8, 6)",
+    "new": "  62324, 62325, 62328, 62330,   // the statues World of Daggerfall's palette names - the defect measured",
+    "tests": [
+      "test/decordungeon.test.js"
+    ]
+  },
+  {
     "name": "DECORDUNGEON-actions-taken",
     "file": "src/systems/decorCatalogue.js",
     "old": "          if (!isDungeonFurnishing(id) || id === EXIT_DOOR_MODEL_ID || rdbModelActs(obj) || isActionDoor(rdb, ref)) continue;",

@@ -9524,10 +9524,11 @@ changes to a placed piece.
   carries Daggerfall's own light (its range, intensity and colour). The panel's filters are here too: kinds, words
   (every word in the name or the kind), a size band (small under half a metre of radius, large from a metre and a
   quarter), holds-things, gives-light; most common first, cheapest first, or by name. DECOR-DUNGEON (FIELD BUGS
-  2026-10-05, the owner: "a lot of missing decor items"): and the dungeon blocks' furnishings - a model of the furniture
-  families or a free-standing piece that stands doing nothing (no action, never a door), a flat but a marker, an acting
-  flat or nature; found only there, a piece is "Dungeon furniture"; every place's names are numbered after the earlier
-  places' (a room's first), so no room's name moves (`01-Overview/Field-Bugs-2026-10-05b.md`).
+  2026-10-05b, the owner: "a lot of missing decor items"): and the dungeon blocks' furnishings - a model of the furniture
+  families, or one of the 37 things Daggerfall stands outside them (measured: its statues, arms, pedestals, coffins,
+  hangings), that stands doing nothing (no action, never a door), a flat but a marker, an acting flat or nature; found
+  only there, a piece is "Dungeon furniture"; every place's names are numbered after the earlier places' (a room's
+  first), so no room's name moves (`01-Overview/Field-Bugs-2026-10-05b.md`).
 
 Pinned: `test/decor1.test.js` (4 of its 7) - the law, the store through the real Worker with every migration
 applied, the client's door and the deploy, the catalogue and its filters.

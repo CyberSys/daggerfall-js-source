@@ -67,13 +67,32 @@ Daggerfall stands only in its 187 dungeon blocks (RDB) was no piece.
 block has no PROP type of its own (a room's furniture is its type-3 models; an RDB model is just a model), so a
 dungeon's furnishing is told from the dungeon itself by its FAMILY: the furniture and props, ARCH3D 41000-43999, where the
 dungeon's corridors, rooms, stairs and vaults are 50000-98999 (the seam census's own split, `tools/seamCensus.mjs`
-isArchitecture). A few pieces Daggerfall keeps among the architecture's ids stand free all the same - its rocks, arches,
-obelisk, pillars, slab, stone statues, pedestals, the anvil, the weapons and the knight's armour - and are named
-(`DECOR_FREE_STANDING`), each one World of Daggerfall's own placement palette stands on its own (its ids alone are read
-there: a piece is offered only where Daggerfall itself stands it, and named as the catalogue names every piece). A model
-is a piece only where it stands doing nothing: one that acts (a lever, the throne that casts, a lid that swings) or is a
-door (DFU's IsActionDoor, the exit door) never is - the same throne standing still elsewhere is. A flat is a piece but
-an editor's marker (foes, treasure, quests), a flat that acts, or the climate's nature; a dungeon's people are people.
+isArchitecture). Some things Daggerfall keeps outside the families stand free all the same, and are named
+(`DECOR_FREE_STANDING`, 37) - MEASURED, not borrowed (below). A model is a piece only where it stands doing nothing: one
+that acts (a lever, the throne that casts, a lid that swings) or is a door (DFU's IsActionDoor, the exit door) never is -
+the same throne standing still elsewhere is. A flat is a piece but an editor's marker (foes, treasure, quests), a flat
+that acts, or the climate's nature; a dungeon's people are people.
+
+**The things outside the families, measured.** The list first shipped as World of Daggerfall's outdoor placement palette
+(`LocationHelper.cs`'s `models` table, its ids among the architecture's): measured over the 187 dungeon blocks of
+BLOCKS.BSA, 20 of its 34 ids no dungeon stands doing nothing (eleven rocks, two arches, the obelisk, a pillar, the slab,
+the anvil, the sickle - and the claymore and the spike, which stand only acting), so they offered nothing and said what
+was not so; and of the things the dungeons do stand it named 14 and missed 23 - four of the eight statues (the
+commonest, 62323, stands 26 times), a second sword, a crossbow, a pedestal, a column, the casket and the coffins, the
+hangings, the beams, the boulders, the arcane cage and an arrow. The dungeons stand 731 models doing nothing
+outside the families: 536 under a corridor's or a room's code (C0K, R01, L5W - the corridors and rooms themselves), and
+195 under a name of their own (a statue's ST1, a sword's SWD, a wall's W01), each of those looked at one by one -
+rendered from the player's own ARCH3D in the scratchpad (a render of game data is game data, and never leaves it) - and
+the THINGS kept: a statue, a sword, a pedestal, a hanging, a coffin - never the dungeon itself,
+its structure (a wall, a stair, a floor, a platform, a pit, a cave's cone of rock), its passages (a door, a trapdoor, a
+portcullis, a ramp, a bridge) or its mechanisms (a lever and its housing). 37 are: the boulders (60512, 60520), the
+marble arch (62317), the wooden beams (62318, 62319, 62321), the eight statues (62323-62330: a figure standing and one
+seated, small and large, in pale stone and in dark), the marble columns (74009, 74201), the stone casket (74069), the
+marble coffins and their lid (74071-74073), the pedestals (74082, 74086, 74091, 74237), the domed pavilion (74094), the
+arms and armour (74221 the great crossbow, 74224-74228), the arcane cage (74229), the hangings (74800, 74804, 74806,
+75800) and an arrow (99800). Each is named in the source by the tag Daggerfall's own dungeon editor gave its reference
+(BLOCKS.BSA's model list: ST0-ST3, SWD, PED, LRG...) and how many times it stands still; `test/decordungeon.test.js`
+measures both again over the player's own blocks where ARENA2 is at hand.
 
 A piece found only in a dungeon is **Dungeon furniture** - unless the game files it already (a bed, a chest, a shelf, a
 light, a treasure). A piece a house's room stands too is the room's reading, every placement counted.
@@ -91,7 +110,8 @@ constructor; `exterior.js` stands no decorator; `dungeonContext.js` stands no de
 A dungeon's piece draws in a house as its own model, in its base textures: the room's climate table carries only the
 room's own models' swaps, and a dungeon's texture table is its dungeon's.
 
-`test/decordungeon.test.js` (4); `tools/mutants/decordungeon.json` 13, 13 dead. Moved: `test/decor1d.test.js`'s host pin
+`test/decordungeon.test.js` (5, one over the player's own ARENA2); `tools/mutants/decordungeon.json` 14, 14 dead (one
+puts back the palette's four statues). Moved: `test/decor1d.test.js`'s host pin
 (the measures are the constructor's), `decor1d.json`'s dungeon-block record re-aimed (still dead), `test/decor1.test.js`'s
 kinds (15). `world/rdbLayout.js` exports its walk (`rdbObjects`), its action test (`rdbModelActs` - renamed: an input
 binding's `hasAction` already held the name) and `EXIT_DOOR_MODEL_ID`.
