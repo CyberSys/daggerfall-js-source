@@ -102,12 +102,12 @@
   {
     "name": "PRIMARCH-the-radiances-button-in-violet",
     "file": "src/ui/playerBadge.js",
-    "old": "radiance: 'primarch' });",
-    "new": "radiance: 'aegis' });",
+    "old": "radiance: 'primarch', shadowcloak: 'shadowfang' });",
+    "new": "radiance: 'aegis', shadowcloak: 'shadowfang' });",
     "tests": [
       "test/primarch.test.js"
     ],
-    "note": "The Golden Radiance's button on the card painted in the Aegis of Oblivion's violets."
+    "note": "The Golden Radiance's button on the card painted in the Aegis of Oblivion's violets. SHADOW-CLOAK (PIN MOVED): re-aimed by content - the Holo Shadow Cloak joined the line."
   },
   {
     "name": "PRIMARCH-the-title-misspelt",
@@ -172,32 +172,32 @@
   {
     "name": "PRIMARCH-the-aura-not-granted",
     "file": "server-account/src/titles.js",
-    "old": "export const TIER_AURA = Object.freeze({ aegis: 'oblivionward', primarch: 'radiance' });",
-    "new": "export const TIER_AURA = Object.freeze({ aegis: 'oblivionward' });",
+    "old": "export const TIER_AURA = Object.freeze({ aegis: 'oblivionward', primarch: 'radiance', shadowfang: 'shadowcloak' });",
+    "new": "export const TIER_AURA = Object.freeze({ aegis: 'oblivionward', shadowfang: 'shadowcloak' });",
     "tests": [
       "test/primarch.test.js"
     ],
-    "note": "The title and glyph without the aura GA00250 asked for."
+    "note": "The title and glyph without the aura GA00250 asked for. SHADOW-CLOAK (PIN MOVED): re-aimed by content - the Holo Shadow Cloak joined the line."
   },
   {
     "name": "PRIMARCH-the-ward-granted",
     "file": "server-account/src/titles.js",
-    "old": "export const TIER_AURA = Object.freeze({ aegis: 'oblivionward', primarch: 'radiance' });",
-    "new": "export const TIER_AURA = Object.freeze({ aegis: 'oblivionward', primarch: 'oblivionward' });",
+    "old": "export const TIER_AURA = Object.freeze({ aegis: 'oblivionward', primarch: 'radiance', shadowfang: 'shadowcloak' });",
+    "new": "export const TIER_AURA = Object.freeze({ aegis: 'oblivionward', primarch: 'oblivionward', shadowfang: 'shadowcloak' });",
     "tests": [
       "test/primarch.test.js"
     ],
-    "note": "GA00250 granted Sureme's ward instead of the radiance."
+    "note": "GA00250 granted Sureme's ward instead of the radiance. SHADOW-CLOAK (PIN MOVED): re-aimed by content - the Holo Shadow Cloak joined the line."
   },
   {
     "name": "PRIMARCH-the-vocabularys-aura",
     "file": "src/net/identityToken.js",
-    "old": "export const AURAS = Object.freeze(['dagonfire', 'oblivionward', 'radiance']);",
-    "new": "export const AURAS = Object.freeze(['dagonfire', 'oblivionward']);",
+    "old": "export const AURAS = Object.freeze(['dagonfire', 'oblivionward', 'radiance', 'shadowcloak']);",
+    "new": "export const AURAS = Object.freeze(['dagonfire', 'oblivionward', 'shadowcloak']);",
     "tests": [
       "test/primarch.test.js"
     ],
-    "note": "A token carrying the radiance refused: the aura never reaches a screen."
+    "note": "A token carrying the radiance refused: the aura never reaches a screen. SHADOW-CLOAK (PIN MOVED): re-aimed by content - the Holo Shadow Cloak joined the line."
   },
   {
     "name": "PRIMARCH-the-looks-kind",

@@ -57,6 +57,7 @@ import { GUILD_FOUND_GOLD, guildGoldOk } from './guildLaw.js';
 import { guildHallEntryOk } from './hallLaw.js';   // GUILD1d: who may walk into a hall
 import { heraldryOf } from './heraldryLaw.js';   // GUILD1d: a heraldry chosen, in the law's shape
 import { mintMarksRid } from './marksBook.js';   // GUILD1d: a heraldry changed burns Drakes - one request id a choice
+import { walletReserve } from './realmGoldLaw.js';   // MARKET-AUDIT: a refusal gives back exactly what the payment took
 
 /** A look older than this is taken again when the tab opens. */
 export const GUILD_FRESH_MS = 30_000;
@@ -89,7 +90,7 @@ export class GuildBook {
    * @param {object} opts
    * @param {any} opts.door  net/accountClient.js accountGuilds - every answer `call`'s shape
    * @param {() => (string|null)} opts.character  the character playing, or null
-   * @param {() => ({ gold: () => number, pay: (n: number) => void, credit: (n: number, o?: { letter?: boolean }) => void, paper?: (n: number) => boolean, region?: () => number })} opts.wallet
+   * @param {() => ({ gold: () => number, pay: (n: number) => ((() => void) | void), credit: (n: number, o?: { letter?: boolean }) => void, paper?: (n: number) => boolean, region?: () => number })} opts.wallet
    *        the purse, then this region's bank account (`region`: which - REALM P2.2's record pays from the same one);
    *        GUILD-LETTER: `paper(n)` - n gold is past what the pack can carry - and `credit`'s `letter`, paid as a letter
    * @param {() => number} [opts.now]  ms
@@ -235,7 +236,7 @@ export class GuildBook {
       return this._act((character) => {
         const w = this.wallet();
         return this.realm.act({
-          reserve: () => { w.pay(GUILD_FOUND_GOLD); return () => w.credit(GUILD_FOUND_GOLD); },
+          reserve: walletReserve(w, GUILD_FOUND_GOLD).reserve,   // MARKET-AUDIT: a refusal gives back exactly what it took
           call: (/** @type {any} */ at) => this.door.found({ character, name, tag, realm: at, region: w.region?.() ?? null }),
         });
       });
@@ -262,15 +263,16 @@ export class GuildBook {
     if (w.gold() < gold) return { ok: false, error: 'gold' };
     if (this.realm) {
       return this._act((character) => this.realm.act({
-        reserve: () => { w.pay(gold); return () => w.credit(gold); },
+        reserve: walletReserve(w, gold).reserve,   // MARKET-AUDIT: a refusal gives back exactly what it took
         call: (/** @type {any} */ at) => this.door.deposit(character, gold, at, w.region?.() ?? null),
       }));
     }
     return this._act(async (character) => {
-      w.pay(gold);
+      const paid = walletReserve(w, gold);   // MARKET-AUDIT: a refusal gives back exactly what it took
+      paid.reserve();
       const r = await this.door.deposit(character, gold);
       if (r?.ok) return r;
-      if (guildRefused(r?.error)) { w.credit(gold); return r; }
+      if (guildRefused(r?.error)) { paid.back(); return r; }
       return { ok: false, error: 'guild-unsure' };
     });
   }

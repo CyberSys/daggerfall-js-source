@@ -312,7 +312,7 @@ import { drinkAtSource, isWaterSourceFlat, isDrySourceFlat, WATER_SOURCE_MODELS,
 import { survivalOn } from '../systems/survival/switch.js';   // HT1: Handheld Torches' dropped lights, thrown torches and burning foes   // AUDIT 24 (wave 39): EnemyBlood.ShowBloodSplash
 import { createCityGuards } from './cityGuards.js';   // G1
 import { createArrestFlow } from './arrestFlow.js';
-import { clearCrimeOnLocationExit, addGold, goldAmount, deductGold, totalGoldAmount, deductGoldPieces } from '../systems/court.js';   // AUDIT 17e F6   // G2   // F-slice: travel gold; U41: GetGoldAmount + the pieces half of DeductFastTravelGold
+import { clearCrimeOnLocationExit, addGold, goldAmount, deductGold, payUndoable, totalGoldAmount, deductGoldPieces } from '../systems/court.js';   // AUDIT 17e F6   // G2   // F-slice: travel gold; U41: GetGoldAmount + the pieces half of DeductFastTravelGold
 import { makeInView } from '../player/cameraView.js';   // AUDIT 17e F24
 import { isBackFacing, SIGHT_RADIUS, foeFrameDt } from '../characters/enemyMotor.js';   // OW6: SIGHT_RADIUS, a foe's own sight (a camp's is its own)   // DUEL1: a duel opponent's blow from behind me is a backstab's chance
 import { markFoeStruck } from '../ui/hudFoeTarget.js';   // DUEL1: my duel opponent's health, on the enhanced HUD's target bar
@@ -349,7 +349,7 @@ import { composeContents } from '../systems/worldHover.js';   // WORLD-HOVER: th
 import { mobilePersonName, lootPileName } from '../systems/worldTooltips.js';   // WORLD-HOVER H2: MobilePersonNPC.NameNPC (.cs:299-302); M5: a dropped pile's word (.cs:534-548), outdoors too
 import { wagonHoverName } from '../player/eotbWagon.js';   // WORLD-HOVER M6: the cart's word, beside its producer
 import { waterSourceHoverName } from '../systems/survival/items.js';   // WORLD-HOVER M6: a water source's word, beside its producer
-import { mwViewFirstPerson, mwViewFrame, mwViewWheel, mwViewDrawBody, mwViewFootstep, mwViewLoadPose, mwViewNewGame, mwViewRebase, mwViewAttachWagon, mwViewDrawWagon, mwViewWagonTargets, setEotbCartYields, mwViewWagonActivate, setEotbComeSailAway, mwViewHoldThird, mwViewHoldChanged, mwViewSaveCamera, mwViewTogglePerspective } from '../player/mwView.js';   // MW-D25: the Morrowind camera; AUDIT-EOTB2: the sprite's stride and the load's POV; CSA-J: EOTB's boat
+import { mwViewFirstPerson, mwViewFrame, mwViewWheel, mwViewDrawBody, mwViewBodyBones, mwViewFootstep, mwViewLoadPose, mwViewNewGame, mwViewRebase, mwViewAttachWagon, mwViewDrawWagon, mwViewWagonTargets, setEotbCartYields, mwViewWagonActivate, setEotbComeSailAway, mwViewHoldThird, mwViewHoldChanged, mwViewSaveCamera, mwViewTogglePerspective } from '../player/mwView.js';   // MW-D25: the Morrowind camera; AUDIT-EOTB2: the sprite's stride and the load's POV; CSA-J: EOTB's boat
 import { seaZoomReach } from '../player/seaZoom.js';   // FIELD BUGS 2026-09-29 (the sea) #3: the zoom at a helm
 import { mwCamera } from '../player/mwCamera.js';   // MW-D30: persistence
 import { pickActivatableHit, pickQuestFoe, pickFoe, peacefulFoePass } from '../player/activate.js';   // G3: corpse loot; QG1: the foe-click door; TI1: the lock-on pick
@@ -645,7 +645,7 @@ import { createSeatBanners, seatBannerAnchors, palaceKeysOf, townCentreOf } from
 import { createFestivalStage, festivalBannerAnchors, festivalLanternsOf } from './seatFestival.js';   // FESTIVAL-STAGE: a Festival's music, banners and lanterns
 import { drawBanner } from '../ui/heraldryArt.js';   // GUILD1d: ...its heraldry painted on it
 import { heraldryLookup } from '../ui/heraldrySwatch.js';   // HERALDRY-SHOWN: a guild's heraldry by its tag, off what this client holds
-import { AuraRingRenderer, auraWearers, AURA_KINDLE_S } from '../render/auraRing.js';   // WB9g: Dagon's Fire at a wearer's feet
+import { AuraRingRenderer, auraWearers, auraBeastStep, auraMotionStep, auraCapeStep, CLOAK_BONES, AURA_KINDLE_S } from '../render/auraRing.js'; import { peerBodyYaw } from '../net/peerClimb.js';   // WB9g: Dagon's Fire at a wearer's feet; SHADOW-CLOAK: a peer's facing, the cloak's front (on this line, so no cite below it moves)
 import { duelAttackerOf, duelWeaponOf, duelSwingOf, resolveDuelStrike, duelBlowPlausible, duelSpellOf, duelSpellFromWire, duelWearDamage, DUEL_TRAIL_MS, duelStub } from '../combat/duelCombat.js';   // DUEL1: the blow between two duellists, both halves
 import { createPageWindow, pageView } from '../ui/pageWindow.js';   // JOURNAL1: a page another player holds out, read and kept
 import { PageOffers, pageOfferText, pageShownText, pageTooFarText, keptPageTokens, keptLetterTokens, letterOfPage, PAGE_UNSUPPORTED_TEXT, PAGE_NO_READERS_TEXT, PAGE_GONE_TEXT } from '../net/journalPage.js';   // JOURNAL1: a page of the journal shown, and one shown to me kept
@@ -1425,7 +1425,9 @@ export async function bootWorld(canvas, renderer, params, status) {
         const account = playerEntity.bankAccounts[goldRegion(playerEntity.bankAccounts, region)] ?? null;   // EMPIRE-ACCOUNT: the Empire's account
         return {
           gold: () => totalGoldAmount(playerEntity) + Math.max(0, account?.accountGold ?? 0),
-          pay: (n) => { const owed = deductGold(playerEntity, n); if (account && owed > 0) account.accountGold -= owed; },
+          // MARKET-AUDIT: and its undo - exactly what it took back where it was (court.js deductGoldUndoable); a refusal's
+          // `credit` of the whole cost turned letters and the bank's gold into purse coins
+          pay: (n) => payUndoable(playerEntity, n, account),
           credit: (n) => addGold(playerEntity, n),
           // collected: into that region's account, the purse where there is none (realmGoldLaw creditSave's `bank`)
           bank: (n) => { if (account) account.accountGold = (Number.isFinite(account.accountGold) ? account.accountGold : 0) + n; else addGold(playerEntity, n); },
@@ -9616,7 +9618,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:3071 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:7284
+  // that context through modes.dungeonCtx - so worldModes.js:7286
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -9961,7 +9963,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const a = playerEntity.bankAccounts[goldRegion(playerEntity.bankAccounts, region)] ?? null;   // EMPIRE-ACCOUNT: the Empire's account
     return {
       gold: totalGoldAmount(playerEntity) + (a?.accountGold ?? 0),
-      pay: (n) => { const short = deductGold(playerEntity, n); if (a) a.accountGold -= short; },
+      pay: (n) => payUndoable(playerEntity, n, a),   // MARKET-AUDIT: answering the undo of exactly what it took
       credit: (n) => { addGold(playerEntity, n); },
     };
   };
@@ -15603,7 +15605,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10981-11045 -
+  // worldModes answers it in BOTH modes (worldModes.js:10983-11047 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -18383,7 +18385,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         const account = playerEntity.bankAccounts[goldRegion(playerEntity.bankAccounts, _questRegionIndex() ?? 0)] ?? null;   // EMPIRE-ACCOUNT: the Empire's account
         return {
           gold: () => totalGoldAmount(playerEntity) + (account?.accountGold ?? 0),
-          pay: (n) => { const short = deductGold(playerEntity, n); if (account && short > 0) account.accountGold -= short; },
+          pay: (n) => payUndoable(playerEntity, n, account),   // MARKET-AUDIT: answering the undo of exactly what it took
           // GUILD-LETTER (FIELD BUGS 2026-09-30): a withdrawal the pack cannot carry as coin is paid as a letter of credit -
           // the trade window's test on the live pack and ceiling (sellProceeds; the bank's weight gate reads the same two),
           // and the letter the service writes on a realm record, at the front of the pack as the game puts one
@@ -21095,12 +21097,18 @@ export async function bootWorld(canvas, renderer, params, status) {
     // PROF5: the Market tab - the board's region handed on its own (not through Work's), while the professions are this
     // account's; the service says whether the market is (its book's `open`)
     // AUDIT 30 U11: and the Marks - a shut currency is a market nobody can pay on
-    const market = marketBook && profBook?.state.open === true && marksBook?.state?.open !== false && Number.isInteger(region) ? {
+    // MARKET-AUDIT: while the professions' read is unanswered too (a slow or failed first read hid the tab until the board
+    // was opened again) - the market's own read says whether it is this account's (`market-closed`)
+    const market = marketBook && profBook && profBook.state.open !== false && marksBook?.state?.open !== false && Number.isInteger(region) ? {
       book: marketBook, stores: () => profBook.state.stores, region, regionName: REGION_NAMES[region] ?? 'the region',
       regionNameOf: (r) => REGION_NAMES[r] ?? 'another region', hubs: marketHubs, name: (k) => materialLabel(k), countName: materialCountLabel,
       board: [town.px, town.py],   // SEAT1d (Seats-Arc 7.2): the board's town - the seat whose bailiwick takes the Tithe
       tithe: () => (seatBook?.open === true ? boardTithePct(seatBook.data?.seats ?? [], region, [town.px, town.py]) : null),   // AUDIT SEATS-3 D3: its rate as the seats' list says it (null: not read)
       pieces: marketPieces, take: marketTake, putBack: marketPutBack, mint: marketMint, pieceName: marketPieceName, drop: marketDrop, goods: () => marketGoods.goods(), good: (it) => marketGoods.good(it), goodName: (rec) => marketGoods.goodName(rec),   // MARKET-ANY: a piece from the pack, for gold
+      // MARKET-BAG (FIELD, 2026-10-04: "the market board is broken"): since BAG1 a harvest is carried - what the bag and the
+      // pack hold counts toward a silver listing and a fill, its shortfall put into the Stores first, as a station's inputs
+      carried: () => new Map([...profBook.state.carried.keys()].map((k) => [k, profBook.carriedUsable(k)])),
+      putIn: (key, n) => profBook.ensureInStores([{ key, n }]),
       weavers: WEAVERS_STOCK,
       apothecaries: APOTHECARY_STOCK,   // PROF12 (PROF0 4.5): the supplier's second counter - the potion recipes' sixteen
       stock: async (key, n) => {
@@ -22556,7 +22564,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  dungeon's lateWorldDraw, the building - added and fogged; never under the travel view, and a concealed peer's
    *  fire is concealed with them. */
   const _auraWearers = [], _auraDraw = [], _auraPool = new Map();
-  const _auraSelf = { id: 'self', at: [0, 0, 0], aura: null, seed: 0.37, kindle: 1, since: 0 };
+  const _auraSelf = { id: 'self', at: [0, 0, 0], aura: null, seed: 0.37, kindle: 1, since: 0, yaw: 0 };   // SHADOW-CLOAK: `yaw` the facing the cloak's opening faces
   let _auraPass = null, _auraTried = false;
   const auraSeedOf = (id) => { let h = 2166136261; for (const ch of String(id)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return ((h >>> 0) % 997) / 997; };
   function auraFrame(seen) {
@@ -22567,8 +22575,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (mine && playerSpawned) {
       const f = player.feetAt();
       if (_auraSelf.aura !== mine) _auraSelf.since = t;
-      _auraSelf.at[0] = f[0]; _auraSelf.at[1] = f[1]; _auraSelf.at[2] = f[2]; _auraSelf.aura = mine;
-      _auraSelf.kindle = Math.min(1, (t - _auraSelf.since) / AURA_KINDLE_S);
+      _auraSelf.at[0] = f[0]; _auraSelf.at[1] = f[1]; _auraSelf.at[2] = f[2]; _auraSelf.aura = mine; _auraSelf.yaw = player.bodyYawFor(cam.yaw); auraBeastStep(_auraSelf, !!liveLycanthropy(playerEntity)?.isTransformed, t);   // SHADOW-CLOAK: the body's own facing, as its third person is drawn; turned beast, the cloak torn
+      _auraSelf.kindle = Math.min(1, (t - _auraSelf.since) / AURA_KINDLE_S); _auraSelf.mounted = !!player.riding;   // SHADOW-CLOAK: a rider's cape folded away
       _auraWearers.push(_auraSelf);
     } else _auraSelf.aura = null;
     for (const d of seen) {
@@ -22578,8 +22586,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       let w = _auraPool.get(d.id);
       if (!w || w.aura !== au) { w = { id: d.id, at: [0, 0, 0], aura: au, seed: auraSeedOf(d.id), kindle: 0, since: t }; _auraPool.set(d.id, w); }
       const p = onlineToScene(d.shown);
-      w.at[0] = p[0]; w.at[1] = p[1]; w.at[2] = p[2];
-      w.kindle = Math.min(1, (t - w.since) / AURA_KINDLE_S); w.seen = t;
+      w.at[0] = p[0]; w.at[1] = p[1]; w.at[2] = p[2]; w.yaw = peerBodyYaw(d.shown) ?? 0; auraBeastStep(w, !!d.shown.wb, t);   // SHADOW-CLOAK: the peer's facing (to the wall on a climb); turned beast (the pose's `wb`), the cloak torn
+      w.kindle = Math.min(1, (t - w.since) / AURA_KINDLE_S); w.seen = t; w.mounted = !!d.shown.rd;   // SHADOW-CLOAK: a rider's (a horse, a cart) cape folded away
       _auraWearers.push(w);
     }
     if (_auraPool.size) for (const [id, w] of _auraPool) if (w.seen !== t) _auraPool.delete(id);   // the gone forget their kindling
@@ -22589,7 +22597,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const proj = renderer._proj, view = renderer._view, eye = renderer._camPos;   // the frame's camera, the world's own
     if (proj && view && eye && auraWearers(_auraWearers, eye, _auraDraw).length) {
       if (!_auraTried) { _auraTried = true; try { _auraPass = new AuraRingRenderer(renderer.gl); } catch (e) { console.warn('[online] the aura would not build', e?.message ?? e); _auraPass = null; } }
-      _auraPass?.draw(_auraDraw, proj, view, eye, performance.now() / 1000, { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, camPos: renderer._camPos, focus: renderer._focus });
+      const auraNow = performance.now() / 1000; for (const w of _auraDraw) if (w.aura === 'shadowcloak') { auraCapeStep(w, w === _auraSelf ? { feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw), bones: mwViewBodyBones(CLOAK_BONES) } : peerBodies?.bonesOf(w.id, CLOAK_BONES), w === _auraSelf ? player.height / CAPSULE_HEIGHT : 1); auraMotionStep(w, auraNow); } _auraPass?.draw(_auraDraw, proj, view, eye, auraNow, { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, camPos: renderer._camPos, focus: renderer._focus });   // SHADOW-CLOAK: each cape hung on its body as drawn this frame - its bones posed by now (mine, or a peer's), else at rest, crouched with a crouch - and swung by how it moves where it is drawn
       if (_auraPass?.drawn) renderer.markForeignPass();
     }
     _auraWearers.length = 0;   // this frame's, drawn once: a frame that gathers none (the seat left, death, offline) draws none
