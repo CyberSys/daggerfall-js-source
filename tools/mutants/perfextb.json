@@ -166,8 +166,8 @@
   {
     "name": "PERF-EXT12-1-the-pixel-walk-builds-the-object-again",
     "file": "src/scenes/world.js",
-    "old": "        if (!farFlatVisibleAt(ring, b.size?.h ?? 0, b.frame != null)) continue;",
-    "new": "        if (!(({ ring: r0, height: h0, animated: a0 }) => farFlatVisibleAt(r0, h0, a0))({ ring, height: b.size?.h ?? 0, animated: b.frame != null })) continue;",
+    "old": "        if (!farFlatVisibleAt(ring, b.farH ?? b.size?.h ?? 0, b.frame != null)) continue;",
+    "new": "        if (!(({ ring: r0, height: h0, animated: a0 }) => farFlatVisibleAt(r0, h0, a0))({ ring, height: b.farH ?? b.size?.h ?? 0, animated: b.frame != null })) continue;",
     "tests": [
       "test/perfextb.test.js"
     ]
@@ -175,8 +175,8 @@
   {
     "name": "PERF-EXT12-2-the-pixel-walk-passes-the-height-as-the-ring",
     "file": "src/scenes/world.js",
-    "old": "        if (!farFlatVisibleAt(ring, b.size?.h ?? 0, b.frame != null)) continue;",
-    "new": "        if (!farFlatVisibleAt(b.size?.h ?? 0, ring, b.frame != null)) continue;",
+    "old": "        if (!farFlatVisibleAt(ring, b.farH ?? b.size?.h ?? 0, b.frame != null)) continue;",
+    "new": "        if (!farFlatVisibleAt(b.farH ?? b.size?.h ?? 0, ring, b.frame != null)) continue;",
     "tests": [
       "test/perfextb.test.js"
     ]

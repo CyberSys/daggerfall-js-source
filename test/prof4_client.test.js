@@ -466,7 +466,7 @@ test('PROF4 wiring: a built pixel keeps its forest (the tree flats by World of D
   const w = src('src/scenes/world.js');
   assert.match(w, /if \(isTreeRecord\(climate\.natureArchive, f\.record\)\) pixelTrees\.push\(\{ id: pixelTrees\.length, group: `\$\{natureArchive\}_\$\{f\.record\}`, i, x: f\.x, y: f\.y, z: f\.z, wood: f\.wood \?\? 0 \}\);/);   // FOREST1 (AUDIT F3): and how wooded its tile is
   assert.match(w, /forest: \{ base: climate\.natureArchive, archive: natureArchive, trees: pixelTrees\.filter\(\(t\) => forestGroups\.has\(t\.group\)\), groups: forestGroups \},/);
-  assert.equal((w.match(/if \(archive === natureArchive\) forestGroups\.set\(k, \{ batch, centers, size[^}]*\}\);/g) ?? []).length, 2, 'both the season\'s batch and the classic one');
+  assert.equal((w.match(/if \(archive === natureArchive\) forestGroups\.set\(k, \{ batch, centers, size[^}]*\}\);/g) ?? []).length, 3, 'the season\'s batch, the classic one and (LPT1) a low-poly tree\'s far pictures');
   assert.match(w, /if \(isCraftedFurniture\(it\)\) \(playerEntity\.furnishings \?\?= \[\]\)\.push\(it\);\n\s*else addItem\(\(playerEntity\.items \?\?= \[\]\), it, 'back'\);/);
   // PROF7 moved it: the station a recipe's profession names (craftStation) - the workbench Carpentry's, the loom Outfitting's
   assert.match(w, /const st = craftStation\(recipeById\(recipe\)\?\.profession\);\n\s*const f = st\.here\(\);/);
