@@ -311,8 +311,10 @@ test('LOAD1 the hosts: the boot raises the screen at once and its title steps ar
   assert.ok(boot.indexOf('status(null);   // FB0930-TITLE') > 0, 'the boot\'s end is the hold\'s end');
   const frame = boot.slice(boot.indexOf('  function frame(now) {'));
   assert.match(read('src/scenes/shared.js'), /export function claimFrame\(\) \{ syncLoading\(false\); return \+\+_frameGeneration; \}/, 'a claimed loop lets its hold go - no frame of it will end it');
-  assert.match(frame.slice(0, 4000), /const _moving = worldMoveBusy\(\) \|\| !!modes\?\.transitioning;\n\s*syncLoading\(_moving, \{ place: loadingPlaceNow, line: loadingLineNow \}\);\n\s*if \(!_moving\) _loadingDest = null;/);
-  assert.ok(frame.indexOf('syncLoading(_moving') > frame.indexOf('if (frameHeld())'), 'below the film\'s wait, which AUDIT 39 #160 keeps the head of the frame for');
+  assert.match(frame, /const _moving = worldMoveBusy\(\) \|\| !!modes\?\.transitioning;\n\s*syncLoading\(_moving, \{ place: loadingPlaceNow, line: loadingLineNow \}\);\n\s*if \(!_moving\) _loadingDest = null;/);
+  const at = frame.indexOf('syncLoading(_moving');
+  assert.ok(at > frame.indexOf('if (frameHeld())') && at > frame.indexOf('else lookFilter.tick(dt, cam);'), 'below the film\'s wait and the look\'s tick, whose heads AUDIT 39 #160 and AUDIT 28 W7 keep');
+  assert.ok(at < frame.indexOf('capturePendingScreenshot(canvas);   // SS1: a save armed from a modal mode'), '...and above the indoor mode\'s return, so every drawn frame asks');
   const sh = read('src/scenes/shared.js');
   assert.match(sh, /_frameHold\+\+;\n\s*stepAsideLoading\(true\);/, 'a film\'s hold takes the screen aside...');
   assert.match(sh, /_frameHold = Math\.max\(0, _frameHold - 1\); if \(!_frameHold\) stepAsideLoading\(false\);/, '...and the last release brings it back');

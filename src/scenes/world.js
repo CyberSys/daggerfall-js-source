@@ -25510,12 +25510,6 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // its heartbeat noticed the frames had stopped
     if (frameHeld()) { frameAbort(); hideWorldPlaque(); last = now; requestAnimationFrame(frame); drawGateBanner(null); drawGateMarksCard(null); drawGateDamageChart(null); drawGateGround(null); travelView?.exit('video', true); return; }
     const dt = Math.min(0.1, (now - last) / 1000);
-    // LOAD1: THE LOADING SCREEN STANDS WHILE THE WORLD IS MOVED - AUDIT 68 S22's one question (every mover's latch, the
-    // teleport core's window, the abyss) and a door's build in this host's modes. Below the video's wait: a film's hold
-    // takes the screen aside for its lifetime (scenes/shared.js holdFrame), and the first frame after it asks again.
-    const _moving = worldMoveBusy() || !!modes?.transitioning;
-    syncLoading(_moving, { place: loadingPlaceNow, line: loadingLineNow });
-    if (!_moving) _loadingDest = null;
     // AUDIT 28 W7 + F-C1/F-C2 (self-audit 3): PlayerMouseLook.Update's
     // three answers - paused (:241-244) returns before ApplyLook and the
     // owed look WAITS; a held swing (:248-253, WeaponSwingMode 0, not a
@@ -25607,6 +25601,13 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (onlineOn && playerSpawned && (seatOut() || townTalk.overlay instanceof DeathScreen || modes?.deathUp?.())) { siegeHud?.hide(); siegeNpcs?.leave(); }   // AUDIT SEATS-2 C4: the dead and a tab out of the seat draw no battle - the online frame returns before its tick
     arenaFrame(dt);   // ARENA2: the bout on the city's floor or the instance's - before the modal return, so the instance's runs too
     setCourtRules(modes?.gateArenaDay?.() != null);   // WBX6: the Deadlands keep no regeneration - set before any magic round of this frame, cleared the frame the court is gone
+    // LOAD1: THE LOADING SCREEN STANDS WHILE THE WORLD IS MOVED - AUDIT 68 S22's one question (every mover's latch, the
+    // teleport core's window, the abyss) and a door's build in this host's modes. Above the mode's return, so every
+    // drawn frame asks; below the video's wait (AUDIT 39 #160's head, and AUDIT 28 W7's tick on the frame's dt) - a
+    // film's hold takes the screen aside for its lifetime (scenes/shared.js holdFrame), and the first frame after asks.
+    const _moving = worldMoveBusy() || !!modes?.transitioning;
+    syncLoading(_moving, { place: loadingPlaceNow, line: loadingLineNow });
+    if (!_moving) _loadingDest = null;
     meterFor(renderer.gl)?.markCpu('sim');   // PERF-CPU: everything between here and the next mark is the rest of the simulation
     lookGate(gamePaused());   // a window up frees the cursor; closing re-locks
     const fwd = [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)];
