@@ -180,8 +180,11 @@ export function standSchools({ px, py, day, samples, tilemap }) {
  *   pixel: () => ({ x: number, y: number }|null), ground: () => ({ climate: number, region: number }|null),
  *   eye: () => ({ pos: number[], dir: number[] }), feet: () => number[], hour: () => number, storm: () => boolean,
  *   climateAt: (x: number, y: number) => number|null, trophy: (species: any) => boolean,
- *   day: () => number, rand?: () => number, tug?: () => void, busy?: () => boolean } }} deps `tug` - the floats dip (the
- *   touch layer's buzz); `busy` - the hands are the ship's (HELM-NET: at a helm, the guns laid, a boarding): no cast
+ *   day: () => number, rand?: () => number, tug?: () => void, busy?: () => boolean,
+ *   waterAt?: (pos: ArrayLike<number>) => boolean|null } }} deps `tug` - the floats dip (the
+ *   touch layer's buzz); `busy` - the hands are the ship's (HELM-NET: at a helm, the guns laid, a boarding): no cast;
+ *   `waterAt` - whether a scene point is over water the feet would swim in, null where the ground is not built
+ *   (FIELD BUGS 2026-10-05 SHORE-CAST)
  * @returns {import('./gatherHost.js').GatherKind}
  */
 export function fishKind({ book, host }) {

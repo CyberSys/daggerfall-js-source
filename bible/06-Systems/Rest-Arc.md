@@ -275,6 +275,10 @@ Existing TEXTURE.210 fires are rest points too (2.1); the law only adds where no
 - **Where DFU lets you rest indoors, a bed is the rest point.** A rented room (with nights left), an owned house
   (`homeBed` online counts as a permanent scene), a ship's cabin, a guild hall that allows it: `canRest`'s answer,
   unchanged. Indoors the R key rests there without targeting the bed; the RRI bed click and a ship's bed press stay.
+- **A dungeon's bed is a rest point** (FIELD BUGS 2026-10-05 DUNGEON-BEDS, the Discord: "Beds in dungeons should count
+  as beds so I can rest in a dungeon"). The page named no dungeon bed and the dungeon's point was a fire alone; its 108
+  beds (Roleplay Realism's 41000-41002, 42 RDB blocks) are a bed's rest within a fire's reach of the box
+  (`restAct.js` bedInReach), as is a bed pressed below deck. `01-Overview/Field-Bugs-2026-10-05.md`.
 - **Rooms count nights** (OPEN 10). Today `checkRent` counts rested hours down and the room's own expiry counts the
   character's days (`src/systems/tavern.js`'s sweep), and the two can disagree (the room's text says it expired while
   the sweep keeps it). Online under REST a room rented for N days buys **N nights**: a night at its bed spends one,
