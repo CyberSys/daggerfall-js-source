@@ -67,8 +67,8 @@ export function spotCircles(spotKey, present, t, roundMin) {
  * tell (trips.js newsOf - `{ kind, who, foe, place }`, the foe a word) tells it NEWS_SHARE of the time instead.
  * @param {Circle} circle @param {number} t @param {number} lineMin
  * @param {{ town?: string, region?: string, place?: string, weather?: string|null, hour?: number, road?: 'walk'|'camp'|null,
- *   news?: readonly { kind: string, who: string, foe: string, place: string }[] | null, player?: string }} [ctx] - LW7 `player` the
- *   character's name (a deed's news names them)
+ *   news?: readonly { kind: string, who: string, foe: string, place: string }[] | null, player?: string, room?: string|null }} [ctx] - LW7 `player` the
+ *   character's name (a deed's news names them); LW8b `room` the building's kind, inside (lines.js roomKindOf)
  * @returns {{ who: Talker, text: string, index: number } | null}
  */
 export function circleLine(circle, t, lineMin, ctx = {}) {
@@ -76,7 +76,7 @@ export function circleLine(circle, t, lineMin, ctx = {}) {
   const index = Math.floor((t - circle.start) / lineMin);
   // LW4: the town's news of the road, told now and then (lines.js newsScript) - else the meeting's own talk
   const told = ctx.road ? null : newsScript(circle.seed, ctx.news);
-  const script = told ? told.script : pickScript(circle.seed, { jobs: circle.members.map((m) => m.job), weather: ctx.weather ?? null, hour: ctx.hour ?? 12, road: ctx.road ?? null });
+  const script = told ? told.script : pickScript(circle.seed, { jobs: circle.members.map((m) => m.job), weather: ctx.weather ?? null, hour: ctx.hour ?? 12, road: ctx.road ?? null, room: ctx.room ?? null });   // LW8b: a room's own talk
   if (index >= script.length) return null;
   const who = circle.members[index % circle.members.length];
   const other = circle.members[(index + 1) % circle.members.length];

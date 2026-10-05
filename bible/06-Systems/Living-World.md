@@ -82,7 +82,7 @@ Taken at the design, in the request's own order; each is Mac's to overrule.
 - LW5 - the ports; LW5b - the passage by sea.
 - LW6 - the deep.
 - LW7 - the deeds; LW7b - friends and enemies beyond the walls; LW7c - the people who know you.
-- LW8 - the doors open.
+- LW8 - the doors open; LW8b - the room's talk.
 
 ## LW1 - the census, the places, the day, the meetings, the lines, the regards (2026-10-04)
 
@@ -527,7 +527,37 @@ all have tasks ... perform activities" - LW2 shut the door behind a resident; th
 - **The host** stands the layer in a building of a living town (the room's collider and floor, its static people, the
   sky's clock), steps it in the modal frame and frees it in the street. EVERY ALLOCATION HAS AN OWNER: each body is the
   sprites' (`travellerSprites.js`), synced each frame from the layer's list; `clear()` frees them all.
-- **Not yet:** a resident walking in the room (it has no grid), and their own talk to each other indoors.
+- **Not yet:** a resident walking in the room (it has no grid). Their talk to each other indoors is LW8b's.
+
+## LW8b - the room's talk (2026-10-05)
+
+`scenes/livingIndoors.js` (`tablesOf`, `TABLE_M`, `TABLE_MAX`; the layer's tables, circles, words and `speech`),
+`lines.js` (`ROOM_TALKS`, `roomKindOf`, `pickScript`'s `room`), `meetups.js circleLine`'s `room`, the LivingTown's doors for
+a room (`livingTown.js` `lineCtx`, `talkBeat`, `typeOf`, `greetingFor`), the building mode's HUD pass
+(`scenes/worldModes.js` `host.livingSpeech`) and the host's layer (`scenes/world.js livingRoomLines`). Mac: NPCs "have
+conversations with each other ... much like the crew on board ships" - LW8 stood a room's residents; this has them talk.
+
+- **The tables** (`tablesOf`). The room's sounded spots are grouped where people stand together: in the building's
+  deal, each spot not yet at a table opens one and takes the nearest of the rest within `TABLE_M` (2.2 m) of every one
+  already at it, to `TABLE_MAX` (3). The room fills TABLE BY TABLE (the tables in the deal, each its spots in turn), so
+  those inside stand in twos and threes; those at a table face its middle, one alone faces the room.
+- **The circles.** Each round of the street's (`ROUND_S`, laid on the town's clock: `talkBeat`) those at a table its
+  whole round (their stays at the building's door) meet as the street's circles do - `spotCircles` on the table's own
+  key (`in:<building>:<table>`), the street's `TALK_SHARE` of them talking, a line each `CREW_LINE_S` of the clock, the
+  first speaker first. One come in mid-round meets none till the next.
+- **The words.** The street's own (`circleLine`: the town's talk, the trades', the weather's, the evening's and the
+  night's, the town's news of the road and of the deeds - `lineCtx`, at the room's minute), and the ROOM'S OWN beside
+  them (`ROOM_TALKS` by the building's kind, `roomKindOf`: the tavern's, the temple's, a shop's - any shop, the bank, the
+  library -, the guild hall's, the palace's, a home's), two shares of three of the town's (`pickScript`'s `room`; the
+  road's talk keeps its own, and without a room every script the street drew before).
+- **The word to the player**: one in no circle within `GREET_RANGE` has the street's word (`greetingFor`: a friend's by
+  name, an enemy's cold, a known face's plain, a stranger's now and then), once in `GREET_REST_MIN` of the clock, for
+  `GREET_S`; the word said notes them seen. The street's `_greet` speaks through the same door.
+- **Heard** (`speech`, within `LINE_RANGE`): each line over its speaker's head on the crew's one layer
+  (`livingRoomLines`: the interior's own matrices, the crew's range and sight, a known one by first name), covered
+  under a window, out of a building or paused - only once the living world has stood a room.
+- **Every reader alike**: a table's circle and its words are the table's key, the round and its members' (pure over
+  who stands at it); those in the room on the way in stand alike for every reader (LW8).
 
 ## The four hosts
 
@@ -535,7 +565,8 @@ all have tasks ... perform activities" - LW2 shut the door behind a resident; th
 - `scenes/exterior.js` - FLAGGED: the fixed-city page keeps DFU's pool (its own doors and summaries are read at other
   seams; its town is not yet a LivingTown) and has no roads (one location, no map around it).
 - `scenes/worldModes.js` - WIRED through the host (LW8): the building mode's press offers the room's residents to the
-  street's own talk ray (`host.livingPersonsAct`) and its billboard pass draws them (`host.livingBillboards`); the
+  street's own talk ray (`host.livingPersonsAct`) and its billboard pass draws them (`host.livingBillboards`); its HUD
+  pass hands the room's talk its matrices (`host.livingSpeech`, LW8b); the
   street pool still answers nobody indoors (AUDIT 62 F14) and a building's static NPCs stay DFU's own.
 - `scenes/dungeonContext.js` - WIRED through the host (LW6): its own loose stand (`spawnLooseFoe` allied, `removeLooseFoe`)
   and its `location()` carry the companies met in it; it keeps no town population.

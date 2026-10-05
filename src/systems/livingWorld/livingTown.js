@@ -511,18 +511,29 @@ export class LivingTown {
     if (dist > GREET_RANGE || this._inCircle.has(res.id)) return;
     const last = this._greeted.get(res.id);
     if (last != null && this._now - last < GREET_REST_MIN) return;
+    this._greeted.set(res.id, this._now);
+    const text = this.greetingFor(res, this._now, stopped);
+    if (text == null) return;
+    this._greetings = this._greetings.filter((g) => g.person !== person && g.until > this._realNow);
+    this._greetings.push({ person, text, until: this._realNow + GREET_S });
+  }
+
+  /**
+   * The word a resident has for the player passing close at minute `t`: a friend's by name, an enemy's cold, a known
+   * face's plain, a stranger's now and then (and always when the player stops before them) - else null. A word said
+   * notes them seen. LW8b: the street's (`_greet`) and a room's (scenes/livingIndoors.js).
+   * @param {Resident} res @param {number} t @param {boolean} stopped @returns {string|null}
+   */
+  greetingFor(res, t, stopped) {
     const rel = this.o.relations?.() ?? null;
-    const day = this.dayOf(this._now);
+    const day = this.dayOf(t);
     const standing = rel ? rel.standing(res.id, day) : 'neutral';
     const pool = standing === 'friend' ? LIVING_GREETINGS.friend : standing === 'enemy' || standing === 'hostile' ? LIVING_GREETINGS.enemy
       : rel?.known(res.id) ? LIVING_GREETINGS.known : LIVING_GREETINGS.stranger;
-    this._greeted.set(res.id, this._now);
     // a stranger says something only now and then (and always when the player stops before them)
-    if (pool === LIVING_GREETINGS.stranger && !stopped && (lwSeed(textSeed(res.id), Math.floor(this._now)) % 4) !== 0) return;
-    const text = fillLine(pool[lwSeed(textSeed(res.id), Math.floor(this._now / 7)) % pool.length], { player: this.o.playerName?.() ?? '' });
-    this._greetings = this._greetings.filter((g) => g.person !== person && g.until > this._realNow);
-    this._greetings.push({ person, text, until: this._realNow + GREET_S });
+    if (pool === LIVING_GREETINGS.stranger && !stopped && (lwSeed(textSeed(res.id), Math.floor(t)) % 4) !== 0) return null;
     rel?.seen(res.id, day);
+    return fillLine(pool[lwSeed(textSeed(res.id), Math.floor(t / 7)) % pool.length], { player: this.o.playerName?.() ?? '' });
   }
 
   /**
@@ -534,12 +545,7 @@ export class LivingTown {
   speech(eye, range = LINE_RANGE) {
     const out = [];
     const lineMin = lineMinutes(this._baseRate());
-    const hour = Math.floor((((this._now % DAY_MIN) + DAY_MIN) % DAY_MIN) / 60);
-    /** @type {{ town?: string, region?: string, weather: string|null, hour: number, news: any[]|null, player?: string }} */
-    const ctx = { town: this.o.townName, region: this.o.regionName, weather: this.o.weather?.() ?? null, hour, news: this._roads?.news ?? null };   // LW4: the road's news
-    const deeds = this.deedNews();   // LW7: the deeds' news beside the road's, and the character's name for it
-    if (deeds.length) ctx.news = [...(ctx.news ?? []), ...deeds];
-    ctx.player = this.o.playerName?.() ?? '';
+    const ctx = this.lineCtx(this._now);
     this._greetings = this._greetings.filter((g) => g.until > this._realNow);
     for (const row of this.pool) {
       if (!row.visible || !row.res) continue;
@@ -555,6 +561,32 @@ export class LivingTown {
       if (g) out.push({ person: p, text: g.text, kind: /** @type {'talk'} */ ('talk') });
     }
     return out;
+  }
+
+  /**
+   * What the town's talk knows at minute `t`: the town, the region, the weather, the hour, the road's news (LW4) and the
+   * deeds' beside it (LW7), the character's name for a deed's. The street's circles' (`speech`) and LW8b's rooms'.
+   * @param {number} t
+   * @returns {{ town?: string, region?: string, weather: string|null, hour: number, news: any[]|null, player?: string }}
+   */
+  lineCtx(t) {
+    const hour = Math.floor((((t % DAY_MIN) + DAY_MIN) % DAY_MIN) / 60);
+    /** @type {{ town?: string, region?: string, weather: string|null, hour: number, news: any[]|null, player?: string }} */
+    const ctx = { town: this.o.townName, region: this.o.regionName, weather: this.o.weather?.() ?? null, hour, news: this._roads?.news ?? null };   // LW4: the road's news
+    const deeds = this.deedNews(t);   // LW7: the deeds' news beside the road's, and the character's name for it
+    if (deeds.length) ctx.news = [...(ctx.news ?? []), ...deeds];
+    ctx.player = this.o.playerName?.() ?? '';
+    return ctx;
+  }
+
+  /** LW8b: the meetings' beat on the town's clock - a round (meetups.js ROUND_S) and a line (the crew's), in its minutes. */
+  talkBeat() {
+    return { roundMin: ROUND_S * this._baseRate(), lineMin: lineMinutes(this._baseRate()) };
+  }
+
+  /** LW8b: a building's type (BUILDING_TYPES) by its key, or -1. @param {number} key */
+  typeOf(key) {
+    return this.places.types.get(key) ?? -1;
   }
 
   /** RR2's trample, and any seam that takes a walker off the street: that resident is gone for the day. */
@@ -667,7 +699,7 @@ export class LivingTown {
    * player's side (`died`). The character's own, read over the town's pure news (relations.js turns).
    * @returns {{ kind: string, who: string, foe: string, place: string, t: number, seen: boolean }[]}
    */
-  deedNews() {
+  deedNews(t = this._now) {
     const turns = this.o.relations?.()?.turns?.();
     if (!turns || (!turns.slain?.size && !turns.died?.size)) return [];
     const prefix = `L${this.o.town.mapId >>> 0}.`;
@@ -675,7 +707,7 @@ export class LivingTown {
     for (const kind of /** @type {const} */ (['slain', 'died'])) {
       for (const [key, h] of turns[kind] ?? []) {
         const known = h.t + DEED_KNOWN_MIN;
-        if (!key.startsWith(prefix) || !(known <= this._now && this._now - known < NEWS_DAYS * DAY_MIN)) continue;
+        if (!key.startsWith(prefix) || !(known <= t && t - known < NEWS_DAYS * DAY_MIN)) continue;
         const place = key.slice(0, key.lastIndexOf('@'));
         const who = h.who || this.residents.find((r) => placeKeyOf(r) === place)?.name || '';
         if (who) out.push({ kind, who, foe: '', place: '', t: known, seen: !!h.seen });

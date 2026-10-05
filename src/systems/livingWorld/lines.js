@@ -12,6 +12,7 @@
 // trades, the weather, the evening and the night, the season's holiday - so a smith and a farmer on a wet evening talk
 // of iron, of rain or of the tavern, and every reader of that minute hears the same.
 import { seededRng } from '../wind.js';
+import { BUILDING_TYPES } from '../../world/buildingNames.js';
 
 const S = (...lines) => Object.freeze(lines);
 
@@ -143,6 +144,63 @@ export const NIGHT_TALKS = Object.freeze([
   S('Shouldn\'t you be abed?', 'Shouldn\'t you?'),
   S('Did you hear something?', 'Just the wind.', '...I hope.'),
 ]);
+
+/** LW8b: THE ROOM'S OWN TALK - two or three met inside a building, by the room's kind (`roomKindOf`): the tavern's, the
+ *  temple's, a shop's, the guild hall's, the palace's, a home's. */
+export const ROOM_TALKS = Object.freeze({
+  tavern: Object.freeze([
+    S('Another round?', 'If you\'re buying.', 'I\'m always buying. That\'s the trouble.'),
+    S('This ale\'s been watered.', 'Then drink twice as much. Same effect.'),
+    S('Who\'s the stranger by the door?', 'Don\'t stare, {a}.', 'I wasn\'t staring. I was wondering.'),
+    S('Sing us the one about the miller and the Daedra.', 'Not before my third cup.'),
+    S('The stew\'s better tonight.', 'It\'s the same stew. You\'re hungrier.'),
+    S('A septim on the dice?', 'You still owe me from the last throw.', 'Then double or nothing.'),
+    S('To {town}!', 'To {town}. Gods help it.'),
+    S('Keep your voice down. The walls listen.', 'Walls? In here it\'s the serving girl.'),
+    S('They say a dragon was seen over {region}.', 'They say that after the fourth cup in every tavern in the Bay.'),
+    S('Is that seat taken?', 'It is now. Sit, {a}.'),
+  ]),
+  temple: Object.freeze([
+    S('Have you made your offering?', 'Twice this week. The gods have dear tastes.'),
+    S('Pray for me, {b}.', 'I already do. You need it.'),
+    S('The sermon ran long.', 'Sin was up this month, I suppose.'),
+    S('Do you think they hear us?', 'Someone does. I hope it\'s them.'),
+    S('Hush. This is a holy place.', 'I was only whispering.', 'Whisper softer.'),
+    S('I lit a candle for my father.', 'He\'d have liked that.', 'He\'d have called it a waste of tallow.'),
+    S('A blessing before the road, {b}?', 'It couldn\'t hurt.', 'Not more than the road will.'),
+  ]),
+  shop: Object.freeze([
+    S('Is that the real price?', 'For you, {a}? The real price and a little.'),
+    S('Look at the work on this.', 'Look at the price on it.', 'I am. That\'s why I said look at the work.'),
+    S('Do they have it in another colour?', 'You always ask that.', 'And they never do.'),
+    S('I need a new one. Mine broke.', 'Again? What do you do with them?'),
+    S('The last one I bought here fell apart in a week.', 'Then buy the dearer one.', 'That\'s what they want you to say.'),
+    S('Just looking.', 'That\'s what you said yesterday.'),
+  ]),
+  guild: Object.freeze([
+    S('Have you paid your dues?', 'Paid them. Regretted them.', 'Same as every month, then.'),
+    S('There\'s a new contract on the board.', 'Dangerous?', 'Well paid. The same thing.'),
+    S('The guildmaster wants a word with you.', 'A good word or a bad one?', 'With her it\'s hard to tell.'),
+    S('Who\'s the new recruit?', 'Keen. Too keen.', 'We were all too keen once.'),
+    S('I hear they\'re poaching our members in {region}.', 'Let them. We keep the good ones.'),
+    S('Been practising, {b}?', 'Every day.', 'It shows. A little.'),
+  ]),
+  palace: Object.freeze([
+    S('Has the court sat yet?', 'Not yet. They\'re still deciding who sits where.'),
+    S('Mind what you say near the steward.', 'I mind what I say near everyone, {a}.'),
+    S('The envoy\'s still waiting.', 'Let him wait. It\'s good for envoys.'),
+    S('New tapestries.', 'Paid for out of the taxes, no doubt.', 'Hush.'),
+    S('Who has the ear of the court these days?', 'Whoever spoke last.'),
+  ]),
+  home: Object.freeze([
+    S('Did you bank the fire?', 'I banked it. You never trust me with the fire.'),
+    S('What\'s for supper?', 'The same as yesterday.', 'Good. I liked yesterday.'),
+    S('The roof\'s leaking again.', 'I\'ll see to it.', 'You said that last spring.'),
+    S('Wipe your boots, {b}.', 'I did.', 'Wipe them again.'),
+    S('Your sister wrote.', 'Asking for money?', 'Asking after you. And money.'),
+    S('Come and sit by the fire.', 'In a moment.', 'Your moments last an hour.'),
+  ]),
+});
 
 /** LW3: a party on the road, walking - the train's own talk. */
 export const ROAD_TALKS = Object.freeze([
@@ -315,20 +373,39 @@ export function fillLine(text, ctx = {}) {
   return text.replace(/\{(\w+)\}/g, (_, k) => (ctx[k] ? String(ctx[k]) : TOKEN_FALLBACK[/** @type {keyof typeof TOKEN_FALLBACK} */ (k)] ?? ''));
 }
 
+/**
+ * LW8b: a building's kind for its talk (ROOM_TALKS) - a tavern, a temple, the guild hall, the palace, a house (`home`),
+ * any shop, bank or library (`shop`); else null (the town's talk alone).
+ * @param {number} type - BUILDING_TYPES
+ * @returns {keyof typeof ROOM_TALKS | null}
+ */
+export function roomKindOf(type) {
+  if (type === BUILDING_TYPES.Tavern) return 'tavern';
+  if (type === BUILDING_TYPES.Temple) return 'temple';
+  if (type === BUILDING_TYPES.GuildHall) return 'guild';
+  if (type === BUILDING_TYPES.Palace) return 'palace';
+  if (type >= BUILDING_TYPES.House1 && type <= BUILDING_TYPES.House6) return 'home';
+  return SHOP_ROOMS.has(type) ? 'shop' : null;
+}
+const SHOP_ROOMS = new Set(/** @type {number[]} */ ([BUILDING_TYPES.Alchemist, BUILDING_TYPES.Armorer, BUILDING_TYPES.Bank, BUILDING_TYPES.Bookseller, BUILDING_TYPES.ClothingStore,
+  BUILDING_TYPES.FurnitureStore, BUILDING_TYPES.GemStore, BUILDING_TYPES.GeneralStore, BUILDING_TYPES.Library, BUILDING_TYPES.PawnShop, BUILDING_TYPES.WeaponSmith]));
+
 /** A resident's first name (the walkers' FullName is "First Surname"; a single-part name is all first). @param {string} name */
 export const firstNameOf = (name) => String(name ?? '').split(' ')[0] || '';
 
 /**
  * A script for two or three speakers: the pools that fit, drawn on `seed`. `jobs` the speakers' trades; `weather` the
  * reader's weather word; `hour` the hour of the day; `road` a party's talk ('walk' on the road, 'camp' at its fire) in
- * place of the town's.
- * @param {number} seed @param {{ jobs?: readonly string[], weather?: string|null, hour?: number, road?: 'walk'|'camp'|null }} [o]
+ * place of the town's. LW8b: `room` a building's kind (`roomKindOf`) - its own talk two shares of three of the town's.
+ * @param {number} seed @param {{ jobs?: readonly string[], weather?: string|null, hour?: number, road?: 'walk'|'camp'|null, room?: string|null }} [o]
  * @returns {readonly string[]}
  */
-export function pickScript(seed, { jobs = [], weather = null, hour = 12, road = null } = {}) {
+export function pickScript(seed, { jobs = [], weather = null, hour = 12, road = null, room = null } = {}) {
   const rng = seededRng(seed);
   /** @type {(readonly (readonly string[])[])[]} */
   const pools = road === 'camp' ? [CAMP_TALKS, CAMP_TALKS, CAMP_TALKS] : road === 'walk' ? [ROAD_TALKS, ROAD_TALKS, ROAD_TALKS] : [TOWN_TALKS, TOWN_TALKS];
+  const own = !road && room ? ROOM_TALKS[/** @type {keyof typeof ROOM_TALKS} */ (room)] : null;
+  if (own) pools.splice(0, 1, own, own);   // LW8b: inside, the room's own talk beside the town's
   for (const j of jobs) { const p = JOB_TALKS[/** @type {keyof typeof JOB_TALKS} */ (j)]; if (p) pools.push(p); }
   const w = weather ? WEATHER_TALKS[/** @type {keyof typeof WEATHER_TALKS} */ (weather)] : null;
   if (w) pools.push(w);

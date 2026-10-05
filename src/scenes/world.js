@@ -8492,6 +8492,31 @@ export async function bootWorld(canvas, renderer, params, status) {
       points.push({ x: at.x, y: at.y, text: l.text, name: livingRelations.known(id) ? firstNameOf(l.person.nameNPC) : null, who: key, kind: 'talk', distance: d });
     }
   }
+  /** LW8b (bible/06-Systems/Living-World.md "LW8b"): THE ROOM'S TALK - the lines of the residents in the building the
+   *  player is in (scenes/livingIndoors.js speech: a table's circle's, a word to the player), through the interior's own
+   *  matrices, on the crew's one layer by its range, sight and names. The building mode's HUD pass calls it
+   *  (`host.livingSpeech`); nothing before the living world has stood a room. */
+  function livingRoomLines(proj, view, eye, dt = 0) {
+    if (!livingIndoors || typeof document === 'undefined') return;
+    const covered = townTalk.overlayActive || gamePaused() || !!townTalk.hudHidden || _mode() !== 'interior';
+    const points = [];
+    if (!covered) {
+      const w = canvas.clientWidth, h = canvas.clientHeight, rect = worldViewportRect(w, h);
+      for (const l of livingIndoors.speech(eye)) {
+        const id = l.person.living?.id;
+        if (!id || !l.person.pos) continue;
+        const over = [l.person.pos[0], l.person.pos[1] + LIVING_HEAD_M, l.person.pos[2]];
+        const d = Math.hypot(over[0] - eye[0], over[1] - eye[1], over[2] - eye[2]);
+        if (d > CREW_SAY_RANGE) continue;
+        const at = projectToScreen(over, w, h, proj, view, rect);
+        if (!at.front || at.x < -80 || at.x > w + 80 || at.y < -40 || at.y > h + 40) continue;
+        const key = `in:${id}`;
+        if (crewSight.blocked(player.collider, eye, key, over)) continue;   // behind a wall of the room, unheard
+        points.push({ x: at.x, y: at.y, text: l.text, who: key, kind: 'talk', distance: d, name: livingRelations.known(id) ? firstNameOf(l.person.nameNPC) : null });
+      }
+    }
+    drawCrewLines(points, { covered, dt: gamePaused() ? 0 : dt, scale: enhancedHudScale() });
+  }
   /** WILD-ALERT (2026-10-04, Mac: "Enemies alerted are given an exclamation point"): THE "!" OVER EACH WILDERNESS FOE
    *  ALERTED TO ME (systems/encounters.js foeAlerted) - it stands while a fast traveller's clock is held for it, else
    *  WILD_MARK_S from the moment it noticed; never in a town (a town's foes keep the town's law), under a window or
@@ -16043,7 +16068,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10950-11014 -
+  // worldModes answers it in BOTH modes (worldModes.js:10951-11015 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -22961,6 +22986,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     csaActivate: (pick) => csaActivate(pick),
     livingBillboards: () => (livingIndoors?.batches() ?? []),   // LW8: the residents inside, on the building's own pass
     livingPersonsAct: (eye, dir, nearer) => !!livingIndoors?.size && townTalk.tryActivate(eye, dir, livingIndoors.seats(), nearer),   // LW8: ...and the street's own talk ray on them
+    livingSpeech: ({ proj, view, eye, dt }) => livingRoomLines(proj, view, eye, dt),   // LW8b: ...and what they say, over their heads
     csaDrawWindWidget: () => csaDrawWindWidget(),   // CSA-E: the wind widget over a mode's HUD
     csaOnPlayerDeath: () => { if (csaRuntime) csaCall(() => csaRuntime.OnPlayerDeath()); },   // CSA-J (the audit): PlayerEntity.OnDeath and OnExhausted reach ComeSailAway.OnPlayerDeath in every mode (Start 1059-1060)
     csaFrame: (dt, axes) => { _csaAxes = axes; csaFrame(dt); },   // CSA-C: a MonoBehaviour's Update and LateUpdate indoors too - a boat placed on a dungeon's water is baked, lit and drawn there; CSA-J (the audit): from the modes' frame, after its motor, on its axes

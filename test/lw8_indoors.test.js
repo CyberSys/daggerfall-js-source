@@ -142,8 +142,12 @@ test('LW8 the residents stood: on the way in all the day has inside stand at onc
   assert.equal(new Set(stood.map((s) => JSON.stringify(s.at))).size, 3, 'each its own spot');
   assert.ok(stood.every((s) => s.res.cls === null), 'in their own clothes');
   assert.equal(rig.synced.length, 3);
-  const c = rig.layer.spots().reduce((a, p) => [a[0] + p[0], a[1] + p[2]], [0, 0]).map((v) => v / rig.layer.spots().length);
-  for (const x of rig.synced) assert.ok(Math.abs(x.yaw - Math.atan2(c[0] - x.feet[0], c[1] - x.feet[2])) < 1e-9, 'facing into the room');
+  // facing into the room - one alone (LW8b: those at a table face one another, test/lw8b_talk.test.js)
+  const lone = indoorRig({ inside: [RES(1)] });
+  lone.layer.frame(0.016, [0, 0, 0], 0, [0, 1.6, 0]);
+  const c = lone.layer.spots().reduce((a, p) => [a[0] + p[0], a[1] + p[2]], [0, 0]).map((v) => v / lone.layer.spots().length);
+  for (const x of lone.synced) assert.ok(Math.abs(x.yaw - Math.atan2(c[0] - x.feet[0], c[1] - x.feet[2])) < 1e-9, 'facing into the room');
+  assert.equal(lone.synced.length, 1);
   // one more comes: the player at the west wall facing the room, every spot in view - it waits; turned to the wall, it stands
   const WALL = [-5.6, 0, 0], EAST = Math.PI / 2, WEST = -Math.PI / 2;
   rig.st.inside = [RES(1), RES(2), RES(3), RES(4)];

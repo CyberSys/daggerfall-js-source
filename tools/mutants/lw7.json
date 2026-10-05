@@ -470,8 +470,8 @@
   {
     "name": "LW7-deed-window",
     "file": "src/systems/livingWorld/livingTown.js",
-    "old": " || !(known <= this._now && this._now - known < NEWS_DAYS * DAY_MIN)) continue;",
-    "new": " || !(known <= this._now)) continue;",
+    "old": " || !(known <= t && t - known < NEWS_DAYS * DAY_MIN)) continue;",
+    "new": " || !(known <= t)) continue;",
     "tests": [
       "test/lw7_deeds.test.js"
     ]

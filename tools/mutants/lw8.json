@@ -220,7 +220,7 @@
   {
     "name": "LW8-facing",
     "file": "src/scenes/livingIndoors.js",
-    "old": "yaw: Math.atan2(room.centre[0] - p[0], room.centre[2] - p[2]),",
+    "old": "yaw: Math.atan2(toward[0] - p[0], toward[2] - p[2]),",
     "new": "yaw: 0,",
     "tests": [
       "test/lw8_indoors.test.js"

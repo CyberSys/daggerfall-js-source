@@ -22,8 +22,19 @@
 //
 // EVERY ALLOCATION HAS AN OWNER: each body is the sprites' (travellerSprites.js), synced each frame from this list;
 // `clear()` frees them all - the building left, the living world off, the host's teardown.
+//
+// LW8b (2026-10-05, "LW8b"): THE ROOM'S TALK. Mac: NPCs "have conversations with each other ... much like the crew on
+// board ships". The room's spots are grouped into TABLES (`tablesOf`: near enough to stand together), and the room fills
+// table by table, so those inside stand in twos and threes, facing one another (one alone faces the room). Each round
+// (the street's: meetups.js ROUND_S) those at a table its whole round meet as the street's circles do (`spotCircles`
+// on the table's own key) - the street's share of them talking, the street's beat, the street's words and the room's
+// own (lines.js ROOM_TALKS by the building's kind: the tavern's, the temple's, a shop's, the guild hall's, the
+// palace's, a home's), the town's news among them. A resident not in a circle has the street's word for the player
+// passing close (livingTown.js greetingFor). What is said (`speech`) goes over their heads on the crew's one layer.
 // ═══════════════════════════════════════════════════════════════════
-import { WITNESS_M } from '../systems/livingWorld/livingTown.js';
+import { WITNESS_M, GREET_RANGE, GREET_REST_MIN, GREET_S, LINE_RANGE } from '../systems/livingWorld/livingTown.js';
+import { spotCircles, circleLine } from '../systems/livingWorld/meetups.js';
+import { roomKindOf } from '../systems/livingWorld/lines.js';
 
 /** Who is inside is read this often (real seconds). */
 export const INDOOR_TICK_S = 1;
@@ -38,6 +49,9 @@ export const INDOOR_DOOR_M = 1.8;
 export const INDOOR_MAX = 12;
 /** A coming or a going waits for the player to look away unless it is this far off (m) - indoors, little is. */
 export const INDOOR_SEEN_M = 14;
+/** LW8b: spots this near one another share a table (m), and the most at one. */
+export const TABLE_M = 2.2;
+export const TABLE_MAX = 3;
 
 /**
  * Sound a room: from `origin` (feet), a fan of directions walked out through the collider and landed on its floor,
@@ -67,6 +81,34 @@ export function soundRoom(origin, collider, floorAt, keepClear = []) {
 }
 
 /**
+ * LW8b: THE ROOM'S TABLES - its spots grouped where people stand together. In the building's deal (`order`), each spot
+ * not yet at a table opens one and takes the nearest of the rest within TABLE_M of every one already at it, to
+ * TABLE_MAX. Pure over the spots and the deal.
+ * @param {readonly number[][]} spots @param {readonly number[]} order
+ * @returns {number[][]} - each table's spots, the opener first
+ */
+export function tablesOf(spots, order) {
+  const at = new Int32Array(spots.length).fill(-1);
+  /** @type {number[][]} */
+  const tables = [];
+  const apart = (/** @type {number} */ i, /** @type {number} */ j) => Math.hypot(spots[i][0] - spots[j][0], spots[i][2] - spots[j][2]);
+  for (const i of order) {
+    if (at[i] >= 0) continue;
+    const table = [i];
+    at[i] = tables.length;
+    const near = order.filter((j) => at[j] < 0 && apart(i, j) <= TABLE_M).sort((a, b) => apart(i, a) - apart(i, b) || a - b);
+    for (const j of near) {
+      if (table.length >= TABLE_MAX) break;
+      if (!table.every((k) => apart(j, k) <= TABLE_M)) continue;
+      table.push(j);
+      at[j] = tables.length;
+    }
+    tables.push(table);
+  }
+  return tables;
+}
+
+/**
  * @param {{
  *   sprites: ReturnType<typeof import('../world/travellerSprites.js').createTravellerSprites>,
  *   building: () => ({ key: number, town: any } | null),
@@ -81,16 +123,26 @@ export function soundRoom(origin, collider, floorAt, keepClear = []) {
  *   `staticFeet()` the building's static people standing; `ready()` whether the room is whole (nothing loading)
  */
 export function createLivingIndoors(deps) {
-  /** @type {{ key: number, spots: number[][], centre: number[], order: number[] } | null} */
+  /** @type {{ key: number, spots: number[][], centre: number[], order: number[], tableOf: number[] } | null} */
   let room = null;
   /** @type {Map<string, { res: any, spot: number }>} who stands where */
   const stood = new Map();
-  /** @type {{ res: any }[]} who the day has inside, at the last read */
+  /** @type {{ res: any, e?: any }[]} who the day has inside, at the last read */
   let inside = [];
   let timer = Infinity;
   let arriving = true;
   /** @type {any[]} */
   const list = [];
+  /** LW8b: this frame's circles at the tables, who is in one, the words to the player standing, when each was last
+   *  greeted (the clock's minutes - kept across rooms, as the street keeps its), and the real seconds run. */
+  /** @type {any[]} */
+  let circles = [];
+  const inCircle = new Set();
+  /** @type {Map<string, { text: string, until: number }>} */
+  const words = new Map();
+  /** @type {Map<string, number>} */
+  const greeted = new Map();
+  let realNow = 0;
 
   /** The building's own deal of its spots: a seeded order, the same for every reader. */
   const dealOf = (key, n) => {
@@ -108,6 +160,9 @@ export function createLivingIndoors(deps) {
     timer = Infinity;
     arriving = true;
     list.length = 0;
+    circles = [];
+    inCircle.clear();
+    words.clear();
   }
 
   /** The first free spot in the building's deal. */
@@ -131,9 +186,14 @@ export function createLivingIndoors(deps) {
         const collider = deps.collider();
         const spots = collider ? soundRoom(origin, collider, deps.floorAt, deps.staticFeet()) : [];
         const cx = spots.reduce((s, p) => s + p[0], 0) / Math.max(1, spots.length), cz = spots.reduce((s, p) => s + p[2], 0) / Math.max(1, spots.length);
-        room = { key: b.key, spots, centre: [cx, origin[1], cz], order: dealOf(b.key, spots.length) };
+        // LW8b: the room fills table by table - the tables in the building's deal, each its spots in turn
+        const groups = tablesOf(spots, dealOf(b.key, spots.length));
+        const tableOf = new Array(spots.length).fill(-1);
+        groups.forEach((tb, ti) => { for (const i of tb) tableOf[i] = ti; });
+        room = { key: b.key, spots, centre: [cx, origin[1], cz], order: groups.flat(), tableOf };
       }
       timer += dt;
+      realNow += dt;
       if (timer >= INDOOR_TICK_S) {
         timer = 0;
         inside = b.town.insideAt(b.key, deps.clock()).slice(0, INDOOR_MAX);
@@ -153,12 +213,82 @@ export function createLivingIndoors(deps) {
         stood.set(res.id, { res: { ...res, cls: null }, spot });   // indoors no one is armed
       }
       arriving = false;
+      // LW8b: who stands at each table; those at one face its middle, one alone the room
+      /** @type {Map<number, { id: string, res: any, spot: number }[]>} */
+      const tables = new Map();
+      for (const [id, s] of stood) {
+        const ti = room.tableOf[s.spot];
+        const at = tables.get(ti) ?? [];
+        at.push({ id, res: s.res, spot: s.spot });
+        tables.set(ti, at);
+      }
       list.length = 0;
       for (const [id, s] of stood) {
         const p = room.spots[s.spot];
-        list.push({ key: `in:${id}`, res: s.res, feet: p, yaw: Math.atan2(room.centre[0] - p[0], room.centre[2] - p[2]), moving: false, distM: Math.hypot(p[0] - feet[0], p[2] - feet[2]) });
+        const mates = tables.get(room.tableOf[s.spot]) ?? [];
+        const toward = mates.length > 1
+          ? [mates.reduce((a, m) => a + room.spots[m.spot][0], 0) / mates.length, 0, mates.reduce((a, m) => a + room.spots[m.spot][2], 0) / mates.length]
+          : room.centre;
+        list.push({ key: `in:${id}`, res: s.res, feet: p, yaw: Math.atan2(toward[0] - p[0], toward[2] - p[2]), moving: false, distM: Math.hypot(p[0] - feet[0], p[2] - feet[2]) });
       }
       deps.sprites.sync(list, { dt, eye, ground: true });
+      // LW8b: the tables' circles this round - those at a table the whole of it, on the street's rule (meetups.js)
+      const t = deps.clock();
+      const beat = b.town.talkBeat?.();
+      const stays = new Map(inside.map((x) => [x.res.id, x.e]));
+      circles = [];
+      inCircle.clear();
+      for (const [ti, at] of tables) {
+        if (at.length < 2 || !beat) continue;
+        const present = at.flatMap((m) => { const e = stays.get(m.id); return e ? [{ who: m.res, t0: e.t0, t1: e.t1 }] : []; });
+        for (const c of spotCircles(`in:${b.key}:${ti}`, present, t, beat.roundMin)) {
+          circles.push(c);
+          for (const m of c.members) inCircle.add(m.id);
+        }
+      }
+      // LW8b: the street's word for the player passing close - one in no circle, once in GREET_REST_MIN of the clock
+      for (const [id, s] of stood) {
+        const p = room.spots[s.spot];
+        if (inCircle.has(id) || Math.hypot(p[0] - feet[0], p[2] - feet[2]) > GREET_RANGE) continue;
+        const last = greeted.get(id);
+        if (last != null && t - last < GREET_REST_MIN) continue;
+        greeted.set(id, t);
+        const text = b.town.greetingFor?.(s.res, t, false) ?? null;
+        if (text != null) words.set(id, { text, until: realNow + GREET_S });
+      }
+      if (greeted.size > 512) for (const [id, at] of greeted) if (t - at >= GREET_REST_MIN) greeted.delete(id);
+    },
+    /**
+     * LW8b: what is being said in the room this moment - each talking circle's line over its speaker (the street's
+     * words, the room's own among them), and the words to the player - within LINE_RANGE of `eye` (the room's frame).
+     * @param {number[]} eye
+     * @returns {{ person: any, text: string, kind: 'talk' }[]}
+     */
+    speech(eye) {
+      const b = deps.building();
+      const out = [];
+      if (!b?.town || !room || !stood.size) return out;
+      const t = deps.clock();
+      const seats = deps.sprites.persons();
+      const heard = (id) => {
+        const seat = seats.find((x) => x.person?.living?.id === id);
+        return seat && Math.hypot(seat.pos[0] - eye[0], seat.pos[2] - eye[2]) <= LINE_RANGE ? seat : null;
+      };
+      if (circles.length) {
+        const beat = b.town.talkBeat();
+        const ctx = { ...b.town.lineCtx(t), room: roomKindOf(b.town.typeOf(b.key)) };
+        for (const c of circles) {
+          const line = circleLine(c, t, beat.lineMin, ctx);
+          const seat = line ? heard(line.who.id) : null;
+          if (line && seat) out.push({ person: seat.person, text: line.text, kind: /** @type {'talk'} */ ('talk') });
+        }
+      }
+      for (const [id, w] of [...words]) {
+        if (!(w.until > realNow)) { words.delete(id); continue; }
+        const seat = heard(id);
+        if (seat) out.push({ person: seat.person, text: w.text, kind: /** @type {'talk'} */ ('talk') });
+      }
+      return out;
     },
     /** The bodies' talk seats ({ person, pos } - the street's activation shape). */
     seats: () => deps.sprites.persons(),
@@ -186,8 +316,8 @@ export function createLivingIndoors(deps) {
       }
       return id;
     },
-    /** Who stands where (the probes; the pins). */
-    stood: () => [...stood.entries()].map(([id, s]) => ({ id, res: s.res, at: room?.spots[s.spot] ?? null })),
+    /** Who stands where, and at which table (the probes; the pins). */
+    stood: () => [...stood.entries()].map(([id, s]) => ({ id, res: s.res, at: room?.spots[s.spot] ?? null, table: room?.tableOf[s.spot] ?? -1 })),
     /** The room's spots (the probes; the pins). */
     spots: () => room?.spots ?? [],
     clear,
