@@ -950,14 +950,14 @@ does the pack's USE arm.
                         worldModes.js:2605 (the factory) and :1904 (a
                         HAND-ROLLED second one, 342 lines below it in
                         the same file),
-                        dungeonContext.js:1385, world.js:5067,
+                        dungeonContext.js:1385, world.js:5077,
                         exterior.js:2802. It is the only window TWO
                         enhanced screens already push - the sheet's
                         button and the pack's USE hand-off, whose
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:13980, dungeonContext.js:9001. A seam
+    / NOTEBOOK          world.js:13996, dungeonContext.js:9001. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -8794,7 +8794,7 @@ mutations, 4 dead.
 
 PX24 (Mac: "with the logbook and history, I want them as one detailed
 UI"): THE CHRONICLE. Two classic windows built at four sites -
-questJournal.js from charSheetNav:53, world.js:5524 and
+questJournal.js from charSheetNav:53, world.js:5534 and
 dungeonContext.js, playerHistory.js from charSheetNav:61 - become ONE
 seam (ui/chronicleDoor.js, the U52/U53/PX23 shape a sixth time) and,
 on the enhanced skin, ONE WINDOW.
@@ -10674,9 +10674,9 @@ re-resolved the `exterior.js` half of a three-file sentence and left the
 `ExteriorAutomapWindow` construction, `:4101` on a `locationName:`
 field). Both halves are now read by `test/citedrift.test.js` - the
 existing entries only ever captured the exterior number, which is how
-the other half went stale unnoticed. (The rest cite named `world.js:14440`,
+the other half went stale unnoticed. (The rest cite named `world.js:14458`,
 the first of the host's TWO identical `act === 'Rest'` arms; ROAD-H H5
-deleted the second and the cite is `world.js:14446` now.)
+deleted the second and the cite is `world.js:14464` now.)
 
 ## AUDIT 62 F24/F25 - THE SENTINEL SWEEP WAS TWO WINDOWS SHORT (2026-09-07)
 
@@ -15575,9 +15575,9 @@ whether an entry MATCHES and asserts nothing.
 Following it out was worse than the symptom. Five Ledger rows cite a
 PAIR - `` `world.js:N`, `exterior.js:M` `` - and the table captured `M`
 alone. So `M` was re-resolved at every wave for a year and `N` was never
-read: `world.js:11464` named a line that is 8950, `:1954` one that is
+read: `world.js:11479` named a line that is 8950, `:1964` one that is
 1215, `:1094` one that is 2194, `:3903` one that is 3066, `:3920` one
-that is 8907. `world.js:11166-11203` and `dungeonContext.js:1927` were
+that is 8907. `world.js:11181-11218` and `dungeonContext.js:1927` were
 stale the same way. Seven numbers re-resolved BY CONTENT, every
 uncaptured half de-baked to `\d+`, and eight new entries added so every
 number in a pair is captured. The half nobody reads cannot rot in
@@ -17234,7 +17234,7 @@ three of the block's four rows empty and the box it measured was 30px
 tall where an ordinary fight makes it 111.
 
 The fix is not a better number, it is the tree's own rule read the
-right way round. QS3 (`ui/enhancedHud.js:645-648`) already says it, for
+right way round. QS3 (`ui/enhancedHud.js:665-668`) already says it, for
 the quickslot diamond, in the opposite direction: the diamond lives on
 the HUD root rather than in `.hud-bottom` **because** it is a CORNER,
 "and a corner block inside a centred flex column moves whenever a bar
@@ -18768,7 +18768,9 @@ name).
 ## TIMERS1 - THE HOURGLASS: EVERY SHARED MOMENT, COUNTED DOWN (2026-10-02, Mac: "we need to create a new unique UI element for reset times like the Sunday wars, oblivion gates, town raids, and anything else so the player can keep track of when things are and watch countdowns. Im thinking maybe an enhanced plus button on the pause menu next to the profile icon")
 
 **Where.** An hourglass beside the profile mark on the pause face (`ui/enhancedTimers.js` `timersMark`; `placeBeside`
-measures the mark, whose width is its caption's). Online only: the hosts hand `hooks.timers`, which answers null
+measures the mark, whose width is its caption's). The glass stands alone, with no word beside it (HOURGLASS-ALONE,
+2026-10-04, the owner: *remove the text "timer" from next of the hourglass*); its name is its label's and its
+title's. Online only: the hosts hand `hooks.timers`, which answers null
 offline, and no source means no hourglass. A press opens the timers window in the pause window's own frame
 (`.px-win.px-timerswin`) on its own scrim: a tap outside or Escape closes the window alone and leaves the pause face
 standing (the one back stack, ahead of the resume; the OT1 pin counts four scrims now). The street's pause bag, the
@@ -18778,6 +18780,11 @@ modes host (a building's pause) and the dungeon's opts all carry the world host'
 or COMING (counting to its start), live first. It derives nothing: each row is its own law's answer -
 - the OBLIVION GATE (`net/gateLaw.js` `gateAt`/`gatePhase`/`gateTimes`): coming to its opening, live to its seal, then
   live to its collapse; the gate after it once this one is under way; where it stands from the omen's site;
+- the SEA SERPENT (`net/serpentLaw.js` `serpentAt`/`serpentPhase`/`serpentTimes` - SERPENT2, 2026-10-04, the owner:
+  "So this also shows in the pause menu timer?", then "This needs to happen"): coming to its rising, live to the storm
+  that closes its waters, then live to its dive; the next serpent once this one is under way; a kill ends its row; the
+  port it lies off from its bells on (the omen's `site.near`). Its own kind, `serpent`, after the gate's, in its ring's
+  colour (`Sea-Serpent.md` section 14);
 - the TOWN RAIDS (the mod's day, `raidState().raids`, in relay ms through `sharedWallMs`): the player's own region's
   whole, coming to a raid's start, live to its withdrawal; every other region's as one row, the soonest and how many
   more (AUDIT TIMERS1 D3); a cleansed or ended raid says nothing;

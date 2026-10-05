@@ -33,6 +33,7 @@ import { renownText, renownProgressText } from '../net/renown.js';   // RENOWN1:
 import { gateRecordText } from '../net/gateClaims.js';   // WB5b: and its gates-closed row
 import { marksText } from '../net/marksLaw.js';   // MARKS1: and its Marks row
 import { raidRecordText } from '../net/raidClaims.js';   // RAID4: and its towns-defended row
+import { serpentRecordText } from '../net/serpentClaims.js';   // AUDIT SERPENT D4: and its serpents-slain row
 
 /** RENOWN-CHAR (Mac: "Can we make renown per character again"): the card's Renown tracks as the service sends them -
  *  its characters', the most recently played first - or none: none earned yet, or a service from RENOWN-ACCOUNT's day
@@ -465,6 +466,10 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
       // (net/raidClaims.js carries the receipts). A service from before it says nothing.
       const raids = raidRecordText(flow.account.raids);
       if (raids) row('Towns defended', raids);
+      // AUDIT SERPENT D4 (SERPENT1): the sea serpents this account helped slay - each a kill the relay signed and this
+      // service counted once (net/serpentClaims.js carries the receipts). A service from before it says nothing.
+      const serpents = serpentRecordText(flow.account.serpents);
+      if (serpents) row('Serpents slain', serpents);
       // RENOWN1: each character's Renown and how far into it they are - online's own level, never the save's. The
       // service sends the RENOWN_CARD_TRACKS (five) most recently played (RENOWN-CHAR: a row each again).
       for (const t of tracks) {

@@ -282,12 +282,12 @@
   {
     "name": "KNIGHT-HOUSE-version-unmoved",
     "file": "server-account/src/service.js",
-    "old": "export const ACCOUNT_VERSION = 'acct77';",
+    "old": "export const ACCOUNT_VERSION = 'acct78';",
     "new": "export const ACCOUNT_VERSION = 'acct76';",
     "tests": [
       "test/fb1004d_knight_house.test.js"
     ],
-    "note": "A deploy that did not happen looks like one that did."
+    "note": "A deploy that did not happen looks like one that did. SERPENT1 (PIN MOVED, re-aimed by content at its merge of main): acct78."
   },
   {
     "name": "KNIGHT-HOUSE-column-unadded",

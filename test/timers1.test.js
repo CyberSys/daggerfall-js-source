@@ -173,6 +173,9 @@ test('TIMERS1: the hourglass - a button that opens, placed just left of the prof
   const b = timersMark(fakeDoc(), { onOpen: () => { opened++; } });
   assert.equal(b.className, 'px-timersmark');
   assert.match(b.attrs['aria-label'], /Timers/);
+  assert.equal(b.title, 'Timers');
+  assert.deepEqual(b.children.map((c) => c.className), ['px-hourglass'], 'HOURGLASS-ALONE: the glass, and no word beside it (the owner: "remove the text \"timer\" from next of the hourglass")');
+  assert.ok(!ENHANCED_CSS.includes('px-timersword'), 'and no rule left for the word');
   b.listeners.click[0]();
   assert.equal(opened, 1);
   const mark = { style: {}, offsetHeight: 44 };
@@ -212,7 +215,7 @@ const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - 
 test('AUDIT TIMERS1 UI-1/UI-2/UI-4: the stage centres on every screen, the pause window clears the corner marks, Stone reads', () => {
   assert.match(ENHANCED_CSS, /\n\.px-stage\.px-timersstage \{ display: grid; justify-content: center; align-content: center;/, 'two classes - the pause stage\'s short-screen padding and flex-start cannot take it');
   assert.match(ENHANCED_CSS, /\.px-over \.px-stage:not\(\.px-acctstage\):not\(\.px-timersstage\) \{ padding-top: max\(7dvh, 64px\); \}/, 'a short screen\'s pause window under the 56px marks');
-  assert.match(ENHANCED_CSS, /@media \(max-height: 560px\) \{\n\s*\.px-stage\.px-timersstage \{ padding: 10px 12px; \}\n\s*\.px-win\.px-timerswin \{ max-height: calc\(100dvh - 20px\); \}\n\s*\.px-timersword \{ display: none; \}/);
+  assert.match(ENHANCED_CSS, /@media \(max-height: 560px\) \{\n\s*\.px-stage\.px-timersstage \{ padding: 10px 12px; \}\n\s*\.px-win\.px-timerswin \{ max-height: calc\(100dvh - 20px\); \}\n/);
   const stone = '#51514c';   // Stone's panel, measured under the window
   for (const [what, c] of [['dim', '#e2dccd'], ['brass', '#ffd98a'], ['where', '#fbf8f0'], ['count', '#ffe3a6'], ['live count', '#c8ffd6']]) {
     assert.ok(contrast(c, stone) >= 4.5, `Stone ${what} ${c} at ${contrast(c, stone).toFixed(2)}:1`);

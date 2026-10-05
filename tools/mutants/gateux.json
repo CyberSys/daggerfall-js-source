@@ -11,8 +11,8 @@
   {
     "name": "GATEUX-phase-line-back",
     "file": "src/ui/gateBossBar.js",
-    "old": "  const tags = [BOSS_BAR_TEXT.fighters(model.fighters),",
-    "new": "  const tags = [`${BOSS_BAR_TEXT.fighters(model.fighters)}  ·  Phase ${model.phase}`,",
+    "old": "  const tags = [model.fightersLine ?? BOSS_BAR_TEXT.fighters(model.fighters),",
+    "new": "  const tags = [`${model.fightersLine ?? BOSS_BAR_TEXT.fighters(model.fighters)}  ·  Phase ${model.phase}`,",
     "tests": [
       "test/gateux_gate.test.js"
     ]

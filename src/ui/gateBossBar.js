@@ -126,6 +126,14 @@ export const BOSS_BAR_CSS = `
 .wb-boss-bar.intro .wb-boss-name { animation: wb-name-in 250ms ease-out; }
 @keyframes wb-fill-in { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 @keyframes wb-name-in { from { opacity: 0; letter-spacing: 0.3em; } }
+/* SERPENT1: the sea serpent's bar - the same readout in the sea's colours (its model's \`theme\`, ui/serpentBar.js) */
+.wb-boss-bar.sea { color: #d6efe8; }
+.wb-boss-bar.sea .wb-boss-name { color: #8fe3cf; text-shadow: 0 0 3px #000, 0 0 10px rgba(40,200,170,0.5); }
+.wb-boss-bar.sea .wb-boss-sub { color: #a9cfc4; }
+.wb-boss-bar.sea .wb-boss-track { border-color: rgba(90,210,190,0.55); background: rgba(2,14,18,0.75); }
+.wb-boss-bar.sea .wb-boss-fill { background: linear-gradient(180deg, #4fe0c0 0%, #1a8a86 55%, #0b3a4a 100%); }
+.wb-boss-bar.sea .wb-boss-tag { background: rgba(2,14,18,0.55); border-color: rgba(90,210,190,0.25); }
+.wb-boss-bar.sea .wb-boss-wrath { color: #ffd2a0; border-color: rgba(255,160,80,0.55); }
 @media (max-width: 640px) {
   .wb-boss-bar { top: 72px; }
   .wb-boss-marks { column-gap: 10px; }
@@ -315,13 +323,13 @@ export function drawGateBossBar(model, { hidden = false, doc = globalThis.docume
     if (shown.warded && !model.warded && !model.fallen) shown.breakAt = now;
     shown.warded = model.warded;
   }
-  const cls = `wb-boss-bar${model.warded ? ' warded' : ''}${flashing(shown.breakAt, now, FLASH_MS.wardBreak) ? ' wbreak' : ''}${flashing(shown.introAt, now, INTRO_MS) ? ' intro' : ''}${model.low ? ' low' : ''}`;
+  const cls = `wb-boss-bar${model.theme ? ` ${model.theme}` : ''}${model.warded ? ' warded' : ''}${flashing(shown.breakAt, now, FLASH_MS.wardBreak) ? ' wbreak' : ''}${flashing(shown.introAt, now, INTRO_MS) ? ' intro' : ''}${model.low ? ' low' : ''}`;
   if (cls !== shown.rootCls) { shown.rootCls = cls; root.className = cls; }
   const alpha = model.alpha ?? 1;
   if (alpha !== shown.alpha) { shown.alpha = alpha; root.style.opacity = alpha < 1 ? String(alpha) : ''; }
   // THE CALLOUT - WB13c: in on a change, out over CALLOUT_OUT_MS, a line filling to its landing, Dagon's on a plate
   const text = model.fallen ? BOSS_BAR_TEXT.fallen : model.callout ? model.callout.text : model.warded ? BOSS_BAR_TEXT.warded : '';
-  const color = model.fallen ? GATE_RING_CSS : model.callout ? model.callout.color : model.warded ? WARD_CSS : GATE_RING_CSS;
+  const color = model.fallen ? model.ringCss ?? GATE_RING_CSS : model.callout ? model.callout.color : model.warded ? WARD_CSS : model.ringCss ?? GATE_RING_CSS;   // SERPENT1: the sea's ring colour
   if (text) {
     shown.outAt = null;
     if (text !== shown.callout) {
@@ -341,7 +349,7 @@ export function drawGateBossBar(model, { hidden = false, doc = globalThis.docume
   if (t !== shown.calloutT) { shown.calloutT = t; parts.calloutLine.style.transform = `scaleX(${t})`; }
   // THE FOOT - WB13c: a chip each, the Wrath's pulsing in its last minute (WB9c: the next Reckoning; GATE-UX: no phase
   // line; WB11c: his host standing)
-  const tags = [BOSS_BAR_TEXT.fighters(model.fighters), model.fallen ? '' : model.host ?? '', model.fallen ? '' : model.reckonIn ?? '', model.wrath ?? ''];
+  const tags = [model.fightersLine ?? BOSS_BAR_TEXT.fighters(model.fighters), model.fallen ? '' : model.host ?? '', model.fallen ? '' : model.reckonIn ?? '', model.wrath ?? ''];   // SERPENT1: the sea's own count
   for (let i = 0; i < tags.length; i++) {
     if (tags[i] === shown.tags[i]) continue;
     shown.tags[i] = tags[i];

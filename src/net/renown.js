@@ -213,6 +213,13 @@ export const renownQuestXp = (characterLevel, renown = null) => renownRate(RENOW
  *  charged to the account's hour as a report is (AUDIT RAID R5, server-account/src/raids.js). */
 export const RENOWN_RAID_QUESTS = 3;
 export const renownRaidXp = (renown = null) => RENOWN_RAID_QUESTS * renownQuestXp(RENOWN_QUEST_LEVEL_MAX, renown);
+/** SERPENT1 (2026-10-04, Mac: "a large scale sea serpent in the ocean"): A SERPENT SLAIN - Sethrakul's kill the relay
+ *  signed for this account (net/serpentReceipt.js) - is worth RENOWN_SERPENT_QUESTS quests at the ladder's top quest
+ *  level, read no higher than the Renown allows, at the quests' rate: twice a town defended, for the Bay's rarest fight
+ *  (one every four real hours). Credited once a serpent an account, to the character that fought it, charged to the
+ *  account's hour (server-account/src/serpents.js). */
+export const RENOWN_SERPENT_QUESTS = 6;
+export const renownSerpentXp = (renown = null) => RENOWN_SERPENT_QUESTS * renownQuestXp(RENOWN_QUEST_LEVEL_MAX, renown);
 
 /** A kill's XP with the party in the room counted: `present` is how many
  *  of the party are in the room, the player included (1 is alone). `xp`

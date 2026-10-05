@@ -262,6 +262,16 @@ import { createGateClaims } from '../net/gateClaims.js';   // WB5b: the kill rec
 import { createRaidClaims } from '../net/raidClaims.js';   // RAID4: the raid receipts, carried to the account service until counted and paid
 import { readRaidReceipt } from '../net/raidReceipt.js';   // RAID4b: a raid receipt's raid, seed, party and account, for a town's thanks
 import { raidSpoilsList, raidSpoilsDay, RAID_SPOILS_KEYS, RAID_SPOILS_TEXT, RAID_SPOILS_RECORDS_MAX } from '../systems/raidSpoils.js';   // RAID4b: a town's thanks
+import { createSerpentOmen, insideSerpentRing, SERPENT_OMEN_SETTLE_MS } from '../systems/serpentOmen.js';   // SERPENT1 (Mac: "a large scale sea serpent in the ocean"): the sea serpent's sighting - its lines, its ring, its compass mark
+import { findSerpentSite } from '../systems/serpentSite.js';   // SERPENT1: where it rises - on a packet lane, in open sea
+import { createSerpentLink } from '../net/serpentLink.js'; import { readSerpentReceipt } from '../net/serpentReceipt.js';   // SERPENT1: the cell's words of its fight, folded; a receipt's day, seed and earning
+import { createSerpentHost } from './serpentHost.js';   // SERPENT1: the client's half of the fight - the `in`, the volleys, the blows on my ship, the coil and the whirl
+import { SerpentRenderer } from '../render/serpentRender.js';   // SERPENT1: its body over and under the sea, its telegraphs, the maelstrom and the venom
+import { serpentBarModel } from '../ui/serpentBar.js'; import { drawGateBossBar } from '../ui/gateBossBar.js';   // SERPENT1: its boss bar, in the sea's colours - the gate's bar, its one node
+import { playSerpentSound } from '../systems/serpentSounds.js';   // SERPENT1: its voice - DAGGER.SND's own, pitched for its size
+import { serpentSpoilsList, serpentSpoilsDay, SERPENT_SPOILS_KEYS, SERPENT_SPOILS_TEXT, SERPENT_SPOILS_RECORDS_MAX } from '../systems/serpentSpoils.js';   // SERPENT1: the Old Coil's hoard
+import { createSerpentClaims } from '../net/serpentClaims.js';   // SERPENT1: its receipts carried to the account service
+import { slainLine, serpentBossOf, serpentBossById, sameSerpentSite, SERPENT_NATIVE_PER_M } from '../net/serpentLaw.js';   // SERPENT1: the hub's word of its kill, in the chat (AUDIT SERPENT S1: my own site's alone)
 import { createGateCourt, courtSaySeconds } from './gateCourt.js';   // WB4: the fight on this screen - the boss drawn, heard and read, and his blows on me
 import { DeadlandsRenderer, skyGain, anchoredClock } from '../render/deadlands.js';   // WB6a: the Deadlands' sky and sea round the Burning Court
 import { createDeadlandsAir } from './deadlandsAir.js';   // WB6b: and their air - the wind, the fire, the thunder of the sky's strikes
@@ -533,7 +543,7 @@ import { createSeatLock, SEAT_NOTICE, SEAT_MID_TEXT, PLAY_HERE_LABEL } from '../
 import { readAccount, buyInsignia, equipTitle, equipAura, adoptIdentity as adoptSessionIdentity } from '../net/accountClient.js';   // WB9g: the Broker's insignia - the account's wardrobe, its sale and its wearing, and my own screen's word of it
 import { ownAura } from '../systems/ownGlyphs.js';   // WB9g: the aura at my own feet - the service's last word, kept on the stored session
 import { INSIGNIA, insigniaRefusal } from '../net/insignia.js';   // WB9g
-import { accountTokenMinter, storedSession, accountPlayBeat, muteAccount, serviceBase, accountRefusalText, accountDuels, accountRenown, accountHomes, accountDecor, accountGuilds, accountGates, accountMarks, accountBoard, accountProf, accountRaids, accountMarket, accountWrits, accountSeats } from '../net/accountClient.js';   // ACC1d: the hello's signed word, minted per connection from the account session this device holds   // ACC4: and the beat that counts time played
+import { accountTokenMinter, storedSession, accountPlayBeat, muteAccount, serviceBase, accountRefusalText, accountDuels, accountRenown, accountHomes, accountDecor, accountGuilds, accountGates, accountMarks, accountBoard, accountProf, accountRaids, accountMarket, accountWrits, accountSeats, accountSerpents } from '../net/accountClient.js';   // ACC1d: the hello's signed word, minted per connection from the account session this device holds   // ACC4: and the beat that counts time played
 import { parseModCommand, runModCommand, mutedText, mutedNotices } from '../net/moderation.js';   // MOD1: /mute and /unmute, and the line a muted player reads
 import { startPlayClock } from '../net/playClock.js';   // ACC4: time played, knocked from here and measured by the account service's clock
 import { renownKillXp, renownQuestXp, renownPartyXp, renownText } from '../net/renown.js';   // RENOWN1: what a kill and a quest are worth, and the party's bonus (RENOWN3: read against my Renown)
@@ -6068,6 +6078,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** NAV-H: the naval host (made below, with Come Sail Away's runtime) - declared here, beside the pool whose sea list
    *  it fills, because the boats' colliders, rays and particles below read its ships. */
   let naval = null;
+  /** SERPENT1: the sea serpent's host (scenes/serpentHost.js) - made with the online links below; the naval host and
+   *  Come Sail Away read it through their seams at a frame, never at their build. */
+  let serpentHost = null;
   /** NAV-H: every boat that stands in the mode's collider - mine, and the sea's ships near enough to strike and walk. */
   const csaColliderBoats = () => (naval?.enabled ? [...csa.boats, ...naval.collidable()] : csa.boats);
   /** NAV-H: a hostile ship in reach (navalHost.js HOSTILE_NEAR_M) is an enemy nearby wherever the game asks it outdoors,
@@ -6723,6 +6736,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     sailRefused: () => naval?.sailRefused() ?? null,   // ...and no sail on a wreck or a rig shot away, said once
     brake: () => naval?.brake() ?? 0,   // ...and a heave-to's brake beside a struck ship
     warp: (boat, s) => naval?.warp?.(boat, s) ?? null,   // QUAYS: her hands warping her in alongside a harbour's quay
+    drift: (boat) => naval?.drift?.(boat) ?? null,   // SERPENT1: the sea serpent's maelstrom pulling her, a blow's throw - added to the current under her
     handling: () => getPref('naval-handling') ?? 'responsive',   // HELM-WAY: the Features row's Ship handling
     midScreenText: (text, seconds) => setMidScreenText(text, seconds),
     log: (text) => console.log(text),
@@ -7763,6 +7777,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       : key === 'AimCamera' ? getPref('naval-aim-camera') !== false : key === 'AutoRepair' ? getPref('naval-auto-repair') !== false : undefined),
     random: Math.random,   // THE ENGINE-PRNG RULE (Port-Ledger A)
     refit: (boat) => fleetHost?.refit(boat) ?? null,   // HOLDINGS: her Hull and Guns refits (the Fleet's ledger)
+    get serpent() { return serpentHost; },   // SERPENT1: the sea serpent among the shots' targets, its coil's hold and its whirl's pull on my ship
   });
   naval.setEnabled(navalOn());   // the switch's state from the first frame (navalFrame follows it after)
   registerModSaveData(NAVAL_SAVE_VENDOR, naval);   // the player's boats' hurts, the crowns' notoriety, a raid a load carries
@@ -13757,6 +13772,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // running now on the raids' own clock, at its town, with the card a hover asks for (ui/eventMapMarks.js). A
       // function for the gate's reason; none while the mod is off. The enhanced map alone draws them.
       raids: () => (raidingPartiesOn() ? raidMapMarks(raidState().raids, worldMinutes(), { regionName: (r) => REGION_NAMES[r] ?? '', localTime: sharedClockOn() ? eventLocalTime : null }) : []),   // TIME1: online the withdrawal in local time
+      serpent: () => serpentOmen?.mapMark() ?? null,   // SERPENT1: the sea serpent's ring, in the sea's colours - the held map alone draws it
       // GUIDE5: WHERE THE QUESTS POINT - every active quest's place the player's map holds, the followed one filled
       // (ui/questMarks.js); a function for the gate's reason (a step logged while the map stands open). The enhanced
       // map alone draws them: a player who chose DFU's own maps chose DFU's look.
@@ -14065,6 +14081,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       return {
         now,
         gate: { place: gateOmen?.current?.()?.site?.place ?? null, fellAt: (day) => gateLink?.fellAt?.(day) ?? null },
+        // SERPENT-TIMERS: the sea serpent - the port it lies off as the omen found it, and its kill at this machine's site
+        serpent: { place: serpentOmen?.current?.()?.site?.near ?? null, fellAt: (day) => { const site = serpentOmen?.current?.()?.site; return site && site.day === day ? serpentLink?.fellAt?.(day, site) ?? null : null; } },
         seatsOpen: seatBook?.open === true,   // AUDIT TIMERS1 D5: the seat week's rows are for an account the seats are open to
         seats: seatBook?.open === true ? (seatBook.data?.seats ?? null) : null,
         zero: seatBook?.open === true ? seatBook.zero : null,
@@ -17789,6 +17807,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // DUEL1: A DUEL FRAME AT ME - the law decides (net/duelSession.js); `sub` the sender's account as the relay stamped it
     online.onDuel = (id, d, sub = null) => { duelMgr.onFrame(id, d, sub); };
     online.onGate = (g) => gateLink?.word(g);   // WB3b: the court's room's word about its boss
+    online.onSerpent = (w) => serpentLink?.word(w);   // SERPENT1: the sea serpent's cell's word (on my cell's socket or a halo's) - its fight, its swim, its blows, my receipt
     online.onRaid = (f, room) => raidRelayWord(f, room);   // RAID3: a town cell's word about its raid - the ledger, the cleanse, my receipt
     online.onRite = (w) => riteHost?.onBroken(w);   // WB12d: the hub's broken rite
     online.onWatch = (r) => { seatBook?.keepWatch(r); motherlodeBook?.watch(r); };   // SEAT1b: the Watch's tick, kept where it stands in a seat's pixel; PROF2b: and where it stands on a Motherlode's
@@ -17944,6 +17963,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         link.onStaffTeleport = (m) => client.receive(m);
       }
       if (tab.room === SOCIAL_ROOM) link.onGate = (g) => gateLink?.word(g);   // WB3b: the hub's word of a kill, and a fighter's receipt outside the court
+      if (tab.room === SOCIAL_ROOM) link.onSerpent = (w) => serpentLink?.word(w);   // SERPENT1: the hub's word of a sea serpent's kill, Bay-wide, and the day's at my hello
       if (tab.room === SOCIAL_ROOM) link.onRite = (w) => riteHost?.onBroken(w);   // WB12d: the hub's word of a broken rite, and at my hello
       if (tab.room === SOCIAL_ROOM) link.onRaid = (f, room) => (f.k === 'tw' ? offerRaidTowns(link, f.h) : raidRelayWord(f, room));   // RAID3: the hub's word of a cleanse anywhere, and the day's at my hello; RAID-ROLL: its ask for the towns table
       if (tab.id === 'region') {   // TV3: the region's travellers, into the book
@@ -19001,6 +19021,26 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (a.announce !== null) { renownSaid = a.announce; townTalk.say(`Your Renown is now ${a.announce}.`); }
     },
   }) : null;
+  /** SERPENT1: THE SERPENT RECEIPTS THIS DEVICE CARRIES TO THE ACCOUNT SERVICE (net/serpentClaims.js) - each kill the
+   *  relay signed for me, kept with the character that fought it until the service has counted it and paid its Renown
+   *  (the raids' own carrier); the hoard when the service says this claim is its (serpent, account)'s. */
+  const _accountSerpents = accountSerpents({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() });
+  const serpentClaims = params.has('online') ? createSerpentClaims({
+    claim: _accountSerpents.claim,
+    me: _accountSerpents.me,
+    nowS: relayNowS,
+    store: _spoilsStore,
+    say: (text) => chatNotice(text),
+    onSpoils: (entry) => grantSerpentSpoils(entry),
+    onRecorded: (data) => {
+      if (data?.renown?.character !== characterIdOf(playerEntity)) return;   // RENOWN-CHAR: the character that fought the serpent adopts its Renown, no other
+      const a = renownAnswer({ ...data.renown, order: data.order ?? null }, data.renown.credited ?? 0, renownSaid);
+      if (a.xp !== null) renownXpAdopt(a.xp);
+      if (a.level !== null) renownAdopt(a.level);
+      if (a.order) online?.sendRenownOrder?.(a.order, a.level);
+      if (a.announce !== null) { renownSaid = a.announce; townTalk.say(`Your Renown is now ${a.announce}.`); }
+    },
+  }) : null;
   const gateLink = params.has('online') ? createGateLink({
     now: () => Date.now() + _sharedOffsetMs,
     say: (text) => setMidScreenText(text),
@@ -19049,9 +19089,16 @@ export async function bootWorld(canvas, renderer, params, status) {
   onSlotSaved((characterId) => { try { spoilsPool.saved(characterId); } catch (e) { console.warn('[gate] spoils', e?.message ?? e); } });
   // REALM P1.3: a realm checkpoint's spoils. AUDIT REALM2 C1: a town's thanks with them - RAID4b's own pool was cleared by a
   // slot's save alone (onSlotSaved, below), which a realm character never writes, so every join handed the thanks back
-  _realmSaveHooks.held = (who) => { try { return [...(spoilsPool?.heldIds?.(who) ?? []), ...(raidSpoils?.heldIds?.(who) ?? [])]; } catch { return null; } };
-  _realmSaveHooks.landed = (who, ids) => { try { spoilsPool?.saved(who, ids); } catch (e) { console.warn('[gate] spoils', e?.message ?? e); } try { raidSpoils?.saved(who, ids); } catch (e) { console.warn('[raid] spoils', e?.message ?? e); } };
+  _realmSaveHooks.held = (who) => { try { return [...(spoilsPool?.heldIds?.(who) ?? []), ...(raidSpoils?.heldIds?.(who) ?? []), ...(serpentSpoils?.heldIds?.(who) ?? [])]; } catch { return null; } };   // SERPENT1: and the Old Coil's hoard
+  _realmSaveHooks.landed = (who, ids) => { try { spoilsPool?.saved(who, ids); } catch (e) { console.warn('[gate] spoils', e?.message ?? e); } try { raidSpoils?.saved(who, ids); } catch (e) { console.warn('[raid] spoils', e?.message ?? e); } try { serpentSpoils?.saved(who, ids); } catch (e) { console.warn('[serpent] spoils', e?.message ?? e); } };
   onSlotSaved((characterId) => { try { raidSpoils.saved(characterId); } catch (e) { console.warn('[raid] spoils', e?.message ?? e); } });   // RAID4b
+  /** SERPENT1: THE OLD COIL'S HOARD (systems/serpentSpoils.js) - the raids' door, under keys of its own: no floor, no word
+   *  to the hub, the crash's records a save clears. Made online or not, as the pools are. */
+  const serpentSpoils = createSpoilsPool({
+    ray: () => null, now: () => Date.now() + _sharedOffsetMs, take: takeSpoil, say: (text) => setMidScreenText(text),
+    store: _spoilsStore, who: () => characterIdOf(playerEntity), keys: SERPENT_SPOILS_KEYS, recordsMax: SERPENT_SPOILS_RECORDS_MAX,
+  });
+  onSlotSaved((characterId) => { try { serpentSpoils.saved(characterId); } catch (e) { console.warn('[serpent] spoils', e?.message ?? e); } });   // SERPENT1
   /** AUDIT WBX S4: the spoils given outside a court, one tab at a time - two tabs of one account on one device each
    *  checked the store before the other had written it, and both gave them (the Web Locks API; without it, at once). */
   const spoilsLock = (fn) => { const locks = globalThis.navigator?.locks; return locks?.request ? locks.request('wb5.spoils', () => fn()) : Promise.resolve().then(fn); };
@@ -19076,6 +19123,19 @@ export async function bootWorld(canvas, renderer, params, status) {
     spoilsLock(() => raidSpoils.grant({ day: raidSpoilsDay(c.w), acct: c.s, roll: () => raidSpoilsList(c.c, level, c.y), text: RAID_SPOILS_TEXT.granted,
       owner: entry.ch, kept: RAID_SPOILS_TEXT.kept(entry.nm) }))
       .catch((e) => console.warn('[raid] spoils', e?.message ?? e));
+  }
+  /** SERPENT1: THE OLD COIL'S HOARD, off a receipt the relay signed at the kill - given when the account service says
+   *  this claim is the (serpent, account)'s (net/serpentClaims.js onSpoils), rolled at the level the character fought at
+   *  and by how it earned it, straight into the pack when that character stands here - else kept for it. */
+  function grantSerpentSpoils(entry) {
+    const c = readSerpentReceipt(entry?.r);
+    if (!c) return undefined;
+    // AUDIT SERPENT D2: never past the level the fight admitted (the receipt's), nor the standing character's own
+    const level = spoilsLevel(entry.ch === characterIdOf(playerEntity) ? playerEntity.level ?? 1 : Number(entry.lv) || c.l || 1, c.l);
+    // AUDIT SERPENT D6: its promise is the carrier's - a grant that fails leaves the receipt unsettled, asked again
+    const boss = serpentBossById(c.b);
+    return spoilsLock(() => serpentSpoils.grant({ day: serpentSpoilsDay(c.d), acct: c.s, roll: () => serpentSpoilsList(c.c, level, c.x), text: SERPENT_SPOILS_TEXT.granted(boss),
+      owner: entry.ch, kept: SERPENT_SPOILS_TEXT.kept(entry.nm, boss) }));
   }
   /** WB5: THE CRASH'S DOOR (scenes/spoilsPool.js recoverSpoils) - asked once for each character that stands up in this
    *  session, online or not, before it can save: a boss's spoils no save of theirs holds are handed back. */
@@ -19116,12 +19176,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     _spoilsAskedFor = who;
     try { if (recoverSpoils(_spoilsStore, takeGateSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => spoilsPool.adopt(rec), inSave: _spoilsInSave })) setMidScreenText(SPOILS_TEXT.gathered); } catch (e) { console.warn('[gate] spoils', e?.message ?? e); }   // AUDIT WBX S3: in the pack now - the next save clears it
     try { if (recoverSpoils(_spoilsStore, takeSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => raidSpoils.adopt(rec), key: RAID_SPOILS_KEYS.store, inSave: _spoilsInSave })) setMidScreenText(RAID_SPOILS_TEXT.recovered); } catch (e) { console.warn('[raid] spoils', e?.message ?? e); }   // RAID4b: a town's thanks, the same door
+    try { if (recoverSpoils(_spoilsStore, takeSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => serpentSpoils.adopt(rec), key: SERPENT_SPOILS_KEYS.store, inSave: _spoilsInSave })) setMidScreenText(SERPENT_SPOILS_TEXT.recovered); } catch (e) { console.warn('[serpent] spoils', e?.message ?? e); }   // SERPENT1: the Old Coil's hoard, the same door
     _spoilsInSave = null;   // AUDIT RESCUE-SAVE A1: the boot's load alone - a load in the session is its own pack
   };
   // AUDIT ONLINE2 F3 (AUDIT RAID R8d): A LOAD IN THE SESSION IS A STAND-UP - the pack is the loaded save's, so the pools
   // let go of what they held in the old one, and the crash's door asks again for the loaded character (a town's thanks
   // given, a load of a save from before them, then a save: the record cleared with its pieces in no pack at all)
-  onSlotLoaded((characterId) => { spoilsPool.loaded(characterId); raidSpoils.loaded(characterId); _spoilsAskedFor = null; });
+  onSlotLoaded((characterId) => { spoilsPool.loaded(characterId); raidSpoils.loaded(characterId); serpentSpoils.loaded(characterId); _spoilsAskedFor = null; });   // AUDIT SERPENT D5: and the Old Coil's hoard
   /** WB9b: the court's floor as the dungeon arm asks for it each frame - the fight's crossings and the relay's clock */
   const _gateFloor = { xa: [], now: 0, none: Object.freeze([]) };
   const _courtArena = courtArena(_gateFloor.none, 0);
@@ -19221,6 +19282,125 @@ export async function bootWorld(canvas, renderer, params, status) {
     else if (courtDay != null && online?.terminal) ejectFromCourt(GATE_NO_TEXT[online.error] ?? COURT_TEXT.lost);   // AUDIT WB B5: a socket closed for good (a hello refused - its own words - or replaced) holds no fight: its boss would stand frozen
     else if (courtDay == null && gateLink && gateLink.state().day != null) gateLink.leave();
     try { gateCourt?.frame(); } catch (e) { console.warn('[gate] court', e?.message ?? e); }   // WB4: the fight on this screen (out of the court it puts itself away)
+  };
+  // ═══ SERPENT1 (2026-10-04, Mac: "A new world event that requires players with a ship to meet up and take on a large
+  // scale sea serpent in the ocean"; "make this something truly special"): SETHRAKUL, THE OLD COIL ════════════════════
+  // Online only: the serpent is a fact about the SHARED world (net/serpentLaw.js - every other event day, on the relay's
+  // clock), its waters on one of the Bay's packet lanes in open sea (systems/serpentSite.js, over the lanes the packets
+  // sail - laneNet below), said in the chat, ringed on the held map and marked on the compass (systems/serpentOmen.js);
+  // its fight the relay's (server/src/index.js - the cell of its site keeps its brain on the cell's alarm) and this
+  // client's half of it the serpent host's (scenes/serpentHost.js): the `in` as my ship comes within sight of its
+  // waters, my guns' balls on it, its blows on my ship judged here, the coil's hold and the whirl's pull through Come Sail
+  // Away's warp and drift seams, the venom on the decks. Bible: 11-Multiplayer/Sea-Serpent.md.
+  // THE FOUR HOSTS RULE: THIS host (scenes/world.js) wires it whole. scenes/exterior.js (the ?exterior bench - no relay,
+  // no packet lanes, no naval host), scenes/worldModes.js (a building's interior - no sea) and scenes/dungeonContext.js (a
+  // dungeon's water is no ocean, and no ship sails it) are named and left without it: no serpent in any of them, by
+  // design - it is a fight a player's ship sails to. A player who steps into a building mid-fight keeps their ship's hold; the bar and the blows
+  // wait for the street.
+  // The site's frame (metres about its native point, x east, z north - net/serpentBody.js) and the scene's: the streaming
+  // world's own conversions, SERPENT_NATIVE_PER_M native units to the metre (net/serpentLaw.js - the scene's own metre).
+  let _serpentClockAt = null;
+  const serpentLink = params.has('online') ? createSerpentLink({
+    now: () => Date.now() + _sharedOffsetMs,
+    say: (text) => setMidScreenText(text, 5),   // the cell's refusal, once until I leave its waters
+    // AUDIT SERPENT S1 / AUDIT SERPENT 2 F1: the day's site as this machine found it - a word of another site's fight is not mine
+    site: () => serpentOmen?.current?.()?.site ?? null,
+    // the hub's word of the kill, to everyone online - said for THIS machine's own site's serpent alone (AUDIT SERPENT S1:
+    // a forged site's kill is said for nobody), the place named from it
+    onFell: (day, f, at) => { const site = serpentOmen?.current?.()?.site; if (!site || site.day !== day || !sameSerpentSite(site, at)) return; chatNotice(slainLine({ near: site.near, boss: serpentBossOf(day).name, top: f.top })); },
+    // my receipt: to the account service, with the character that fought and the level it was admitted at
+    onReceipt: (r) => { const c = readSerpentReceipt(r); serpentClaims?.add(r, characterIdOf(playerEntity), typeof playerEntity?.name === 'string' ? playerEntity.name : null, c?.l ?? playerEntity.level ?? 1); },
+  }) : null;
+  const serpentOmen = serpentLink ? createSerpentOmen({
+    now: () => Date.now() + _sharedOffsetMs,
+    // the day's site off the packet lanes - every client's the same lanes, the same ways, the same open sea; none before
+    // the map's data has come (asked again - systems/serpentOmen.js SITE_RETRY_MS)
+    site: (day) => {
+      if (!maps || !mapDict) return null;
+      try {
+        const wayOf = (lane) => { let way = _laneWays.get(lane.key); if (way === undefined) { way = laneWay(lane, laneOpen, laneOpenNative); _laneWays.set(lane.key, way); } return way; };
+        return findSerpentSite(day, { lanes: laneNet(), wayOf, open: laneOpen });
+      } catch (e) { console.warn('[serpent] no site', e?.message ?? e); return null; }
+    },
+    say: (text) => chatNotice(text),
+    localTime: eventLocalTime,
+    fellAt: (day, site) => serpentLink.fellAt(day, site),
+    // the gate's AUDIT WB C4 law: nothing said before the relay's clock is read and the hub has welcomed this player (its
+    // word of a kill comes just behind) - or, a hub that never answers, eight seconds on the relay's clock alone
+    ready: () => { if (!online?.clockRead) { _serpentClockAt = null; return false; } _serpentClockAt ??= performance.now(); return !!socialLink()?.clockRead || performance.now() - _serpentClockAt > 8000; },
+    settleMs: SERPENT_OMEN_SETTLE_MS,
+  }) : null;
+  serpentHost = serpentOmen ? createSerpentHost({
+    now: () => Date.now() + _sharedOffsetMs,
+    link: serpentLink,
+    omen: serpentOmen,
+    online: {
+      ready: (cell) => navalOn() && !!online?.serpentReady?.(cell),   // AUDIT SERPENT M4: no sea fight, no ship to bring - no `in`, no share
+      send: (w, cell) => !!online?.sendSerpent?.(w, cell),
+      acct: () => _accountSerpents.me(),   // the relay's fighter key - the identity's sub, the account's id
+    },
+    toScene: (sx, sz, x, z) => state.localFromWorld(sx + x * SERPENT_NATIVE_PER_M, sz + z * SERPENT_NATIVE_PER_M),
+    toSite: (sx, sz, x, z) => { const w = state.worldCoords([x, 0, z]); return [(w.x - sx) / SERPENT_NATIVE_PER_M, (w.z - sz) / SERPENT_NATIVE_PER_M]; },
+    seaY: () => tvSeaY(),
+    feet: () => player.feetAt(),
+    level: () => playerEntity.level ?? 1,
+    boat: () => (navalOn() ? naval?.serpentBoat?.() ?? null : null),
+    strike: (boat, hurt, o) => naval?.serpentStrike?.(boat, hurt, o),
+    // the venom's bite on my own body: a share of my health and points, the cry and the shake an element's blow is given
+    hurt: (pct, base) => {
+      if (!(playerEntity.health > 0)) return;
+      const n = Math.max(1, Math.round(pct * (playerEntity.maxHealth ?? 0) + base));
+      hurtPlayer(playerEntity, n);
+      betterAmbience.weaponKick(0.5);
+      playPlayerVoice(audio, playerPainVoice(playerEntity, n));
+      surfacePlayer();
+    },
+    say: (text, seconds) => townTalk.say(text, seconds),
+    mid: (text, seconds) => setMidScreenText(text, seconds),
+    sound: (key, pos, vol) => playSerpentSound(audio, key, pos, vol),
+    fx: (kind, pos, scale) => naval?.serpentFx?.(kind, pos, scale),
+  }) : null;
+  /** Its renderer, made the first time a fight is drawn - a pass that will not build costs the serpent its body, never
+   *  the game. */
+  let _serpentRender;
+  const serpentRenderer = () => {
+    if (_serpentRender !== undefined) return _serpentRender;
+    try { _serpentRender = new SerpentRenderer(renderer); } catch (e) { console.warn('[serpent] the renderer would not build', e?.message ?? e); _serpentRender = null; }
+    return _serpentRender;
+  };
+  /** The frame the renderer draws this render frame (the body's pass reads it, the sea's pass after it). */
+  let _serpentDraw = null;
+  let _serpentBarUp = false;
+  /** The serpent's frame (the online frame's, after the gate's): its omen's line, its receipts offered, and - on the
+   *  street, alive - the fight on this screen and its bar. */
+  const serpentFrame = () => {
+    try { serpentOmen?.frame(); } catch (e) { console.warn('[serpent] omen', e?.message ?? e); }
+    // SERPENT2: where the serpent lies, to the hub (once a socket and day - net/online.js sendSerpentSite): its Discord
+    // herald names the place from the bells on, and posts the kill at the site the most accounts agree on
+    try { const a = serpentOmen?.ahead?.(); if (a) socialLink()?.sendSerpentSite?.(a.day, a.site.sx, a.site.sz, a.site.near); } catch (e) { console.warn('[serpent] site word', e?.message ?? e); }
+    serpentClaims?.tick();
+    if (!serpentHost) return;
+    const street = (modes?.mode ?? 'exterior') === 'exterior' && playerSpawned && playerEntity.health > 0 && !modes?.deathUp?.();
+    let fight = false;
+    try { fight = street && serpentHost.frame(); } catch (e) { console.warn('[serpent] frame', e?.message ?? e); }
+    const bar = fight ? serpentHost.bar() : null;
+    if (bar || _serpentBarUp) {
+      drawGateBossBar(bar ? serpentBarModel(bar) : null, { hidden: gamePaused() || !!townTalk.hudHidden });
+      _serpentBarUp = !!bar;
+    }
+  };
+  /** No online frame (offline, a load): the bar put away; offline, the fight forgotten - my ship let go of its coil. */
+  const serpentAway = (offline) => {
+    if (_serpentBarUp) { drawGateBossBar(null); _serpentBarUp = false; }
+    if (offline) { serpentHost?.leave(); serpentOmen?.reset(); }   // AUDIT SERPENT L4: offline, no ring and no compass mark stand
+  };
+  /** SERPENT1: the compass's mark - where it hunts, in THIS scene, while it swims and the player stands in its ring. */
+  const serpentCompassMark = () => {
+    const sw = serpentOmen?.swimming?.();
+    const mark = sw ? serpentOmen.mapMark() : null;
+    if (!sw || !mark || (modes?.mode ?? 'exterior') !== 'exterior') return null;
+    const p = playerTravelPixel();
+    return insideSerpentRing(mark, p.x, p.y) ? state.localFromWorld(sw.site.sx, sw.site.sz) : null;
   };
   /** WB6b: the Deadlands' air while the court stands under me - silent, and nothing left looping, the frame it does
    *  not. Ticked on the main frame, online or not: the court's ways out include going offline, and the online frame
@@ -21986,6 +22166,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     pageFrame();   // JOURNAL1: a page whose writer left the room goes with them
     mail?.poll();   // MAIL1: a look at the letterbox when one is due - before the dead return, as the chat's heartbeat is
     gateFrame();   // WB1: the Oblivion Gate's omen - its line when a new moment comes, before the dead return (the omen speaks to the dead too)
+    serpentFrame();   // SERPENT1: the sea serpent's sighting (to the dead too), and on the street its fight and its bar
     renownTracker?.tick();   // RENOWN1: what this character earned, to the account service when a report is due
     peerMenuFrame();   // PEERMENU1: the bind's hold timer
     peerFxFrame();   // PEERFX1: the others' blows and hurts, played
@@ -25301,7 +25482,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (oceanHoles) { _ohTime += gamePaused() ? 0 : dt * worldTimeScale(); oceanHoles.checkSettings(); ohAbyss?.update(); }
     csaDrawHelmPanel();   // CSA-L: the helm panel, once a frame in every mode
     spoilsRecoverFrame();   // WB5: a boss's spoils no save holds, back to their character as it stands up - before it can save, online or not
-    if (onlineOn && playerSpawned) { if (!online) onlineStart(); onlineFrame(now, dt); } else { if (_peerCandleLights.length) peerCandlesFrame([], dt);   /* PEERLIGHT2: offline, no one's candle stays lit */ if (!onlineOn && modes?.gateArenaDay?.() != null) { ejectFromCourt(COURT_TEXT.collapse); gateCourt?.leave(); /* AUDIT SS: and its floor into the pack - online, the frame's own court does it */ } if (player.arena) player.arena = modes?.gateArenaDay?.() != null ? courtRing() : null; if (!player.arena) player.arena = arenaBouts.ring(); /* ARENA2: my bout's ring on the arena's sand */ siegeHud?.hide(); /* AUDIT-SEATS C1: no online frame (a load, a spawn), no battle's tick - its HUD hidden, never frozen; the next tick draws it again */ }   // DUEL1: no online frame, no duel's law to hold the body - the ring is the live duel's alone; WB3b: the court's is its floor's, and offline there is no court   // ONLINE1: the pose out, the peers in - after the look is paid, before the camera is read and any mode draws
+    if (onlineOn && playerSpawned) { if (!online) onlineStart(); onlineFrame(now, dt); } else { if (_peerCandleLights.length) peerCandlesFrame([], dt);   /* PEERLIGHT2: offline, no one's candle stays lit */ serpentAway(!onlineOn); /* SERPENT1: its bar put away - offline, my ship let go of its coil */ if (!onlineOn && modes?.gateArenaDay?.() != null) { ejectFromCourt(COURT_TEXT.collapse); gateCourt?.leave(); /* AUDIT SS: and its floor into the pack - online, the frame's own court does it */ } if (player.arena) player.arena = modes?.gateArenaDay?.() != null ? courtRing() : null; if (!player.arena) player.arena = arenaBouts.ring(); /* ARENA2: my bout's ring on the arena's sand */ siegeHud?.hide(); /* AUDIT-SEATS C1: no online frame (a load, a spawn), no battle's tick - its HUD hidden, never frozen; the next tick draws it again */ }   // DUEL1: no online frame, no duel's law to hold the body - the ring is the live duel's alone; WB3b: the court's is its floor's, and offline there is no court   // ONLINE1: the pose out, the peers in - after the look is paid, before the camera is read and any mode draws
     deadlandsAirFrame();   // WB6b: after the court's ways out have run, online or not - the frame it is gone is the frame its air falls silent
     if (onlineOn && playerSpawned && (seatOut() || townTalk.overlay instanceof DeathScreen || modes?.deathUp?.())) { siegeHud?.hide(); siegeNpcs?.leave(); }   // AUDIT SEATS-2 C4: the dead and a tab out of the seat draw no battle - the online frame returns before its tick
     arenaFrame(dt);   // ARENA2: the bout on the city's floor or the instance's - before the modal return, so the instance's runs too
@@ -26821,6 +27002,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     quays?.draw(renderer);   // QUAYS: the harbours' quays and the gangways to my ships made fast
     yards?.draw(renderer);   // HOME-YARD: the pieces outside the town's homes, and the one being placed
     if (csaOn()) csa.draw(renderer);   // CSA-B: the boats - the hulls, the classic models their helpers stand, the baked sails
+    // SERPENT1: the sea serpent's body with the opaque world, before the sea's top (its humps break it, the rest shows
+    // dark through it); its frame made once here, its sea's marks drawn from it after the sea
+    _serpentDraw = null;
+    if (serpentHost && (modes?.mode ?? 'exterior') === 'exterior') { try { _serpentDraw = serpentHost.drawFrame(); if (_serpentDraw) serpentRenderer()?.drawBody(_serpentDraw); } catch (e) { console.warn('[serpent] draw', e?.message ?? e); _serpentDraw = null; } }   // the renderer marks its own foreign pass
 
     // WM2b: read the eased wind ONCE a frame, not once a mill.
     const windNow = sky.wind();
@@ -27317,6 +27502,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (oceanHoles) drawOceanHolesTransparent();   // OH-C: the blue hole's core over it (3001), then the miasma (3002)
     csaDrawParticlesBlended();   // CSA-F: the oars' and rudders' drops (the Transparent queue)
     if (naval?.enabled) navalRender.draw(naval.drawFrame());   // NAV-B: the smoke, the spray, the balls in flight and the aim's arcs and zone, over the sea's top
+    if (_serpentDraw) { try { serpentRenderer()?.drawSea(_serpentDraw); } catch (e) { console.warn('[serpent] marks', e?.message ?? e); } }   // SERPENT1: its telegraphs, the maelstrom and the venom, over the sea's top
     navalHud(dt);   // NAV-F: the helm's readout
     // DW-C: under the distance fog the air's own effects - the sand, the wisps, the bolts, none of which writes a depth
     // the mod's post effect would fog it by, so all of which it closes to the fog colour - are the fog's. PUDDLE-RAIN
@@ -27900,6 +28086,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           hudHidden: townTalk.hudHidden,   // MAP-FIELD2: the held map takes the vitals and the status icons with it, on both skins
           detected: _detected, playerXZ: [enchantFeet()[0], enchantFeet()[2]],
           gate: gateCompassMark(),   // WB1: the Oblivion Gate on the compass, while the player stands in its ring
+          serpent: serpentCompassMark(),   // SERPENT1: the sea serpent on the compass, while the player sails in its ring
           quest: vendorCompassMark() ?? questCompassMark(),   // GUIDE5: the tracker's quest's place on the compass, on the street; HOME-VENDOR: a trader's waypoint first, while it is set
           party: partyCompass(),   // COMPASS-PARTY: the party's marks - the bodies drawn here, the rest where their poses say
           ships: navalOn() && _mode() === 'exterior' ? naval?.compassShips() ?? null : null, boats: csaRuntime && _mode() === 'exterior' ? boatCompassPoints(csaRuntime.AllBoats, csaBoatUnderMe(), enchantFeet(), state, TERRAIN_SIZE) : null,   // AUDIT NAV1 (the helm): the sea's ships on the compass; BOAT-MARK: my own boats, from anywhere on the street (under the travel view too), the one at my helm left out

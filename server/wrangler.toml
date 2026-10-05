@@ -85,6 +85,14 @@ RAID_TOWNS_SHA256 = ""
 # The role: its id handed over 2026-10-02, before the WB12/WB13 merge (it was
 # 1554215379817988167, World Events, from 2026-09-28).
 GATE_DISCORD_ROLE = "1555589839825670258"
+# ═══ SERPENT2: THE ROLE THE SERPENT'S BELLS PING ═══════════════════
+#
+# The Discord id of the opt-in role the hub pings on each sea serpent's
+# bells, fifteen minutes before it rises (net/serpentHerald.js) - posted
+# to the gate's channel, through the gate's webhook above. EMPTY IS A
+# LEGAL STATE: the bells ping the gate's role (GATE_DISCORD_ROLE); name
+# one here to give the serpent its own.
+SERPENT_DISCORD_ROLE = ""
 
 # ═══ WB3: THE RELAY'S ONE SECRET ═══════════════════════════════════
 #

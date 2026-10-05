@@ -305,6 +305,8 @@ test('RAID4 the world host by source: my receipt goes to the queue with the char
   assert.match(body, /onRaidReceipt: \(r\) => \{ raidClaims\?\.add\(r, characterIdOf\(playerEntity\), typeof playerEntity\?\.name === 'string' \? playerEntity\.name : null, playerEntity\?\.level \?\? 1\); \},/);   // AUDIT RAID R4: with its level - the thanks wait for the service's word (onSpoils)
   assert.match(w, /onSpoils: \(entry\) => grantRaidSpoils\(entry\),/);
   assert.match(w, /const raidClaims = params\.has\('online'\) \? createRaidClaims\(\{\n\s+claim: _accountRaids\.claim,\n\s+me: _accountRaids\.me,/);
-  assert.match(w, /if \(data\?\.renown\?\.character !== characterIdOf\(playerEntity\)\) return;/);
+  // SERPENT1 keeps its own guard beside it: this one is the raid queue's own, read inside its block
+  const rq = w.slice(w.indexOf("const raidClaims = params.has('online') ? createRaidClaims({"), w.indexOf('  }) : null;', w.indexOf("const raidClaims = params.has('online') ? createRaidClaims({")));
+  assert.match(rq, /onRecorded: \(data\) => \{\n\s+if \(data\?\.renown\?\.character !== characterIdOf\(playerEntity\)\) return;/);
   assert.match(w, /raidClaims\?\.tick\(\);/);
 });
