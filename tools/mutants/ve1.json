@@ -86,8 +86,8 @@
     "tests": [
       "test/ve1_vanillaEnhanced.test.js"
     ],
-    "old": "  _mods = dfmodLoadOrder(mods);   // VE1: AutoSortMods' order, not the listing's",
-    "new": "  _mods = mods;"
+    "old": "  _mods = dfmodLoadOrder([...mods, ...liveShipped()]);",
+    "new": "  _mods = [...mods, ...liveShipped()];"
   },
   {
     "name": "VE1-xml-from-the-lowest-mod",
@@ -239,8 +239,8 @@
     "tests": [
       "test/ve1_vanillaEnhanced.test.js"
     ],
-    "old": "export const textureMods = () => attachedDfmods().filter((m) => !isIilMod(m));",
-    "new": "export const textureMods = () => attachedDfmods();"
+    "old": "export const textureMods = () => doorMods().filter((m) => !isIilMod(m));",
+    "new": "export const textureMods = () => doorMods();"
   },
   {
     "name": "VE3-classic-spares-a-mod-of-arrays",
@@ -248,17 +248,8 @@
     "tests": [
       "test/ve1_vanillaEnhanced.test.js"
     ],
-    "old": "export const textureMods = () => attachedDfmods().filter((m) => !isIilMod(m));",
-    "new": "export const textureMods = () => attachedDfmods().filter((m) => !isIilMod(m) && m.textures > 0);"
-  },
-  {
-    "name": "VE3-family-not-switched-on",
-    "file": "src/systems/vanillaEnhanced.js",
-    "tests": [
-      "test/ve1_vanillaEnhanced.test.js"
-    ],
-    "old": "  setDfmodEnabled(attachedDfmods().filter(isVeFamily).map((m) => m.key), true);",
-    "new": "  setDfmodEnabled(attachedDfmods().filter(isVeBase).map((m) => m.key), true);"
+    "old": "export const textureMods = () => doorMods().filter((m) => !isIilMod(m));",
+    "new": "export const textureMods = () => doorMods().filter((m) => !isIilMod(m) && m.textures > 0);"
   },
   {
     "name": "VE3-replace-game-artwork-not-worn",
@@ -288,15 +279,6 @@
     "new": "export const veWorn = () => textureReplacementEnabled() && !!veBase();"
   },
   {
-    "name": "VE3-pack-never-asked-for",
-    "file": "src/systems/overhauls.js",
-    "tests": [
-      "test/ve1_vanillaEnhanced.test.js"
-    ],
-    "old": "        isOn: veWorn, wear: wearVanillaEnhanced, needsFiles: () => !veBase(),",
-    "new": "        isOn: veWorn, wear: wearVanillaEnhanced, needsFiles: () => false,"
-  },
-  {
     "name": "VE3-version-not-shown",
     "file": "src/systems/overhauls.js",
     "tests": [
@@ -304,15 +286,6 @@
     ],
     "old": "return b?.version ? `carademono, version ${b.version}` : 'carademono';",
     "new": "return 'carademono';"
-  },
-  {
-    "name": "VE3-menu-wears-without-the-pick",
-    "file": "src/ui/enhancedMenu.js",
-    "tests": [
-      "test/ve1_vanillaEnhanced.test.js"
-    ],
-    "old": "      await ds.pickDfmodFiles(o.attach);\n",
-    "new": ""
   },
   {
     "name": "VE3-packs-card-loses-the-switch",

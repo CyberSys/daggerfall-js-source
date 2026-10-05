@@ -37,6 +37,11 @@
 // name the two share. This door used to keep the FIRST mod by file name
 // and read no dependency at all, so the add-ons lost to their own base.
 //
+// VE4 - MODS THAT SHIP WITH THE PORT. Vanilla Enhanced's Base, Masked Roads and Snowless Swamps and Jungles ship with
+// the port (systems/vanillaEnhancedPack.js, Mac 2026-10-05) and register HERE, beside the attached mods - one load
+// order, one walk, one set of doors; only where a picture comes from differs. An attached .dfmod under the same key
+// shadows the shipped one (the player's copy - a newer version - is the one read).
+//
 // Nothing here touches the DOM: the store and the opener are handed in.
 
 import { openUnityBundle } from '../formats/unityBundleClient.js';
@@ -201,8 +206,13 @@ export function dfmodLoadOrder(mods) {
 // mod attached is on.
 export const DFMOD_OFF_PREF = 'dfmodOff';
 const offKeys = () => { const v = getPref(DFMOD_OFF_PREF); return Array.isArray(v) ? v.filter((k) => typeof k === 'string') : []; };
-/** The mod stored under `key` is switched on (Mod.Enabled). */
-export const dfmodEnabled = (key) => !offKeys().includes(key);
+// VE4: a SHIPPED mod is off until it is switched on - the port's look is Daggerfall's own until the player picks another
+// (the Texture Overhaul card's Classic) - so its switch is the other way round: the keys switched ON, on their own shelf
+// entry. It is read while the shipped copy is the one registered; an attached copy that shadows it is an attached mod.
+export const DFMOD_ON_PREF = 'dfmodOn';
+const onKeys = () => { const v = getPref(DFMOD_ON_PREF); return Array.isArray(v) ? v.filter((k) => typeof k === 'string') : []; };
+/** The mod registered under `key` is switched on (Mod.Enabled). */
+export const dfmodEnabled = (key) => (_shippedLive.has(key) ? onKeys().includes(key) : !offKeys().includes(key));
 
 /** Open a bundle's bytes, index it and close it - the attach step. */
 export async function indexDfmodBytes(bytes, { open = openUnityBundle } = {}) {
@@ -225,6 +235,16 @@ let _opener = poolOpen;
 let _generation = 0;
 let _sig = null;          // the stored set last registered
 let _registered = null;   // Promise-free count it registered
+let _shippedSrc = null;         // VE4: the list setShippedDfmods was handed - the same list again changes nothing
+let _shipped = [];              // VE4: [{ key, index, open }], the mods that ship with the port
+let _storedKeys = [];           // VE4: the attached keys of the last registration - each shadows a shipped mod of its key
+let _shippedLive = new Set();   // VE4: the shipped keys no attached copy shadows - read from the port's own files
+
+/** VE4: the shipped mods no attached copy shadows, as `_mods` holds a mod - and `_shippedLive` brought up to date. */
+function liveShipped() {
+  _shippedLive = new Set(_shipped.filter((s) => !_storedKeys.includes(s.key)).map((s) => s.key));
+  return _shipped.filter((s) => _shippedLive.has(s.key)).map(({ key, index }) => ({ key, index }));
+}
 
 function forgetOpen() {
   for (const p of _open.values()) p.then((b) => b?.close?.()).catch(() => null);
@@ -238,7 +258,9 @@ const knownOf = (key) => _mods.find((m) => m.key === key)?.index?.textures ?? nu
 /** One stored bundle, opened once, in a worker when there is one. */
 function bundleFor(key) {
   if (!_open.has(key)) {
+    const shipped = _shippedLive.has(key) ? _shipped.find((s) => s.key === key) : null;   // VE4
     _open.set(key, (async () => {
+      if (shipped) return shipped.open();   // VE4: the port's own files - nothing stored to read
       if (_loadBlob) {   // DFMOD2: by range, in the worker - never the whole file on this thread
         const blob = await _loadBlob(key);
         if (blob?.size) return _opener(blob, { maxTextureSize: maxSize(), knownTextures: knownOf(key) });
@@ -306,7 +328,8 @@ export async function setDfmodSources(fileNames, load, { saveIndex = null, open 
     if (index) mods.push({ key, index }); else missing.push(key);
     if (gen !== _generation) return 0;   // a newer registration overtook this one
   }
-  _mods = dfmodLoadOrder(mods);   // VE1: AutoSortMods' order, not the listing's
+  _storedKeys = names;   // VE4: an attached copy shadows the shipped mod of its key
+  _mods = dfmodLoadOrder([...mods, ...liveShipped()]);   // VE1: AutoSortMods' order, not the listing's; VE4: the shipped among them
   _sig = sig;
   _registered = install();
   // DFMOD2: a bundle stored without its index (a folder pick, an attach that did not finish) is indexed OFF the boot
@@ -379,23 +402,49 @@ function install() {
   return n + _img.size + _cifRci.size;
 }
 
+/**
+ * VE4: register the mods that ship with the port - `[{ key, index, open }]`: `index` in buildDfmodIndex's shape, `open()`
+ * answering a client in unityBundleClient's (`rgba`, `layers`, `close`) that serves the port's own files. They join the
+ * attached mods in one load order; an attached copy under the same key shadows one. The same list again changes nothing;
+ * another replaces it. The doors are put back at once. Answers what install() put on them.
+ */
+export function setShippedDfmods(list) {
+  if (list === _shippedSrc) return _registered;
+  _shippedSrc = list;
+  for (const key of _shippedLive) { const p = _open.get(key); if (p) { _open.delete(key); p.then((b) => b?.close?.()).catch(() => null); } }
+  _shipped = (list ?? []).filter((s) => typeof s?.key === 'string' && s.key.startsWith(DFMOD_PREFIX) && s.index && typeof s.open === 'function');
+  _mods = dfmodLoadOrder([..._mods.filter((m) => _storedKeys.includes(m.key)), ...liveShipped()]);
+  _registered = install();
+  return _registered;
+}
+
+/** Forget every attached mod's registration. VE4: the shipped mods stay - they are not the store's. */
 export function clearDfmodSources() {
   _generation++;
-  _mods = []; _load = null; _sig = null; _registered = null;
+  _load = null; _sig = null; _registered = null; _storedKeys = [];
   forgetOpen();
+  _mods = dfmodLoadOrder(liveShipped());
   install();
 }
 
 /**
- * VE3: switch attached mods on or off (Mod.Enabled) and put the doors back at once. The choice is kept on the prefs
- * shelf; a mod switched off has its bundle closed (DFU unloads it). Answers the shelf's word - a refused write still
- * holds for this session. What is already drawn keeps its pictures until its area loads again.
+ * VE3: switch registered mods on or off (Mod.Enabled) and put the doors back at once. The choice is kept on the prefs
+ * shelf - an attached mod's as a key switched off, a shipped one's (VE4) as a key switched on; a mod switched off has
+ * its bundle closed (DFU unloads it). Answers the shelf's word - a refused write still holds for this session. What is
+ * already drawn keeps its pictures until its area loads again.
  */
 export function setDfmodEnabled(keys, on) {
   const list = (Array.isArray(keys) ? keys : [keys]).filter((k) => typeof k === 'string');
   const off = new Set(offKeys());
-  for (const k of list) { if (on) off.delete(k); else off.add(k); }
-  const saved = setPref(DFMOD_OFF_PREF, [...off].sort());
+  const onSet = new Set(onKeys());   // VE4: a shipped mod's switch is the keys switched ON
+  let attached = false, shipped = false;
+  for (const k of list) {
+    if (_shippedLive.has(k)) { shipped = true; if (on) onSet.add(k); else onSet.delete(k); }
+    else { attached = true; if (on) off.delete(k); else off.add(k); }
+  }
+  let saved = true;
+  if (attached) saved = setPref(DFMOD_OFF_PREF, [...off].sort()) && saved;
+  if (shipped) saved = setPref(DFMOD_ON_PREF, [...onSet].sort()) && saved;
   if (!on) {
     for (const k of list) {
       const p = _open.get(k);
@@ -414,8 +463,8 @@ export function forgetDfmodOff(keys) {
   if (off.some((k) => drop.has(k))) setPref(DFMOD_OFF_PREF, off.filter((k) => !drop.has(k)));
 }
 
-/** The attached mods, for the menu, in load order (VE1): [{ key, fileName, title, version, author, textures, arrays,
- *  deps, enabled, error, guid }]. */
+/** The registered mods, for the menu, in load order (VE1): [{ key, fileName, title, version, author, textures, arrays,
+ *  deps, enabled, error, guid, shipped }] - the attached, and (VE4) the shipped no attached copy shadows. */
 export const attachedDfmods = () => _mods.map(({ key, index }) => ({
   key, fileName: dfmodFileName(key),   // VE1: the name a dependency names
   title: index.title ?? key.slice(DFMOD_PREFIX.length), version: index.version, author: index.author, textures: index.textures?.length ?? 0,
@@ -424,6 +473,7 @@ export const attachedDfmods = () => _mods.map(({ key, index }) => ({
   enabled: dfmodEnabled(key),   // VE3
   error: _openErrors.get(key) ?? null,   // DFMOD2
   guid: index.guid ?? null,   // IIL1: a script mod (Improved Interior Lighting) is known by its GUID
+  shipped: _shippedLive.has(key),   // VE4: ships with the port - switched, never removed
 }));
 
 // ---- IMG and CIF/RCI pictures --------------------------------------------
@@ -580,4 +630,4 @@ async function groundLayers(archive, tex, decode) {
 export { resampleRgba };   // DFMOD2: its home is formats/resample.js (the worker downscales with it too)
 
 /** Test seam. */
-export function _resetDfmodForTests() { clearDfmodSources(); _opener = poolOpen; }
+export function _resetDfmodForTests() { _shippedSrc = null; _shipped = []; clearDfmodSources(); _opener = poolOpen; }

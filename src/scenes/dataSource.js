@@ -1097,8 +1097,10 @@ export async function registerTextureStore() {
   const { setWeaponWidgetSources } = await import('../combat/weaponWidgetAssets.js');   // WW1
   const { setDiverseWeaponsSources } = await import('../combat/diverseWeaponsAssets.js');   // DW1
   const { setDfmodSources, setDfmodDetailSource } = await import('../systems/dfmodTextures.js');   // DFMOD1
+  const { installVanillaEnhancedPack } = await import('../systems/vanillaEnhancedPack.js');   // VE4
   const { getPref } = await import('../systems/uiPrefs.js');
   setDfmodDetailSource(() => getPref('dfmodTextureDetail'));   // DFMOD2: the packs card's detail choice
+  installVanillaEnhancedPack();   // VE4: the shipped mods, in one load order with the attached
   const names = await storedTextureNames();
   const n = setTextureReplacements(names, loadTextureFile);
   setWeaponWidgetSources(names, loadTextureFile);   // WW1: Weapon Widget's bundle, its double-scale textures
@@ -1176,13 +1178,10 @@ export async function pickLightingModFiles() {
   });
 }
 
-/** DFMOD1: the texture mods' pick. VE3: a pack's own words (`{ title, blurb }`, the Texture Overhaul card's
- *  Vanilla Enhanced) stand in for the general ones; the store and the registration are the same. */
-export async function pickDfmodFiles(words = null) {
+export async function pickDfmodFiles() {
   return pickAssetFolder({
-    title: words?.title ?? 'Add texture mods',
-    blurb: words?.blurb ? `<p>${words.blurb}</p>
-      <p style="color:#999">Big mods take a while to read the first time.</p>` : `<p>Pick one or more Daggerfall Unity <b>.dfmod</b> files - texture
+    title: 'Add texture mods',
+    blurb: `<p>Pick one or more Daggerfall Unity <b>.dfmod</b> files - texture
       mods like <b>DREAM</b> (sprites, NPCs, mobs, paperdoll, portraits,
       backgrounds, world textures). Nothing is uploaded - they are stored
       in this browser.</p>

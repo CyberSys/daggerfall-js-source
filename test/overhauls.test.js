@@ -23,13 +23,16 @@ const rd = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const manifest = JSON.parse(rd('vendor/grimoire-ui/grimoire-ui.files.json'));
 beforeEach(() => _resetForTests());
 
-test('OVH1: three panels, Texture, Sound and UI in that order; Texture stood EMPTY until a texture pack (OVH1b) and holds Classic and Vanilla Enhanced, the pack the player brings (VE3); Sound is Classic and Enhanced; UI is Classic, Enhanced Plus and GrimoireUI - PLUS-ONLY retired plain Enhanced (mutants: Vanilla Enhanced off the panel; a panel dropped)', () => {
+test('OVH1: three panels, Texture, Sound and UI in that order; Texture stood EMPTY until a texture pack (OVH1b) and holds Classic and Vanilla Enhanced, the pack that ships with the port (VE3, VE4); Sound is Classic and Enhanced; UI is Classic, Enhanced Plus and GrimoireUI - PLUS-ONLY retired plain Enhanced (mutants: Vanilla Enhanced off the panel; a panel dropped)', () => {
   assert.deepEqual(OVERHAUL_PANELS.map((p) => p.id), ['texture', 'sound', 'ui']);
   assert.deepEqual(OVERHAUL_PANELS.map((p) => p.title), ['Texture Overhaul', 'Sound Overhaul', 'UI Overhaul']);
   const [tex, snd, ui] = OVERHAUL_PANELS;
   assert.deepEqual(tex.options.map((o) => o.name), ['Classic', 'Vanilla Enhanced'], 'VE3: the first texture pack, beside Daggerfall\'s own');
-  assert.equal(currentOption(tex), tex.options[0], 'nothing attached: Classic');
-  assert.equal(tex.options[1].needsFiles(), true, 'its pixels are Daggerfall\'s own remastered - the player\'s copy, never shipped (Port-Doctrine)');
+  assert.equal(currentOption(tex), tex.options[0], 'a fresh shelf: Classic - the shipped pack is off until it is worn');
+  // VE4: it ships (Port-Doctrine's one exception) - nothing to attach, its author and version off the shipped Base
+  assert.equal(tex.options[1].by, 'carademono, version 3.4.7');
+  assert.equal(tex.options[1].vendor, 'vanilla-enhanced', 'the credits find the pack through its look');
+  assert.equal('needsFiles' in tex.options[1], false, 'VE3\'s file pick is gone with the attach');
   assert.deepEqual(snd.options.map((o) => o.id), ['classic', 'enhanced']);
   assert.deepEqual(ui.options.map((o) => o.name), ['Classic', 'Enhanced Plus', 'GrimoireUI']);
   assert.match(ui.options[2].by, /LordSquacquerone, version 1\.2/, 'the pack wears its author and version');

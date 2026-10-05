@@ -139,7 +139,7 @@ test('DFMOD1 wiring: the boot, the pick, the doll, the portraits and the packs c
   const shared = src('scenes/shared.js');
   assert.match(shared, /setDfmodSources\(names, loadTextureFile, \{ saveIndex: saveTextureJson, loadBlob: loadTextureBlob, warm: true \}\)/);
   const ds = src('scenes/dataSource.js');
-  assert.match(ds, /export async function pickDfmodFiles\(words = null\)/);   // VE3: a pack's own words for the pick
+  assert.match(ds, /export async function pickDfmodFiles\(\)/);
   assert.match(ds, /export async function removeStoredDfmod\(key\)/);
   assert.match(ds, /export async function clearStoredMusic\(\)/);
   assert.match(ds, /export async function clearStoredTexturePack\(\)/);

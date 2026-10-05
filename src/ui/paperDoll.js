@@ -304,7 +304,7 @@ function altAt(holder, S) {
  *  nearest-scaled into it exactly as before, and the mod's layers keep four times the detail. Every rect, offset and
  *  click mask stays in the classic 110x184 space; only the pixels are denser. */
 export const PAPERDOLL_HD_SCALE = 4;
-const composeScale = () => (attachedDfmods().length ? PAPERDOLL_HD_SCALE : 1);
+const composeScale = () => (attachedDfmods().some((m) => !m.shipped) ? PAPERDOLL_HD_SCALE : 1);   // VE4: a mod the player attached - the shipped Vanilla Enhanced carries no doll art
 
 export async function preloadPaperDollArt(deps, ident = {}) {
   const { race = 'Breton', gender = 'male' } = ident;

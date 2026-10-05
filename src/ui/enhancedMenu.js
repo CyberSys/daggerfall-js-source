@@ -186,6 +186,8 @@ import { CREDITS } from './credits.js';   // CR1: who made what the port carries
 import { paneControls, discardControlsStaging, captureArmed, controlsPromptOpen, dismissControlsPrompt } from './enhancedControls.js';
 // FT0: the features home - one list over the three stores, filtered by kind
 import { OVERHAUL_PANELS, currentOption } from '../systems/overhauls.js';
+import { setVeAddon } from '../systems/vanillaEnhanced.js';   // VE4: an add-on switched from the Texture Overhaul card
+import { installVanillaEnhancedPack } from '../systems/vanillaEnhancedPack.js';   // VE4: the shipped mods listed before any host boots
 import { PLUS_THEMES } from './enhancedFrame.js';   // PLUS2: Enhanced Plus's colours
 import { plusTheme, setPlusTheme } from './enhancedPlusStyle.js';  import { plusCursorOn, setPlusCursor } from './plusCursor.js';   // OVH1: the three looks
 import { UI_PACKS, packUrl } from '../systems/uiPack.js';   // OVH2: a pack's own picture on its card
@@ -2363,13 +2365,16 @@ function peerSpritesCard() {
  *  behind the same confirm Delete Save uses - and Daggerfall Unity .dfmod texture mods (DREAM and its kin) attach
  *  as files, each listed with its own Remove. */
 function packsCard() {
+  installVanillaEnhancedPack();   // VE4: the shipped mods are listed even before a host has registered the store
   const c = el('div', 'card');
   c.append(el('h3', null, 'Replacement packs'));
   c.append(el('p', 'meta', 'Your own music (a folder of tracks named as DFU\u2019s replacement music expects), sounds, texture packs and Daggerfall Unity texture mods (.dfmod), stored in this browser like ARENA2. Nothing uploads.'));
   let mods = attachedDfmods();
+  const attached = mods.filter((m) => !m.shipped);   // VE4: what the player attached - the shipped mods are never removed
+  const builtIn = mods.length - attached.length;
   c.append(el('p', 'meta', `Music files supplied: ${replacementCount()} \u00b7 Texture files supplied: ${textureReplacementCount()} \u00b7 Sound files supplied: ${soundReplacementCount()}`));   // the row reports what the pick covers
   c.append(stats([
-    ['Texture mods', mods.length ? `${mods.length} attached \u00b7 ${bundleTextureCount()} textures in use` : 'none'],
+    ['Texture mods', attached.length || builtIn ? `${attached.length} attached${builtIn ? ` \u00b7 ${builtIn} built in` : ''} \u00b7 ${bundleTextureCount()} textures in use` : 'none'],
   ]));
   /** A removal behind the confirm; a storage failure is logged and costs nothing else. */
   const remove = (label, title, body, run) => ({ label, onClick: () => ask(title, body, 'Remove', async () => {
@@ -2408,19 +2413,20 @@ function packsCard() {
   const seen = new Map();
   for (const m of mods) { const k = sameTitle(m.title); seen.set(k, (seen.get(k) ?? 0) + 1); }
   if ([...seen.values()].some((n) => n > 1)) c.append(el('p', 'meta', 'Two versions of the same mod are attached (for example DREAM and DREAM 90s). Only one of them shows for each texture and both use memory - remove one.'));
-  c.append(el('p', 'meta', 'Daggerfall Unity texture mods - DREAM\u2019s sprites, NPCs, mobs, paperdoll, portraits, backgrounds and world textures, Vanilla Enhanced\u2019s ground, walls and dungeons, and mods like them. Pick the .dfmod files themselves; you can pick several at once. Mod scripts do not run.'));
+  c.append(el('p', 'meta', 'Daggerfall Unity texture mods - DREAM\u2019s sprites, NPCs, mobs, paperdoll, portraits, backgrounds and world textures, and mods like them. Pick the .dfmod files themselves; you can pick several at once. Mod scripts do not run. Vanilla Enhanced ships with the game (the Texture Overhaul card wears it); a copy you attach is read instead of the built-in one.'));
   // VE1: listed in load order - a mod loads after the mods it depends on, and where two carry the same texture the one
   // loaded later is drawn (DFU's ModManager)
   if (mods.length > 1) c.append(el('p', 'meta', 'In load order: where two mods carry the same texture, the later one is drawn. A mod always loads after the mods it is built on.'));
   for (const m of mods) {
     const row = el('div', 'card');
     row.append(el('p', null, `${m.title}${m.version ? ` ${m.version}` : ''}${m.author ? ` \u00b7 ${m.author}` : ''}`));
-    row.append(el('p', 'meta', `${m.textures} textures in the bundle${m.enabled ? '' : ' \u00b7 switched off'}`));
+    row.append(el('p', 'meta', `${m.shipped ? `Ships with the game \u00b7 ${m.textures} textures` : `${m.textures} textures in the bundle`}${m.enabled ? '' : ' \u00b7 switched off'}`));
     if (m.error) row.append(el('p', 'meta', `Not working: ${m.error}.`));   // DFMOD2: said where the Remove is
     row.append(acts([
       // VE3: DFU's mod window switches a mod off without removing it (Mod.Enabled); the Texture Overhaul card does the same
       { label: m.enabled ? 'Switch off' : 'Switch on', onClick: () => { setDfmodEnabled(m.key, !m.enabled); render(); } },
-      remove('Remove', `Remove ${m.title}`, `This clears ${m.title} from this browser.${later}`, (d) => d.removeStoredDfmod(m.key)),
+      // VE4: a shipped mod is switched, never removed - it is not in this browser's store
+      ...(m.shipped ? [] : [remove('Remove', `Remove ${m.title}`, `This clears ${m.title} from this browser.${later}`, (d) => d.removeStoredDfmod(m.key))]),
     ]));
     c.append(row);
   }
@@ -2432,8 +2438,8 @@ function packsCard() {
   c.append(el('p', 'meta', `Texture detail: ${detailLabel}. Higher looks sharper and takes more memory and loading time; \u201cfull\u201d can run out of memory with HD packs. A change applies to areas loaded after it.`));
   c.append(acts([
     { label: `Texture detail: ${detailLabel}`, onClick: () => { setPref('dfmodTextureDetail', nextDetail()); render(); } },
-    { label: 'Add texture mods', primary: !mods.length, onClick: async () => { const ds = await import('../scenes/dataSource.js'); await ds.pickDfmodFiles(); render(); } },
-    ...(mods.length > 1 ? [remove('Remove all texture mods', 'Remove all texture mods', `This clears every attached .dfmod texture mod from this browser.${later}`, (d) => d.clearStoredDfmods())] : []),
+    { label: 'Add texture mods', primary: !mods.some((m) => !m.shipped), onClick: async () => { const ds = await import('../scenes/dataSource.js'); await ds.pickDfmodFiles(); render(); } },
+    ...(mods.filter((m) => !m.shipped).length > 1 ? [remove('Remove all texture mods', 'Remove all texture mods', `This clears every attached .dfmod texture mod from this browser; the built-in ones stay.${later}`, (d) => d.clearStoredDfmods())] : []),
   ]));
   return c;
 }
@@ -3164,16 +3170,28 @@ function overhaulPanel(p) {
     card.append(hrow);
     card.append(plusControllerRows());   // PADPLUS1
   }
-  // VE3: a pack the player brings (Vanilla Enhanced) is added before it is worn - the button picks its files first
-  const use = el('button', 'act primary look-use', o === cur ? 'In use' : o.needsFiles?.() ? `Add ${o.name}\u2026` : `Use ${o.name}`);
+  // VE4: A LOOK'S ADD-ONS - Vanilla Enhanced's Masked Roads and Snowless Swamps and Jungles, offered as switches while
+  // the look is worn (the PLUS rows' shape); each takes effect when the world next loads, and is kept for the next wear
+  const addons = o === cur ? o.addons?.() ?? [] : [];
+  for (const m of addons) {
+    const label = String(m.title).replace(/^Vanilla Enhanced - /, '');
+    const row = el('div', 'look-colours');
+    row.setAttribute('role', 'group');
+    row.setAttribute('aria-label', label);
+    row.append(el('span', 'look-colours-label', label));
+    for (const [on, word] of [[true, 'On'], [false, 'Off']]) {
+      const b = el('button', 'look-colour', word);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(m.enabled === on));
+      b.onclick = (e) => { e.stopPropagation(); setVeAddon(m.key, on); render(); };
+      row.append(b);
+    }
+    card.append(row);
+  }
+  const use = el('button', 'act primary look-use', o === cur ? 'In use' : `Use ${o.name}`);
   use.type = 'button';
   use.disabled = o === cur;
-  use.onclick = async () => {
-    if (o.needsFiles?.()) {
-      const ds = await import('../scenes/dataSource.js');
-      await ds.pickDfmodFiles(o.attach);
-      if (o.needsFiles()) { render(); return; }   // the pick was closed, or held no copy of the pack
-    }
+  use.onclick = () => {
     const r = o.apply();
     if (r?.reload) { location.replace(r.url); return; }
     render();

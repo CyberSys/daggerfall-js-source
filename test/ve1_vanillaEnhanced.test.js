@@ -1,12 +1,13 @@
 // VE1-VE3 (2026-10-05) - VANILLA ENHANCED, and the two laws of DFU's mod door it found the port without.
 //
-// carademono's Vanilla Enhanced is Daggerfall's own textures remastered: the player's to attach (Port-Doctrine - A
-// RENDER OF GAME DATA IS GAME DATA), through the texture-mod door. Its add-ons only work if that door keeps DFU's
+// carademono's Vanilla Enhanced is Daggerfall's own textures remastered, worn through the texture-mod door - the
+// player's own copy (VE3; Port-Doctrine - A RENDER OF GAME DATA IS GAME DATA), shipped since VE4 under the exception
+// the doctrine records (test/ve4_vanillaEnhancedShipped.test.js). Its add-ons only work if that door keeps DFU's
 // LOAD ORDER (VE1: a mod loads after the mods it depends on, and the one loaded last answers a name), and its terrain
 // only reads right if the door keeps DFU's TERRAIN IMPORT (VE2: TryImportTextureArray - the first mod to carry the
 // array OR the first record decides, a loose record 0 goes first, and a set made of records takes the classic one
-// where a record is not replaced). VE3 wears it on the Texture Overhaul card, with Classic, and switches attached mods
-// on and off as DFU's mod window does (Mod.Enabled).
+// where a record is not replaced). VE3 wears it on the Texture Overhaul card, with Classic, and switches mods on and
+// off as DFU's mod window does (Mod.Enabled); here the player's own copies, which shadow the shipped ones.
 //
 // Driven through the real door (systems/dfmodTextures.js) over fake bundles in unityBundleClient's shape, the real
 // texture door, the real prefs shelf and the real Overhauls registry. The DFU members each pin answers to are cited
@@ -16,7 +17,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import {
   setDfmodSources, attachedDfmods, dfmodLoadOrder, dfmodFileName, manifestDeps, buildDfmodIndex, DFMOD_INDEX_VERSION,
-  setDfmodEnabled, dfmodEnabled, forgetDfmodOff, DFMOD_OFF_PREF, dfmodGroundLayers, groundSource, hasDfmodGround,
+  setDfmodEnabled, dfmodEnabled, forgetDfmodOff, DFMOD_OFF_PREF, DFMOD_ON_PREF, dfmodGroundLayers, groundSource, hasDfmodGround,
   dfmodImgImage, dfmodGeneration, _resetDfmodForTests,
 } from '../src/systems/dfmodTextures.js';
 import { preloadTextureRecord, setTextureReplacements, clearTextureReplacements, looseTextureExists, looseTextureGeneration, PRELOAD_CONCURRENCY } from '../src/systems/textureReplacement.js';
@@ -24,7 +25,7 @@ import { billboardXmlScale } from '../src/world/billboardXml.js';
 import { setValue, getBool } from '../src/systems/settings.js';
 import { getPref, setPref } from '../src/systems/uiPrefs.js';
 import { OVERHAUL_PANELS, currentOption } from '../src/systems/overhauls.js';
-import { VE_BASE, VE_BASE_GUID, isVeFamily, veWorn, classicTexturesWorn } from '../src/systems/vanillaEnhanced.js';
+import { VE_BASE, VE_BASE_GUID, VE_ADDONS_PREF, isVeFamily, veWorn, classicTexturesWorn } from '../src/systems/vanillaEnhanced.js';
 import { IIL_MOD } from '../src/systems/improvedInteriorLighting.js';
 
 const src = (rel) => readFileSync(new URL(`../src/${rel}`, import.meta.url), 'utf8');
@@ -75,6 +76,8 @@ const WINTER = 'dfmod/vanilla enhanced - winter tracks.dfmod';
 function fresh() {
   setValue('Enhancements', 'AssetInjection', 'True');
   setPref(DFMOD_OFF_PREF, []);
+  setPref(DFMOD_ON_PREF, []);   // VE4: the shipped mods' switches
+  setPref(VE_ADDONS_PREF, []);   // VE4: the add-ons the look is worn with
   clearTextureReplacements();
 }
 
@@ -271,16 +274,14 @@ test('VE2 the hosts: the two terrain hosts hand the classic file and upload what
   assert.deepEqual(uploaders.sort(), ['exterior.js', 'world.js'], 'worldModes.js (interiors) and dungeonContext.js have no ground to dress');
 });
 
-test('VE3 the Texture Overhaul card: Classic and Vanilla Enhanced - the pack added before it is worn, the family switched on with Replace Game Artwork, Classic switching every texture mod off but the lighting mod, Custom for a mix (mutants: Classic sparing a texture mod; the family not switched on; Custom read as Classic)', async () => {
+test('VE3/VE4 the Texture Overhaul card: Classic and Vanilla Enhanced - the pack ships and the player\'s own copy shadows it; wearing it switches the Base on with Replace Game Artwork and the add-ons it was last worn with; Classic switches every texture mod off but the lighting mod and keeps the add-ons for the next wear; Custom for a mix (mutants: Classic sparing a texture mod; the Base not switched on; the add-ons forgotten across Classic; Custom read as Classic)', async () => {
   fresh();
   const tex = OVERHAUL_PANELS.find((p) => p.id === 'texture');
   assert.deepEqual(tex.options.map((o) => [o.id, o.name]), [['classic', 'Classic'], ['vanilla-enhanced', 'Vanilla Enhanced']]);
   const [classic, ve] = tex.options;
   await attach({});
-  assert.equal(currentOption(tex), classic, 'nothing attached: Daggerfall\'s own');
-  assert.equal(ve.needsFiles(), true, 'Vanilla Enhanced is the player\'s to bring');
-  assert.equal(ve.by, 'carademono');
-  assert.match(ve.attach.blurb, /Vanilla Enhanced - Base/);
+  assert.equal(currentOption(tex), classic, 'nothing switched on: Daggerfall\'s own - the shipped pack is off until it is worn');
+  assert.equal(ve.by, 'carademono, version 3.4.7', 'VE4: the shipped Base');
   await attach({
     'dfmod/dream - sprites.dfmod': fakeMod('DREAM - Sprites', { textures: [['210_0-0', 2, 2]] }),
     'dfmod/improved interior lighting.dfmod': fakeMod('Improved Interior Lighting', { guid: IIL_MOD.guid }),
@@ -288,25 +289,29 @@ test('VE3 the Texture Overhaul card: Classic and Vanilla Enhanced - the pack add
     [MASKED]: fakeMod('Vanilla Enhanced - Masked Roads', { deps: [['world of daggerfall - biomes', true], [VE_BASE]] }),
     [WINTER]: fakeMod('Vanilla Enhanced - Winter Tracks', { deps: [[VE_BASE]] }),
   });
-  assert.equal(ve.needsFiles(), false);
-  assert.equal(ve.by, 'carademono, version 3.5.0', 'the version of the copy attached');
-  assert.deepEqual(attachedDfmods().filter(isVeFamily).map((m) => m.fileName), [VE_BASE, 'vanilla enhanced - masked roads', 'vanilla enhanced - winter tracks']);
-  assert.equal(currentOption(tex), ve, 'attached is on');
+  assert.equal(ve.by, 'carademono, version 3.5.0', 'the copy attached is the one read');
+  assert.deepEqual(attachedDfmods().filter(isVeFamily).map((m) => [m.fileName, m.shipped, m.enabled]), [
+    [VE_BASE, false, true], ['vanilla enhanced - masked roads', false, true],
+    ['vanilla enhanced - snowless swamps and jungles', true, false], ['vanilla enhanced - winter tracks', false, true],
+  ], 'in load order: the attached copies on (an attach is on), the shipped add-on no copy shadows off');
+  assert.equal(currentOption(tex), ve, 'an attached Base is on');
   classic.apply();
   assert.deepEqual(attachedDfmods().map((m) => [m.title, m.enabled]), [
-    ['DREAM - Sprites', false], ['Improved Interior Lighting', true], ['Vanilla Enhanced - Base', false], ['Vanilla Enhanced - Masked Roads', false], ['Vanilla Enhanced - Winter Tracks', false],
+    ['DREAM - Sprites', false], ['Improved Interior Lighting', true], ['Vanilla Enhanced - Base', false], ['Vanilla Enhanced - Masked Roads', false],
+    ['Vanilla Enhanced - Snowless Swamps and Jungles', false], ['Vanilla Enhanced - Winter Tracks', false],
   ], 'every texture mod off; the lighting mod is not a texture mod');
+  assert.deepEqual(getPref(VE_ADDONS_PREF), [MASKED, WINTER], 'VE4: the add-ons it was worn with, kept for the next wear');
   assert.equal(currentOption(tex), classic);
   assert.ok(classicTexturesWorn() && !veWorn());
   setValue('Enhancements', 'AssetInjection', 'False');
   ve.apply();
   assert.equal(getBool('Enhancements', 'AssetInjection'), true, 'wearing the pack wears Replace Game Artwork with it');
-  assert.deepEqual(attachedDfmods().map((m) => m.enabled), [false, true, true, true, true], 'the family on, DREAM left as it was');
+  assert.deepEqual(attachedDfmods().map((m) => m.enabled), [false, true, true, true, false, true], 'the Base and the add-ons it was worn with; DREAM and Snowless Swamps left as they were');
   assert.equal(currentOption(tex), ve);
   setDfmodEnabled([VE, MASKED, WINTER], false);
   setDfmodEnabled('dfmod/dream - sprites.dfmod', true);
   assert.equal(currentOption(tex), null, 'DREAM alone is neither look: Custom');
-  assert.match(tex.custom, /^Custom: texture mods of your own/);
+  assert.match(tex.custom, /^Custom: a mix of texture mods/);
   setDfmodEnabled('dfmod/dream - sprites.dfmod', false);
   setTextureReplacements(['302_5-0.png'], async () => null);
   assert.equal(currentOption(tex), null, 'a loose texture pack is drawn: not Classic');
@@ -314,13 +319,15 @@ test('VE3 the Texture Overhaul card: Classic and Vanilla Enhanced - the pack add
   assert.equal(currentOption(tex), classic);
 });
 
-test('VE3 the menu: the card\'s button picks the pack\'s files before it wears it, in the pack\'s own words; the packs card switches a mod on and off and says the load order', () => {
+test('VE3/VE4 the menu: the card\'s button wears the look at once - nothing to attach; its add-ons are switches while it is worn; the packs card switches a mod on and off, says the load order, and never offers to remove a shipped mod', () => {
   const menu = src('ui/enhancedMenu.js');
-  assert.match(menu, /const use = el\('button', 'act primary look-use', o === cur \? 'In use' : o\.needsFiles\?\.\(\) \? `Add \$\{o\.name\}\\u2026` : `Use \$\{o\.name\}`\);/);
-  assert.match(menu, /if \(o\.needsFiles\?\.\(\)\) \{\n\s+const ds = await import\('\.\.\/scenes\/dataSource\.js'\);\n\s+await ds\.pickDfmodFiles\(o\.attach\);\n\s+if \(o\.needsFiles\(\)\) \{ render\(\); return; \}/);
-  assert.ok(menu.indexOf('await ds.pickDfmodFiles(o.attach);') < menu.indexOf('const r = o.apply();'), 'attached first, worn after');
+  assert.match(menu, /const use = el\('button', 'act primary look-use', o === cur \? 'In use' : `Use \$\{o\.name\}`\);/);
+  assert.doesNotMatch(menu, /needsFiles|pickDfmodFiles\(o\.attach\)/, 'VE3\'s pick went with the attach');
+  assert.match(menu, /const addons = o === cur \? o\.addons\?\.\(\) \?\? \[\] : \[\];/, 'the add-ons only while the look is worn');
+  assert.match(menu, /b\.onclick = \(e\) => \{ e\.stopPropagation\(\); setVeAddon\(m\.key, on\); render\(\); \};/);
   assert.match(menu, /p\.custom \?\? 'Custom: your own mix from Features\./);
   assert.match(menu, /\{ label: m\.enabled \? 'Switch off' : 'Switch on', onClick: \(\) => \{ setDfmodEnabled\(m\.key, !m\.enabled\); render\(\); \} \},/);
+  assert.match(menu, /\.\.\.\(m\.shipped \? \[\] : \[remove\('Remove', `Remove \$\{m\.title\}`/, 'a shipped mod is switched, never removed');
   assert.match(menu, /'In load order: where two mods carry the same texture, the later one is drawn\./);
-  assert.match(src('scenes/dataSource.js'), /title: words\?\.title \?\? 'Add texture mods',/);
+  assert.match(src('scenes/dataSource.js'), /export async function pickDfmodFiles\(\) \{\n\s+return pickAssetFolder\(\{\n\s+title: 'Add texture mods',/);
 });

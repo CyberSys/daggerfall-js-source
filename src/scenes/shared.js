@@ -1347,9 +1347,10 @@ export function ensureAudio(fetch = fetchBytes) {
       // DFMOD2: `?nomods` starts the game without the attached texture mods - the way back in (to remove one from the
       // packs card) when a mod will not load on this machine
       if (noMods()) return n;
-      return import('../systems/dfmodTextures.js')
-        .then(({ setDfmodSources, setDfmodDetailSource }) => {
+      return Promise.all([import('../systems/dfmodTextures.js'), import('../systems/vanillaEnhancedPack.js')])
+        .then(([{ setDfmodSources, setDfmodDetailSource }, { installVanillaEnhancedPack }]) => {
           setDfmodDetailSource(() => getPref('dfmodTextureDetail'));   // DFMOD2: the packs card's detail choice
+          installVanillaEnhancedPack();   // VE4: the shipped mods, in one load order with the attached
           // DFMOD2: indexes only - a missing one is built in the background, never on the way into the game
           return setDfmodSources(names, loadTextureFile, { saveIndex: saveTextureJson, loadBlob: loadTextureBlob, warm: true });
         })

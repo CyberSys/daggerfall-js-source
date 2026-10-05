@@ -1,4 +1,4 @@
-# Vanilla Enhanced (VE1-VE3, 2026-10-05)
+# Vanilla Enhanced (VE1-VE4, 2026-10-05)
 
 Asked 2026-10-05: "I want to implement the vanilla enhanced textures but the
 file is way too large to post here."
@@ -6,10 +6,14 @@ file is way too large to post here."
 The file never had to be posted. carademono's **Vanilla Enhanced** (Nexus
 Mods, Daggerfall Unity mod 273, 3.5.0 there) keeps its whole source in a
 public repository, github.com/drcarademono/vanilla-enhanced (its manifests
-read 3.4.7), and the session read the mod's shapes off that tree. **None of
-it ships**, and the reason is not the size.
+read 3.4.7), and the session read the mod's shapes off that tree.
 
-## What the mod is, and why none of it ships
+VE1-VE3 had the player attach it, because Port-Doctrine kept it out. Mac then
+approved carrying it: he chose "Bundle the files in the repo", answered
+"Approved and yes", and said "Put it in the codebase". **VE4 ships three of
+its mods** under the one exception the doctrine records (below).
+
+## What the mod is, and why it needed an exception
 
 Five manifests stand in its tree:
 
@@ -21,22 +25,26 @@ Five manifests stand in its tree:
 | Vanilla Enhanced - Winter Tracks | Base (required) | thirty winter records of 103, 303 and 403 |
 | Kokey's Temperate | nothing | TEXTURE.302's 56 records, no array |
 
-Its pictures are Daggerfall's own, repainted - the manifest's own words are
-"Remastered vanilla textures", its flats' readme "repainted by me, keeping
-as close to the original art as possible". That is Port-Doctrine's own case
-(A RENDER OF GAME DATA IS GAME DATA; `test/doctrine.test.js` holds `public/`
-to it), and no permission an author gives can answer it, because the art
-underneath is not the author's to give. Nor can the port BUILD them, the way
-DS1 and LPT1 rebuilt their borrowed pictures from the player's own records
-(`formats/derivedTexture.js`): a spec paints a copy, a crop or an edit laid
-on a record, and a repaint is none of those. So it goes the way Seasons of
-the Iliac Bay's re-shaded flats and DREAM went: **the player attaches their
-own `.dfmod` files**, through the texture-mod door DFMOD1 built
-(`systems/dfmodTextures.js`, PR #437), and the Texture Overhaul card wears
-them.
+Its pictures are Daggerfall's own, repainted. The manifest calls them
+"Remastered vanilla textures", and its flats' readme says "repainted by me,
+keeping as close to the original art as possible". That is Port-Doctrine's
+own case (A RENDER OF GAME DATA IS GAME DATA; `test/doctrine.test.js` holds
+`public/` to it). An author's permission cannot answer it alone, because the
+art underneath is not the author's to give. Nor can the port BUILD the
+pictures, the way DS1 and LPT1 rebuilt their borrowed pictures from the
+player's own records (`formats/derivedTexture.js`): a spec paints a copy, a
+crop or an edit laid on a record, and a repaint is none of those.
 
-Reading the mod against that door found it two laws short of DFU. Both are
-the door's, not the mod's - every texture mod rides them.
+So VE3 went the way Seasons of the Iliac Bay's re-shaded flats and DREAM
+went: the player attached their own `.dfmod` files through the texture-mod
+door DFMOD1 built (`systems/dfmodTextures.js`, PR #437), and the Texture
+Overhaul card wore them. VE4 replaces the attach with the shipped pack, on
+Mac's approval. The doctrine's exception paragraph names
+`public/art/vanilla-enhanced/` and nothing else (VE4, below).
+
+Reading the mod against that door found it two laws short of DFU. Both
+belong to the door, not the mod, so every texture mod gets them, shipped or
+attached.
 
 ## VE1 - DFU's load order
 
@@ -119,8 +127,10 @@ generation (`looseTextureGeneration`), so a new folder pick builds it again;
 a new mod set empties it.
 
 **WHAT VANILLA ENHANCED DOES WITH IT, ACCORDING TO DFU'S OWN LOOKUP.** The
-Base's arrays decide all eleven archives; Masked Roads' arrays decide over
-the Base's when it is attached, and Snowless Swamps' 402/403 over both.
+Base's arrays decide all eleven archives. Masked Roads' arrays decide over
+the Base's when it is on - but its 403 array is 57 deep and refused, so 403 is
+made of records: its own three road records (46, 47, 55) and the Base's.
+Snowless Swamps' 402/403 decide over both.
 Winter Tracks carries neither `103-TexArray` nor `103_0-0` (its records
 start at 10), so TryGetAsset passes it and meets the Base's array: over
 this Base its records are never asked - in DFU as here. Kokey's Temperate
@@ -134,34 +144,107 @@ colours are taken off the same cached set, GRASS-LIT2's law).
 FLAGGED here and need nothing: they draw no ground, and every other picture
 reaches them through the texture door whose order VE1 set.
 
-## VE3 - the Texture Overhaul card
+## VE4 - shipped with the port
+
+**THE EXCEPTION.** Port-Doctrine's A RENDER OF GAME DATA IS GAME DATA now
+carries one paragraph, THE ONE EXCEPTION - VANILLA ENHANCED. It records Mac's
+approval and names one directory, `public/art/vanilla-enhanced/`.
+`test/doctrine.test.js` lists the pack's three directories as BUNDLE_ART rows
+like every vendored bundle, each answering both ways to a listing. They are
+the first rows whose pixels are a render of game data, so each carries the
+mark `derived`. The gate fails in four cases: a derived row outside the
+directory the paragraph names, a named directory without a derived row, a row
+inside it that does not say derived, and an allow-list row inside it. A second
+derived pack needs its own approval, written in the doctrine.
+
+**THE PACK** (`vendor/vanilla-enhanced/README.md`).
+`tools/vanillaEnhancedVendor.mjs` reads the repository at commit
+`c0c9041c101ba8b57feb93258dda7a37be1b9433` and writes three mods, each in its
+own directory: the Base (its manifest's 1,246 PNGs), Masked Roads (its own 9)
+and Snowless Swamps and Jungles (its 160). That is 1,436 pictures, 22.4 MB,
+byte for byte. Each directory also gets a generated listing of every file's
+repository path and sha256, which is the doctrine's authority, and each mod
+gets a name index in `buildDfmodIndex`'s shape. Run without `--write`, the
+tool checks the committed tree against a clone.
+
+**THE ARRAYS SHIP AS THEIR PICTURES.** The tool decodes every BC7 slice and
+looks for the picture it was made from: the mod's own record PNG, else the
+repository's source picture for that slice. It carries a slice only within
+BC7's error of that picture (mean channel error 1.5, worst channel 48).
+Measured at the pin, every slice carried is at most 0.82 / 34 from its
+picture. The nearest a road tile comes to the Base record it replaces is
+5.20 / 78, so the bounds sit in that gap.
+- **Base:** 616 slices, all its own records.
+- **Snowless Swamps:** 112 slices, all its own records.
+- **Masked Roads:** 533 slices are the Base's records pixel for pixel, 6 are
+  its own records, and 21 are road tiles no shipped PNG draws. Those 21 are
+  carried as `<archive>-TexArray_<slice>.png` from the repository's sources.
+- **Masked Roads' 403 array:** 57 deep. DFU refuses it, so it is indexed with
+  its depth and no slices, and the door refuses it as DFU does.
+
+**LEFT OUT:**
+- **Winter Tracks:** never reached over the Base's arrays (above).
+- **Kokey's Temperate:** Kokey's own mod.
+- **Every Material:** Ledger C, A MOD'S MATERIALS.
+
+**THE DOOR** (`setShippedDfmods`). DFU reads these as mods: behind Replace
+Game Artwork, after the loose folder, in the order their manifests'
+dependencies make. So they register IN the texture-mod door beside the
+attached mods, in one AutoSortMods order and one TryGetAsset walk. An add-on
+the player attaches that is built on the shipped Base loads after it.
+`systems/vanillaEnhancedPack.js` hands the door each mod's index and a client
+in unityBundleClient's shape:
+- `rgba` fetches the port's own file and decodes it at the texture detail as
+  the mip a bundle would pick (`fitSize`, mipLevelFor's halving).
+- `layers` answers an array from its slices, `PRELOAD_CONCURRENCY` at once.
+
+The rules around them:
+- **Shadowing:** an attached `.dfmod` under the same key shadows the shipped
+  mod, so a newer copy from Nexus is the one read. Removing it brings the
+  shipped mod back as its own switch left it.
+- **Off until worn:** a shipped mod is off until switched on, and its switch
+  is the keys switched ON (`dfmodOn`). An attached mod's switch is the keys
+  switched off.
+- **A clear keeps them:** clearing the attached mods leaves the shipped ones.
+
+The pack goes into the door before anything reads it: the boot seam
+(`scenes/shared.js`) and the store's registration (`registerTextureStore`)
+do it before the attached mods register. The packs card and the card's own
+reads (`doorMods`) do it too, so a menu opened before any host has booted
+still finds it. Nothing is fetched until a picture is drawn. The paper doll's
+HD compose (DFMOD4) counts the mods the player attached, never the shipped
+ones, which carry no doll art.
+
+## VE3/VE4 - the Texture Overhaul card
 
 OVH1b left the card standing empty "until the first texture pack". Vanilla
 Enhanced is that pack, beside **Classic** (`systems/vanillaEnhanced.js`,
 `systems/overhauls.js`):
 
 - **Classic** is in use when Replace Game Artwork is off, or when no texture
-  mod is on and no loose texture pack is attached. Wearing it switches
-  every texture mod off and keeps it attached - never the lighting mod,
-  which rides the same store and is no texture mod (the packs card's own
-  split). A loose pack has no switch; while one is attached the card reads
-  Custom and says where the packs are.
-- **Vanilla Enhanced** is in use when its Base is attached and on and
-  Replace Game Artwork is on. Its family is the Base (`vanilla enhanced -
-  base`, or its GUID `1f124f8c-dd01-48ad-a5b9-0b4a0e4702d2`) and every mod
-  that depends on it. Wearing it switches the family on and Replace Game
-  Artwork (`Enhancements/AssetInjection`) with it - the switch every pack
-  stands behind; other texture mods are left as they are. While no copy is
-  attached the card's button reads **Add Vanilla Enhanced...** and opens the
-  `.dfmod` pick in the pack's own words (`pickDfmodFiles(o.attach)`); a pick
-  closed with no Base in it wears nothing. The card names the attached
-  copy's version.
+  mod is on and no loose texture pack is attached. A fresh game is Classic:
+  the shipped pack is off until worn. Wearing Classic switches every texture
+  mod off and keeps it registered. It never touches the lighting mod, which
+  rides the same store and is not a texture mod (the packs card's own split).
+  A loose pack has no switch; while one is attached the card reads Custom and
+  says where the packs are.
+- **Vanilla Enhanced** is in use when its Base is on and Replace Game Artwork
+  is on. The Base is the shipped one, or the player's own copy over it, and
+  the card names that copy's version. Wearing it switches on the Base,
+  Replace Game Artwork (`Enhancements/AssetInjection`), and the add-ons it was
+  last worn with. Other texture mods are left as they are.
+- **Its add-ons** are the family's other mods: the shipped Masked Roads and
+  Snowless Swamps and Jungles, and any the player attached. While the look is
+  worn they stand on the card as On/Off switches (`setVeAddon`), in the PLUS
+  rows' shape. Classic remembers which were on (`veAddons`), so the next wear
+  brings them back. The first wear is the Base alone.
 - The effect line is the card's own: it takes effect when the world next
-  loads - what is drawn keeps its pictures until its area loads again, and
-  a tile set already uploaded stays until PLACE-LRU lets it go (true of
-  every texture mod since DFMOD1).
-- The packs card carries a **Switch off / Switch on** beside every texture
-  mod's Remove.
+  loads. What is drawn keeps its pictures until its area loads again, and a
+  tile set already uploaded stays until PLACE-LRU lets it go (true of every
+  texture mod since DFMOD1).
+- The packs card carries a **Switch off / Switch on** for every texture mod.
+  An attached mod also has a Remove; a shipped one says it ships with the
+  game.
 
 Online it is the player's own: a texture mod is a picture on one machine,
 and nothing of it reaches the wire.
@@ -185,6 +268,14 @@ and nothing of it reaches the wire.
 5. **Mod.Enabled lives on the prefs shelf** (`dfmodOff`), not in a
    Mods.json; a fresh attach is on.
 6. **Wearing Vanilla Enhanced turns Replace Game Artwork on.**
+7. **A shipped mod is off until it is worn** (VE4). A mod in DFU's Mods
+   folder is on until the player switches it off. The port's look is
+   Daggerfall's own until the player picks another, so the shipped mods
+   start off, their switch on its own shelf entry (`dfmodOn`).
+8. **The terrain arrays draw from the pictures they were compressed from**
+   (VE4). DFU decodes the BC7 slices. The port serves each slice from the
+   PNG the vendoring proved it within BC7's error of: the same picture,
+   without the compression's error.
 
 ## Not done
 
@@ -195,22 +286,38 @@ and nothing of it reaches the wire.
   MATERIALS.
 - **The 3.5.0 bundles themselves were not read in this session**: Nexus
   refuses this session's network, and the GitHub tree is the Unity project,
-  not the built bundles. The formats are DREAM's - the arrays' GraphicsFormat
-  108 is the one GROUND1 decodes, read off the tree's own `.asset` headers -
-  so the shapes are known; a probe over a player's real copy is owed.
+  not the built bundles. The port ships the tree's 3.4.7 (VE4); a player's
+  3.5.0 copy attaches over it and shadows it. The formats are DREAM's - the
+  arrays' GraphicsFormat 108 is the one GROUND1 decodes, and the vendoring
+  decoded every one of the tree's arrays - so the shapes are known; a probe
+  over a player's real copy is owed.
 
 ## Pins
 
-`test/ve1_vanillaEnhanced.test.js` (9) - the load order against DFU's laws
-and Vanilla Enhanced's own manifests, the index, the walk on every door, the
-switch, the ground's decision and its records' set, the hosts, the card and
-the menu. Re-aimed: DFMOD1's door pin (it pinned the first mod by name),
-its wiring pin, GROUND1's door pin (the classic file handed in, the depth
-law), GRASS-LIT2's host pin and OVH1's panel pin. Mutants:
-`tools/mutants/ve1.json` (38, all dead), and `tools/mutants/overhauls.json`'s
-texture-panel record re-aimed by content. The browser half,
-`tools/overhaulsProbe.mjs`: 23 checks, the card in Chromium - Classic in
-use with nothing attached, Vanilla Enhanced's button opening the pick in its
-own words, a closed pick wearing nothing; it also corrects one check that
-had read plain Enhanced on the UI card since PLUS-ONLY named it Enhanced
-Plus, and failed on every run since.
+**Tests:**
+- `test/ve1_vanillaEnhanced.test.js` (9): the load order against DFU's laws
+  and Vanilla Enhanced's own manifests, the index, the walk on every door,
+  the switch, the ground's decision and its records' set, the hosts, the card
+  with the player's own copies shadowing the shipped ones, and the menu.
+- `test/ve4_vanillaEnhancedShipped.test.js` (7): the pack's files, bytes and
+  proofs; the index; the door's shipped mods, shadowing and load order; the
+  ground over the REAL index, slice by slice, down to which file drew each
+  one; the client's detail and concurrency; the card's add-ons; and the
+  wiring.
+- `test/doctrine.test.js`: two pins on the exception's bound.
+- Re-aimed: DFMOD1's door pin (it pinned the first mod by name), its wiring
+  pin, GROUND1's door pin (the classic file handed in, the depth law),
+  GRASS-LIT2's host pin, OVH1's panel pin and the credits' reachability.
+
+**Mutants:**
+- `tools/mutants/ve1.json`: 35, all dead. VE3's three on the attach retired
+  with it.
+- `tools/mutants/ve4.json`: 24, all dead.
+- `tools/mutants/overhauls.json`: its texture-panel record re-aimed by
+  content.
+
+**Browser:** `tools/overhaulsProbe.mjs` checks the card in Chromium: Classic
+in use on a fresh game, Vanilla Enhanced worn at once, and its add-ons
+switched on the card. It also corrects one check that had read plain
+Enhanced on the UI card since PLUS-ONLY renamed it Enhanced Plus, and had
+failed on every run since.

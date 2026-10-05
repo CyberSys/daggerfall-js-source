@@ -19,7 +19,7 @@ writer; `ui/enhancedMenu.js paneOverhauls` draws it (`.look-*` rules).
 
 - **Texture** - the texture packs: a pack's door, not a second face on the
   Features switches (OVH1b - it stood empty, "No texture packs yet.", until
-  the first). Classic and Vanilla Enhanced since VE3 (below).
+  the first). Classic and Vanilla Enhanced since VE3, shipped since VE4 (below).
 - **Sound** - Classic / Enhanced: the port's own sound switches taken together
   (`enhanced-sounds`, `mod-immersive-footsteps`), set as Daggerfall has them or
   as the port adds them. The card reads the SAME Features rows it writes, so a
@@ -85,19 +85,35 @@ classic screens, so the UI Overhaul a player chose is the one they play online.
 The world's enhanced lane is unchanged: the outdoors, water, combat visuals,
 loot rarity and the room's mod switches stay the room's.
 
-## VE3 - the first texture pack (2026-10-05)
+## VE3/VE4 - the first texture pack (2026-10-05)
 
 Vanilla Enhanced (carademono) is the Texture card's first pack, beside
-Classic - `07-Rendering/Vanilla-Enhanced.md` is its record. It is a pack the
-PLAYER brings: its pictures are Daggerfall's own remastered, so none of it
-ships (Port-Doctrine), and while no copy is attached its button reads "Add
-Vanilla Enhanced..." and opens the `.dfmod` pick in the pack's own words
-(`needsFiles`, `attach`); a pick closed with no Base in it wears nothing.
-Wearing it switches its family on with Replace Game Artwork; wearing
-Classic switches every texture mod off and keeps it attached. A mix - DREAM
-alone, a loose pack - reads Custom, with the card's own note (`custom`). The
-card's options carry `apply` as the other two cards' do; `by` is a getter,
-so the card names the version of the copy attached.
+Classic. `07-Rendering/Vanilla-Enhanced.md` is its record.
+
+**How VE3 and VE4 differ.** VE3 had the player bring the pack: its pictures
+are Daggerfall's own remastered, so none of it could ship (Port-Doctrine),
+and the card's button opened the `.dfmod` pick first. VE4 ships it, under
+the one exception the doctrine records (Mac: "Put it in the codebase"). The
+pick and its words (`needsFiles`, `attach`) are gone, and the button wears
+the look at once.
+
+**What each look does:**
+- **Classic** is the look on a fresh game: the shipped pack is off until it
+  is worn. Wearing Classic switches every texture mod off and keeps it
+  registered.
+- **Vanilla Enhanced:** wearing it switches the Base on with Replace Game
+  Artwork, and the add-ons it was last worn with.
+- **The add-ons** (Masked Roads, Snowless Swamps and Jungles, and any the
+  player attached) stand on the card as On/Off switches while the look is
+  worn (`addons`), in the PLUS rows' shape. Classic keeps the choice for the
+  next wear.
+- **A mix** (DREAM alone, a loose pack) reads Custom, with the card's own
+  note (`custom`).
+
+The card's options carry `apply` as the other two cards' do. `by` is a
+getter, so the card names the version of the copy registered: the shipped
+3.4.7, or a copy the player attached over it. `vendor` names the pack's
+folder, which is how the credits reach it.
 
 ## OVH4 - the party rest on any UI
 
@@ -125,8 +141,18 @@ real skin choice; the hosts' wiring by source). Mutants:
 `tools/mutants/ovh4.json` (15, all dead).
 
 Pins: `test/overhauls.test.js`; the browser probe `tools/overhaulsProbe.mjs`
-(23 checks: the three cards at a desktop and a phone, browse vs wear, Custom,
-GrimoireUI's art decoded, the reload onto the classic skin wearing the pack,
-and VE3's four, where OVH1b's empty card stood - Classic in use with nothing
-attached, Vanilla Enhanced offering to add the player's copy, its button
-opening the pick in its own words, a closed pick wearing nothing).
+(27 checks):
+- the three cards at a desktop and on a phone;
+- browse vs wear, and Custom;
+- GrimoireUI's art decoded, and the reload onto the classic skin wearing
+  the pack;
+- VE4's seven, where OVH1b's empty card stood:
+  - Classic in use on a fresh game;
+  - Vanilla Enhanced offered with the shipped version;
+  - worn at once;
+  - its two add-ons on the card, off;
+  - Masked Roads switched on there and kept;
+  - a road tile served under the site root and decoded through the pack's
+    own client;
+  - Classic putting the pack away and keeping the add-on.
+- on a phone, the add-on rows spilling nothing.
