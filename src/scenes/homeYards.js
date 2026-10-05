@@ -47,6 +47,10 @@ import { onPathTile } from '../player/exteriorSurface.js';   // FB1001 ROAD-LOT:
 import { RMB_TILE_SIDE } from '../world/locationEntrance.js';   // FB1001 ROAD-LOT: RMBLayout.RMBTileSide, a ground tile's side
 import { TERRAIN_TILE_DIM } from '../world/terrainSurface.js';
 import { homeOutsideKept, homeYardWhere } from '../systems/onlineHomes.js';   // GUILD-YARD: a hall's keepers keep its outside
+import { createYardNature, isNaturePiece, yardNatureFlat } from './yardNature.js';   // DECOR-OUTDOOR: a yard's trees and plants, in its town's season
+import { remapSubMeshes } from '../world/texRemap.js';   // DECOR-OUTDOOR: a yard's models in its town's climate
+import { applyClimate } from '../world/climateSwaps.js';
+import { isNatureArchive } from '../world/rmbFlats.js';
 
 /** AUDIT: how far from the eye a yard's pieces are drawn, metres (its flats stand in the billboard pass's own cull). */
 export const YARD_DRAW_M = 300;
@@ -238,6 +242,9 @@ export function yardLotQuads(lot, origin, high = YARD_MARK_HIGH, roads = []) {
  *   character(), realm(), wallet(region) - who writes, their record's act, the purse and the home's region's account
  *   doc, win, canvas, touch, actionOf(e), locked(), cursorOff(), stick(), say(line), refusal(word), openSlot(o), now()
  *   look         - HOME-LOOK: `{ preview(mapId, key, look|undefined), season() }` - the painter's preview on the house
+ *   seasonal()   - DECOR-OUTDOOR: Seasons of the Iliac Bay's helper while it stands, else null (scenes/yardNature.js)
+ * DECOR-OUTDOOR: a built pixel also carries its `texRemap`, `season`, `townClimate`, `flatAnims` and `forest` ({ base, archive }:
+ * its climate's nature set and the season's archive of it) - a yard's pieces stand in its town's climate and season.
  */
 export function createHomeYards(deps) {
   const now = () => deps.now?.() ?? Date.now();
@@ -245,7 +252,7 @@ export function createHomeYards(deps) {
   const towns = new Map();
   const asking = new Map();
   const failed = new Map();
-  /** @type {Map<string, {pool: any, px: number, py: number, mapId: number, bk: number, t: number[], sig: string, lot: any, frame: any}>} */
+  /** @type {Map<string, {pool: any, px: number, py: number, mapId: number, bk: number, t: number[], sig: string, lot: any, frame: any, entry: any}>} */
   const yards = new Map();
   let syncIn = 0;
   /** @type {any} the owner's own yard the decorator stands in, or null */
@@ -278,6 +285,19 @@ export function createHomeYards(deps) {
     asking.set(mapId, p);
   }
 
+  /** DECOR-OUTDOOR: the built pixel a yard stands in, now (a season's turn builds it again). */
+  const entryOf = (y) => deps.built?.()?.get?.(`${y.px},${y.py}`) ?? null;
+  const nature = createYardNature({ renderer: deps.renderer, getTexture: deps.getTexture, uploadRecord: deps.uploadRecord, seasonal: () => deps.seasonal?.() ?? null });
+  /** DECOR-OUTDOOR: A YARD'S MODEL IN ITS TOWN'S CLIMATE - its swaps written into the pixel's own table (the one the yard
+   *  draws with, `remapOf`), by the town's climate and season, as the town's own models' are (scenes/world.js
+   *  buildPixelNow's remapSubMeshes): the table held only the swaps of the models the town itself stood, so a fence the
+   *  town never stood drew in another climate's wood. */
+  function climateOf(y, gpu) {
+    const p = entryOf(y);
+    if (!p?.texRemap || p.townClimate == null) return null;
+    return remapSubMeshes(gpu?.subMeshes, p.texRemap, (a, r) => applyClimate(a, r, p.townClimate, p.season), { getTexture: deps.getTexture, uploadRecord: deps.uploadRecord });
+  }
+
   /** The world point a yard's frame stands at, now. */
   const originOf = (y) => {
     const t = deps.translation(y.px, y.py);
@@ -285,10 +305,18 @@ export function createHomeYards(deps) {
     return [t[0] + f.at[0], t[1] + f.at[1], t[2] + f.at[2]];
   };
   function makeYard(key, p, bk, frame) {
-    const y = { key, px: p.px, py: p.py, mapId: p.homeTown, bk, frame, t: [...deps.translation(p.px, p.py)], sig: '', lot: yardLot(frame.at, frame.box), pool: null };
+    const y = { key, px: p.px, py: p.py, mapId: p.homeTown, bk, frame, t: [...deps.translation(p.px, p.py)], sig: '', lot: yardLot(frame.at, frame.box), pool: null, entry: p };
     y.pool = createDecorRoom({
       meshes: deps.meshes, renderer: deps.renderer, getTexture: deps.getTexture, uploadRecord: deps.uploadRecord, uploadRecordFrame: deps.uploadRecordFrame,
       collider: () => deps.collider?.() ?? null, origin: () => originOf(y),
+      flatAnims: () => entryOf(y)?.flatAnims ?? null,   // DECOR-OUTDOOR: a street's animal or flame moves as its town's own (the pixel's animator, ticked with it)
+      prepareModel: (gpu) => climateOf(y, gpu),   // DECOR-OUTDOOR: its town's climate
+      // DECOR-OUTDOOR: a tree or a plant in its town's season - the climate's own, drawn as its pixel draws its nature
+      standFlat: (piece, at, live) => {
+        if (!isNaturePiece(piece)) return null;
+        const pe = entryOf(y);
+        return nature.stand(piece, at, { season: pe?.season ?? 0, natureArchive: pe?.forest?.archive ?? null, live });
+      },
     });
     yards.set(key, y);
     return y;
@@ -312,9 +340,13 @@ export function createHomeYards(deps) {
         const t = deps.translation(p.px, p.py);
         const moved = t[0] !== y.t[0] || t[1] !== y.t[1] || t[2] !== y.t[2];
         const sig = pieces ? JSON.stringify(pieces) : '';
-        if (moved || (sig !== y.sig && !(cur?.yard === y && busyWriting()))) {
+        // DECOR-OUTDOOR: its pixel BUILT AGAIN (a season's turn, an install, a painted home leaving the merge) - every piece
+        // stood again in the new pixel's climate table, animator and season, as the town's own flats are
+        const rebuilt = y.entry !== p;
+        if (moved || rebuilt || (sig !== y.sig && !(cur?.yard === y && busyWriting()))) {
           y.t = [...t];
           y.sig = sig;
+          y.entry = p;
           y.pool.set(pieces ?? y.pool.list());
         }
       }
@@ -387,7 +419,10 @@ export function createHomeYards(deps) {
   const tool = createDecorTool({
     doc: deps.doc ?? null, win: deps.win ?? null, canvas: deps.canvas ?? null, touch: !!deps.touch, renderer: deps.renderer, pool, names: new Map(),
     // GUILD-YARD: a hall's yard is `hall` - a piece's half goes to the guild's treasury, never the purse (decorTool.js)
-    room: () => (cur ? { kind: 'home', yard: true, ...(cur.hall ? { hall: true } : {}), where: homeYardWhere(cur), mapId: cur.yard.mapId, buildingKey: cur.yard.bk } : null),
+    // DECOR-OUTDOOR: `natureBase` - its climate's nature set, the one its catalogue offers trees and plants of
+    room: () => (cur ? { kind: 'home', yard: true, ...(cur.hall ? { hall: true } : {}), where: homeYardWhere(cur), mapId: cur.yard.mapId, buildingKey: cur.yard.bk, natureBase: entryOf(cur.yard)?.forest?.base ?? null } : null),
+    // DECOR-OUTDOOR: and the picture a nature piece is - in the ghost and the lists - in the yard's season
+    flatAs: (flat) => (cur && isNatureArchive(flat?.[0]) ? yardNatureFlat(flat, entryOf(cur.yard)?.season ?? 0) : flat),
     scanDeps: () => deps.scanDeps(),
     base: () => null,
     getGpuMesh: (id) => deps.meshes.getGpuMesh(id), cpuModels: deps.meshes.cpuModels, getTexture: deps.getTexture, uploadRecord: deps.uploadRecord, iconUrl: deps.iconUrl,
@@ -444,8 +479,9 @@ export function createHomeYards(deps) {
    */
   function frame({ dt, cam, overlayUp }) {
     syncIn -= dt > 0 ? dt : 0;
-    // AUDIT: the world recentred - every yard stood again this frame, never half a second in the old place
-    if (syncIn > 0) for (const y of yards.values()) { const t = deps.translation(y.px, y.py); if (t[0] !== y.t[0] || t[1] !== y.t[1] || t[2] !== y.t[2]) { syncIn = 0; break; } }
+    // AUDIT: the world recentred - every yard stood again this frame, never half a second in the old place; DECOR-OUTDOOR:
+    // nor half a second out of its rebuilt pixel's climate and season
+    if (syncIn > 0) for (const y of yards.values()) { const t = deps.translation(y.px, y.py); if (t[0] !== y.t[0] || t[1] !== y.t[1] || t[2] !== y.t[2] || entryOf(y) !== y.entry) { syncIn = 0; break; } }
     if (syncIn <= 0) { syncIn = YARD_SYNC_S; sync(); }
     if (!tool.flying() && !tool.panelOpen()) cur = ownYardHere();   // the yard is held while the decorator is up
     else if (cur && yards.get(cur.yard.key) !== cur.yard) {

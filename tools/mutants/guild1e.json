@@ -230,8 +230,8 @@
   {
     "name": "GUILD1e-scan-without-the-board",
     "file": "src/systems/decorScan.js",
-    "old": "[...decorCatalogue(collected), HALL_BOARD_ENTRY]",
-    "new": "[...decorCatalogue(collected)]",
+    "old": "[...decorCatalogue(nature ? addDecorNature(collected) : collected), HALL_BOARD_ENTRY]",
+    "new": "[...decorCatalogue(nature ? addDecorNature(collected) : collected)]",
     "tests": [
       "test/guild1e_client.test.js"
     ]

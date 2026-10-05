@@ -30,7 +30,7 @@
 // offer it for sale: a price is never guessed.
 // ═══════════════════════════════════════════════════════════════════
 
-import { collectDecor, decorCatalogue, HALL_BOARD_ENTRY } from './decorCatalogue.js';
+import { collectDecor, decorCatalogue, addDecorNature, HALL_BOARD_ENTRY } from './decorCatalogue.js';
 import { BLOCK_TYPES } from '../formats/blocksFile.js';   // DECOR-DUNGEON: the host's deps, built once (decorScanDeps)
 import { GLOBAL_SCALE } from '../world/meshReader.js';
 import { billboardSize } from '../world/rmbFlats.js';
@@ -48,6 +48,7 @@ export function decorScanDeps({ blocks, arch, getTexture }) {
     blocks,
     isTownBlock: (t) => t === BLOCK_TYPES.Rmb,
     isDungeonBlock: (t) => t === BLOCK_TYPES.Rdb,
+    nature: true,   // DECOR-OUTDOOR: a yard's trees and plants, its own climate's
     modelRadius: (id) => {
       const rec = arch?.getRecordIndex?.(id);
       if (rec == null || rec < 0) return null;
@@ -74,10 +75,12 @@ export const DECOR_SCAN_MODELS_A_STEP = 32;
  *   isTownBlock(type) - whether a block type is a town block (BLOCK_TYPES.Rmb)
  *   isDungeonBlock(type) - DECOR-DUNGEON: whether it is a dungeon block (BLOCK_TYPES.Rdb), read for its furnishings; none
  *                     reads none
+ *   nature            - DECOR-OUTDOOR: whether the climates' nature sets join the catalogue (decorCatalogue.js
+ *                     addDecorNature - a yard's trees and plants); the hosts' constructor says so
  *   modelRadius(id)   - a model's radius in metres, or null
  *   flatRadius(archive, record) - a Promise of a flat's radius in metres (half its billboard's diagonal), or null
  */
-export function createDecorScan({ blocks, isTownBlock, isDungeonBlock = (_type) => false, modelRadius, flatRadius }) {
+export function createDecorScan({ blocks, isTownBlock, isDungeonBlock = (_type) => false, nature = false, modelRadius, flatRadius }) {
   /** @type {'blocks'|'models'|'flats'|'done'} */
   let phase = 'blocks';
   const total = Math.max(0, blocks?.count ?? 0);
@@ -109,7 +112,7 @@ export function createDecorScan({ blocks, isTownBlock, isDungeonBlock = (_type) 
     }
     if (next >= total) {
       // GUILD1e: and the hall's board, which no room placed - measured and priced as every piece
-      entries = Object.freeze([...decorCatalogue(collected), HALL_BOARD_ENTRY]);
+      entries = Object.freeze([...decorCatalogue(nature ? addDecorNature(collected) : collected), HALL_BOARD_ENTRY]);   // DECOR-OUTDOOR: and the climates' nature
       models = entries.filter((e) => e.model != null);
       phase = 'models';
     }

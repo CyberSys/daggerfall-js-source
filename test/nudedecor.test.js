@@ -211,6 +211,7 @@ const NO_PERSON = Object.freeze({
   'src/scenes/sigilBrokerPool.js': 'the Sigil broker as a mobile unit',
   'src/scenes/spoilsPool.js': 'a boss\'s spoils',
   'src/scenes/treeHost.js': 'felled trees',
+  'src/scenes/yardNature.js': 'a yard\'s trees and plants',
   'src/ui/automapWindow.js': 'the automap\'s markers',
 });
 

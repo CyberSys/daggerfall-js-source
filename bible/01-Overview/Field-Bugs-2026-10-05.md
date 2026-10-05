@@ -14,6 +14,7 @@ was seen in a browser: this container has no ARENA2, so every claim is the suite
 | | Report | What it was | Done |
 |---|---|---|---|
 | 1 | "a lot of missing decor items with house decoration" - the dungeons' furnishings | the catalogue read the town blocks' rooms alone: nothing Daggerfall stands only in its dungeons - a throne, a cage, a coffin, a statue, chains - could be set in a house | DECOR-DUNGEON |
+| 1 | "a lot of missing decor items with house decoration" - the outdoor pieces for a yard | a yard offered the rooms' furniture alone: none of what Daggerfall stands in its streets - a fence, a well, a fountain, a cart, a lamp - and none of its trees and plants | DECOR-OUTDOOR |
 | 2 | "Even with nudity turned off. Players can see and have access to nude vendors" | HOME-VENDOR made every person Daggerfall stands in a room a catalogue piece a week after NUDE-FLATS, and no seam of the decorator asked NUDE-FLATS' table: the nude figures were offered, and one placed stood, flew and showed as itself; the Arena's tiers seat two of the table's figures, unasked too | NUDE-HOSTS |
 
 ## NUDE-HOSTS (2)
@@ -94,4 +95,50 @@ room's own models' swaps, and a dungeon's texture table is its dungeon's.
 (the measures are the constructor's), `decor1d.json`'s dungeon-block record re-aimed (still dead), `test/decor1.test.js`'s
 kinds (15). `world/rdbLayout.js` exports its walk (`rdbObjects`), its action test (`rdbModelActs` - renamed: an input
 binding's `hasAction` already held the name) and `EXIT_DOOR_MODEL_ID`.
+
+## DECOR-OUTDOOR (1)
+
+**Why.** HOME-YARD (2026-09-30) put the decorator outdoors on the same catalogue as the rooms - Daggerfall's indoor
+furniture, doors aside. Nothing Daggerfall stands in its streets was a piece: no fence, well, fountain, statue, bench,
+cart or lamp post, and none of the trees, bushes, flowers and rocks of the climate.
+
+**The catalogue** (`systems/decorCatalogue.js`):
+
+- **The street.** Each town block's own models (`misc3dObjectRecords`) - all but a mill (its sails turn), a city's gate,
+  the town's board (GUILD1e: the hall's own piece) and the ladder (`isStreetPiece`) - and its flats, the block's own
+  (`miscFlatObjectRecords`) and each building's outside (`exterior.blockFlatObjectRecords`), but an editor's marker or
+  the climate's nature. A street's person is a person (Vendors, under Show Nudity). Found only in a street, a piece is
+  "Outdoors" - but a light, a crate, a person, as the game files them.
+- **The nature.** Every climate's set (its SUMMER archive - `formats/mapsFile.js` CLIMATE_NATURE, now exported once) and
+  every record Daggerfall stands of it, 1 to 31 (the wilderness lays them all, `world/terrainNature.js` layoutNature;
+  record 0 is a marker), joined whole (`addDecorNature`, the scan's `nature` - its hosts' constructor says so). "Trees
+  and plants": a tree of its set's TREE_RECORDS is a "Tree", any other a "Plant", each numbered among its own set.
+- **Where they stand.** The street's and the nature's pieces are a yard's alone; a yard is offered the nature of its own
+  climate (`room.natureBase`, the set its pixel names) - none where it knows none. The names of every earlier place
+  stand as they were (DECOR_FROM: the rooms, the dungeons, then the street, then the nature).
+
+**The yard** (`scenes/homeYards.js`, `scenes/yardNature.js`, `scenes/decorRoom.js`'s two new doors):
+
+- **Its town's climate.** A yard's models were drawn with the pixel's climate table, which holds only the swaps of the
+  models the town itself stood: a fence the town never stood drew in another climate's wood. A yard's model now writes
+  its own swaps into that table - its town's climate and season, as the town's models do (`world/texRemap.js`
+  remapSubMeshes under `applyClimate`) - before it stands (`prepareModel`); the pixel publishes its town's climate
+  (`townClimate`).
+- **Its town's animals.** A street's cow or a flame moves with the pixel's own animator, ticked with it (`flatAnims`).
+- **Its town's nature, drawn as the pixel draws its own** (`standFlat` -> `yardNature.js`): the season's archive of its
+  set (the woodlands' winter twins), Seasons of the Iliac Bay's picture of the record where the mod re-skins it now
+  (uploaded under the install's key, without mips, as the pixel does), else the classic record - at the piece's own
+  scale, mirrored when turned half round, leaning with the wind (WIND3).
+- **Stood again with its pixel.** A pixel built again (a season's turn, an install, a painted home leaving the merge)
+  stands its yards again in the new table, animator and season - that very frame, as a recentre is.
+- **The decorator** shows a tree in its season: the ghost, and the panel's pictures (kept under their own key while the
+  season makes them another picture).
+
+THE FOUR HOSTS: `world.js` WIRED (the yards, and the pixel's `townClimate`, the seasons' helper); `worldModes.js`'s rooms
+offer neither (the catalogue's offer, `decorRoomEntries`); `exterior.js` and `dungeonContext.js` stand no yard.
+
+`test/decoroutdoor.test.js` (8); `tools/mutants/decoroutdoor.json` 21, 21 dead. Re-aimed by content: `guild1e.json`'s
+scan record, `survtiers3.json`'s two world.js cites (moved by the cite shift), and `fb1001_yard.json`'s YARD-RECENTRE
+record now names one site (the room's solid model, `solid`, stands once for both paths); `test/decor1.test.js`'s kinds
+(17) and `test/decordungeon.test.js`'s DECOR_FROM moved with the table; `test/nudedecor.test.js` names `yardNature.js`.
 

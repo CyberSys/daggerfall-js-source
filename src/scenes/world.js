@@ -4479,6 +4479,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       seatAnchors, _boardSplit: pixelBoardSplit, festivalAnchors, festivalLanterns,   // SEAT1a (above); FESTIVAL-STAGE (above)
       px, py, terrain, water, tilemapTex, tilemap, groundArchive, models, windmills, batches, flatAnims, texRemap, lights: pixelLights, hearths: pixelHearths, animals: pixelAnimals, springs: pixelSprings, skyBase: climate.skyBase, samples, natureCount: nature.length,
       tilemapBytes, season,   // GR1: the placer reads the tiles and the season
+      townClimate: townClimateBase,   // DECOR-OUTDOOR: the climate its town's buildings wear - a yard's pieces wear it too (scenes/homeYards.js)
       paths,   // GRASS-PATH1: which tiles the road painter wrote; null on a pixel built before the network arrived
       withRoads,   // ROADS 25: painted with the network present, or before it arrived (see below)
       _box: bounds,   // EV3: pixel-local presentation bounds (terrain + models + flats)
@@ -10022,6 +10023,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     collider: () => collider, meshes: { getGpuMesh, cpuModels }, renderer, getTexture, uploadRecord, uploadRecordFrame,
     iconUrl: (a, r) => loadIcon(a, r, { scale: 1 }),
     scanDeps: () => decorScanDeps({ blocks, arch, getTexture }),   // DECOR-DUNGEON: the interior host's own constructor
+    seasonal: () => (seasonsActive ? seasons : null),   // DECOR-OUTDOOR: a yard's trees in Seasons of the Iliac Bay's season, as the town's
     character: () => characterIdOf(playerEntity),
     realm: () => (realmSession ? (o) => realmGoldAct({ session: realmSession, checkpoint: () => onlineCheckpoint(), ...o }) : null),
     wallet: (region) => homeYardWallet(region), regionOf: (y) => built.get(`${y.px},${y.py}`)?.homeRegion ?? 0,

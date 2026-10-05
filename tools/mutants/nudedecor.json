@@ -2,8 +2,8 @@
   {
     "name": "NUDEDECOR-offer-ungated",
     "file": "src/systems/decorCatalogue.js",
-    "old": "    && !(room?.yard && e.kind === 'door')\n    && !(nude && e.flat && isNudeFlat(e.flat[0], e.flat[1]))) ?? null;",
-    "new": "    && !(room?.yard && e.kind === 'door')) ?? null;",
+    "old": "    && !(nude && e.flat && isNudeFlat(e.flat[0], e.flat[1]))\n",
+    "new": "",
     "tests": [
       "test/nudedecor.test.js"
     ]
@@ -27,9 +27,18 @@
     ]
   },
   {
+    "name": "NUDEDECOR-tool-drawn-born",
+    "file": "src/scenes/decorTool.js",
+    "old": "  const drawnHere = (flat) => drawnFlat(...(deps.flatAs?.(flat) ?? flat));",
+    "new": "  const drawnHere = (flat) => (deps.flatAs?.(flat) ?? flat);",
+    "tests": [
+      "test/nudedecor.test.js"
+    ]
+  },
+  {
     "name": "NUDEDECOR-ghost-born",
     "file": "src/scenes/decorTool.js",
-    "old": "      const [ga, gr] = drawnFlat(entry.flat[0], entry.flat[1]);",
+    "old": "      const [ga, gr] = drawnHere(entry.flat);   // NUDE-DECOR: a figure moved shows the stand-in the room stands it as; DECOR-OUTDOOR: a tree, its season",
     "new": "      const [ga, gr] = entry.flat;",
     "tests": [
       "test/nudedecor.test.js"
@@ -38,7 +47,7 @@
   {
     "name": "NUDEDECOR-thumb-born",
     "file": "src/scenes/decorTool.js",
-    "old": "        return entry.flat ? deps.iconUrl?.(...drawnFlat(entry.flat[0], entry.flat[1])) ?? null : null;",
+    "old": "        return entry.flat ? deps.iconUrl?.(...drawnHere(entry.flat)) ?? null : null;   // NUDE-DECOR, DECOR-OUTDOOR: the picture it stands as",
     "new": "        return entry.flat ? deps.iconUrl?.(entry.flat[0], entry.flat[1]) ?? null : null;",
     "tests": [
       "test/nudedecor.test.js"
@@ -47,8 +56,8 @@
   {
     "name": "NUDEDECOR-thumb-key-entry",
     "file": "src/scenes/decorTool.js",
-    "old": "      thumbKeyOf: (entry) => (entry.flat && !entry.icon && drawnFlat(entry.flat[0], entry.flat[1]).join('.') !== entry.flat.join('.') ? `${entry.key}#clothed` : entry.key),",
-    "new": "      thumbKeyOf: (entry) => entry.key,",
+    "old": "        return drawn && drawn !== entry.flat.join('.') ? `${entry.key}>${drawn}` : entry.key;",
+    "new": "        return entry.key;",
     "tests": [
       "test/nudedecor.test.js"
     ]

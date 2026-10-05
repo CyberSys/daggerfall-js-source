@@ -352,9 +352,14 @@ export const eyePoint = (collider, eye, dir, skip = null) => eyeHit(collider, ey
  *                      with `yard` is a home's yard (scenes/homeYards.js): no doors, nothing held, no light
  *   look()           - HOME-LOOK: the painter's door for the house outside - `{ current, season, preview(look), commit(look) }`
  *                      - or null
+ *   flatAs(flat)     - DECOR-OUTDOOR: the picture a flat is here, [archive, record] - a yard's nature in its season
+ *                      (scenes/homeYards.js); none, the flat itself
  */
 export function createDecorTool(deps) {
   const { renderer, pool } = deps;
+  /** NUDE-DECOR, DECOR-OUTDOOR: THE PICTURE A FLAT DRAWS HERE - the host's (a yard's tree in its season), and a nude figure's
+   *  clothed stand-in while Show Nudity is off - what the room stands it as, so what the ghost and the lists show. */
+  const drawnHere = (flat) => drawnFlat(...(deps.flatAs?.(flat) ?? flat));
   /** @type {any} */ let button = null;
   /** @type {any} */ let panel = null;
   /** @type {any} */ let bar = null;
@@ -415,11 +420,15 @@ export function createDecorTool(deps) {
         // AUDIT DYE-ICON 1: a hung one "In this room" is the pack's picture too, dyed off its numbers as it hangs - asked
         // bare, an Ebony blade previewed as the base metal's (Mac's "daedric but show steel", in the panel)
         if (decorIsMount(entry)) return deps.iconUrl?.(entry.flat[0], entry.flat[1], decorMountDye(entry.item), decorMountDyeTarget(entry.item)) ?? null;
-        return entry.flat ? deps.iconUrl?.(...drawnFlat(entry.flat[0], entry.flat[1])) ?? null : null;   // NUDE-DECOR: the picture it stands as
+        return entry.flat ? deps.iconUrl?.(...drawnHere(entry.flat)) ?? null : null;   // NUDE-DECOR, DECOR-OUTDOOR: the picture it stands as
       },
-      // NUDE-DECOR: a figure's picture is kept apart while it is its stand-in - the panel keeps a picture for the session,
-      // and the setting turned off after a nude figure's was drawn would go on showing it in "In this room"
-      thumbKeyOf: (entry) => (entry.flat && !entry.icon && drawnFlat(entry.flat[0], entry.flat[1]).join('.') !== entry.flat.join('.') ? `${entry.key}#clothed` : entry.key),
+      // NUDE-DECOR: a picture drawn as another is kept under that other's key - the panel keeps a picture for the session,
+      // and the setting turned off after a nude figure's was drawn would go on showing it in "In this room" (DECOR-OUTDOOR:
+      // and a yard's tree its summer self in winter)
+      thumbKeyOf: (entry) => {
+        const drawn = entry.flat && !entry.icon ? drawnHere(entry.flat).join('.') : null;
+        return drawn && drawn !== entry.flat.join('.') ? `${entry.key}>${drawn}` : entry.key;
+      },
       onMove: (piece) => beginPlacing(entryOf(piece), piece),
       onRemove: (piece) => { removePiece(piece); },
       onToggle: (piece, what) => { togglePiece(piece, what); },
@@ -816,7 +825,7 @@ export function createDecorTool(deps) {
       // MW-ASSIGN: one's own thing set down shows the Morrowind picture it will stand as (the room's own door and cache,
       // scenes/decorRoom.js standPicture) - else its own world picture, as ever
       const mw = entry.kind === 'own' && entry.item ? Promise.resolve(pool.standPicture?.(entry.item) ?? null).catch(() => null) : Promise.resolve(null);
-      const [ga, gr] = drawnFlat(entry.flat[0], entry.flat[1]);   // NUDE-DECOR: a figure moved shows the stand-in the room stands it as
+      const [ga, gr] = drawnHere(entry.flat);   // NUDE-DECOR: a figure moved shows the stand-in the room stands it as; DECOR-OUTDOOR: a tree, its season
       Promise.all([deps.getTexture?.(ga), mw]).then(([t, pic]) => {
         if (placing !== p) return;
         if (pic) {

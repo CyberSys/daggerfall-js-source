@@ -1,0 +1,191 @@
+[
+  {
+    "name": "DECOROUTDOOR-street-unread",
+    "file": "src/systems/decorCatalogue.js",
+    "old": "      if (isStreetPiece(m?.modelIdNum)) add({ model: m.modelIdNum, flat: null }, 'street');",
+    "new": "      if (false) add({ model: m.modelIdNum, flat: null }, 'street');",
+    "tests": [
+      "test/decoroutdoor.test.js"
+    ]
+  },
+  {
+    "name": "DECOROUTDOOR-street-flats-unread",
+    "file": "src/systems/decorCatalogue.js",
+    "old": "    for (const f of rmb?.miscFlatObjectRecords ?? []) streetFlat(f);\n",
+    "new": "",
+    "tests": [
+      "test/decoroutdoor.test.js"
+    ]
+  },
+  {
+    "name": "DECOROUTDOOR-outside-flats-unread",
+    "file": "src/systems/decorCatalogue.js",
+    "old": "    for (const sub of rmb?.subRecords ?? []) for (const f of sub?.exterior?.blockFlatObjectRecords ?? []) streetFlat(f);\n",
+    "new": "",
+    "tests": [
+      "test/decoroutdoor.test.js"
+    ]
+  },
+  {
+    "name": "DECOROUTDOOR-exclusions-lost",
+    "file": "src/systems/decorCatalogue.js",
+    "old": "  && id !== BULLETIN_BOARD_MODEL_ID && !isCityGate(id);",
+    "new": ";",
+    "tests": [
+      "test/decoroutdoor.test.js"
+    ]
+  },
+  {
+    "name": "DECOROUTDOOR-street-nature-taken",
+    "file": "src/systems/decorCatalogue.js",
+    "old": "      if (!Number.isSafeInteger(a) || !Number.isSafeInteger(r) || r < 0 || a === EDITOR_FLATS_ARCHIVE || isNatureArchive(a)) return;",
+    "new": "      if (!Number.isSafeInteger(a) || !Number.isSafeInteger(r) || r < 0 || a === EDITOR_FLATS_ARCHIVE) return;",
+    "tests": [
+      "test/decoroutdoor.test.js"
+    ]
+  },
+  {
+    "name": "DECOROUTDOOR-nature-unnumbered-by-set",
+    "file": "src/systems/decorCatalogue.js",
+    "old": "    const group = e.nature != null ? `${e.base}|${e.nature}` : e.base;",
+    "new": "    const group = e.base;",
+    "tests": [
+      "test/decoroutdoor.test.js"
+    ]
+  },
+  {
+    "name": "DECOROUTDOOR-tree-unnamed",
+    "file": "src/systems/decorCatalogue.js",
+    "old": " : kind === 'nature' && isTreeRecord(c.nature, c.flat[1]) ? 'Tree' : null);",
+    "new": " : null);",
+    "tests": [
+      "test/decoroutdoor.test.js"
+    ]
+  },
+  {
+    "name": "DECOROUTDOOR-outside-indoors",
+    "file": "src/systems/decorCatalogue.js",
+    "old": "    && (!e.outside || !!room?.yard)\n",
+    "new": "",
+    "tests": [
+      "test/decoroutdoor.test.js"
+    ]
+  },
+  {
+    "name": "DECOROUTDOOR-any-climate",
+    "file": "src/systems/decorCatalogue.js",
+    "old": "    && (e.nature == null || e.nature === room?.natureBase)) ?? null;",
+    "new": ") ?? null;",
+    "tests": [
+      "test/decoroutdoor.test.js"
+    ]
+  },
+  {
+    "name": "DECOROUTDOOR-scan-natureless",
+    "file": "src/systems/decorScan.js",
+    "old": "    nature: true,   // DECOR-OUTDOOR: a yard's trees and plants, its own climate's",
+    "new": "    nature: false,",
+    "tests": [
+      "test/decoroutdoor.test.js"
+    ]
+  },
+  {
+    "name": "DECOROUTDOOR-tree-seasonless",
+    "file": "src/scenes/yardNature.js",
+    "old": "    const [archive, record] = yardNatureFlat(piece.flat, season);",
+    "new": "    const [archive, record] = piece.flat;",
+    "tests": [
+      "test/decoroutdoor.test.js"
+    ]
+  },
+  {
+    "name": "DECOROUTDOOR-tree-unscaled",
+    "file": "src/scenes/yardNature.js",
+    "old": "    const size = { w: plain.w * piece.scale, h: plain.h * piece.scale };",
+    "new": "    const size = { w: plain.w, h: plain.h };",
+    "tests": [
+      "test/decoroutdoor.test.js"
+    ]
+  },
+  {
+    "name": "DECOROUTDOOR-tree-still",
+    "file": "src/scenes/yardNature.js",
+    "old": "    batch.sway = floraSwayOf(archive, natureArchive ?? archive, size.h);\n",
+    "new": "",
+    "tests": [
+      "test/decoroutdoor.test.js"
+    ]
+  },
+  {
+    "name": "DECOROUTDOOR-tree-mirror-lost",
+    "file": "src/scenes/yardNature.js",
+    "old": "    const drawn = decorFlatMirrored(piece) ? { w: -size.w, h: size.h } : size;",
+    "new": "    const drawn = size;",
+    "tests": [
+      "test/decoroutdoor.test.js"
+    ]
+  },
+  {
+    "name": "DECOROUTDOOR-tree-classic-under-sib",
+    "file": "src/scenes/yardNature.js",
+    "old": "    const sib = s?.lookup?.(archive, record) ?? null;",
+    "new": "    const sib = null;",
+    "tests": [
+      "test/decoroutdoor.test.js"
+    ]
+  },
+  {
+    "name": "DECOROUTDOOR-rebuild-unheard",
+    "file": "src/scenes/homeYards.js",
+    "old": "        const rebuilt = y.entry !== p;",
+    "new": "        const rebuilt = false;",
+    "tests": [
+      "test/decoroutdoor.test.js"
+    ]
+  },
+  {
+    "name": "DECOROUTDOOR-model-climateless",
+    "file": "src/scenes/homeYards.js",
+    "old": "      prepareModel: (gpu) => climateOf(y, gpu),   // DECOR-OUTDOOR: its town's climate",
+    "new": "      prepareModel: null,",
+    "tests": [
+      "test/decoroutdoor.test.js"
+    ]
+  },
+  {
+    "name": "DECOROUTDOOR-street-still",
+    "file": "src/scenes/homeYards.js",
+    "old": "      flatAnims: () => entryOf(y)?.flatAnims ?? null,",
+    "new": "      flatAnims: () => null,",
+    "tests": [
+      "test/decoroutdoor.test.js"
+    ]
+  },
+  {
+    "name": "DECOROUTDOOR-standflat-unasked",
+    "file": "src/scenes/decorRoom.js",
+    "old": "    } else if (!standOwn(entry)) {",
+    "new": "    } else if (true) {",
+    "tests": [
+      "test/decoroutdoor.test.js"
+    ]
+  },
+  {
+    "name": "DECOROUTDOOR-tool-flatas-unread",
+    "file": "src/scenes/decorTool.js",
+    "old": "  const drawnHere = (flat) => drawnFlat(...(deps.flatAs?.(flat) ?? flat));",
+    "new": "  const drawnHere = (flat) => drawnFlat(...flat);",
+    "tests": [
+      "test/decoroutdoor.test.js"
+    ]
+  },
+  {
+    "name": "DECOROUTDOOR-yard-climateless",
+    "file": "src/scenes/homeYards.js",
+    "old": "buildingKey: cur.yard.bk, natureBase: entryOf(cur.yard)?.forest?.base ?? null } : null),",
+    "new": "buildingKey: cur.yard.bk } : null),",
+    "tests": [
+      "test/decoroutdoor.test.js"
+    ]
+  }
+]

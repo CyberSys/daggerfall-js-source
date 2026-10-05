@@ -164,12 +164,18 @@ export function decorMatrix(piece, origin) {
  *                  room's own doors (world/actionSystem.js addDoor: it swings, blocks while shut, is saved and shared,
  *                  and the host draws, ticks and names it) and answers it, or null; `remove(id)` takes it down. With
  *                  none, a door piece stands as any model does
+ *   prepareModel(gpu) - DECOR-OUTDOOR: the host's own law over a model before it stands (a yard's: its town's climate
+ *                  swaps, scenes/homeYards.js), a Promise awaited first; none for a room, which draws with its own
+ *   standFlat(piece, at, live) - DECOR-OUTDOOR: the host's own way of standing a flat it knows (a yard's nature, in its
+ *                  season - scenes/yardNature.js): null for one it leaves to the room, else a Promise of `{ batch, size,
+ *                  release? }` (the room destroys the batch with the piece and calls `release`) or of null (nothing to
+ *                  draw); `live()` whether the piece still stands as it was asked
  */
 export function createDecorRoom({
   meshes, renderer, getTexture, uploadRecord, uploadRecordFrame, flatAnims = () => null, collider, origin, roomLights = () => null,
-  mwPicture = null, later = setTimeout, doors = null,
+  mwPicture = null, later = setTimeout, doors = null, prepareModel = null, standFlat = null,
 }) {
-  /** @type {Map<string, {piece: any, o: number[], gpu: any, box: any, cpu: any, matrix: Float32Array, batch: any, anims: any, size: any, light: any, mount: any, door: any}>} */
+  /** @type {Map<string, {piece: any, o: number[], gpu: any, box: any, cpu: any, matrix: Float32Array, batch: any, anims: any, size: any, light: any, mount: any, door: any, release?: any}>} */
   const standing = new Map();
   const models = new Map();   // model id -> Promise<{gpu, cpu, box}>
   const flats = new Map();    // "a.r" -> Promise<{t, w, h} | null>
@@ -259,12 +265,31 @@ export function createDecorRoom({
       renderer?.destroyBillboardBatch?.(entry.batch);
       entry.batch = null;
     }
+    if (entry.release) { const r = entry.release; entry.release = null; r(); }   // DECOR-OUTDOOR: what the host's stand holds (scenes/yardNature.js)
     const lights = roomLights?.();
     if (lights && entry.light) {
       const i = lights.indexOf(entry.light);
       if (i >= 0) lights.splice(i, 1);
     }
     entry.light = null;
+  }
+
+  /** DECOR-OUTDOOR: A FLAT THE HOST STANDS ITS OWN WAY (`standFlat` - a yard's nature, in its season): asked once;
+   *  whether the host took it. Its answer stands where the room's own would - its batch the piece's, destroyed with it,
+   *  and what it holds let go with it (`release`); an answer landing for a piece moved or gone is let go at once. */
+  function standOwn(entry) {
+    const { piece } = entry;
+    const live = () => standing.get(piece.id) === entry;
+    const asked = standFlat ? standFlat(piece, entry.o, live) : null;
+    if (!asked) return false;
+    Promise.resolve(asked).then((got) => {
+      if (!got) return;
+      if (!live()) { renderer?.destroyBillboardBatch?.(got.batch); got.release?.(); return; }
+      entry.batch = got.batch;
+      entry.size = got.size;
+      entry.release = got.release ?? null;
+    }, () => {});
+    return true;
   }
 
   /** Stand one piece - a fresh placement, a move, a restore. Replaces a piece of the same id. */
@@ -296,11 +321,17 @@ export function createDecorRoom({
         // HOME-DOORS: a door hangs as one of the room's own doors - the host's to draw, swing and share, never a solid
         // piece of furniture in the doorway
         if (decorIsDoor(piece) && doors && m.cpu?.positions && m.cpu?.indices) { entry.door = doors.add(piece, m, entry.matrix) ?? null; if (entry.door) return; }
-        entry.gpu = m.gpu;
-        if (m.cpu?.positions && m.cpu?.indices) { entry.cpu = m.cpu; collider?.()?.addMesh?.(decorKeyOf(piece.id), m.cpu.positions, m.cpu.indices, entry.matrix); }
+        const solid = () => {
+          entry.gpu = m.gpu;
+          if (m.cpu?.positions && m.cpu?.indices) { entry.cpu = m.cpu; collider?.()?.addMesh?.(decorKeyOf(piece.id), m.cpu.positions, m.cpu.indices, entry.matrix); }
+        };
+        // DECOR-OUTDOOR: the host's own law first (a yard's town's climate swaps) - the piece stands once it is in place,
+        // never in the textures a moment and the town's the next
+        if (!prepareModel) { solid(); return; }
+        Promise.resolve().then(() => prepareModel(m.gpu)).catch(() => {}).then(() => { if (standing.get(piece.id) === entry) solid(); });
       });
       stand();
-    } else {
+    } else if (!standOwn(entry)) {
       // NUDE-DECOR: the picture a flat DRAWS - a nude figure's clothed stand-in while Show Nudity is off, on the piece's
       // own base, at the stand-in's size; the piece stays the figure it was placed as (its key, its name, its station)
       const [a, r] = drawnFlat(piece.flat[0], piece.flat[1]);

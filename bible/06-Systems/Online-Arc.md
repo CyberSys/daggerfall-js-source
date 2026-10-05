@@ -4928,7 +4928,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:9524` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:9525` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:496`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -10046,6 +10046,14 @@ home's alone - they are about other players.
   service with `yard`, paid from the purse and the town's region's account (or the realm record's act).
 - Four hosts: `world.js` WIRED (the yards, the frames, the passes, the eye and the stick); `worldModes.js` and
   `dungeonContext.js` stand no street; `exterior.js` (the bench) FLAGGED - no online homes.
+- **The street and the nature** (DECOR-OUTDOOR, FIELD BUGS 2026-10-05, the owner: "a lot of missing decor items"): a
+  yard's catalogue holds what Daggerfall stands in its streets - each town block's own models (never a mill, a gate, the
+  town's board or the ladder) and flats, and its buildings' outside flats - and its climate's trees and plants (every
+  record of its set, the set its pixel names); neither is offered indoors. A yard's model stands in its town's climate
+  (its swaps written into the pixel's own table before it stands), a street's animal or flame moves with the town's
+  animator, and a tree or a plant is drawn as the pixel draws its nature: the season's archive of its set, Seasons of the
+  Iliac Bay's picture where the mod re-skins it, the wind's lean; when the pixel is built again (a season's turn, an
+  install) the yard stands again in it. The ghost and the panel's pictures are the season's too.
 - Known limits: the lot is a box round the footprint (a building turned off the grid has a wider lot); yard pieces are
   not activation targets; the street's wandering folk are not steered round them.
 
