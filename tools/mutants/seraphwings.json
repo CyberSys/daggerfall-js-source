@@ -596,8 +596,8 @@
   {
     "name": "SERAPHWINGS-the-backlight-over-the-eye",
     "file": "src/render/auraRing.js",
-    "old": "smoothstep(0.5, 1.0, uKindle) * wingNear();\n}\n`;",
-    "new": "smoothstep(0.5, 1.0, uKindle);\n}\n`;",
+    "old": "smoothstep(0.5, 1.0, uKindle) * wingNear() * away;\n}\n`;",
+    "new": "smoothstep(0.5, 1.0, uKindle) * away;\n}\n`;",
     "tests": [
       "test/seraphwings.test.js"
     ]
@@ -832,6 +832,42 @@
     "file": "src/render/auraRing.js",
     "old": "sh = (w.cape ?? CLOAK_REST_POSE).shoulders;",
     "new": "sh = CLOAK_REST_POSE.shoulders;",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-a-sunk-pose-kept",
+    "file": "src/render/auraRing.js",
+    "old": "c.kneeR.fill(0); c.sunk = false;",
+    "new": "c.kneeR.fill(0);",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-tip-taken-backward",
+    "file": "src/render/auraRing.js",
+    "old": ": c - wingWorld(wingPoint(k, t - 0.01, uTime));",
+    "new": ": wingWorld(wingPoint(k, t - 0.01, uTime)) - c;",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-backlight-over-my-eye",
+    "file": "src/render/auraRing.js",
+    "old": "vS = vec3(smoothstep(${g3(WING_HALO_NEAR[0])}, ${g3(WING_HALO_NEAR[1])}, el), 2.0, k);",
+    "new": "vS = vec3(1.0, 2.0, k);",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-backlight-fade-unread",
+    "file": "src/render/auraRing.js",
+    "old": "wingNear() * away;",
+    "new": "wingNear();",
     "tests": [
       "test/seraphwings.test.js"
     ]

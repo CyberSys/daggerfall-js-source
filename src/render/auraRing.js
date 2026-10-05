@@ -285,6 +285,9 @@ export const WING_MOTE_LEN = 0.26;
 export const WING_MOTE_LIFE = Object.freeze([3, 4, 5]);
 /** The backlight: the card of radiance behind the upper back (m across). */
 export const WING_HALO_M = 2.6;
+/** AUDIT 4: the eye's distance from the backlight's middle over which it fades in (m) - gone from the wearer's own first
+ *  person (about 0.36 m), whole from a third-person camera's and a peer's at arm's length. */
+export const WING_HALO_NEAR = Object.freeze([0.9, 1.6]);
 /** The ground's pool of light (m). */
 export const WING_POOL_R = 1.3;
 /** Its colours: white-hot at a strand's heart, gold through it, amber at its fraying edge. */
@@ -903,10 +906,10 @@ float wingHash(float n) { return fract(sin(n * 78.233 + 1.7) * 43758.5453); }
 // strand k: its side (-1 the wearer's left, +1 their right), its plume's place up its fan (0 the lowest .. 1 the
 // highest), which of the plume's strands (0 the broad, 1 .. 4 the fine about it) and whether a covert (1) or a primary
 vec4 wingStrandOf(float k) {
-  float p = floor(k / ${g1(WING_STRANDS)}), q = mod(p, ${g1(WING_PLUMES + WING_COVERTS)});
+  float p = floor((k + 0.5) / ${g1(WING_STRANDS)}), q = p - ${g1(WING_PLUMES + WING_COVERTS)} * floor((p + 0.5) / ${g1(WING_PLUMES + WING_COVERTS)});   // AUDIT 4: whole numbers kept whole (a GPU dividing by a reciprocal comes out a hair short)
   float covert = q < ${g1(WING_PLUMES)} ? 0.0 : 1.0;
   float place = covert > 0.5 ? (q - ${g1(WING_PLUMES)}) / ${g1(WING_COVERTS - 1)} : q / ${g1(WING_PLUMES - 1)};
-  return vec4(p < ${g1(WING_PLUMES + WING_COVERTS)} ? -1.0 : 1.0, place, mod(k, ${g1(WING_STRANDS)}), covert);
+  return vec4(p < ${g1(WING_PLUMES + WING_COVERTS)} ? -1.0 : 1.0, place, k - ${g1(WING_STRANDS)} * p, covert);
 }
 // a point given along the torso (x its right, y up its spine, z out of its chest), about the shoulders' middle, in the
 // body's frame
@@ -998,15 +1001,15 @@ vec3 wingMote(vec2 p, vec3 s) {
   return (WING_CORE * streak + WING_GOLD * exp(-d * d * 3.5) * 0.3) * life * smoothstep(0.75, 1.0, uKindle) * wingNear();   // none till the wings have unfurled
 }
 // THE BACKLIGHT: a radiance behind the upper back - a soft gold glow, white at its heart, rays turning slowly in it
-vec3 wingHalo(vec2 p) {
+vec3 wingHalo(vec2 p, float away) {
   vec2 q = p * 2.0 - 1.0;
   float r = length(q);
   if (r > 1.0) discard;
   float a = r > 1e-4 ? atan(q.y, q.x) : 0.0;
-  float rays = pow(0.5 + 0.5 * cos(14.0 * a + uTime * TAU ${hzGlsl(WING_HZ.rays)}), 6.0) * 0.6 + pow(0.5 + 0.5 * cos(9.0 * a - uTime * TAU ${hzGlsl(2 * WING_HZ.rays)} + 1.3), 10.0) * 0.4;
+  float rays = pow(max(0.5 + 0.5 * cos(14.0 * a + uTime * TAU ${hzGlsl(WING_HZ.rays)}), 0.0), 6.0) * 0.6 + pow(max(0.5 + 0.5 * cos(9.0 * a - uTime * TAU ${hzGlsl(2 * WING_HZ.rays)} + 1.3), 0.0), 10.0) * 0.4;   // AUDIT 4: never a pow of a negative (a cos a hair under -1)
   float glow = exp(-r * r * 7.0) * 0.55 + exp(-r * r * 2.2) * 0.16;
   vec3 col = WING_CORE * exp(-r * r * 16.0) * 0.25 + WING_GOLD * (glow + rays * exp(-r * 2.6) * 0.32);
-  return col * (1.0 - smoothstep(0.55, 1.0, r)) * wingBreath() * (1.0 + 0.4 * wingBeat(0.0, uTime)) * smoothstep(0.5, 1.0, uKindle) * wingNear();
+  return col * (1.0 - smoothstep(0.55, 1.0, r)) * wingBreath() * (1.0 + 0.4 * wingBeat(0.0, uTime)) * smoothstep(0.5, 1.0, uKindle) * wingNear() * away;
 }
 `;
 export const AURA_VS = HEAD + `layout(location = 0) in vec2 aP;   // the ground: a corner -1..1; the flames: x the step round 0..1, y up 0..1; a symbol: x its number * 2 + the corner's u, y its v
@@ -1045,7 +1048,7 @@ void main() {
     vec4 st = wingStrandOf(k);
     float fine = st.z > 0.5 ? 1.0 : 0.0;
     vec3 c = wingWorld(wingPoint(k, t, uTime));
-    vec3 along = wingWorld(wingPoint(k, t < 0.99 ? t + 0.01 : t - 0.01, uTime)) - c;
+    vec3 along = t < 0.99 ? wingWorld(wingPoint(k, t + 0.01, uTime)) - c : c - wingWorld(wingPoint(k, t - 0.01, uTime));   // AUDIT 4: forward at the tip too (backward, the last segment twisted into a bowtie)
     vec3 side = cross(along, uCamPos - c);
     float sl = length(side);
     side = sl > 1e-6 ? side / sl : vec3(0.0, 1.0, 0.0);
@@ -1114,7 +1117,7 @@ void main() {
       r = rl > 1e-6 ? r / rl : vec3(1.0, 0.0, 0.0);
       vec2 o = (vP - 0.5) * ${g3(WING_HALO_M)};
       w = c + r * o.x + cross(e, r) * o.y;
-      vS = vec3(0.0, 2.0, k);
+      vS = vec3(smoothstep(${g3(WING_HALO_NEAR[0])}, ${g3(WING_HALO_NEAR[1])}, el), 2.0, k);   // AUDIT 4: gone with the eye near its middle (the wearer's own first person, looking down: it washed the floor gold)
     }
   } else {
     // AEGIS: A FLOATING SYMBOL - its card at its flight's place, upright and turned round the vertical to face the eye,
@@ -1154,7 +1157,7 @@ ${FOG_FACTOR_GLSL}${NOISE_GLSL}
 const float TAU = 6.283185307179586;
 ${WARD_GLSL}${RADIANCE_GLSL}${CLOAK_SHAPE_GLSL}${CLOAK_FS_GLSL}${WING_SHARED_GLSL}${WING_FS_GLSL}
 void main() {
-  if (uAura == 4) { vec3 wl = uKind == 0 ? wingsGround(vP) : uKind == 1 ? wingStrand(vP, vS) : vS.y > 1.5 ? wingHalo(vP) : wingMote(vP, vS); o = vec4(wl * fogFactorAt(vWorld), 1.0); return; }   // SERAPH-WINGS: added whole; kindled within (the strands unfurl)
+  if (uAura == 4) { vec3 wl = uKind == 0 ? wingsGround(vP) : uKind == 1 ? wingStrand(vP, vS) : vS.y > 1.5 ? wingHalo(vP, vS.x) : wingMote(vP, vS); o = vec4(wl * fogFactorAt(vWorld), 1.0); return; }   // SERAPH-WINGS: added whole; kindled within (the strands unfurl)
   if (uAura == 3) {   // SHADOW-CLOAK: premultiplied - the light it adds, and how much the shadow covers; both fogged
     vec4 c = uKind == 0 ? cloakGround(vP) : uKind == 1 ? cloakWall(vP) : vS.y > 0.5 ? cloakShred(vP, vS) : cloakEmblem(vP, vS);
     float f = fogFactorAt(vWorld) * uKindle;
@@ -1380,7 +1383,7 @@ export function auraCapeStep(w, posed, crouch = 1) {
   const k = Number.isFinite(crouch) ? Math.max(0.4, Math.min(1, crouch)) : 1, lift = w.mounted === true ? AURA_SADDLE_M : 0;   // SERAPH-WINGS: a rider's shoulders over the saddle
   if (k >= 1 && !lift) { w.cape = CLOAK_REST_POSE; return w; }
   const c = w.cape && w.cape !== CLOAK_REST_POSE ? w.cape : { shoulders: new Float32Array(4), head: new Float32Array(4), kneeL: new Float32Array(3), kneeR: new Float32Array(3), torso: new Float32Array(6) };
-  c.shoulders.fill(0); c.shoulders[1] = CLOAK_SHOULDER_Y * k + lift; c.shoulders[3] = 1; c.head.fill(0); c.head[1] = CLOAK_HOOD_Y * k + lift; c.kneeL.fill(0); c.kneeR.fill(0);
+  c.shoulders.fill(0); c.shoulders[1] = CLOAK_SHOULDER_Y * k + lift; c.shoulders[3] = 1; c.head.fill(0); c.head[1] = CLOAK_HOOD_Y * k + lift; c.kneeL.fill(0); c.kneeR.fill(0); c.sunk = false;   // AUDIT 4: a reused pose never stays sunk (a swim, then a ride: the wings stayed closed)
   (c.torso ?? (c.torso = new Float32Array(6))).set(CLOAK_REST_POSE.torso);
   w.cape = c;
   return w;

@@ -24,7 +24,7 @@ import {
   WING_PLUMES, WING_COVERTS, WING_PER_SIDE, WING_CARDS, WING_STRANDS, WING_SEGS, WING_ROOT, WING_SPREAD, WING_REACH, WING_W, WING_HZ, WING_FLOW, WING_MOTES,
   WING_MOTE_LIFE, WING_POOL_R, WING_RGB, WING_STRAND_COUNT, WING_VERTS, wingRatesWhole, auraWingsGrid,
   CLOAK_SHOULDER_Y, CLOAK_HOOD_Y, CLOAK_REST_POSE, CLOAK_ACROSS, auraTorso, auraSpriteBones, auraSpritePosed, auraCapePose, auraCapeStep,
-  EOTB_FIGURE, AURA_SADDLE_M, WING_COVERT, WING_BEAT, WING_HALO_M, WING_MOTE_LEN, WING_MOTE_M, WING_LIGHT, auraWingLights,
+  EOTB_FIGURE, AURA_SADDLE_M, WING_HALO_NEAR, WING_COVERT, WING_BEAT, WING_HALO_M, WING_MOTE_LEN, WING_MOTE_M, WING_LIGHT, auraWingLights,
 } from '../src/render/auraRing.js';
 import { createEotbBody } from '../src/player/eotbBody.js';
 import { createPeerWalkers, createPeerRiders, createEotbArt } from '../src/net/peerRiders.js';
@@ -499,6 +499,34 @@ test('SERAPH-WINGS AUDIT 3, the net: a crouched or mounted wearer without bones 
   assert.match(wm, /const _dgTint = \(l\) => \(l && !l\.aura \? \{ \.\.\.l, color: _iilOn \? iilTorch\(l\)\.color : _dgColor \} : l\);/, 'the dungeon\'s flame tint passes an aura\'s light by');
 });
 
+test('SERAPH-WINGS AUDIT 4: a pose reused after a swim is not left sunk - a swim and then a ride or a crouch opens the wings again and lights them; the last segment of every strand lies flat, its across the same way as the one before it (it was taken backward at the tip, and the segment twisted into a bowtie) (mutants: the stale sunk, the tip\'s tangent)', () => {
+  const w = { at: [0, 0, 0], aura: 'seraphwings', yaw: 0 };
+  auraCapeStep(w, { feet: [0, 0, 0], yaw: 0, bones: auraSpriteBones({ base: 0.45 - 110 * EOTB_FIGURE.mpp, mpp: EOTB_FIGURE.mpp }) }, 1);
+  assert.equal(w.cape.sunk, true, 'swimming: sunk');
+  w.mounted = true;
+  auraCapeStep(w, null, 1);
+  assert.equal(w.cape.sunk, false, 'then riding: open');
+  const lit = [];
+  auraWingLights([w], [0, 1.6, -5], lit);
+  assert.equal(lit.length, 1, 'and lit');
+  w.mounted = false;
+  auraCapeStep(w, { feet: [0, 0, 0], yaw: 0, bones: auraSpriteBones({ base: 0.45 - 110 * EOTB_FIGURE.mpp, mpp: EOTB_FIGURE.mpp }) }, 1);
+  auraCapeStep(w, null, 0.6);
+  assert.equal(w.cape.sunk, false, 'then crouched without bones: open');
+  // the tip: the ribbon's across at the last two rows the same way round, for every strand
+  const acrossAt = (k, t) => {
+    const at2 = (side) => { const f = glslFunctions(AURA_VS, { ...BASE, aP: [k * 2 + side, t], uKind: 1, uTime: QUIET, uYaw: 0, uAt: [0, 0, 0], uCamPos: FAR }); f.main(); return f.globals.vWorld; };
+    const a = at2(0), b = at2(1);
+    return b.map((x, i) => x - a[i]);
+  };
+  let flipped = 0;
+  for (let k = 0; k < WING_STRAND_COUNT; k += 7) {
+    const a = acrossAt(k, (WING_SEGS - 1) / WING_SEGS), b = acrossAt(k, 1);
+    if (a.reduce((s2, x, i) => s2 + x * b[i], 0) < 0) flipped++;
+  }
+  assert.equal(flipped, 0, 'no strand twisted at its tip');
+});
+
 // ── THE INSANE PARTS ────────────────────────────────────────────────
 
 test('SERAPH-WINGS the coverts and the beat, RUN: inside the primaries a layer of short coverts, shorter and softer; every eight seconds a slow stroke - the fan swept down and its tips forward, fast down and slow back, the tips after the roots - and the light flaring with it (mutants: the coverts\' reach, the stroke, its lag, the flare)', () => {
@@ -530,7 +558,15 @@ test('SERAPH-WINGS the backlight and the sparks, RUN: behind the upper back a ca
     assert.ok(Math.abs(Math.hypot(...ax) - WING_HALO_M) < 1e-6 && Math.abs(dot(ax, to)) < 1e-5 && Math.abs(dot(ay, to)) < 1e-5, `its size, square to the eye at ${eye}`);
   }
   assert.equal(card(WING_MOTES, [0.5, 0.5]).vS[1], 2, 'marked the backlight');
-  const halo = (uv, o = {}) => fsW(2, uv, { s: [0, 2, WING_MOTES], world: mid, ...o });
+  // AUDIT 4: gone with the eye near its middle - the wearer's own first person (the eye at 1.7 m over the feet, about
+  // 0.36 m from it), looking down, washed the floor before the feet gold; whole from a camera behind, and from a peer
+  // at arm's length
+  assert.equal(card(WING_MOTES, [0.5, 0.5], { eye: [0, 1.7, 0] }).vS[0], 0, 'from the wearer\'s own eye: none');
+  assert.equal(card(WING_MOTES, [0.5, 0.5]).vS[0], 1, 'from afar: whole');
+  assert.equal(card(WING_MOTES, [0.5, 0.5], { eye: [mid[0] + WING_HALO_NEAR[1] + 0.05, mid[1], mid[2]] }).vS[0], 1, 'at arm\'s length past its fade: whole');
+  assert.ok(WING_HALO_NEAR[0] > 0.5 && WING_HALO_NEAR[1] < 2, `the fade ${WING_HALO_NEAR}`);
+  assert.equal(lum(fsW(2, [0.5, 0.5], { s: [0, 2, WING_MOTES], world: mid })), 0, 'and the light goes with it');
+  const halo = (uv, o = {}) => fsW(2, uv, { s: [1, 2, WING_MOTES], world: mid, ...o });
   const heart = halo([0.5, 0.5]), ring = Array.from({ length: 48 }, (_, i) => lum(halo([0.5 + 0.18 * Math.cos(i / 48 * TAU), 0.5 + 0.18 * Math.sin(i / 48 * TAU)])));
   assert.ok(lum(heart) > Math.max(...ring) && heart[2] / heart[0] > 0.4, 'white at its heart');
   assert.ok(Math.max(...ring) > Math.min(...ring) * 1.25, 'rays in it');

@@ -4959,3 +4959,27 @@ the grant, versions and docs. What they found, and what was done:
   wearer); an old relay that does not know an aura refuses the whole token (the deploy order - the relay first -
   keeps that from happening); a client older than an aura draws none for it.
 
+### AUDIT 4 (2026-10-05) - the shader and draw lens, landed after the merge of AUDIT 3
+
+- **THE BACKLIGHT OVER THE WEARER'S OWN EYE.** The card is 2.6 m across and square to the eye, its middle about 0.36 m
+  from the first-person eye; looking down, its lower half hung in front of the feet and washed the view gold (measured
+  in a real WebGL: 41% of the frame brighter at 85 degrees down) - `wingNear` spared only what lay within 0.9 m. It now
+  fades by the eye's distance from its middle (WING_HALO_NEAR 0.9 - 1.6 m, carried to the fragment half in `vS.x`):
+  gone from the wearer's own eye, whole from a third-person camera's or a peer's at arm's length.
+- **A STALE `sunk`** (AUDIT 3's): the rest, crouch and saddle path reused the pose and never cleared it - a swim and
+  then a ride kept the wings closed and unlit, and the cloak folded, for the whole ride. Cleared there.
+- **THE TIP'S BOWTIE:** the last segment's tangent was taken backward, so its across flipped at the tip and its two
+  triangles crossed (faint - 7% of a strand's peak at most). Forward at the tip too.
+- **HARDENING:** no `pow` of a negative in the backlight's rays (a cos a hair under -1); the strand's index math kept
+  whole (`floor((k + 0.5) / n)`, no `mod`) for a GPU that divides through a reciprocal.
+- **Checked clean:** both stages compile and link; no NaN or Inf over 564 scenes into a float target; the draw ranges
+  exact; the GL state handed back the same for all five auras; every rate whole; the other four auras bit-identical
+  to main over 80 frames; the cloak right on the taller sprite poses.
+- **Left as it is, said:** the wings are the heaviest look per wearer after the cloak (about 1.9 screens of fragments
+  for one wearer 3 m from the camera; estimated about 1 ms on a mid-range desktop GPU and 4 - 6 ms on an integrated
+  one at 1080p, close up) - only the developers wear them. Cheaper ways are recorded for a later pass: the broad
+  strands' noise per vertex, a smaller backlight, an indexed mesh, broad strands alone past 12 m. The sin hash's large
+  arguments (the sparks') hash coarsely on some mobile GPUs.
+- Pins: `test/seraphwings.test.js` 20 (the backlight's fade from the eye; a swim then a ride or a crouch, open and lit;
+  no strand twisted at its tip); `tools/mutants/seraphwings.json` 97 (four new, one re-aimed). The probe 62/62.
+
