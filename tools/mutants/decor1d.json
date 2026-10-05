@@ -11,7 +11,7 @@
   {
     "name": "DECOR1d-a-dungeon-block-read",
     "file": "src/systems/decorScan.js",
-    "old": "        if (!isTownBlock(blocks.getBlockType(next))) continue;",
+    "old": "        if (!isTownBlock(type) && !isDungeonBlock(type)) continue;   // DECOR-DUNGEON: and a dungeon's furnishings",
     "new": "        if (false) continue;",
     "tests": [
       "test/decor1d.test.js"

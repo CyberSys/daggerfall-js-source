@@ -4786,7 +4786,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:8126` read, on one physical line:
+`src/scenes/worldModes.js:8109` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -9523,7 +9523,11 @@ changes to a placed piece.
   table names them - and otherwise the kind numbered in id order. A house container holds things by default; a light
   carries Daggerfall's own light (its range, intensity and colour). The panel's filters are here too: kinds, words
   (every word in the name or the kind), a size band (small under half a metre of radius, large from a metre and a
-  quarter), holds-things, gives-light; most common first, cheapest first, or by name.
+  quarter), holds-things, gives-light; most common first, cheapest first, or by name. DECOR-DUNGEON (FIELD BUGS
+  2026-10-05, the owner: "a lot of missing decor items"): and the dungeon blocks' furnishings - a model of the furniture
+  families or a free-standing piece that stands doing nothing (no action, never a door), a flat but a marker, an acting
+  flat or nature; found only there, a piece is "Dungeon furniture"; every place's names are numbered after the earlier
+  places' (a room's first), so no room's name moves (`01-Overview/Field-Bugs-2026-10-05.md`).
 
 Pinned: `test/decor1.test.js` (4 of its 7) - the law, the store through the real Worker with every migration
 applied, the client's door and the deploy, the catalogue and its filters.

@@ -11,7 +11,13 @@
 // THE SOURCE is BLOCKS.BSA's own town blocks (RMB): every building
 // interior's PROP models - the object type Daggerfall lays out as a
 // room's furniture (world/interiorLayout.js PROP_MODEL_TYPE) - and its
-// flats, the editor's markers (TEXTURE.199) excepted. HOME-DOORS
+// flats, the editor's markers (TEXTURE.199) excepted. DECOR-DUNGEON
+// (FIELD BUGS 2026-10-05, the owner: "a lot of missing decor items",
+// asked which, the dungeons' furnishings among them): and its dungeon
+// blocks (RDB) - every model of the furniture families that stands
+// there doing nothing (no action, no door) and every flat that is not
+// an editor's marker; a dungeon has no prop type, so a model is told
+// from the dungeon's own architecture by its family (below). HOME-DOORS
 // (2026-09-30): and its DOORS - the five models AddActionDoors hangs
 // between a building's rooms, a door placed hanging in a doorway
 // (systems/decorDoorways.js). A piece is in the
@@ -33,7 +39,7 @@
 
 import { PROP_MODEL_TYPE, DOOR_MODEL_BASE_ID, DOOR_MODEL_COUNT } from '../world/interiorLayout.js';
 import { isDoorModel } from './decorDoorways.js';   // HOME-DOORS
-import { EDITOR_FLATS_ARCHIVE } from '../world/rmbFlats.js';
+import { EDITOR_FLATS_ARCHIVE, isNatureArchive } from '../world/rmbFlats.js';
 import { LADDER_MODEL_ID } from '../player/enterExit.js';
 import { BED_MODELS } from './rrRealism.js';
 import { isHouseContainerModel } from './containers.js';
@@ -43,6 +49,8 @@ import { interiorLightProperties } from '../world/interiorLights.js';
 import { decorPrice } from '../net/decorLaw.js';
 import { BULLETIN_BOARD_MODEL_ID } from '../world/rmbLayout.js';   // GUILD1e: the hall's board is Daggerfall's own
 import { isNudeFlat, showNudity } from '../characters/nudeFlats.js';   // NUDE-DECOR: no nude figure offered while Show Nudity is off
+import { rdbObjects, rdbModelActs, isActionDoor, isNpcFlat, EXIT_DOOR_MODEL_ID } from '../world/rdbLayout.js';   // DECOR-DUNGEON: the dungeon's own walk, its acting and its doors
+import { RDB_RESOURCE_TYPES } from '../formats/blocksFile.js';
 
 /** A piece's KIND - the panel's filter - and what it reads as. */
 export const DECOR_KINDS = Object.freeze({
@@ -50,11 +58,13 @@ export const DECOR_KINDS = Object.freeze({
   light: 'Lights', clothing: 'Clothing', boxes: 'Boxes and bottles', arms: 'Arms and armour',
   books: 'Books and scrolls', misc: 'Odds and ends', treasure: 'Treasure', decor: 'Decorations',
   people: 'Vendors',   // HOME-VENDOR (Mac: "People category sounds wrong call it vendors"): the people Daggerfall stands in its rooms - a home's trader is one of them, made the vendor station
+  dungeon: 'Dungeon furniture',   // DECOR-DUNGEON: what Daggerfall stands in its dungeons and nowhere in a house - a throne, a cage, a coffin, a statue
 });
 /** A kind's own word for one piece of it, where the game gives none. */
 const KIND_ONE = Object.freeze({
   bed: 'Bed', storage: 'Cupboard', shelf: 'Shelves', furniture: 'Furniture', door: 'Door', light: 'Light', clothing: 'Clothing',
   boxes: 'Box', arms: 'Arms', books: 'Books', misc: 'Odds and ends', treasure: 'Treasure', decor: 'Decoration', people: 'Vendor',
+  dungeon: 'Dungeon piece',
 });
 /** The flat archives Daggerfall files its interior dressing under (lootDataTables.js DROP_ICON_ARCHIVES names five of
  *  them for the inventory's drop icons; 210 is the lights, 216 the treasure piles). Any other is a decoration. */
@@ -82,21 +92,51 @@ export const flatKind = (archive) => FLAT_ARCHIVE_KIND[archive] ?? 'decor';
 /** The key a catalogue entry and a placed piece share: `m41000`, `f210.4`. */
 export const decorKey = (what) => (what.model != null ? `m${what.model}` : `f${what.flat[0]}.${what.flat[1]}`);
 
+/** DECOR-DUNGEON: WHERE A PIECE WAS FOUND, in the order a shared name is numbered - a house's rooms first (DECOR1's own
+ *  catalogue, so no name of theirs ever moves), then a dungeon's. A piece found in both is the room's. */
+export const DECOR_FROM = Object.freeze({ room: 0, dungeon: 1 });
+/** DECOR-DUNGEON: Daggerfall's FURNITURE FAMILIES - the ARCH3D ids of the furniture and props that stand free in a room,
+ *  41000-43999; a dungeon's own architecture, its corridors, rooms, stairs and vaults, is 50000-98999 (the dungeon seam
+ *  census's split, tools/seamCensus.mjs isArchitecture). A dungeon has no prop type of its own, so its family is how a
+ *  dungeon's furnishing is told from the dungeon itself. */
+export const DECOR_FURNITURE_FIRST = 41000;
+export const DECOR_FURNITURE_LAST = 43999;
+/** DECOR-DUNGEON: the pieces Daggerfall keeps among its architecture's ids that stand free all the same - its rocks, its
+ *  arches, obelisks, pillars and slab, its statues, its pedestals, the anvil, the weapons and the knight's armour - each a
+ *  piece World of Daggerfall's placement palette stands on its own (vendor/world-of-daggerfall/Scripts/LocationHelper.cs
+ *  :89-391, its `models` table). Their ids alone are read there; a piece is in the catalogue only where Daggerfall
+ *  itself stands it, and is named as the catalogue names every piece. */
+export const DECOR_FREE_STANDING = Object.freeze([
+  60610, 60711, 60712, 60713, 60714, 60715, 60716, 60717, 60718, 60719, 60720,   // the rocks
+  62310, 62313, 62314, 62315, 62317, 62322,   // the arches, the obelisk, the pillar, the slab
+  62324, 62325, 62328, 62330,   // the stone statues
+  74009, 74082, 74086, 74091, 74094,   // a pillar, the pedestals, an open pillar
+  74095, 74212, 74219, 74221, 74222, 74224, 74225, 74226,   // a claymore, the anvil, a sickle, a crossbow, a spike, a sword, an axe, the knight's armour
+]);
+const FREE_STANDING = new Set(DECOR_FREE_STANDING);
+/** DECOR-DUNGEON: whether a dungeon's model is a furnishing - of the furniture families (the ladder aside, as in a room)
+ *  or one of the free-standing pieces. */
+export const isDungeonFurnishing = (id) => Number.isSafeInteger(id) && id !== LADDER_MODEL_ID
+  && ((id >= DECOR_FURNITURE_FIRST && id <= DECOR_FURNITURE_LAST) || FREE_STANDING.has(id));
+
 /**
  * EVERY PIECE DAGGERFALL PUTS IN A ROOM, over `dfBlocks` (parsed RMB blocks, blocksFile.js's shape): each interior's
  * prop models and its flats, the editor's markers and the ladder left out. Answers a Map key -> `{ model, flat, count }`,
  * `count` how many times Daggerfall places it (the panel's "most common first"). `into` is a Map to add to - the scan
  * (systems/decorScan.js) reads the blocks a few at a time into one.
  * @param {Iterable<any>} dfBlocks
- * @param {Map<string, {model: number|null, flat: number[]|null, count: number, person?: boolean}>} [into]
+ * @param {Map<string, {model: number|null, flat: number[]|null, count: number, person?: boolean, from?: string}>} [into]
  */
 export function collectDecor(dfBlocks, into = new Map()) {
   const out = into;
-  const add = (what) => {
+  // DECOR-DUNGEON: a piece is read as its best place found it (`from`, DECOR_FROM) - met first in a dungeon and then in a
+  // room, it is the room's reading (whether it is a person, say), every placement counted
+  const add = (what, from = 'room') => {
     const key = decorKey(what);
     const had = out.get(key);
-    if (had) had.count++;
-    else out.set(key, { ...what, count: 1 });
+    if (!had) out.set(key, { ...what, count: 1, from });
+    else if ((DECOR_FROM[from] ?? 0) < (DECOR_FROM[had.from] ?? 0)) out.set(key, { ...what, count: had.count + 1, from });
+    else had.count++;
   };
   for (const b of dfBlocks ?? []) {
     for (const sub of b?.rmbBlock?.subRecords ?? []) {
@@ -128,6 +168,27 @@ export function collectDecor(dfBlocks, into = new Map()) {
         add({ model: null, flat: [a, r], person: true });
       }
     }
+    // DECOR-DUNGEON: A DUNGEON BLOCK'S FURNISHINGS - each model of the furniture families (or a free-standing piece) that
+    // stands there doing nothing: no action of its own (a lever, a moving throne, a lid that swings) and never a door;
+    // and each flat but an editor's marker (its foes, its treasure, its quests), a flat that acts, or the climate's own
+    // nature (a cave's tree is its climate's). A dungeon's people are people, as a room's are.
+    const rdb = b?.rdbBlock;
+    if (Array.isArray(rdb?.objectRootList) && Array.isArray(rdb.modelReferenceList)) {
+      for (const obj of rdbObjects(rdb)) {
+        if (obj?.type === RDB_RESOURCE_TYPES.Model) {
+          const ref = obj.resources?.modelResource?.modelIndex;
+          const id = rdb.modelReferenceList[ref]?.modelIdNum;
+          if (!isDungeonFurnishing(id) || id === EXIT_DOOR_MODEL_ID || rdbModelActs(obj) || isActionDoor(rdb, ref)) continue;
+          add({ model: id, flat: null }, 'dungeon');
+        } else if (obj?.type === RDB_RESOURCE_TYPES.Flat) {
+          const fr = obj.resources?.flatResource;
+          const a = fr?.textureArchive;
+          const r = fr?.textureRecord;
+          if (!Number.isSafeInteger(a) || !Number.isSafeInteger(r) || r < 0 || a === EDITOR_FLATS_ARCHIVE || fr.action > 0 || isNatureArchive(a)) continue;
+          add({ model: null, flat: [a, r], ...(isNpcFlat(a) ? { person: true } : {}) }, 'dungeon');
+        }
+      }
+    }
   }
   return out;
 }
@@ -152,12 +213,15 @@ export function decorFlatLight(flat) {
 export function decorCatalogue(collected) {
   const entries = [];
   for (const [key, c] of collected ?? []) {
-    const kind = c.model != null ? modelKind(c.model) : c.person ? 'people' : flatKind(c.flat[0]);   // HOME-VENDOR
+    let kind = c.model != null ? modelKind(c.model) : c.person ? 'people' : flatKind(c.flat[0]);   // HOME-VENDOR
+    // DECOR-DUNGEON: what Daggerfall stands in a dungeon and in no house is a dungeon's furniture - where the game files it
+    // as nothing more (a bed, a chest, a shelf, a light or a treasure stays one)
+    if (c.from === 'dungeon' && (kind === 'furniture' || kind === 'decor')) kind = 'dungeon';
     const light = c.flat ? decorFlatLight(c.flat) : null;
     const own = c.model != null
       ? (kind === 'storage' ? HOUSE_CONTAINER_NAMES[c.model] : kind === 'bed' ? 'Bed' : null)
       : (kind === 'light' ? LIGHT_NAMES[c.flat[1]] : null);
-    entries.push({ key, model: c.model, flat: c.flat, kind, base: own ?? KIND_ONE[kind], count: c.count, storage: kind === 'storage', light, radius: null });
+    entries.push({ key, model: c.model, flat: c.flat, kind, base: own ?? KIND_ONE[kind], count: c.count, storage: kind === 'storage', light, radius: null, from: c.from ?? 'room' });
   }
   // a name shared is numbered, in id order (stable for the same game data)
   const byBase = new Map();
@@ -167,15 +231,29 @@ export function decorCatalogue(collected) {
     byBase.set(e.base, list);
   }
   const idOrder = (e) => (e.model != null ? e.model : e.flat[0] * 1000 + e.flat[1]);
+  // DECOR-DUNGEON: NO NAME MOVES FOR A PLACE READ AFTER IT. The pieces of each place (DECOR_FROM: a room's, then a
+  // dungeon's) are numbered among themselves in id order and AFTER every earlier place's of the same name - the first
+  // place's alone, one piece, keeps its bare name ("Vendor", then "Vendor 2"); numbering them all together renamed a
+  // room's lone Vendor "Vendor 1" the day a dungeon's prisoner joined it, and a lower record renumbered every one above
+  const fromOrder = (e) => DECOR_FROM[e.from] ?? 0;
   for (const list of byBase.values()) {
-    list.sort((a, b) => idOrder(a) - idOrder(b));
-    list.forEach((e, i) => { e.name = list.length > 1 ? `${e.base} ${i + 1}` : e.base; });
+    list.sort((a, b) => fromOrder(a) - fromOrder(b) || idOrder(a) - idOrder(b));
+    let taken = 0;
+    for (let i = 0; i < list.length;) {
+      let j = i;
+      while (j < list.length && fromOrder(list[j]) === fromOrder(list[i])) j++;
+      const lone = taken === 0 && j - i === 1;
+      for (let k = i; k < j; k++) list[k].name = lone ? list[k].base : `${list[k].base} ${taken + k - i + 1}`;
+      taken += j - i;
+      i = j;
+    }
   }
   const kindOrder = Object.keys(DECOR_KINDS);
   entries.sort((a, b) => kindOrder.indexOf(a.kind) - kindOrder.indexOf(b.kind) || b.count - a.count || idOrder(a) - idOrder(b));
   return entries.map((e) => Object.freeze({
     key: e.key, model: e.model, flat: e.flat ? Object.freeze([...e.flat]) : null, kind: e.kind, name: e.name,
     count: e.count, storage: e.storage, light: e.light ? Object.freeze({ ...e.light, color: Object.freeze([...e.light.color]) }) : null,
+    from: e.from,   // DECOR-DUNGEON: where Daggerfall stands it (DECOR_FROM)
   }));
 }
 

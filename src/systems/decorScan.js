@@ -13,6 +13,10 @@
 // to parse, and a hitch that long the moment the panel opens is exactly
 // what a panel must never cost.
 //
+// DECOR-DUNGEON (FIELD BUGS 2026-10-05): and the dungeon blocks, where the
+// host says which they are (`isDungeonBlock`) - their furnishings
+// (decorCatalogue.js collectDecor).
+//
 // THREE PHASES. 'blocks': a few town blocks a step (the file keeps one
 // parsed block at a time - BlocksFile's autoDiscard - so a step never
 // holds more than it reads), counted into one Map; when the last block
@@ -27,6 +31,37 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { collectDecor, decorCatalogue, HALL_BOARD_ENTRY } from './decorCatalogue.js';
+import { BLOCK_TYPES } from '../formats/blocksFile.js';   // DECOR-DUNGEON: the host's deps, built once (decorScanDeps)
+import { GLOBAL_SCALE } from '../world/meshReader.js';
+import { billboardSize } from '../world/rmbFlats.js';
+
+/**
+ * DECOR-DUNGEON: THE HOSTS' SCAN DEPS, ONE CONSTRUCTOR. The interior host (worldModes.js) and the yards (world.js) each
+ * built theirs by hand, so what the scan grows - the dungeons, here - had to be remembered twice (THE ONE CONSTRUCTION
+ * SEAM). `blocks` the host's BlocksFile; `arch` its ARCH3D - a model's radius off its header, as the house price reads it
+ * (worldModes.js houseMeshRadius), in metres; `getTexture` its texture door - a flat's billboard as the room stands it,
+ * half its diagonal.
+ * @param {{ blocks: any, arch: any, getTexture: (archive: number) => any }} host
+ */
+export function decorScanDeps({ blocks, arch, getTexture }) {
+  return {
+    blocks,
+    isTownBlock: (t) => t === BLOCK_TYPES.Rmb,
+    isDungeonBlock: (t) => t === BLOCK_TYPES.Rdb,
+    modelRadius: (id) => {
+      const rec = arch?.getRecordIndex?.(id);
+      if (rec == null || rec < 0) return null;
+      const r = arch.getMesh(rec)?.radius ?? 0;
+      return r > 0 ? r * GLOBAL_SCALE : null;
+    },
+    flatRadius: async (a, r) => {
+      const t = await getTexture(a);
+      if (!t || !(r < t.recordCount)) return null;
+      const size = billboardSize(t, r);
+      return Math.hypot(size.w, size.h) / 2;
+    },
+  };
+}
 
 /** How many town blocks one step reads. */
 export const DECOR_SCAN_BLOCKS_A_STEP = 8;
@@ -37,10 +72,12 @@ export const DECOR_SCAN_MODELS_A_STEP = 32;
  * THE SCAN. `deps`:
  *   blocks       - { count, getBlockType(i), getBlock(i) } (formats/blocksFile.js)
  *   isTownBlock(type) - whether a block type is a town block (BLOCK_TYPES.Rmb)
+ *   isDungeonBlock(type) - DECOR-DUNGEON: whether it is a dungeon block (BLOCK_TYPES.Rdb), read for its furnishings; none
+ *                     reads none
  *   modelRadius(id)   - a model's radius in metres, or null
  *   flatRadius(archive, record) - a Promise of a flat's radius in metres (half its billboard's diagonal), or null
  */
-export function createDecorScan({ blocks, isTownBlock, modelRadius, flatRadius }) {
+export function createDecorScan({ blocks, isTownBlock, isDungeonBlock = (_type) => false, modelRadius, flatRadius }) {
   /** @type {'blocks'|'models'|'flats'|'done'} */
   let phase = 'blocks';
   const total = Math.max(0, blocks?.count ?? 0);
@@ -61,7 +98,8 @@ export function createDecorScan({ blocks, isTownBlock, modelRadius, flatRadius }
     const end = Math.min(total, next + n);
     for (; next < end; next++) {
       try {
-        if (!isTownBlock(blocks.getBlockType(next))) continue;
+        const type = blocks.getBlockType(next);
+        if (!isTownBlock(type) && !isDungeonBlock(type)) continue;   // DECOR-DUNGEON: and a dungeon's furnishings
         // WD3: the catalogue is what DAGGERFALL furnishes - its blocks as BLOCKS.BSA holds them, never a world-data mod's
         // (Beautiful Villages and Beautiful Cities redecorate 1,400 interiors; through the door their pieces would join
         // the catalogue, renumber it, and leave it when the mod is switched off)

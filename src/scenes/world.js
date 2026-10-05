@@ -709,8 +709,8 @@ import { remapSubMeshes } from '../world/texRemap.js';   // WM3: the one climate
 import { homeLookRemap, HOME_LOOK_BUILD_WAIT_MS } from '../world/homeLook.js';   // HOME-LOOK: a painted house's own table
 import { createHomeYards } from './homeYards.js';   // HOME-YARD: the town's yards, and the owner's decorator outside
 import { loadIcon } from '../ui/textureCanvas.js';   // HOME-YARD: the decorator's pictures
-import { BLOCK_TYPES } from '../formats/blocksFile.js';   // HOME-YARD: the catalogue's town blocks
-import { GLOBAL_SCALE, DOOR_TYPE } from '../world/meshReader.js';   // ARENA1: DOOR_TYPE too - the undercroft's stair is a dungeon entrance
+import { decorScanDeps } from '../systems/decorScan.js';   // HOME-YARD: the catalogue's scan (DECOR-DUNGEON: one constructor for both hosts)
+import { DOOR_TYPE } from '../world/meshReader.js';   // ARENA1: the undercroft's stair is a dungeon entrance (DECOR-DUNGEON: GLOBAL_SCALE went with the yards' scan deps, systems/decorScan.js)
 import { homeLookSig } from '../net/homeLaw.js';
 import { setWeather, setHeardWeather, heardWeather, currentWeather, currentWeatherRaw, tickWeather, weatherRespawn, applyClimateWeather, importClimateWeathers, weatherJumpStamp, setSharedWeather, rollClimateWeathersForDay, sampleWeatherField, weatherCrossingStamp, currentFieldCells, currentWeatherIntensity, currentCloudBase, currentWindApproach, currentMapSystems, sampleWeatherIndoors, weatherArrivalStamp, mapGround } from '../systems/weatherSim.js';
 import { createDistantStorms, thunderSourceAt, THUNDER_SOURCE_M } from '../systems/distantStorms.js';   // WEATHER3d: the storms at a distance
@@ -9635,7 +9635,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:3078 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:7286
+  // that context through modes.dungeonCtx - so worldModes.js:7269
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -10021,11 +10021,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     eye: () => cam.pos,
     collider: () => collider, meshes: { getGpuMesh, cpuModels }, renderer, getTexture, uploadRecord, uploadRecordFrame,
     iconUrl: (a, r) => loadIcon(a, r, { scale: 1 }),
-    scanDeps: () => ({
-      blocks, isTownBlock: (t) => t === BLOCK_TYPES.Rmb,
-      modelRadius: (id) => { const rec = arch?.getRecordIndex?.(id); if (rec == null || rec < 0) return null; const r = arch.getMesh(rec)?.radius ?? 0; return r > 0 ? r * GLOBAL_SCALE : null; },
-      flatRadius: async (a, r) => { const t = await getTexture(a); if (!t || !(r < t.recordCount)) return null; const size = billboardSize(t, r); return Math.hypot(size.w, size.h) / 2; },
-    }),
+    scanDeps: () => decorScanDeps({ blocks, arch, getTexture }),   // DECOR-DUNGEON: the interior host's own constructor
     character: () => characterIdOf(playerEntity),
     realm: () => (realmSession ? (o) => realmGoldAct({ session: realmSession, checkpoint: () => onlineCheckpoint(), ...o }) : null),
     wallet: (region) => homeYardWallet(region), regionOf: (y) => built.get(`${y.px},${y.py}`)?.homeRegion ?? 0,
@@ -15626,7 +15622,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10983-11047 -
+  // worldModes answers it in BOTH modes (worldModes.js:10966-11030 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a

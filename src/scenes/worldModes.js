@@ -321,7 +321,7 @@ const DECOR_STATION_REFUSED = 'You cannot use the station right now.';
 import { createDecorRoom, decorIdOfKey, askDecorList } from './decorRoom.js';
 // DECOR1d: the decorator itself - the button, the panel, the free camera - and what its catalogue scan reads
 import { createDecorTool } from './decorTool.js';
-import { BLOCK_TYPES } from '../formats/blocksFile.js';
+import { decorScanDeps } from '../systems/decorScan.js';   // DECOR-DUNGEON: the scan's deps, one constructor for both hosts
 import { GLOBAL_SCALE } from '../world/meshReader.js';
 import { loadIcon } from '../ui/textureCanvas.js';
 import { isTouchDevice } from '../ui/touchDevice.js';
@@ -826,7 +826,7 @@ export function createWorldModes(host) {
   const decorTool = createDecorTool({
     doc: typeof document !== 'undefined' ? document : null, win: typeof window !== 'undefined' ? window : null,
     canvas, touch: isTouchDevice(), renderer, pool: interiorDecor, names: decorNames,
-    room: () => decorRoomHere(), scanDeps: () => decorScanDeps(),
+    room: () => decorRoomHere(), scanDeps: () => decorScanDepsHere(),
     base: () => interiorCtx?.base ?? null,   // BASE-HIDE: the room's own furniture, piece by piece
     getGpuMesh, cpuModels, getTexture, uploadRecord, iconUrl: (a, r, dye = null, dyeTarget = null) => loadIcon(a, r, { scale: 1, dye, dyeTarget }),
     mwPicture: decorMwPicture,   // MW-MOUNT: the ghost hangs as the room will
@@ -4034,26 +4034,9 @@ export function createWorldModes(host) {
     if (b.buildingType === BUILDING_TYPES.Ship) return { kind: 'ship', where: 'Your ship' };
     return { kind: 'house', where: 'Your house' };
   }
-  /** DECOR1d: what the catalogue scan reads - the town blocks, a model's radius off its ARCH3D header (the house
-   *  price's own read, houseMeshRadius), a flat's billboard as the room stands it - in metres. */
-  function decorScanDeps() {
-    return {
-      blocks,
-      isTownBlock: (t) => t === BLOCK_TYPES.Rmb,
-      modelRadius: (id) => {
-        const rec = arch?.getRecordIndex?.(id);
-        if (rec == null || rec < 0) return null;
-        const r = arch.getMesh(rec)?.radius ?? 0;
-        return r > 0 ? r * GLOBAL_SCALE : null;
-      },
-      flatRadius: async (a, r) => {
-        const t = await getTexture(a);
-        if (!t || !(r < t.recordCount)) return null;
-        const size = billboardSize(t, r);
-        return Math.hypot(size.w, size.h) / 2;
-      },
-    };
-  }
+  /** DECOR1d: what the catalogue scan reads - the town blocks (DECOR-DUNGEON: and the dungeons'), a model's radius off
+   *  its ARCH3D header, a flat's billboard as the room stands it - the one constructor the yards' host builds too. */
+  const decorScanDepsHere = () => decorScanDeps({ blocks, arch, getTexture });
   /** DECOR1e: A SOLD HOUSE'S OR SHIP'S PLACED PIECES (the save's - scene cache) go with it, and half of what each
    *  cost comes back into the account the sale pays into, as removing each would give; said, when there were any. */
   function decorSold(sceneName, region) {
@@ -9387,7 +9370,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:16565's own wave-46 note); the interior
+          // a blow (world.js:16561's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -12119,7 +12102,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3690-3712), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:12359). So an F9 pressed in a shop
+     *  unconditionally (world.js:12355). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -12158,7 +12141,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:12718)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:12714)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -12168,7 +12151,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:11261`
+     *  HARD2c: this used to spell them out, and named `world.js:11257`
      *  and `dungeonContext.js:8468` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
