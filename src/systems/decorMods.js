@@ -33,24 +33,32 @@
 // loaded for the game, or a save's town pinned to one; Detailed Ships' own
 // switch for its ships' pieces; online, the town mods are on for every
 // player). A piece placed stands while its mod does, as the mod's towns do.
+// AUDIT 05b A3: every piece is in the catalogue whatever is on - so none's
+// name or number moves with a switch - and the switch is asked as the
+// piece is offered (decorModsLive, systems/decorCatalogue.js
+// decorRoomEntries), never once when the catalogue was read: the switches
+// turn mid-game (Detailed Ships turned off, a town pack landing).
 //
 // NAMED as the port names them: a bed by its colour, a hanging by its
-// picture (world/townPictures.js), a drawn sprite by its drawing (world/
-// standInSprites.js), a flat that stands in as one of Daggerfall's own by
-// that one's kind - else by the piece; numbered after every place read
-// before them (systems/decorCatalogue.js DECOR_FROM), so no name of
-// Daggerfall's ever moves.
+// picture (world/townPictures.js - the one table its builder reads,
+// world/detStandIns.js DET_PICTURES, world/townStandIns.js ROSYS_PICTURES),
+// a drawn sprite by its drawing (world/standInSprites.js), a flat that
+// stands in as one of Daggerfall's own by that one's kind - else by the
+// piece; numbered after every place read before them (systems/
+// decorCatalogue.js DECOR_FROM), so no name of Daggerfall's ever moves.
+// Read off tables alone, never a switch or a built model.
 // ═══════════════════════════════════════════════════════════════════
 
 import {
   townBedOf, TOWN_BED_COLOURS, TOWN_PAINTINGS, RMBRP_ROCKS, RMBRP_STALLS, RMBRP_HILLS, TOWN_CROP_FIELDS,
-  CITY_WALL_PIECE, TOWN_CLUTTER, TOWN_CLUTTER_ARCHIVE, TOWN_GARDEN, TOWN_GARDEN_ARCHIVE,
+  CITY_WALL_PIECE, TOWN_CLUTTER, TOWN_CLUTTER_ARCHIVE, TOWN_GARDEN, TOWN_GARDEN_ARCHIVE, ROSYS_PICTURES,
 } from '../world/townStandIns.js';
-import { DET_FLAT_STAND_INS, DET_FLAT_DRAWINGS, DET_TOWN_FLATS, DET_OLD_ARCHIVES, DET_DOLPHIN_RECORDS } from '../world/detStandIns.js';
-import { TOWN_PICTURE_ARCHIVE, TOWN_PICTURES } from '../world/townPictures.js';
+import { DET_FLAT_STAND_INS, DET_FLAT_DRAWINGS, DET_TOWN_FLATS, DET_OLD_ARCHIVES, DET_DOLPHIN_RECORDS, DET_PICTURES } from '../world/detStandIns.js';
+import { TOWN_PICTURES } from '../world/townPictures.js';
 import { DETAILED_SHIPS_DERIVED } from './detailedShips.js';
-import { customModelFor, customAliasFor, hasCustomModel, classicModelIdOf } from '../world/customModels.js';
+import { customAliasFor, hasCustomModel } from '../world/customModels.js';
 import { hasTextureReplacement } from './textureReplacement.js';
+import { decorKey, isDecorModEntry } from './decorCatalogue.js';   // AUDIT 05b A11: the one key a piece and its entry share
 
 /** THE MODS' PIECES THAT STAND INSIDE - offered in every room (and a yard): model id or `archive_record` -> how many
  *  times the mods stand it (measured, 2026-10-05: Beautiful Villages 1.4.2, Beautiful Cities 0.5.0, Detailed Ships
@@ -158,14 +166,15 @@ export function decorModNaming(what) {
   if (what.model != null) {
     const id = what.model;
     const bed = townBedOf(id);
-    if (bed) return { base: `${capital(TOWN_BED_COLOURS[bed.colour].name)} bed`, as: classicModelIdOf(id) };
+    if (bed) return { base: `${capital(TOWN_BED_COLOURS[bed.colour].name)} bed`, as: bed.model };   // AUDIT 05b A3: its classic bed by the table, never by a switch
     if (TOWN_PAINTINGS[id]) return { base: 'Painting', as: id };
     if (RMBRP_ROCKS[id]) return { base: 'Boulder', as: id };
     if (RMBRP_STALLS[id]) return { base: 'Market stall', as: id };
     if (MODEL_NAMES[id]) return { base: MODEL_NAMES[id], as: id };
-    // a hanging or a rug: its own picture's name (world/townPictures.js) - what the model wears
-    const pic = customModelFor(id)?.subMeshes?.find((s) => s.textureArchive === TOWN_PICTURE_ARCHIVE);
-    return { base: pic ? capital(TOWN_PICTURES[pic.textureRecord]?.name ?? '') || null : null, as: id };
+    // a hanging or a rug: its own picture's name (world/townPictures.js) - the table its builder wears it by (AUDIT 05b
+    // A8: read off the built model, a whole model was built to name a piece, and none named while its switch was off)
+    const pic = DET_PICTURES[id] ?? ROSYS_PICTURES[id];
+    return { base: pic != null ? capital(TOWN_PICTURES[pic]?.name ?? '') || null : null, as: id };
   }
   const [archive, record] = what.flat;
   const k = `${archive}_${record}`;
@@ -183,17 +192,30 @@ export function decorModLive(what) {
   return hasTextureReplacement(what.flat[0], what.flat[1]);
 }
 
+/** AUDIT 05b A3: how often the house decorator asks the switches again while its panel is up (and once as it opens). */
+export const DECOR_MODS_LIVE_S = 1;
 /**
- * THE MODS' PIECES, INTO A COLLECTION (systems/decorCatalogue.js collectDecor's Map): each the port stands now (`live`,
- * decorModLive unless told), a room's (`from: 'mod'`) or a street's (`'modstreet'`), with its count, its name and what it
- * is filed as (`base`, `as`). A key a place read before already holds stays that place's.
- * @param {Map<string, any>} [into]
- * @param {(what: any) => boolean} [live]
+ * AUDIT 05b A3: THE MODS' PIECES THE PORT STANDS NOW, of a catalogue's `entries` - their keys, the offer's own
+ * (systems/decorCatalogue.js decorRoomEntries offers a mod's piece among them alone). `live` decorModLive unless told.
+ * @param {readonly any[]|null} entries @param {(what: any) => boolean} [live]
  */
-export function addDecorMods(into = new Map(), live = decorModLive) {
+export function decorModsLive(entries, live = decorModLive) {
+  const out = new Set();
+  for (const e of entries ?? []) if (isDecorModEntry(e) && live(e)) out.add(e.key);
+  return out;
+}
+
+/**
+ * THE MODS' PIECES, INTO A COLLECTION (systems/decorCatalogue.js collectDecor's Map): every one, whatever is on (AUDIT
+ * 05b A3: what is offered is asked as it is offered - decorModsLive), a room's (`from: 'mod'`) or a street's
+ * (`'modstreet'`), with its count, its name and what it is filed as (`base`, `as`). A key a place read before already
+ * holds stays that place's.
+ * @param {Map<string, any>} [into]
+ */
+export function addDecorMods(into = new Map()) {
   const put = (what, count, from) => {
-    const key = what.model != null ? `m${what.model}` : `f${what.flat[0]}.${what.flat[1]}`;
-    if (into.has(key) || !live(what)) return;
+    const key = decorKey(what);
+    if (into.has(key)) return;
     into.set(key, { ...what, count, from, ...decorModNaming(what) });
   };
   for (const { table, from } of [{ table: DECOR_MOD_ROOMS, from: 'mod' }, { table: DECOR_MOD_STREETS, from: 'modstreet' }]) {

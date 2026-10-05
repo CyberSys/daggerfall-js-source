@@ -4928,7 +4928,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:9597` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:9590` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:505`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -9529,9 +9529,10 @@ changes to a placed piece.
   hangings), that stands doing nothing (no action, never a door), a flat but a marker, an acting flat or nature; found
   only there, a piece is "Dungeon furniture"; every place's names are numbered after the earlier places' (a room's
   first), so no room's name moves (`01-Overview/Field-Bugs-2026-10-05b.md`). DECOR-MODS (the same record, the town
-  mods' furnishings): and, while the port stands them, the pieces it stands in for what Beautiful Villages, Beautiful
-  Cities and Detailed Ships place - 297, measured over their own blocks, a room's or a street's as the mods stand them,
-  never the town's own structure - named and numbered after every place of Daggerfall's (`systems/decorMods.js`).
+  mods' furnishings): and the pieces it stands in for what Beautiful Villages, Beautiful Cities and Detailed Ships place
+  - 297, measured over their own blocks, a room's or a street's as the mods stand them, never the town's own structure -
+  named and numbered after every place of Daggerfall's (`systems/decorMods.js`), every one catalogued whatever is on and
+  offered while the port stands it (AUDIT 05b A3: asked as the offer is made).
 
 Pinned: `test/decor1.test.js` (4 of its 7) - the law, the store through the real Worker with every migration
 applied, the client's door and the deploy, the catalogue and its filters.

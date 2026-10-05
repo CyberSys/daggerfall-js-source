@@ -59,7 +59,7 @@ import { BULLETIN_BOARD_MODEL_ID, WINDMILL_MODEL_ID, isCityGate } from '../world
 import { CLIMATE_NATURE } from '../formats/mapsFile.js';   // DECOR-OUTDOOR: the climates' nature sets
 import { isTreeRecord } from '../world/terrainNature.js';
 import { isNudeFlat, showNudity } from '../characters/nudeFlats.js';   // NUDE-DECOR: no nude figure offered while Show Nudity is off
-import { rdbObjects, rdbModelActs, isActionDoor, isNpcFlat, EXIT_DOOR_MODEL_ID } from '../world/rdbLayout.js';   // DECOR-DUNGEON: the dungeon's own walk, its acting and its doors
+import { rdbObjects, rdbModelActs, isActionDoor, isNpcFlat } from '../world/rdbLayout.js';   // DECOR-DUNGEON: the dungeon's own walk, its acting and its doors
 import { RDB_RESOURCE_TYPES } from '../formats/blocksFile.js';
 
 /** A piece's KIND - the panel's filter - and what it reads as. */
@@ -112,6 +112,10 @@ export const decorKey = (what) => (what.model != null ? `m${what.model}` : `f${w
 export const DECOR_FROM = Object.freeze({ room: 0, dungeon: 1, street: 2, nature: 3, mod: 4, modstreet: 5 });
 /** DECOR-OUTDOOR: the places whose pieces stand OUTSIDE - in a yard alone. */
 const OUTSIDE = new Set(['street', 'nature', 'modstreet']);
+/** DECOR-MODS: the places a mod's piece is read from - offered only while the port stands it (decorRoomEntries). */
+const MOD_FROM = new Set(['mod', 'modstreet']);
+/** DECOR-MODS: whether an entry is a town mod's piece (systems/decorMods.js). */
+export const isDecorModEntry = (e) => MOD_FROM.has(e?.from);
 /** DECOR-DUNGEON: Daggerfall's FURNITURE FAMILIES - the ARCH3D ids of the furniture and props that stand free in a room,
  *  41000-43999; a dungeon's own architecture, its corridors, rooms, stairs and vaults, is 50000-98999 (the dungeon seam
  *  census's split, tools/seamCensus.mjs isArchitecture). A dungeon has no prop type of its own, so its family is how a
@@ -243,7 +247,7 @@ export function collectDecor(dfBlocks, into = new Map()) {
         if (obj?.type === RDB_RESOURCE_TYPES.Model) {
           const ref = obj.resources?.modelResource?.modelIndex;
           const id = rdb.modelReferenceList[ref]?.modelIdNum;
-          if (!isDungeonFurnishing(id) || id === EXIT_DOOR_MODEL_ID || rdbModelActs(obj) || isActionDoor(rdb, ref)) continue;
+          if (!isDungeonFurnishing(id) || rdbModelActs(obj) || isActionDoor(rdb, ref)) continue;
           add({ model: id, flat: null }, 'dungeon');
         } else if (obj?.type === RDB_RESOURCE_TYPES.Flat) {
           const fr = obj.resources?.flatResource;
@@ -329,6 +333,7 @@ export function decorCatalogue(collected) {
     count: e.count, storage: e.storage, light: e.light ? Object.freeze({ ...e.light, color: Object.freeze([...e.light.color]) }) : null,
     from: e.from,   // DECOR-DUNGEON: where Daggerfall stands it (DECOR_FROM)
     outside: OUTSIDE.has(e.from),   // DECOR-OUTDOOR: a street's or the climate's - a yard's alone
+    nude: !!e.flat && isNudeFlat(e.flat[0], e.flat[1]),   // NUDE-DECOR (AUDIT 05b A7): asked once here, never a frame
     ...(e.nature != null ? { nature: e.nature } : {}),   // DECOR-OUTDOOR: the climate's set it is of (its summer archive)
   }));
 }
@@ -348,14 +353,18 @@ export const HALL_BOARD_ENTRY = Object.freeze({
  *  nude figure while Show Nudity is off (`show`, the setting unless told) - one chosen would stand as that figure to
  *  every visitor whose setting is on, and here as its stand-in, a piece its owner never saw. DECOR-OUTDOOR: and the
  *  street's pieces and the climate's nature in a yard alone - its own climate's nature (`room.natureBase`, its set's
- *  summer archive). */
-export function decorRoomEntries(entries, room, show = null) {
+ *  summer archive). DECOR-MODS (AUDIT 05b A3): and a town mod's piece while the port stands it alone - `mods`, the keys
+ *  of the mods' pieces standing now (systems/decorMods.js decorModsLive; none unless told): asked here, as the offer is
+ *  made, never once when the catalogue was read - a mod turned off left its pieces for sale that stood nowhere, and one
+ *  turned on was never offered until the game was loaded again. The panel asks every frame: a field read a piece. */
+export function decorRoomEntries(entries, room, show = null, mods = null) {
   const nude = !(show ?? showNudity());
   return entries?.filter((e) => (!e.hall || (!!room?.hall && !room?.yard))
     && !(room?.yard && e.kind === 'door')
-    && !(nude && e.flat && isNudeFlat(e.flat[0], e.flat[1]))
+    && !(nude && e.nude)
     && (!e.outside || !!room?.yard)
-    && (e.nature == null || e.nature === room?.natureBase)) ?? null;
+    && (e.nature == null || e.nature === room?.natureBase)
+    && (!MOD_FROM.has(e.from) || !!mods?.has(e.key))) ?? null;
 }
 
 /** A piece's SIZE band, by its radius in metres - the panel's size filter. */

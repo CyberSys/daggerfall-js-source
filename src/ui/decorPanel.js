@@ -808,7 +808,7 @@ export function createDecorPanel({
   }
   /** Everything the list reads that the host can change under it (the room's pieces: each one's id, cost, light,
    *  storage and whether it holds anything). */
-  const signature = () => [view?.entries ? view.entries.length : -1, view?.ready ? 1 : 0, view?.gold ?? 0, view?.count ?? 0,
+  const signature = () => [view?.entries ? view.entries.length : -1, view?.ready ? 1 : 0, view?.sized ?? 0, view?.gold ?? 0, view?.count ?? 0,   // AUDIT 05b A3: a piece measured late, priced
     (view?.placed ?? []).map((it) => `${it.piece.id}:${it.piece.paid}:${it.piece.light ? 1 : 0}:${it.piece.storage ? 1 : 0}:${it.holds ? 1 : 0}:${it.piece.station ?? ''}:${it.room ?? ''}`).join(','),   // AUDIT HOME-STATIONS S3: and its craft; DECOR-ROOMS: and its room
     (view?.own ?? []).map((e) => `${e.key}:${e.name}:${e.count ?? 1}`).join(','),   // DECOR2a: the pack's list
     (view?.base ?? []).map((it) => `${it.key}:${it.name}:${it.hidden ? 1 : 0}:${it.holds ? 1 : 0}:${it.room ?? ''}`).join(','),   // BASE-HIDE

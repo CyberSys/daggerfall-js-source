@@ -220,7 +220,7 @@ import { herbKind } from './herbHost.js';   // PROF1: Herbalism's patches, a kin
 import { mineKind } from './mineHost.js'; import { nodeCompassPoints } from '../ui/nodeMarks.js'; import { createNodeGlowPass } from '../render/nodeGlow.js';   // PROF2: Mining's veins and Quarrying's boulders, a kind in it; NODE-MARKS: every profession's nodes on the compass in its colour, and lit where they stand
 import { treeKind, isTreeRecord, FOREST_STAMP } from './treeHost.js';   // PROF4: Logging's trees - the forest's own - a kind in it; LPT1: the felled trees' count, the near 3D trees' regather
 import { createLowPolyTrees } from '../systems/lowPolyTreesAssets.js';   // LPT1: Low Poly Trees - the host's one door
-import { LPT_ARCHIVES, LPT_SCALE_MAX, lptVariety, buildTreeSet } from '../world/lowPolyTrees.js';   // LPT1: which flats it stands for, each tree's own draw, and a near pixel's set
+import { LPT_SCALE_MAX, lptVariety, buildTreeSet } from '../world/lowPolyTrees.js'; import { naturePicture } from '../world/naturePicture.js';   // LPT1: each tree's own draw, and a near pixel's set; AUDIT 05b A12: which picture a nature flat stands as, every host's one choice
 import { realForestsOn, FOREST_HIDDEN_LOCATION_TYPES } from './shared.js';   // FOREST1: the Real forests switch, and the places the woods hide
 import { insideRocks, forestAt } from '../world/terrainNature.js';   // FOREST1 (AUDIT F1): a wood's flats keep out of the rock pieces; GRASS-LIT2: the shot hook's woods
 import { huntKind, createBodyStamps, bodiesOf, trackerMarks } from './huntHost.js';   // PROF7: Hunting's bodies - a kind in it, the kills that stamp them, a Tracker's marks
@@ -4325,16 +4325,13 @@ export async function bootWorld(canvas, renderer, params, status) {
       // frame) while a season is installed over it, the classic record
       // otherwise. The seasonal texture keys on the install so a later
       // season never reads an earlier one's upload.
-      const sib = seasonsActive ? seasons.lookup(archive, record) : null;
       // LPT1: A FLAT LOW POLY TREES HAS A TREE FOR stands as that tree's far picture - the batch sized for the tallest
       // tree it stands, each flat's own scale on its corner - and as the tree itself near the eye (the pixel's
       // `lowPolyTrees` set). Its cover, its sway, its forest and the far rings' rule are the flat's own (the season's,
-      // while one stands).
-      const lpt = lowPolyTrees && LPT_ARCHIVES.includes(archive) && (await lowPolyTrees.load()) ? lowPolyTrees.proto(archive, record) : null;
-      const far = lpt ? await lowPolyTrees.farPicture(lpt) : null;
+      // while one stands). AUDIT 05b A12: the choice is every host's one (world/naturePicture.js - a location's, a yard's)
+      const { sib, proto: lpt, far, plain, key: rkey } = await naturePicture({ door: lowPolyTrees, seasons: seasonsActive ? seasons : null, renderer, uploadRecord }, t, archive, record);
       if (far) {
         lowPolyTrees.acquire(far); lptHandles.push(far);   // AUDIT LPT B5: held until the pixel goes
-        const plain = sib ? sib.size : billboardSize(t, record);
         const scales = new Float32Array(centers.length), wild = new Uint8Array(centers.length);
         centers.forEach((c, i) => {
           wild[i] = wildFlats.has(`${k}#${i}`) ? 1 : 0;
@@ -4353,10 +4350,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (isCoverFlat(archive, record, plain)) for (const c of centers) coverItems.push(...coverProxies(c, plain, { tree: archive === natureArchive && isTreeRecord(natureArchive, record) }));
         continue;
       }
-      if (sib) {
-        const rkey = `${record}#season${seasons.installedSeason}`;
-        const img = sib.texture.image;
-        renderer.uploadTexture(archive, rkey, img, { mips: false, variant: '' });   // TEX1: the door already answers the upload path's shape - no re-wrap at the site (H4's own law)   // AUDIT 61: the mod's atlas has NO mip chain (mipChain:false, Apply(false), Point) - one NEAREST level at every distance, unlike the classic flats
+      if (sib) {   // uploaded under the install's key, with no mip chain (AUDIT 61) - world/naturePicture.js
         const batch = renderer.createBillboardBatch(archive, rkey, sib.size, centers);
         batch._box = flatBatchAabb(centers, sib.size);   // EV3
         batch.sway = floraSwayOf(archive, natureArchive, sib.size.h);   // WIND3: the season's trees lean too
@@ -4366,8 +4360,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (isCoverFlat(archive, record, sib.size)) for (const c of centers) coverItems.push(...coverProxies(c, sib.size, { tree: archive === natureArchive && isTreeRecord(natureArchive, record) }));   // AUDIT TACT B2: a tree's trunk and crown
         continue;
       }
-      uploadRecord(archive, record);
-      const size = billboardSize(t, record);
+      const size = plain;   // the record, uploaded (world/naturePicture.js)
       const batch = renderer.createBillboardBatch(archive, record, size, centers);
       batch._box = flatBatchAabb(centers, size);   // EV3
       batch.sway = floraSwayOf(archive, natureArchive, size.h);   // WIND3: the flora lean with the wind, nothing else does

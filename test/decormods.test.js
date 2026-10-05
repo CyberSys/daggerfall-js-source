@@ -2,10 +2,11 @@
 // decoration"; asked which, the town mods' furnishings first). The catalogue read Daggerfall's own blocks alone (WD3), so
 // nothing Beautiful Villages, Beautiful Cities or Detailed Ships furnish - the coloured beds, the paintings, the
 // tapestries and banners, the set tables and stocked shelves - could be set in a house. Now the pieces the port stands in
-// for what the mods place join it while the port stands them: a room's where the mods stand them inside, a yard's where
-// outside alone, counted as the mods place them, named as the port names them, numbered after every place of
-// Daggerfall's - never the town's own structure. Pinned through the real stand-ins, catalogue and scan; the measure is
-// taken again over the player's own blocks where ARENA2 is at hand.
+// for what the mods place join it, offered while the port stands them: a room's where the mods stand them inside, a
+// yard's where outside alone, counted as the mods place them, named as the port names them, numbered after every place
+// of Daggerfall's - never the town's own structure. AUDIT 05b A3: every one catalogued whatever is on, the switch asked
+// as the piece is offered. Pinned through the real stand-ins, catalogue, scan and decorator; the measure is taken again
+// over the player's own blocks where ARENA2 is at hand.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -13,21 +14,24 @@ import { join } from 'node:path';
 import zlib from 'node:zlib';
 import {
   DECOR_MOD_ROOMS, DECOR_MOD_STREETS, DECOR_MOD_TWINS, DECOR_MOD_LEFT_OUT, addDecorMods, decorModNaming, decorModLive,
-  decorModFlatSource,
+  decorModFlatSource, decorModsLive, DECOR_MODS_LIVE_S,
 } from '../src/systems/decorMods.js';
 import { collectDecor, decorCatalogue, decorRoomEntries, DECOR_KINDS, DECOR_FROM } from '../src/systems/decorCatalogue.js';
 import { createDecorScan, decorScanDeps, standInRadius } from '../src/systems/decorScan.js';
 import {
   installTownStandIns, TOWN_BED_FIRST, TOWN_BED_COUNT, TOWN_PAINTINGS, ROSYS_PIECES, RMBRP_PIECES, RMBRP_ROCKS, RMBRP_STALLS,
-  TOWN_CLUTTER, TOWN_CLUTTER_ARCHIVE, TOWN_GARDEN, TOWN_GARDEN_ARCHIVE,
+  TOWN_CLUTTER, TOWN_CLUTTER_ARCHIVE, TOWN_GARDEN, TOWN_GARDEN_ARCHIVE, ROSYS_PICTURES,
 } from '../src/world/townStandIns.js';
-import { DET_MODELS, DET_TOWN_MODELS, DET_FLAT_STAND_INS, DET_FLAT_DRAWINGS, DET_TOWN_FLATS, DET_OLD_ARCHIVES } from '../src/world/detStandIns.js';
+import { DET_MODELS, DET_TOWN_MODELS, DET_FLAT_STAND_INS, DET_FLAT_DRAWINGS, DET_TOWN_FLATS, DET_OLD_ARCHIVES, DET_PICTURES } from '../src/world/detStandIns.js';
+import { TOWN_PICTURE_ARCHIVE } from '../src/world/townPictures.js';
+import { customModelFor } from '../src/world/customModels.js';
+import { decorPrice } from '../src/net/decorLaw.js';
 import { installDetailedShipsArt, DETAILED_SHIPS_DERIVED, DETAILED_SHIPS_OWN_ART } from '../src/systems/detailedShips.js';
 import { setModSetting } from '../src/systems/modSettings.js';
 import { BLOCK_TYPES } from '../src/formats/blocksFile.js';
 import { openWorldDataPack } from '../src/formats/worldDataPack.js';
 import { rebuildWorldDataPatch } from '../src/formats/worldDataPatch.js';
-import { rmb, fakeBlocks } from './decorFakes.mjs';
+import { rmb, fakeBlocks, toolRig, settle, rows, all } from './decorFakes.mjs';
 import { HAS_ARENA2, loadBlocks, loadMaps, ROOT } from './arena1Data.mjs';
 
 // the port's stand-ins, on - as while a town mod stands (scenes/modWorldData.js), Detailed Ships' own switch off
@@ -71,16 +75,21 @@ test('DECOR-MODS the pieces: every one the port stands in for the mods - a room\
   for (const id of [...Object.keys(RMBRP_ROCKS), ...Object.keys(RMBRP_STALLS)]) assert.ok(STREET_KEYS.includes(`m${id}`), `${id} a street's`);
 });
 
-test('DECOR-MODS the offer follows the port\'s own switch: every piece joins while its stand-in stands, none while the mods are off; a key a place of Daggerfall\'s holds stays that place\'s (mutants: DECORMODS-unswitched, DECORMODS-place-overwritten)', () => {
+test('DECOR-MODS the offer follows the port\'s own switch: every piece offered while its stand-in stands, none while the mods are off - AUDIT 05b A3: and every one catalogued whatever is on, so no name, kind or number moves with a switch; a key a place of Daggerfall\'s holds stays that place\'s (mutants: DECORMODS-unswitched, DECORMODS-offered-unswitched, DECORMODS-place-overwritten)', () => {
   const c = addDecorMods(new Map());
   assert.equal(c.size, 297);
-  assert.ok([...c.values()].every((x) => decorModLive(x)));
   assert.deepEqual([c.get('m42069').count, c.get('m42069').from, c.get('f10010.44').count, c.get('f10010.44').from], [347, 'mod', 1607, 'modstreet']);
+  const cat = decorCatalogue(c);
+  const yard = { kind: 'home', yard: true, natureBase: 504 };
+  assert.equal(decorModsLive(cat).size, 297, 'every one stands while the mods do');
+  assert.equal(decorRoomEntries(cat, yard, true, decorModsLive(cat)).length, 297, 'and is offered');
   townsOn = false;
   try {
-    const off = addDecorMods(new Map());
     // DET's pieces and Cliffworms' answer Detailed Ships' switch too - off here as the towns'
-    assert.equal(off.size, 0, 'the mods off: nothing');
+    assert.deepEqual([addDecorMods(new Map()).size, decorModsLive(cat).size], [297, 0], 'the mods off: every piece catalogued, none standing');
+    assert.deepEqual([decorRoomEntries(cat, yard, true, decorModsLive(cat)).length, decorRoomEntries(cat, yard, true).length], [0, 0], 'none offered - nor where the offer is told nothing stands');
+    const named = (list) => list.map((e) => [e.key, e.kind, e.name]);
+    assert.deepEqual(named(decorCatalogue(addDecorMods(new Map()))), named(cat), 'no name, kind or number moves with a switch');
   } finally { townsOn = true; }
   const room = collectDecor([rmb([], [[56790, 2]])]);
   addDecorMods(room);
@@ -110,12 +119,12 @@ test('DECOR-MODS the names and the filing: a bed by its colour, filed with the b
   assert.deepEqual([by['m53038'].kind, by['m53038'].outside, by['f10010.44'].kind, by['f10010.44'].name], ['outdoor', true, 'outdoor', 'Dove 2']);
   assert.equal(DECOR_KINDS.mods, 'Town mods\' furnishings');
   // offered: the mods' rooms' in every room and a yard; their streets' in a yard alone
-  const keys = (r) => new Set(decorRoomEntries(cat, r, true).map((e) => e.key));
+  const keys = (r) => new Set(decorRoomEntries(cat, r, true, decorModsLive(cat)).map((e) => e.key));
   for (const r of [{ kind: 'house' }, { kind: 'ship' }, { kind: 'home', yard: true, natureBase: 504 }]) assert.ok(keys(r).has('m42069') && keys(r).has('f56790.2'), JSON.stringify(r));
   assert.deepEqual([keys({ kind: 'house' }).has('m53038'), keys({ kind: 'home', yard: true, natureBase: 504 }).has('m53038')], [false, true]);
 });
 
-test('DECOR-MODS the scan, through the hosts\' one constructor: the mods\' pieces join after the blocks are read, each measured - a stand-in off its own model, a coloured bed off its classic one - so priced; a host that asks for none, or the mods off, reads none (mutants: DECORMODS-scan-unjoined, DECORMODS-stand-in-unmeasured, DECORMODS-alias-unmeasured)', async () => {
+test('DECOR-MODS the scan, through the hosts\' one constructor: the mods\' pieces join after the blocks are read, each measured - a stand-in off its own model, a coloured bed off its classic one - so priced; a host that asks for none reads none (mutants: DECORMODS-scan-unjoined, DECORMODS-stand-in-unmeasured, DECORMODS-alias-unmeasured)', async () => {
   const blocks = fakeBlocks([{ type: BLOCK_TYPES.Rmb, block: rmb([41000]) }]);
   const arch = { getRecordIndex: (id) => (id === 41000 ? 7 : -1), getMesh: () => ({ radius: 60 }) };
   const getTexture = async () => ({ recordCount: 64, getSize: () => ({ width: 16, height: 32 }), getScale: () => ({ width: 0, height: 0 }) });
@@ -129,11 +138,73 @@ test('DECOR-MODS the scan, through the hosts\' one constructor: the mods\' piece
   const e = scan.entries();
   assert.ok(['m42069', 'm45190', 'f10021.7', 'm53038'].every((k) => e.some((x) => x.key === k)), 'the mods\' pieces');
   assert.ok(['m42069', 'm45190', 'm53038'].every((k) => scan.radiusOf(e.find((x) => x.key === k)) > 0), 'measured, so priced');
-  for (const d of [{ ...deps, mods: false }, { ...deps, modLive: () => false }]) {
-    const none = createDecorScan(d);
-    while (none.phase() === 'blocks') none.step();
-    assert.equal(none.entries().some((x) => x.key === 'm42069'), false);
+  const none = createDecorScan({ ...deps, mods: false });
+  while (none.phase() === 'blocks') none.step();
+  assert.equal(none.entries().some((x) => x.key === 'm42069'), false, 'a host that asks for none reads none');
+});
+
+test('DECOR-MODS AUDIT 05b A3 the scan: a piece the port stood only after the scan measured it - its mod off, or its pack not landed - is measured when the host asks again, in the steps after, so priced; never one measured already (mutant: DECORMODS-never-remeasured)', async () => {
+  const blocks = fakeBlocks([{ type: BLOCK_TYPES.Rmb, block: rmb([41000]) }]);
+  const arch = { getRecordIndex: (id) => (id === 41000 ? 7 : -1), getMesh: () => ({ radius: 60 }) };
+  const getTexture = async () => ({ recordCount: 64, getSize: () => ({ width: 16, height: 32 }), getScale: () => ({ width: 0, height: 0 }) });
+  townsOn = false;
+  try {
+    const scan = createDecorScan(decorScanDeps({ blocks, arch, getTexture }));
+    for (let i = 0; i < 40 && scan.phase() !== 'done'; i++) { scan.step(); await settle(); }
+    const chest = scan.entries().find((x) => x.key === 'm45190'), bed = scan.entries().find((x) => x.key === 'm42069');
+    assert.deepEqual([scan.radiusOf(chest), scan.radiusOf(bed), scan.lateSized()], [null, null, 0], 'catalogued, but no stand-in to measure while the mods are off');
+    townsOn = true;
+    scan.remeasure(decorModsLive(scan.entries()));
+    for (let i = 0; i < 20; i++) { scan.step(); await settle(); }
+    assert.deepEqual([scan.radiusOf(chest), scan.radiusOf(bed)], [standInRadius(45190), 1.5], 'measured once it stands: the chest off its own model, the bed off its classic one');
+    const n = scan.lateSized();
+    assert.ok(n >= 2, 'counted, so the panel lists again');
+    scan.remeasure(decorModsLive(scan.entries()));
+    for (let i = 0; i < 4; i++) { scan.step(); await settle(); }
+    assert.equal(scan.lateSized(), n, 'none measured twice');
+  } finally { townsOn = true; }
+});
+
+test('DECOR-MODS AUDIT 05b A3 the decorator asks the switches as it offers, never once a session: a mod turned off with the panel up takes its pieces off the list within the second; turned on, they come back - one measured only then, priced and listed again as it lands (mutants: DECORMODS-live-once, DECORMODS-late-unlisted)', async () => {
+  // the rig's own blocks and measures, the mods joined: a stand-in measured off its own model (none while it is off), a
+  // mod's flat by its picture (an archive past Daggerfall's has one only through its stand-in)
+  const scan = { mods: true, modelRadius: (id) => (id < TOWN_BED_FIRST ? 0.8 : standInRadius(id)), flatRadius: async (a, r) => (a > 511 && !decorModLive({ model: null, flat: [a, r] }) ? null : 0.2) };
+  townsOn = false;
+  try {
+    const rig = toolRig({ scan, gold: 100000 });
+    rig.frame();
+    assert.equal(rig.tool.openPanel(), true);
+    const run = async (n) => { for (let i = 0; i < n; i++) { rig.frame({ overlayUp: true }); await settle(); } };
+    await run(12);
+    const root = rig.doc.body.children.find((c) => c.className === 'dfdecor');
+    const row = (k) => rows(root).find((r) => r.dataset.key === k) ?? null;
+    assert.deepEqual([!!row('m41000'), row('m45190')], [true, null], 'the mods off as it opens: Daggerfall\'s own, none of theirs');
+    townsOn = true;
+    await run(Math.ceil(DECOR_MODS_LIVE_S / 0.1) + 1);
+    assert.ok(row('m45190'), 'turned on with the panel up: offered within the second');
+    await run(10);   // the scan's steps after: a step's worth of models at a time
+    assert.equal(all(row('m45190'), 'dfdecor-row-price')[0].textContent, `${decorPrice(standInRadius(45190), 1)} gold`, 'measured then, so priced - listed again as it landed');
+    townsOn = false;
+    await run(Math.ceil(DECOR_MODS_LIVE_S / 0.1) + 2);
+    assert.equal(row('m45190'), null, 'turned off again: gone from the list');
+  } finally { townsOn = true; }
+});
+
+test('DECOR-MODS AUDIT 05b A8 the names, off the tables: every hanging and rug is named by the picture its builder wears - one table both read (DET_PICTURES, ROSYS_PICTURES) - and no piece\'s name builds a model or asks a switch (mutants: DECORMODS-names-built, DECORMODS-picture-table-unread)', () => {
+  const hung = [...Object.keys(DET_PICTURES), ...Object.keys(ROSYS_PICTURES)].map(Number);
+  assert.equal(hung.length, 47);
+  for (const id of hung) {
+    const worn = customModelFor(id).subMeshes.find((m) => m.textureArchive === TOWN_PICTURE_ARCHIVE).textureRecord;
+    assert.equal(worn, DET_PICTURES[id] ?? ROSYS_PICTURES[id], `${id}: the builder wears its table's picture`);
   }
+  const every = [...Object.keys(DECOR_MOD_ROOMS.models), ...Object.keys(DECOR_MOD_STREETS.models)].map((id) => ({ model: Number(id) }))
+    .concat([...Object.keys(DECOR_MOD_ROOMS.flats), ...Object.keys(DECOR_MOD_STREETS.flats)].map((k) => ({ flat: k.split('_').map(Number) })));
+  const on = every.map(decorModNaming);
+  townsOn = false;
+  try {
+    assert.deepEqual(every.map(decorModNaming), on, 'the same names with every switch off');
+  } finally { townsOn = true; }
+  for (const id of hung.filter((k) => `${k}` in DECOR_MOD_ROOMS.models)) assert.ok(on[every.findIndex((w) => w.model === id)].base, `${id} named`);
 });
 
 test('DECOR-MODS measured (ARENA2): every stand-in the mods place - both town packs and Detailed Ships\' two ships over the player\'s own blocks - is offered with the count and the place measured, a twin\'s count in its one, an old DET number\'s in its new one, or left out by why', { skip: !HAS_ARENA2 && 'ARENA2_PATH not set' }, () => {

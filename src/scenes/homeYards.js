@@ -357,11 +357,16 @@ export function createHomeYards(deps) {
         // DECOR-OUTDOOR: its pixel BUILT AGAIN (a season's turn, an install, a painted home leaving the merge) - every piece
         // stood again in the new pixel's climate table, animator and season, as the town's own flats are
         const rebuilt = y.entry !== p;
-        if (moved || rebuilt || (sig !== y.sig && !(cur?.yard === y && busyWriting()))) {
+        // AUDIT 05b A4: the owner writing this yard holds it - the pieces standing are the truth until the decorator
+        // is put away, and the town's answer waits (its `sig` unread); moved or built again meanwhile, it stands again as it
+        // stands. The rebuild stood the town's answer under the open decorator - a hall's other keeper's write the panel
+        // was holding back, a piece being moved gone from under it.
+        const holding = cur?.yard === y && busyWriting();
+        if (moved || rebuilt || (sig !== y.sig && !holding)) {
           y.t = [...t];
-          y.sig = sig;
           y.entry = p;
-          y.pool.set(pieces ?? y.pool.list());
+          if (!holding) y.sig = sig;
+          y.pool.set(holding ? y.pool.list() : pieces ?? y.pool.list());
         }
       }
     }
@@ -439,6 +444,8 @@ export function createHomeYards(deps) {
     flatAs: (flat) => (cur && isNatureArchive(flat?.[0]) ? yardNatureFlat(flat, entryOf(cur.yard)?.season ?? 0) : flat),
     // DECOR-LPT: the ghost of a tree or a plant is the picture it will stand as - the one door its piece asks
     flatPicture: (flat) => (cur && isNatureArchive(flat?.[0]) ? nature.picture(flat, entryOf(cur.yard)?.season ?? 0, entryOf(cur.yard)?.forest?.archive ?? null) : null),
+    // AUDIT 05b A5: and a model it draws (the ghost, the preview) in the yard's town's climate first, as its pieces stand
+    prepareModel: (gpu) => (cur ? climateOf(cur.yard, gpu) : null),
     scanDeps: () => deps.scanDeps(),
     base: () => null,
     getGpuMesh: (id) => deps.meshes.getGpuMesh(id), cpuModels: deps.meshes.cpuModels, getTexture: deps.getTexture, uploadRecord: deps.uploadRecord, iconUrl: deps.iconUrl,
@@ -564,7 +571,7 @@ export function createHomeYards(deps) {
     treeSets,
     /** The lot's edge while a piece is placed, on the world's decal pass. */
     drawDecals: (r = deps.renderer) => tool.drawMounts(r),
-    drawPreview: () => tool.drawPreview(null),
+    drawPreview: () => tool.drawPreview(cur ? remapOf(cur.yard) : null),   // AUDIT 05b A5: in the yard's climate, as it will stand
     cameraOverride: (c) => tool.cameraOverride(c),
     flying: () => tool.flying(),
     panelOpen: () => tool.panelOpen(),

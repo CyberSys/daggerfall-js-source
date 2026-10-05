@@ -7,6 +7,7 @@
 // built again. Pinned through the real collector, catalogue, scan, decorator and yard host.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   collectDecor, decorCatalogue, decorRoomEntries, addDecorNature, isStreetPiece, DECOR_NATURE_BASES, DECOR_NATURE_RECORDS,
   DECOR_KINDS,
@@ -18,7 +19,8 @@ import { applyClimate, SEASON } from '../src/world/climateSwaps.js';
 import { floraSwayOf } from '../src/systems/windDrive.js';
 import { BLOCK_TYPES } from '../src/formats/blocksFile.js';
 import { LADDER_MODEL_ID } from '../src/player/enterExit.js';
-import { rmb, fakeBlocks, settle, rows, all, yardWorld, yardPiece, live, sized, SWAPPED, DESERT } from './decorFakes.mjs';
+import { YARD_TOWN_TTL_MS } from '../src/scenes/homeYards.js';
+import { rmb, fakeBlocks, settle, rows, all, one, toolRig, yardWorld, yardPiece, live, sized, SWAPPED, DESERT } from './decorFakes.mjs';
 
 /** A parsed RMB block with a STREET: its own models (`misc`, ids), its own flats (`miscFlats`, [a, r, factionID?]) and
  *  one building whose outside stands `outside` flats - beside one room (rmb's own). */
@@ -158,4 +160,89 @@ test('DECOR-OUTDOOR the decorator in a yard: its own climate\'s trees offered, t
   for (let i = 0; i < 6 && !tool.ghost(); i++) await w.run(1);
   const [ghost] = tool.batches();
   assert.deepEqual([ghost?.a, ghost?.r], [505, 12], 'the ghost: the tree as it will stand, in winter');
+});
+
+test('DECOR-OUTDOOR AUDIT 05b A2: a tree placed in a yard is the catalogue\'s own in "In this yard" - its row its picture (the season\'s) and its name, never its kind\'s letters - a tree is the catalogue\'s own though no room stands one (its count none) (mutant: DECOROUTDOOR-placed-uncatalogued)', async () => {
+  const asked = [];
+  const w = yardWorld({ pieces: [yardPiece()], season: SEASON.Winter, own: true, iconUrl: async (a, r) => { asked.push(`${a}.${r}`); return `url:${a}.${r}`; } });
+  await w.run(2);
+  const tool = w.yards.tool();
+  assert.equal(tool.openPanel(), true);
+  await w.run(12, true);
+  const panel = w.doc.body.children.find((c) => c.className === 'dfdecor');
+  all(panel, 'dfdecor-chip').find((c) => c.textContent.startsWith('In this yard')).fire('click');
+  asked.length = 0;
+  await w.run(2, true);
+  const row = rows(panel).find((r) => r.dataset.key === 'p1');
+  const thumb = all(row, 'dfdecor-thumb')[0];
+  assert.deepEqual([thumb.children.map((c) => c.tag), thumb.textContent], [['img'], ''], 'its picture, never the letters of its kind');
+  assert.equal(all(row, 'dfdecor-row-name')[0].textContent, 'Tree 1');
+  assert.ok(thumb.children[0].getAttribute('src') === 'url:505.12' || asked.includes('505.12'), 'the season\'s picture');
+});
+
+test('DECOR-OUTDOOR AUDIT 05b A4: a yard built again under its owner\'s open decorator stands again as it stands - the town\'s newer answer (another keeper\'s write the panel holds back) waits until the decorator is put away, as it waits for every change of the town\'s (mutant: DECOROUTDOOR-rebuild-unheld)', async () => {
+  const w = yardWorld({ pieces: [yardPiece(), yardPiece({ id: 'p2', pos: [-8, 0, 2] })], own: true });
+  await w.run(2);
+  const tool = w.yards.tool();
+  assert.equal(tool.openPanel(), true);
+  const ids = () => w.yards.yards()[0].pool.list().map((p) => p.id);
+  // another writer takes p2 up; the town is asked again and answers so - held back while the owner writes
+  w.town.pieces = [yardPiece()];
+  w.clock.t += YARD_TOWN_TTL_MS + 1;
+  await w.run(2, true);
+  assert.deepEqual(ids(), ['p1', 'p2'], 'held back while the decorator is up');
+  // its pixel built again (a season's turn) under the open decorator
+  w.built.set('0,0', w.pixel(SEASON.Winter));
+  await w.run(2, true);
+  assert.deepEqual(ids(), ['p1', 'p2'], 'stood again as it stands');
+  assert.deepEqual(live(w.made).map((b) => b.a), [505, 505], 'in the new pixel\'s season');
+  tool.close();
+  await w.run(2);
+  assert.deepEqual(ids(), ['p1'], 'the decorator put away: the town\'s answer stands');
+});
+
+test('DECOR-OUTDOOR AUDIT 05b A5: a model chosen in a yard flies in its town\'s climate - its swaps written into the yard\'s table before its ghost is drawn with it, as the piece will stand; never the base climate\'s a moment and the town\'s once placed. The panel\'s preview is handed the yard\'s table too (mutants: DECOROUTDOOR-ghost-climateless, DECOROUTDOOR-ghost-unprepared)', async () => {
+  const w = yardWorld({ pieces: [], own: true, climate: DESERT });
+  await w.run(2);
+  const tool = w.yards.tool();
+  assert.equal(tool.openPanel(), true);
+  await w.run(12, true);
+  const panel = w.doc.body.children.find((c) => c.className === 'dfdecor');
+  rows(panel).find((r) => r.dataset.key === 'm41000').fire('click');
+  all(panel, 'dfdecor-btn').find((b) => b.textContent === 'Place').fire('click');
+  for (let i = 0; i < 6 && !tool.ghost(); i++) await w.run(1);
+  assert.ok(tool.ghost(), 'placing');
+  const table = w.built.get('0,0').texRemap;
+  const swap = `${applyClimate(SWAPPED, 0, DESERT, SEASON.Summer)}_0`;
+  for (let i = 0; i < 4; i++) { w.yards.draw(); await settle(); }
+  const ghost = w.meshDraws.filter((d) => d.gpu.id === 41000);
+  assert.ok(ghost.length > 0, 'the ghost drawn');
+  assert.ok(ghost.every((d) => d.remap?.get(`${SWAPPED}_0`) === swap), 'every draw of it in the desert\'s own wood - the swap written first');
+  assert.equal(table.get(`${SWAPPED}_0`), swap);
+  assert.match(readFileSync(new URL('../src/scenes/homeYards.js', import.meta.url), 'utf8'), /drawPreview: \(\) => tool\.drawPreview\(cur \? remapOf\(cur\.yard\) : null\),/, 'the preview drawn with the yard\'s table, in the same law');
+});
+
+test('DECOR-OUTDOOR AUDIT 05b A5 the decorator\'s own law: a model it draws with the host\'s table - the panel\'s preview as the ghost - waits for the host\'s law over it (`prepareModel`), asked once a table: a table built anew is asked again (mutant: DECOROUTDOOR-preview-unprepared)', async () => {
+  const asked = [];
+  const p = toolRig({ prepareModel: async (gpu) => { asked.push(gpu); await settle(); } });
+  p.frame();
+  p.tool.openPanel();
+  for (let i = 0; i < 6; i++) { p.frame({ overlayUp: true }); await settle(); }
+  const root = p.doc.body.children.find((c) => c.className === 'dfdecor');
+  const preview = one(root, 'dfdecor-preview');
+  preview.getBoundingClientRect = () => ({ left: 400, top: 100, width: 200, height: 150 });
+  rows(root).find((r) => r.dataset.key === 'm41000').fire('click');
+  p.frame({ overlayUp: true });
+  await settle();
+  one(root, 'dfdecor-preview').children.find((c) => c.tag === 'canvas').getContext = () => ({ drawImage() {} });
+  const table = new Map();
+  assert.equal(p.tool.drawPreview(table), false, 'not drawn before the law answered');
+  await settle(); await settle();
+  assert.equal(p.tool.drawPreview(table), true, 'drawn once it did');
+  assert.equal(p.draws.at(-1).remap, table);
+  assert.equal(p.tool.drawPreview(table), true);
+  assert.equal(asked.length, 1, 'asked once for the table');
+  assert.equal(p.tool.drawPreview(new Map()), false, 'a table built anew (a season\'s turn) is asked again');
+  await settle();
+  assert.equal(asked.length, 2);
 });

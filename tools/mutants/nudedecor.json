@@ -2,11 +2,12 @@
   {
     "name": "NUDEDECOR-offer-ungated",
     "file": "src/systems/decorCatalogue.js",
-    "old": "    && !(nude && e.flat && isNudeFlat(e.flat[0], e.flat[1]))\n",
+    "old": "    && !(nude && e.nude)\n",
     "new": "",
     "tests": [
       "test/nudedecor.test.js"
-    ]
+    ],
+    "note": "AUDIT 05b (PIN MOVED): re-aimed by content - each entry says once whether it is nude (A7)."
   },
   {
     "name": "NUDEDECOR-offer-setting-unread",
@@ -88,5 +89,15 @@
     "tests": [
       "test/nudedecor.test.js"
     ]
+  },
+  {
+    "name": "NUDEDECOR-flag-unset",
+    "file": "src/systems/decorCatalogue.js",
+    "old": "    nude: !!e.flat && isNudeFlat(e.flat[0], e.flat[1]),",
+    "new": "    nude: false,",
+    "tests": [
+      "test/nudedecor.test.js"
+    ],
+    "note": "AUDIT 05b A7: the catalogue never says which entries are nude - the offer, reading the flag, gates none"
   }
 ]

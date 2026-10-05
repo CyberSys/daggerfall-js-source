@@ -2,11 +2,12 @@
   {
     "name": "DECORLPT-tree-classic",
     "file": "src/scenes/yardNature.js",
-    "old": "    const far = proto ? await door.farPicture(proto) : null;",
-    "new": "    const far = null;",
+    "old": "    const door = trees?.door ?? null;",
+    "new": "    const door = null;",
     "tests": [
       "test/decorlpt.test.js"
-    ]
+    ],
+    "note": "AUDIT 05b (PIN MOVED): re-aimed by content - the yard asks the one choice (world/naturePicture.js, A12)."
   },
   {
     "name": "DECORLPT-scale-lost",
@@ -36,22 +37,14 @@
     ]
   },
   {
-    "name": "DECORLPT-far-rings-unread",
-    "file": "src/scenes/yardNature.js",
-    "old": "      batch.farH = pic.plain.h * piece.scale;\n",
-    "new": "",
-    "tests": [
-      "test/decorlpt.test.js"
-    ]
-  },
-  {
     "name": "DECORLPT-lean-unrecorded",
     "file": "src/scenes/yardNature.js",
-    "old": "      trees?.sway?.(proto, sway);   // its 3D trees lean as its far pictures do (the pixel's own record of it)\n",
+    "old": "      trees?.sway?.(pic.proto, sway);   // its 3D trees lean as its far pictures do (the pixel's own record of it)\n",
     "new": "",
     "tests": [
       "test/decorlpt.test.js"
-    ]
+    ],
+    "note": "AUDIT 05b (PIN MOVED): re-aimed by content - the yard asks the one choice (world/naturePicture.js, A12)."
   },
   {
     "name": "DECORLPT-yaw-lost",
@@ -124,5 +117,25 @@
     "tests": [
       "test/decorlpt.test.js"
     ]
+  },
+  {
+    "name": "DECORLPT-late-unshifted",
+    "file": "src/scenes/decorRoom.js",
+    "old": "      if (d[0] || d[1] || d[2]) { const b = got.batch.origin ?? [0, 0, 0]; got.batch.origin = [b[0] + d[0], b[1] + d[1], b[2] + d[2]]; }",
+    "new": "",
+    "tests": [
+      "test/decorlpt.test.js"
+    ],
+    "note": "AUDIT 05b A1: a picture landing after a recentre stood from the origin it was asked at"
+  },
+  {
+    "name": "DECORLPT-ghost-leaks",
+    "file": "src/scenes/decorTool.js",
+    "old": "      const tex = Promise.resolve().then(() => deps.getTexture?.(ga)).catch(() => null);",
+    "new": "      const tex = Promise.resolve().then(() => deps.getTexture?.(ga));",
+    "tests": [
+      "test/decorlpt.test.js"
+    ],
+    "note": "AUDIT 05b A6: a texture that will not load throws the host's held picture away with it"
   }
 ]

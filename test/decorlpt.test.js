@@ -11,18 +11,19 @@ import { yardTreeSet, yardTreeYaw } from '../src/scenes/yardNature.js';
 import { LPT_SCALE_MAX, LPT_SET_FLOATS, gatherNear } from '../src/world/lowPolyTrees.js';
 import { floraSwayOf } from '../src/systems/windDrive.js';
 import { SEASON } from '../src/world/climateSwaps.js';
-import { yardWorld, yardPiece, live, sized, rows, all } from './decorFakes.mjs';
+import { yardWorld, yardPiece, live, sized, rows, all, toolRig, placeFrom } from './decorFakes.mjs';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
 /** Low Poly Trees as its door answers (systems/lowPolyTreesAssets.js): a prototype of each (archive, record) it has a tree
  *  for, a far picture a prototype - uploaded under `<record>#lpt`, sized for the tallest tree (LPT_SCALE_MAX) at its
- *  trimmed share - and its handle's holds counted. `sway` is the world's record of a prototype's lean. */
-function fakeTrees({ protos = ['504_12', '505_12'], loads = true } = {}) {
+ *  trimmed share - and its handle's holds counted. `sway` is the world's record of a prototype's lean. AUDIT 05b A1:
+ *  `gate` a promise its data waits on (the mod's data still loading). */
+function fakeTrees({ protos = ['504_12', '505_12'], loads = true, gate = null } = {}) {
   const made = new Map();
   const leans = new Map();
   const door = {
-    load: async () => (loads ? {} : null),
+    load: async () => { await gate; return loads ? {} : null; },
     proto: (a, r) => (protos.includes(`${a}_${r}`) ? { key: `${a}_${r}`, archive: a, record: r, size: { w: 5, h: 10 } } : null),
     farPicture: async (proto) => {
       if (!made.has(proto.key)) made.set(proto.key, { proto, archive: proto.archive, record: `${proto.record}#lpt`, size: { w: 4 * LPT_SCALE_MAX, h: 9 * LPT_SCALE_MAX }, refs: 0 });
@@ -34,7 +35,7 @@ function fakeTrees({ protos = ['504_12', '505_12'], loads = true } = {}) {
   return { door, sway: (p, s) => leans.set(p.key, Math.max(leans.get(p.key) ?? 0, s)), made, leans };
 }
 
-test('DECOR-LPT the yard\'s tree: a record Low Poly Trees has a tree for stands as its far picture - sized for the tallest tree with the piece\'s own scale on its corner, never mirrored (the tree turns in earnest), giving way to its 3D tree near the eye, leaning as the town\'s flora - its handle held, its lean recorded for its 3D trees (mutants: DECORLPT-tree-classic, DECORLPT-scale-lost, DECORLPT-not-cut, DECORLPT-unheld, DECORLPT-far-rings-unread, DECORLPT-lean-unrecorded)', async () => {
+test('DECOR-LPT the yard\'s tree: a record Low Poly Trees has a tree for stands as its far picture - sized for the tallest tree with the piece\'s own scale on its corner, never mirrored (the tree turns in earnest), giving way to its 3D tree near the eye, leaning as the town\'s flora - its handle held, its lean recorded for its 3D trees (mutants: DECORLPT-tree-classic, DECORLPT-scale-lost, DECORLPT-not-cut, DECORLPT-unheld, DECORLPT-lean-unrecorded)', async () => {
   const trees = fakeTrees();
   const w = yardWorld({ pieces: [yardPiece({ rot: [180, 0, 0] })], trees });
   await w.run();
@@ -43,7 +44,7 @@ test('DECOR-LPT the yard\'s tree: a record Low Poly Trees has a tree for stands 
   assert.deepEqual([far.a, far.r, far.size, far.centers, far.scales], [504, '12#lpt', handle.size, [[18, 0, 12]], [2 / LPT_SCALE_MAX]], 'the far picture, the piece\'s scale on its corner');
   assert.ok(far.size.w > 0, 'turned half round, the picture of a tree never mirrors');
   assert.equal(far.lptProto, handle, 'it gives way to its 3D tree near the eye');
-  assert.equal(far.farH, sized(40, 120, 2).h, 'MAC1\'s far rings read the flat\'s height at the piece\'s scale');
+  assert.equal(far.farH, undefined, 'AUDIT 05b A9: no far rings\' height - a yard\'s flats stand outside MAC1\'s rings, so none would read one');
   assert.equal(far.sway, floraSwayOf(504, 504, sized(40, 120).h));
   assert.equal(handle.refs, 1, 'its handle held while it stands');
   assert.equal(trees.leans.get('504_12'), far.sway, 'its 3D trees lean as its far picture does');
@@ -68,6 +69,25 @@ test('DECOR-LPT the yard\'s near set: each standing tree, in the yard\'s own fra
   const [moved] = w.yards.treeSets();
   assert.deepEqual([moved.ox, moved.oz], [-90, 10]);
   assert.deepEqual(live(w.made).find((b) => b.r === '12#lpt').origin, [-100, 0, 0], 'the far picture moved with it');
+});
+
+test('DECOR-LPT AUDIT 05b A1: a tree whose picture lands after a recentre stands where its yard stands now - moved by the recentre it missed, as a picture already standing is - never a whole recentre off its yard and its own 3D tree until the yard is set again (mutant: DECORLPT-late-unshifted)', async () => {
+  let open;
+  const trees = fakeTrees({ gate: new Promise((r) => { open = r; }) });
+  const w = yardWorld({ pieces: [yardPiece()], trees });
+  await w.run(2);
+  assert.deepEqual([w.yards.yards().length, live(w.made).length], [1, 0], 'the yard stands; its tree\'s data still loading');
+  w.shift[0] = -100;
+  w.yards.rebase();
+  open();
+  await w.run(1);
+  const [far] = live(w.made);
+  const [set] = w.yards.treeSets();
+  const at = far.centers[0].map((v, i) => v + (far.origin ?? [0, 0, 0])[i]);
+  assert.deepEqual(at, [set.ox + set.centers[0][0], set.oy + set.centers[0][1], set.oz + set.centers[0][2]], 'the far picture where its 3D tree stands');
+  assert.deepEqual(at, [-82, 0, 12], 'where the yard stands now - its piece 8 m along from the yard\'s frame, the pixel 100 m back');
+  await w.run(2);
+  assert.deepEqual([live(w.made).length, live(w.made)[0]], [1, far], 'the yard\'s own sync sees nothing to set again - it stays where it stands');
 });
 
 test('DECOR-LPT the tree leaves with its piece: a piece taken up takes its tree from the near set and lets its handle go; a season\'s turn stands the winter twin\'s tree and lets the summer one go; a yard taken down with its pixel lets every handle go and leaves no tree in the near set (mutant: DECORLPT-release-lost)', async () => {
@@ -121,6 +141,20 @@ test('DECOR-LPT the decorator\'s ghost: a tree chosen in a yard shows the pictur
   assert.ok(Math.abs(tool.ghost().rot[0]) > 90 && ghost.size.w > 0, 'turned half round, the tree\'s picture never mirrors - as it will stand');
   tool.back();
   assert.equal(handle.refs, 0, 'let go when the placing ends');
+});
+
+test('DECOR-LPT AUDIT 05b A6: a ghost whose own texture will not load still flies as the host\'s picture, and lets it go when the placing ends - a failed ask never throws a held picture away with it (mutant: DECORLPT-ghost-leaks)', async () => {
+  let held = 0;
+  const rig = toolRig({
+    getTexture: async (a) => { if (a === 209) throw new Error('the archive would not load'); return { recordCount: 64, getSize: () => ({ width: 16, height: 32 }), getScale: () => ({ width: 0, height: 0 }) }; },
+    flatPicture: async () => { held++; return { archive: 504, key: '12#lpt', size: { w: 2, h: 4 }, mirrors: false, release: () => { held--; } }; },
+  });
+  await placeFrom(rig, 'f209.0');
+  for (let i = 0; i < 4 && !rig.tool.ghost(); i++) { rig.frame(); await new Promise((r) => setTimeout(r, 0)); }
+  const [ghost] = rig.tool.batches();
+  assert.deepEqual([ghost?.archive, ghost?.record, held], [504, '12#lpt', 1], 'the host\'s picture, held while it is placed');
+  rig.tool.back();
+  assert.equal(held, 0, 'let go when the placing ends');
 });
 
 test('DECOR-LPT the same door without the mod: under Seasons of the Iliac Bay a tree\'s ghost is the mod\'s picture of the season, as the piece will stand - never the classic record it does not stand as (mutant: DECORLPT-ghost-classic)', async () => {

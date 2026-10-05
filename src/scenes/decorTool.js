@@ -80,6 +80,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { createDecorScan } from '../systems/decorScan.js';
+import { decorModsLive, DECOR_MODS_LIVE_S } from '../systems/decorMods.js';   // AUDIT 05b A3: the mods' pieces offered while they stand
 import { createDecorRooms } from '../systems/decorRooms.js';   // DECOR-ROOMS: a house's rooms, found in its own walls
 import { createDecorDoorways, decorDoorwaysFree, decorDoorwayAimed, decorDoorFit, decorDoorwayQuad, decorIsDoor } from '../systems/decorDoorways.js';   // HOME-DOORS
 import { writeDecalQuad, clearDecalQuad, DECAL_FLOATS } from '../combat/bloodDecals.js';   // HOME-DOORS: the doorways' marks, on the decal pass
@@ -358,6 +359,9 @@ export const eyePoint = (collider, eye, dir, skip = null) => eyeHit(collider, ey
  *                      Poly Trees picture, its season's: scenes/yardNature.js picture), a Promise of `{ archive, key,
  *                      size, mirrors, release }` at scale 1 (`release` lets go of what it holds - called when the ghost
  *                      goes), or null (none: the flat's own picture, as ever)
+ *   prepareModel(gpu) - AUDIT 05b A5: the host's own law over a model before the decorator draws it with the host's table
+ *                      (a yard's: its town's climate swaps written into the table its pieces draw with - scenes/homeYards.js
+ *                      climateOf), a Promise or nothing; none, drawn at once
  */
 export function createDecorTool(deps) {
   const { renderer, pool } = deps;
@@ -410,6 +414,22 @@ export function createDecorTool(deps) {
     return null;
   }
 
+  /** AUDIT 05b A5: A MODEL DRAWN IN THE HOST'S LAW - `deps.prepareModel` asked once for each table the decorator draws a
+   *  model with (the host hands it the table: a yard's pixel's, built again in a new season, is a new one), and the model
+   *  drawn with it only once it answered: the ghost and the preview as the piece will stand, never in the textures a moment
+   *  and the town's the next (a yard's ghost flew in the base climate's wood, then stood in the desert's). */
+  /** @type {WeakMap<object, Map<any, boolean>>} */
+  const inLawOf = new WeakMap();
+  function inLaw(gpu, texRemap) {
+    if (!deps.prepareModel || !texRemap) return true;
+    let seen = inLawOf.get(texRemap);
+    if (!seen) inLawOf.set(texRemap, (seen = new Map()));
+    if (seen.has(gpu)) return seen.get(gpu);
+    seen.set(gpu, false);
+    Promise.resolve().then(() => deps.prepareModel(gpu)).catch(() => {}).then(() => { seen.set(gpu, true); });
+    return false;
+  }
+
   function ensureDom() {
     if (panel || !deps.doc) return;
     const { doc, win, touch = false } = deps;
@@ -455,6 +475,20 @@ export function createDecorTool(deps) {
   }
 
   const ensureScan = () => { scan ??= createDecorScan(deps.scanDeps()); return scan; };
+  // AUDIT 05b A3: THE MODS' PIECES THE PORT STANDS NOW (systems/decorMods.js decorModsLive) - the offer's own
+  // (decorCatalogue.js decorRoomEntries), asked as the panel opens, as the catalogue first stands and every
+  // DECOR_MODS_LIVE_S it is up; never once a session (a mod turned off left its pieces for sale that stood nowhere, one
+  // turned on was never offered). A piece that stands only now is measured then, so priced (decorScan.js remeasure).
+  let modsLive = new Set(), modsLiveIn = 0, modsLiveOf = null;
+  function liveMods() {
+    const s = ensureScan(), list = s.entries();
+    if (modsLiveIn > 0 && modsLiveOf === list) return modsLive;
+    modsLiveIn = DECOR_MODS_LIVE_S;
+    modsLiveOf = list;
+    const now = decorModsLive(list);
+    if (now.size !== modsLive.size || [...now].some((k) => !modsLive.has(k))) { modsLive = now; s.remeasure(now); }
+    return modsLive;
+  }
 
   /** DECOR-ROOMS: the finder for this interior - a new one for another interior's collider (a new visit), the choice
    *  forgotten with the house it was made in. */
@@ -583,18 +617,22 @@ export function createDecorTool(deps) {
     const kept = pool.ownOf?.(piece.id) ?? null;
     return (kept ? itemLongName(kept) : null) || decorItemName(piece.item) || DECOR_KINDS.decor;
   };
+  /** A placed piece's entry IN THE CATALOGUE, or null - one of the owner's own is none of the catalogue's, and none is
+   *  found before the catalogue is read. AUDIT 05b A2: asked for itself - the placed list read an entry's `count` as
+   *  "found", and a tree, a plant or a hall's board is the catalogue's own at a count of 0 (a row of its kind's letters,
+   *  never its picture). */
+  const catalogued = (piece) => (piece.item ? null : scan?.entries()?.find((x) => x.key === decorKey(piece)) ?? null);
   /** A placed piece's catalogue entry - or, until the catalogue is read, the piece's own shape as one. DECOR2a: a piece
    *  of the owner's own is its own entry, free. */
-  function entryOf(piece) {
+  function entryOf(piece, known = catalogued(piece)) {
     if (piece.item) {   // DECOR2b: furniture stands as a look - a model as often as a flat
       return {
         key: `own-piece:${piece.id}`, kind: 'own', model: piece.model ?? null, flat: piece.flat ?? null, item: piece.item, name: ownName(piece), count: 0,
         storage: false, light: decorFlatLight(piece.flat), mount: decorIsMount(piece),   // DECOR2c: a hung one moves as it hangs
       };
     }
+    if (known) return known;
     const key = decorKey(piece);
-    const e = scan?.entries()?.find((x) => x.key === key);
-    if (e) return e;
     // the catalogue not read yet: its kind by its model all the same (AUDIT: a door moved in the first moments of a visit
     // flew as furniture - set on any surface, at any turn - and was still hung as a door)
     const kind = piece.model != null ? modelKind(piece.model) : 'decor';
@@ -637,8 +675,8 @@ export function createDecorTool(deps) {
     const list = roomList();   // DECOR-ROOMS
     return {
       placed: pool.list().map((piece) => {
-        const entry = entryOf(piece);
-        return { piece, entry: entry.count ? entry : null, name: entry.name, holds: !!pool.holdsAny?.(piece.id), own: !!piece.item, room: list ? rooms.roomOf(piecePoint(piece))?.id ?? null : null };
+        const known = catalogued(piece);
+        return { piece, entry: known, name: entryOf(piece, known).name, holds: !!pool.holdsAny?.(piece.id), own: !!piece.item, room: list ? rooms.roomOf(piecePoint(piece))?.id ?? null : null };
       }),
       // DECOR-ROOMS: a house of two rooms or more - each one's name, and the one chosen (the panel's tabs, and its lists)
       rooms: list ? list.map((room) => ({ id: room.id, name: room.name })) : null,
@@ -649,10 +687,11 @@ export function createDecorTool(deps) {
       base: baseRows(),   // BASE-HIDE: the room's own furniture
       where: r?.where ?? '',
       hall: !!r?.hall,   // AUDIT GUILD1d A9: a hall's piece gives its half to the guild's treasury (the panel says so)
-      entries: decorRoomEntries(s.entries(), r),   // HOME-YARD: a door hangs in a doorway, never in a yard; GUILD1e: a hall's board in a hall alone
+      entries: decorRoomEntries(s.entries(), r, null, liveMods()),   // HOME-YARD: a door hangs in a doorway, never in a yard; GUILD1e: a hall's board in a hall alone; AUDIT 05b A3: a mod's piece while it stands
       yard: !!r?.yard,
       progress: s.progress(),
       ready: s.phase() === 'done',
+      sized: s.lateSized(),   // AUDIT 05b A3: a piece measured since - its price, listed
       radiusOf: (e) => s.radiusOf(e),
       priceOf: (e) => { const rad = s.radiusOf(e); return rad ? decorPrice(rad, 1) : null; },
       gold: deps.wallet?.().gold ?? 0,
@@ -799,6 +838,7 @@ export function createDecorTool(deps) {
     if (!deps.room?.() || placing || panel?.isOpen()) return false;
     ensureDom();
     if (!panel) return false;
+    modsLiveIn = 0;   // AUDIT 05b A3: the switches asked again as it opens
     slot = panel.open(view());
     if (slot) deps.openSlot?.(slot);
     return !!slot;
@@ -832,7 +872,10 @@ export function createDecorTool(deps) {
       const [ga, gr] = drawnHere(entry.flat);   // NUDE-DECOR: a figure moved shows the stand-in the room stands it as; DECOR-OUTDOOR: a tree, its season
       // DECOR-LPT: a flat the host stands its own way shows the picture it will stand as (a yard's tree, Low Poly Trees')
       const hosted = Promise.resolve(deps.flatPicture?.(entry.flat) ?? null).catch(() => null);
-      Promise.all([deps.getTexture?.(ga), mw, hosted]).then(([t, pic, own]) => {
+      // AUDIT 05b A6: each ask fails on its own - a texture that would not load threw the three answers away together,
+      // the host's held picture with them (never let go, no ghost)
+      const tex = Promise.resolve().then(() => deps.getTexture?.(ga)).catch(() => null);
+      Promise.all([tex, mw, hosted]).then(([t, pic, own]) => {
         if (placing !== p) { own?.release?.(); return; }
         if (own) {
           p.flatSize = { ...own.size };
@@ -1301,6 +1344,7 @@ export function createDecorTool(deps) {
       ensureRooms().step();   // DECOR-ROOMS: a few rays a frame until the house's rooms are found
       ensureDoorways()?.step();   // HOME-DOORS: then its doorways, so a door's line can say how many are free
       nameFromCatalogue();
+      modsLiveIn -= dt > 0 ? dt : 0;   // AUDIT 05b A3
       panel.update(view());
       const pointed = panel.pointed();
       if (pointed?.model != null) modelFor(pointed.model);
@@ -1442,7 +1486,7 @@ export function createDecorTool(deps) {
     const p = placing;
     if (!p || p.suspended || !p.piece || p.entry.model == null) return false;
     const m = modelFor(p.entry.model);
-    if (!m) return false;
+    if (!m || !inLaw(m.gpu, texRemap)) return false;   // AUDIT 05b A5: in the host's law first
     r?.drawMesh?.(m.gpu, decorMatrix(p.piece, deps.origin?.() ?? [0, 0, 0]), texRemap);
     return true;
   }
@@ -1467,7 +1511,7 @@ export function createDecorTool(deps) {
     const m = modelFor(e.model);
     const box = panel.previewRect();
     const c = deps.canvas?.getBoundingClientRect?.();
-    if (!m || !box || !c || !(c.width > 0) || !(c.height > 0)) return false;
+    if (!m || !box || !c || !(c.width > 0) || !(c.height > 0) || !inLaw(m.gpu, texRemap)) return false;   // AUDIT 05b A5
     const sx = deps.canvas.width / c.width;
     const sy = deps.canvas.height / c.height;
     const rect = { x: (box.left - c.left) * sx, y: (box.top - c.top) * sy, w: box.width * sx, h: box.height * sy };

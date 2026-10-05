@@ -60,7 +60,7 @@ import { trs, multiply } from './mat4.js';
 
 export const RDB_SIDE = 2048 * GLOBAL_SCALE;
 
-export const EXIT_DOOR_MODEL_ID = 70300;   // DECOR-DUNGEON: the decor catalogue leaves it out, as an action door
+export const EXIT_DOOR_MODEL_ID = 70300;   // DECOR-DUNGEON: the dungeons' census leaves it out too (test/decordungeon.test.js) - a door, though no action door
 const RED_BRICK_DOOR_MODEL_ID = 72100;
 const MIN_TAPESTRY_ID = 42500;
 const MAX_TAPESTRY_ID = 42571;

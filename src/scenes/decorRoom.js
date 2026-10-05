@@ -276,15 +276,21 @@ export function createDecorRoom({
 
   /** DECOR-OUTDOOR: A FLAT THE HOST STANDS ITS OWN WAY (`standFlat` - a yard's nature, in its season): asked once;
    *  whether the host took it. Its answer stands where the room's own would - its batch the piece's, destroyed with it,
-   *  and what it holds let go with it (`release`); an answer landing for a piece moved or gone is let go at once. */
+   *  and what it holds let go with it (`release`); an answer landing for a piece moved or gone is let go at once.
+   *  AUDIT 05b A1: the host stands it from the origin it was asked at - an answer landing after a restand() is moved by
+   *  the recentre it missed, as restand() moves a batch already standing (else it stood a whole recentre off its yard,
+   *  and its 3D tree, until the yard was set again). */
   function standOwn(entry) {
     const { piece } = entry;
     const live = () => standing.get(piece.id) === entry;
-    const asked = standFlat ? standFlat(piece, entry.o, live) : null;
+    const at = entry.o;
+    const asked = standFlat ? standFlat(piece, at, live) : null;
     if (!asked) return false;
     Promise.resolve(asked).then((got) => {
       if (!got) return;
       if (!live()) { renderer?.destroyBillboardBatch?.(got.batch); got.release?.(); return; }
+      const d = [entry.o[0] - at[0], entry.o[1] - at[1], entry.o[2] - at[2]];
+      if (d[0] || d[1] || d[2]) { const b = got.batch.origin ?? [0, 0, 0]; got.batch.origin = [b[0] + d[0], b[1] + d[1], b[2] + d[2]]; }
       entry.batch = got.batch;
       entry.size = got.size;
       entry.release = got.release ?? null;

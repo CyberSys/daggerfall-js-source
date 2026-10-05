@@ -29,20 +29,22 @@
   {
     "name": "DECORDUNGEON-actions-taken",
     "file": "src/systems/decorCatalogue.js",
-    "old": "          if (!isDungeonFurnishing(id) || id === EXIT_DOOR_MODEL_ID || rdbModelActs(obj) || isActionDoor(rdb, ref)) continue;",
-    "new": "          if (!isDungeonFurnishing(id) || id === EXIT_DOOR_MODEL_ID || isActionDoor(rdb, ref)) continue;",
+    "old": "          if (!isDungeonFurnishing(id) || rdbModelActs(obj) || isActionDoor(rdb, ref)) continue;",
+    "new": "          if (!isDungeonFurnishing(id) || isActionDoor(rdb, ref)) continue;",
     "tests": [
       "test/decordungeon.test.js"
-    ]
+    ],
+    "note": "AUDIT 05b (PIN MOVED): re-aimed by content - the exit door's dead test is gone (A10)."
   },
   {
     "name": "DECORDUNGEON-doors-taken",
     "file": "src/systems/decorCatalogue.js",
-    "old": "          if (!isDungeonFurnishing(id) || id === EXIT_DOOR_MODEL_ID || rdbModelActs(obj) || isActionDoor(rdb, ref)) continue;",
-    "new": "          if ((!isDungeonFurnishing(id) && !isActionDoor(rdb, ref)) || id === EXIT_DOOR_MODEL_ID || rdbModelActs(obj)) continue;",
+    "old": "          if (!isDungeonFurnishing(id) || rdbModelActs(obj) || isActionDoor(rdb, ref)) continue;",
+    "new": "          if ((!isDungeonFurnishing(id) && !isActionDoor(rdb, ref)) || rdbModelActs(obj)) continue;",
     "tests": [
       "test/decordungeon.test.js"
-    ]
+    ],
+    "note": "AUDIT 05b (PIN MOVED): re-aimed by content - the exit door's dead test is gone (A10)."
   },
   {
     "name": "DECORDUNGEON-markers-taken",
