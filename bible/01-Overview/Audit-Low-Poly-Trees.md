@@ -9,7 +9,7 @@ rendering (A); the lifecycle, the memory and the cost (B); fidelity to the mod, 
 needed the owner's choice; one doctrine question (D13) was answered on the doctrine's safe side and is reported.
 
 Each fix is pinned in `test/lpt1_lowpolytrees.test.js` (LPT1's own file, rewritten: 27 tests to 41) or in the pin it
-moved (TACT1's cover sites). Mutation-proven: `tools/mutants/lpt1.json`, 111 records - 110 dead, and one recorded as unreachable (a run whose atlas is gone: no handle in a set can lose its atlases today; the guard is kept against a hole). Twelve records of seven other lists re-aimed where this pass moved their code (the enhanced lane's flat sun read, the far rings' call, the trees' frame call, four cites the cite shift moved), every one dead.
+moved (TACT1's cover sites). Mutation-proven: `tools/mutants/lpt1_trees.json`, 111 records - 110 dead, and one recorded as unreachable (a run whose atlas is gone: no handle in a set can lose its atlases today; the guard is kept against a hole). Twelve records of seven other lists re-aimed where this pass moved their code (the enhanced lane's flat sun read, the far rings' call, the trees' frame call, four cites the cite shift moved), every one dead.
 
 Severity: **High** breaks the owner's ask (the seasons, the cost or the draw distance) or a tree's look for many;
 **Medium** a wrong outcome for some; **Low** a nit, a cost or a word. A finding two lenses made is listed once, under
@@ -78,6 +78,11 @@ the first, with the other's id.
 | D14 | Low | Smaller records: "some 45 draws", "a climate using four to seven", the light law's claim, "rebuilds every file", the switch "read as each pixel is built" (it is read once, at boot), "Kamer's third" (his sixth), "the owner's word", the extractor's header. | Each corrected. |
 | D15 | Low | Process rules: `LPT_SOURCE_ARCHIVES` repeated `LPT_ARCHIVES` (ONE DFU MEMBER, ONE EXPORT); `clearFrame`, `nearReady` had no caller. | The tool reads `LPT_ARCHIVES`; the dead members gone; `destroy` kept and said to be the test host's (the world holds the door for the session, as it holds the mills' parts). |
 | D16 | Low | Weak details: the quarter turns checked against themselves, `LPT_REGATHER_M` pinned by its own name, `tileCrop`'s y-mirror and the snow flag unpinned. | Each pinned by value. |
+
+**After the merge** (the same day): the desktop release's Windows leg refused to check the tree out - `LPT1` is a DOS
+device name, reserved on Windows with any extension, so Git for Windows calls the mutant list `lpt1.json` (in `tools/mutants/`)
+an invalid path (the PR's CI runs on Linux alone and never met it). The list is `tools/mutants/lpt1_trees.json` now, and REL7
+(`test/rel4_release.test.js`) holds every path in the tree to what a Windows checkout takes.
 
 ## Recorded, not fixed
 
