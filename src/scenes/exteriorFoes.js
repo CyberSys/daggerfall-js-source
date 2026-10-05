@@ -24,7 +24,7 @@ import { EnemyAI, isBackFacing, withinYaw, MELEE_DISTANCE, foeFrameDt } from '..
 import { spaceFoes } from '../characters/foeSpacing.js';   // FOE-SPACING: the pack keeps apart
 import { blowConnects, blowScaled } from '../ai/foeBlows.js';   // TACT4
 import { foeGlint, tacticsNow, beginRoar } from '../ai/tactics.js';   // TELL2: a wind-up's glint (bible/12-Enhanced-AI/Feud-Arc.md section 4.2); TELL8: the record's wind-up on the foes' clock; RVN4: a last stand's roar
-import { lastStandGlint, lastStandSize, pyreSpell } from '../systems/revenantFeud.js';   // RVN4: phase two's rim and size; RVN5: the pyre's blast
+import { lastStandGlint, lastStandSize, pyreSpell, bandMembers, bandName, bandWord, BAND_SCATTER_S, BAND_SPACING, RALLY_KIN } from '../systems/revenantFeud.js';   // RVN4: phase two's rim and size; RVN5: the pyre's blast; RVN6: its band
 import { runTargetMachine, boutGate, isPlayerTarget, isLocalPlayerTarget, isPeerTarget, resetAllyTeamOnPlayerAttack, PLAYER_TARGET, PEER_CAST_TARGET, targetAimPoint, enemyArrowOrigin, enemyTransformPoint, arrowAimDirection, wireRecipient, bumpAtkCount, staticTeamOf } from '../characters/enemyTargets.js';   // AUDIT WATCH1: the wire's spellings, one home   // WORLD6b-ii: the local player told from a peer, the peer told from a foe   // MT-ii   // ROAD-H H1/H1b: the ONE arrow loose point and the crouch dip
 import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_HEIGHT } from '../player/motor.js';   // CH3: the shared fall formula
 import { SOUND, hitSoundFor, ENEMY_HIT_VOLUME } from '../systems/soundClips.js';   // CH3: the FallDamage clip; WORLD6b: a peer's blow rung at the owner
@@ -79,7 +79,8 @@ import { bloodHit } from '../combat/bloodDecals.js';   // BLOOD1b: the blow, in 
 import { addItem } from '../systems/inventory.js';   // AR1: BowDamage's recoverable arrow, in the TARGET's items
 import { EnemySoundSource, acuteHearingMultiplier } from '../characters/enemySounds.js';   // AUDIT 24 (wave 41): EnemySounds.cs, one home
 import { flashPlayerDamage } from '../ui/damageFlash.js';   // AUDIT 24 (wave 39): ShowPlayerDamage   // AUDIT 24 (wave 38): EnemyDeath's one home
-import { bindQuestFoeHost, isPrivateQuestFoe } from './questFoeHost.js';   // B1: quest foes ride this pool; CURSE-SYNC: a world quest's ride as the world's
+import { bindQuestFoeHost, isPrivateQuestFoe, placeFoeEnv, entityOccupancy } from './questFoeHost.js';   // B1: quest foes ride this pool; CURSE-SYNC: a world quest's ride as the world's; RVN6: a band placed about its master
+import { placeFoeFreely } from '../systems/quest/sceneMount.js';   // RVN6: PlaceFoeFreely's ring, a camp member's law
 import { validSites, validSiteTags, isRiteSite, WOD_CAMP_PUPPETS_MAX, WOD_SITES_MAX, WOD_AGE_MAX } from '../world/wodShared.js';   // WOD7: a World of Daggerfall camp's foes, shared
 import { validRaidTags, validAlliedIds, RAID_PUPPETS_MAX } from '../world/raidShared.js';   // RAID2: a town's raid, shared
 import { isShipmate } from '../combat/friendlyFire.js';   // SHIPMATES: my crew named on the wire, and never the swing's
@@ -550,6 +551,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // B1: the quest resource behaviour couples at the stand - the
       // activation moment, where Unity runs the deferred Start.
       if (questBehaviour) bindQuestFoeHost(f, questBehaviour, questPoolOps);
+      if (revenant && !puppet && !allied && entity.revenant) Promise.resolve().then(() => standBand(f, bandMembers(revenant, effectiveLevel(playerEntity))));   // RVN6: its band about it - once its own slot is let go (the finally below)
       return f;
     } catch (err) {
       console.error(`[encounter] mobileType ${mobileType} failed to spawn:`, err?.message ?? err);
@@ -941,6 +943,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // ANOTHER foe never touches the player's alert (MT-ii).
       if (isLocalPlayerTarget(f.ai?.target) && f.ai?.detected) setEnemyAlert(playerEntity, false);   // WORLD6b-ii: mine, not a peer's (AUDIT WORLD3 C3)
       if (!peer) sayEnemyDied(say, f.mobileType, f.entity);   // EnemyDeath:79-83, the kill notice - mine alone (AUDIT WORLD6b B2); LOOT7: a champion by its name
+      if (f.entity?.revenant) scatterBand(f);   // RVN6: it dies - its band breaks
       if (f.entity?.revenant) { const nr = revenantSlain(playerEntity, f.entity); if (nr && !peer) revenantSay(revenantSlainEvent(nr, playerEntity?.name, { archive: f.archive }), say); }   // REVENANT: slain at last - its record closed, whoever struck last
       stampWonWeapons(f.entity.items, _sharedFoe(f) ? fightN(f) : 1, { rolls });   // SIGIL1: the body's Magic+ weapons won online may carry a sigil - here, where its list lives, whoever struck last; a bigger fight, better odds
       raiseEnemyDeath(f.entity, { rolls, luck: liveStat(playerEntity, 'luck') });   // UL1: OnEnemyDeath (:139) - the corpse's items are the entity's. AUDIT VC6: a handler that ROLLS (SURV2's food) takes this pool's own stream and the player's luck, as spawnEnemyLoot does
@@ -1151,6 +1154,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   /** REVENANT: a fleeing foe out of reach - gone as the cull takes a foe (no corpse, no kill, its batch freed; online
    *  its record leaves the stream), made a revenant (or a stronger one), and said. */
   function escapeFoe(f, { slip = false, unbroken = false } = {}) {
+    scatterBand(f);   // RVN6: gone - its band breaks (once)
     releaseFoeBatch(f);
     f.dead = true;
     f.fleeing = false;
@@ -1187,11 +1191,72 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (bark != null) audio?.play3d?.(bark, at, 1, { maxDistance: 24, pitch: 0.6 });
     shake?.(0.8);
     if (ev) revenantSay(ev, say);
+    if (ev && (f.entity.revenant.rank | 0) >= 5) rallyBand(f);   // RVN4 rank 5: its band to it, or its kin through a portal (RVN6)
+  }
+  /** RVN6 (Feud-Arc.md 17): ITS BAND - `members` ({ mobileType, level }) placed about it as a camp's are about their
+   *  anchor (PlaceFoeFreely's ring out to BAND_SPACING, any bearing), in the room the pool has left - followers are
+   *  trimmed first, its own slot already held. Ordinary (never a champion or an elite), transient (no save carries one,
+   *  nor its master), each `retinueOf` its id, sharing its camp's infighting exemption (`entity.campId`), named for it on
+   *  the hover. `portal`: RVN4's rank 5 - they step out of a portal. Answers the stands begun. */
+  function standBand(f, members, { portal = false } = {}) {
+    const id = f?.entity?.revenant?.id;
+    if (!id || f.dead || !members?.length || !collider) return [];
+    const room = Math.max(0, encounterRoom());
+    const r = revenantById(id);
+    const name = r ? bandName(r) : null;
+    const campId = f.entity.campId ?? (f.entity.campId = newCampId());
+    const at = [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]];
+    const stands = [];
+    for (const m of members.slice(0, room)) {
+      const env = placeFoeEnv({ collider, playerFeet: [at[0], at[1] + 0.9, at[2]], playerYawRad: Math.random() * Math.PI * 2, fovDegrees: 0, isOccupied: entityOccupancy((g) => g.ai?.feet ?? g.feet, () => [...foes, ...spawning], null) });
+      let spot = null;
+      for (let i = 0; i < 4 && !spot; i++) spot = placeFoeFreely(env, { minDistance: 1, maxDistance: BAND_SPACING, lineOfSightCheck: false });
+      if (!spot) continue;
+      const fly = (ENEMY_BASICS[m.mobileType]?.behaviour ?? 'General') === 'Flying';
+      const feet = [spot.x, fly ? spot.y + 1.5 : spot.y, spot.z];
+      if (portal) portals.open(feet);
+      stands.push(spawnFoe(m.mobileType, feet, { yaw: f.ai.yaw, level: m.level, champion: null, eliteFoe: false, transient: true }).then((g) => {
+        if (!g) return null;
+        g.retinueOf = id;
+        if (g.entity) { g.entity.retinueOf = id; g.entity.campId = campId; g.entity.bandName = name; }
+        if (portal) g.portalFx = { dir: 'in', at: Date.now(), delay: 220, ms: 640 };   // COMPANION-PORTAL's arrival
+        return g;
+      }).catch(() => null));
+    }
+    return stands;
+  }
+  /** RVN6 (17): ITS BAND SCATTERS - its master kneels, runs, dies, is executed or tears away: each follower standing
+   *  breaks and runs from it (DFU's flee, BAND_SCATTER_S) and is gone when its run is spent (the frame's); said once for
+   *  the followers it breaks. Asked again (its death after its kneel) it breaks only those not already running - a
+   *  rank-5 one's kin stepped out of a portal after an earlier scatter break with it. */
+  function scatterBand(f) {
+    const id = f?.entity?.revenant?.id;
+    if (!id) return 0;
+    let n = 0;
+    for (const g of foes) {
+      if (g === f || g.dead || g.puppet || g.retinueOf !== id || g.scattering) continue;
+      g.scattering = true;
+      g.ai.flee(f.ai.feet, BAND_SCATTER_S);
+      n++;
+    }
+    if (n) say?.(`The ${(bandWord(f.mobileType) ?? 'band').toLowerCase()} scatters.`);
+    return n;
+  }
+  /** RVN4 rank 5 (Feud-Arc.md 15.2, built with RVN6): at its last stand its band's survivors run to it - each set on me
+   *  from its master's feet (the motor's pursuit takes it there); none left, RALLY_KIN of its kin step out of a portal
+   *  about it, in the room the pool has. */
+  function rallyBand(f) {
+    const id = f.entity.revenant.id;
+    const live = foes.filter((g) => g !== f && !g.dead && !g.puppet && g.retinueOf === id && !g.scattering);
+    for (const g of live) { g.ai.target = f.ai.target ?? PLAYER_TARGET; g.ai.makeHostileToPlayer?.(undefined, f.ai.feet); }
+    if (live.length) return live.length;
+    return standBand(f, bandMembers(revenantById(id), effectiveLevel(playerEntity), RALLY_KIN), { portal: true }).length;
   }
   /** RVN3 (Feud-Arc.md 14.2): its will unbroken at the killing blow - it tears away into the smoke (systems/revenantFate.js
    *  beginTearAway: held, ashing out), and its escape is the hand-off. */
   function tearAway(f) {
     if (isLocalPlayerTarget(f.ai?.target) && f.ai?.detected) setEnemyAlert(playerEntity, false);
+    scatterBand(f);   // RVN6
     beginTearAway(f, () => escapeFoe(f, { unbroken: true }));
     audio?.play3d?.(SOUND.Burning, [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], 0.8, { maxDistance: 16 });
   }
@@ -1201,6 +1266,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   function yieldFoe(f) {
     if (isLocalPlayerTarget(f.ai?.target) && f.ai?.detected) setEnemyAlert(playerEntity, false);
     const ev = beginYield(playerEntity, f, { now: Date.now(), rolls });
+    scatterBand(f);   // RVN6: it kneels - its band breaks
     if (f.ai) { f.ai.velX = 0; f.ai.velZ = 0; }
     // AUDIT (2026-10-02): a FLYER beaten kneels on the ground below, never in the air out of the player's reach
     if (f.ai?.flies && collider) { const g = floorLanding(collider, [f.ai.feet[0], f.ai.feet[1] + 0.1, f.ai.feet[2]]); if (g && g[1] < f.ai.feet[1]) f.ai.feet[1] = g[1]; }
@@ -1274,6 +1340,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     reportPlayerKill(f.entity, { kind: 'melee' });   // SET2: a kill of mine
     renownFoeDied(f);
     raiseEnemyDeath(f.entity, { rolls, luck: liveStat(playerEntity, 'luck') });   // UL1: OnEnemyDeath - its handlers' items join its pile
+    scatterBand(f);   // RVN6: executed - its band broke at its kneel (once)
     const items = finishExecution(playerEntity, f);
     releaseFoeBatch(f);
     f.dead = true;
@@ -1409,9 +1476,14 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // to fight to the end
       const _flee = f.fleeing || (!f._fleeRolled && revenantFleeHealth(f.entity)) ? revenantFleeStep(f, playerFeet, { onMe: () => isLocalPlayerTarget(f.ai.target) || !f.ai._armedTargeting }) : null;   // asked only of a foe running or under the line - nothing made per foe per frame
       if (_flee === 'escape') { escapeFoe(f); continue; }
+      if (_flee === 'start') scatterBand(f);   // RVN6: it runs - its band breaks
       if (_flee === 'start') revenantSay(revenantFleeEvent(f.entity, foeTitle(f.entity, enemyDisplayName(f.mobileType)), { gender: f.gender, archive: f.archive, playerName: playerEntity?.name }), say);   // REVENANT-CARD: the card on the enhanced skin, the line on the classic
       else if (_flee === 'cornered') revenantSay(revenantCorneredEvent(f.entity, foeTitle(f.entity, enemyDisplayName(f.mobileType)), { gender: f.gender, archive: f.archive, playerName: playerEntity?.name }), say);
       if (_flee === 'start' || _flee === 'run') { fleeWalk(f, dt, eye); continue; }
+      if (f.scattering) {   // RVN6 (Feud-Arc.md 17): a band's follower scattering - it runs, and is gone when its run is spent (no corpse, no kill)
+        if (!(f.ai.fleeLeft > 0)) { releaseFoeBatch(f); f.dead = true; f.escaped = true; continue; }
+        fleeWalk(f, dt, eye); continue;
+      }
       // REVENANT: a returning revenant in sight and near says what it came to say - once a return
       if (f.entity.revenant && !f._taunted && f.ai.inSight && (isLocalPlayerTarget(f.ai.target) || !f.ai._armedTargeting)
         && Math.hypot(playerFeet[0] - f.ai.feet[0], playerFeet[2] - f.ai.feet[2]) < REVENANT_TAUNT_DISTANCE) {

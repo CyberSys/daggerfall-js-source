@@ -415,3 +415,13 @@ from rank 3, drawn in its ember, its wind-up's bark deeper, and called out the f
 Enhanced AI)" with that switch off - the signature is a telegraph, and only the Enhanced AI throws one. The law:
 `bible/12-Enhanced-AI/Feud-Arc.md` section 16 and its RVN5 record.
 
+## 22. The band (FEUD RVN6, 2026-10-04)
+
+From rank 2 a returning revenant brings its kin - one at rank 2, two at rank 3, three from rank 4 - drawn on its id and
+kept on its record: an orc's orcs, the dead their own, a beast its own kind, a person its class's family (a solitary
+kind - a giant, a daedra, a lich - rides alone). They stand beside it, ordinary (never a champion, an elite or a
+revenant), never fight each other, and are named for it ("Orc of Grushnak's Warband"). When it kneels, runs, dies, is
+executed or tears away they scatter - each runs and is gone ("The warband scatters."). At a rank-5 one's last stand its
+survivors run to it, or two of its kin step out of a portal. The page lists who rides with it. The law:
+`bible/12-Enhanced-AI/Feud-Arc.md` section 17 and its RVN6 record.
+

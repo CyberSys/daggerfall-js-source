@@ -232,7 +232,8 @@ test('REVENANT THE HOSTS: the open world\'s pool rolls the flee once under a fif
   assert.match(x, /function fleeWalk\(f, dt, eye\) \{\s*\n\s*f\._mout = f\.mobile\.update\(dt, \{ moving: f\.ai\.moving, striking: false, rangedStriking: false, hurting: f\.ai\.hurtKnock, casting: false \}/, 'no blow and no cast in it');
   assert.match(x, /else if \(_flee === 'cornered'\) revenantSay\(revenantCorneredEvent\(/, 'cornered: said');
   // PIN MOVED (RVN3: the unbroken's escape - the same door, its own words)
-  assert.match(x, /function escapeFoe\(f(?:, \{ slip = false(?:, unbroken = false)? \} = \{\})?\) \{\s*\n\s*releaseFoeBatch\(f\);\s*\n\s*f\.dead = true;[\s\S]{0,300}revenantDeed\(playerEntity, f\.entity, 'fled'/, 'gone without a corpse, made a revenant');
+  // PIN MOVED (RVN6: its band scatters first - bible/12-Enhanced-AI/Feud-Arc.md 17)
+  assert.match(x, /function escapeFoe\(f(?:, \{ slip = false(?:, unbroken = false)? \} = \{\})?\) \{\s*\n(?:\s*scatterBand\(f\);[^\n]*\n)?\s*releaseFoeBatch\(f\);\s*\n\s*f\.dead = true;[\s\S]{0,300}revenantDeed\(playerEntity, f\.entity, 'fled'/, 'gone without a corpse, made a revenant');
   const esc = x.indexOf('function escapeFoe(f');   // AUDIT (2026-10-02): the slip's option widened the head - the old '(f)' read nothing, and this passed on an empty slice
   assert.ok(esc > 0);
   assert.doesNotMatch(x.slice(esc, esc + 600), /f\.corpse = true|sayEnemyDied|reportPlayerKill/, 'no corpse, no kill');

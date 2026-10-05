@@ -374,6 +374,38 @@ export function drawKin(id, mobileType) {
   const n = Math.max(...RETINUE);
   return Array.from({ length: n }, () => pool[Math.min(pool.length - 1, Math.floor(rolls() * pool.length))]);
 }
+/** RVN6 (17): its band's size at `rank` - RETINUE's: none at 1, then 1, 2, 3, 3. */
+export const retinueCount = (rank) => RETINUE[Math.max(0, Math.min(5, rank | 0))];
+/** RVN6 (17): a scattering follower's run (DFU's flee), s. */
+export const BAND_SCATTER_S = 8;
+/** RVN6 (17): how far about its master a follower is placed, m (PlaceFoeFreely's ring - a pack's spacing, loose). */
+export const BAND_SPACING = 6;
+/** RVN4 rank 5 (15.2, built with RVN6): with no follower left, the kin that step out of a portal at its last stand. */
+export const RALLY_KIN = 2;
+/** RVN6 (17): a band's word by its master's faction - orcs a Warband, beasts and werebeasts a Pack, the dead and the fae a
+ *  Host, vermin and fish a Brood; a person's by its class's family (CLASS_FAMILIES' order): a fighter's Warband, a
+ *  thief's or an archer's Crew, a caster's Coven. None for a solitary kind (it rides alone). */
+const BAND_WORDS = Object.freeze({ ORC: 'Warband', BEASTPACK: 'Pack', WEREBEAST: 'Pack', UNDEAD: 'Host', FAE: 'Host', VERMIN: 'Brood', AQUATIC: 'Brood' });
+const CLASS_BAND_WORDS = Object.freeze(['Warband', 'Crew', 'Coven', 'Crew']);
+export function bandWord(mobileType) {
+  if (mobileType >= 128) { const i = CLASS_FAMILIES.findIndex((f) => f.includes(mobileType)); return i >= 0 ? CLASS_BAND_WORDS[i] : null; }
+  const fac = factionOf(mobileType);
+  return fac ? BAND_WORDS[fac] ?? null : null;
+}
+/** RVN6 (17): its band's name - "<given>'s <word>" ("Grushnak's Warband") - from rank 2 with kin to bring; derived,
+ *  never stored. */
+export function bandName(r) {
+  if (!r || retinueCount(r.rank) < 1 || !r.kin?.length) return null;
+  const w = bandWord(r.mobileType);
+  if (!w) return null;
+  return r.given ? `${possessive(r.given)} ${w}` : w;
+}
+/** RVN6 (17): who stands with it - its first retinueCount(rank) kin, a monster at its kind's level (null: the kind's
+ *  own), a person at the player's level - 2. */
+export function bandMembers(r, playerLevel, n = retinueCount(r?.rank)) {
+  const kin = Array.isArray(r?.kin) ? r.kin : [];
+  return kin.slice(0, Math.max(0, n)).map((t) => ({ mobileType: t, level: t >= 128 ? Math.max(1, (playerLevel | 0) - 2) : null }));
+}
 const sanitizeKin = (v) => (Array.isArray(v) ? v.filter((t) => Number.isInteger(t) && ((t >= 0 && t < 128) || (t >= 128 && t < M.Knight_CityWatch))).slice(0, Math.max(...RETINUE)) : null);
 
 // ── RVN11's loyalty (section 22.1) ──────────────────────────────────

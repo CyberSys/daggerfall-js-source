@@ -13,7 +13,7 @@ import { revenantsFor, revenantOn, revenantPortrait, revenantRankNumeral, REVENA
 import { ownMinutes } from '../systems/worldTick.js';
 import { requestFittedIcon, fittedImg } from './textureCanvas.js';
 import { PERSONALITIES } from '../systems/revenantPersonality.js';   // REVENANT-VOICE: who each is
-import { WEAK_NAMES, WEAK_HINTS, weaknessKind, willMatters, LAST_STAND_RANK, lastStandHealth, signatureStamp } from '../systems/revenantFeud.js';   // RVN3: its weakness, its will; RVN4: its last stand; RVN5: its signature
+import { WEAK_NAMES, WEAK_HINTS, weaknessKind, willMatters, LAST_STAND_RANK, lastStandHealth, signatureStamp, bandMembers, bandName } from '../systems/revenantFeud.js';   // RVN3: its weakness, its will; RVN4: its last stand; RVN5: its signature; RVN6: its band
 import { tacticsSwitchOn } from '../ai/tactics.js';   // RVN5: a signature is a telegraph - the Enhanced AI switch's
 
 export const REVENANT_PAGE_SECTIONS = Object.freeze([['revenants', 'Revenants']]);
@@ -140,6 +140,25 @@ export function signatureWords(r, enhanced = tacticsSwitchOn()) {
   const what = sig.kind === 'pyre' ? `a blast of ${PYRE_WORDS[sig.element] ?? 'magic'} at your feet` : SIG_SHAPES[sig.kind];
   return `Signature: ${sig.name}${what ? ` - ${what}` : ''}${sig.iron ? ', unstoppable' : ''}${enhanced ? '' : ' (with Enhanced AI)'}.`;
 }
+/** RVN6 (section 17; RVN12 completes the page): a kind's name, many of it ("two Orcs", "three Thieves"). */
+const COUNT_WORDS = Object.freeze(['', 'a', 'two', 'three']);
+export function pluralKind(name, n) {
+  if (n === 1) return `${/^[AEIOU]/i.test(name) ? 'an' : 'a'} ${name}`;
+  const many = /fish$/i.test(name) ? name : /f$/i.test(name) ? `${name.slice(0, -1)}ves` : /[^aeiou]y$/i.test(name) ? `${name.slice(0, -1)}ies` : /(s|sh|ch|x)$/i.test(name) ? `${name}es` : `${name}s`;
+  return `${COUNT_WORDS[n] ?? n} ${many}`;
+}
+/** RVN6 (17): from rank 2, who rides with it - its band's kinds, counted in the order they ride, and its name ("Band:
+ *  rides with two Orcs and an Orc Shaman - Grushnak's Warband."). */
+export function bandWords(r, kindName = (t) => String(t)) {
+  const name = bandName(r);
+  const members = name ? bandMembers(r, 1) : [];
+  if (!members.length) return '';
+  const counts = new Map();
+  for (const m of members) counts.set(m.mobileType, (counts.get(m.mobileType) ?? 0) + 1);
+  const parts = [...counts].map(([t, n]) => pluralKind(kindName(t), n));
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : parts[0];
+  return `Band: rides with ${list} - ${name}.`;
+}
 /** Its scars, newest first and each once - the ways it was hurt and what it learned (a deed's scar is the history's). */
 export function scarWords(r) {
   const seen = new Set();
@@ -208,6 +227,8 @@ function row(el, r, now, kindName) {
   if (stand) text.append(el('span', 'rvn-will', stand));
   const sig = fallen ? '' : signatureWords(r);   // RVN5
   if (sig) text.append(el('span', 'rvn-will', sig));
+  const band = fallen ? '' : bandWords(r, kindName);   // RVN6
+  if (band) text.append(el('span', 'rvn-will', band));
   const hist = (r.history ?? []).slice(-5);
   if (hist.length) {
     const ul = el('ul', 'rvn-history');

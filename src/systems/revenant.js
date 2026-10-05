@@ -326,6 +326,7 @@ const dueFrom = (now, rolls) => now + REVENANT_RETURN_MIN_MINUTES + Math.floor(r
  *  never the watch or an ally; `rec` the pool's record when there is one - never a quest's foe or a summons. */
 export function revenantCandidate(entity, rec = null) {
   if (!entity || !revenantOn()) return false;
+  if (entity.retinueOf != null) return false;   // RVN6 (Feud-Arc.md 17): a band's follower is its master's, never one itself
   const special = !!entity.revenant || !!entity.eliteFoe || (typeof entity.champion === 'string' && !!entity.champion);
   if (!special) return false;
   if ((entity.level | 0) < REVENANT_MIN_LEVEL) return false;

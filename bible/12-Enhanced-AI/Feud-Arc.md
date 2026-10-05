@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL and RVN1-RVN5 built; RVN6-RVN13 next)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL and RVN1-RVN6 built; RVN7-RVN13 next)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -7,7 +7,7 @@ detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
 (section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts), AUDIT
-TELL, and RVN1 to RVN5; each slice's record is at the foot.**
+TELL, and RVN1 to RVN6; each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -709,6 +709,14 @@ before the yield in both damage doors (`exteriorFoes.js damageFoe`, `dungeonCont
 - **Scatters**: when the revenant kneels, flees, dies or is executed, each follower breaks and runs (DFU's flee, 8 s)
   and is culled ("The warband scatters.").
 - The tokens (2 melee, 2 ranged) keep the crowd readable. OPEN 13.
+- **As built (RVN6; the record at the foot)**: stood by the street pool itself, beside its master - a camp member's
+  ring about it (PlaceFoeFreely, 1 to 6 m, any bearing), not `_standCampEncounter`'s anchor 100-150 m out; the camp it
+  shares is the entity's `campId` alone (the infighting exemption - no Overworld camp mark, no camp cull distance);
+  transient (no save carries a follower, as none carries its master). The words: an orc's Warband, a beast's or a
+  werebeast's Pack, the dead's and the fae's Host, vermin's and a fish's Brood; a person's by its family - a fighter's
+  Warband, a thief's or an archer's Crew, a caster's Coven. The title "Orc of Grushnak's Warband" (`foeTitle`: the
+  target bar and the body - HOVER-PLAIN names no hostile foe on the hover). The scatter runs from its master's feet,
+  said by the narrator once a break ("The warband scatters.").
 
 ## 18. The hunt (RVN7)
 
@@ -1937,3 +1945,35 @@ and `dungeonContext.js`.
 - Mutants `tools/mutants/rvn5.json` (91): 91 dead. Mutant records re-aimed by content (16): `tell2` (2), `tell3` (2),
   `tell4`, `tell5` (2), `tell6a` (2), `tell6c` (4), `tell6d` (3), and the cite shift's two (`survtiers`,
   `survtiers3` - a citation their mutant reads moved) - all judged again: dead.
+
+### RVN6 - BUILT 2026-10-04 (the loot-rarity row on; the street pool - both open-world hosts)
+
+- **The law** - `systems/revenantFeud.js`: `RETINUE` (RVN1's), `retinueCount`, `BAND_SCATTER_S` 8, `BAND_SPACING` 6,
+  `RALLY_KIN` 2; `bandWord` (17 as built), `bandName` ("Grushnak's Warband" - from rank 2 with kin; derived, never
+  stored), `bandMembers` (its first `retinueCount` kin: a monster at its kind's level, a person at the player's level - 2,
+  never under 1). The kin themselves (`kinPool`, `drawKin`, the record's `kin`) are RVN1's.
+- **The stand** - `scenes/exteriorFoes.js standBand`: a revenant of mine stood (never a puppet's, never an ally) brings
+  its band once its own slot is let go - each placed by PlaceFoeFreely's ring about it, in the room the pool has left
+  (followers trimmed first, `encounterRoom`), stood ordinary (`champion: null`, `eliteFoe: false`), `transient`, marked
+  `retinueOf` (the record and its entity), in its master's camp (`entity.campId` - the target machine's infighting
+  exemption, so a band of mixed combat teams never fights itself) and named (`entity.bandName` - `foeTitle`'s "Orc of
+  Grushnak's Warband"). `revenant.revenantCandidate` refuses a follower whatever it wears.
+- **The scatter** - `scatterBand`: its master kneels (`yieldFoe`), runs (the flee's start), dies, is executed or tears
+  away (and its escape): each follower not already running breaks and runs from its feet (`ai.flee`, 8 s) and is gone
+  when its run is spent (the frame: no corpse, no kill); the narrator says it once a break. Decided here: no
+  once-a-stand latch - a rank-5 one's kin stepped out of a portal after an earlier break break with it too.
+- **RVN4's rank 5** - `rallyBand` at its last stand: its band's survivors set on me from its feet (the motor's pursuit
+  takes them to it); none left, `RALLY_KIN` of its kin step out of a portal about it (`portals.open`, COMPANION-PORTAL's
+  arrival), in the room the pool has - never a portal for a stand the cap would refuse.
+- **The page** - from rank 2, "Band: rides with two Orcs and an Orc Shaman - Grushnak's Warband." (`bandWords`,
+  `pluralKind`).
+- **Four hosts** - `scenes/world.js` WIRED and `scenes/exterior.js` WIRED: each stands a returning revenant through
+  its street pool's `spawnFoe` (REVENANT's `revenantSpawnOptions`), which stands its band - FLAGGED (section 32):
+  `exterior.js` has no `fates`, so its revenants die outright and the kneel's scatter is the death's;
+  `scenes/worldModes.js` and `scenes/dungeonContext.js` (`scenes/dungeon.js`): no revenant returns there - no band
+  stands.
+- **Not built here** - `rt` on the wire (RVN13): a peer sees the followers as ordinary foes, and their scatter as a
+  run; the scatter's own voice (narrator only, 23).
+- Pins `test/rvn6_band.test.js` (7). Pin moved (marked `PIN MOVED (RVN6: ...)`): `revenant` (its escape's door - the
+  band scatters first).
+- Mutants `tools/mutants/rvn6.json` (52): 52 dead.
