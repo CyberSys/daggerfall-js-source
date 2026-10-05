@@ -16,8 +16,8 @@
   {
     "name": "REVENANT-VOICE-the-name-unfilled",
     "file": "src/systems/revenantPersonality.js",
-    "old": "const fill = (s, p) => s.replace(/\\{p\\}/g, () => p);",
-    "new": "const fill = (s, p) => s;",
+    "old": "const fill = (s, vars) => s.replace(PLACEHOLDER, (_, k) => String(vars[k]));",
+    "new": "const fill = (s, vars) => s;",
     "tests": ["test/revenant_voice.test.js"]
   },
   {

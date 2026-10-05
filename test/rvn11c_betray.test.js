@@ -148,7 +148,7 @@ test('RVN11c THE HOSTS: the pools stand a turned revenant (no band, no return); 
   const tick = w.slice(w.indexOf('function revenantAshoreTick() {'));
   assert.ok(tick.indexOf('while (_revenantBetrayals.length) turnSworn(_revenantBetrayals.shift());') < tick.indexOf('revenantAshore.frame();'), 'before the layer\'s frame');
   const turn = w.slice(w.indexOf('function turnSworn(r) {'), w.indexOf('function revenantAshoreTick() {'));
-  assert.match(turn, /revenantSay\(revenantBetrayEvent\(r\), /);
+  assert.match(turn, /revenantSay\(revenantBetrayEvent\(r, \{ playerName: playerEntity\?\.name \}\), /);   // PIN MOVED (RVN12a: its words, my name in them)
   assert.match(turn, /try \{ place\.remove\(rec\); \}/);
   assert.match(turn, /Promise\.resolve\(place\.turn\(r, feet, yaw\)\)\.then\(\(f\) => \{\n\s*if \(f\?\.ai && !f\.dead\) f\.ai\.makeHostileToPlayer\?\.\(/);
 });

@@ -494,3 +494,11 @@ player under a quarter of their health, it turns where it stands - stronger by a
 fights. What it carried it keeps as a deserter does (kill it to take it back); the rest falls to the player. The others
 never betray; they desert. The law: `bible/12-Enhanced-AI/Feud-Arc.md` section 22.3 and its RVN11c record.
 
+## 30. Its words (FEUD RVN12a, 2026-10-05)
+
+Every revenant now has words, in its own voice, for what FEUD gave it: what it learned of the player's fighting ("I know
+your arrows now"), its signature blow by name, its last stand, the piece it took, its long wait, the companion it felled
+("Where's Borgakh, Ayla?"), the player's flight, and - sworn - its desertion, its betrayal and a Devoted one's warning.
+Its return speaks to its newest deed against the player. Beasts never speak: the narrator says what they do. The law:
+`bible/12-Enhanced-AI/Feud-Arc.md` section 23 and its RVN12a record.
+

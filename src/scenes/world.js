@@ -8157,7 +8157,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  it stood - the layer then finds it swept, never carried off), and the hostile revenant its record now is stood there,
    *  set on me. No body here (another place, or none stood): it comes later, as any living revenant. */
   function turnSworn(r) {
-    revenantSay(revenantBetrayEvent(r), (l) => townTalk.say(l));
+    revenantSay(revenantBetrayEvent(r, { playerName: playerEntity?.name }), (l) => townTalk.say(l));   // RVN12a: its words, my name in them
     const rec = revenantAshore.bodies().find((b) => b.revenantCompanion === r.id && !b.dead && b.ai?.feet);
     const place = rec ? companionPlace({ crew: false }) : null;
     if (!rec || !place?.turn) return;

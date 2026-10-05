@@ -74,8 +74,8 @@
   {
     "name": "AUDIT-A11-a-dollar-a-pattern",
     "file": "src/systems/revenantPersonality.js",
-    "old": "const fill = (s, p) => s.replace(/\\{p\\}/g, () => p);",
-    "new": "const fill = (s, p) => s.replace(/\\{p\\}/g, p);",
+    "old": "const fill = (s, vars) => s.replace(PLACEHOLDER, (_, k) => String(vars[k]));",
+    "new": "const fill = (s, vars) => s.replace(/\\{p\\}/g, vars.p).replace(PLACEHOLDER, (_, k) => String(vars[k]));",
     "tests": [
       "test/revenant_audit.test.js"
     ]

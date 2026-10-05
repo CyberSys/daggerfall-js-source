@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL and RVN1-RVN11 built; RVN12-RVN13 next)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL, RVN1-RVN11 and RVN12a built; RVN12b-RVN13 next)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -7,7 +7,7 @@ detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
 (section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts), AUDIT
-TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), RVN8, RVN9, RVN10, and RVN11 in three parts (RVN11a loyalty, RVN11b desertion, RVN11c betrayal); each slice's record is at the foot.**
+TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), RVN8, RVN9, RVN10, RVN11 in three parts (RVN11a loyalty, RVN11b desertion, RVN11c betrayal), and RVN12 in two (RVN12a the words built; RVN12b the page and the card next); each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -928,6 +928,14 @@ The Companions page (`ui/companionRoster.js`): a loyalty bar beside its health, 
   `test/revenant_voice.test.js`'s pin moves to the new list, and each placeholder is filled on every path (a line said
   with a `{` left in it is a failure).
 - About 260 new lines; every one at most 96 characters, none twice.
+- **As built (RVN12a; the record at the foot)**: RVN12 in two parts - RVN12a the words, RVN12b the page and the card.
+  220 lines (two a moment, three for the last stand and the betrayal) and a beast's deed for each moment. A line needing
+  a placeholder its caller did not hand is passed over (`voiceLine` never says a `{`); each moment's own word (`{how}`,
+  `{move}`, `{item}`, `{ally}`) is in every one of its lines. The return's moment (`tauntMoment`): its newest deed against
+  me first - a felling (by the companion's name), my flight, its long wait; after a kill, the newest piece it took (its
+  card's kicker *It took* - section 24.2's, built here); every other return what it learned (its newest habit, in
+  `ADAPT_HOW`'s words); else as ever. Voiced: the signature (its move named), the last stand (its own, no longer the
+  cornering's), the deserter, the betrayer, a Devoted one's warning.
 
 ## 24. The page and the card (RVN12)
 
@@ -2316,3 +2324,26 @@ and `dungeonContext.js`.
   `turn`). Mutant records re-aimed by content (10): `rvn1`'s two dungeon tags, `rvn7d`'s build-unapplied and
   record-dropped, `rvn6`'s band-unstood and puppet-band (each line now carries the turning), `rvn11b`'s four on the
   split (now `splitPack`'s one site) - each judged again: dead.
+
+### RVN12a - BUILT 2026-10-05 (the loot-rarity row on; every host's cards)
+
+- **The bank** - `systems/revenantPersonality.js`: `VOICE_EVENTS` gains `learned`, `signature`, `laststand`, `stole`,
+  `festered`, `felled_return`, `routed_return`, `deserted`, `betrayed`, `devoted_warn` - 220 lines in ten voices, a
+  beast's deed each; `VOICE_PLACEHOLDERS` (`p`, `how`, `item`, `move`, `ally` - exactly); `voiceLine(... { how, item,
+  move, ally })` passes over a line it cannot fill.
+- **The moments** - `systems/revenant.js`: `voiceParts(..., vars)`; `tauntMoment(r)` (the return's moment by its
+  newest deed) and its card (`stole` - *It took*); `revenantSignatureEvent(r, noun, { playerName })` (its words, its
+  line), `revenantLastStandEvent` (`laststand`), `revenantWarnEvent` (`devoted_warn`), `revenantDesertEvent(r, {
+  playerName })` (`deserted`), `revenantBetrayEvent(r, { playerName })` (`betrayed`). `systems/revenantFeud.js
+  ADAPT_HOW` - a habit's word for each adaptation.
+- **Four hosts** - `scenes/exteriorFoes.js` and `scenes/dungeonContext.js` hand my name to the signature's card;
+  `scenes/world.js` to the betrayer's; the deserter's through `takeRevenantNotice` (both hosts' encounter tick);
+  `scenes/worldModes.js` - its interiors are the street pool's kind; `scenes/exterior.js` - its pool's signature, as the
+  street's (FLAGGED as ever, section 32: no companions, no fates).
+- **Not built here** - the page and the card (RVN12b).
+- Pins `test/rvn12a_words.test.js` (5). Mutants `tools/mutants/rvn12a.json` (33): 33 dead. Pins moved (5):
+  `revenant_voice` (the key moments with the last stand and the betrayal; the placeholders widened), `rvn11a_loyalty`
+  (the warning's own voice), `rvn5_sig` (the dungeon's call hands my name), `rvn11c_betray` (the betrayer's card hands
+  it). Mutant records re-aimed by content (9): `revenantaudit`'s A11 and `revenantvoice`'s name-unfilled (the fill
+  widened), `rvn11a`'s warn-mute-speaks (the warning through the voice), `rvn11b`'s card-missing, `rvn11c`'s kicker and
+  turn-untold, `rvn5`'s three street calls (each line now hands my name) - each judged again: dead.

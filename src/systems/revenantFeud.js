@@ -535,6 +535,12 @@ export function lessonOf(kinds, learned, mobileType, career = null) {
 }
 /** RVN2 (13.1): `learned` with `a` learned at `rank` - at most min(rank, ADAPT_MAX), the oldest forgotten. */
 export const withLesson = (learned, a, rank) => [...(learned ?? []).filter((x) => x !== a), a].slice(-Math.max(1, Math.min(rank | 0, ADAPT_MAX)));
+/** RVN12a (section 23): a learned adaptation in the words of its `{how}` - the habit of mine it learned against. */
+export const ADAPT_HOW = Object.freeze({
+  mailed: 'blade', braced: 'hammer', hewnHard: 'axe', unflinching: 'fists', arrowWise: 'arrows', fireproof: 'fire',
+  rimebound: 'frost', grounded: 'lightning', venomBlooded: 'poison', spellScarred: 'magic', silverScarred: 'silver',
+  steadfast: 'heavy blows', patient: 'footwork', watchful: 'tricks from behind', relentless: 'running', nightStalker: 'night raids',
+});
 /** RVN2: what a revenant's adaptations do to it, as its stand carries them (`entity.revenant.edge` - the brain, the
  *  motor, the doors and the formulas read it there; every number is ADAPT's): `taken` by blow class, `resist` by
  *  element, its poise, iron share, tracking share, feint chance and wind-up band (null: TELL's), Speed past a distance,

@@ -1184,7 +1184,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (f.ai._sigCall) {
       f.ai._sigCall = null;
       const r = sb && !f._sigCalled ? revenantById(f.entity.revenant.id) : null;
-      if (r) { f._sigCalled = true; revenantSay(revenantSignatureEvent(r, sb.noun, { archive: f.archive }), say); }
+      if (r) { f._sigCalled = true; revenantSay(revenantSignatureEvent(r, sb.noun, { archive: f.archive, playerName: playerEntity?.name }), say); }
     }
     const p = f.ai._blowPyre;
     if (p) {

@@ -1626,7 +1626,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (f.ai._sigCall) {
       f.ai._sigCall = null;
       const r = sb && !f._sigCalled ? revenantById(f.entity.revenant.id) : null;
-      if (r) { f._sigCalled = true; revenantSay(revenantSignatureEvent(r, sb.noun, { archive: f.mobileArchive }), (l) => hudText.add(l)); }
+      if (r) { f._sigCalled = true; revenantSay(revenantSignatureEvent(r, sb.noun, { archive: f.mobileArchive, playerName: playerEntity?.name }), (l) => hudText.add(l)); }
     }
     const p = f.ai._blowPyre;
     if (p) {

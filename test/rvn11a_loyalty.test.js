@@ -167,10 +167,14 @@ test('RVN11a DEVOTED\'S WARNING: the real cues tell the host a wind-up at me as 
   const down = sworn('with', { loyalty: 99 }), loyal = sworn('with', { loyalty: 89 }), devoted = sworn('with', { loyalty: 95 });   // the one down first: passed over
   bodies({ [loyal.id]: { health: 9 }, [devoted.id]: { health: 9 }, [down.id]: { health: 0 } });
   assert.equal(RC.devotedWithYou()?.id, devoted.id);
-  const ev = N.revenantWarnEvent(N.revenantById(devoted.id), 'ayla stormwind');
+  // PIN MOVED (RVN12a, Feud-Arc.md 23): its warning in its own voice (`devoted_warn`) - a beast's, what it does
+  const d = N.revenantById(devoted.id);
+  d.personality = 'brutal';
+  const ev = N.revenantWarnEvent(d, 'ayla stormwind', { rolls: () => 0 });
   assert.deepEqual([ev.kind, ev.kicker, ev.speech, ev.line], ['warn', 'Companion', 'Behind you, Ayla!', `${devoted.name}: "Behind you, Ayla!"`]);
   const rat = sworn('with', { mobileType: M.Rat });
-  assert.equal(N.revenantWarnEvent(N.revenantById(rat.id), 'Ayla').body, `${rat.given} snarls a warning - behind you!`, 'a beast, what it does');
+  N.revenantById(rat.id).personality = 'craven';
+  assert.equal(N.revenantWarnEvent(N.revenantById(rat.id), 'Ayla').body, 'Snarls a warning with a nervous whine - behind you!', 'a beast, what it does');
   const w = read('src/scenes/world.js');
   assert.match(w, /setWindupAtMeListener\(\(f\) => \{\n\s*if \(!playerSpawned \|\| !f\?\.ai\?\.feet \|\| Date\.now\(\) - _devotedWarnAt < DEVOTED\.WARN_S \* 1000\) return;\n\s*if \(!isBackFacing\(cam\.yaw, player\.feetAt\(\), f\.ai\.feet\)\) return;\n\s*const r = devotedWithYou\(\);\n\s*if \(!r\) return;\n\s*_devotedWarnAt = Date\.now\(\);\n\s*revenantSay\(revenantWarnEvent\(r, playerEntity\?\.name\), /);
 });

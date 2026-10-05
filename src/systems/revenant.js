@@ -70,7 +70,7 @@ import { getSeed, setSeed, srand } from '../formats/dfRandom.js';
 import { personalityFor, isPersonality, personalityLabel, voiceLine, beastBody, possessive, MUTE_KINDS } from './revenantPersonality.js';   // REVENANT-VOICE: who it is, and how it talks
 // FEUD, Part B (bible/12-Enhanced-AI/Feud-Arc.md sections 12-26): what a revenant remembers - its record's new fields and
 // the draws it is born with (systems/revenantFeud.js), and the fight's ledger (systems/feudLedger.js, a leaf)
-import { DESERT, deserterSplit, LOYALTY, movedLoyalty, ROUT, FESTER, festersOn, WRATH_MAX, idStream, TOOK_MAX, LAIR_RING_R, RUMOR_CHANCE, RUMOR_PX, RUMOR_WEAK, RUMOR_NAMED, RUMOR_HINTS, weaknessKind, lairAfter, sameLair, feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK, lessonOf, withLesson, adaptEdge, adaptBlowClass, ADAPT, isWeakBlow, metalOf, WEAK, WEAK_NAMES, FLINCH_LINES, FLINCH_HEALTH, WEAKNESS_ELEMENTS, signatureStamp } from './revenantFeud.js';
+import { ADAPT_HOW, DESERT, deserterSplit, LOYALTY, movedLoyalty, ROUT, FESTER, festersOn, WRATH_MAX, idStream, TOOK_MAX, LAIR_RING_R, RUMOR_CHANCE, RUMOR_PX, RUMOR_WEAK, RUMOR_NAMED, RUMOR_HINTS, weaknessKind, lairAfter, sameLair, feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK, lessonOf, withLesson, adaptEdge, adaptBlowClass, ADAPT, isWeakBlow, metalOf, WEAK, WEAK_NAMES, FLINCH_LINES, FLINCH_HEALTH, WEAKNESS_ELEMENTS, signatureStamp } from './revenantFeud.js';
 import { tagHit, HIT_TAGS } from '../ui/hitNumbers.js';   // RVN3: the "Weakness" word on my blow's number
 import { SOUND } from './soundClips.js';   // RVN3: the hiss of a weakness found
 import { revenantSay as sayRevenant } from './revenantVoice.js';   // RVN3: the reveal's card (the re-export below binds no local name)
@@ -815,22 +815,40 @@ function carryTaken(entity) {
 // the host's own `say`.
 const capFirst = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 /** What a returning revenant greets the player with: its words (a speaker's) or what it does (a beast's). */
-function tauntParts(r, playerName, rolls) {
-  const last = [...(r.history ?? [])].reverse().find((d) => d.deed === 'slew' || d.deed === 'fled')?.deed ?? 'slew';
+/** RVN12a (bible/12-Enhanced-AI/Feud-Arc.md 23): the deeds a return answers to, newest first. */
+const TAUNT_DEEDS = new Set(['slew', 'fled', 'felled', 'routed', 'festered']);
+/** RVN12a (23): WHAT ITS RETURN SAYS - its newest deed against me speaks first: a companion it felled (`felled_return`,
+ *  by name), my flight (`routed_return`), its long wait (`festered`); after a kill, what it took of mine (`stole`, the
+ *  piece); every other return (its first, third...), what it learned (`learned`, the habit - its newest); else as ever.
+ *  Answers { event, vars }. */
+export function tauntMoment(r) {
+  const hist = [...(r?.history ?? [])].reverse();
+  const last = hist.find((d) => TAUNT_DEEDS.has(d.deed));
+  if (last?.deed === 'felled' && last.ally) return { event: 'felled_return', vars: { ally: last.ally } };
+  if (last?.deed === 'routed') return { event: 'routed_return', vars: {} };
+  if (last?.deed === 'festered') return { event: 'festered', vars: {} };
+  if (last?.deed === 'slew' && r.took?.length) return { event: 'stole', vars: { item: itemLongName(r.took[r.took.length - 1]) } };
+  const how = ADAPT_HOW[r?.learned?.[r.learned.length - 1]];
+  if (how && (r.returns | 0) % 2 === 1) return { event: 'learned', vars: { how } };
+  const lastSF = hist.find((d) => d.deed === 'slew' || d.deed === 'fled')?.deed ?? 'slew';
   // AUDIT (2026-10-02): the risen's taunt counts its kills ("I've killed you so often...") - one that only ever ran has none
-  return voiceParts(r, r.rank >= 3 && (r.kills | 0) >= 2 ? 'taunt_risen' : last === 'fled' ? 'taunt_fled' : 'taunt_slew', playerName, rolls);
+  return { event: r.rank >= 3 && (r.kills | 0) >= 2 ? 'taunt_risen' : lastSF === 'fled' ? 'taunt_fled' : 'taunt_slew', vars: {} };
+}
+function tauntParts(r, playerName, rolls) {
+  const m = tauntMoment(r);
+  return { ...voiceParts(r, m.event, playerName, rolls, m.vars), moment: m.event };
 }
 /** REVENANT-VOICE: one moment in its voice - a speaker's words (quoted, its line `Name: "..."`), a beast's deed in its
  *  temperament (the narrator's, its line `Name circles you...`). `r` a record, or what a special foe is before it is
  *  one ({ id, name, mobileType, personality }). */
-function voiceParts(r, event, playerName, rolls = Math.random) {
+function voiceParts(r, event, playerName, rolls = Math.random, vars = {}) {   // RVN12a: `vars` the moment's words ({ how, item, move, ally })
   const personality = isPersonality(r.personality) ? r.personality : personalityFor(r.id, r.mobileType);
   if (!revenantSpeaks(r.mobileType)) {
     const body = beastBody(personality, event);
     return { speech: null, body, line: `${r.name} ${body.charAt(0).toLowerCase()}${body.slice(1)}` };
   }
-  const speech = voiceLine(personality, event, { p: firstWord(playerName), rolls });
-  return { speech, body: null, line: `${r.name}: "${speech}"` };
+  const speech = voiceLine(personality, event, { p: firstWord(playerName), rolls, ...vars });
+  return { speech, body: null, line: speech ? `${r.name}: "${speech}"` : r.name };
 }
 /** The line a returning revenant greets the player with (a beast's, what it does). */
 export function revenantTaunt(r, playerName, rolls = Math.random) {
@@ -886,8 +904,8 @@ const KICKERS = Object.freeze({
   felled: 'Felled', routed: 'Routed',
   // RVN11: a Devoted one's warning; RVN11b: a deserter
   warn: 'Companion', deserted: 'Oathbreaker',
-  // RVN11c: a betrayer
-  betrayed: 'Betrayed',
+  // RVN11c: a betrayer; RVN12a: a theft's taunt
+  betrayed: 'Betrayed', stole: 'It took',
 });
 /** @typedef {{ kind: string, kicker: string, id: string|null, name: string, rank: number, sub: string, mood: string|null,
  *   portrait: { archive: number, record: number } | null, speech: string|null, body: string|null, line: string }} RevenantEvent */
@@ -918,7 +936,7 @@ function liveSource(entity, base, gender) {
 /** A returning revenant, in sight: its taunt. */
 export function revenantTauntEvent(r, playerName, { rolls = Math.random, archive = null } = {}) {
   const t = tauntParts(r, playerName, rolls);
-  return revenantEvent('taunt', r, { speech: t.speech, body: t.body, line: t.line, archive });
+  return revenantEvent(t.moment === 'stole' ? 'stole' : 'taunt', r, { speech: t.speech, body: t.body, line: t.line, archive });   // RVN12a: a theft's taunt wears its own kicker
 }
 /** A special foe breaking and running. */
 export function revenantFleeEvent(entity, base, { gender = 'male', archive = null, rolls = Math.random, playerName = '' } = {}) {
@@ -956,9 +974,10 @@ export function revenantUnbrokenEvent(r, playerName, { rolls = Math.random, arch
 }
 /** RVN5 (16.1): its signature called out - the first time a stand it winds it up ("Grushnak readies Skullsplitter!" -
  *  its `noun`). */
-export function revenantSignatureEvent(r, noun, { archive = null } = {}) {
+export function revenantSignatureEvent(r, noun, { archive = null, playerName = '', rolls = Math.random } = {}) {
   const body = `${r.given} readies ${noun ?? 'its signature'}!`;
-  return revenantEvent('signature', r, { body, line: body, archive });
+  const v = voiceParts(r, 'signature', playerName, rolls, { move: noun ?? null });   // RVN12a (23): its words for it
+  return revenantEvent('signature', r, { speech: v.speech, body, line: v.speech ? `${body} "${v.speech}"` : body, archive });
 }
 /** RVN7b (bible/12-Enhanced-AI/Feud-Arc.md 18.2): A TOWN'S NEWS OF A REVENANT - "Any news?" asked `here` ({ px, py,
  *  region }: my map pixel and region) within RUMOR_PX of a living, unsworn revenant's lair, or in its lair's region,
@@ -1129,18 +1148,18 @@ export function revenantBetrays(player, r, { now = nowMinutes(), rolls = Math.ra
   return r;
 }
 /** RVN11c (22.3): the turning, told - "Grushnak turns on you!" */
-export function revenantBetrayEvent(r, { archive = null } = {}) {
+export function revenantBetrayEvent(r, { archive = null, playerName = '', rolls = Math.random } = {}) {
   const body = `${r.given} turns on you!`;
-  return revenantEvent('betrayed', r, { body, line: `${r.name} turns on you!`, archive });
+  return revenantEvent('betrayed', r, { speech: voiceParts(r, 'betrayed', playerName, rolls).speech, body, line: `${r.name} turns on you!`, archive });   // RVN12a (23): its words as it turns
 }
 /** RVN11b (22.2): the desertion, told - "Grushnak broke its oath and left you. It kept your Ebony Longsword." */
-export function revenantDesertEvent(r, { archive = null } = {}) {
+export function revenantDesertEvent(r, { archive = null, playerName = '' } = {}) {
   const w = _desertWords.get(r.id);
   _desertWords.delete(r.id);
   const kept = w?.kept?.length ? ` It kept your ${w.kept.length === 1 ? w.kept[0] : `${w.kept.slice(0, -1).join(', ')} and ${w.kept.at(-1)}`}.` : '';
   const back = w?.back ? ` It left the rest of its pack to you.` : '';
   const body = `${r.given} broke its oath and left you.${kept}${back}`;
-  return revenantEvent('deserted', r, { body, line: `${r.name}: ${body}`, archive });
+  return revenantEvent('deserted', r, { speech: voiceParts(r, 'deserted', playerName, Math.random).speech, body, line: `${r.name}: ${body}`, archive });   // RVN12a (23): its parting words
 }
 /** RVN9 (20): its rank-up, told - "Grushnak grows bolder - it has waited too long." */
 export function revenantFesterEvent(r, { archive = null } = {}) {
@@ -1154,14 +1173,9 @@ export function revenantWakeEvent(r, { archive = null } = {}) {
 }
 /** RVN11 (bible/12-Enhanced-AI/Feud-Arc.md 22.1): A DEVOTED ONE'S WARNING - a wind-up at me begun behind me: "Behind you,
  *  Ayla!" (a beast's, what it does). RVN12 brings its voice's own lines. */
-export function revenantWarnEvent(r, playerName) {
-  const p = capFirst(firstWord(playerName));
-  if (!revenantSpeaks(r.mobileType)) {
-    const body = `${r.given} snarls a warning - behind you!`;
-    return revenantEvent('warn', r, { body, line: body });
-  }
-  const speech = `Behind you, ${p}!`;
-  return revenantEvent('warn', r, { speech, line: `${r.name}: "${speech}"` });
+export function revenantWarnEvent(r, playerName, { rolls = Math.random } = {}) {
+  const v = voiceParts(r, 'devoted_warn', capFirst(firstWord(playerName)), rolls);   // RVN12a (23): in its own voice
+  return revenantEvent('warn', r, { speech: v.speech, body: v.body, line: v.line });
 }
 
 // ── RVN10: felled and routed (bible/12-Enhanced-AI/Feud-Arc.md section 21) ─────────────────
@@ -1230,7 +1244,7 @@ export function revenantLastStand(player, entity, { now = nowMinutes() } = {}) {
 /** RVN4: its last stand, as the card says it - it rises again, its words the cornered's. */
 export function revenantLastStandEvent(r, playerName, { rolls = Math.random, archive = null } = {}) {
   const body = `${r.given} rises again - its last stand.`;
-  return revenantEvent('laststand', r, { speech: voiceParts(r, 'cornered', playerName, rolls).speech, body, line: body, archive });
+  return revenantEvent('laststand', r, { speech: voiceParts(r, 'laststand', playerName, rolls).speech, body, line: body, archive });   // RVN12a (23): its own words
 }
 /** RVN3 (14.1): ITS FLINCH - a revenant of mine under FLINCH_HEALTH of its health, its weakness unknown, shies from it:
  *  once a stand (`f._flinched`), the record hinted (`weakKnown` 1). Answers the event to say, or null. */
@@ -1287,7 +1301,7 @@ export function takeRevenantNotice(player, { now = nowMinutes(), rolls = Math.ra
   revenantFester(player, { now, rolls });   // RVN9: the days it waited, caught up first - a rank-up is its own notice
   const r = _state.list.find((x) => x.notice && !x.defeated);
   if (!r) return null;
-  const ev = r.notice === 'slew' ? revenantRiseEvent(r, player.name) : r.notice === 'festered' ? revenantFesterEvent(r) : r.notice === 'deserted' ? revenantDesertEvent(r) : null;   // RVN11b: a deserter's card
+  const ev = r.notice === 'slew' ? revenantRiseEvent(r, player.name) : r.notice === 'festered' ? revenantFesterEvent(r) : r.notice === 'deserted' ? revenantDesertEvent(r, { playerName: player.name }) : null;   // RVN11b: a deserter's card
   r.notice = null;
   touch(r);
   persist();

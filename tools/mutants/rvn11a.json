@@ -200,8 +200,8 @@
   {
     "name": "RVN11a-warn-mute-speaks",
     "file": "src/systems/revenant.js",
-    "old": "  if (!revenantSpeaks(r.mobileType)) {\n    const body = `${r.given} snarls a warning - behind you!`;",
-    "new": "  if (false) {\n    const body = `${r.given} snarls a warning - behind you!`;",
+    "old": "  const v = voiceParts(r, 'devoted_warn', capFirst(firstWord(playerName)), rolls);",
+    "new": "  const v = voiceParts({ ...r, mobileType: 128 }, 'devoted_warn', capFirst(firstWord(playerName)), rolls);",
     "tests": [
       "test/rvn11a_loyalty.test.js"
     ]

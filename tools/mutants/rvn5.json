@@ -614,8 +614,8 @@
   {
     "name": "RVN5-street-every-windup",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "      const r = sb && !f._sigCalled ? revenantById(f.entity.revenant.id) : null;\n      if (r) { f._sigCalled = true; revenantSay(revenantSignatureEvent(r, sb.noun, { archive: f.archive }), say); }",
-    "new": "      const r = sb ? revenantById(f.entity.revenant.id) : null;\n      if (r) { f._sigCalled = true; revenantSay(revenantSignatureEvent(r, sb.noun, { archive: f.archive }), say); }",
+    "old": "      const r = sb && !f._sigCalled ? revenantById(f.entity.revenant.id) : null;\n      if (r) { f._sigCalled = true; revenantSay(revenantSignatureEvent(r, sb.noun, { archive: f.archive, playerName: playerEntity?.name }), say); }",
+    "new": "      const r = sb ? revenantById(f.entity.revenant.id) : null;\n      if (r) { f._sigCalled = true; revenantSay(revenantSignatureEvent(r, sb.noun, { archive: f.archive, playerName: playerEntity?.name }), say); }",
     "tests": [
       "test/rvn5_sig.test.js"
     ]
@@ -632,7 +632,7 @@
   {
     "name": "RVN5-street-card-unsaid",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "      if (r) { f._sigCalled = true; revenantSay(revenantSignatureEvent(r, sb.noun, { archive: f.archive }), say); }",
+    "old": "      if (r) { f._sigCalled = true; revenantSay(revenantSignatureEvent(r, sb.noun, { archive: f.archive, playerName: playerEntity?.name }), say); }",
     "new": "      if (r) { f._sigCalled = true; }",
     "tests": [
       "test/rvn5_sig.test.js"
@@ -641,8 +641,8 @@
   {
     "name": "RVN5-street-calls-the-name",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "revenantSignatureEvent(r, sb.noun, { archive: f.archive })",
-    "new": "revenantSignatureEvent(r, sb.name, { archive: f.archive })",
+    "old": "revenantSignatureEvent(r, sb.noun, { archive: f.archive, playerName: playerEntity?.name })",
+    "new": "revenantSignatureEvent(r, sb.name, { archive: f.archive, playerName: playerEntity?.name })",
     "tests": [
       "test/rvn5_sig.test.js"
     ]

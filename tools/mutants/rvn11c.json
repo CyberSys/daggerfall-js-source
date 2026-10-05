@@ -227,8 +227,8 @@
   {
     "name": "RVN11c-kicker",
     "file": "src/systems/revenant.js",
-    "old": "  // RVN11c: a betrayer\n  betrayed: 'Betrayed',\n",
-    "new": "",
+    "old": "  // RVN11c: a betrayer; RVN12a: a theft's taunt\n  betrayed: 'Betrayed', stole: 'It took',",
+    "new": "  // RVN11c: a betrayer; RVN12a: a theft's taunt\n  stole: 'It took',",
     "tests": [
       "test/rvn11c_betray.test.js"
     ]
@@ -290,7 +290,7 @@
   {
     "name": "RVN11c-turn-untold",
     "file": "src/scenes/world.js",
-    "old": "    revenantSay(revenantBetrayEvent(r), (l) => townTalk.say(l));\n    const rec = revenantAshore.bodies()",
+    "old": "    revenantSay(revenantBetrayEvent(r, { playerName: playerEntity?.name }), (l) => townTalk.say(l));   // RVN12a: its words, my name in them\n    const rec = revenantAshore.bodies()",
     "new": "    const rec = revenantAshore.bodies()",
     "tests": [
       "test/rvn11c_betray.test.js"
