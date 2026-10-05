@@ -1,0 +1,281 @@
+[
+  {
+    "name": "LPT1-cut-any-picture",
+    "file": "src/render/renderer.js",
+    "old": "const lc = b.lptProto && this._lpt?.cut.has(b.lptProto) ? 1 : 0;",
+    "new": "const lc = b.lptProto && this._lpt ? 1 : 0;",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-frame-not-spent",
+    "file": "src/render/renderer.js",
+    "old": "    }\n    this._lpt = null;",
+    "new": "    }",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-tint-dropped",
+    "file": "src/render/renderer.js",
+    "old": "  vShade = 1.0 - tq / 255.0;",
+    "new": "  vShade = 1.0;",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-cut-never-gone",
+    "file": "src/render/renderer.js",
+    "old": "    gone = vFade <= 0.0;",
+    "new": "    gone = false;",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-tree-unturned",
+    "file": "src/render/renderer.js",
+    "old": "float tc = cos(aInst.w), tsn = sin(aInst.w);",
+    "new": "float tc = 1.0, tsn = 0.0;",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-tree-untinted",
+    "file": "src/render/renderer.js",
+    "old": "vShade = aInst2.y * (uLptSun.w",
+    "new": "vShade = 1.0 * (uLptSun.w",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-corner-unscaled",
+    "file": "src/render/renderer.js",
+    "old": "verts[o + 3] = bbCornerX(corners[c][0], fs, tg);",
+    "new": "verts[o + 3] = corners[c][0];",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-move-drops-scale",
+    "file": "src/render/renderer.js",
+    "old": "verts[o + 3] = bbCornerX(BB_CORNERS[k][0], fs, tg);",
+    "new": "verts[o + 3] = BB_CORNERS[k][0];",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-whole-flat-discarded",
+    "file": "src/render/lowPolyTreesGlsl.js",
+    "old": "(vFade > 1.5 && vFade < 3.0 &&",
+    "new": "(vFade < 3.0 &&",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-crossfade-overlaps",
+    "file": "src/render/lowPolyTreesGlsl.js",
+    "old": "+ 0.03125 < 3.0 - vFade)) discard;",
+    "new": "+ 0.03125 < vFade - 2.0)) discard;",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-gather-no-margin",
+    "file": "src/systems/lowPolyTreesAssets.js",
+    "old": "LPT_NEAR_M, LPT_BAND_M + LPT_REGATHER_M, data, skip)",
+    "new": "LPT_NEAR_M, LPT_BAND_M, data, skip)",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-regather-every-frame",
+    "file": "src/systems/lowPolyTreesAssets.js",
+    "old": "const moved = !lastEye || Math.hypot(ex - lastEye[0], ez - lastEye[2]) > LPT_REGATHER_M;",
+    "new": "const moved = true;",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-felling-ignored",
+    "file": "src/systems/lowPolyTreesAssets.js",
+    "old": "if (moved || stamp !== lastStamp || !sameSets(sets) || !gathered) {",
+    "new": "if (moved || !sameSets(sets) || !gathered) {",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-recentre-ignored",
+    "file": "src/systems/lowPolyTreesAssets.js",
+    "old": "if (l[0] !== s || l[1] !== s.ox || l[2] !== s.oy || l[3] !== s.oz) return false;",
+    "new": "if (l[0] !== s) return false;",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-unpainted-drawn",
+    "file": "src/systems/lowPolyTreesAssets.js",
+    "old": "if (s.atlas && !tex) ok = false;",
+    "new": "if (false) ok = false;",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-runs-every-frame",
+    "file": "src/systems/lowPolyTreesAssets.js",
+    "old": "if (out.from !== gathered || out.source !== source || out.readyGen !== readyGen) {",
+    "new": "if (true) {",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-runs-blind-to-painting",
+    "file": "src/systems/lowPolyTreesAssets.js",
+    "old": "        ready.set(k, tex); readyGen++;",
+    "new": "        ready.set(k, tex);",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-season-ignored",
+    "file": "src/systems/lowPolyTreesAssets.js",
+    "old": "const sib = frame === 0 ? seasonal?.picture?.(archive, record) : null;",
+    "new": "const sib = null;",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-old-season-kept",
+    "file": "src/systems/lowPolyTreesAssets.js",
+    "old": "while (sources.length > LPT_SOURCES_KEPT) freeSource(",
+    "new": "while (sources.length > LPT_SOURCES_KEPT + 9) freeSource(",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-location-varied",
+    "file": "src/world/lowPolyTrees.js",
+    "old": "if (location) return { scale: 1, tint: 1, yaw };",
+    "new": "if (location) return { scale: 1.2, tint: 1, yaw };",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-scale-range-short",
+    "file": "src/world/lowPolyTrees.js",
+    "old": "LPT_SCALE_MIN + (LPT_SCALE_MAX - LPT_SCALE_MIN) * unit(qx, qz, k, 2)",
+    "new": "LPT_SCALE_MIN + (1 - LPT_SCALE_MIN) * unit(qx, qz, k, 2)",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-first-paint-overwritten",
+    "file": "src/world/lowPolyTrees.js",
+    "old": "if (data[d + 3] || erased[i]) continue;",
+    "new": "if (erased[i]) continue;",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-erase-ignored",
+    "file": "src/world/lowPolyTrees.js",
+    "old": "if (erase) for (let i = 0; i < erase.length; i += 3) erased.fill(1,",
+    "new": "if (false) for (let i = 0; i < erase.length; i += 3) erased.fill(1,",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-fill-outside-cells",
+    "file": "src/world/lowPolyTrees.js",
+    "old": "if (cells && !cells[Math.floor(y / LPT_FILL_CELL) * cols + Math.floor(x / LPT_FILL_CELL)]) continue;",
+    "new": "if (false) continue;",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-mip-clear-darkens",
+    "file": "src/world/lowPolyTrees.js",
+    "old": "r += cur.data[s] * al; g += cur.data[s + 1] * al; b += cur.data[s + 2] * al; a += al;",
+    "new": "r += cur.data[s] * 255; g += cur.data[s + 1] * 255; b += cur.data[s + 2] * 255; a += al;",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-impostor-uncut",
+    "file": "src/world/lowPolyTrees.js",
+    "old": "if (!sub.opaque && pic.data[s + 3] < 128) continue;",
+    "new": "if (!sub.opaque && pic.data[s + 3] < 0) continue;",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-gather-skips-none",
+    "file": "src/world/lowPolyTrees.js",
+    "old": "if (skip && skip(set, i / 7)) continue;",
+    "new": "if (false) continue;",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-forest-stamp-still",
+    "file": "src/scenes/treeHost.js",
+    "old": "    FOREST_STAMP.n++;   // LPT1",
+    "new": "    // LPT1",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-fall-at-full-size",
+    "file": "src/scenes/treeHost.js",
+    "old": "[c], g.scales ? { scales: [g.scales[n.flat.i]], tints: [g.tints[n.flat.i]] } : undefined);",
+    "new": "[c]);",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-felled-tree-stands",
+    "file": "src/scenes/world.js",
+    "old": "skip: (set, i) => FELLED.has(set.centers[i]),",
+    "new": "skip: null,",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  },
+  {
+    "name": "LPT1-every-flat-wild",
+    "file": "src/scenes/world.js",
+    "old": "lptVariety(px, py, c[0], c[2], !wildFlats.has(`${k}#${i}`))",
+    "new": "lptVariety(px, py, c[0], c[2], false)",
+    "tests": [
+      "test/lpt1_lowpolytrees.test.js"
+    ]
+  }
+]

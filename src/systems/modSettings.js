@@ -83,6 +83,20 @@ export const MOD_SETTINGS = Object.freeze({
       }),
     }),
   }),
+  // LPT1 (2026-10-05): LOW POLY TREES 5 (SquidKamer). No modsettings of its own - 253 prefabs - so one switch: the
+  // port's Enabled, read when a pixel is built (a flip reaches the world as it next loads). The player's own online: it
+  // changes how the trees are drawn, never where they stand (bible/07-Rendering/Low-Poly-Trees.md).
+  'low-poly-trees': Object.freeze({
+    title: 'Low Poly Trees',
+    author: 'SquidKamer',
+    keys: Object.freeze({
+      Enabled: Object.freeze({
+        default: true,
+        description: 'The wilderness’s trees, bushes and stumps in 3D, made from Daggerfall’s own tree pictures, '
+          + 'out to the whole view distance. They change with Seasons of the Iliac Bay and with winter.',
+      }),
+    }),
+  }),
   // AUDIT BASIC ROADS (BR3, 2026-09-13, Mac: "can you do an audit on
   // basic roads, I dont think its working"). THIS MOD HAD NO `Enabled`
   // AND NO GATE - the only one of the six. MO1 gave every mod the

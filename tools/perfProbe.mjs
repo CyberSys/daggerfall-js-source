@@ -33,6 +33,9 @@ const WANT = (process.env.SCENES || 'city,road,dungeon').split(',').map((s) => s
 // on a real GPU: HEADED=1 SCENES=road SECONDS=12 GROUND=off npm run perf,
 // then again with max, and compare frameMs while scriptMs holds flat.
 const GROUND = process.env.GROUND ? `&ground=${encodeURIComponent(process.env.GROUND)}` : '';
+// LPT1: TREES=off runs every scene with Low Poly Trees' kill door (`?trees=off`), so the trees' cost is an A/B on a real
+// GPU: HEADED=1 SCENES=road TREES=off npm run perf, then again without it, and compare frameMs, draws and scriptMs.
+const TREES = process.env.TREES === 'off' ? '&trees=off' : '';
 
 const SCENES = {
   city: `/play/?world&region=Daggerfall&loc=Daggerfall&class=1&novideo&shot&fps`,
@@ -53,7 +56,7 @@ const rows = [];
 for (const name of WANT) {
   const url = SCENES[name];
   if (!url) { console.warn(`perf: no scene "${name}"`); continue; }
-  await page.goto(`http://localhost:${PORT}${url}${GROUND}`);
+  await page.goto(`http://localhost:${PORT}${url}${GROUND}${TREES}`);
   await page.waitForFunction(() => window.__shotReady === true, null, { timeout: 300000 });
   await page.waitForTimeout(1000);   // the first second after settling is the stream's tail, not the scene
   const samples = [];

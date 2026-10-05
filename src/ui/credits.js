@@ -225,6 +225,16 @@ export const CREDITS = Object.freeze({
       vendor: Object.freeze(['world-of-daggerfall']),
       link: 'https://www.nexusmods.com/daggerfallunity/mods/181',
     }),
+    // LPT1: Kamer's third, under the handle his manifest signs it with
+    Object.freeze({
+      title: 'Low Poly Trees',
+      version: '5',
+      author: 'SquidKamer',
+      what: 'The wilderness\u2019s trees, bushes and stumps in 3D: his 253 low-poly models standing where Daggerfall\u2019s nature flats stood, each tree its own size, shade and turn, the same model\u2019s picture beyond the near ground so the view keeps its whole reach. Their leaves and bark are painted from your own Daggerfall pictures - and from Seasons of the Iliac Bay\u2019s, so they turn with the seasons.',
+      terms: 'Vendored on the owner\u2019s word (2026-10-05); SquidKamer\u2019s permission is still to be recorded - see vendor/low-poly-trees/README.md.',
+      contact: 'DFU Discord',
+      vendor: Object.freeze(['low-poly-trees']),
+    }),
     Object.freeze({
       title: 'Basic Roads',
       version: '1.3.1',

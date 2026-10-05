@@ -223,6 +223,8 @@ import { remapSubMeshes } from '../world/texRemap.js';   // WM3: the one climate
 import { isEnhanced } from '../systems/uiSkin.js';
 import { getPref } from '../systems/uiPrefs.js';   // WATER1: the water's switch
 import { createCoverIndex, isCoverFlat, coverProxies } from '../ai/cover.js';   // TACT1: billboards are cover
+import { createLowPolyTrees } from '../systems/lowPolyTreesAssets.js';   // LPT1: Low Poly Trees - the host's one door (as world.js)
+import { LPT_ARCHIVES, LPT_SCALE_MAX, lptVariety } from '../world/lowPolyTrees.js';   // LPT1
 import { isTreeRecord } from '../world/terrainNature.js';   // AUDIT TACT B2: a tree is a trunk and a crown
 import { noteLocalPlayer, tacticsNow, tickTactics } from '../ai/tactics.js';   // TACT2/TACT4; AUDIT TACT: the clock's tick
 import { foeFrameDt } from '../characters/enemyMotor.js';   // AUDIT TACT: the foes' own step, for the brain's clock
@@ -1005,11 +1007,35 @@ export async function bootExterior(canvas, renderer, params, status) {
   const flatAnims = new FlatAnimator();   // FA1
   const billboardBatches = [];
   let flatCount = 0;
+  // LPT1 (bible/07-Rendering/Low-Poly-Trees.md): LOW POLY TREES, as world.js stands them - every flat here a location's
+  // (no terrain nature: DFU's terrain variety is never theirs), one set in world space (this host has no floating origin)
+  const lowPolyTrees = modSetting('low-poly-trees', 'Enabled') && params.get('trees') !== 'off' ? createLowPolyTrees({
+    renderer, getTexture,
+    seasonal: seasons ? { key: () => `s${seasons.installedSeason}`, picture: (a, r) => seasons.lookup(a, r)?.texture ?? null } : null,
+  }) : null;
+  const lptTrees = [], lptProtos = [], lptSway = new Map();
   for (const [key, centers] of flatGroups) {
     const [archive, record] = key.split('_').map(Number);
     const t = textureFiles.get(archive);
     if (!t || record >= t.recordCount) continue;
     const sib = seasons?.lookup(archive, record) ?? null;   // SIB1: the cache's answer for this archive (see world.js)
+    const lpt = lowPolyTrees && LPT_ARCHIVES.includes(archive) && (await lowPolyTrees.load()) ? lowPolyTrees.proto(archive, record) : null;   // LPT1: its far picture and its 3D tree near (world.js)
+    const far = lpt ? await lowPolyTrees.farPicture(lpt) : null;
+    if (far) {
+      const plain = sib ? sib.size : billboardSize(t, record);
+      let pi = lptProtos.indexOf(lpt);
+      if (pi < 0) pi = lptProtos.push(lpt) - 1;
+      for (const c of centers) { const v = lptVariety(0, 0, c[0], c[2], true); lptTrees.push(pi, c[0], c[1], c[2], v.scale, v.tint, v.yaw); }
+      const batch = renderer.createBillboardBatch(archive, far.record, far.size, centers, { scales: centers.map(() => 1 / LPT_SCALE_MAX) });
+      batch.lptProto = lpt;
+      batch._box = flatBatchAabb(centers, far.size);
+      batch.sway = floraSwayOf(archive, natureArchive, plain.h);
+      lptSway.set(lpt, batch.sway);
+      billboardBatches.push(batch);
+      flatCount += centers.length;
+      if (isCoverFlat(archive, record, plain)) collider.cover.add('tact1:flats', centers.flatMap((c) => coverProxies(c, plain, { tree: archive === natureArchive && isTreeRecord(natureArchive, record) })));
+      continue;
+    }
     if (sib) {
       const rkey = `${record}#season${seasons.installedSeason}`;
       const img = sib.texture.image;
@@ -1032,6 +1058,9 @@ export async function bootExterior(canvas, renderer, params, status) {
     flatCount += centers.length;
     if (isCoverFlat(archive, record, size)) collider.cover.add('tact1:flats', centers.flatMap((c) => coverProxies(c, size, { tree: archive === natureArchive && isTreeRecord(natureArchive, record) })));   // TACT1; AUDIT TACT B2: a tree's trunk and crown
   }
+
+  const lptSets = lptTrees.length ? [{ ox: 0, oy: 0, oz: 0, protos: lptProtos, trees: Float32Array.from(lptTrees) }] : [];   // LPT1: the location's 3D trees, gatherNear's one set
+  const lptOpts = { swayOf: (proto) => lptSway.get(proto) ?? 0 };
 
   // AUDIT 26 (F019): the street StaticNPCs' identity + extent, once
   // their archives are loaded (they are flats, so the batch pass above
@@ -5666,6 +5695,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     renderer.drawFoeTelegraphs?.(drawableBlows(tacticsNow(), walkMode ? player.pos : cam.pos));   // TACT4: a foe's wind-up on the ground
     for (const b of arenaBouts.batches()) _visBatches.push(b);   // ARENA-FIX 12: the crowd in the colosseum's tiers, and what it throws
     bloodMarks.draw(camRight, UP_Y);   // BLOOD1a: the marks go down BEFORE the billboards, so a body standing in its own blood is over it and not under it. ABOVE setFlatWind for the reason its own neighbour gives: WIND3 pins the wind and the draw as ADJACENT.
+    if (lowPolyTrees && lptSets.length) lowPolyTrees.frame(lptSets, cam.pos[0], cam.pos[1], cam.pos[2], lptOpts);   // LPT1: the near 3D trees, for the flats' call below
     renderer.setFlatWind(floraSwayOn() && wd.on ? [wd.windV[0], wd.windV[1], now / 1000, wd.gust] : null);   // WIND3: the flats lean with the one wind; the flora batches carry their share (sway)
     renderer.drawBillboards(_visBatches, camRight, UP_Y);
     if (_castBatches.length) renderer.recordShadowBillboards(_castBatches, camRight, UP_Y);   // SHADOW-REACH: for the maps alone, on the same wind

@@ -215,7 +215,9 @@ import { createProfHud } from '../ui/profHud.js';   // PROF1: the prompt, the ac
 import { createGatherHost } from './gatherHost.js'; import { rockFootprint } from '../world/terrainNature.js';   // PROF1/PROF2: the gathering professions in the streaming world - the nodes, the target, the act
 import { herbKind } from './herbHost.js';   // PROF1: Herbalism's patches, a kind in it
 import { mineKind } from './mineHost.js'; import { nodeCompassPoints } from '../ui/nodeMarks.js'; import { createNodeGlowPass } from '../render/nodeGlow.js';   // PROF2: Mining's veins and Quarrying's boulders, a kind in it; NODE-MARKS: every profession's nodes on the compass in its colour, and lit where they stand
-import { treeKind, isTreeRecord } from './treeHost.js';   // PROF4: Logging's trees - the forest's own - a kind in it
+import { treeKind, isTreeRecord, FOREST_STAMP } from './treeHost.js';   // PROF4: Logging's trees - the forest's own - a kind in it; LPT1: the felled trees' count, the near 3D trees' regather
+import { createLowPolyTrees } from '../systems/lowPolyTreesAssets.js';   // LPT1: Low Poly Trees - the host's one door
+import { LPT_ARCHIVES, LPT_SCALE_MAX, lptVariety } from '../world/lowPolyTrees.js';   // LPT1: which flats it stands for, and each tree's own draw
 import { realForestsOn, FOREST_HIDDEN_LOCATION_TYPES } from './shared.js';   // FOREST1: the Real forests switch, and the places the woods hide
 import { insideRocks, forestAt } from '../world/terrainNature.js';   // FOREST1 (AUDIT F1): a wood's flats keep out of the rock pieces; GRASS-LIT2: the shot hook's woods
 import { huntKind, createBodyStamps, bodiesOf, trackerMarks } from './huntHost.js';   // PROF7: Hunting's bodies - a kind in it, the kills that stamp them, a Tracker's marks
@@ -500,7 +502,7 @@ import { locationArrivalLanding, locationStartMarkers } from '../world/locationE
 import { preloadPrisonScreenArt, preloadCourtScreenArt } from '../ui/prisonScreen.js';   // PRIS00I0 - the serving-time screen   // ROAD-B B5: CORT01I0 - the courtroom the trial is pushed over
 import { TerrainGenClient } from '../world/terrainGenClient.js';   // EV7: the pixel kernel, off the main thread (samples/blend/tiles/grid/nature moved whole to terrainGen.js)
 import { getPref } from '../systems/uiPrefs.js';
-import { createCoverIndex, isCoverFlat, coverProxy, coverProxies } from '../ai/cover.js';   // TACT1: billboards are cover
+import { createCoverIndex, isCoverFlat, coverProxy, coverProxies, FELLED } from '../ai/cover.js';   // TACT1: billboards are cover; LPT1: a felled tree stands no 3D tree
 import { noteLocalPlayer, tacticsNow, tickTactics, offsetTactics } from '../ai/tactics.js';   // TACT2; TACT4: the brain's clock; AUDIT TACT: its tick, the recentre's shift
 import { drawableBlows } from '../ai/foeBlows.js';   // TACT4
 import { landViewRead } from '../world/landView.js';   // LV1: the enhanced lane's own streamed radius; FT2: the read is the module's
@@ -2084,6 +2086,19 @@ export async function bootWorld(canvas, renderer, params, status) {
   })() : Promise.resolve(false);
 
   const { getTexture, uploadRecord, uploadRecordFrame, getGpuMesh, getWindmillMeshes, cpuModels } = pipeline;
+  // LPT1 (bible/07-Rendering/Low-Poly-Trees.md): LOW POLY TREES - the nature flats it has a tree for stand as their 3D
+  // trees within LPT_NEAR_M of the eye and as the same tree's far picture beyond it, out to the land view's whole reach
+  // at a flat's own cost. Seasons of the Iliac Bay's seasonal pictures, while the mod stands a season, paint the trees'
+  // atlases, so they take the season the flats take. The host's for the session (its buffers and atlases, as the mills'
+  // parts are); each pixel's far pictures are batches of the pixel's, freed with it. `?trees=off` the kill door.
+  const lowPolyTrees = modSetting('low-poly-trees', 'Enabled') && params.get('trees') !== 'off' ? createLowPolyTrees({
+    renderer, getTexture,
+    seasonal: seasons ? { key: () => (seasonsActive ? `s${seasons.installedSeason}` : ''), picture: (a, r) => (seasonsActive ? seasons.lookup(a, r)?.texture ?? null : null) } : null,
+    breathe: () => breather.breathe(),   // the stream's own slice clock (PERF7) - a tree's atlases are painted inside the build that first stands it
+  }) : null;
+  const _lptSets = [];   // LPT1: the frame's near pixels' tree sets (a scratch)
+  const _lptSway = new Map();   // LPT1: a prototype's share of the wind's lean, as its far pictures' batch takes it
+  const _lptOpts = { skip: (set, i) => FELLED.has(set.centers[i]), swayOf: (proto) => _lptSway.get(proto) ?? 0, stamp: 0 };   // LPT1: the frame's, made once (a wind that is off is the flats' call's, uFlatWind zero)
   mwViewAttachWagon({ getGpuMesh, cpuModels }); const EOTB_WAGON_PACK = Object.freeze({ dungeon: Object.freeze({ wagonPrompt: true }) });   // EOTB-IL: SpawnWagon's CreateDaggerfallMeshGameObject(41239) through this host's pipeline; CheckWagon's AllowDungeonWagonAccess() + dfuiOpenInventoryWindow (IL_228b-IL_229f). One line, so the cites below it hold
   let _surfPath = false;   // EOTB-IL: PlayerMotor.OnExteriorPath, as the frame's surface model last answered it (UpdateWagon's wobble reads it)
   // WM2b/WM2d: the vendored mill's two parts, uploaded on the first mill
@@ -4206,6 +4221,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // PROF4 (bible/06-Systems/Professions-Arc.md 25): THE FOREST'S TREES KEPT - the flats World of Daggerfall's table names
     // a Tree by the climate's summer archive, each its group and its place in it: Logging's trees stand at them
     const pixelTrees = [];
+    const wildFlats = new Set();   // LPT1: the terrain's own nature flats (`${group}#${i}`) - DFU's terrain variety is theirs, a location's flat takes none
     for (const f of nature) {
       // GATE-CLEAR (AUDIT FOREST1 F5): the day's Oblivion Gate keeps its clearing of nature as it keeps it of World of
       // Daggerfall's flats - a tree no longer stands through the plinth or the Sigil Broker (the sweep builds the
@@ -4214,6 +4230,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (pointNearGate(gateClear, px, py, f.x, f.z, WOD_FLAT_GATE_CLEAR_M)) continue;
       if (forests && insideRocks(pixelRocks, f.x, f.z)) continue;
       const i = addFlat(natureArchive, f.record, f.x, f.y, f.z);
+      if (lowPolyTrees) wildFlats.add(`${natureArchive}_${f.record}#${i}`);   // LPT1
       if (isTreeRecord(climate.natureArchive, f.record)) pixelTrees.push({ id: pixelTrees.length, group: `${natureArchive}_${f.record}`, i, x: f.x, y: f.y, z: f.z, wood: f.wood ?? 0 });   // FOREST1: how wooded its tile is - Logging's trees stand in the woods
     }
     // WOD4: THE CAMP AT PRIVATEER'S HOLD (world/wodPrivateersHold.js).
@@ -4269,6 +4286,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     made.batches = batches;   // BUILD-FAIL1
     const forestGroups = new Map();   // PROF4: the nature groups' batches, by group - where a felled tree is sunk
     const coverItems = [];   // TACT1: the pixel's solid flats, pixel-local, the centres by reference (a felled tree sinks its own)
+    // LPT1: the pixel's low-poly trees - each [prototype, x, y, z (pixel-local), scale, tint, turn], its prototypes, and
+    // each tree's flat centre (a felled one - FELLED - stands no tree)
+    const lptTrees = [], lptProtos = [], lptCenters = [];
     for (const [k, centers] of groups) {
       await breather.breathe();   // PERF-EXT23: a flat group a breath - its texture is a cached promise, a microtask, and gave no frame back
       const [archive, record] = k.split('_').map(Number);
@@ -4280,6 +4300,33 @@ export async function bootWorld(canvas, renderer, params, status) {
       // otherwise. The seasonal texture keys on the install so a later
       // season never reads an earlier one's upload.
       const sib = seasonsActive ? seasons.lookup(archive, record) : null;
+      // LPT1: A FLAT LOW POLY TREES HAS A TREE FOR stands as that tree's far picture - the batch sized for the tallest
+      // tree it stands, each flat's own scale and tint on its corner - and as the tree itself near the eye (the pixel's
+      // `lowPolyTrees` set). Its cover, its sway and its forest are the flat's own (the season's, while one stands).
+      const lpt = lowPolyTrees && LPT_ARCHIVES.includes(archive) && (await lowPolyTrees.load()) ? lowPolyTrees.proto(archive, record) : null;
+      const far = lpt ? await lowPolyTrees.farPicture(lpt) : null;
+      if (far) {
+        const plain = sib ? sib.size : billboardSize(t, record);
+        const scales = new Float32Array(centers.length), tints = new Float32Array(centers.length);
+        let pi = lptProtos.indexOf(lpt);
+        if (pi < 0) pi = lptProtos.push(lpt) - 1;
+        centers.forEach((c, i) => {
+          const v = lptVariety(px, py, c[0], c[2], !wildFlats.has(`${k}#${i}`));
+          scales[i] = v.scale / LPT_SCALE_MAX; tints[i] = v.tint;
+          lptTrees.push(pi, c[0], c[1], c[2], v.scale, v.tint, v.yaw);
+          lptCenters.push(c);
+        });
+        const batch = renderer.createBillboardBatch(archive, far.record, far.size, centers, { scales, tints });
+        batch.lptProto = lpt;
+        batch._box = flatBatchAabb(centers, far.size);
+        batch.sway = floraSwayOf(archive, natureArchive, plain.h);
+        _lptSway.set(lpt, Math.max(_lptSway.get(lpt) ?? 0, batch.sway));
+        unionBox(batch._box);
+        batches.push(batch);
+        if (archive === natureArchive) forestGroups.set(k, { batch, centers, size: far.size, scales, tints });   // PROF4: a felled tree's batch - it falls as its far picture
+        if (isCoverFlat(archive, record, plain)) for (const c of centers) coverItems.push(...coverProxies(c, plain, { tree: archive === natureArchive && isTreeRecord(natureArchive, record) }));
+        continue;
+      }
       if (sib) {
         const rkey = `${record}#season${seasons.installedSeason}`;
         const img = sib.texture.image;
@@ -4439,6 +4486,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // PROF4: its forest - the tree flats (a batch drawn for each) Logging's trees stand at, the summer archive that names
       // them and the archive they are drawn from, and their groups' batches where a felled tree is sunk
       forest: { base: climate.natureArchive, archive: natureArchive, trees: pixelTrees.filter((t) => forestGroups.has(t.group)), groups: forestGroups },
+      lowPolyTrees: lptTrees.length ? { ox: 0, oy: 0, oz: 0, protos: lptProtos, trees: Float32Array.from(lptTrees), centers: lptCenters } : null,   // LPT1: its 3D trees (gatherNear's set; the frame writes its translation)
       wodSpawners, // WOD2: LoadObject's spawn markers, for WOD3
       privateersHold,   // WOD4: the camp's block origins and its Start's state, null off the Hold
       arena: arenaOrigin,   // ARENA2: the colosseum's block origin, pixel-local - null off Daggerfall's cell (4,3)
@@ -4727,6 +4775,21 @@ export async function bootWorld(canvas, renderer, params, status) {
       const t = state.pixelTranslation(p.px, p.py);
       labGrassField.invalidate(t[0], t[2], t[0] + TERRAIN_SIZE, t[2] + TERRAIN_SIZE);
     }
+  }
+
+  /** LPT1: the frame's near 3D trees - the eye's pixel's and its neighbours' sets, each at its translation this frame,
+   *  gathered (when the eye or they moved, or a tree was felled) and handed to the renderer for the flats' call. */
+  function lowPolyTreesFrame() {
+    _lptSets.length = 0;
+    for (const p of _pixelOrder) {
+      if (p._dist2 > 2) break;   // nearest first (NEAR-FIRST): past the eye's eight neighbours no tree is in reach
+      const set = p.lowPolyTrees;
+      if (!set || !p._t) continue;
+      set.ox = p._t[0]; set.oy = p._t[1]; set.oz = p._t[2];
+      _lptSets.push(set);
+    }
+    _lptOpts.stamp = FOREST_STAMP.n;
+    lowPolyTrees.frame(_lptSets, cam.pos[0], cam.pos[1], cam.pos[2], _lptOpts);
   }
 
   /** @param {{collectLoose?:boolean}} [opts] - A1: a season re-skin
@@ -27294,6 +27357,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     yards?.drawDecals(renderer);   // HOME-YARD: the lot's marked edge while a piece is placed
     renderer.drawFoeTelegraphs?.(drawableBlows(tacticsNow(), walkMode && playerSpawned ? player.pos : cam.pos));   // TACT4: a foe's wind-up on the ground, under the bodies
     bloodMarks.draw(camRight, UP_Y);   // BLOOD1a: the marks go down BEFORE the billboards, so a body standing in its own blood is over it and not under it. ABOVE setFlatWind for the reason its own neighbour gives: WIND3 pins the wind and the draw as ADJACENT.
+    if (lowPolyTrees) lowPolyTreesFrame();   // LPT1: the near 3D trees, for the flats' call below (AFTER the gibs' call above, which would spend them)
     renderer.setFlatWind(floraSwayOn() && wd.on ? [wd.windV[0], wd.windV[1], now / 1000, wd.gust] : null);   // WIND3: the flats lean with the one wind; the flora batches carry their share (sway)
     renderer.drawBillboards(allBatches, camRight, bbUp);
     if (magic.batches().length) renderer.drawBillboards(magic.batches(), camRight, bbUp);   // M2: spell missiles
