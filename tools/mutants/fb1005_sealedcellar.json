@@ -1,0 +1,50 @@
+[
+  {
+    "name": "SEALEDCELLAR-hatch-unasked",
+    "file": "tools/townQuestMarkers.mjs",
+    "old": "    const hatch = !condemned && !reachable ? sealed.find((h) => (h.walk ??= walkFloor(tris, [h.far])).sees(p)) : null;",
+    "new": "    const hatch = null;",
+    "tests": ["test/fb1004d_questmarkers.test.js"],
+    "note": "the measure lists no sealed marker: the committed list is no longer the measure (gated on ARENA2_PATH)"
+  },
+  {
+    "name": "SEALEDCELLAR-near-unreached",
+    "file": "tools/townQuestMarkers.mjs",
+    "old": "    if (!HATCH.includes(near.type) || !walk.sees(near)) continue;",
+    "new": "    if (!HATCH.includes(near.type)) continue;",
+    "tests": ["test/fb1005_sealedcellar.test.js"],
+    "note": "a hatch whose near side no player reaches"
+  },
+  {
+    "name": "SEALEDCELLAR-far-walked",
+    "file": "tools/townQuestMarkers.mjs",
+    "old": "    if (far && !walk.sees(far)) out.push({ near, far });",
+    "new": "    if (far) out.push({ near, far });",
+    "tests": ["test/fb1005_sealedcellar.test.js"],
+    "note": "a pair the walk reaches both sides of is a hatch"
+  },
+  {
+    "name": "SEALEDCELLAR-farthest-partner",
+    "file": "tools/townQuestMarkers.mjs",
+    "old": "      if (d < best) { best = d; far = m; }",
+    "new": "      if (d > best || far === null) { best = d; far = m; }",
+    "tests": ["test/fb1005_sealedcellar.test.js"],
+    "note": "the far side not the nearest of the other number"
+  },
+  {
+    "name": "SEALEDCELLAR-one-way",
+    "file": "tools/townQuestMarkers.mjs",
+    "old": "export const HATCH = Object.freeze([14, 13]);",
+    "new": "export const HATCH = Object.freeze([14]);",
+    "tests": ["test/fb1005_sealedcellar.test.js"],
+    "note": "only a 199.14 is a near side: the lofts reached up through a 199.13 lost"
+  },
+  {
+    "name": "SEALEDCELLAR-gemsal-unlisted",
+    "file": "src/systems/quest/markerCuration.js",
+    "old": "['beautiful-cities', 'GEMSAL00.RMB', 7],",
+    "new": "",
+    "tests": ["test/fb1005_sealedcellar.test.js"],
+    "note": "the report's house left in the cellar"
+  }
+]
