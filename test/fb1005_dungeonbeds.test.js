@@ -13,7 +13,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { bedInReach } from '../src/systems/restAct.js';
+import { bedInReach, BED_STOREY_M } from '../src/systems/restAct.js';
 import { BY_FIRE_REACH } from '../src/systems/survival/camp.js';
 import { isBedModel } from '../src/systems/rrRealism.js';
 
@@ -26,6 +26,14 @@ test('DUNGEON-BEDS: the reach is a fire\'s, measured to the bed\'s nearest point
   assert.equal(bedInReach([BED], [2 + BY_FIRE_REACH, 0, 0.5]), true, 'at the reach, off its end');
   assert.equal(bedInReach([BED], [2 + BY_FIRE_REACH + 0.01, 0, 0.5]), false, 'a step past it');
   assert.equal(bedInReach([BED], [1, -(BY_FIRE_REACH + 0.5), 0.5]), false, 'a bed on the floor above is not this floor\'s');
+  // AUDIT FB1005 B4: a dungeon's storeys stand some 3.2 m apart - in the 4 m reach, but not the bed's floor
+  assert.equal(bedInReach([BED], [1, -3.2, -1]), false, 'the storey below, 3.2 m under the bed');
+  assert.equal(bedInReach([BED], [1, 3.2, -1]), false, 'the storey above');
+  assert.equal(bedInReach([BED], [1, BED_STOREY_M, -1]), true, 'a step or a dais on the bed\'s own floor');
+  assert.equal(bedInReach([BED], [1, BED_STOREY_M + 0.01, -1]), false, 'past it');
+  // the reach is a fire's sphere: a bed on a dais 1.5 m up and 3.8 m off is 4.09 m away
+  assert.equal(bedInReach([BED], [2 + 3.8, -1.5, 0.5]), false, 'out of the sphere, though in reach across the floor');
+  assert.equal(bedInReach([BED], [2 + 3.6, -1.5, 0.5]), true, '3.9 m: in it');
   assert.equal(bedInReach([BED], null), false, 'no feet this frame');
   assert.equal(bedInReach([], [1, 0, 0]), false, 'no beds');
   assert.equal(bedInReach([box(50, 52, 0, 1, 50, 51), BED], [1, 0, 2]), true, 'any bed of the level');
@@ -33,7 +41,12 @@ test('DUNGEON-BEDS: the reach is a fire\'s, measured to the bed\'s nearest point
 
 test('DUNGEON-BEDS by source: the dungeon host collects every bed placement and names a bed in reach (or a bed pressed) its rest point, a bed\'s rest, before a fire\'s', () => {
   const dc = rd('src/scenes/dungeonContext.js');
-  assert.match(dc, /if \(!p\.action && isBedModel\(p\.modelIdNum\)\) dungeonBeds\.push\(\{ aabb \}\);/);
+  assert.match(dc, /if \(!p\.action && isBedModel\(p\.modelIdNum\) && !palace\) dungeonBeds\.push\(\{ aabb \}\);/);
+  // AUDIT FB1005 B3: a palace stands no bed's rest as it stands no fire (AUDIT REST II F2's own predicate); B1: a bed's
+  // night spends no Bedroll or Campfire laid beside it
+  assert.match(dc, /const palace = isPalaceLayout\(dungeon\.blocks\);/);
+  assert.ok(dc.indexOf('const palace = isPalaceLayout(dungeon.blocks);') < dc.indexOf('for (const p of b.layout.placements) {'), 'decided before the placements are walked');
+  assert.match(dc, /onNightSlept: \(\) => \(_restFromBed \|\| bedInReach\(dungeonBeds, _fpFeet\) \? false : camps\.spendNightNear\(_fpFeet\)\),/);
   assert.match(dc, /restKind: \(\) => \(_restFromBed \|\| bedInReach\(dungeonBeds, _fpFeet\) \? 'bed' : _fpFeet && camps\.fireNear\(_fpFeet\) \? 'camp' : 'rough'\),/);
   assert.match(dc, /restPoint: \(\) => \(_restFromBed \|\| bedInReach\(dungeonBeds, _fpFeet\) \? \{ kind: 'bed', where: null \} : _fpFeet \? camps\.restPointAt\(_fpFeet\) : null\),/);
   // the collect sits in the placement loop, after the AABB every arm reads, and before the action arms' `continue`s

@@ -265,9 +265,11 @@ export function fishKind({ book, host }) {
       // beach - "Open Water" under a crosshair on the sand): the net's law above is the ANGLER's - the Ocean's region
       // (31, a whole 819 m pixel, POLITIC.PAK never dilated) or a shore record's whole tile - so its cast stood on dry
       // beach 10 m and more from the water. The cast's own point must be over water the player would swim in
-      // (`host.waterAt`: true, false, or null for ground not built - unknown is not refused). Not while a cast is live:
-      // the gather host ends the act when its node goes, and a look swung onto the bank is not a reason to lose the haul.
-      const acting = !!live && !live.act.state.done && !live.act.state.cancelled;
+      // (`host.waterAt`: true, false, or null for ground not built - unknown is not refused). Not once the net is
+      // thrown: the gather host ends the act when its node goes, and a look swung onto the bank is no reason to lose
+      // the haul - but while E is held to WIND the net is not yet thrown, and a look turned onto the sand is a cast
+      // onto the sand (AUDIT FB1005 W3).
+      const acting = !!live && !live.act.state.done && !live.act.state.cancelled && live.act.state.phase !== 'wind';
       if (!acting && host.waterAt?.(castAt(host.eye())) === false) return [];
       const c = castNow();
       if (!c) return [];

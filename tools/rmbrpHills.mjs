@@ -21,14 +21,20 @@
 // Sixteen bearings by ten rings - not the mesh, which is a sculpt of thousands of faces: the median of each cell, so a
 // lump smaller than a cell is not in it.
 //   node tools/rmbrpHills.mjs <clone>            the table: half-extents, top, base, the shape's fit
-//   node tools/rmbrpHills.mjs <clone> --shapes   the module, to src/world/rmbrpHillShapes.js
-import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
-import { join } from 'node:path';
-import { SHAPE_BEARINGS, SHAPE_RINGS } from '../src/world/rmbrpHillShapes.js';
+//   node tools/rmbrpHills.mjs <clone> --shapes   MEASURES, then WRITES src/world/rmbrpHillShapes.js whole (its header
+//                                                kept, the grid and the table new) - `--bearings K --rings N` another grid
+// AUDIT FB1005 H1: it printed the table alone, and imported the grid from the module a shell redirect had just emptied.
+import { readFileSync, writeFileSync, readdirSync, existsSync, statSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { RMBRP_HILLS, RMBRP_PIECES } from '../src/world/townStandIns.js';
 
 const root = process.argv[2];
 const SHAPES = process.argv.includes('--shapes');
+const argN = (flag, dflt) => { const i = process.argv.indexOf(flag); return i >= 0 ? Number(process.argv[i + 1]) : dflt; };
+/** The grid the module is measured on - the module's own (16 bearings, 10 rings) unless asked for another. */
+const SHAPE_BEARINGS = argN('--bearings', 16), SHAPE_RINGS = argN('--rings', 10);
+const MODULE = join(dirname(fileURLToPath(import.meta.url)), '../src/world/rmbrpHillShapes.js');
 if (!root || !existsSync(join(root, 'Prefabs/Hills'))) {
   console.error('usage: node tools/rmbrpHills.mjs <a clone of drcarademono/rmb-resource-pack> [--shapes]');
   process.exit(1);
@@ -171,7 +177,13 @@ if (SHAPES) {
     const s = measureShape(h.tris);
     out.push(`  ${id}: { c: [${s.c.join(', ')}], top: ${s.top}, reach: [${s.reach.join(', ')}],\n    rings: [${s.rings.map((r) => `[${r.join(', ')}]`).join(',\n      ')}] },`);
   }
-  process.stdout.write(out.join('\n') + '\n');
+  // the module whole: its header as it stands (the record's), then the grid and the table measured now
+  const was = readFileSync(MODULE, 'utf8'), head = was.slice(0, was.indexOf('export const SHAPE_BEARINGS'));
+  if (!head) throw new Error(`${MODULE}: no header before SHAPE_BEARINGS - restore it from git first`);
+  writeFileSync(MODULE, `${head}export const SHAPE_BEARINGS = ${SHAPE_BEARINGS};\nexport const SHAPE_RINGS = ${SHAPE_RINGS};\n\n`
+    + `/** id -> { c: [x, z], top, reach: [SHAPE_BEARINGS], rings: [SHAPE_BEARINGS][SHAPE_RINGS] } (the tool's own print). */\n`
+    + `export const RMBRP_HILL_SHAPES = Object.freeze({\n${out.join('\n')}\n});\n`);
+  console.log(`${MODULE}: ${out.length} hills, ${SHAPE_BEARINGS} bearings by ${SHAPE_RINGS} rings`);
   process.exit(0);
 }
 

@@ -114,8 +114,8 @@ the build's date, the town, online or in a party, the console's `[quest]` lines 
 `waterAt`: `groundSampleAt` - playerGroundSample's read at any scene point - and MAC2's `feetWaterCoverage >=
 SWIM_COVERAGE`). Westhead Moor is a city at map pixel (207, 223); the pixels north and west of it are POLITIC 64 - the
 Ocean's region 31 - and the net's law (foragingLaw.js netHasWater) holds anywhere on them, so the Open Water target,
-which stands 3 m along the look, stood on 20,321 m2 of dry ground north of the town (beach dirt up to 31 m above the sea
-and 141.9 m from it) and on the dry half of every shore record. Measured on the player's data through
+which stands 3 m along the look, stood on 20,321 m2 of dry ground north of the town (up to 31 m above the sea; beach
+dirt to 78.5 m from it, grass to 141.9 m) and on the dry half of every shore record. Measured on the player's data through
 generatePixelTerrain. The cast stands only over water the feet would swim in now; ground not built is not refused; a
 cast already flying keeps its node when the look swings onto the bank. The swim and the water walk were never the
 fault (they follow the drawn coverage since MAC2). THE FOUR HOSTS: the gather host is world.js's alone.

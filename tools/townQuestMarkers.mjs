@@ -45,6 +45,8 @@ export const UNIT = 0.025;
 const SPAWN = 11, ITEM = 18, ENTER = 8, REST = 4, EDITOR = 199;
 /** SEALED-CELLAR: the packs' hatch markers - 199.14 over the plug, 199.13 at the stair's other side. */
 export const HATCH = Object.freeze([14, 13]);
+/** AUDIT FB1005 S1: how far a hatch's spot stands from the room's entrance (its enter and rest markers), in metres. */
+export const HATCH_DOOR_CLEAR_M = 1.5;
 export const VENDORS = Object.freeze([['beautiful-villages', 10], ['beautiful-cities', 20]]);
 /** The walk's person and its reach (the audit's): a 0.25 m grid, 1.7 m of headroom, a 0.65 m step, 2.5 m of reach. */
 export const WALK = Object.freeze({ cell: 0.25, head: 1.7, step: 0.65, reach: 2.5, clear: 2 });
@@ -291,15 +293,19 @@ export async function measureInterior(getModel, dfBlock, blockIndex, recordIndex
   const flats = dfBlock.rmbBlock.subRecords[recordIndex].interior.blockFlatObjectRecords.filter((f) => f.textureArchive === EDITOR && (f.textureRecord === SPAWN || f.textureRecord === ITEM));
   if (!flats.length) return [];
   const { tris, layout } = await interiorTriangles(getModel, dfBlock, blockIndex, recordIndex);
-  const walk = walkFloor(tris, layout.markers.filter((m) => m.type === ENTER || m.type === REST));
+  const entries = layout.markers.filter((m) => m.type === ENTER || m.type === REST);
+  const walk = walkFloor(tris, entries);
   const sealed = hatchesOf(layout.markers, walk);
+  // AUDIT FB1005 S1: a hatch's spot is a floor (THE RAY) and not the entrance - a quest foe stood there meets the player
+  // at the door (TEMPASF0 #7's stood 0.95 m from its one enter marker)
+  const hatchSpotOk = (c) => rayVerdict(tris, c) === 'ok' && entries.every((m) => Math.hypot(c.x - m.x, c.z - m.z) >= HATCH_DOOR_CLEAR_M);
   return flats.map((f) => {
     const p = { x: f.xPos * UNIT, y: -f.yPos * UNIT, z: f.zPos * UNIT };
     const ray = rayVerdict(tris, p), reachable = walk.sees(p);
     const condemned = (ray === 'void' || ray === 'insideSolid') && !reachable;
     // SEALED-CELLAR: past a shut hatch - the walk from its far side reaches it - it stands by the hatch's near side
     const hatch = !condemned && !reachable ? sealed.find((h) => (h.walk ??= walkFloor(tris, [h.far])).sees(p)) : null;
-    const spot = condemned ? walk.clearSpot(p) : hatch ? walk.clearSpot(hatch.near, (c) => rayVerdict(tris, c) === 'ok') : null;
+    const spot = condemned ? walk.clearSpot(p) : hatch ? walk.clearSpot(hatch.near, hatchSpotOk) : null;
     return { record: f.textureRecord, at: [f.xPos, f.yPos, f.zPos], ray, reachable, ...(hatch ? { sealed: true } : {}), to: spot ? rawOf(spot) : null };
   });
 }

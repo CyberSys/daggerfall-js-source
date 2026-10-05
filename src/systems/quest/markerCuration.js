@@ -85,7 +85,7 @@ export const CURATED_QUEST_MARKERS = Object.freeze([
       ['beautiful-cities', 'KSCAAL00.RMB', 9], ['beautiful-cities', 'LIBRAL02.RMB', 1], ['beautiful-cities', 'TEMPAAD0.RMB', 5],
       ['beautiful-cities', 'TEMPAAD0.RMB', 21], ['beautiful-cities', 'TEMPAAG0.RMB', 6], ['beautiful-cities', 'TVRNAL08.RMB', 6],
     ],
-    markers: [{ record: 11, at: [52, 128, -192], to: [4, 0, -150] }],
+    markers: [{ record: 11, at: [52, 128, -192], to: [4, 0, -100] }],
   },
   {
     design: 'BANKAM01.RMB#4', buildingType: 18,
@@ -151,7 +151,7 @@ export const CURATED_QUEST_MARKERS = Object.freeze([
       ['beautiful-cities', 'KFLAAL00.RMB', 6], ['beautiful-cities', 'KFLAAL00.RMB', 10], ['beautiful-cities', 'MAGEAA11.RMB', 5],
       ['beautiful-cities', 'TEMPAAD0.RMB', 3],
     ],
-    markers: [{ record: 11, at: [120, 128, 8], to: [160, -2, -194] }],
+    markers: [{ record: 11, at: [120, 128, 8], to: [160, -2, -214] }],
   },
   {
     design: 'TEMPASF0.RMB#7', buildingType: 18,
@@ -160,7 +160,7 @@ export const CURATED_QUEST_MARKERS = Object.freeze([
       ['beautiful-cities', 'MAGEAA10.RMB', 10], ['beautiful-cities', 'TEMPAAF0.RMB', 16], ['beautiful-cities', 'TVRNAL00.RMB', 15],
       ['beautiful-cities', 'TVRNAL00.RMB', 16],
     ],
-    markers: [{ record: 11, at: [-118, 127, -324], to: [-128, 0, -102] }],
+    markers: [{ record: 11, at: [-118, 127, -324], to: [-38, 0, -152] }],
   },
   {
     design: 'DARKAA01.RMB#11', buildingType: 18,

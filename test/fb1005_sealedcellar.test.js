@@ -18,7 +18,7 @@ import { registerWorldDataAsset, _resetWorldDataReplacement, installWorldDataRep
 import { ROW_CODECS } from '../src/formats/worldDataPack.js';
 import { patchJson } from '../src/formats/worldDataJson.js';
 import { BUILDING_TYPES } from '../src/world/buildingNames.js';
-import { hatchesOf, HATCH } from '../tools/townQuestMarkers.mjs';
+import { hatchesOf, HATCH, HATCH_DOOR_CLEAR_M, walkFloor } from '../tools/townQuestMarkers.mjs';
 import { rmbBlock, SPAWN } from './fb1004dTowns.mjs';
 import { SKIP, BC, packJson, openTowns } from './fb1004dArena.mjs';
 
@@ -107,4 +107,38 @@ test('SEALED-CELLAR, gated on ARENA2_PATH: Tigonus as Beautiful Cities lays it -
   }
   assert.ok(found.includes('GEMSAL00.RMB#7'), 'the report\'s house');
   assert.equal(found.length, 21, 'Tigonus\'s listed houses (some blocks stand twice): the grid\'s 21, past a hatch or lost in geometry');
+});
+
+test('SEALED-CELLAR: no curated spot stands at a room\'s entrance - every moved marker of every listed building is HATCH_DOOR_CLEAR_M or more from its enter and rest markers (AUDIT FB1005 S1: TEMPASF0 #7\'s foe stood 0.95 m from the door the player comes in by)', () => {
+  const PACKS = { [BC]: packJson(BC), 'beautiful-villages': packJson('beautiful-villages') };
+  const UNIT = 0.025;
+  let checked = 0;
+  for (const d of CURATED_QUEST_MARKERS) {
+    for (const [vendor, block, record] of d.where) {
+      const sub = subRecordsOf(PACKS[vendor], `${block}.json`)[record];
+      const entries = sub.Interior.BlockFlatObjectRecords.filter((f) => f.TextureArchive === 199 && (f.TextureRecord === 8 || f.TextureRecord === 4));
+      for (const m of d.markers) {
+        for (const e of entries) {
+          const dxz = Math.hypot(m.to[0] - e.XPos, m.to[2] - e.ZPos) * UNIT;
+          assert.ok(dxz >= HATCH_DOOR_CLEAR_M || Math.abs(m.to[1] - e.YPos) * UNIT > 2, `${block} #${record}: 199.${m.record}'s spot ${m.to} is ${dxz.toFixed(2)} m from the entrance at ${[e.XPos, e.YPos, e.ZPos]}`);
+        }
+        checked++;
+      }
+    }
+  }
+  assert.equal(checked, 181, 'every listed building\'s markers (179 buildings, the two libraries two each)');
+});
+
+test('SEALED-CELLAR: the walk\'s clear spot takes a test - the nearest cell that passes it, the nearest at all without one (AUDIT FB1005 S5)', () => {
+  // a flat floor, 6 m by 6 m, two triangles facing up
+  const q = [[0, 0, 0], [6, 0, 0], [6, 0, 6], [0, 0, 6]];
+  const tri = (a, b, c) => [...a, ...b, ...c, 0, 1, 0];
+  const tris = Float64Array.from([...tri(q[0], q[2], q[1]), ...tri(q[0], q[3], q[2])]);
+  const walk = walkFloor(tris, [{ x: 3, y: 0, z: 3 }]);
+  const p = { x: 3, y: 0, z: 3 };
+  const near = walk.clearSpot(p);
+  assert.ok(near && Math.hypot(near.x - 3, near.z - 3) < 0.01, 'the nearest: under the point');
+  const far = walk.clearSpot(p, (c) => Math.hypot(c.x - 3, c.z - 3) >= 1.5);
+  assert.ok(far && Math.abs(Math.hypot(far.x - 3, far.z - 3) - 1.5) < 0.26, `the nearest that passes: ${JSON.stringify(far)}`);
+  assert.equal(walk.clearSpot(p, () => false), null, 'none passes: none');
 });

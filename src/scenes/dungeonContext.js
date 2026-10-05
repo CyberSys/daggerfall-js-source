@@ -23,7 +23,7 @@ import { isArenaFloor } from '../world/arenaFloor.js';
 import { isArenaUndercroft } from '../world/arenaCity.js';   // ARENA-FIX 4: the fighters' hall
 import { undercroftPopulation, chainTag, deepFoesOf, undercroftHallNear } from '../world/arenaUndercroft.js';   // ARENA2: the arena floor's instance - what the sand will not allow
 import { ARENA_TEXT } from '../systems/arenaText.js';   // WB3b: the Burning Court - what the Deadlands will not allow
-import { dungeonFirePlan, colliderFireProbe, inFireWard, DUNGEON_FIRE_FLAT, fireLayoutInputs } from '../world/dungeonFires.js';   // REST3: the dungeon's own campfires
+import { dungeonFirePlan, colliderFireProbe, inFireWard, DUNGEON_FIRE_FLAT, fireLayoutInputs, isPalaceLayout } from '../world/dungeonFires.js';   // REST3: the dungeon's own campfires
 import { withFireMarks } from '../ui/nodeMarks.js';   // REST3: the campfires on the compass
 import { expandMacros } from '../systems/talkSession.js';   // MACRO1: the global symbols every TEXT.RSC box passes through (MacroHelper)
 import { executeConsoleCommand } from '../systems/consoleCommands.js';   // E3: the probe door runs the real database
@@ -628,6 +628,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   const ambientAnimals = [];  // A2: { pos, sound } - random-cadence barks (A4: consumed by the shared module)
   const dungeonHearths = []; // HEARTH1: { x, y, z, foot, w, h } - the braziers and fire bowls, for the survival law (FIX-D: and their sprites, for the eye)
   const animalAmbience = createAnimalAmbience(audio, () => ambientAnimals);
+  const palace = isPalaceLayout(dungeon.blocks);   // AUDIT FB1005 B3: a palace's beds are no rest point, as it stands no fire
   for (const [bi, b] of dungeon.blocks.entries()) {
     const originMatrix = trs(b.originX, 0, b.originZ, 0, 0, 0);
     // ROAD-C c2/S1: DFU's automap discovery record is POSITIONAL -
@@ -675,7 +676,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // arms below and the automap reveal index both read it.
       const aabb = worldAabb(cpu.positions, matrix);
       if (b.layout.castleBlock && isShopShelfModel(p.modelIdNum)) castleShelves.push({ aabb });   // AUDIT-SEATS: a crown's Hall of Records
-      if (!p.action && isBedModel(p.modelIdNum)) dungeonBeds.push({ aabb });   // FIELD BUGS 2026-10-05 DUNGEON-BEDS: a bed is a rest point
+      if (!p.action && isBedModel(p.modelIdNum) && !palace) dungeonBeds.push({ aabb });   // FIELD BUGS 2026-10-05 DUNGEON-BEDS: a bed is a rest point - AUDIT FB1005 B3: not a palace's (AUDIT REST II F2: a court, never a camp)
       meshTopY = Math.max(meshTopY, boundsTopY(cpu.positions, matrix));   // OH-D
       let standable = null;   // DISC29-A: the effect or relay this model is, for triggerSurfaces below
       if (p.action) {
@@ -2626,7 +2627,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // two never read - a ship's bed below deck was refused online) - the Rest-Arc's "a bed", which the dungeon never had
     restKind: () => (_restFromBed || bedInReach(dungeonBeds, _fpFeet) ? 'bed' : _fpFeet && camps.fireNear(_fpFeet) ? 'camp' : 'rough'),   // SURV4: a fire on the floor is the sleep; the bare floor is rough (AUDIT SURV-TIERS: the world's fire, in every tier)
     restPoint: () => (_restFromBed || bedInReach(dungeonBeds, _fpFeet) ? { kind: 'bed', where: null } : _fpFeet ? camps.restPointAt(_fpFeet) : null),   // REST1: online a dungeon's rest point is a lit fire in reach - a brazier, a camp, a placed fire
-    onNightSlept: () => camps.spendNightNear(_fpFeet),   // REST2: a night at your own camp spends a charge
+    onNightSlept: () => (_restFromBed || bedInReach(dungeonBeds, _fpFeet) ? false : camps.spendNightNear(_fpFeet)),   // REST2: a night at your own camp spends a charge - AUDIT FB1005 B1: a bed's night spends no Bedroll or Campfire laid beside it
   });
   // U4: the ONE player-damage door - every source (traps, melee,
   // arrows, spell missiles) lands here; death opens the overlay.

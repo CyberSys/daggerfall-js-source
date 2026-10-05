@@ -58,5 +58,45 @@
       "test/fb1005_cryptsale.test.js"
     ],
     "note": "the gate put in homeCandidate: a crypt already bought loses its plaque and its Sell it row"
+  },
+  {
+    "name": "CRYPTSALE-arena-move-unasked",
+    "file": "src/systems/arenaMove.js",
+    "old": "(s) => homeCandidate(s) && s.hasInterior !== false)",
+    "new": "(s) => homeCandidate(s))",
+    "tests": [
+      "test/fb1005_cryptsale.test.js"
+    ],
+    "note": "AUDIT FB1005 C2: a displaced home moved into a grave"
+  },
+  {
+    "name": "CRYPTSALE-summaries-unstamped",
+    "file": "src/world/buildingSummaries.js",
+    "old": "        hasInterior: hasInteriorModels(sub),   // AUDIT FB1005 C2",
+    "new": "        // AUDIT FB1005 C2",
+    "tests": [
+      "test/fb1005_cryptsale.test.js"
+    ],
+    "note": "AUDIT FB1005 C2: the arena's list never says a room is empty"
+  },
+  {
+    "name": "CRYPTSALE-world-wrapper-drops",
+    "file": "src/scenes/world.js",
+    "old": "      return { ...d, regionIndex: dfLoc.regionIndex, townMapId:",
+    "new": "      return { ...d, hasInterior: undefined, regionIndex: dfLoc.regionIndex, townMapId:",
+    "tests": [
+      "test/fb1005_cryptsale.test.js"
+    ],
+    "note": "AUDIT FB1005 C4: the streamed world's door record loses the stamp"
+  },
+  {
+    "name": "CRYPTSALE-exterior-wrapper-drops",
+    "file": "src/scenes/exterior.js",
+    "old": "      return { ...d, regionIndex: dfLocation.regionIndex, townBlocks:",
+    "new": "      return { ...d, hasInterior: undefined, regionIndex: dfLocation.regionIndex, townBlocks:",
+    "tests": [
+      "test/fb1005_cryptsale.test.js"
+    ],
+    "note": "AUDIT FB1005 C4: the one-location exterior's door record loses the stamp"
   }
 ]

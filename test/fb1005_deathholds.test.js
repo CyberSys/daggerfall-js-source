@@ -50,6 +50,16 @@ test('DEATH-HOLDS: the silence and the fatigue and magicka drains end too; a dis
   assert.ok(p.activeEffects.some((a) => a.infection === 'vampirism'));
 });
 
+test('DEATH-HOLDS: a dead player revived without `force` - a save of a dead player loaded online (save.js), the re-heal after the respawn\'s teleport - wakes free too (AUDIT FB1005 D1)', () => {
+  const p = player();
+  cast(p, [PARALYZE, SILENCE]);
+  assert.ok(entityIsParalyzed(p) && isSilencedEffect(p));
+  const out = reviveForPlay(p);
+  assert.equal(out.revived, true);
+  assert.equal(entityIsParalyzed(p), false, 'dead is enough');
+  assert.deepEqual(out.released.sort(), ['paralyze', 'silenced']);
+});
+
 test('DEATH-HOLDS: a living release ends nothing - the holds are a death\'s, not a free cure', () => {
   const p = player();
   p.health = 30;
