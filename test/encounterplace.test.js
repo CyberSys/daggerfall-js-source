@@ -104,7 +104,8 @@ test('RE1: the dungeon host stands its rest interruption the same way, with its 
   const dc = read('src/scenes/dungeonContext.js');
   assert.equal(/const landed = foeDeps\.floorLanding\(collider, \[x, feet\[1\] \+ 1\.5, z\]\);/.test(dc), false,
     'the eight-point ring is gone');
-  assert.match(dc, /async function _spawnEncounter\(\{ mobileType, minDistance, maxDistance, lineOfSightCheck \}, \{ feet = lastPlayerFeet, yaw = _motorYaw, shared = false, asked = null \} = \{\}\)/,
+  // PIN MOVED (RVN7d: a rest's revenant rides the same door - its record and its lair)
+  assert.match(dc, /async function _spawnEncounter\(\{ mobileType, minDistance, maxDistance, lineOfSightCheck \}, \{ feet = lastPlayerFeet, yaw = _motorYaw, shared = false, asked = null, revenant = null, lairStand = false \} = \{\}\)/,
     'the whole band arrives from the roll (REST-SYNC re-aim: by the resting player\'s feet and look - a joiner\'s, when the host stands its ask; AUDIT III E1 re-aim: and the spot its placement found)');
   assert.match(dc, /spot = placeFoeFreely\(env, \{ minDistance, maxDistance, lineOfSightCheck \}\);/);
   assert.match(dc, /playerYawRad: yaw,/, 'the host\'s live look yaw, which both dungeon hosts report as cam.yaw (REST-SYNC: the asker\'s, by default this player\'s)');
@@ -116,7 +117,7 @@ test('RE1: the dungeon host stands its rest interruption the same way, with its 
   assert.match(dc, /y: fly \? spot\.y \+ 1\.5 : spot\.y,/, 'the flier lift rides into the build record');
   // the NT2 gender law survived the rewrite - it is the reason this
   // call passes 'unspecified' rather than rolling one here
-  assert.match(dc, /gender: 'unspecified',/);
+  assert.match(dc, /gender: so\?\.gender \?\? 'unspecified',/);   // PIN MOVED (RVN7d: a returning person's own gender)
   assert.match(dc, /no ad-hoc roll - buildFoeAt resolves an unspecified/);
 });
 
