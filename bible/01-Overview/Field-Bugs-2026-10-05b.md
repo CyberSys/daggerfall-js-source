@@ -57,7 +57,7 @@ after and never learned the rule:
 Read when a scene is built, as NUDE-FLATS reads it: a room, a yard or a crowd stood before the setting turned is
 redrawn by the next one; the decorator's own lists follow the setting at once.
 
-`test/nudedecor.test.js` (5); `tools/mutants/nudedecor.json` 9, 9 dead. The decor pins' fakes (`test/decorFakes.mjs`)
+`test/nudedecor.test.js` (5); `tools/mutants/nudedecor.json` 10, 10 dead (the tenth DECOR-OUTDOOR's: the decorator's one picture door, `drawnHere`). The decor pins' fakes (`test/decorFakes.mjs`)
 take a room's people and per-record sizes.
 
 ## DECOR-DUNGEON (1)
