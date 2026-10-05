@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL and RVN1-RVN10 built; RVN11-RVN13 next)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL, RVN1-RVN10 and RVN11a built; RVN11b-RVN13 next)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -7,7 +7,7 @@ detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
 (section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts), AUDIT
-TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), RVN8, RVN9 and RVN10; each slice's record is at the foot.**
+TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), RVN8, RVN9, RVN10, and RVN11 in three parts (RVN11a loyalty built; RVN11b desertion, RVN11c betrayal next); each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -891,6 +891,17 @@ revenant standing where it stood (the `betrayed` deed, "the Betrayer", rank +1).
 
 The Companions page (`ui/companionRoster.js`): a loyalty bar beside its health, and its label.
 
+- **As built (RVN11a; the record at the foot)**: RVN11 is built in three parts - RVN11a loyalty (22.1, 22.4), RVN11b
+  desertion (22.2), RVN11c betrayal (22.3). "A fight won at your side" is read on its body: a fight begun when it takes a
+  live target, won on the frame it stands with none and the last it fought is down (one that walked off is no win). "A
+  day" is the character's, counted by RVN9's day walk (seven caught up at most; the first count only sets the day). "Called
+  back after its rest" needs the record to remember the rest: `companion.rested` (set at its wake, spent by the call) and
+  "sent away twice in a day" the day it was last sent: `companion.sentDay` - two companion fields RVN1 did not foresee
+  (an older record reads them false and none). The slots' own hold sends one away without the player's choice, and costs
+  nothing. "In its sight" is decided as its body standing here at my side (the layer keeps it at my heel); "its own
+  faction" as one kind, or one faction (`mobileFactions.js` - the orcs, the dead, people). A Devoted one's warning waits
+  15 s between (decided here); the back is the duel's own test (`isBackFacing`).
+
 ## 23. Words (RVN12)
 
 - **New moments** (`revenantPersonality.js VOICE_EVENTS`): `learned`, `signature`, `laststand`, `stole`, `festered`,
@@ -950,6 +961,8 @@ gets the value in the last column.
 | `wrath` | 0-3 | 0 |
 | `fights` | a count | `kills + escapes + returns` |
 | `companion.loyalty` | 0-100 | its personality's start |
+| `companion.rested` (RVN11a) | boolean - fit after a rest, not yet called; only while away | false |
+| `companion.sentDay` (RVN11a) | the character's day it was last sent away, or null | null |
 
 - The store's state gains `lastDay`. The signature's name, the band's name and the epithets are derived, never stored.
 - The deed union gains `felled`, `routed`, `festered`, `deserted`, `betrayed` and `laststand`.
@@ -1151,6 +1164,8 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
   fields there and leaves the gap FLAGGED.
 - **The single-location host.** `scenes/exterior.js` builds its pool without `fates`, so its revenants die outright;
   and it builds no location index, so they roam (no lair - RVN7a). FLAGGED in every RVN slice's record.
+- **RVN11a's fields.** RVN1 changed the record once for every field FEUD foresaw; loyalty's own moves needed two more on
+  the companion (`rested`, `sentDay` - section 26), each read back to none for an older record.
 - **RVN10's edges.** A spell's knock-out of a companion names no striker (the world host's foe sinks), and a foe on
   another's machine that knocks out mine (the wire's `fb`) is theirs - neither fells. A dungeon never culls by
   distance, so no rout by distance underground (a jump's is there); a door walked through mid-fight is no rout (the
@@ -2211,3 +2226,30 @@ and `dungeonContext.js`.
   `rvn2`'s lesson-skips-the-lead (the loop's head), `revenant`'s escape-leaves-a-corpse (`f.escaped = true;` is
   `routFoe`'s too), `crewcompanions`' two companion-killed (the knock-out arms), `revenantaudit`'s A2 (the restore's
   line), `survtiers` (1) and `survtiers3` (3) (the cites the shift moved) - each judged again: dead.
+
+### RVN11a - BUILT 2026-10-05 (the loot-rarity row on; the world host's sworn, every pool's cues)
+
+- **The law** - `systems/revenantFeud.js`: `LOYALTY` (+3 won, +2 a day with me, +10 called after a rest; -1 a day
+  away, -8 knocked out, -10 sent away again in a day, -15 its kind executed in its sight), `DEVOTED` (90, blows x1.1,
+  15 s between warnings), `LOYALTY_LABELS` and `loyaltyLabel` (Devoted 90+, Loyal 50, Wavering 20, Restless),
+  `movedLoyalty` (0-100), `isDevoted`, `sameKin` (one kind or one faction); RVN1's `LOYALTY_START`.
+- **The moves** - `revenant.revenantFester`'s day walk: each sworn one's day (with me +2, away -1, resting nothing).
+  `systems/revenantCompanions.js`: its wake marks it `rested`, `callRevenant` spends it (+10); `sendRevenantAway(id, {
+  now, byYou })` costs -10 on a second sending the same day (`sentDay`; the slots' hold, `byYou: false`, costs and notes
+  nothing); the party's `knock` -8; `swornFightStep(rec)` and `swornFightWon(id)` (+3); `swornWitness(mobileType)`
+  (-15, `revenantFate.finishExecution`'s). `revenant.js sanitizeCompanion`: `rested` (only while away), `sentDay`.
+- **Devoted** - `applySwornStrength`: blows x1.1 over its rank's; `devotedWithYou()`; `scenes/hostCombat.js
+  setWindupAtMeListener` - `tellCues` tells the host a wind-up at me as it begins (once a blow, every pool's cues);
+  `revenant.revenantWarnEvent` - "Behind you, Ayla!" (a beast's: "Grushnak snarls a warning - behind you!").
+- **Shown** - `ui/companionRoster.js loyaltyRow`: a bar of 100 (the kit's bone tone) and its word, at my side and away,
+  its number on the bar's title.
+- **Four hosts** - `scenes/world.js` WIRED: the sworn's frame (`revenantAshoreTick` - every mode) counts a fight won,
+  the slots' hold sends away `byYou: false`, the warning's listener (the duel's `isBackFacing`, `DEVOTED.WARN_S`
+  between); `scenes/worldModes.js` and `scenes/dungeonContext.js` - the sworn stand there by the world's layer, and
+  their pools' `tellCues` tell the one listener; `scenes/exterior.js` - FLAGGED (section 32): no companions there.
+- **Not built here** - desertion (RVN11b), betrayal (RVN11c); the warning's and the witness's own voice lines (RVN12's
+  `devoted_warn`).
+- Pins `test/rvn11a_loyalty.test.js` (10). Mutants `tools/mutants/rvn11a.json` (52): 52 dead. Pin moved (1):
+  `revenant_audit` C3/C7 (the slots' hold passes `byYou: false`). Mutant records re-aimed by content (5): `tell9`'s two
+  (the wind-up line now tells the host too), `revenantaudit`'s C5 (the knock's line moves loyalty), `survtiers3`'s two
+  (the cites the shift moved) - each judged again: dead.

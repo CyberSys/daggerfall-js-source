@@ -25,7 +25,7 @@ import { revenantHandBack, revenantById, revenantOn, revenantYielded, revenantEx
 import { itemLongName } from './itemInfo.js';   // RVN8: a piece handed back, by its name
 import { revenantTrophy, trophyKindWords } from './revenantTrophy.js';
 import { PERSONALITIES } from './revenantPersonality.js';
-import { retinueHasRoom, swornPlace, REVENANT_RETINUE_MAX, setRetinuePlayer, holdSworn } from './revenantCompanions.js';
+import { retinueHasRoom, swornPlace, REVENANT_RETINUE_MAX, setRetinuePlayer, holdSworn, swornWitness } from './revenantCompanions.js';
 import { companionsWithYou, COMPANION_SLOTS } from './companionSlots.js';
 import { enemyDisplayName } from '../characters/enemyBasics.js';
 import { DISSOLVE_EMBER, DISSOLVE_ARCANE } from './dissolve.js';
@@ -169,6 +169,7 @@ export function executionStep(f, now = Date.now()) {
  *  trophy. */
 export function finishExecution(player, f) {
   revenantExecuted(player, f.entity);
+  swornWitness(f.mobileType ?? f.entity?.mobileType);   // RVN11 (Feud-Arc.md 22.1): one of its own kind executed in a sworn one's sight, -15
   const items = [...(Array.isArray(f.entity?.items) ? f.entity.items : []), ...(f.trophy ? [f.trophy] : [])];
   f.trophy = null;
   if (f.entity) f.entity.items = [];   // AUDIT (2026-10-02): handed to the pile - never a save's dead record's to carry twice

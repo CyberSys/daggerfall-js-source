@@ -254,8 +254,8 @@
   {
     "name": "TELL9-threat-unmarked",
     "file": "src/scenes/hostCombat.js",
-    "old": "    if (s.key === LOCAL_TARGET) markFoeThreat(f);   // TELL9: a foe winding up at me takes the target bar\n",
-    "new": "",
+    "old": "    if (s.key === LOCAL_TARGET) { markFoeThreat(f); try { _windupAtMe?.(f, b); } catch { /* a warning is no blow's business */ } }",
+    "new": "    if (s.key === LOCAL_TARGET) { try { _windupAtMe?.(f, b); } catch { /* a warning is no blow's business */ } }",
     "tests": [
       "test/tell9_screen.test.js"
     ]
@@ -263,8 +263,8 @@
   {
     "name": "TELL9-threat-any-target",
     "file": "src/scenes/hostCombat.js",
-    "old": "    if (s.key === LOCAL_TARGET) markFoeThreat(f);",
-    "new": "    markFoeThreat(f);",
+    "old": "    if (s.key === LOCAL_TARGET) { markFoeThreat(f); try {",
+    "new": "    markFoeThreat(f); if (s.key === LOCAL_TARGET) { try {",
     "tests": [
       "test/tell9_screen.test.js"
     ]

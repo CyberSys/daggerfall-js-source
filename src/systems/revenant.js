@@ -70,7 +70,7 @@ import { getSeed, setSeed, srand } from '../formats/dfRandom.js';
 import { personalityFor, isPersonality, personalityLabel, voiceLine, beastBody, possessive, MUTE_KINDS } from './revenantPersonality.js';   // REVENANT-VOICE: who it is, and how it talks
 // FEUD, Part B (bible/12-Enhanced-AI/Feud-Arc.md sections 12-26): what a revenant remembers - its record's new fields and
 // the draws it is born with (systems/revenantFeud.js), and the fight's ledger (systems/feudLedger.js, a leaf)
-import { ROUT, FESTER, festersOn, WRATH_MAX, idStream, TOOK_MAX, LAIR_RING_R, RUMOR_CHANCE, RUMOR_PX, RUMOR_WEAK, RUMOR_NAMED, RUMOR_HINTS, weaknessKind, lairAfter, sameLair, feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK, lessonOf, withLesson, adaptEdge, adaptBlowClass, ADAPT, isWeakBlow, metalOf, WEAK, WEAK_NAMES, FLINCH_LINES, FLINCH_HEALTH, WEAKNESS_ELEMENTS, signatureStamp } from './revenantFeud.js';
+import { LOYALTY, movedLoyalty, ROUT, FESTER, festersOn, WRATH_MAX, idStream, TOOK_MAX, LAIR_RING_R, RUMOR_CHANCE, RUMOR_PX, RUMOR_WEAK, RUMOR_NAMED, RUMOR_HINTS, weaknessKind, lairAfter, sameLair, feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK, lessonOf, withLesson, adaptEdge, adaptBlowClass, ADAPT, isWeakBlow, metalOf, WEAK, WEAK_NAMES, FLINCH_LINES, FLINCH_HEALTH, WEAKNESS_ELEMENTS, signatureStamp } from './revenantFeud.js';
 import { tagHit, HIT_TAGS } from '../ui/hitNumbers.js';   // RVN3: the "Weakness" word on my blow's number
 import { SOUND } from './soundClips.js';   // RVN3: the hiss of a weakness found
 import { revenantSay as sayRevenant } from './revenantVoice.js';   // RVN3: the reveal's card (the re-export below binds no local name)
@@ -152,8 +152,9 @@ export const REVENANT_EPITHETS = Object.freeze({
  *  @typedef {{ deed: 'slew'|'fled'|'returned'|'fell'|'yielded'|'executed'|'spared'|'released'|'felled'|'routed'|'festered'|'deserted'|'betrayed'|'laststand', at: number }} RevenantDeed */
 /** REVENANT-COMPANION: a sworn one's place - walking with the player, sent away (called back at will), or resting after
  *  a fall (`until` the character's minute it is fit again) - its health carried between places, and its pack. RVN1:
- *  its `loyalty` (0-100, RVN11's - its personality's start when sworn).
- *  @typedef {{ state: 'with'|'away'|'resting', health: number|null, maxHealth: number|null, until: number|null, items: any[], loyalty: number }} RevenantCompanion */
+ *  its `loyalty` (0-100, RVN11's - its personality's start when sworn); RVN11: `rested` (fit after a rest, not yet called)
+ *  and `sentDay` (the day it was last sent away).
+ *  @typedef {{ state: 'with'|'away'|'resting', health: number|null, maxHealth: number|null, until: number|null, items: any[], loyalty: number, rested: boolean, sentDay: number|null }} RevenantCompanion */
 /** @typedef {{ id: string, rev: number, mobileType: number, gender: 'male'|'female', given: string, epithet: string,
  *   name: string, rank: number, kills: number, escapes: number, returns: number, trait: string|null, elite: boolean,
  *   born: number, dueAt: number, out: boolean, outAt: number, defeated: boolean, defeatedAt: number|null,
@@ -253,6 +254,8 @@ function sanitizeCompanion(c, personality = null) {
     until: state === 'resting' && isNum(c?.until) ? c.until : null,
     items: Array.isArray(c?.items) ? c.items.filter((it) => it && typeof it === 'object') : [],
     loyalty: sanitizeLoyalty(c?.loyalty, personality),   // RVN1 (section 26): 0-100, else its personality's start (RVN11's)
+    rested: state === 'away' && c?.rested === true,   // RVN11 (22.1): fit again after a rest and not yet called (its call +10)
+    sentDay: Number.isInteger(c?.sentDay) && c.sentDay >= 0 ? c.sentDay : null,   // RVN11 (22.1): the day it was last sent away
   };
 }
 /** A record read back (a save, the app's storage) - the shape checked, anything else dropped. */
@@ -868,6 +871,8 @@ const KICKERS = Object.freeze({
   signature: 'Signature', lair: 'Its lair', festered: 'Grows bolder',
   // RVN10: it knocked out my companion; I ran from it
   felled: 'Felled', routed: 'Routed',
+  // RVN11: a Devoted one's warning
+  warn: 'Companion',
 });
 /** @typedef {{ kind: string, kicker: string, id: string|null, name: string, rank: number, sub: string, mood: string|null,
  *   portrait: { archive: number, record: number } | null, speech: string|null, body: string|null, line: string }} RevenantEvent */
@@ -1005,7 +1010,8 @@ setHuntJournal({ abandon: (id) => forgetRevenantLair(id) });
  *  and another every FESTER.EVERY days more; at WRATH_MAX it ranks up on its own (the `festered` deed, a new epithet, its
  *  card's notice) and its wrath goes back to none - never past rank 5, where its wrath stops at three. Asked by the
  *  notice's step in the encounter tick (it knows the player). Online the character's clock stands while the player is
- *  away, so nothing festers between sessions. Answers the records that ranked up. */
+ *  away, so nothing festers between sessions. Answers the records that ranked up. RVN11 (22.1): the same days move each
+ *  sworn one's loyalty (with me +2, sent away -1). */
 export function revenantFester(player, { now = nowMinutes(), rolls = Math.random } = {}) {
   if (!revenantOn()) return [];
   const day = Math.floor(now / MINUTES_PER_DAY);
@@ -1030,6 +1036,13 @@ export function revenantFester(player, { now = nowMinutes(), rolls = Math.random
       }
       touch(r);
     }
+    // RVN11 (22.1): THE SWORN'S DAY - a day with me +2, a day sent away -1 (a resting one's day moves nothing)
+    for (const r of swornRevenants()) {
+      const st = r.companion?.state;
+      if (st !== 'with' && st !== 'away') continue;
+      r.companion.loyalty = movedLoyalty(r.companion.loyalty, st === 'with' ? LOYALTY.DAY_WITH : LOYALTY.DAY_AWAY);
+      touch(r);
+    }
   }
   _state.lastDay = day;
   persist();
@@ -1045,6 +1058,18 @@ export function revenantWakeEvent(r, { archive = null } = {}) {
   const body = `You wake to ${r.given} standing over you.`;
   return revenantEvent('lair', r, { body, line: body, archive });
 }
+/** RVN11 (bible/12-Enhanced-AI/Feud-Arc.md 22.1): A DEVOTED ONE'S WARNING - a wind-up at me begun behind me: "Behind you,
+ *  Ayla!" (a beast's, what it does). RVN12 brings its voice's own lines. */
+export function revenantWarnEvent(r, playerName) {
+  const p = capFirst(firstWord(playerName));
+  if (!revenantSpeaks(r.mobileType)) {
+    const body = `${r.given} snarls a warning - behind you!`;
+    return revenantEvent('warn', r, { body, line: body });
+  }
+  const speech = `Behind you, ${p}!`;
+  return revenantEvent('warn', r, { speech, line: `${r.name}: "${speech}"` });
+}
+
 // ── RVN10: felled and routed (bible/12-Enhanced-AI/Feud-Arc.md section 21) ─────────────────
 /** RVN10 (21.1): FELLED - a special foe's blow knocked out my companion (a sworn revenant, a crew hand ashore): the deed
  *  on its striker (the pool's record the knock-out arm noted - `striker`), the companion's name on it; it still stands,

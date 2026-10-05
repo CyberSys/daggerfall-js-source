@@ -472,3 +472,11 @@ from it or a Recall or a teleport takes me out of its fight, after a hurt in tha
 it is gone, a revenant (or a stronger one) that has learned to be Relentless ("Who Made Ayla Run"). Never after my
 death, never by a load. The law: `bible/12-Enhanced-AI/Feud-Arc.md` section 21 and its RVN10 record.
 
+## 27. Loyalty (FEUD RVN11a, 2026-10-05)
+
+A sworn revenant's loyalty (0-100) starts by its personality and moves with how it is kept: up for a fight won at the
+player's side, each day with the player and being called back after a rest; down for each day sent away, being knocked
+out, being sent away twice in a day, and seeing one of its own kind executed. The Companions page shows it as a bar and a
+word - Devoted, Loyal, Wavering or Restless. A Devoted one strikes harder and calls a warning when a foe winds up behind
+the player ("Behind you, Ayla!"). The law: `bible/12-Enhanced-AI/Feud-Arc.md` section 22 and its RVN11a record.
+

@@ -423,6 +423,24 @@ export const LOYALTY_START = Object.freeze({ honourable: 80, weary: 70, humorous
 export const loyaltyStart = (personality) => LOYALTY_START[personality] ?? 60;
 /** A loyalty read back: 0-100, else its personality's start. */
 export const sanitizeLoyalty = (v, personality) => (Number.isFinite(v) ? Math.max(0, Math.min(100, Math.round(v))) : loyaltyStart(personality));
+/** RVN11 (22.1): what moves a sworn one's loyalty - a fight won at my side, a day with me, called back after its rest;
+ *  a day sent away (never one resting), knocked out, sent away again the same day, one of its own kind executed in its
+ *  sight. */
+export const LOYALTY = Object.freeze({ WON: 3, DAY_WITH: 2, CALLED: 10, DAY_AWAY: -1, KNOCKED: -8, SENT_TWICE: -10, KIN_EXECUTED: -15 });
+/** RVN11 (22.1): a Devoted one - its loyalty this or more: its blows, and (decided here) the least wait between its
+ *  warnings, s. */
+export const DEVOTED = Object.freeze({ AT: 90, BLOWS: 1.1, WARN_S: 15 });
+/** RVN11 (22.4): its word, by the least loyalty each needs - 90 and up Devoted, 50-89 Loyal, 20-49 Wavering, under 20
+ *  Restless. */
+/** @type {ReadonlyArray<readonly [number, string]>} */
+export const LOYALTY_LABELS = Object.freeze([[DEVOTED.AT, 'Devoted'], [50, 'Loyal'], [20, 'Wavering'], [0, 'Restless']]);
+/** @returns {string} */
+export const loyaltyLabel = (v) => (LOYALTY_LABELS.find(([at]) => (Number(v) || 0) >= at) ?? LOYALTY_LABELS[LOYALTY_LABELS.length - 1])[1];
+/** RVN11: a loyalty moved by `d`, kept 0-100. */
+export const movedLoyalty = (v, d) => Math.max(0, Math.min(100, Math.round((Number.isFinite(v) ? v : 0) + d)));
+export const isDevoted = (v) => Number.isFinite(v) && v >= DEVOTED.AT;
+/** RVN11 (22.1): of its own kind - one kind, or one faction (characters/mobileFactions.js: the orcs, the dead, people). */
+export const sameKin = (a, b) => Number.isInteger(a) && Number.isInteger(b) && (a === b || (factionOf(a) != null && factionOf(a) === factionOf(b)));
 
 // ── RVN7's lair (section 18.1) ──────────────────────────────────────
 const sanitizeLair = (v) => (v && typeof v === 'object' && Number.isInteger(v.px) && Number.isInteger(v.py) && typeof v.name === 'string' && v.name

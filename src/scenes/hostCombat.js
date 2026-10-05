@@ -723,6 +723,10 @@ export function windupFeedback(word, f, { audio = null, hitEffects = null, shake
 
 // ---- TELL2: THE EAR (bible/12-Enhanced-AI/Feud-Arc.md section 4.3) ----
 const NO_CUES = Object.freeze([]);   // AUDIT TELL U9: what a foe with nothing telegraphed plays
+/** RVN11 (bible/12-Enhanced-AI/Feud-Arc.md 22.1): the host's ear for a wind-up at me as it begins (`fn(f, blow)`) - a
+ *  Devoted companion's warning of one behind me. */
+let _windupAtMe = null;
+export function setWindupAtMeListener(fn) { _windupAtMe = typeof fn === 'function' ? fn : null; }
 /**
  * A telegraphed blow's three cues, in the world boss's order (world/gateBoss.js BOSS_CUES), each once, through the
  * foes' own device settings (playEnemyClip's: a metre above the feet, linear to the attract radius by `hearing`):
@@ -732,7 +736,7 @@ const NO_CUES = Object.freeze([]);   // AUDIT TELL U9: what a foe with nothing t
  *   (DFU's half-the-time roll stays on its plain swings).
  * A wind-up that breaks plays neither of the last two; a feint (TELL5) no WIND, and its cut's plain blow the LAND. TELL4: a perfect dodge rings at its
  * landing - `SOUND.Parry6` at TELL.PERFECT_PITCH. TELL9: a wind-up at me makes its foe the target bar's (markFoeThreat)
- * and a perfect dodge says "Perfect" (ui/hitNumbers.js). Called once a frame per live foe, after its sprite's update. Answers the cues it played this frame (tests).
+ * and a perfect dodge says "Perfect" (ui/hitNumbers.js); RVN11: the host hears a wind-up at me begin (setWindupAtMeListener). Called once a frame per live foe, after its sprite's update. Answers the cues it played this frame (tests).
  */
 export function tellCues(f, audio, hearing = 1, now = tacticsNow()) {
   const ai = f?.ai;
@@ -750,7 +754,7 @@ export function tellCues(f, audio, hearing = 1, now = tacticsNow()) {
   const row = ENEMY_BASICS[f.mobileType];
   if (b && c.blow !== b) {
     c.blow = b; c.released = false; c.land = false;
-    if (s.key === LOCAL_TARGET) markFoeThreat(f);   // TELL9: a foe winding up at me takes the target bar
+    if (s.key === LOCAL_TARGET) { markFoeThreat(f); try { _windupAtMe?.(f, b); } catch { /* a warning is no blow's business */ } }   // TELL9: a foe winding up at me takes the target bar; RVN11: the host hears it begin
     if (!b.feint) {
       // RVN5 (Feud-Arc.md 16.1): a signature's WIND deeper (`b.windPitch`)
       if (ignoreHumanSounds(f.mobileType)) play(SOUND.SwingMediumPitch, b.windPitch ? TELL.WIND_CLASS_PITCH * (b.windPitch / TELL.WIND_PITCH) : TELL.WIND_CLASS_PITCH, TELL.WIND_CLASS_VOLUME);

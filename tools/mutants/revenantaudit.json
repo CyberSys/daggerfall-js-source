@@ -119,8 +119,8 @@
   {
     "name": "AUDIT-C5-the-member-kept",
     "file": "src/systems/revenantCompanions.js",
-    "old": "c.health = null; });\n      forgetSwornMember(id);\n      return true;",
-    "new": "c.health = null; });\n      return true;",
+    "old": "c.loyalty = movedLoyalty(c.loyalty, LOYALTY.KNOCKED); });   // RVN11: a fall -8\n      forgetSwornMember(id);\n      return true;",
+    "new": "c.loyalty = movedLoyalty(c.loyalty, LOYALTY.KNOCKED); });   // RVN11: a fall -8\n      return true;",
     "tests": [
       "test/revenant_audit.test.js"
     ]
