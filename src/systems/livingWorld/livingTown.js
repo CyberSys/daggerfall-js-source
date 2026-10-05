@@ -705,7 +705,7 @@ export class LivingTown {
    */
   deedNews(t = this._now) {
     const turns = this.o.relations?.()?.turns?.();
-    if (!turns || (!turns.slain?.size && !turns.died?.size)) return [];
+    if (!turns || (!turns.slain?.size && !turns.died?.size && !turns.home?.size)) return [];
     const prefix = `L${this.o.town.mapId >>> 0}.`;
     const out = [];
     for (const kind of /** @type {const} */ (['slain', 'died'])) {
@@ -716,6 +716,12 @@ export class LivingTown {
         const who = h.who || this.residents.find((r) => placeKeyOf(r) === place)?.name || '';
         if (who) out.push({ kind, who, foe: '', place: '', t: known, seen: !!h.seen });
       }
+    }
+    // LW6d: the tales - a keepsake of one of its own carried home, told by the name of the one it was
+    for (const [key, h] of turns.home ?? []) {
+      const known = h.t + DEED_KNOWN_MIN;
+      if (!key.startsWith(prefix) || known > t || t - known >= NEWS_DAYS * DAY_MIN || !h.who) continue;
+      out.push({ kind: 'home', who: h.who, foe: '', place: '', t: known, seen: true });
     }
     return out.sort((a, b) => b.t - a.t);
   }
@@ -733,9 +739,11 @@ export class LivingTown {
     if (!item) return null;
     this.o.takeKeepsake?.(item);
     const rel = this.o.relations?.();
-    const day = this.dayOf(this._now);
+    const now = this.o.clock?.() ?? this._now;   // the clock's own minute - a room's door asks it while the street stands still
+    const day = this.dayOf(now);
     rel?.note(res.id, 'saved', day);
     for (const k of this.kinOf(res)) rel?.note(k.id, 'helped', day);
+    rel?.turn('home', `${item.livingKeepsake.id}@home`, { t: now, who: item.livingKeepsake.name });   // LW6d: a tale its town tells
     const words = LIVING_KEEPSAKE[lwSeed(textSeed(res.id), textSeed(item.livingKeepsake.id)) % LIVING_KEEPSAKE.length];
     return words.map((w) => fillLine(w, { who: firstNameOf(item.livingKeepsake.name), player: this.o.playerName?.() ?? '' }));
   }

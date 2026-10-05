@@ -47,6 +47,10 @@ export const HAND_NAME_MAX = 60;
 /** LW6b: the marks of what the living world has laid in this character's world - `laid`, the fallen of a dive left in
  *  its dungeon (`deep:<id>:<trip>`) - kept as the turns are, written only once there is one. */
 export const MARK_KINDS = Object.freeze(['laid']);
+/** LW6d: the tales its towns tell of the character - `home`, a keepsake carried home to a household (`<the one it was>@home`)
+ *  - each with its minute and the name it tells of, kept as the hand deaths are (never one of them), written only once
+ *  there is one, as [key, t, who]. */
+export const TALE_KINDS = Object.freeze(['home']);
 
 /** What moves a regard, and by how much. `talk` counts once a day per resident, and each tone of word (`polite`,
  *  `insulted`) once a day. LW7: one of their own slain turns them HOSTILE (an armed one draws on you beyond the walls). */
@@ -84,9 +88,11 @@ export function createRelations(record = null) {
   const hands = Object.fromEntries(HAND_KINDS.map((k) => [k, new Map()]));
   /** @type {Record<string, Set<string>>} LW6b: the marks */
   const marks = Object.fromEntries(MARK_KINDS.map((k) => [k, new Set()]));
+  /** @type {Record<string, Map<string, { t: number, seen: boolean, who: string }>>} LW6d: the tales */
+  const tales = Object.fromEntries(TALE_KINDS.map((k) => [k, new Map()]));
   const nameOk = (who) => (typeof who === 'string' ? who.slice(0, HAND_NAME_MAX) : '');
   /** The turns as one read - the same sets and maps `turn` writes into. */
-  const allTurns = /** @type {{ spared: Set<string>, fallen: Set<string>, won: Set<string>, lost: Set<string>, slain: Map<string, Hand>, died: Map<string, Hand>, laid: Set<string> }} */ (/** @type {any} */ ({ ...turns, ...hands, ...marks }));
+  const allTurns = /** @type {{ spared: Set<string>, fallen: Set<string>, won: Set<string>, lost: Set<string>, slain: Map<string, Hand>, died: Map<string, Hand>, laid: Set<string>, home: Map<string, Hand> }} */ (/** @type {any} */ ({ ...turns, ...hands, ...marks, ...tales }));
   let turnsVersion = 0;
   const turnOk = (key) => typeof key === 'string' && key.length > 0 && key.length <= 80;
   if (record && typeof record === 'object' && record.v === 1 && record.turns && typeof record.turns === 'object') {
@@ -97,6 +103,14 @@ export function createRelations(record = null) {
     for (const k of MARK_KINDS) {
       const list = /** @type {any} */ (record.turns)[k];
       if (Array.isArray(list)) for (const key of list.slice(-TURNS_MAX)) if (turnOk(key)) marks[k].add(key);
+    }
+    for (const k of TALE_KINDS) {
+      const list = /** @type {any} */ (record.turns)[k];
+      if (!Array.isArray(list)) continue;
+      for (const e of list.slice(-TURNS_MAX)) {
+        const [key, t, who] = Array.isArray(e) ? e : [];
+        if (turnOk(key) && Number.isFinite(Number(t))) tales[k].set(key, { t: Number(t), seen: true, who: nameOk(who) });
+      }
     }
     for (const k of HAND_KINDS) {
       const list = /** @type {any} */ (record.turns)[k];
@@ -163,9 +177,18 @@ export function createRelations(record = null) {
      * encounter's id; LW7 one of HAND_KINDS, a place's, with `at` its minute (`t`), the name they bore (`who`) and,
      * slain, whether it was `seen`. Answers whether it was new.
      * LW6b: or one of MARK_KINDS, a mark kept as a turn is.
-     * @param {'spared'|'fallen'|'won'|'lost'|'slain'|'died'|'laid'} kind @param {string} key @param {{ t: number, seen?: boolean, who?: string }} [at]
+     * LW6d: or one of TALE_KINDS, a tale with its minute and the name it tells of.
+     * @param {'spared'|'fallen'|'won'|'lost'|'slain'|'died'|'laid'|'home'} kind @param {string} key @param {{ t: number, seen?: boolean, who?: string }} [at]
      */
     turn(kind, key, at) {
+      const tale = tales[kind];   // LW6d: a tale is kept as a hand death is - its minute, the name it tells of
+      if (tale) {
+        if (!turnOk(key) || tale.has(key) || !Number.isFinite(at?.t)) return false;
+        tale.set(key, { t: Number(at?.t), seen: true, who: nameOk(at?.who) });
+        if (tale.size > TURNS_MAX) tale.delete(/** @type {string} */ (tale.keys().next().value));
+        turnsVersion++;
+        return true;
+      }
       const hand = hands[kind];
       if (hand) {
         if (!turnOk(key) || hand.has(key) || !Number.isFinite(at?.t)) return false;
@@ -200,8 +223,9 @@ export function createRelations(record = null) {
       // LW4: only once there is one; LW7 each hand death's kind only once there is one of it - [key, t, seen, who]
       const handsOut = Object.fromEntries(HAND_KINDS.filter((k) => hands[k].size).map((k) => [k, [...hands[k]].map(([key, h]) => [key, h.t, h.seen ? 1 : 0, h.who])]));
       const marksOut = Object.fromEntries(MARK_KINDS.filter((k) => marks[k].size).map((k) => [k, [...marks[k]]]));   // LW6b: only once there is one
-      const any = TURN_KINDS.some((k) => turns[k].size) || Object.keys(handsOut).length > 0 || Object.keys(marksOut).length > 0;
-      const t = any ? { turns: { ...Object.fromEntries(TURN_KINDS.map((k) => [k, [...turns[k]]])), ...handsOut, ...marksOut } } : {};
+      const talesOut = Object.fromEntries(TALE_KINDS.filter((k) => tales[k].size).map((k) => [k, [...tales[k]].map(([key, h]) => [key, h.t, h.who])]));   // LW6d: likewise
+      const any = TURN_KINDS.some((k) => turns[k].size) || Object.keys(handsOut).length > 0 || Object.keys(marksOut).length > 0 || Object.keys(talesOut).length > 0;
+      const t = any ? { turns: { ...Object.fromEntries(TURN_KINDS.map((k) => [k, [...turns[k]]])), ...handsOut, ...marksOut, ...talesOut } } : {};
       return { v: 1, people, ...t };
     },
   };

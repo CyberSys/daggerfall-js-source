@@ -80,7 +80,7 @@ Taken at the design, in the request's own order; each is Mac's to overrule.
 - LW3 - the roads: trips, caravans, camps, the gear; the wilderness and the Overworld.
 - LW4 - trouble on the road; LW4b - the fight stood live, the player's to turn.
 - LW5 - the ports; LW5b - the passage by sea.
-- LW6 - the deep; LW6b - the fallen in the deep; LW6c - carried home.
+- LW6 - the deep; LW6b - the fallen in the deep; LW6c - carried home; LW6d - the town's word of it.
 - LW7 - the deeds; LW7b - friends and enemies beyond the walls; LW7c - the people who know you.
 - LW8 - the doors open; LW8b - the room's talk; LW8c - the room astir.
 
@@ -449,6 +449,19 @@ enemies, and explore a dynamic world" - what the deep kept can be carried home.
   remembers it (`saved`) and the rest of the household too (`helped`), and their words stand on the parchment
   (`LIVING_KEEPSAKE`, the fallen's first name and the player's; an ActionTextBox, the talk's own) - the conversation
   another time.
+
+## LW6d - the town's word of it (2026-10-05)
+
+`relations.js` (`TALE_KINDS`: `home`), `livingTown.js` (`moment` records it; `deedNews` tells it), `lines.js HOME_NEWS`.
+Mac: "make friends or enemies" - a kindness is talked of, as a deed is.
+
+- **The tale**: a keepsake carried home (LW6c) is the character's `home` tale (`<the one it was>@home`), kept with its
+  minute - the clock's own at the hand-over, a room's as the street's - and the name it tells of, once; beside the
+  hand deaths, never one of them (the places and the lives read only `slain` and `died`); written into the save only
+  once there is one, as [key, t, who].
+- **The town's word** (`deedNews`): its own tales, known `DEED_KNOWN_MIN` after, for `NEWS_DAYS`, by the name of the one
+  it was - told in its meetings, the street's and the rooms', beside the road's news and the deeds, in its own words
+  (`HOME_NEWS`, the player named).
 
 ## LW7 - the deeds (2026-10-05)
 

@@ -506,8 +506,8 @@
   {
     "name": "LW7-deed-order",
     "file": "src/systems/livingWorld/livingTown.js",
-    "old": "        if (who) out.push({ kind, who, foe: '', place: '', t: known, seen: !!h.seen });\n      }\n    }\n    return out.sort((a, b) => b.t - a.t);",
-    "new": "        if (who) out.push({ kind, who, foe: '', place: '', t: known, seen: !!h.seen });\n      }\n    }\n    return out;",
+    "old": "    return out.sort((a, b) => b.t - a.t);",
+    "new": "    return out;",
     "tests": [
       "test/lw7_deeds.test.js"
     ]

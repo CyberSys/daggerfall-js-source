@@ -314,6 +314,12 @@ export const DIED_NEWS = Object.freeze([
   Object.freeze(['{who} died fighting beside {player}, they say.', 'There are worse ways to go.']),
   Object.freeze(['Have you heard? {who} fell at {player}\'s side.', 'Then {player} owes {who} a debt that can\'t be paid.']),
 ]);
+/** LW6d: of a keepsake of one of its own the deep kept, carried home by the player - `{who}` the one it was. */
+export const HOME_NEWS = Object.freeze([
+  Object.freeze(['Did you hear? {player} brought {who}\'s keepsake up out of the deep.', 'Home to the family? Gods bless them.']),
+  Object.freeze(['{who}\'s people have something of theirs back, thanks to {player}.', 'Not many would go down there for the dead.']),
+  Object.freeze(['That {player} - went into the dark and came back with {who}\'s keepsake.', 'There is kindness in the world yet.']),
+]);
 /** LW7: of a fight on the road the PLAYER turned for its party (the character's `won`) - `{player}` the one who came. */
 export const HELPED_NEWS = Object.freeze({
   won: Object.freeze([
@@ -339,6 +345,7 @@ export const NEWS_SHARE = 0.4;
  *  @param {{ kind: string, dive?: boolean, helped?: boolean, seen?: boolean, sea?: boolean }} item */
 const newsPool = (item) => (item.kind === 'slain' ? SLAIN_NEWS[item.seen ? 'seen' : 'unseen']
   : item.kind === 'died' ? DIED_NEWS
+  : item.kind === 'home' ? HOME_NEWS   // LW6d: a keepsake carried home
     : item.helped && HELPED_NEWS[/** @type {keyof typeof HELPED_NEWS} */ (item.kind)] ? HELPED_NEWS[/** @type {keyof typeof HELPED_NEWS} */ (item.kind)]
       : item.sea ? SEA_NEWS[/** @type {keyof typeof SEA_NEWS} */ (item.kind)]   // LW5b: the sea's own words
         : (item.dive ? DIVE_NEWS : ROAD_NEWS)[/** @type {keyof typeof ROAD_NEWS} */ (item.kind)]);
