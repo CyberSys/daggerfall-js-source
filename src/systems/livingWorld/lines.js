@@ -228,13 +228,50 @@ export const DIVE_NEWS = Object.freeze({
     Object.freeze(['Has anyone seen {who}?', 'Not since {place}. Not since the {foe} down there.', 'Then we won\'t.']),
   ]),
 });
+/**
+ * LW7: what the town says of one of its own STRUCK DOWN by the player - `{who}` the slain; `seen`, `{player}` named
+ * (someone saw whose hand it was), else a murder nobody can put a name to.
+ */
+export const SLAIN_NEWS = Object.freeze({
+  seen: Object.freeze([
+    Object.freeze(['{who} is dead. Cut down in the street, in plain sight.', 'By whose hand?', '{player}\'s. Half the street saw it.']),
+    Object.freeze(['Did you hear what {player} did to {who}?', 'I heard. Keep your voice down - and your door barred.']),
+    Object.freeze(['{who}\'s people want {player}\'s blood.', 'Can you blame them?']),
+  ]),
+  unseen: Object.freeze([
+    Object.freeze(['They found {who} dead in the street. Nobody saw a thing.', 'Somebody did. Somebody always does.']),
+    Object.freeze(['{who}, murdered. Here, of all places.', 'Bar your door tonight.']),
+  ]),
+});
+/** LW7: of one of its own who died fighting at the player's side. */
+export const DIED_NEWS = Object.freeze([
+  Object.freeze(['{who} died fighting beside {player}, they say.', 'There are worse ways to go.']),
+  Object.freeze(['Have you heard? {who} fell at {player}\'s side.', 'Then {player} owes {who} a debt that can\'t be paid.']),
+]);
+/** LW7: of a fight on the road the PLAYER turned for its party (the character's `won`) - `{player}` the one who came. */
+export const HELPED_NEWS = Object.freeze({
+  won: Object.freeze([
+    Object.freeze(['{foe} set on {who} on the road to {place}. {player} was there.', 'And?', 'And now the crows are fat.']),
+    Object.freeze(['They say {player} fought off {foe} for {who}, near {place}.', 'A stranger, doing that? There\'s hope for us yet.']),
+  ]),
+  fell: Object.freeze([
+    Object.freeze(['{player} fought beside {who}\'s party near {place}. Not everyone came home.', 'More would be in the ground without {player}.']),
+  ]),
+});
 /** Of a meeting with news to tell, the share that tells it. */
 export const NEWS_SHARE = 0.4;
+
+/** LW7: a news item's words - a deed's (struck down by the player, seen or not; died at their side), a fight the player
+ *  turned, a dive's (LW6), the road's. @param {{ kind: string, dive?: boolean, helped?: boolean, seen?: boolean }} item */
+const newsPool = (item) => (item.kind === 'slain' ? SLAIN_NEWS[item.seen ? 'seen' : 'unseen']
+  : item.kind === 'died' ? DIED_NEWS
+    : item.helped && HELPED_NEWS[/** @type {keyof typeof HELPED_NEWS} */ (item.kind)] ? HELPED_NEWS[/** @type {keyof typeof HELPED_NEWS} */ (item.kind)]
+      : (item.dive ? DIVE_NEWS : ROAD_NEWS)[/** @type {keyof typeof ROAD_NEWS} */ (item.kind)]);
 
 /**
  * LW4: a meeting's news, if it tells one - NEWS_SHARE of the meetings with news to tell, the item drawn on the seed -
  * and its script by the news's end.
- * @param {number} seed @param {readonly { kind: string, dive?: boolean }[] | null | undefined} news
+ * @param {number} seed @param {readonly { kind: string, dive?: boolean, helped?: boolean, seen?: boolean }[] | null | undefined} news
  * @returns {{ item: any, script: readonly string[] } | null}
  */
 export function newsScript(seed, news) {
@@ -242,7 +279,7 @@ export function newsScript(seed, news) {
   const rng = seededRng((seed ^ 0x4e455753) >>> 0);   // 'NEWS'
   if (rng() >= NEWS_SHARE) return null;
   const item = news[Math.floor(rng() * news.length)];
-  const pool = (item.dive ? DIVE_NEWS : ROAD_NEWS)[/** @type {keyof typeof ROAD_NEWS} */ (item.kind)];   // LW6: a dive's own words
+  const pool = newsPool(item);
   return pool ? { item, script: pool[Math.floor(rng() * pool.length)] } : null;
 }
 

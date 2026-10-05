@@ -138,9 +138,10 @@ export function partyPlaces(trip, at) {
  *   memo?: Map<string, any>,
  *   relations?: () => any, playerName?: () => string, weather?: () => (string|null), foeName?: (type: number, n: number) => string,
  *   fights?: ReturnType<typeof import('./roadFights.js').createRoadFights> | null,
+ *   slay?: (res: any, t: number, seen: boolean) => void,
  * }} deps - `here` the player's native place (null: nowhere on the map - indoors, underground); `baseRate` the clock's
  *   minutes a real second at the walking pace's own rate (the rounds' and the lines' beat on the clock); `foeName` a
- *   foe's word for a mark ("Orcs")
+ *   foe's word for a mark ("Orcs"); LW7 `slay(res, t, seen)` the player struck a traveller down (the host's turn)
  */
 export function createLivingRoads(deps) {
   /** @type {{ trip: any, at: any }[]} */
@@ -294,9 +295,11 @@ export function createLivingRoads(deps) {
     for (const p of parties) {
       const at = partyAt(p.trip, t);
       if (at.phase !== 'out' && at.phase !== 'back') continue;
+      const members = membersAt(p.trip, t);
+      if (!members.length) continue;   // LW7: nobody left of it on the road
       const foes = at.fight ? p.trip.enc?.foes ?? [] : [];
       const beset = foes.length ? (deps.foeName?.(foes[0], foes.length) ?? 'foes') : '';   // LW4: what besets it, while it does
-      out.push({ key: `party:${p.trip.id}`, at: deps.sceneOf(/** @type {number} */ (at.x), /** @type {number} */ (at.z)), label: partyLabel(p.trip, '', beset),
+      out.push({ key: `party:${p.trip.id}`, at: deps.sceneOf(/** @type {number} */ (at.x), /** @type {number} */ (at.z)), label: partyLabel(members === p.trip.party ? p.trip : { ...p.trip, party: members }, '', beset),
         kind: `${p.trip.kind === 'merchant' ? 'wayfarer caravan' : 'wayfarer'}${beset ? ' fight' : ''}`, trip: p.trip });
     }
     return out;
@@ -324,6 +327,31 @@ export function createLivingRoads(deps) {
       const id = person?.living?.id;
       if (!id) return null;
       deps.relations?.()?.note(id, 'crime', dayOf(deps.clock()));
+      return id;
+    },
+    /**
+     * LW7: a traveller STRUCK DOWN by the player (the host's swing - DFU's one-hit civilian): dead for good from this
+     * minute (`deps.slay`; seen - their party stood by), and their party's own turned against the player (`slain` - its
+     * armed now count the player hostile). No watch on the road: that is all that comes of it. The parties are read
+     * again at once (the party walks on without them). Answers the resident's id, or null.
+     */
+    slain(person) {
+      const res = person?.living?.res;
+      if (!res) return null;
+      const t = deps.clock();
+      deps.slay?.(res, t, true);
+      const p = parties.find((q) => q.trip.party.some((m) => m.id === res.id));
+      const rel = deps.relations?.();
+      for (const m of p ? membersAt(p.trip, t) : []) if (m.id !== res.id) rel?.note(m.id, 'slain', dayOf(t));
+      timer = ROADS_TICK_S;
+      return res.id;
+    },
+    /** LW7: a word's tone - a courteous one (tone 0) or a blunt one (tone 2), each once a day. */
+    toned(person, tone) {
+      const id = person?.living?.id;
+      const kind = tone === 0 ? 'polite' : tone === 2 ? 'insulted' : null;
+      if (!id || !kind) return null;
+      deps.relations?.()?.note(id, kind, dayOf(deps.clock()));
       return id;
     },
     /** ... and an enemy will not talk. */

@@ -19,6 +19,11 @@
 // (the LivingWorld record), keyed by the PLACE and the cycle (`<place>@<cycle>` - the census's id, which holder held it
 // that cycle being the dice's own answer), and read here over the dice - the world is shared, what one player changed
 // in it is theirs.
+//
+// LW7: THE HAND DEATHS. A holder the player struck down (`slain`), or who died fighting at the player's side (`died`),
+// is dead from THAT MINUTE (`handDeath`) - a death the road's dice never held: it empties the place as any death does
+// (and a turn the character made always counts - it was made on a holder they met), but it is not the road's (`dies`
+// stays the dice's and the fights' own), so the cycle's trip and its trouble stand as they were.
 import { lwRoll } from './seed.js';
 
 /** A slot's chance a cycle of dying on the road, by job (a sailor's is the sea's, LW5) - a town of a dozen travellers
@@ -29,8 +34,9 @@ export const VACANT_CYCLES = 3;
 const FATE = 0x46415445;   // 'FATE'
 
 /**
- * @typedef {{ spared?: Set<string>|null, fallen?: Set<string>|null }} Turns - a character's own turns of fate,
- *   `<place>@<cycle>`
+ * @typedef {{ spared?: Set<string>|null, fallen?: Set<string>|null, slain?: Map<string, { t: number }>|null,
+ *   died?: Map<string, { t: number }>|null }} Turns - a character's own turns of fate, `<place>@<cycle>`; LW7 the hand
+ *   deaths, each with its minute
  */
 
 /** A resident's place: the census's id, whichever generation holds it (`L<map>.t<slot>`). @param {{ id: string }} res */
@@ -38,8 +44,16 @@ export const placeKeyOf = (res) => String(res.id).replace(/~\d+$/, '');
 /** A turn's key - the place and the cycle. @param {{ id: string }} res @param {number} k */
 export const turnKey = (res, k) => `${placeKeyOf(res)}@${k}`;
 
-/** Does a slot's fate roll under its hazard in cycle `k` - its own dice, then the character's turns. @param {any} res @param {number} k @param {Turns} [turns] */
-export function fateHits(res, k, turns) {
+/** LW7: the minute a slot's holder died in cycle `k` by a HAND - struck down by the player (`slain`), or fighting at
+ *  their side (`died`) - or null. @param {any} res @param {number} k @param {Turns} [turns] */
+export function handDeath(res, k, turns) {
+  const key = turnKey(res, k);
+  const at = turns?.slain?.get(key) ?? turns?.died?.get(key) ?? null;
+  return at ? at.t : null;
+}
+
+/** Does the ROAD take a slot in cycle `k` - its own dice, then the character's turns of its fights. @param {any} res @param {number} k @param {Turns} [turns] */
+export function roadHits(res, k, turns) {
   const key = turnKey(res, k);
   if (turns?.fallen?.has(key)) return true;
   if (turns?.spared?.has(key)) return false;
@@ -47,26 +61,38 @@ export function fateHits(res, k, turns) {
   return h > 0 && lwRoll(res.town, res.slot, k, FATE) < h;
 }
 
-/** Is a death in cycle `k` counted - its fate under the hazard and none in the VACANT_CYCLES before. @param {any} res @param {number} k @param {Turns} [turns] */
-export function deathCounted(res, k, turns) {
-  if (!fateHits(res, k, turns)) return false;
+/** Does a slot's holder die in cycle `k` - the road's fate, or (LW7) a hand's. @param {any} res @param {number} k @param {Turns} [turns] */
+export const fateHits = (res, k, turns) => handDeath(res, k, turns) != null || roadHits(res, k, turns);
+
+/** No death in the VACANT_CYCLES before cycle `k`. @param {any} res @param {number} k @param {Turns} [turns] */
+const quietBefore = (res, k, turns) => {
   for (let j = k - VACANT_CYCLES; j < k; j++) if (fateHits(res, j, turns)) return false;
   return true;
+};
+
+/** Is a death in cycle `k` counted - a death that cycle and none in the VACANT_CYCLES before; LW7: a turn the character
+ *  made (one cut down beside them, a hand's) always - it was made on a holder they met. @param {any} res @param {number} k @param {Turns} [turns] */
+export function deathCounted(res, k, turns) {
+  if (!fateHits(res, k, turns)) return false;
+  return !!turns?.fallen?.has(turnKey(res, k)) || handDeath(res, k, turns) != null || quietBefore(res, k, turns);
 }
 
 /**
  * THE PLACE in cycle `k`: `holder` the generation holding it (null: the census's own; a number: the cycle of the death
- * the newcomer came after), or `vacant` while it stands empty, and `dies` whether its holder dies this cycle.
+ * the newcomer came after), or `vacant` while it stands empty, and `dies` whether the road takes its holder this cycle.
+ * LW7: `hand` the minute a hand took its holder this cycle (null: none) - dead from then, the road's day kept.
  * `res` is the slot's census resident (its id, town, slot and job - the dice are the slot's, whoever holds it).
  * @param {any} res @param {number} k @param {Turns} [turns]
- * @returns {{ vacant: boolean, holder: number|null, dies: boolean, since: number|null }}
+ * @returns {{ vacant: boolean, holder: number|null, dies: boolean, since: number|null, hand: number|null }}
  */
 export function placeAt(res, k, turns) {
   let last = null;
   // back from the cycle to the first counted death (a slot's hazard is percents a cycle: a few dozen cycles at most) -
   // to the world's first cycle, never a window, so a death long ago never falls out of the reading and back to the census
   for (let j = k - 1; j >= 0; j--) if (deathCounted(res, j, turns)) { last = j; break; }
-  if (last != null && k - last <= VACANT_CYCLES) return { vacant: true, holder: null, dies: false, since: last };
-  // the holder: the newcomer after the last death; before it, the generations back (each the death that came before it)
-  return { vacant: false, holder: last, dies: deathCounted(res, k, turns), since: last };
+  if (last != null && k - last <= VACANT_CYCLES) return { vacant: true, holder: null, dies: false, since: last, hand: null };
+  // the holder: the newcomer after the last death; before it, the generations back (each the death that came before it).
+  // The road's own death this cycle reads the road's own count - a hand's death beside it never makes the road's fate
+  const dies = roadHits(res, k, turns) && (!!turns?.fallen?.has(turnKey(res, k)) || quietBefore(res, k, turns));
+  return { vacant: false, holder: last, dies, since: last, hand: handDeath(res, k, turns) };
 }

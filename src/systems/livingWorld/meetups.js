@@ -67,7 +67,8 @@ export function spotCircles(spotKey, present, t, roundMin) {
  * tell (trips.js newsOf - `{ kind, who, foe, place }`, the foe a word) tells it NEWS_SHARE of the time instead.
  * @param {Circle} circle @param {number} t @param {number} lineMin
  * @param {{ town?: string, region?: string, place?: string, weather?: string|null, hour?: number, road?: 'walk'|'camp'|null,
- *   news?: readonly { kind: string, who: string, foe: string, place: string }[] | null }} [ctx]
+ *   news?: readonly { kind: string, who: string, foe: string, place: string }[] | null, player?: string }} [ctx] - LW7 `player` the
+ *   character's name (a deed's news names them)
  * @returns {{ who: Talker, text: string, index: number } | null}
  */
 export function circleLine(circle, t, lineMin, ctx = {}) {
@@ -82,7 +83,7 @@ export function circleLine(circle, t, lineMin, ctx = {}) {
   const text = fillLine(script[index], {
     town: ctx.town, region: ctx.region, place: told ? told.item.place : ctx.place,
     a: firstNameOf(circle.members[0].name), b: firstNameOf(circle.members[1]?.name ?? other.name),
-    who: told ? firstNameOf(told.item.who) : null, foe: told ? told.item.foe : null,
+    who: told ? firstNameOf(told.item.who) : null, foe: told ? told.item.foe : null, player: ctx.player,   // LW7: a deed's, a fight's turner
   });
   return { who, text, index };
 }

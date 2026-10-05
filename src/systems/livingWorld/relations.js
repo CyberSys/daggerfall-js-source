@@ -17,6 +17,11 @@
 // lived because the player fought beside them (`spared`, `<place>@<cycle>`), one cut down beside them (`fallen`), and a
 // fight the player won or lost for a party (`won`, `lost`, the encounter's id). The world is shared; what one player
 // changed in it is theirs (lives.js, trouble.js read them over the dice).
+//
+// LW7: THE HAND DEATHS (`HAND_KINDS`) ride it too, each with its minute and the name they bore: a resident the player
+// struck down (`slain`, and whether it was seen) and one who died fighting at the player's side (`died`) - deaths the
+// road's dice never held, so the lives take the place from that minute (lives.js handDeath) and the road keeps the rest
+// of the day as it was; the town talks of them by name (livingTown.js deedNews).
 
 /** The save's record's vendor (modSaveData): the character's regards ride their save under it. */
 export const LIVING_WORLD_VENDOR = 'LivingWorld';
@@ -34,8 +39,14 @@ export const RELATIONS_MAX = 600;
 /** LW4: the kinds of a character's turns of fate, and the most kept of each (the oldest leave first). */
 export const TURN_KINDS = Object.freeze(['spared', 'fallen', 'won', 'lost']);
 export const TURNS_MAX = 200;
+/** LW7: the hand deaths - a turn with its minute, whether it was seen and the name (`{ t, seen, who }`), kept as the
+ *  turns are. */
+export const HAND_KINDS = Object.freeze(['slain', 'died']);
+/** LW7: the longest name a hand death keeps. */
+export const HAND_NAME_MAX = 60;
 
-/** What moves a regard, and by how much. `talk` counts once a day per resident. */
+/** What moves a regard, and by how much. `talk` counts once a day per resident, and each tone of word (`polite`,
+ *  `insulted`) once a day. LW7: one of their own slain turns them HOSTILE (an armed one draws on you beyond the walls). */
 export const EVENTS = Object.freeze({
   talk: 3,        // a word exchanged (the talk window opened on them)
   polite: 1,      // a courteous word in the talk (the talk's own tone)
@@ -44,11 +55,12 @@ export const EVENTS = Object.freeze({
   saved: 35,      // their fight won with them standing
   struck: -45,    // struck by the player
   crime: -15,     // a crime of the player's seen
-  slain: -60,     // one of their own party struck down by the player
+  slain: -75,     // one of their own - their household, their party - struck down by the player
   insulted: -6,   // a blunt word in the talk
 });
 
-/** @typedef {{ r: number, met: number, seen: number, talked: number }} Regard - `met`, `seen`, `talked` days (the clock's day numbers) */
+/** @typedef {{ r: number, met: number, seen: number, talked: number, polite?: number, blunt?: number }} Regard - `met`,
+ *  `seen`, `talked` days (the clock's day numbers); LW7 `polite`, `blunt` the days a tone of word last counted */
 
 /** The standing a regard reads as. @param {number} r */
 export const regardStanding = (r) => (r >= FRIEND_AT ? 'friend' : r <= HOSTILE_AT ? 'hostile' : r <= ENEMY_AT ? 'enemy' : 'neutral');
@@ -64,6 +76,12 @@ export function createRelations(record = null) {
   const ok = (id) => typeof id === 'string' && id.length > 0 && id.length <= 40;
   /** @type {Record<string, Set<string>>} */
   const turns = Object.fromEntries(TURN_KINDS.map((k) => [k, new Set()]));
+  /** @typedef {{ t: number, seen: boolean, who: string }} Hand */
+  /** @type {Record<string, Map<string, Hand>>} LW7: the hand deaths, each with its minute */
+  const hands = Object.fromEntries(HAND_KINDS.map((k) => [k, new Map()]));
+  const nameOk = (who) => (typeof who === 'string' ? who.slice(0, HAND_NAME_MAX) : '');
+  /** The turns as one read - the same sets and maps `turn` writes into. */
+  const allTurns = /** @type {{ spared: Set<string>, fallen: Set<string>, won: Set<string>, lost: Set<string>, slain: Map<string, Hand>, died: Map<string, Hand> }} */ (/** @type {any} */ ({ ...turns, ...hands }));
   let turnsVersion = 0;
   const turnOk = (key) => typeof key === 'string' && key.length > 0 && key.length <= 80;
   if (record && typeof record === 'object' && record.v === 1 && record.turns && typeof record.turns === 'object') {
@@ -71,13 +89,24 @@ export function createRelations(record = null) {
       const list = /** @type {any} */ (record.turns)[k];
       if (Array.isArray(list)) for (const key of list.slice(-TURNS_MAX)) if (turnOk(key)) turns[k].add(key);
     }
+    for (const k of HAND_KINDS) {
+      const list = /** @type {any} */ (record.turns)[k];
+      if (!Array.isArray(list)) continue;
+      for (const e of list.slice(-TURNS_MAX)) {
+        const [key, t, seen, who] = Array.isArray(e) ? e : [];
+        if (turnOk(key) && Number.isFinite(Number(t))) hands[k].set(key, { t: Number(t), seen: !!seen, who: nameOk(who) });
+      }
+    }
   }
   if (record && typeof record === 'object' && record.v === 1 && record.people && typeof record.people === 'object') {
     for (const [id, e] of Object.entries(record.people)) {
       if (!ok(id) || !e || typeof e !== 'object') continue;
       const r = Number(/** @type {any} */ (e).r), met = Number(/** @type {any} */ (e).met), seen = Number(/** @type {any} */ (e).seen), talked = Number(/** @type {any} */ (e).talked);
       if (!Number.isFinite(r)) continue;
-      map.set(id, { r: clamp(r), met: Number.isFinite(met) ? met : 0, seen: Number.isFinite(seen) ? seen : 0, talked: Number.isFinite(talked) ? talked : -1 });
+      /** @type {Regard} */
+      const got = { r: clamp(r), met: Number.isFinite(met) ? met : 0, seen: Number.isFinite(seen) ? seen : 0, talked: Number.isFinite(talked) ? talked : -1 };
+      for (const tone of /** @type {const} */ (['polite', 'blunt'])) { const d = Number(/** @type {any} */ (e)[tone]); if (Number.isFinite(d)) got[tone] = d; }   // LW7
+      map.set(id, got);
     }
   }
   /** The regard as it stands on `day` - eased for the days unseen. */
@@ -100,15 +129,18 @@ export function createRelations(record = null) {
     known: (id) => map.has(id),
     /**
      * Something happened between the player and `id` on `day`: `kind` an EVENTS key (or `amount` given). A `talk` counts
-     * once a day. Answers the new regard.
+     * once a day, and (LW7) each tone of word - `polite`, `insulted` - once a day. Answers the new regard.
      * @param {string} id @param {keyof typeof EVENTS} kind @param {number} day @param {number} [amount]
      */
     note(id, kind, day, amount) {
       if (!ok(id)) return 0;
+      /** @type {Regard} */
       const e = map.get(id) ?? { r: 0, met: day, seen: day, talked: -1 };
       const now = eased(e, day);
       let delta = Number.isFinite(amount) ? Number(amount) : (EVENTS[kind] ?? 0);
       if (kind === 'talk') { if (e.talked === day) delta = 0; else e.talked = day; }
+      const tone = kind === 'polite' ? 'polite' : kind === 'insulted' ? 'blunt' : null;
+      if (tone) { if (e[tone] === day) delta = 0; else e[tone] = day; }
       e.r = clamp(now + delta);
       e.seen = day;
       map.set(id, e);
@@ -119,10 +151,19 @@ export function createRelations(record = null) {
     seen(id, day) { const e = map.get(id); if (e) { e.r = eased(e, day); e.seen = day; } },
     /**
      * LW4: a turn of fate this character made - `kind` one of TURN_KINDS, `key` a place's `<place>@<cycle>` or an
-     * encounter's id. Answers whether it was new.
-     * @param {'spared'|'fallen'|'won'|'lost'} kind @param {string} key
+     * encounter's id; LW7 one of HAND_KINDS, a place's, with `at` its minute (`t`), the name they bore (`who`) and,
+     * slain, whether it was `seen`. Answers whether it was new.
+     * @param {'spared'|'fallen'|'won'|'lost'|'slain'|'died'} kind @param {string} key @param {{ t: number, seen?: boolean, who?: string }} [at]
      */
-    turn(kind, key) {
+    turn(kind, key, at) {
+      const hand = hands[kind];
+      if (hand) {
+        if (!turnOk(key) || hand.has(key) || !Number.isFinite(at?.t)) return false;
+        hand.set(key, { t: Number(at?.t), seen: !!at?.seen, who: nameOk(at?.who) });
+        if (hand.size > TURNS_MAX) hand.delete(/** @type {string} */ (hand.keys().next().value));
+        turnsVersion++;
+        return true;
+      }
       const set = turns[kind];
       if (!set || !turnOk(key) || set.has(key)) return false;
       set.add(key);
@@ -130,8 +171,8 @@ export function createRelations(record = null) {
       turnsVersion++;
       return true;
     },
-    /** LW4: the character's turns of fate, by kind (read them; `turn` writes). */
-    turns: () => turns,
+    /** LW4: the character's turns of fate, by kind (read them; `turn` writes) - LW7 the hand deaths' maps beside them. */
+    turns: () => allTurns,
     /** LW4: bumped at each new turn (the host's books read through them are made again). */
     turnsVersion: () => turnsVersion,
     /** Everyone known, for a list (the player's own). */
@@ -141,8 +182,15 @@ export function createRelations(record = null) {
     snapshot() {
       /** @type {Record<string, Regard>} */
       const people = {};
-      for (const [id, e] of map) people[id] = { r: Math.round(e.r * 10) / 10, met: e.met, seen: e.seen, talked: e.talked };
-      const t = TURN_KINDS.some((k) => turns[k].size) ? { turns: Object.fromEntries(TURN_KINDS.map((k) => [k, [...turns[k]]])) } : {};   // LW4: only once there is one
+      for (const [id, e] of map) {
+        people[id] = { r: Math.round(e.r * 10) / 10, met: e.met, seen: e.seen, talked: e.talked };
+        if (e.polite != null) people[id].polite = e.polite;   // LW7: only once counted
+        if (e.blunt != null) people[id].blunt = e.blunt;
+      }
+      // LW4: only once there is one; LW7 each hand death's kind only once there is one of it - [key, t, seen, who]
+      const handsOut = Object.fromEntries(HAND_KINDS.filter((k) => hands[k].size).map((k) => [k, [...hands[k]].map(([key, h]) => [key, h.t, h.seen ? 1 : 0, h.who])]));
+      const any = TURN_KINDS.some((k) => turns[k].size) || Object.keys(handsOut).length > 0;
+      const t = any ? { turns: { ...Object.fromEntries(TURN_KINDS.map((k) => [k, [...turns[k]]])), ...handsOut } } : {};
       return { v: 1, people, ...t };
     },
   };

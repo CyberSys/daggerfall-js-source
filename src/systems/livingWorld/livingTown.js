@@ -29,6 +29,13 @@
 //    to the exit facing the road, home again - dayPlan.js schedule), and walks it ARMED in their class's sprite
 //    (`o.armOf`, ResidentWalker.arm); a party of another town staying here is a VISITOR - in by the exit facing the road
 //    it came, lodged at a tavern, out by the same exit when it leaves.
+//  - LW7, THE DEEDS (bible/06-Systems/Living-World.md "LW7"). A resident the player STRUCK DOWN (`slain` - DFU's one-hit
+//    civilian) is dead for good: the host makes the hand's turn (`o.slay`; lives.js takes the place from that minute -
+//    the town's people read `o.holderOf` and `o.deadAt`), their own - the household they live in, the party they came
+//    with, the crew they came ashore with - count the player their enemy for it, and every resident who saw it
+//    (`WITNESS_M`, a clear line - `o.sees`) counts it a crime; so does every one who saw a hand caught in a purse, and
+//    one of the watch STRUCK (`struck`) remembers the blow. A word's tone (`toned`) moves a regard once a day. The town
+//    talks of it for NEWS_DAYS (`deedNews`): one of its own struck down - and, seen, by whom.
 import { POP_VISIBLE_RANGE, POP_RECYCLE_DISTANCE, maxPopulationFor } from '../townPopulation.js';
 import { PERSON_MOVE_SPEED } from '../../characters/mobilePerson.js';
 import { townPlaces, exitToward, harbourDock } from './places.js';
@@ -39,6 +46,8 @@ import { createPathBook, pointAlong } from './townPaths.js';
 import { spotCircles, circleLine, circleStands, aloneStand, ROUND_S, lineMinutes } from './meetups.js';
 import { LIVING_GREETINGS, fillLine, firstNameOf } from './lines.js';
 import { lwSeed, textSeed } from './seed.js';
+import { placeKeyOf } from './lives.js';
+import { NEWS_DAYS } from './trips.js';
 
 /** LW5: a visiting crew's day is planned again only when its arrival moved this far (the clock's minutes) - it is read
  *  off the ships' clock and the sky's at each census, and the two drift by a hair. */
@@ -74,6 +83,11 @@ export const GREET_S = 3.4;
 export const LINE_HEAD_M = 2.1;
 /** What an enemy says to the talk ray instead of talking ({a} their first name). */
 export const LIVING_REFUSAL = '{a} turns away from you.';
+/** LW7: how near a resident stands to see a deed (m) - the street's own lines' reach. */
+export const WITNESS_M = LINE_RANGE;
+/** LW7: a deed in the street is the town's talk from this many of the clock's minutes after it (the body found, the word
+ *  gone round). */
+export const DEED_KNOWN_MIN = 60;
 
 /**
  * @typedef {import('./census.js').Resident} Resident
@@ -93,19 +107,27 @@ export class LivingTown {
    *   suppressSpawns?: () => boolean,
    *   relations?: () => (ReturnType<typeof import('./relations.js').createRelations> | null),
    *   playerName?: () => string, weather?: () => (string|null), townName?: string, regionName?: string,
-   *   tripsOf?: (day: number) => ({ away: Map<string, { t0: number, t1: number, yaw: number, armed: boolean }[]>, visitors: { res: Resident, inT: number, outT: number, yaw: number }[],
+   *   tripsOf?: (day: number) => ({ away: Map<string, { t0: number, t1: number, yaw: number, armed: boolean }[]>, visitors: { res: Resident, inT: number, outT: number, yaw: number, trip?: any }[],
    *     holders?: Map<string, Resident|null>, news?: { kind: string, who: string, foe: string, place: string }[] } | undefined),
    *   armOf?: (res: Resident) => ({ mobileType: number, basics: any, archive: number, frameCount: (record: number) => number, sex?: 'male'|'female' } | null),
    *   ashore?: (res: Resident) => ('home'|'sea'|'abroad'|null),
-   *   crews?: () => { res: Resident, inT: number, outT: number }[],
+   *   crews?: () => { res: Resident, inT: number, outT: number, berth?: { lane: { key: string }, k: number } }[],
    *   harbour?: () => ({ x: number, z: number } | null),
+   *   holderOf?: (res: Resident, day: number) => (Resident|null),
+   *   deadAt?: (res: Resident, t: number) => boolean,
+   *   slay?: (res: Resident, t: number, seen: boolean) => void,
+   *   sees?: (from: number[], to: number[]) => boolean,
    * }} o - `tripsOf(day)` the roads' word on the town for a day (trips.js through the host's book: who of it is away
    *   when, who of elsewhere stays here), undefined while its ways are still being asked; `armOf(res)` a resident's
    *   class sprite once its art is loaded, else null - `clock` the sky's minute (worldTick.js skyMinutes); `rate` the clock's minutes a real second now (a
    *   journey's scale in it); `mpm` the walking pace in the clock's metres a minute (LW0 decision 3). LW5: `ashore(res)`
    *   where one of its sailors is by their packet's clock (portCrews.js - at sea or abroad, in no street of this town);
    *   `crews()` the hands of the packets lying here from elsewhere, each ashore from `inT` to `outT` (the clock's
-   *   minutes); `harbour()` the harbour's berth in the location's frame (the dock of a port with no Ship building)
+   *   minutes); `harbour()` the harbour's berth in the location's frame (the dock of a port with no Ship building).
+   *   LW7: `holderOf(res, day)` who holds a townsperson's place on a day (lives.js - the census's own, a newcomer after a
+   *   death, null while it stands empty; a traveller's come with the roads' word); `deadAt(res, t)` whether a hand took
+   *   a resident by the minute; `slay(res, t, seen)` the player struck one down (the host makes the turn); `sees(a, b)`
+   *   a clear line between two points of the location frame (none given: always)
    */
   constructor(nav, o) {
     this.nav = nav;
@@ -142,7 +164,7 @@ export class LivingTown {
     this._rows = [];
     /** LW4: today's people, kept while the roads' word for the day stands. @type {{ day: number, roads: any, list: Resident[] } | null} */
     this._people = null;
-    /** LW5: the crews ashore here from elsewhere, read at each census. @type {Map<string, { res: Resident, inT: number, outT: number }>} */
+    /** LW5: the crews ashore here from elsewhere, read at each census (LW7: each with its packet). @type {Map<string, { res: Resident, inT: number, outT: number, berth?: { lane: { key: string }, k: number } }>} */
     this._crewOf = new Map();
     /** LW5: the dock found off the harbour (a port with no Ship building), once found. @type {any} */
     this._harbourDock = null;
@@ -236,8 +258,13 @@ export class LivingTown {
     const roads = this._roadsOf(day);
     if (this._people?.day === day && this._people.roads === roads) return this._people.list;
     const h = roads?.holders;
-    // the census's own while it holds the place; a newcomer lodged where the place is (the census's home for it)
-    const own = h ? this.residents.flatMap((r) => { if (!h.has(r.id)) return [r]; const x = h.get(r.id); return !x ? [] : [x.id === r.id ? r : { ...x, home: r.home }]; }) : this.residents;
+    const hold = this.o.holderOf;
+    // the census's own while it holds the place; a newcomer lodged where the place is (the census's home for it). LW7: a
+    // townsperson's place too, by the lives (`holderOf`) - a traveller's comes with the roads' word
+    const own = h || hold ? this.residents.flatMap((r) => {
+      const x = h?.has(r.id) ? h.get(r.id) : (hold && r.roll !== 't' ? hold(r, day) : r);
+      return !x ? [] : [x.id === r.id ? r : { ...x, home: r.home }];
+    }) : this.residents;
     const v = roads?.visitors;
     const list = v?.length ? own.concat(v) : own;
     this._people = { day, roads, list };
@@ -349,6 +376,7 @@ export class LivingTown {
     for (const res of [...this.peopleOf(day), ...this._crewsNow()]) {
       if (this._taken.get(res.id) === day) continue;
       if (this._gone(res)) continue;   // LW5: aboard, or ashore at the far port
+      if (this.o.deadAt?.(res, t)) continue;   // LW7: struck down - dead from that minute
       const at = this.entryOf(res, t);
       if (!at) continue;
       if (at.e.kind !== 'walk' && isOutdoor(at.e)) {
@@ -485,7 +513,11 @@ export class LivingTown {
     const out = [];
     const lineMin = lineMinutes(this._baseRate());
     const hour = Math.floor((((this._now % DAY_MIN) + DAY_MIN) % DAY_MIN) / 60);
+    /** @type {{ town?: string, region?: string, weather: string|null, hour: number, news: any[]|null, player?: string }} */
     const ctx = { town: this.o.townName, region: this.o.regionName, weather: this.o.weather?.() ?? null, hour, news: this._roads?.news ?? null };   // LW4: the road's news
+    const deeds = this.deedNews();   // LW7: the deeds' news beside the road's, and the character's name for it
+    if (deeds.length) ctx.news = [...(ctx.news ?? []), ...deeds];
+    ctx.player = this.o.playerName?.() ?? '';
     this._greetings = this._greetings.filter((g) => g.until > this._realNow);
     for (const row of this.pool) {
       if (!row.visible || !row.res) continue;
@@ -522,12 +554,112 @@ export class LivingTown {
     return id;
   }
 
-  /** LW3: a hand caught in a body's resident's purse - a crime they saw, noted in their regard. */
+  /** LW3: a hand caught in a body's resident's purse - a crime they saw, noted in their regard; LW7: and in the regard of
+   *  every resident who saw it. */
   caught(person) {
     const id = person?.living?.id;
     if (!id) return null;
-    this.o.relations?.()?.note(id, 'crime', this.dayOf(this._now));
+    const day = this.dayOf(this._now);
+    const rel = this.o.relations?.();
+    rel?.note(id, 'crime', day);
+    for (const w of this.witnesses(person.pos, id)) rel?.note(w.id, 'crime', day);
     return id;
+  }
+
+  /**
+   * LW7: THE RESIDENTS WHO SEE A DEED at `at` (the location frame): every one on the street within WITNESS_M with a clear
+   * line to it (`o.sees`, from their eyes), but `exceptId`.
+   * @param {number[]|null|undefined} at @param {string|null} [exceptId] @returns {Resident[]}
+   */
+  witnesses(at, exceptId = null) {
+    if (!at) return [];
+    const out = [];
+    for (const row of this.pool) {
+      if (!row.visible || !row.res || row.res.id === exceptId) continue;
+      const p = row.person.pos;
+      if (Math.hypot(p[0] - at[0], p[2] - at[2]) > WITNESS_M) continue;
+      if (this.o.sees && !this.o.sees([p[0], p[1] + 1.6, p[2]], [at[0], at[1] + 1, at[2]])) continue;
+      out.push(row.res);
+    }
+    return out;
+  }
+
+  /**
+   * LW7: A RESIDENT'S OWN - who takes their death as their own: the household they live in (today's people sharing
+   * their home), the party they came with (a visitor's), the crew they came ashore with (a packet's).
+   * @param {Resident} res @returns {Resident[]}
+   */
+  kinOf(res) {
+    const day = this.dayOf(this._now);
+    const visit = this._roads?.visitorOf.get(res.id) ?? null;
+    if (visit) return visit.trip.party.filter((m) => m.id !== res.id);
+    const crew = this._crewOf.get(res.id) ?? null;
+    if (crew) return [...this._crewOf.values()].filter((c) => c.res.id !== res.id && c.berth?.lane?.key === crew.berth?.lane?.key && c.berth?.k === crew.berth?.k).map((c) => c.res);
+    if (res.home == null) return [];
+    return this.peopleOf(day).filter((r) => r.id !== res.id && r.home === res.home);
+  }
+
+  /**
+   * LW7: A BODY'S RESIDENT STRUCK DOWN by the player (DFU's one-hit civilian): dead for good from this minute (`o.slay`),
+   * their own turned against the player (`slain`), and every resident who saw it noting the crime. Answers the
+   * resident's id, or null.
+   */
+  slain(person) {
+    const res = person?.living?.res;
+    if (!res || person.living.town !== this) return null;
+    const day = this.dayOf(this._now);
+    const rel = this.o.relations?.();
+    const seen = this.witnesses(person.pos, res.id);
+    this.o.slay?.(res, this._now, seen.length > 0);
+    for (const kin of this.kinOf(res)) rel?.note(kin.id, 'slain', day);
+    for (const w of seen) rel?.note(w.id, 'crime', day);
+    this._take(res);
+    return res.id;
+  }
+
+  /** LW7: one of the watch STRUCK by the player (the assault that turns them on the player): the blow in their regard, and
+   *  the crime in every witness's. Answers the resident's id, or null. */
+  struck(person) {
+    const res = person?.living?.res;
+    if (!res || person.living.town !== this) return null;
+    const day = this.dayOf(this._now);
+    const rel = this.o.relations?.();
+    rel?.note(res.id, 'struck', day);
+    for (const w of this.witnesses(person.pos, res.id)) rel?.note(w.id, 'crime', day);
+    return res.id;
+  }
+
+  /** LW7: a word asked in the talk's tone - a courteous one (`polite`, tone 0) or a blunt one (`insulted`, tone 2), each
+   *  once a day. Answers the resident's id, or null. @param {any} person @param {number} tone */
+  toned(person, tone) {
+    const id = person?.living?.id;
+    const kind = tone === 0 ? 'polite' : tone === 2 ? 'insulted' : null;
+    if (!id || !kind) return null;
+    this.o.relations?.()?.note(id, kind, this.dayOf(this._now));
+    return id;
+  }
+
+  /**
+   * LW7: WHAT THE TOWN SAYS OF THE DEEDS - each of its own the player struck down (`slain`), known DEED_KNOWN_MIN after,
+   * for NEWS_DAYS: `who` their name, `seen` whether anyone saw whose hand it was; and each who died fighting at the
+   * player's side (`died`). The character's own, read over the town's pure news (relations.js turns).
+   * @returns {{ kind: string, who: string, foe: string, place: string, t: number, seen: boolean }[]}
+   */
+  deedNews() {
+    const turns = this.o.relations?.()?.turns?.();
+    if (!turns || (!turns.slain?.size && !turns.died?.size)) return [];
+    const prefix = `L${this.o.town.mapId >>> 0}.`;
+    const out = [];
+    for (const kind of /** @type {const} */ (['slain', 'died'])) {
+      for (const [key, h] of turns[kind] ?? []) {
+        const known = h.t + DEED_KNOWN_MIN;
+        if (!key.startsWith(prefix) || !(known <= this._now && this._now - known < NEWS_DAYS * DAY_MIN)) continue;
+        const place = key.slice(0, key.lastIndexOf('@'));
+        const who = h.who || this.residents.find((r) => placeKeyOf(r) === place)?.name || '';
+        if (who) out.push({ kind, who, foe: '', place: '', t: known, seen: !!h.seen });
+      }
+    }
+    return out.sort((a, b) => b.t - a.t);
   }
 
   /** What a body's resident says instead of talking, when they count the player an enemy - else null. */

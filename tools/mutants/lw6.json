@@ -168,8 +168,8 @@
   {
     "name": "LW6-news-the-road",
     "file": "src/systems/livingWorld/lines.js",
-    "old": "  const pool = (item.dive ? DIVE_NEWS : ROAD_NEWS)",
-    "new": "  const pool = (ROAD_NEWS)",
+    "old": "      : (item.dive ? DIVE_NEWS : ROAD_NEWS)[",
+    "new": "      : (ROAD_NEWS)[",
     "tests": [
       "test/lw6_deep.test.js"
     ]

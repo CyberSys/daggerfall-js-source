@@ -170,7 +170,7 @@ carried only the first of the two lines, so a player fighting with the
 left-hand weapon loaded back holding the right hand's item, or bare
 fists. By the time it was found, the two restore lines had drifted six
 and thirteen lines apart inside their own hosts, and the comment in
-`worldModes.js` that pointed between them cited `world.js:11607` and
+`worldModes.js` that pointed between them cited `world.js:11685` and
 `dungeonContext.js:8457` - lines that had moved to `:6683` and `:8429`.
 *Three copies of a rule, and the signpost between them stale as well.*
 
@@ -249,7 +249,7 @@ three collapsed on verification.**
 2. *"`npcSession.onWorldChanged()` is on both door exits and not on the
    teleport/load path."* True, and correct: every caller of
    `forceExitToExterior` follows it with `_teleportToPixel`, and THAT
-   function owns the call (`world.js:11579`, DFU's `OnMapPixelChanged` /
+   function owns the call (`world.js:11657`, DFU's `OnMapPixelChanged` /
    `OnLoadEvent`). The quickload caller goes through
    `restoreSessionState` instead. Calling it in both places would be the
    redundancy, not the fix.
@@ -548,7 +548,7 @@ frame**.
 
 **F3 - it assumed the population was `ui/*Door.js`.** It is not. Twelve
 window classes are constructed straight into a host slot, and
-`townTalk.js:1221` paints every *covered* window as well
+`townTalk.js:1231` paints every *covered* window as well
 (`eachCoveredWindow((w) => w.draw(...))`), so depth is in the contract
 too, not just the top of the stack.
 
@@ -556,7 +556,7 @@ too, not just the top of the stack.
 
 Read off the four hosts that own a window stack, scoped to the enclosing
 function rather than a fixed lookback (the first pass used four lines and
-mis-read `townTalk.js:1313` as unguarded; its guard sits eight lines up -
+mis-read `townTalk.js:1323` as unguarded; its guard sits eight lines up -
 HARD2's D10 pin was re-aimed for the same reason):
 
 | arm | required by | note |

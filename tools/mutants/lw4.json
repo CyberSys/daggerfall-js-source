@@ -29,8 +29,8 @@
   {
     "name": "LW4-vacancy-unread",
     "file": "src/systems/livingWorld/lives.js",
-    "old": "  if (last != null && k - last <= VACANT_CYCLES) return { vacant: true, holder: null, dies: false, since: last };",
-    "new": "  if (false) return { vacant: true, holder: null, dies: false, since: last };",
+    "old": "  if (last != null && k - last <= VACANT_CYCLES) return { vacant: true, holder: null, dies: false, since: last, hand: null };",
+    "new": "  if (false) return { vacant: true, holder: null, dies: false, since: last, hand: null };",
     "tests": [
       "test/lw4_trouble.test.js"
     ]
@@ -38,8 +38,8 @@
   {
     "name": "LW4-newcomer-unseeded",
     "file": "src/systems/livingWorld/lives.js",
-    "old": "  return { vacant: false, holder: last, dies: deathCounted(res, k, turns), since: last };",
-    "new": "  return { vacant: false, holder: null, dies: deathCounted(res, k, turns), since: last };",
+    "old": "  return { vacant: false, holder: last, dies, since: last, hand: handDeath(res, k, turns) };",
+    "new": "  return { vacant: false, holder: null, dies, since: last, hand: handDeath(res, k, turns) };",
     "tests": [
       "test/lw4_trouble.test.js"
     ]
@@ -326,7 +326,7 @@
   {
     "name": "LW4-news-fallen-unnamed",
     "file": "src/systems/livingWorld/trips.js",
-    "old": "    const who = tr.fallen?.[0]?.res ?? tr.leader;",
+    "old": "    const who = fell[0]?.res ?? tr.leader;",
     "new": "    const who = tr.leader;",
     "tests": [
       "test/lw4_trouble.test.js"

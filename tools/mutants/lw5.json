@@ -209,8 +209,8 @@
   {
     "name": "LW5-host-crew-clock",
     "file": "src/scenes/world.js",
-    "old": "outT: t + Math.max(0, c.until - nowS) * rate }));",
-    "new": "outT: t + 120 }));",
+    "old": "outT: t + Math.max(0, c.until - nowS) * rate }] : [];",
+    "new": "outT: t + 120 }] : [];",
     "tests": [
       "test/lw5_ports.test.js"
     ]

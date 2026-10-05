@@ -85,9 +85,10 @@ export const CALENDAR_MPM = 1.3 / 0.2;
  * @typedef {{ id: string, k?: number, kind: string, leader: Resident, party: Resident[], from: LwTown, to: LwTown, way: Way,
  *   pace: number, outT0: number, outT1: number, backT0: number, backT1: number, trim0: number, trim1: number,
  *   enc?: any, halt?: { t0: number, t1: number, fightEnd: number, s: number, leg: 'out'|'back' },
- *   fallen?: { res: Resident, t: number, s: number, inside?: boolean }[], turned?: boolean, dive?: { t0: number, t1: number } }} Trip - LW6: `dive` an
+ *   fallen?: { res: Resident, t: number, s: number, inside?: boolean, hand?: boolean }[], turned?: boolean, dive?: { t0: number, t1: number } }} Trip - LW6: `dive` an
  *   adventurer's hours in the dungeon it went to (its `to` a dungeon). LW4: `k` its cycle; the trouble's
- *   `enc`, its `halt`, the `fallen` and whether it `turned` home (trouble.js troubledTrip)
+ *   `enc`, its `halt`, the `fallen` and whether it `turned` home (trouble.js troubledTrip). LW7: a fallen by a `hand`
+ *   (handsOn - struck down by the player, or at their side) gone from that minute, no remains or news of the road's
  */
 
 /** How much slower a clock's walking pace is than the calendar's (online's sky walks half as far a minute). @param {number} mpm */
@@ -428,9 +429,10 @@ export const NEWS_DAYS = 3;
  * LW4: WHAT A TOWN KNOWS OF THE ROAD at minute `t` - its own parties' troubles (trouble.js), each known from when the
  * party came home (a party none of whom came home, from when it was due: `trip.backT1`), for NEWS_DAYS - newest
  * first. `who` the one it befell (the first of the fallen, else the leader), `foe` the first of the foes, `place`
- * the town they were bound for.
+ * the town they were bound for, `enc` the encounter's id (LW7: the character's turn of it). A hand's dead are not the
+ * road's news (LW7).
  * @param {Trip[]} trips - the town's own, about the minute (and the days before it) @param {number} t
- * @returns {{ id: string, kind: string, who: string, foe: number|null, place: string, t: number }[]}
+ * @returns {{ id: string, enc: string, kind: string, who: string, foe: number|null, place: string, t: number, dive: boolean }[]}
  */
 export function newsOf(trips, t) {
   const seen = new Set();
@@ -441,8 +443,9 @@ export function newsOf(trips, t) {
     seen.add(tr.id);
     const known = tr.backT1;
     if (!(known <= t && t - known < NEWS_DAYS * DAY_MIN)) continue;
-    const who = tr.fallen?.[0]?.res ?? tr.leader;
-    out.push({ id: tr.id, kind: tr.fallen?.length ? 'fell' : enc.kind, who: who.name, foe: enc.foes?.[0] ?? null, place: tr.to?.name ?? '', t: known, dive: !!tr.dive });
+    const fell = tr.fallen?.filter((f) => !f.hand) ?? [];
+    const who = fell[0]?.res ?? tr.leader;
+    out.push({ id: tr.id, enc: enc.id, kind: fell.length ? 'fell' : enc.kind, who: who.name, foe: enc.foes?.[0] ?? null, place: tr.to?.name ?? '', t: known, dive: !!tr.dive });
   }
   return out.sort((a, b) => b.t - a.t);
 }
@@ -481,6 +484,21 @@ export function partyAt(trip, t) {
 
 /** LW4: how much faster than its pace a party walks to make up a halt (a half again). */
 export const HALT_CATCH_UP = 0.5;
+
+/**
+ * LW7: A TRIP'S HAND DEATHS - each member a hand took before the trip was done (lives.js handDeath: struck down by the
+ * player, or fallen fighting at their side), gone from the party from that minute (`fallen`, `hand`): the trip itself
+ * stands as the road made it. `handOf(member)` the minute, or null.
+ * @param {Trip} trip @param {(res: Resident) => (number|null)} handOf @returns {Trip}
+ */
+export function handsOn(trip, handOf) {
+  const hands = [];
+  for (const m of trip.party) {
+    const t = handOf(m);
+    if (t != null && t < trip.backT1) hands.push({ res: m, t, s: 0, hand: true });   // a death after the trip is the town's
+  }
+  return hands.length ? { ...trip, fallen: [...(trip.fallen ?? []), ...hands] } : trip;
+}
 
 /** LW4: the party at minute `t` - its members less the fallen by then. @param {Trip} trip @param {number} t */
 export const membersAt = (trip, t) => (trip.fallen?.length ? trip.party.filter((m) => !trip.fallen?.some((f) => f.res.id === m.id && f.t <= t)) : trip.party);
@@ -570,14 +588,15 @@ export function remainsNear(px, py, t, world, o, rPx = 6) {
     const trips = townTrips(town, t, world, o);
     if (trips === undefined) { pending = true; continue; }
     for (const trip of trips) {
-      if (!trip.fallen?.length) continue;
-      trip.fallen.forEach((f, i) => {
+      const fell = trip.fallen?.filter((f) => !f.hand);   // LW7: a hand's dead lie where the hand left them, not the road's
+      if (!fell?.length) continue;
+      fell.forEach((f, i) => {
         if (f.inside || !(f.t <= t && t < f.t + REMAINS_MIN)) return;   // LW6: the fallen of a dive lie in the dungeon
         const p = wayAt(trip.way, f.s);
         const ppx = Math.floor(p.x / NATIVE_PIXEL), ppy = 499 - Math.floor(p.z / NATIVE_PIXEL);
         if (Math.max(Math.abs(ppx - px), Math.abs(ppy - py)) > rPx) return;
         // laid a pace apart across the way, as they fell
-        const side = (i - (trip.fallen.length - 1) / 2) * 60;
+        const side = (i - (fell.length - 1) / 2) * 60;
         remains.push({ key: `rem:${f.res.id}`, res: f.res, x: p.x + Math.cos(p.yaw) * side, z: p.z - Math.sin(p.yaw) * side, yaw: p.yaw, trip });
       });
     }

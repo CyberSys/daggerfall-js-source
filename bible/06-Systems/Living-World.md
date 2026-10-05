@@ -81,7 +81,7 @@ Taken at the design, in the request's own order; each is Mac's to overrule.
 - LW4 - trouble on the road; LW4b - the fight stood live, the player's to turn.
 - LW5 - the ports.
 - LW6 - the deep.
-- LW7 - friends and enemies, in full.
+- LW7 - the deeds; LW7b - friends and enemies beyond the walls.
 
 ## LW1 - the census, the places, the day, the meetings, the lines, the regards (2026-10-04)
 
@@ -372,6 +372,48 @@ index (`scenes/world.js`).
   the bodies taken out; a company the dive lists no longer goes. The host asks the dives once a second and reads the
   company each frame, a layer for each dungeon's pool (`livingDiversStep`, in the modal frame).
 - **Not yet:** the fallen of a dive lie in the dungeon as a thing to find.
+
+## LW7 - the deeds (2026-10-05)
+
+`relations.js` (the hand deaths, a word's tone), `lives.js` (`handDeath`, `roadHits`), `trips.js handsOn`, `lines.js`
+(`SLAIN_NEWS`, `DIED_NEWS`, `HELPED_NEWS`), pure; `livingTown.js` and `scenes/livingRoads.js` (the deeds), the host's
+seams (`scenes/world.js`, `scenes/townTalk.js`). Mac: "make friends or enemies".
+
+- **A hand's death** (`relations.js HAND_KINDS`). A resident the player STRUCK DOWN (`slain`) and one who died fighting
+  at the player's side (`died`) are turns of the character's with their MINUTE, whether the slaying was seen, and the
+  name they bore (`HAND_NAME_MAX`), kept as the turns are (`TURNS_MAX`) and saved as `[key, t, seen, who]` - a record of
+  the LW4 kinds alone is written as LW4 wrote it. One of their own slain is `EVENTS.slain` (-75): a stranger made
+  HOSTILE by it. Each tone of word - `polite`, `insulted` - counts once a day (`polite`, `blunt` days, saved once set).
+- **The lives take a hand's dead from its minute** (`lives.js`). `handDeath` reads either kind; a hand's death is a
+  death (`fateHits` - the place stands empty VACANT_CYCLES, then a newcomer) but never the ROAD's (`roadHits` - the
+  dice and the fights): `dies` stays the road's own, so the trip the cycle made and its trouble stand as they were (the
+  host's trouble never takes one a hand took first). A turn the character made - one cut down beside them, a hand's -
+  ALWAYS counts: it was made on a holder they met (an uncounted roll before it, on an empty place, no longer swallows
+  it). A townsperson's place lives by a cycle too (`trips.js cycleOf` - the host's `livingCycleOf`; a traveller's is
+  `placeCycle`), so the lives read the household, the watch and the travellers alike; the newcomer is the census's own
+  mint with the place's home.
+- **A trip's hand deaths** (`handsOn`): each member a hand took before the trip was done is gone from the party from
+  that minute (`fallen`, `hand`) - no remains of the road's (the body is the pool's, or there is none), not the road's
+  news, never home; a death after the trip is the town's. A party nobody is left of shows no mark.
+- **The town's deeds** (`LivingTown`). A resident STRUCK DOWN (`slain` - the swing's one-hit civilian, the trample) is
+  dead from that minute (`o.slay`, seen when anyone saw it), off the street, and the street reads them gone (`o.deadAt`)
+  and their place by the lives (`o.holderOf`); their OWN (`kinOf` - the household they live in, the party a visitor came
+  with, the crew a sailor came ashore with) count it `slain`; every resident who SAW it (`witnesses` - on the street
+  within `WITNESS_M`, 24 m, with a clear line from their eyes, `o.sees`: the host's collider) counts it a `crime`. One
+  of the watch STRUCK (the assault that turns them) remembers the blow (`struck`); a caught hand is seen by all near
+  (`caught`). A question's tone moves a regard (`toned`).
+- **The street's seams** (the host). The swing's civilian pool (`livingStruckPool`) and the trample hand the resident a
+  swing takes to the deed first - one of the watch struck, anyone else struck down; the guard the conversion stands
+  carries the watchman (`livingWatchStep`): cut down, they are slain for good. A swing that meets nobody in the street
+  is offered to the ROAD'S travellers (`livingStrikeRoad`: within reach, no wall before them - DFU's one-hit civilian,
+  WeaponManager.cs:504-521, less the watch: there is none on the road), the blood, the Brotherhood's five and the racial
+  override's hit; the roads' deed (`livingRoads.slain`) turns their party's living against the player and reads the
+  parties again at once. The talk window's questions carry their tone to the resident spoken to (`livingTone`).
+- **What the town says** (`deedNews`): each of its own the player struck down, known `DEED_KNOWN_MIN` (60) after, for
+  NEWS_DAYS - `SLAIN_NEWS`, the player NAMED when it was seen, a murder nobody can name when not - and each who died at
+  their side (`DIED_NEWS`); a fight on the road the player turned (the character's `won`) is told with them in it
+  (`HELPED_NEWS`, else the road's own words). The circles fill the character's name (`{player}`).
+- **Next (LW7b):** an armed enemy draws on the player beyond the walls; an armed friend comes to their side.
 
 ## The four hosts
 
