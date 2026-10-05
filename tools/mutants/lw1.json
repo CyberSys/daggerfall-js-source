@@ -209,8 +209,8 @@
   {
     "name": "LW1-exit-sides-swapped",
     "file": "src/systems/livingWorld/places.js",
-    "old": "        const edge = side === 'n' ? H - 1 - y : side === 's' ? y : side === 'e' ? W - 1 - x : x;",
-    "new": "        const edge = side === 's' ? H - 1 - y : side === 'n' ? y : side === 'e' ? W - 1 - x : x;",
+    "old": "      const i = k === 0 ? H - 1 - n : k === 1 ? n : k === 2 ? W - 1 - n : n;",
+    "new": "      const i = k === 1 ? H - 1 - n : k === 0 ? n : k === 2 ? W - 1 - n : n;",
     "tests": [
       "test/lw1_livingWorld.test.js"
     ]
@@ -236,8 +236,8 @@
   {
     "name": "LW1-diagonal-step",
     "file": "src/systems/livingWorld/townPaths.js",
-    "old": "const NEIGHBOURS = [[0, 1], [0, -1], [1, 0], [-1, 0]];",
-    "new": "const NEIGHBOURS = [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1]];",
+    "old": "          const nx = d === 2 ? cx + 1 : d === 3 ? cx - 1 : cx;",
+    "new": "          const nx = d === 2 || d === 0 ? cx + 1 : d === 3 ? cx - 1 : cx;",
     "tests": [
       "test/lw1_livingWorld.test.js"
     ]
@@ -254,8 +254,8 @@
   {
     "name": "LW1-budget-unspent",
     "file": "src/systems/livingWorld/townPaths.js",
-    "old": "      if (budget <= 0) return undefined;",
-    "new": "      if (budget < -1) return undefined;",
+    "old": "          if (budget <= 0 || soon.size + later.size >= PATH_QUEUE_MAX) return undefined;",
+    "new": "          if (budget < -1 || soon.size + later.size >= PATH_QUEUE_MAX) return undefined;",
     "tests": [
       "test/lw1_livingWorld.test.js"
     ]

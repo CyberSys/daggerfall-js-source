@@ -191,8 +191,8 @@
   {
     "name": "LW5b-sea-remains",
     "file": "src/systems/livingWorld/trips.js",
-    "old": "        if (f.inside || f.atSea || !(f.t <= t && t < f.t + REMAINS_MIN)) return;",
-    "new": "        if (f.inside || !(f.t <= t && t < f.t + REMAINS_MIN)) return;",
+    "old": "      if (f.inside || f.atSea || !(f.t <= t && t < f.t + REMAINS_MIN)) return;",
+    "new": "      if (f.inside || !(f.t <= t && t < f.t + REMAINS_MIN)) return;",
     "tests": [
       "test/lw5b_sea.test.js"
     ]

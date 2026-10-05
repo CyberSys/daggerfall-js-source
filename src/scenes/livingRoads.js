@@ -22,7 +22,7 @@
 //  - LW4b: THE FIGHT STOOD (scenes/roadFights.js `fights`): a beset party near the player on the ground is fought for
 //    real - its foes and its armed the encounter pool's bodies, which the roads then draw not; a fight a peer stands
 //    (online) shows no foes of the roads' own - the peer's come through the stream.
-import { partiesNear, partyAt, wayAt, membersAt, remainsNear, NATIVE_PER_M, NATIVE_PIXEL } from '../systems/livingWorld/trips.js';
+import { partiesOfTown, partyAt, wayAt, membersAt, remainsOfTown, NATIVE_PER_M, NATIVE_PIXEL, TRIP_REACH_PX } from '../systems/livingWorld/trips.js';
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { circleLine, lineMinutes, ROUND_S, TALK_SHARE } from '../systems/livingWorld/meetups.js';
 import { ROAD_GREETINGS, fillLine, firstNameOf } from '../systems/livingWorld/lines.js';
@@ -37,6 +37,11 @@ export const ROADS_TICK_S = 1;
 export const ROADS_PLAY_M = 360;
 /** Under the Overworld, parties within this many map pixels wear a mark. */
 export const ROADS_VIEW_PX = 6;
+/** LW-PERF: the towns a frame reads of the roads' read under way (the parties and the fallen near, town by town). */
+export const ROADS_TOWNS_PER_FRAME = 12;
+/** LW-PERF: a player this far (map pixels) from the last read's pixel has jumped there (a fast travel, a teleport): the
+ *  read is whole at once - a journey at x100 takes seconds over one pixel. */
+export const ROADS_JUMP_PX = 2;
 /** A party in file: each this far behind the one before (native - 1.8 m) and this far to a side (native - 0.55 m). */
 export const FILE_GAP_N = 72;
 export const FILE_SIDE_N = 22;
@@ -164,13 +169,36 @@ export function createLivingRoads(deps) {
   let realNow = 0;
   const memo = deps.memo ?? new Map();
   const dayOf = (t) => Math.floor((t - DAY_START_MIN) / DAY_MIN);
+  /** LW-PERF: the read under way - the towns near, read ROADS_TOWNS_PER_FRAME a frame - and the pixel of the last read
+   *  done. @type {{ towns: any[], i: number, px: number, py: number, parties: any[], remains: any[] } | null} */
+  let sweep = null;
+  /** @type {number[]|null} */
+  let readAt = null;
 
+  /** LW-PERF: `n` more towns of the read under way; done, the parties and the fallen near are its. @param {number} t @param {number} n */
+  function sweepOn(t, n) {
+    const s = /** @type {NonNullable<typeof sweep>} */ (sweep);
+    const o = { mpm: deps.mpm, memo };
+    for (let k = 0; k < n && s.i < s.towns.length; k++, s.i++) {
+      const town = s.towns[s.i];
+      const ps = partiesOfTown(town, s.px, s.py, t, deps.world, o, ROADS_VIEW_PX);
+      if (ps) for (const p of ps) s.parties.push(p);
+      const rs = remainsOfTown(town, s.px, s.py, t, deps.world, o, ROADS_VIEW_PX);
+      if (rs) for (const r of rs) s.remains.push(r);
+    }
+    if (s.i >= s.towns.length) { parties = s.parties; remains = s.remains; readAt = [s.px, s.py]; sweep = null; }
+  }
+
+  /** The parties and the fallen near, read again (partiesNear and remainsNear's, town by town). LW-PERF: over a few
+   *  frames - the read whole was a frame of 5-10 ms once a second; read whole only on the way in and after a jump (a
+   *  fast travel, a teleport), where a road met empty for a few frames would fill under the player's eyes. */
   function refresh(t) {
     const here = deps.here();
-    if (!here) { parties = []; remains = []; return; }
+    if (!here) { parties = []; remains = []; sweep = null; readAt = null; return; }
     const px = Math.floor(here.x / NATIVE_PIXEL), py = 499 - Math.floor(here.z / NATIVE_PIXEL);
-    parties = partiesNear(px, py, t, deps.world, { mpm: deps.mpm, memo }, ROADS_VIEW_PX).parties;
-    remains = remainsNear(px, py, t, deps.world, { mpm: deps.mpm, memo }, ROADS_VIEW_PX).remains;
+    sweep = { towns: deps.world.townsNear(px, py, ROADS_VIEW_PX + TRIP_REACH_PX), i: 0, px, py, parties: [], remains: [] };
+    const jumped = !readAt || Math.max(Math.abs(px - readAt[0]), Math.abs(py - readAt[1])) > ROADS_JUMP_PX;
+    sweepOn(t, jumped ? Infinity : ROADS_TOWNS_PER_FRAME);
   }
 
   /** LW4: whether a fighter strikes this frame - its own beat, begun at a seeded part of it. @param {string} key */
@@ -192,7 +220,8 @@ export function createLivingRoads(deps) {
     if (!ground) { list.length = 0; deps.sprites.sync(list); return; }
     const t = deps.clock();
     timer += dt;
-    if (timer >= ROADS_TICK_S) { timer = 0; refresh(t); }
+    if (sweep) sweepOn(t, ROADS_TOWNS_PER_FRAME);   // LW-PERF: the read under way, a few towns a frame
+    else if (timer >= ROADS_TICK_S) { timer = 0; refresh(t); }
     const here = deps.here();
     list.length = 0;
     busy.clear();
@@ -364,7 +393,7 @@ export function createLivingRoads(deps) {
       const p = parties.find((q) => q.trip.party.some((m) => m.id === res.id));
       const rel = deps.relations?.();
       for (const m of p ? membersAt(p.trip, t) : []) if (m.id !== res.id) rel?.note(m.id, 'slain', dayOf(t));
-      timer = ROADS_TICK_S;
+      timer = ROADS_TICK_S; sweep = null; readAt = null;   // LW-PERF: read again whole, at once - a read under way began before the deed
       return res.id;
     },
     /** LW7: a word's tone - a courteous one (tone 0) or a blunt one (tone 2), each once a day. */
@@ -384,6 +413,6 @@ export function createLivingRoads(deps) {
       return s === 'enemy' || s === 'hostile' ? fillLine(LIVING_REFUSAL, { a: firstNameOf(person.nameNPC) }) : null;
     },
     /** Every body freed and the parties forgotten (the host's teardown). */
-    clear() { deps.sprites.clear(); deps.fights?.clear(); deps.stands?.clear(); parties = []; remains = []; list.length = 0; greetings = []; timer = Infinity; strikes.clear(); busy.clear(); },
+    clear() { deps.sprites.clear(); deps.fights?.clear(); deps.stands?.clear(); parties = []; remains = []; list.length = 0; greetings = []; timer = Infinity; sweep = null; readAt = null; strikes.clear(); busy.clear(); },   // LW-PERF: the next read whole (the way back in)
   };
 }

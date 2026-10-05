@@ -229,8 +229,8 @@
   {
     "name": "LW3-near-reach",
     "file": "src/systems/livingWorld/trips.js",
-    "old": "      if (Math.max(Math.abs(ppx - px), Math.abs(ppy - py)) <= rPx) parties.push({ trip, at });",
-    "new": "      if (Math.max(Math.abs(ppx - px), Math.abs(ppy - py)) <= rPx + 4) parties.push({ trip, at });",
+    "old": "    if (Math.max(Math.abs(ppx - px), Math.abs(ppy - py)) <= rPx) parties.push({ trip, at });",
+    "new": "    if (Math.max(Math.abs(ppx - px), Math.abs(ppy - py)) <= rPx + 4) parties.push({ trip, at });",
     "tests": [
       "test/lw3_roads.test.js"
     ]

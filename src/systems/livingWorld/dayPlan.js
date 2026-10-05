@@ -59,39 +59,78 @@ export function walkMinutes(a, b, mpm) {
   return Math.max(1, Math.ceil((cells * NAV_CELL * WALK_DETOUR + WALK_EXTRA_M) / Math.max(0.1, mpm)));
 }
 
-/** The spots of a kind of building, by manhattan nearness to `from` (the first the nearest). */
-function buildingDoors(places, test, from) {
-  const out = [];
-  for (const [key, spot] of places.doors) if (test(places.types.get(key))) out.push(spot);
-  if (from) out.sort((a, b) => (Math.abs(a.cell[0] - from.cell[0]) + Math.abs(a.cell[1] - from.cell[1]))
-    - (Math.abs(b.cell[0] - from.cell[0]) + Math.abs(b.cell[1] - from.cell[1])) || a.key.localeCompare(b.key));
-  return out;
-}
-const isType = (t) => (v) => v === t;
+
+/** LW-PERF: each town's favourites, kept by its places (a resident's are their seed's alone, the same every day). */
+const favouritesOf = new WeakMap();
 
 /**
  * A resident's favourite places, the same every day (their seed alone): the two social spots they keep to - so the
- * same people meet at the same places, day after day - their tavern, their temple and their market.
+ * same people meet at the same places, day after day - their tavern, their temple and their market. LW-PERF: kept, by
+ * the town's places - the sorting of a great city's four hundred doors was three quarters of every day's plan, and a
+ * city's whole census is planned at once (an arrival, the day's turn).
  * @param {Resident} res @param {Places} places @param {Spot|null} home
  */
 export function favourites(res, places, home) {
+  let kept = favouritesOf.get(places);
+  if (!kept) { kept = new Map(); favouritesOf.set(places, kept); }
+  const key = `${res.town}|${res.roll}|${res.slot}|${home?.key ?? ''}`;
+  let fav = kept.get(key);
+  if (!fav) { fav = favouritesNow(res, places, home); kept.set(key, fav); }
+  return fav;
+}
+
+/** LW-PERF: a town's doors by the kind a favourite asks (in the doors' own order), and each spot's place in the order
+ *  of the keys (the nearness sorts' tie, read once - a key compared as text in every comparison of every sort was most
+ *  of a plan). Kept by the town's places. */
+const doorKindsOf = new WeakMap();
+/** @param {Places} places */
+function doorKinds(places) {
+  let k = doorKindsOf.get(places);
+  if (!k) {
+    /** @type {Spot[]} */ const tavern = [], temple = [], guild = [], shops = [], houses = [], outfitters = [];
+    for (const [key, spot] of places.doors) {
+      const t = places.types.get(key) ?? -1;
+      if (t === BUILDING_TYPES.Tavern) tavern.push(spot);
+      if (t === BUILDING_TYPES.Temple) temple.push(spot);
+      if (t === BUILDING_TYPES.GuildHall) guild.push(spot);
+      if (hasShopJob(t)) shops.push(spot);
+      if (t >= BUILDING_TYPES.House1 && t <= BUILDING_TYPES.House6) houses.push(spot);
+      if (t === BUILDING_TYPES.Armorer || t === BUILDING_TYPES.WeaponSmith || t === BUILDING_TYPES.Alchemist) outfitters.push(spot);
+    }
+    const spots = [...new Set([...places.doors.values(), ...places.social, ...places.market])].sort((a, b) => a.key.localeCompare(b.key));
+    k = { tavern, temple, guild, shops, houses, outfitters, rank: new Map(spots.map((s, i) => [s, i])) };
+    doorKindsOf.set(places, k);
+  }
+  return k;
+}
+
+/** The spots of `list` by manhattan nearness to `from` (the first the nearest), the key's order breaking a tie; with no
+ *  `from`, as they stand. @param {Places} places @param {readonly Spot[]} list @param {Spot|null} from */
+function nearestOf(places, list, from) {
+  const out = [...list];
+  if (!from) return out;
+  const fx = from.cell[0], fy = from.cell[1], rank = doorKinds(places).rank;
+  return out.sort((a, b) => (Math.abs(a.cell[0] - fx) + Math.abs(a.cell[1] - fy)) - (Math.abs(b.cell[0] - fx) + Math.abs(b.cell[1] - fy))
+    || (rank.get(a) ?? 0) - (rank.get(b) ?? 0));
+}
+
+/** A resident's favourites, worked out. @param {Resident} res @param {Places} places @param {Spot|null} home */
+function favouritesNow(res, places, home) {
   const rng = lwRng(res.town, res.roll.charCodeAt(0), res.slot, 0x666176);   // 'fav'
   const near = (list) => (list.length ? list[Math.floor(rng() * Math.min(list.length, 2))] : null);
-  const social = [...places.social];
-  if (home) social.sort((a, b) => (Math.abs(a.cell[0] - home.cell[0]) + Math.abs(a.cell[1] - home.cell[1]))
-    - (Math.abs(b.cell[0] - home.cell[0]) + Math.abs(b.cell[1] - home.cell[1])) || a.key.localeCompare(b.key));
+  const kinds = doorKinds(places);
+  const byNear = (/** @type {readonly Spot[]} */ list) => nearestOf(places, list, home);
+  const social = byNear(places.social);
   const s1 = places.square && rng() < 0.6 ? places.square : near(social);
   const s2 = near(social.filter((s) => s !== s1)) ?? s1;
-  const market = [...places.market];
-  if (home) market.sort((a, b) => (Math.abs(a.cell[0] - home.cell[0]) + Math.abs(a.cell[1] - home.cell[1]))
-    - (Math.abs(b.cell[0] - home.cell[0]) + Math.abs(b.cell[1] - home.cell[1])) || a.key.localeCompare(b.key));
+  const market = byNear(places.market);
   return {
     social: [s1, s2].filter(Boolean),
-    tavern: near(buildingDoors(places, isType(BUILDING_TYPES.Tavern), home)),
-    temple: near(buildingDoors(places, isType(BUILDING_TYPES.Temple), home)),
-    guild: near(buildingDoors(places, isType(BUILDING_TYPES.GuildHall), home)),
+    tavern: near(byNear(kinds.tavern)),
+    temple: near(byNear(kinds.temple)),
+    guild: near(byNear(kinds.guild)),
     market: near(market) ?? places.square,
-    shops: buildingDoors(places, hasShopJob, home),
+    shops: byNear(kinds.shops),
   };
 }
 
@@ -134,7 +173,7 @@ export function dayPlan(res, places, day, { mpm, away = [], visitor = false, hom
     if (res.drink > 0.55 && rng() < 0.75) I('tavern', fav.tavern, from + 60, rollInt(rng, 90, 180));
     else if (res.pious > 0.7 && rng() < 0.6) I('temple', fav.temple, from + 30, rollInt(rng, 30, 60));
     else if (res.social > 0.75 && rng() < 0.3) {
-      const houses = buildingDoors(places, (t) => t >= BUILDING_TYPES.House1 && t <= BUILDING_TYPES.House6, null).filter((s) => s !== home);
+      const houses = doorKinds(places).houses.filter((s) => s !== home);
       if (houses.length) I('visit', houses[Math.floor(rng() * houses.length)], from + 45, rollInt(rng, 60, 120));
     }
   };
@@ -249,7 +288,7 @@ export function dayPlan(res, places, day, { mpm, away = [], visitor = false, hom
     }
     case 'adventurer': {
       if (rng() < 0.3) I('temple', fav.temple, h(9), rollInt(rng, 20, 40));
-      const outfitters = buildingDoors(places, (t) => t === BUILDING_TYPES.Armorer || t === BUILDING_TYPES.WeaponSmith || t === BUILDING_TYPES.Alchemist, home);
+      const outfitters = nearestOf(places, doorKinds(places).outfitters, home);
       if (outfitters.length && rng() < 0.6) I('shop', outfitters[Math.floor(rng() * Math.min(3, outfitters.length))], h(10), rollInt(rng, 30, 60));
       I('guild', fav.guild, h(11.5), 60);
       I('social', places.square ?? fav.social[0] ?? null, h(14), rollInt(rng, 60, 120));

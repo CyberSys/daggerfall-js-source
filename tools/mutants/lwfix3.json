@@ -12,8 +12,8 @@
   {
     "name": "LW-FIX3-census-range",
     "file": "src/systems/livingWorld/livingTown.js",
-    "old": "        if (w && d < LIVING_RANGE) wanted.push({ res, d });",
-    "new": "        if (w) wanted.push({ res, d });",
+    "old": "        if (d < LIVING_RANGE) wanted.push({ res, d });",
+    "new": "        wanted.push({ res, d });",
     "tests": [
       "test/lwfix3_town.test.js",
       "test/lw2_livingTown.test.js"

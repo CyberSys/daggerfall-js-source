@@ -414,22 +414,42 @@ export function townTrips(town, t, world, o) {
     if (trip === undefined) pending = true;
     return trip ?? null;
   };
-  /** @type {Trip[]} */
-  const trips = [];
-  for (const res of roster) {
-    if (!(TRIP_CHANCE[/** @type {keyof typeof TRIP_CHANCE} */ (res.job)] > 0)) continue;
-    const cyc = cycleOf(res, day, scale);
-    for (const k of [cyc.k - 1, cyc.k]) {
-      const holder = world.holderOf ? world.holderOf(res, k) : res;   // LW4: whoever holds the place that cycle - none while it stands empty
-      if (!holder) continue;
-      const trip = tripOf(holder, k);
-      if (trip && trip.backT1 > t - DAY_MIN && trip.outT0 < t + DAY_MIN) trips.push(trip);
+  // LW-PERF: THE DAY'S TRIPS KEPT IN THE BOOK - every trip of the cycles that can hold the day (the holders' own), kept
+  // once known; a minute's are those of them within a day of it, and its parties (the caravans, their trouble) are kept
+  // while the same ones are (the roads, the deep and the towns read every town near once a second - each read the
+  // whole roster, its caravans and its fates again). The book is the trips' own, made again with them (a turn, a load)
+  const memo = /** @type {Map<string, any> | undefined} */ (o.memo);
+  const key = `town:${town.mapId}:${day}`;
+  let kept = memo?.get(key);
+  if (kept && (kept.world !== world || kept.scale !== scale)) kept = undefined;
+  if (!kept) {
+    /** @type {Trip[]} */
+    const cands = [];
+    for (const res of roster) {
+      if (!(TRIP_CHANCE[/** @type {keyof typeof TRIP_CHANCE} */ (res.job)] > 0)) continue;
+      const cyc = cycleOf(res, day, scale);
+      for (const k of [cyc.k - 1, cyc.k]) {
+        const holder = world.holderOf ? world.holderOf(res, k) : res;   // LW4: whoever holds the place that cycle - none while it stands empty
+        if (!holder) continue;
+        const trip = tripOf(holder, k);
+        if (trip) cands.push(trip);
+      }
     }
+    if (pending) return undefined;
+    kept = { world, scale, cands, pass: /** @type {number[]|null} */ (null), out: /** @type {Trip[]|null} */ (null) };
+    memo?.set(key, kept);
   }
-  if (pending) return undefined;
+  /** @type {number[]} */
+  const pass = [];
+  for (let i = 0; i < kept.cands.length; i++) { const trip = kept.cands[i]; if (trip.backT1 > t - DAY_MIN && trip.outT0 < t + DAY_MIN) pass.push(i); }
+  const same = (/** @type {number[]} */ a, /** @type {number[]} */ b) => a.length === b.length && a.every((x, i) => x === b[i]);
+  if (kept.out && same(kept.pass, pass)) return kept.out;
+  const trips = pass.map((i) => kept.cands[i]);
   const made = formCaravans(town, trips, roster, tripOf, scale, world.holderOf, world.fated);
   if (pending) return undefined;
-  return world.fate ? made.map((tr) => /** @type {Trip} */ (/** @type {any} */ (world.fate)(tr))) : made;   // LW4: each party's trouble
+  const out = world.fate ? made.map((tr) => /** @type {Trip} */ (/** @type {any} */ (world.fate)(tr))) : made;   // LW4: each party's trouble
+  kept.pass = pass; kept.out = out;
+  return out;
 }
 
 /** The jobs that ride in a merchant's train when it sets out the day they do, for the town they go to. */
@@ -634,16 +654,31 @@ export function partiesNear(px, py, t, world, o, rPx = 6) {
   const parties = [];
   let pending = false;
   for (const town of world.townsNear(px, py, rPx + TRIP_REACH_PX)) {
-    const trips = townTrips(town, t, world, o);
-    if (trips === undefined) { pending = true; continue; }
-    for (const trip of trips) {
-      const at = partyAt(trip, t);
-      if (at.phase !== 'out' && at.phase !== 'back') continue;
-      const ppx = Math.floor(/** @type {number} */ (at.x) / NATIVE_PIXEL), ppy = 499 - Math.floor(/** @type {number} */ (at.z) / NATIVE_PIXEL);
-      if (Math.max(Math.abs(ppx - px), Math.abs(ppy - py)) <= rPx) parties.push({ trip, at });
-    }
+    const got = partiesOfTown(town, px, py, t, world, o, rPx);
+    if (got === undefined) { pending = true; continue; }
+    for (const p of got) parties.push(p);
   }
   return { parties, pending };
+}
+
+/**
+ * LW-PERF: ONE TOWN'S SHARE of partiesNear - its parties on the road within `rPx` map pixels of the pixel at minute `t`
+ * (a reader may read the towns near over several frames). Undefined while its trips wait on a way.
+ * @param {LwTown} town @param {number} px @param {number} py @param {number} t @param {TripWorld} world
+ * @param {{ mpm: number, memo?: Map<string, Trip|null> }} o @param {number} [rPx]
+ * @returns {{ trip: Trip, at: ReturnType<typeof partyAt> }[] | undefined}
+ */
+export function partiesOfTown(town, px, py, t, world, o, rPx = 6) {
+  const trips = townTrips(town, t, world, o);
+  if (trips === undefined) return undefined;
+  const parties = [];
+  for (const trip of trips) {
+    const at = partyAt(trip, t);
+    if (at.phase !== 'out' && at.phase !== 'back') continue;
+    const ppx = Math.floor(/** @type {number} */ (at.x) / NATIVE_PIXEL), ppy = 499 - Math.floor(/** @type {number} */ (at.z) / NATIVE_PIXEL);
+    if (Math.max(Math.abs(ppx - px), Math.abs(ppy - py)) <= rPx) parties.push({ trip, at });
+  }
+  return parties;
 }
 
 /** LW4: how long the fallen lie where they fell (minutes of the clock). */
@@ -660,23 +695,38 @@ export function remainsNear(px, py, t, world, o, rPx = 6) {
   const remains = [];
   let pending = false;
   for (const town of world.townsNear(px, py, rPx + TRIP_REACH_PX)) {
-    const trips = townTrips(town, t, world, o);
-    if (trips === undefined) { pending = true; continue; }
-    for (const trip of trips) {
-      const fell = trip.fallen?.filter((f) => !f.hand);   // LW7: a hand's dead lie where the hand left them, not the road's
-      if (!fell?.length) continue;
-      fell.forEach((f, i) => {
-        if (f.inside || f.atSea || !(f.t <= t && t < f.t + REMAINS_MIN)) return;   // LW6: the fallen of a dive lie in the dungeon; LW5b: the sea's, nowhere
-        const p = wayAt(trip.way, f.s);
-        const ppx = Math.floor(p.x / NATIVE_PIXEL), ppy = 499 - Math.floor(p.z / NATIVE_PIXEL);
-        if (Math.max(Math.abs(ppx - px), Math.abs(ppy - py)) > rPx) return;
-        // laid a pace apart across the way, as they fell
-        const side = (i - (fell.length - 1) / 2) * 60;
-        remains.push({ key: `rem:${f.res.id}`, res: f.res, x: p.x + Math.cos(p.yaw) * side, z: p.z - Math.sin(p.yaw) * side, yaw: p.yaw, trip });
-      });
-    }
+    const got = remainsOfTown(town, px, py, t, world, o, rPx);
+    if (got === undefined) { pending = true; continue; }
+    for (const r of got) remains.push(r);
   }
   return { remains, pending };
+}
+
+/**
+ * LW-PERF: ONE TOWN'S SHARE of remainsNear (a reader may read the towns near over several frames). Undefined while its
+ * trips wait on a way.
+ * @param {LwTown} town @param {number} px @param {number} py @param {number} t @param {TripWorld} world
+ * @param {{ mpm: number, memo?: Map<string, Trip|null> }} o @param {number} [rPx]
+ * @returns {{ key: string, res: Resident, x: number, z: number, yaw: number, trip: Trip }[] | undefined}
+ */
+export function remainsOfTown(town, px, py, t, world, o, rPx = 6) {
+  const trips = townTrips(town, t, world, o);
+  if (trips === undefined) return undefined;
+  const remains = [];
+  for (const trip of trips) {
+    const fell = trip.fallen?.filter((f) => !f.hand);   // LW7: a hand's dead lie where the hand left them, not the road's
+    if (!fell?.length) continue;
+    fell.forEach((f, i) => {
+      if (f.inside || f.atSea || !(f.t <= t && t < f.t + REMAINS_MIN)) return;   // LW6: the fallen of a dive lie in the dungeon; LW5b: the sea's, nowhere
+      const p = wayAt(trip.way, f.s);
+      const ppx = Math.floor(p.x / NATIVE_PIXEL), ppy = 499 - Math.floor(p.z / NATIVE_PIXEL);
+      if (Math.max(Math.abs(ppx - px), Math.abs(ppy - py)) > rPx) return;
+      // laid a pace apart across the way, as they fell
+      const side = (i - (fell.length - 1) / 2) * 60;
+      remains.push({ key: `rem:${f.res.id}`, res: f.res, x: p.x + Math.cos(p.yaw) * side, z: p.z - Math.sin(p.yaw) * side, yaw: p.yaw, trip });
+    });
+  }
+  return remains;
 }
 
 /** LW6b: how long the fallen of a dive lie in its dungeon to be found (the clock's minutes). */

@@ -2,8 +2,8 @@
   {
     "name": "LW2-range-unread",
     "file": "src/systems/livingWorld/livingTown.js",
-    "old": "      if (d < LIVING_RANGE) wanted.push({ res, d });",
-    "new": "      wanted.push({ res, d });",
+    "old": "\n      if (d < LIVING_RANGE) wanted.push({ res, d });",
+    "new": "\n      wanted.push({ res, d });",
     "tests": [
       "test/lw2_livingTown.test.js"
     ]
@@ -56,7 +56,7 @@
   {
     "name": "LW2-pop-in-plain-sight",
     "file": "src/systems/livingWorld/livingTown.js",
-    "old": "      if (row.scheduleEnable && !w.pending && (allowChange || w.fromDoor || row.arrival)) { row.scheduleEnable = false; row.visible = true; row.arrival = false; }",
+    "old": "      if (row.scheduleEnable && !w.pending && (allowChange || w.fromDoor || (row.arrival && standing))) { row.scheduleEnable = false; row.visible = true; row.arrival = false; }",
     "new": "      if (row.scheduleEnable && !w.pending) { row.scheduleEnable = false; row.visible = true; row.arrival = false; }",
     "tests": [
       "test/lw2_livingTown.test.js"
@@ -92,10 +92,11 @@
   {
     "name": "LW2-arrival-never-ends",
     "file": "src/systems/livingWorld/livingTown.js",
-    "old": "      row.arrival = this._arriving;   // stood with the street on arrival: seen as soon as it has its place",
-    "new": "      row.arrival = true;",
+    "old": "  _standing() { return this._realNow <= this._arrivalUntil; }",
+    "new": "  _standing() { return true; }",
     "tests": [
-      "test/lw2_livingTown.test.js"
+      "test/lw2_livingTown.test.js",
+      "test/lwperf_cost.test.js"
     ]
   },
   {

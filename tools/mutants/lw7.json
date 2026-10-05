@@ -236,8 +236,8 @@
   {
     "name": "LW7-remains-hand",
     "file": "src/systems/livingWorld/trips.js",
-    "old": "      const fell = trip.fallen?.filter((f) => !f.hand);   // LW7",
-    "new": "      const fell = trip.fallen;   // LW7",
+    "old": "    const fell = trip.fallen?.filter((f) => !f.hand);   // LW7",
+    "new": "    const fell = trip.fallen;   // LW7",
     "tests": [
       "test/lw7_deeds.test.js"
     ]

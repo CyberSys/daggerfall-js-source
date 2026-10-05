@@ -48,9 +48,14 @@ export function streetNet(nav) {
   const W = nav.width, H = nav.height;
   const label = new Int32Array(W * H);
   const stack = new Int32Array(W * H);
+  // LW-PERF: the walkable cells read once (the grid's own bytes where it has them: the weight in the high nibble)
+  const grid = /** @type {any} */ (nav).grid;
+  const walk = new Uint8Array(W * H);
+  if (grid instanceof Uint8Array && grid.length === W * H) for (let i = 0; i < W * H; i++) walk[i] = grid[i] >> 4 > 0 ? 1 : 0;
+  else for (let i = 0; i < W * H; i++) walk[i] = nav.weightAt(i % W, (i / W) | 0) > 0 ? 1 : 0;
   let next = 0, best = 0, bestSize = 0;
   for (let i = 0; i < W * H; i++) {
-    if (label[i] || !(nav.weightAt(i % W, (i / W) | 0) > 0)) continue;
+    if (label[i] || !walk[i]) continue;
     const id = ++next;
     let sp = 0, size = 0;
     stack[sp++] = i; label[i] = id;
@@ -58,10 +63,10 @@ export function streetNet(nav) {
       const c = stack[--sp];
       size++;
       const x = c % W, y = (c / W) | 0;
-      if (x > 0 && !label[c - 1] && nav.weightAt(x - 1, y) > 0) { label[c - 1] = id; stack[sp++] = c - 1; }
-      if (x < W - 1 && !label[c + 1] && nav.weightAt(x + 1, y) > 0) { label[c + 1] = id; stack[sp++] = c + 1; }
-      if (y > 0 && !label[c - W] && nav.weightAt(x, y - 1) > 0) { label[c - W] = id; stack[sp++] = c - W; }
-      if (y < H - 1 && !label[c + W] && nav.weightAt(x, y + 1) > 0) { label[c + W] = id; stack[sp++] = c + W; }
+      if (x > 0 && !label[c - 1] && walk[c - 1]) { label[c - 1] = id; stack[sp++] = c - 1; }
+      if (x < W - 1 && !label[c + 1] && walk[c + 1]) { label[c + 1] = id; stack[sp++] = c + 1; }
+      if (y > 0 && !label[c - W] && walk[c - W]) { label[c - W] = id; stack[sp++] = c - W; }
+      if (y < H - 1 && !label[c + W] && walk[c + W]) { label[c + W] = id; stack[sp++] = c + W; }
     }
     if (size > bestSize) { bestSize = size; best = id; }
   }
@@ -165,7 +170,14 @@ export function townPlaces(nav, doors, buildings) {
     else if (hasShopJob(t)) { const s = before(key, MARKET_OUT, 'market'); if (s) market.push(s); }
     else if (t === BUILDING_TYPES.Ship) { const s = before(key, MARKET_OUT, 'dock'); if (s) dock.push(s); }
   }
-  // the square: the most open net cell near the middle (the walkable cells in its window), sampled on a stride
+  // the square: the most open net cell near the middle (the walkable cells in its window), sampled on a stride.
+  // LW-PERF: each window's count off the net's running sums (one pass), not counted cell by cell
+  const W1 = W + 1, sums = new Int32Array(W1 * (H + 1));
+  for (let y = 0; y < H; y++) {
+    let row = 0;
+    for (let x = 0; x < W; x++) { row += net[y * W + x] === netId ? 1 : 0; sums[(y + 1) * W1 + x + 1] = sums[y * W1 + x + 1] + row; }
+  }
+  const openIn = (x0, y0, x1, y1) => sums[(y1 + 1) * W1 + x1 + 1] - sums[y0 * W1 + x1 + 1] - sums[(y1 + 1) * W1 + x0] + sums[y0 * W1 + x0];
   let square = null, bestOpen = -1, bestD = Infinity;
   const mx = W / 2, my = H / 2, reach = Math.max(W, H) * 0.35;
   for (let y = SQUARE_WINDOW; y < H - SQUARE_WINDOW; y += SQUARE_STRIDE) {
@@ -173,8 +185,7 @@ export function townPlaces(nav, doors, buildings) {
       if (net[y * W + x] !== netId) continue;
       const d = Math.hypot(x - mx, y - my);
       if (d > reach) continue;
-      let open = 0;
-      for (let dy = -SQUARE_WINDOW; dy <= SQUARE_WINDOW; dy++) for (let dx = -SQUARE_WINDOW; dx <= SQUARE_WINDOW; dx++) if (net[(y + dy) * W + x + dx] === netId) open++;
+      const open = openIn(x - SQUARE_WINDOW, y - SQUARE_WINDOW, x + SQUARE_WINDOW, y + SQUARE_WINDOW);
       if (open > bestOpen || (open === bestOpen && d < bestD)) { bestOpen = open; bestD = d; square = [x, y]; }
     }
   }
@@ -185,17 +196,25 @@ export function townPlaces(nav, doors, buildings) {
     squareSpot = { key: 'sq', kind: 'square', cell: square, x, z, yaw: 0 };
     social.unshift(squareSpot);
   }
-  // the exits: per side, the net cell nearest that edge (ties to the side's middle)
+  // the exits: per side, the net cell nearest that edge (ties to the side's middle, then the first in the grid's order).
+  // LW-PERF: each side read in from its edge, a row or a column at a time, to the first that holds the net - never the
+  // whole grid four times
+  const SIDES = /** @type {const} */ (['n', 's', 'e', 'w']);
+  /** The cell of line `i` (a row for n and s, a column for e and w) at `j` along it. @param {number} k @param {number} i @param {number} j */
+  const cellOf = (k, i, j) => (k < 2 ? [j, i] : [i, j]);
   const exits = [];
-  for (const side of /** @type {const} */ (['n', 's', 'e', 'w'])) {
-    let best = null, bestEdge = Infinity, bestMid = Infinity;
-    for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) {
+  for (let k = 0; k < 4; k++) {
+    const side = SIDES[k];
+    const lines = k < 2 ? H : W, along = k < 2 ? W : H, half = k < 2 ? W / 2 : H / 2;
+    let best = null;
+    for (let n = 0; n < lines && !best; n++) {
+      const i = k === 0 ? H - 1 - n : k === 1 ? n : k === 2 ? W - 1 - n : n;
+      let bestMid = Infinity;
+      for (let j = 0; j < along; j++) {
+        const [x, y] = cellOf(k, i, j);
         if (net[y * W + x] !== netId) continue;
-        const edge = side === 'n' ? H - 1 - y : side === 's' ? y : side === 'e' ? W - 1 - x : x;
-        if (edge > bestEdge) continue;
-        const mid = side === 'n' || side === 's' ? Math.abs(x - W / 2) : Math.abs(y - H / 2);
-        if (edge < bestEdge || mid < bestMid) { bestEdge = edge; bestMid = mid; best = [x, y]; }
+        const mid = Math.abs(j - half);
+        if (mid < bestMid) { bestMid = mid; best = [x, y]; }
       }
     }
     if (!best) continue;

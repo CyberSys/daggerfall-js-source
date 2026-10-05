@@ -8,7 +8,7 @@
 //  - THE CENSUS AND THE DAY. Every resident of the town (census.js) has their day (dayPlan.js); four times a second the
 //    town reads each one's entry at the clock's minute, and those OUTDOORS - walking, or standing at a spot - within
 //    LIVING_RANGE of the player are wanted on the street, the nearest first, to DFU's own cap (maxPopulationFor).
-//  - WHERE EXACTLY. A walk is the grid's A* path (townPaths.js, a few searches a frame), walked at the day's pace and
+//  - WHERE EXACTLY. A walk is the grid's A* path (townPaths.js, searched in slices), walked at the day's pace and
 //    never slower (a path longer than the plan guessed is walked faster, to WALK_FAST times the pace, and arrives late
 //    past that - the stay after it starts when they arrive). A stay at a spot is a place about it: in a circle with
 //    the others met there (meetups.js), else a place of their own.
@@ -78,6 +78,17 @@ export const ARRIVAL_JUMP_MIN = 15;
 export const ARRIVAL_STEP_M = 40;
 /** The searches a frame may make while the street is being stood on arrival. */
 export const ARRIVAL_PATHS_PER_FRAME = 32;
+/** LW-PERF: the cells a frame's searches may open (townPaths.js createPathBook `cells`) - about two milliseconds of
+ *  searching on a desktop (a walk across a great city opens up to a hundred thousand: ~25 ms, now over many frames) -
+ *  and while the street is being stood on an arrival (ARRIVAL_SHOW_S), three times that: measured (tools/
+ *  livingPerfProbe.mjs), every resident near a great city's player is on its morning street in one to three and a half
+ *  seconds, and no frame of it near the 40-120 ms the whole searches stood. */
+export const PATH_CELLS = 8000;
+export const ARRIVAL_PATH_CELLS = 24000;
+/** LW-PERF: how long after an arrival (real seconds) the street is still being stood: a resident the census finds then
+ *  is stood where their day has them though the player sees it (the street as it was before the player came); after
+ *  it, as any other - when unseen. The searches are run over frames now, so the street fills over a few. */
+export const ARRIVAL_SHOW_S = 1.5;
 /** AUDIT-G1: the searches a census beat may make for the walks not searched yet that may pass near the player. */
 export const CENSUS_PATHS = 4;
 /** AUDIT-G1: how far (m) a walk's path may stray outside the box its two ends make - a town's streets turn a path about
@@ -176,6 +187,10 @@ export class LivingTown {
     /** @type {number[]|null} the player's feet at the last frame (an arrival is a jump from them) */
     this._lastPlayer = null;
     this._arriving = false;
+    /** LW-PERF: the real second the street being stood on the last arrival ends (ARRIVAL_SHOW_S); and whether the
+     *  street's own pass is asking (its walks searched before the census's). */
+    this._arrivalUntil = -Infinity;
+    this._onStreet = false;
     /** PERF-TOWN1's discipline: the live list and its rows are the town's own, refilled each frame. @type {any[]} */
     this._live = [];
     /** @type {{ person: any, out: any }[]} */
@@ -318,12 +333,13 @@ export class LivingTown {
     return out.sort((a, b) => (a.res.id < b.res.id ? -1 : 1));
   }
 
-  /** The walk's line, if its path is known (undefined: not searched yet; null: no way). */
+  /** The walk's line, if its path is known (undefined: not searched yet; null: no way). LW-PERF: a resident on the street
+   *  asks first (`_onStreet`, the street's own pass). */
   _line(e, search) {
     const a = e.from.cell, b = e.to.cell;
     const known = this._paths.get(a, b);
     if (known !== undefined || !search) return known;
-    return this._paths.want(a, b);
+    return this._paths.want(a, b, this._onStreet);
   }
 
   /** How far along a walk's line at minute `t` - the day's pace, never slower, to WALK_FAST times it. */
@@ -440,11 +456,14 @@ export class LivingTown {
     // (only a row on the street searches its own) and its walker never came on, though they passed beside the player
     if (pending.length) {
       pending.sort((a, b) => a.gap - b.gap || (a.res.id < b.res.id ? -1 : 1));
-      this._paths.budget(this._arriving ? ARRIVAL_PATHS_PER_FRAME : CENSUS_PATHS);
+      this._paths.budget(this._standing() ? ARRIVAL_PATHS_PER_FRAME : CENSUS_PATHS);
       for (const { res } of pending) {
         const w = this.where(res, t, true);
-        const d = w ? Math.hypot(w.x - playerPos[0], w.z - playerPos[2]) : Infinity;   // one the budget did not reach: at its start, as it was
-        if (w && d < LIVING_RANGE) wanted.push({ res, d });
+        // LW-PERF: one whose walk is still waiting to be searched is nowhere known yet - wanted on the beat after its
+        // search (a row stood off its walk's start was out of the street's reach once its walk was known)
+        if (!w || w.pending) continue;
+        const d = Math.hypot(w.x - playerPos[0], w.z - playerPos[2]);
+        if (d < LIVING_RANGE) wanted.push({ res, d });
       }
     }
     wanted.sort((a, b) => a.d - b.d || (a.res.id < b.res.id ? -1 : 1));
@@ -467,7 +486,7 @@ export class LivingTown {
       if (!row) break;
       this._dress(row, res);
       row.active = true; row.scheduleEnable = true; row.visible = false; row.scheduleRecycle = false;
-      row.arrival = this._arriving;   // stood with the street on arrival: seen as soon as it has its place
+      row.arrival = this._standing();   // stood with the street on arrival: seen as soon as it has its place (LW-PERF: while it is being stood)
     }
   }
 
@@ -475,6 +494,9 @@ export class LivingTown {
    *  it does not (a room's door asks a word, a tone, a refusal while the street is still: `_now` is the minute the
    *  player went in, or nought after a load made indoors). */
   _liveMinute() { return this.o.clock?.() ?? this._now; }
+
+  /** LW-PERF: whether the street is still being stood after an arrival (ARRIVAL_SHOW_S). */
+  _standing() { return this._realNow <= this._arrivalUntil; }
 
   /** The clock's minutes a real second at the walking pace's own rate (a journey's scale left out). */
   _baseRate() { return PERSON_MOVE_SPEED / Math.max(1e-6, this.o.mpm); }
@@ -494,14 +516,17 @@ export class LivingTown {
     this._arriving = this._lastClock === null || Math.abs(this._now - this._lastClock) > ARRIVAL_JUMP_MIN || stepped > ARRIVAL_STEP_M;
     this._lastClock = this._now;
     this._lastPlayer = [playerPos[0], playerPos[1], playerPos[2]];
-    if (this._arriving) this._timer = LIVING_TICK_S;   // an arrival reads the census at once
+    if (this._arriving) { this._timer = LIVING_TICK_S; this._arrivalUntil = this._realNow + ARRIVAL_SHOW_S; }   // an arrival reads the census at once
+    const standing = this._standing();
+    this._paths.cells(standing ? ARRIVAL_PATH_CELLS : PATH_CELLS);   // LW-PERF: the frame's searching, the census's and the street's
     if (this._timer >= LIVING_TICK_S) { this._timer = 0; this._tick(playerPos, viewYaw); }
-    this._paths.budget(this.pool.some((r) => r.arrival) ? ARRIVAL_PATHS_PER_FRAME : PATHS_PER_FRAME);
+    this._paths.budget(standing && this.pool.some((r) => r.arrival) ? ARRIVAL_PATHS_PER_FRAME : PATHS_PER_FRAME);
     const rate = this.o.rate();
     const scale = Math.max(1, rate / this._baseRate());
     const out = this._live;
     out.length = 0;
     const seats = this._rows;
+    this._onStreet = true;   // LW-PERF: the street's own walks asked first
     for (const row of this.pool) {
       if (!row.active || !row.res) continue;
       const res = row.res, p = row.person;
@@ -535,7 +560,7 @@ export class LivingTown {
       const dist = Math.hypot(dx, dz);
       const allowChange = dist > POP_VISIBLE_RANGE || !this._inView(dx, dz, viewYaw);
       if (row.scheduleRecycle && allowChange) { this._free(row); continue; }
-      if (row.scheduleEnable && !w.pending && (allowChange || w.fromDoor || row.arrival)) { row.scheduleEnable = false; row.visible = true; row.arrival = false; }
+      if (row.scheduleEnable && !w.pending && (allowChange || w.fromDoor || (row.arrival && standing))) { row.scheduleEnable = false; row.visible = true; row.arrival = false; }
       if (!row.visible) continue;
       const frameOut = p.update(dt, cameraPos, stop);
       const seat = seats[out.length] ??= { person: null, out: null };
@@ -543,6 +568,8 @@ export class LivingTown {
       out.push(seat);
       if (dt > 0) this._greet(res, p, dist, stop);
     }
+    this._onStreet = false;
+    this._paths.run();   // LW-PERF: the frame's searching on what the asking left of its cells
     return out;
   }
 

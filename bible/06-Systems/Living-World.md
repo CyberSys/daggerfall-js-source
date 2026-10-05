@@ -113,7 +113,8 @@ Taken at the design, in the request's own order; each is Mac's to overrule.
   the most net in its 7x7, sampled every third cell; an exit per side, the net cell nearest that edge.
 - **`townPaths.js`.** A* over the grid's static weights, four neighbours, a step `1 + (15 - weight) / 10` (a road 1,
   grass 1.3, the average 1.8, stone 2.1), ties on opening order, one scratch set per grid; `pathLine` keeps the turns;
-  `createPathBook` keeps 768 walks and spends a frame's search budget.
+  `createPathBook` keeps 768 walks and spends a frame's search budget - LW-PERF: a frame's CELLS (`cells`), the walks
+  asked queued and searched in slices (`townPathSearch`, the same answer whole or sliced).
 - **`dayPlan.js`.** The living day 04:00-04:00 (`DAY_START_MIN`), every minute covered once. Wake and bed by temper
   (a lark 05-06 and 20-21, the day 06-07:30 and 21:30-23, an owl 08-10 and 00:30-02); the watch by shift
   (`(slot + day) mod 3`: 06-16, 14-24, a day off). The jobs' days as the code says them, the favourites (`favourites`:
@@ -152,7 +153,8 @@ the trample (`retire`), the probes.
   is stood there; nearer it walks there (a circle reshuffled, a stand left for a walk).
 - **Coming and going**: ON ARRIVAL - the town's first frame, the clock jumped past `ARRIVAL_JUMP_MIN` (15: a rest, a
   wait, a load) or the player past `ARRIVAL_STEP_M` (40 m in a frame: a Recall, a teleport) - the street is as the day
-  has it, everyone out of doors there at once (the searches raised to `ARRIVAL_PATHS_PER_FRAME` till it is stood).
+  has it, everyone out of doors there at once (the searches raised to `ARRIVAL_PATHS_PER_FRAME` till it is stood;
+  LW-PERF: for `ARRIVAL_SHOW_S`, on `ARRIVAL_PATH_CELLS` a frame - the street fills over a few frames).
   After it, the street's own churn keeps DFU's hiding - one more stood under the cap comes on beyond
   `POP_VISIBLE_RANGE` or behind the player's half of the view - or out of a door (a walk begun from one within
   `DOOR_POP_MIN`), which needs none; into a door at once; out of range when unseen. `suppressSpawns` (V4's transformed
@@ -792,6 +794,53 @@ The deep audit's indoor and host findings; each is fixed and pinned (`test/lwfix
 - **The quest's people kept clear** (`worldModes.js interiorQuestFeet`, the host's `staticFeet`). The room's places
   kept clear of the building's own people but not of a quest's stood there, so a resident could stand on a quest's
   person and take their click.
+
+## LW-PERF - the living world's cost (2026-10-05)
+
+Mac: "how is performance after we integrate this?" - then "Do it". The living world's own script time a frame,
+measured on V8 with the synthetic towns and map and Hazelnut's road bytes (`tools/livingPerfProbe.mjs`; no GPU, no
+ARENA2 - its numbers are the CPU's, comparable before and after). Pinned by `test/lwperf_cost.test.js` and
+`tools/mutants/lwperf.json`.
+
+| | before | after |
+|---|---|---|
+| a great city's street (8x8 blocks, 299 people), any frame after the way in | 36-120 ms worst, 2-14 ms p99 | 2-5.5 ms worst, 2-3 ms p99 |
+| the way into it (or a rest, a wait, a load there) | 275-420 ms at once | 10-15 ms, then frames of 7-9 ms for 1.5 s |
+| every resident near the player on its morning street | 0.5-1 s | 1-3.5 s |
+| a village's street (3x3), any frame | 2-6 ms worst | 1-3 ms worst |
+| the roads, the read of the parties near | 5-10 ms once a second | 3-5 ms on the way in, then 0.3 ms p99 a frame, 2-3 ms worst |
+| the deep's readers, once a second below | 1 + 3.5 ms | 0.03 + 0.6 ms |
+| a whole town's day plans (the way in, the day's turn) | ~25 ms | ~4 ms |
+| DFU's own pool on the same streets, for scale | 0.01-0.03 ms a frame, 1 ms worst | - |
+
+- **The town's searches in slices** (`townPaths.js townPathSearch`, `createPathBook` `cells`/`run`; `livingTown.js`
+  PATH_CELLS, ARRIVAL_PATH_CELLS). A walk across a great city's grid opens up to a hundred thousand cells (~25 ms), and
+  the street's budget counted searches, not their size: a city's morning stood frames of 40-120 ms. A frame's
+  searching now has its CELLS - PATH_CELLS (8000, ~2 ms on a desktop), ARRIVAL_PATH_CELLS (24000) while the street is
+  stood on the way in - and the walks asked are queued and searched one at a time in slices, a resident on the street
+  waiting on their next walk before the census's walks coming near, each frame spending what the asking left (`run`).
+  Sliced or whole the answer is the same, cell for cell, as the search before LW-PERF (its reference in the test); the
+  search itself is half again as fast (the grid's own bytes, a step's cost by table, no closures). One whose walk is
+  still waiting is wanted on the street only once it is searched (wanted off its walk's start, its row stood out of the
+  street's reach).
+- **The arrival spread** (`ARRIVAL_SHOW_S`, 1.5 s). The way in stood the whole street in its first frame - every walk
+  searched at once (0.3-0.4 s). It is stood over the frames of ARRIVAL_SHOW_S: a resident the census finds then comes on
+  where the player sees, as the street was before the player came; after it, one whose walk came late comes on only
+  unseen or out of a door, DFU's own hiding.
+- **What is worked out once, kept** (`dayPlan.js favourites`, `trips.js townTrips`). A resident's favourite places are
+  their seed's - kept by the town's places, and worked out off its doors by kind with the keys' order read once (the
+  sorting of a great city's four hundred doors, a key compared as text in every comparison, was three quarters of every
+  plan). A town's trips of a day are kept in the trips' book (`town:<mapId>:<day>`, never another world's or pace's):
+  a minute's are those within a day of it, and its parties - the caravans, their trouble - are kept while the same
+  trips are. The roads, the deep and the towns' visitors read every town near once a second; each read the whole
+  roster, its caravans and its fates again. The book is made again with the trips (a turn, a load: `livingTurnsFresh`).
+- **The roads read over a few frames** (`livingRoads.js` ROADS_TOWNS_PER_FRAME, ROADS_JUMP_PX; `trips.js
+  partiesOfTown`, `remainsOfTown`). The parties and the fallen near are read again each ROADS_TICK_S a few towns a
+  frame (12), the last read standing till the new one is done - whole only on the way in, after a jump past
+  ROADS_JUMP_PX (a fast travel, a teleport), and after a deed on the road (the party walks on without the one struck).
+- **The town's places** (`places.js streetNet`, the square, the exits). Paid once as a town streams in: the street net
+  read off the grid's own bytes, the square's windows off the net's running sums, the four exits in one pass - the
+  same places as before.
 
 ## The four hosts
 
