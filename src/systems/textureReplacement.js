@@ -110,9 +110,11 @@ export const textureKey = (archive, record, frame = 0, map = 'Albedo', dye = nul
 
 let _index = new Map();
 let _load = null;
+let _looseGen = 0;   // VE2: bumps with every pick or clear - a picture built from the loose tier keys on it
 
 /** Register a picked set; `load(fileName)` resolves to bytes. */
 export function setTextureReplacements(fileNames, load) {
+  _looseGen++;
   _index = new Map();
   for (const fileName of fileNames ?? []) {
     const e = textureEntry(fileName);
@@ -130,6 +132,30 @@ export function setTextureReplacements(fileNames, load) {
 }
 
 export const textureReplacementCount = () => _index.size;
+
+// ---- VE2: THE LOOSE TIER ALONE, for the ground's tile set ----------------
+//
+// TextureReplacement.TryImportTextureArray (TextureReplacement.cs:325-352) asks the loose folder BEFORE any mod:
+// `!TextureExistsAmongLooseFiles(archive, 0, 0, textureMap)` (:847-851) is what lets it seek a mod's array at all. A
+// loose record 0 sends the archive straight to its individual textures (TryMakeTextureArrayCopyTexture), each record
+// sought loose-then-mods by TryImportTexture (:984-1005). systems/dfmodTextures.js dfmodGroundLayers asks these two.
+/** TextureExistsAmongLooseFiles: the folder pick names the texture and the gate is open. */
+export const looseTextureExists = (archive, record, frame = 0, map = 'Albedo') =>
+  textureReplacementEnabled() && !!_load && _index.has(textureKey(archive, record, frame, map));
+/** A loose texture's bytes, or null - never throws (a picture that will not load is the classic one's to stand in for). */
+export async function looseTextureBytes(archive, record, frame = 0, map = 'Albedo') {
+  if (!looseTextureExists(archive, record, frame, map)) return null;
+  const entry = _index.get(textureKey(archive, record, frame, map));
+  try {
+    const bytes = await _load(entry.fileName);
+    return bytes && bytes.byteLength > 0 ? bytes : null;
+  } catch (e) {
+    console.warn(`[texture] replacement ${entry.fileName} would not load:`, e?.message ?? e);
+    return null;
+  }
+}
+/** Bumps with every loose pick and clear: what a cache of pictures built from the loose tier keys on. */
+export const looseTextureGeneration = () => _looseGen;
 
 // ---- SURV2: THE PORT'S OWN VENDORED ART ------------------------------
 //
@@ -350,6 +376,7 @@ const vendorOf = (key) => { const v = _vendor.get(key); return v && !(v.yields &
 const entryFor = (key) => _index.get(key) ?? vendorOf(key) ?? _bundle.get(key) ?? null;
 
 export function clearTextureReplacements() {
+  _looseGen++;   // VE2
   _index = new Map();
   _load = null;
   for (const k of _decoded.keys()) if ((!_vendor.has(k) || _vendor.get(k).yields) && !_bundle.has(k)) _decoded.delete(k);   // AUDIT WD3 T2: a yielding stand-in's picture is decided again against the new pick   // a new pick must not inherit the old one's pixels; the port's own stay (DFMOD1: and an attached bundle's)

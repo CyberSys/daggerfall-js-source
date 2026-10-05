@@ -23,13 +23,13 @@ const rd = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const manifest = JSON.parse(rd('vendor/grimoire-ui/grimoire-ui.files.json'));
 beforeEach(() => _resetForTests());
 
-test('OVH1: three panels, Texture, Sound and UI in that order; Texture stands EMPTY until a texture pack ships (OVH1b); Sound is Classic and Enhanced; UI is Classic, Enhanced Plus and GrimoireUI - PLUS-ONLY retired plain Enhanced (mutants: a texture look back on the panel; a panel dropped)', () => {
+test('OVH1: three panels, Texture, Sound and UI in that order; Texture stood EMPTY until a texture pack (OVH1b) and holds Classic and Vanilla Enhanced, the pack the player brings (VE3); Sound is Classic and Enhanced; UI is Classic, Enhanced Plus and GrimoireUI - PLUS-ONLY retired plain Enhanced (mutants: Vanilla Enhanced off the panel; a panel dropped)', () => {
   assert.deepEqual(OVERHAUL_PANELS.map((p) => p.id), ['texture', 'sound', 'ui']);
   assert.deepEqual(OVERHAUL_PANELS.map((p) => p.title), ['Texture Overhaul', 'Sound Overhaul', 'UI Overhaul']);
   const [tex, snd, ui] = OVERHAUL_PANELS;
-  assert.equal(tex.options.length, 0, 'no texture pack ships - the panel holds nothing');
-  assert.equal(tex.empty, 'No texture packs yet.');
-  assert.equal(currentOption(tex), null);
+  assert.deepEqual(tex.options.map((o) => o.name), ['Classic', 'Vanilla Enhanced'], 'VE3: the first texture pack, beside Daggerfall\'s own');
+  assert.equal(currentOption(tex), tex.options[0], 'nothing attached: Classic');
+  assert.equal(tex.options[1].needsFiles(), true, 'its pixels are Daggerfall\'s own remastered - the player\'s copy, never shipped (Port-Doctrine)');
   assert.deepEqual(snd.options.map((o) => o.id), ['classic', 'enhanced']);
   assert.deepEqual(ui.options.map((o) => o.name), ['Classic', 'Enhanced Plus', 'GrimoireUI']);
   assert.match(ui.options[2].by, /LordSquacquerone, version 1\.2/, 'the pack wears its author and version');

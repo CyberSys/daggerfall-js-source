@@ -2,7 +2,8 @@
 // side by side at a desktop and stack on a phone with nothing spilling sideways; the arrows browse without wearing; a
 // look worn from its button reads back as the card's look in use; a mix made on Features reads "Custom"; GrimoireUI's
 // card shows the pack's own art (the file served, the picture decoded); and wearing GrimoireUI reloads onto the
-// classic skin with the pack on the shelf, the card saying so.
+// classic skin with the pack on the shelf, the card saying so. VE3: the Texture card reads Classic with nothing
+// attached, and Vanilla Enhanced's button opens the .dfmod pick in the pack's own words, wearing nothing when closed.
 //
 //     node tools/overhaulsProbe.mjs          (stands its own dev server; SHOT_DIR for the pictures)
 import { createServer } from 'vite';
@@ -55,8 +56,23 @@ const spills = (page) => page.evaluate(() => {
   let cs = await cards(page);
   check('three cards: Texture, Sound, UI', cs.map((c) => c.panel).join('|') === 'texture|sound|ui', cs.map((c) => c.panel).join('|'));
   check('...side by side at a desktop', new Set(cs.map((c) => Math.round(c.box.top))).size === 1 && cs[0].box.right <= cs[1].box.left, JSON.stringify(cs.map((c) => c.box)));
-  check('the Texture card stands empty - no texture pack ships yet', cs[0].state === 'empty' && !cs[0].name && !cs[0].use && (await page.locator('.look-panel[data-panel="texture"] .look-emptyline', { hasText: 'No texture packs yet.' }).count()) === 1, JSON.stringify(cs[0]));
-  check('a fresh shelf wears Enhanced on Sound and UI', cs.slice(1).every((c) => c.state === 'on' && c.name === 'Enhanced' && c.disabled), JSON.stringify(cs.map((c) => [c.state, c.name])));
+  // VE3: the Texture card holds Classic and Vanilla Enhanced - the pack the player brings, added from its own button
+  check('the Texture card reads Classic in use with no texture mod attached', cs[0].state === 'on' && cs[0].name === 'Classic' && cs[0].disabled, JSON.stringify(cs[0]));
+  await page.locator('.look-panel[data-panel="texture"] .look-arrow').last().click(); await page.waitForTimeout(80);
+  const ve = (await cards(page)).find((c) => c.panel === 'texture');
+  check('...browsing to Vanilla Enhanced offers to add the player\'s own copy', ve.name === 'Vanilla Enhanced' && ve.state === 'browse' && ve.use === 'Add Vanilla Enhanced\u2026' && !ve.disabled, JSON.stringify(ve));
+  await page.locator('.look-panel[data-panel="texture"] .look-use').click();
+  await page.waitForSelector('#pickassets', { timeout: 5000 });
+  const pick = await page.$eval('#pickassets', (i) => ({ title: i.closest('div').querySelector('h2').textContent, accept: i.accept, multiple: i.multiple, folder: i.hasAttribute('webkitdirectory') }));
+  check('...its button opens the .dfmod pick in the pack\'s own words', pick.title === 'Add Vanilla Enhanced' && pick.accept === '.dfmod' && pick.multiple && !pick.folder, JSON.stringify(pick));
+  await page.locator('#adone').click(); await page.waitForTimeout(150);
+  const after = (await cards(page)).find((c) => c.panel === 'texture');
+  check('...and a pick closed empty wears nothing: Classic stays in use', after.state === 'browse' && (await page.$$eval('.look-panel[data-panel="texture"] .look-dot', (ds) => ds.map((d) => d.className))).join('|') === 'look-dot on|look-dot at', JSON.stringify(after));
+  await page.locator('.look-panel[data-panel="texture"] .look-arrow').first().click(); await page.waitForTimeout(80);
+  cs = await cards(page);
+  // the UI card's enhanced look is named Enhanced Plus since PLUS-ONLY (systems/uiSkin.js SKIN_NAMES) - this check read
+  // plain Enhanced on both cards and failed from then on (found by VE3, which ran the probe again)
+  check('a fresh shelf wears Enhanced on Sound and Enhanced Plus on UI', cs.slice(1).map((c) => `${c.state}:${c.name}:${c.disabled}`).join('|') === 'on:Enhanced:true|on:Enhanced Plus:true', JSON.stringify(cs.map((c) => [c.state, c.name])));
   check('no lead paragraph over the cards', (await page.locator('#enhanced-menu .body > p').count()) === 0);
   await page.screenshot({ path: `${OUT}/look-desktop.png` });
 

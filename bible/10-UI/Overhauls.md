@@ -17,9 +17,9 @@ focused card) BROWSE, the button WEARS - a look that reloads the game is never
 worn by a stray arrow. `systems/overhauls.js` is the registry and the only
 writer; `ui/enhancedMenu.js paneOverhauls` draws it (`.look-*` rules).
 
-- **Texture** - the texture packs. None ships yet, so the card stands empty
-  ("No texture packs yet."): it is a pack's door, not a second face on the
-  Features switches (OVH1b).
+- **Texture** - the texture packs: a pack's door, not a second face on the
+  Features switches (OVH1b - it stood empty, "No texture packs yet.", until
+  the first). Classic and Vanilla Enhanced since VE3 (below).
 - **Sound** - Classic / Enhanced: the port's own sound switches taken together
   (`enhanced-sounds`, `mod-immersive-footsteps`), set as Daggerfall has them or
   as the port adds them. The card reads the SAME Features rows it writes, so a
@@ -85,6 +85,20 @@ classic screens, so the UI Overhaul a player chose is the one they play online.
 The world's enhanced lane is unchanged: the outdoors, water, combat visuals,
 loot rarity and the room's mod switches stay the room's.
 
+## VE3 - the first texture pack (2026-10-05)
+
+Vanilla Enhanced (carademono) is the Texture card's first pack, beside
+Classic - `07-Rendering/Vanilla-Enhanced.md` is its record. It is a pack the
+PLAYER brings: its pictures are Daggerfall's own remastered, so none of it
+ships (Port-Doctrine), and while no copy is attached its button reads "Add
+Vanilla Enhanced..." and opens the `.dfmod` pick in the pack's own words
+(`needsFiles`, `attach`); a pick closed with no Base in it wears nothing.
+Wearing it switches its family on with Replace Game Artwork; wearing
+Classic switches every texture mod off and keeps it attached. A mix - DREAM
+alone, a loose pack - reads Custom, with the card's own note (`custom`). The
+card's options carry `apply` as the other two cards' do; `by` is a getter,
+so the card names the version of the copy attached.
+
 ## OVH4 - the party rest on any UI
 
 Mac: "How do we make it where it's not solo rest for other UI's" - and chose
@@ -111,5 +125,8 @@ real skin choice; the hosts' wiring by source). Mutants:
 `tools/mutants/ovh4.json` (15, all dead).
 
 Pins: `test/overhauls.test.js`; the browser probe `tools/overhaulsProbe.mjs`
-(20 checks: the three cards at a desktop and a phone, browse vs wear, Custom,
-GrimoireUI's art decoded, the reload onto the classic skin wearing the pack).
+(23 checks: the three cards at a desktop and a phone, browse vs wear, Custom,
+GrimoireUI's art decoded, the reload onto the classic skin wearing the pack,
+and VE3's four, where OVH1b's empty card stood - Classic in use with nothing
+attached, Vanilla Enhanced offering to add the player's copy, its button
+opening the pick in its own words, a closed pick wearing nothing).

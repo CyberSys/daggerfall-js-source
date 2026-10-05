@@ -28,18 +28,28 @@
 // - the first time one of its pictures is asked for. The paperdoll's
 // 330 MB is never opened by a player who never looks at the doll.
 //
+// VE1 - DFU'S LOAD ORDER. Where two attached mods carry the same name,
+// DFU's ModManager answers with the one loaded LAST: TryGetAsset walks
+// EnumerateEnabledModsReverse (ModManager.cs:404-415, :1146-1153), and
+// AutoSortMods (:1059-1082) loads every mod after the mods it depends on
+// (TopologicalSort, :1261-1288). An add-on built on a base mod - Vanilla
+// Enhanced's Masked Roads and Snowless Swamps on its Base - wins every
+// name the two share. This door used to keep the FIRST mod by file name
+// and read no dependency at all, so the add-ons lost to their own base.
+//
 // Nothing here touches the DOM: the store and the opener are handed in.
 
 import { openUnityBundle } from '../formats/unityBundleClient.js';
 import { createBundlePool } from '../formats/unityBundlePool.js';   // DFMOD3: a few shared workers, not one per mod
 import { resampleRgba } from '../formats/resample.js';
-import { textureEntry, setBundleTextures, textureReplacementEnabled } from './textureReplacement.js';
+import { textureEntry, textureKey, setBundleTextures, textureReplacementEnabled, looseTextureExists, looseTextureBytes, looseTextureGeneration, decodePng, PRELOAD_CONCURRENCY } from './textureReplacement.js';
 import { toColor32 } from '../formats/color32Order.js';   // GROUND1: the terrain's layers are world texels, bottom row first
 import { registerBillboardXml, unregisterBillboardXml } from '../world/billboardXml.js';
+import { getPref, setPref } from './uiPrefs.js';   // VE3: which attached mods are switched off - the port's prefs shelf
 
 export const DFMOD_PREFIX = 'dfmod/';               // the stored key of a bundle (seasonsIliacBayAssets' DFMOD_KEY_PREFIX)
 export const DFMOD_INDEX_PREFIX = 'dfmod-index/';   // the stored key of its name index
-export const DFMOD_INDEX_VERSION = 2;   // GROUND1: 2 carries the texture arrays; a v1 index is rebuilt in the background
+export const DFMOD_INDEX_VERSION = 3;   // GROUND1: 2 carries the texture arrays; VE1: 3 the manifest's dependencies - an older index is rebuilt in the background
 
 // ---- DFMOD2: BIG MODS (DREAM's full-resolution set, gigabytes a bundle) --------------------------------------------
 // A multi-gigabyte bundle read whole into memory was a blank screen: the boot awaited it (a bundle stored without an
@@ -135,11 +145,64 @@ export function buildDfmodIndex(bundle) {
   return {
     v: DFMOD_INDEX_VERSION,
     title: manifest.ModTitle ?? null, version: manifest.ModVersion ?? null, author: manifest.ModAuthor ?? null, guid: manifest.GUID ?? null,
+    deps: manifestDeps(manifest),   // VE1
     textures: (bundle.textures ?? []).map((t) => [t.name, t.width, t.height]),
     arrays: (bundle.arrays ?? []).map((a) => [a.name, a.width, a.height, a.depth]),   // GROUND1
     xml,
   };
 }
+
+/** VE1: ModInfo.Dependencies (ModTypes.cs ModDependency :118-145) as `[name, isOptional, isPeer]` - the three fields the
+ *  load order reads (the minimum Version is the mod window's warning, never the order's). */
+export function manifestDeps(manifest) {
+  const deps = Array.isArray(manifest?.Dependencies) ? manifest.Dependencies : [];
+  return deps.filter((d) => typeof d?.Name === 'string' && d.Name).map((d) => [d.Name, d.IsOptional === true, d.IsPeer === true]);
+}
+
+// ---- VE1: THE LOAD ORDER -------------------------------------------------------------------------------------------
+
+/** Mod.FileName: the .dfmod's name without the extension (GetModNameFromPath, ModManager.cs:1236-1241) - the store key
+ *  without its prefix and suffix. It is what a dependency names. DFU matches it Ordinal; the store keeps every key lower
+ *  case (dfmodStoreKey), so the port matches lower case on both sides (a mod builder writes them lower case). */
+export const dfmodFileName = (key) => String(key ?? '').slice(DFMOD_PREFIX.length).replace(/\.dfmod$/i, '');
+
+/**
+ * AutoSortMods (ModManager.cs:1059-1082): the attached mods in their base order - the Mods folder's listing, by file
+ * name - each placed after every attached mod it depends on, optional or not, unless the dependency is a PEER
+ * (`where !dependency.IsPeer`, then `GetModFromName` and the missing dropped). TopologicalSort (:1261-1288) is a
+ * depth-first visit in the base order, dependencies first; a cycle throws there and AutoSortMods keeps the order it had,
+ * so a cycle here answers the base order. Pure: `mods` is `[{ key, index }]`.
+ */
+export function dfmodLoadOrder(mods) {
+  const base = [...(mods ?? [])].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+  const byName = new Map(base.map((m) => [dfmodFileName(m.key), m]));
+  const depsOf = (m) => (m.index?.deps ?? []).filter(([, , peer]) => !peer).map(([name]) => byName.get(String(name).toLowerCase())).filter(Boolean);
+  const sorted = [];
+  const visited = new Set();
+  const visit = (m) => {
+    if (!visited.has(m)) {
+      visited.add(m);
+      for (const d of depsOf(m)) visit(d);
+      sorted.push(m);
+    } else if (!sorted.includes(m)) throw new Error('Cyclic dependency found');
+  };
+  try {
+    for (const m of base) visit(m);
+    return sorted;
+  } catch (e) {
+    console.warn(`[dfmod] the attached mods could not be sorted by their dependencies (${e?.message ?? e}) - they load by file name`);
+    return base;
+  }
+}
+
+// ---- VE3: A MOD SWITCHED OFF (Mod.Enabled) ---------------------------------------------------------------------------
+// DFU's mod window switches a mod off without removing it, and a mod switched off contributes nothing - TryGetAsset reads
+// only EnumerateEnabledModsReverse. The port keeps the keys switched off on its prefs shelf (never in DFU's settings); a
+// mod attached is on.
+export const DFMOD_OFF_PREF = 'dfmodOff';
+const offKeys = () => { const v = getPref(DFMOD_OFF_PREF); return Array.isArray(v) ? v.filter((k) => typeof k === 'string') : []; };
+/** The mod stored under `key` is switched on (Mod.Enabled). */
+export const dfmodEnabled = (key) => !offKeys().includes(key);
 
 /** Open a bundle's bytes, index it and close it - the attach step. */
 export async function indexDfmodBytes(bytes, { open = openUnityBundle } = {}) {
@@ -150,12 +213,12 @@ export async function indexDfmodBytes(bytes, { open = openUnityBundle } = {}) {
 
 // ---- the registry ------------------------------------------------------
 
-let _mods = [];                 // [{ key, index }] in attach order
+let _mods = [];                 // [{ key, index }] in DFU's load order (VE1: dfmodLoadOrder), every attached mod, off or on
+let _prio = [];                 // VE1/VE2: the mods switched on, LAST LOADED FIRST - [{ key, names, arrays }], TryGetAsset's walk
 let _open = new Map();          // store key -> Promise<bundle client | null>
 let _openErrors = new Map();    // DFMOD2: store key -> why it would not open (the packs card says so)
 let _img = new Map();           // 'SCBG04I0.IMG' -> { key, name }
 let _cifRci = new Map();        // 'FACES.CIF_14-0' -> { key, name }
-let _ground = new Map();        // GROUND1: ground archive (302) -> { key, name, depth }
 let _load = null;
 let _loadBlob = null;           // DFMOD2: the stored Blob, for a by-range open
 let _opener = poolOpen;
@@ -227,7 +290,9 @@ export async function setDfmodSources(fileNames, load, { saveIndex = null, open 
   // IDEMPOTENT: the boot seam registers on every host boot (scenes/shared.js ensureAudio), and closing a bundle a
   // player has already paid seconds to open, for the same set, would pay them again at every door
   const sig = names.join('\n');
-  if (sig === _sig && load === _load && _registered) return _registered;
+  // VE3: a registration that put NOTHING on the doors is still a registration - every texture mod switched off (the
+  // Classic look) counts 0, and a truthiness test read that as none, registering again at every host's boot
+  if (sig === _sig && load === _load && _registered !== null) return _registered;
   const gen = ++_generation;
   forgetOpen();
   _load = typeof load === 'function' ? load : null;
@@ -241,7 +306,7 @@ export async function setDfmodSources(fileNames, load, { saveIndex = null, open 
     if (index) mods.push({ key, index }); else missing.push(key);
     if (gen !== _generation) return 0;   // a newer registration overtook this one
   }
-  _mods = mods;
+  _mods = dfmodLoadOrder(mods);   // VE1: AutoSortMods' order, not the listing's
   _sig = sig;
   _registered = install();
   // DFMOD2: a bundle stored without its index (a folder pick, an attach that did not finish) is indexed OFF the boot
@@ -255,22 +320,26 @@ export async function setDfmodSources(fileNames, load, { saveIndex = null, open 
         if (index && saveIndex) await saveIndex(dfmodIndexKey(key), JSON.stringify(index)).catch(() => null);
       } catch (e) { console.warn(`[dfmod] ${key} could not be indexed:`, e?.message ?? e); }
       if (gen !== _generation) return;
-      if (index) { _mods = [..._mods, { key, index }].sort((a, b) => (a.key < b.key ? -1 : 1)); _registered = install(); }
+      if (index) { _mods = dfmodLoadOrder([..._mods, { key, index }]); _registered = install(); }   // VE1
     }
   };
   if (missing.length) { if (background) indexMissing(); else await indexMissing(); }
   // DFMOD2: WARM - open the bundles now, one after another, off the boot path, so the first area's pictures find
-  // them open rather than waiting (each open is a worker reading its index by range)
-  if (warm) (async () => { for (const { key } of _mods) { if (gen !== _generation) return; await bundleFor(key); } })();
+  // them open rather than waiting (each open is a worker reading its index by range); VE3: a mod switched off is not
+  if (warm) (async () => { for (const { key } of _mods) { if (gen !== _generation) return; if (dfmodEnabled(key)) await bundleFor(key); } })();
   return _registered;
 }
 
-/** Put the registered mods' names on the doors. */
+/** Put the registered mods' names on the doors. VE1: TryGetAsset's walk (ModManager.cs:404-415, :429-442) - the mods switched
+ *  on, the one loaded LAST first - and the first mod to carry a name keeps it, on every door alike: the textures, the
+ *  billboard xml (XMLManager seeks it by name, whichever mod carried the picture), the IMG and CIF/RCI pictures, and
+ *  the ground's names (VE2). */
 function install() {
   const entries = [];
   const table = {};
-  _img = new Map(); _cifRci = new Map(); _ground = new Map(); _groundCache = new Map();
-  for (const { key, index } of _mods) {
+  _img = new Map(); _cifRci = new Map(); _prio = []; _groundCache = new Map();
+  for (const { key, index } of [..._mods].reverse()) {
+    if (!dfmodEnabled(key)) continue;   // VE3: EnumerateEnabledModsReverse - a mod switched off answers nothing
     const rects = new Map();
     for (const [name, text] of Object.entries(index.xml ?? {})) {
       const rect = xmlRect(text);
@@ -280,14 +349,17 @@ function install() {
       if (e && e.map === 'Albedo' && !e.dye) ((table[e.archive] ??= {})[e.record] ??= scale);
     }
     // GROUND1: a texture array named `<archive>-TexArray` is that terrain archive's whole tile set (DREAM's 302, 402...)
+    const arrays = new Map();
     for (const [name, , , depth] of index.arrays ?? []) {
       const m = /^(\d+)-TexArray$/i.exec(name);
-      if (m && !_ground.has(Number(m[1]))) _ground.set(Number(m[1]), { key, name, depth });
+      if (m && !arrays.has(Number(m[1]))) arrays.set(Number(m[1]), { name, depth });
     }
+    const names = new Map();   // VE2: an undyed albedo picture's key -> its name in this bundle (a ground record's)
     for (const [name] of index.textures ?? []) {
       const e = textureEntry(`${name}.png`);
       if (e) {
         if (!USED_MAPS.has(e.map)) continue;
+        if (e.map === 'Albedo' && !e.dye && !names.has(textureKey(e.archive, e.record, e.frame))) names.set(textureKey(e.archive, e.record, e.frame), name);
         entries.push({
           archive: e.archive, record: e.record, frame: e.frame, map: e.map, dye: e.dye, fileName: `${key}:${name}`,
           image: () => bundleImage(key, name), lazy: isItemArchive(e.archive), rect: rects.get(name) ?? null,
@@ -298,6 +370,7 @@ function install() {
       if (/\.IMG$/.test(up)) { if (!_img.has(up)) _img.set(up, { key, name }); continue; }
       if (/\.(CIF|RCI)_\d+-\d+(_[A-Z]+)?$/.test(up) && !_cifRci.has(up)) _cifRci.set(up, { key, name });   // DFMOD2: with a metal suffix too (a handheld weapon's frames)
     }
+    _prio.push({ key, names, arrays });
   }
   const n = setBundleTextures(entries);
   if (Object.keys(table).length) registerBillboardXml('dfmod', table); else unregisterBillboardXml('dfmod');
@@ -313,9 +386,42 @@ export function clearDfmodSources() {
   install();
 }
 
-/** The attached mods, for the menu: [{ key, title, version, author, textures }]. */
+/**
+ * VE3: switch attached mods on or off (Mod.Enabled) and put the doors back at once. The choice is kept on the prefs
+ * shelf; a mod switched off has its bundle closed (DFU unloads it). Answers the shelf's word - a refused write still
+ * holds for this session. What is already drawn keeps its pictures until its area loads again.
+ */
+export function setDfmodEnabled(keys, on) {
+  const list = (Array.isArray(keys) ? keys : [keys]).filter((k) => typeof k === 'string');
+  const off = new Set(offKeys());
+  for (const k of list) { if (on) off.delete(k); else off.add(k); }
+  const saved = setPref(DFMOD_OFF_PREF, [...off].sort());
+  if (!on) {
+    for (const k of list) {
+      const p = _open.get(k);
+      if (!p) continue;
+      _open.delete(k);
+      p.then((b) => b?.close?.()).catch(() => null);
+    }
+  }
+  _registered = install();
+  return saved;
+}
+/** VE3: a mod attached again, or removed, is no longer remembered as switched off - a fresh attach is on. */
+export function forgetDfmodOff(keys) {
+  const drop = new Set((Array.isArray(keys) ? keys : [keys]).filter((k) => typeof k === 'string'));
+  const off = offKeys();
+  if (off.some((k) => drop.has(k))) setPref(DFMOD_OFF_PREF, off.filter((k) => !drop.has(k)));
+}
+
+/** The attached mods, for the menu, in load order (VE1): [{ key, fileName, title, version, author, textures, arrays,
+ *  deps, enabled, error, guid }]. */
 export const attachedDfmods = () => _mods.map(({ key, index }) => ({
-  key, title: index.title ?? key.slice(DFMOD_PREFIX.length), version: index.version, author: index.author, textures: index.textures?.length ?? 0,
+  key, fileName: dfmodFileName(key),   // VE1: the name a dependency names
+  title: index.title ?? key.slice(DFMOD_PREFIX.length), version: index.version, author: index.author, textures: index.textures?.length ?? 0,
+  arrays: index.arrays?.length ?? 0,   // VE3: a mod of ground tile sets alone is a texture mod too
+  deps: (index.deps ?? []).map(([name]) => String(name).toLowerCase()),   // VE1
+  enabled: dfmodEnabled(key),   // VE3
   error: _openErrors.get(key) ?? null,   // DFMOD2
   guid: index.guid ?? null,   // IIL1: a script mod (Improved Interior Lighting) is known by its GUID
 }));
@@ -348,35 +454,127 @@ export const dfmodCifRciNamed = (name) => {
   return cached(`cif:${k}`, _cifRci.get(k), { floor: WEAPON_FRAME_MIN_SIZE });   // DWHD1: a weapon frame keeps its detail
 };
 
-// ---- GROUND1: THE TERRAIN'S TILE SET ---------------------------------------------------------------------------------
+// ---- GROUND1 + VE2: THE TERRAIN'S TILE SET ---------------------------------------------------------------------------
 // The ground is not drawn through the texture door: the world hosts upload each ground archive's 56 records as one
-// texture array (renderer.uploadTileArray), straight off the classic file. A DFU mod dresses it the same way DFU draws
-// it - as a Texture2DArray per archive (TerrainMaterialProvider's `<archive>-TexArray`) - so the hosts ask here first.
-let _groundCache = new Map();   // archive -> Promise<layers | null>
-/** The mod names the archive's tile set, and the AssetInjection gate is open. */
-export const hasDfmodGround = (archive) => textureReplacementEnabled() && _ground.has(Number(archive));
-/**
- * An attached mod's tile set for a ground archive - `recordCount` layers in the upload path's `{ width, height, colors }`
- * shape, bottom row first (getColor32's order) - or null: no mod carries it, the gate is shut, it would not decode, or
- * it does not hold one layer per classic record (a partial set would put the wrong picture on a tile).
- */
-export function dfmodGroundLayers(archive, recordCount) {
-  const hit = _ground.get(Number(archive));
-  if (!hit || !textureReplacementEnabled()) return Promise.resolve(null);
-  if (!_groundCache.has(hit.name)) {
-    _groundCache.set(hit.name, (async () => {
-      const b = await bundleFor(hit.key);
-      if (!b?.layers) return null;
-      try {
-        const imgs = await b.layers(hit.name);
-        if (!imgs?.length) return null;
-        const w = imgs[0].width, h = imgs[0].height;
-        if (imgs.some((i) => i.width !== w || i.height !== h)) return null;
-        return imgs.map((i) => toColor32(i));
-      } catch (e) { console.warn(`[dfmod] ${hit.name} would not decode:`, e?.message ?? e); return null; }
-    })());
+// texture array (renderer.uploadTileArray), straight off the classic file. DFU dresses it in TextureReader's
+// GetTerrainTextureArray (TextureReader.cs:757-803), and the hosts ask here first. Its law, in order:
+//   1. TryImportTextureArray (TextureReplacement.cs:325-352): unless a LOOSE `<archive>_0-0` exists, the mods are asked
+//      for two names at once in load order - `<archive>-TexArray`, then `<archive>_0-0` - and the FIRST mod carrying
+//      either decides. Its array, at the archive's depth, is the tile set whole.
+//   2. Otherwise the set is made of the archive's own records, each sought loose-then-mods by TryImportTexture
+//      (TryMakeTextureArrayCopyTexture :1085-1149, and GetTerrainTextureArray's own loop :776-795, which also takes the
+//      records when no record 0 is replaced): the set is record 0's size, else the classic size.
+// GROUND1 read only the arrays - an archive a loose pack or an array-less mod dressed record by record (Kokey's
+// Temperate: TEXTURE.302's 56 pictures, no array) stood classic - and took the FIRST mod by file name.
+let _groundCache = new Map();   // `${archive}:${depth}:${loose generation}` -> Promise<layers | null>
+
+/** VE2: what dresses a ground archive - `{ kind: 'array', key, name, depth }` (a mod's array decided first),
+ *  `{ kind: 'records' }` (a loose record 0, or a mod whose first name is the record), or null: no loose record 0 and no
+ *  mod switched on carries either name. Behind the gate. */
+export function groundSource(archive) {
+  if (!textureReplacementEnabled()) return null;
+  const a = Number(archive);
+  if (looseTextureExists(a, 0, 0)) return { kind: 'records' };
+  for (const m of _prio) {
+    const arr = m.arrays.get(a);
+    if (arr) return { kind: 'array', key: m.key, name: arr.name, depth: arr.depth };
+    if (m.names.has(textureKey(a, 0, 0))) return { kind: 'records' };
   }
-  return _groundCache.get(hit.name).then((layers) => (layers && (recordCount == null || layers.length >= recordCount) ? layers.slice(0, recordCount ?? layers.length) : null));
+  return null;
+}
+/** A mod or a loose pack dresses the archive's ground in some way (its array, or any of its records), behind the gate. */
+export const hasDfmodGround = (archive, recordCount = 56) => !!groundSource(archive) || recordOwners(archive, recordCount).some(Boolean);
+
+/** VE2: TryImportTexture(archive, record, 0) for each record: the loose file, else the first mod switched on - in
+ *  TryGetAsset's order - that carries the name. Null where neither does. */
+function recordOwners(archive, recordCount) {
+  if (!textureReplacementEnabled()) return [];
+  const a = Number(archive);
+  return Array.from({ length: recordCount }, (_, r) => {
+    if (looseTextureExists(a, r, 0)) return { loose: true };
+    const k = textureKey(a, r, 0);
+    const m = _prio.find((p) => p.names.has(k));
+    return m ? { key: m.key, name: m.names.get(k) } : null;
+  });
+}
+
+/** A record's own replacement in getColor32's shape (bottom row first), or null - never throws. A mod's is asked with
+ *  no deadline, as the arrays are (the ground waits for it: a tile set is uploaded once), at the texture detail. */
+async function recordPicture(archive, record, owner, decode) {
+  try {
+    if (owner.loose) {
+      const bytes = await looseTextureBytes(archive, record, 0);
+      return bytes ? toColor32(await decode(bytes)) : null;
+    }
+    const b = await bundleFor(owner.key);
+    const img = b ? await b.rgba(owner.name, { maxSize: maxSize() }) : null;
+    return img ? toColor32(img) : null;
+  } catch (e) {
+    console.warn(`[dfmod] ground record ${archive}_${record}-0 would not decode:`, e?.message ?? e);
+    return null;
+  }
+}
+
+/** The classic record stood in a set of another size, texel for texel (a whole-number scale is the classic tile, each
+ *  texel a block). DFU leaves such a slice unset (TryMakeTextureArrayCopyTexture logs it and copies nothing) or throws
+ *  (SetPixels32 of another size) - a hole in the ground; the port draws the record Daggerfall has. */
+function classicAt(c, w, h) {
+  if (c.width === w && c.height === h) return c;
+  const out = resampleRgba({ width: c.width, height: c.height, data: c.colors }, w, h);
+  return { width: out.width, height: out.height, colors: out.data };
+}
+
+/** The classic file's record as the hosts upload it (getColor32 of its bitmap, index 0 clear). */
+const classicLayer = (tex, r) => tex.getColor32(tex.getDFBitmap(r, 0), 0);
+
+/**
+ * The tile set a texture pack or mod dresses a ground archive with - one layer per record of the archive's classic
+ * TEXTURE file (`tex`, a TextureFile: `recordCount`, `getDFBitmap`, `getColor32`), in the upload path's
+ * `{ width, height, colors }` shape, bottom row first (getColor32's order) - or null when the classic set stands: the
+ * gate is shut, nothing dresses the archive, or nothing would decode. The classic records size the set when no
+ * record 0 is replaced and stand for a record nothing replaces. `decode` turns a loose PNG's bytes into a top-down
+ * picture (the browser's decodePng).
+ */
+export function dfmodGroundLayers(archive, tex, { decode = decodePng } = {}) {
+  const n = tex?.recordCount ?? 0;
+  if (!n || !textureReplacementEnabled()) return Promise.resolve(null);
+  const id = `${Number(archive)}:${n}:${looseTextureGeneration()}`;
+  if (!_groundCache.has(id)) {
+    for (const k of _groundCache.keys()) if (k.startsWith(`${Number(archive)}:`)) _groundCache.delete(k);   // a set built off an older loose pick
+    _groundCache.set(id, groundLayers(Number(archive), tex, decode));
+  }
+  return _groundCache.get(id);
+}
+
+async function groundLayers(archive, tex, decode) {
+  const n = tex.recordCount;
+  const src = groundSource(archive);
+  if (src?.kind === 'array') {
+    // TryImportTextureArray: the array at the archive's depth is the set (`textureArray.depth == depth`); one of
+    // another depth is refused there (logged) and the records are sought instead
+    if (src.depth === n) {
+      const b = await bundleFor(src.key);
+      if (b?.layers) {
+        try {
+          const imgs = await b.layers(src.name);
+          if (imgs?.length === n && imgs.every((i) => i.width === imgs[0].width && i.height === imgs[0].height)) return imgs.map((i) => toColor32(i));
+        } catch (e) { console.warn(`[dfmod] ${src.name} would not decode:`, e?.message ?? e); }
+      }
+      return null;   // the array decided and would not draw - the classic set, as when a mod's array fails to load
+    }
+    console.warn(`[dfmod] ${src.name}: expected depth ${n} but got ${src.depth} - the records are sought instead`);
+  }
+  const owners = recordOwners(archive, n);
+  if (!owners.some(Boolean)) return null;
+  // the records decode a few at once, as an archive's preload does (PRELOAD_CONCURRENCY) - 56 PNGs of an HD pack
+  // decoded together would hold every one of them at once
+  const pics = new Array(n).fill(null);
+  let next = 0;
+  const lane = async () => { while (next < n) { const r = next++; if (owners[r]) pics[r] = await recordPicture(archive, r, owners[r], decode); } };
+  await Promise.all(Array.from({ length: Math.min(PRELOAD_CONCURRENCY, n) }, lane));
+  if (!pics.some(Boolean)) return null;
+  const size = pics[0] ?? classicLayer(tex, 0);
+  return pics.map((p, r) => (p && p.width === size.width && p.height === size.height ? p : classicAt(classicLayer(tex, r), size.width, size.height)));
 }
 
 export { resampleRgba };   // DFMOD2: its home is formats/resample.js (the worker downscales with it too)

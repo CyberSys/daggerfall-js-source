@@ -127,7 +127,7 @@ import { replacementCount } from '../systems/musicReplacement.js';   // M-EXT: t
 import { brandMark } from './brandMark.js';   // INTRO2: Mac's supplied logo, shared with the final splash
 import { soundReplacementCount } from '../systems/soundReplacer.js';   // SNDREP1: the sound pack's count
 import { textureReplacementCount, bundleTextureCount } from '../systems/textureReplacement.js';   // M-TEX: and the texture half; DFMOD1: and the bundles'
-import { attachedDfmods, DFMOD_DETAIL, dfmodMaxSize } from '../systems/dfmodTextures.js';
+import { attachedDfmods, DFMOD_DETAIL, dfmodMaxSize, setDfmodEnabled } from '../systems/dfmodTextures.js';   // VE3: a mod switched on or off
 import { isIilMod } from '../systems/improvedInteriorLighting.js';   // IIL3: the lighting mod's own section   // DFMOD1: the attached texture mods, one row each; DFMOD2: the detail choice
 import { isTouchDevice } from './touch.js';   // TI2: the Touch card mounts only where a finger can reach it
 import { dateFromClassicMinutes, dateString, dateTimeString } from '../systems/gameDate.js';
@@ -2407,13 +2407,20 @@ function packsCard() {
   const seen = new Map();
   for (const m of mods) { const k = sameTitle(m.title); seen.set(k, (seen.get(k) ?? 0) + 1); }
   if ([...seen.values()].some((n) => n > 1)) c.append(el('p', 'meta', 'Two versions of the same mod are attached (for example DREAM and DREAM 90s). Only one of them shows for each texture and both use memory - remove one.'));
-  c.append(el('p', 'meta', 'Daggerfall Unity texture mods - DREAM\u2019s sprites, NPCs, mobs, paperdoll, portraits, backgrounds and world textures, and mods like them. Pick the .dfmod files themselves; you can pick several at once. Mod scripts do not run.'));
+  c.append(el('p', 'meta', 'Daggerfall Unity texture mods - DREAM\u2019s sprites, NPCs, mobs, paperdoll, portraits, backgrounds and world textures, Vanilla Enhanced\u2019s ground, walls and dungeons, and mods like them. Pick the .dfmod files themselves; you can pick several at once. Mod scripts do not run.'));
+  // VE1: listed in load order - a mod loads after the mods it depends on, and where two carry the same texture the one
+  // loaded later is drawn (DFU's ModManager)
+  if (mods.length > 1) c.append(el('p', 'meta', 'In load order: where two mods carry the same texture, the later one is drawn. A mod always loads after the mods it is built on.'));
   for (const m of mods) {
     const row = el('div', 'card');
     row.append(el('p', null, `${m.title}${m.version ? ` ${m.version}` : ''}${m.author ? ` \u00b7 ${m.author}` : ''}`));
-    row.append(el('p', 'meta', `${m.textures} textures in the bundle`));
+    row.append(el('p', 'meta', `${m.textures} textures in the bundle${m.enabled ? '' : ' \u00b7 switched off'}`));
     if (m.error) row.append(el('p', 'meta', `Not working: ${m.error}.`));   // DFMOD2: said where the Remove is
-    row.append(acts([remove('Remove', `Remove ${m.title}`, `This clears ${m.title} from this browser.${later}`, (d) => d.removeStoredDfmod(m.key))]));
+    row.append(acts([
+      // VE3: DFU's mod window switches a mod off without removing it (Mod.Enabled); the Texture Overhaul card does the same
+      { label: m.enabled ? 'Switch off' : 'Switch on', onClick: () => { setDfmodEnabled(m.key, !m.enabled); render(); } },
+      remove('Remove', `Remove ${m.title}`, `This clears ${m.title} from this browser.${later}`, (d) => d.removeStoredDfmod(m.key)),
+    ]));
     c.append(row);
   }
   // DFMOD2: TEXTURE DETAIL - the longest side a mod's picture is decoded at (a smaller mip past it). Full-resolution
@@ -3156,16 +3163,22 @@ function overhaulPanel(p) {
     card.append(hrow);
     card.append(plusControllerRows());   // PADPLUS1
   }
-  const use = el('button', 'act primary look-use', o === cur ? 'In use' : `Use ${o.name}`);
+  // VE3: a pack the player brings (Vanilla Enhanced) is added before it is worn - the button picks its files first
+  const use = el('button', 'act primary look-use', o === cur ? 'In use' : o.needsFiles?.() ? `Add ${o.name}\u2026` : `Use ${o.name}`);
   use.type = 'button';
   use.disabled = o === cur;
-  use.onclick = () => {
+  use.onclick = async () => {
+    if (o.needsFiles?.()) {
+      const ds = await import('../scenes/dataSource.js');
+      await ds.pickDfmodFiles(o.attach);
+      if (o.needsFiles()) { render(); return; }   // the pick was closed, or held no copy of the pack
+    }
     const r = o.apply();
     if (r?.reload) { location.replace(r.url); return; }
     render();
   };
   card.append(use);
-  if (!cur) card.append(el('p', 'look-note', 'Custom: your own mix from Features. Using a look sets every switch it covers.'));
+  if (!cur) card.append(el('p', 'look-note', p.custom ?? 'Custom: your own mix from Features. Using a look sets every switch it covers.'));
   const forced = isOnlinePage() && p.online ? p.online : null;
   card.append(el('p', 'look-note', forced ? `${p.effect} ${forced}` : p.effect));
   return card;

@@ -994,7 +994,7 @@ export const ASSET_PICKER_Z = 40;
 /** MWFIX: is the asset picker on screen? A modal opened FROM another
  *  overlay has to be able to say so, because the opener may own the
  *  keyboard - the enhanced shell takes Escape on `globalThis` in
- *  CAPTURE and stops it (enhancedMenu.js:4801), which is right for a
+ *  CAPTURE and stops it (enhancedMenu.js:4814), which is right for a
  *  screen with nothing above it and wrong the moment something is.
  *  Its own stated law is that a modal overlay owns its input; this is
  *  how the one above it says "that's me". */
@@ -1121,13 +1121,14 @@ export async function saveTextureJson(key, json) {
 /** DFMOD1: store picked `.dfmod` bundles and index each once (opened in a worker, names written beside it), so a
  *  boot registers from the index and opens a bundle only when one of its pictures is drawn. */
 export async function storeDfmodFiles(files, progress = null) {
-  const { dfmodStoreKey, dfmodIndexKey, indexDfmodBytes, hasOwnDoor } = await import('../systems/dfmodTextures.js');
+  const { dfmodStoreKey, dfmodIndexKey, indexDfmodBytes, hasOwnDoor, forgetDfmodOff } = await import('../systems/dfmodTextures.js');
   const picked = [...files].filter((f) => dfmodStoreKey(f.name));
   let kept = 0;
   for (const f of picked) {
     const key = dfmodStoreKey(f.name);
     progress?.(`storing ${f.name} (${(f.size / 1e6).toFixed(0)} MB)...`);
     await storeAssets(TEXTURE_STORE, [f], () => true, () => key);
+    forgetDfmodOff(key);   // VE3: a mod attached is on, whatever an earlier copy of it was
     if (!hasOwnDoor(key)) {
       progress?.(`reading ${f.name}...`);
       try {
@@ -1175,10 +1176,13 @@ export async function pickLightingModFiles() {
   });
 }
 
-export async function pickDfmodFiles() {
+/** DFMOD1: the texture mods' pick. VE3: a pack's own words (`{ title, blurb }`, the Texture Overhaul card's
+ *  Vanilla Enhanced) stand in for the general ones; the store and the registration are the same. */
+export async function pickDfmodFiles(words = null) {
   return pickAssetFolder({
-    title: 'Add texture mods',
-    blurb: `<p>Pick one or more Daggerfall Unity <b>.dfmod</b> files - texture
+    title: words?.title ?? 'Add texture mods',
+    blurb: words?.blurb ? `<p>${words.blurb}</p>
+      <p style="color:#999">Big mods take a while to read the first time.</p>` : `<p>Pick one or more Daggerfall Unity <b>.dfmod</b> files - texture
       mods like <b>DREAM</b> (sprites, NPCs, mobs, paperdoll, portraits,
       backgrounds, world textures). Nothing is uploaded - they are stored
       in this browser.</p>
@@ -1196,14 +1200,16 @@ export async function pickDfmodFiles() {
 
 /** DFMOD1: remove one attached bundle (and its index). */
 export async function removeStoredDfmod(key) {
-  const { dfmodIndexKey } = await import('../systems/dfmodTextures.js');
+  const { dfmodIndexKey, forgetDfmodOff } = await import('../systems/dfmodTextures.js');
   await deleteAssets(TEXTURE_STORE, [key, dfmodIndexKey(key)]);
+  forgetDfmodOff(key);   // VE3: a removed mod is not remembered switched off
   return registerTextureStore();
 }
 /** DFMOD1: remove every attached bundle, the loose texture pack beside them stays. */
 export async function clearStoredDfmods() {
   const names = (await storedTextureNames()).filter((n) => n.startsWith('dfmod/') || n.startsWith('dfmod-index/'));
   await deleteAssets(TEXTURE_STORE, names);
+  (await import('../systems/dfmodTextures.js')).forgetDfmodOff(names);   // VE3
   await registerTextureStore();
   return names.length;
 }
