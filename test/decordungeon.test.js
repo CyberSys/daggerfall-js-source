@@ -106,7 +106,7 @@ test('DECOR-DUNGEON the collector: a dungeon block gives its furnishings - the t
     assert.deepEqual([both.get('m41120').from, both.get('m41120').count], ['room', 2]);
     assert.deepEqual([both.get('f100.2').from, both.get('f100.2').count, both.get('f100.2').person], ['room', 3, undefined]);
   }
-  assert.deepEqual(DECOR_FROM, { room: 0, dungeon: 1, street: 2, nature: 3 }, 'the rooms first, then the dungeons (DECOR-OUTDOOR: then the street and the nature)');
+  assert.deepEqual(DECOR_FROM, { room: 0, dungeon: 1, street: 2, nature: 3, mod: 4, modstreet: 5 }, 'the rooms first, then the dungeons (DECOR-OUTDOOR: then the street and the nature; DECOR-MODS: then the town mods\' rooms and streets)');
   assert.deepEqual([...collectDecor([{ rdbBlock: {} }, { rdbBlock: { modelReferenceList: [], objectRootList: [] } }]).keys()], [], 'an empty dungeon gives nothing');
 });
 

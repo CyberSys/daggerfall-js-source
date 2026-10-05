@@ -15,7 +15,9 @@
 //
 // DECOR-DUNGEON (FIELD BUGS 2026-10-05b): and the dungeon blocks, where the
 // host says which they are (`isDungeonBlock`) - their furnishings
-// (decorCatalogue.js collectDecor).
+// (decorCatalogue.js collectDecor). DECOR-MODS (the same day): and the
+// town mods' furnishings while the port stands them (systems/decorMods.js),
+// a stand-in measured off its own model (an alias bed off its classic one).
 //
 // THREE PHASES. 'blocks': a few town blocks a step (the file keeps one
 // parsed block at a time - BlocksFile's autoDiscard - so a step never
@@ -31,6 +33,8 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { collectDecor, decorCatalogue, addDecorNature, HALL_BOARD_ENTRY } from './decorCatalogue.js';
+import { addDecorMods, decorModLive } from './decorMods.js';   // DECOR-MODS: the town mods' furnishings, while they stand
+import { customModelFor, customModelNeeds, classicModelIdOf } from '../world/customModels.js';   // DECOR-MODS: a stand-in's own size
 import { BLOCK_TYPES } from '../formats/blocksFile.js';   // DECOR-DUNGEON: the host's deps, built once (decorScanDeps)
 import { GLOBAL_SCALE } from '../world/meshReader.js';
 import { billboardSize } from '../world/rmbFlats.js';
@@ -49,11 +53,14 @@ export function decorScanDeps({ blocks, arch, getTexture }) {
     isTownBlock: (t) => t === BLOCK_TYPES.Rmb,
     isDungeonBlock: (t) => t === BLOCK_TYPES.Rdb,
     nature: true,   // DECOR-OUTDOOR: a yard's trees and plants, its own climate's
+    mods: true,   // DECOR-MODS: the town mods' furnishings, while the port stands them
     modelRadius: (id) => {
-      const rec = arch?.getRecordIndex?.(id);
-      if (rec == null || rec < 0) return null;
-      const r = arch.getMesh(rec)?.radius ?? 0;
-      return r > 0 ? r * GLOBAL_SCALE : null;
+      const rec = arch?.getRecordIndex?.(classicModelIdOf(id));   // DECOR-MODS: an alias (a coloured bed) is its classic model's size
+      if (rec != null && rec >= 0) {
+        const r = arch.getMesh(rec)?.radius ?? 0;
+        return r > 0 ? r * GLOBAL_SCALE : null;
+      }
+      return standInRadius(id);
     },
     flatRadius: async (a, r) => {
       const t = await getTexture(a);
@@ -62,6 +69,18 @@ export function decorScanDeps({ blocks, arch, getTexture }) {
       return Math.hypot(size.w, size.h) / 2;
     },
   };
+}
+
+/** DECOR-MODS: a stand-in the port builds - its farthest point from its origin, metres (the ARCH3D header's sphere, for a
+ *  model no ARCH3D carries) - or null: none registered or on, or one built over the player's own models (a build that
+ *  needs them is the pipeline's, never the scan's). */
+export function standInRadius(id) {
+  if (customModelNeeds(id).length) return null;
+  const p = customModelFor(id)?.positions;
+  if (!p?.length) return null;
+  let r2 = 0;
+  for (let i = 0; i + 2 < p.length; i += 3) r2 = Math.max(r2, p[i] * p[i] + p[i + 1] * p[i + 1] + p[i + 2] * p[i + 2]);
+  return r2 > 0 ? Math.sqrt(r2) : null;
 }
 
 /** How many town blocks one step reads. */
@@ -77,10 +96,12 @@ export const DECOR_SCAN_MODELS_A_STEP = 32;
  *                     reads none
  *   nature            - DECOR-OUTDOOR: whether the climates' nature sets join the catalogue (decorCatalogue.js
  *                     addDecorNature - a yard's trees and plants); the hosts' constructor says so
+ *   mods              - DECOR-MODS: whether the town mods' furnishings join it (decorMods.js addDecorMods), each the
+ *                     port stands now (`modLive`, decorModLive unless told); the hosts' constructor says so
  *   modelRadius(id)   - a model's radius in metres, or null
  *   flatRadius(archive, record) - a Promise of a flat's radius in metres (half its billboard's diagonal), or null
  */
-export function createDecorScan({ blocks, isTownBlock, isDungeonBlock = (_type) => false, nature = false, modelRadius, flatRadius }) {
+export function createDecorScan({ blocks, isTownBlock, isDungeonBlock = (_type) => false, nature = false, mods = false, modLive = decorModLive, modelRadius, flatRadius }) {
   /** @type {'blocks'|'models'|'flats'|'done'} */
   let phase = 'blocks';
   const total = Math.max(0, blocks?.count ?? 0);
@@ -103,16 +124,17 @@ export function createDecorScan({ blocks, isTownBlock, isDungeonBlock = (_type) 
       try {
         const type = blocks.getBlockType(next);
         if (!isTownBlock(type) && !isDungeonBlock(type)) continue;   // DECOR-DUNGEON: and a dungeon's furnishings
-        // WD3: the catalogue is what DAGGERFALL furnishes - its blocks as BLOCKS.BSA holds them, never a world-data mod's
-        // (Beautiful Villages and Beautiful Cities redecorate 1,400 interiors; through the door their pieces would join
-        // the catalogue, renumber it, and leave it when the mod is switched off)
+        // WD3: Daggerfall's blocks as BLOCKS.BSA holds them, never a world-data mod's through the door (Beautiful Villages
+        // and Beautiful Cities redecorate 1,400 interiors; read here their pieces would renumber the catalogue) - DECOR-MODS:
+        // the mods' furnishings join after every place of Daggerfall's instead (decorMods.js, measured), while they stand
         const b = blocks.readClassicBlock ? blocks.readClassicBlock(next) : blocks.getBlock(next);
         if (b) collectDecor([b], collected);
       } catch { /* a block the file cannot read is a block with nothing in it */ }
     }
     if (next >= total) {
       // GUILD1e: and the hall's board, which no room placed - measured and priced as every piece
-      entries = Object.freeze([...decorCatalogue(nature ? addDecorNature(collected) : collected), HALL_BOARD_ENTRY]);   // DECOR-OUTDOOR: and the climates' nature
+      const read = nature ? addDecorNature(collected) : collected;   // DECOR-OUTDOOR: and the climates' nature
+      entries = Object.freeze([...decorCatalogue(mods ? addDecorMods(read, modLive) : read), HALL_BOARD_ENTRY]);   // DECOR-MODS: and the town mods' furnishings
       models = entries.filter((e) => e.model != null);
       phase = 'models';
     }

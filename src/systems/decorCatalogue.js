@@ -26,8 +26,11 @@
 // (2026-09-30): and its DOORS - the five models AddActionDoors hangs
 // between a building's rooms, a door placed hanging in a doorway
 // (systems/decorDoorways.js). A piece is in the
-// catalogue because Daggerfall put it in a room; nothing is invented and
-// nothing is carried over from a mod. The ladder is left out: placed, it
+// catalogue because Daggerfall put it in a room; nothing is invented.
+// DECOR-MODS (the same day, the town mods' furnishings first): and while
+// a town mod stands, the pieces the port stands in for what the mods
+// place (systems/decorMods.js) - read after every place of Daggerfall's,
+// so none of its names moves. The ladder is left out: placed, it
 // would stand in the room and not be climbed (the climb reads the
 // room's own ladders, found at build).
 //
@@ -68,12 +71,13 @@ export const DECOR_KINDS = Object.freeze({
   dungeon: 'Dungeon furniture',   // DECOR-DUNGEON: what Daggerfall stands in its dungeons and nowhere in a house - a throne, a cage, a coffin, a statue
   outdoor: 'Outdoors',   // DECOR-OUTDOOR: what Daggerfall stands in its streets and nowhere inside - a fence, a well, a fountain, a cart
   nature: 'Trees and plants',   // DECOR-OUTDOOR: the climate's own nature - a yard's own climate's
+  mods: "Town mods' furnishings",   // DECOR-MODS: what the town mods (and Detailed Ships) furnish, as the port stands it in
 });
 /** A kind's own word for one piece of it, where the game gives none. */
 const KIND_ONE = Object.freeze({
   bed: 'Bed', storage: 'Cupboard', shelf: 'Shelves', furniture: 'Furniture', door: 'Door', light: 'Light', clothing: 'Clothing',
   boxes: 'Box', arms: 'Arms', books: 'Books', misc: 'Odds and ends', treasure: 'Treasure', decor: 'Decoration', people: 'Vendor',
-  dungeon: 'Dungeon piece', outdoor: 'Outdoor piece', nature: 'Plant',
+  dungeon: 'Dungeon piece', outdoor: 'Outdoor piece', nature: 'Plant', mods: 'Furnishing',
 });
 /** The flat archives Daggerfall files its interior dressing under (lootDataTables.js DROP_ICON_ARCHIVES names five of
  *  them for the inventory's drop icons; 210 is the lights, 216 the treasure piles). Any other is a decoration. */
@@ -103,10 +107,11 @@ export const decorKey = (what) => (what.model != null ? `m${what.model}` : `f${w
 
 /** DECOR-DUNGEON: WHERE A PIECE WAS FOUND, in the order a shared name is numbered - a house's rooms first (DECOR1's own
  *  catalogue, so no name of theirs ever moves), then a dungeon's; DECOR-OUTDOOR: then a town's street, then the
- *  climate's nature. A piece found in two is the earlier place's. */
-export const DECOR_FROM = Object.freeze({ room: 0, dungeon: 1, street: 2, nature: 3 });
+ *  climate's nature; DECOR-MODS: then the town mods' rooms, then their streets (systems/decorMods.js). A piece found in
+ *  two is the earlier place's. */
+export const DECOR_FROM = Object.freeze({ room: 0, dungeon: 1, street: 2, nature: 3, mod: 4, modstreet: 5 });
 /** DECOR-OUTDOOR: the places whose pieces stand OUTSIDE - in a yard alone. */
-const OUTSIDE = new Set(['street', 'nature']);
+const OUTSIDE = new Set(['street', 'nature', 'modstreet']);
 /** DECOR-DUNGEON: Daggerfall's FURNITURE FAMILIES - the ARCH3D ids of the furniture and props that stand free in a room,
  *  41000-43999; a dungeon's own architecture, its corridors, rooms, stairs and vaults, is 50000-98999 (the dungeon seam
  *  census's split, tools/seamCensus.mjs isArchitecture). A dungeon has no prop type of its own, so its family is how a
@@ -273,18 +278,21 @@ export function decorFlatLight(flat) {
 export function decorCatalogue(collected) {
   const entries = [];
   for (const [key, c] of collected ?? []) {
-    let kind = c.model != null ? modelKind(c.model) : c.person ? 'people' : flatKind(c.flat[0]);   // HOME-VENDOR
+    // DECOR-MODS: a mod's piece is filed as what it stands in as (`as` - a coloured bed as its classic bed, a mod's flat as
+    // the classic flat it stands in for)
+    let kind = c.model != null ? modelKind(c.as ?? c.model) : c.person ? 'people' : flatKind(c.as ?? c.flat[0]);   // HOME-VENDOR
     // DECOR-DUNGEON: what Daggerfall stands in a dungeon and in no house is a dungeon's furniture - where the game files it
     // as nothing more (a bed, a chest, a shelf, a light or a treasure stays one)
     if (c.from === 'dungeon' && (kind === 'furniture' || kind === 'decor')) kind = 'dungeon';
     // DECOR-OUTDOOR: and what stands in a street and nowhere inside is an outdoor piece - but a light, a crate, a person,
     // as the game files them; the climate's nature is its trees and plants
-    if (c.from === 'street' && (kind === 'furniture' || kind === 'decor')) kind = 'outdoor';
+    if ((c.from === 'street' || c.from === 'modstreet') && (kind === 'furniture' || kind === 'decor')) kind = 'outdoor';   // DECOR-MODS: a mod's street's too
+    if (c.from === 'mod' && (kind === 'furniture' || kind === 'decor')) kind = 'mods';   // DECOR-MODS: and a mod's room's is its furnishing
     if (c.nature != null) kind = 'nature';
     const light = c.flat ? decorFlatLight(c.flat) : null;
-    const own = c.model != null
+    const own = c.base ?? (c.model != null   // DECOR-MODS: a mod's piece's own name (decorMods.js decorModNaming)
       ? (kind === 'storage' ? HOUSE_CONTAINER_NAMES[c.model] : kind === 'bed' ? 'Bed' : null)
-      : (kind === 'light' ? LIGHT_NAMES[c.flat[1]] : kind === 'nature' && isTreeRecord(c.nature, c.flat[1]) ? 'Tree' : null);   // DECOR-OUTDOOR: a tree of its set (TREE_RECORDS), else a plant
+      : (kind === 'light' ? LIGHT_NAMES[c.flat[1]] : kind === 'nature' && isTreeRecord(c.nature, c.flat[1]) ? 'Tree' : null));   // DECOR-OUTDOOR: a tree of its set (TREE_RECORDS), else a plant
     entries.push({ key, model: c.model, flat: c.flat, kind, base: own ?? KIND_ONE[kind], count: c.count, storage: kind === 'storage', light, radius: null, from: c.from ?? 'room',
       ...(c.nature != null ? { nature: c.nature } : {}) });   // DECOR-OUTDOOR: its climate's set
   }

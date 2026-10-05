@@ -10,10 +10,11 @@ style, the owner chose all three gaps - the town mods' furnishings, the outdoor 
 furnishings - and, for the style, a placed tree or plant standing as Low Poly Trees' own 3D tree, as the world's do.
 Each change below is pinned by tests that fail on the code before it, and its pins are mutation-checked. Nothing here
 was seen in a browser, so every claim is the suites'; the game's own data (ARENA2, fetched into the session's scratchpad
-and never the repository) was read for the dungeons' measure alone.
+and never the repository) was read for the two measures alone - the dungeons' things and the town mods' pieces.
 
 | | Report | What it was | Done |
 |---|---|---|---|
+| 1 | "a lot of missing decor items with house decoration" - the town mods' furnishings | the catalogue read Daggerfall's own blocks alone (WD3): nothing Beautiful Villages, Beautiful Cities or Detailed Ships furnish - the coloured beds, the paintings, tapestries and banners, the set tables and stocked shelves - could be set in a house, and the Detailed Ships flats DECOR-MODFLATS had made placeable had gone with them | DECOR-MODS |
 | 1 | "a lot of missing decor items with house decoration" - the dungeons' furnishings | the catalogue read the town blocks' rooms alone: nothing Daggerfall stands only in its dungeons - a throne, a cage, a coffin, a statue, chains - could be set in a house | DECOR-DUNGEON |
 | 1 | "a lot of missing decor items with house decoration" - the outdoor pieces for a yard | a yard offered the rooms' furniture alone: none of what Daggerfall stands in its streets - a fence, a well, a fountain, a cart, a lamp - and none of its trees and plants | DECOR-OUTDOOR |
 | 1 | "plus elements should recieve the low poly overhaul style like trees got" - placed trees and plants | a yard's tree or plant stood as its classic picture, at the classic size, where Low Poly Trees stood the town's own as 3D trees | DECOR-LPT |
@@ -199,3 +200,49 @@ THE FOUR HOSTS: `world.js` WIRED (its Low Poly Trees handed to the yards, their 
 `test/decorlpt.test.js` (8); `tools/mutants/decorlpt.json` 14, 14 dead. The yard rig moved to `test/decorFakes.mjs`
 (`yardWorld`, shared with `test/decoroutdoor.test.js`, which pins the lean by record now). Re-aimed by content:
 `decoroutdoor.json`'s three tree records and `fieldbugs27g.json`'s DECOR-FLIP ghost record (both still dead).
+
+## DECOR-MODS (1)
+
+**Why.** DECOR1's law was "everything Daggerfall furnishes ... nothing carried over from a mod", and WD3 (2026-10-01) kept
+it when the town mods came: the scan reads BLOCKS.BSA past the world-data door (`systems/decorScan.js`), so the 1,400
+interiors Beautiful Villages and Beautiful Cities redecorate would never renumber the catalogue nor leave it when a mod
+went off. The owner asked for the mods' furnishings. WD3's rule also took back what DECOR-MODFLATS (2026-09-27) had made
+placeable - Detailed Ships' own flats, which the scan had read out of its ships through the door.
+
+**The pieces** (`systems/decorMods.js`) are the port's own stand-ins for what the mods place (`world/townStandIns.js`,
+`world/detStandIns.js`, `systems/detailedShips.js`), MEASURED over both packs and Detailed Ships' two ships rebuilt from
+the player's BLOCKS.BSA: 297 - 223 a room's (any of it stands inside: offered in every room, and a yard) and 74 a
+street's (all of it stands outside: a yard's alone) - each counted as the mods place it (the panel's "most common
+first"). The beds (18), the paintings (62), Rosy's hangings and rugs, DET's tapestries and banners (the regions', the
+Eight's, the decorative), its pillars, ensign staff, stump, flower pot, wind vane, column drum, sea chest, weapon rack
+and rugs; Cliffworms' bottles and his statuette; the galley's food, the stores' odds and ends, the towns' set tables and
+stocked shelves; outside, the boulders, the market stalls, a column's head, the fowl, sheep, cattle, horses and doves,
+the grain, a temple's garden rows. Never the town's own structure - its hills, a temple's platform and foundation, the
+roofs' domes, the docks and their ramp and steps, the city wall's fill, a chimney - nor the crop fields (a field sown by
+id, no model), nor the dolphins (drawn to break the sea's surface, half their picture under it). Two ids the port stands
+in alike are offered once (`DECOR_MOD_TWINS`, the count both's), and DET's old archive numbers are their new ones'.
+
+**While they stand.** A piece is offered while the port stands it - its stand-in's own switch, the one the mods' towns
+are drawn by (a town mod loaded for the game, or a save's town pinned to one; Detailed Ships' own switch for its ships'
+pieces; online the town mods are on for every player) - and a piece placed stands while its mod does, as the mod's
+towns do: a mod switched off offline is a mod never loaded, its pieces with it.
+
+**Named and filed** as the port names them: a bed by its colour (`Blue bed 1-3`, filed with the beds - its classic
+bed's kind, `as`), a hanging by its picture (`world/townPictures.js` - "Tapestry of Glenpoint", "Banner of Akatosh"), a
+drawn sprite by its drawing (`world/standInSprites.js` - "Dove", "Cheese wheel"), a flat that stands in as one of
+Daggerfall's by that one's kind (a jar on a shelf among the Boxes and bottles); else "Town mods' furnishings" (a new kind)
+or, outside, "Outdoors". Numbered AFTER every place of Daggerfall's (`DECOR_FROM`: the mods' rooms, then their streets),
+so no name of Daggerfall's moves - Daggerfall's boxes keep their numbers, and the mods' are numbered after them.
+
+**Measured, so priced.** The scan measures a stand-in off its own model (its farthest point from its origin -
+`standInRadius`; one built over the player's own models is the pipeline's to build, never the scan's) and a coloured
+bed off its classic bed (`classicModelIdOf`).
+
+THE FOUR HOSTS: the catalogue is the decorator's (`worldModes.js`'s rooms and ships, `world.js`'s yards - both through
+the one constructor, `decorScanDeps`); `exterior.js` and `dungeonContext.js` stand no decorator.
+
+`test/decormods.test.js` (5, one over the player's own ARENA2 - every stand-in the mods place offered with the count and
+the place measured, or left out by why); `tools/mutants/decormods.json` 12, 12 dead. Moved: `test/decor1.test.js`'s
+kinds (18), `test/decordungeon.test.js`'s DECOR_FROM; re-aimed by content: `decoroutdoor.json`'s tree-name record,
+`guild1e.json`'s board record and `homevendor.json`'s people record (all still dead). `03-World/Beautiful-Towns.md`'s two
+notes that kept the stand-ins out are amended.

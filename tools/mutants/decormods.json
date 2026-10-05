@@ -1,0 +1,110 @@
+[
+  {
+    "name": "DECORMODS-structure-offered",
+    "file": "src/systems/decorMods.js",
+    "old": "    45170: 14,\n",
+    "new": "    45170: 14, 53160: 1,\n",
+    "tests": [
+      "test/decormods.test.js"
+    ]
+  },
+  {
+    "name": "DECORMODS-twin-offered",
+    "file": "src/systems/decorMods.js",
+    "old": "    45169: 42, 45190: 548, 45191: 363, 45192: 14, 45194: 8,\n",
+    "new": "    45169: 42, 45190: 548, 45191: 363, 45192: 14, 45194: 8, 45113: 1,\n",
+    "tests": [
+      "test/decormods.test.js"
+    ]
+  },
+  {
+    "name": "DECORMODS-unswitched",
+    "file": "src/systems/decorMods.js",
+    "old": "    if (into.has(key) || !live(what)) return;",
+    "new": "    if (into.has(key)) return;",
+    "tests": [
+      "test/decormods.test.js"
+    ]
+  },
+  {
+    "name": "DECORMODS-place-overwritten",
+    "file": "src/systems/decorMods.js",
+    "old": "    if (into.has(key) || !live(what)) return;",
+    "new": "    if (!live(what)) return;",
+    "tests": [
+      "test/decormods.test.js"
+    ]
+  },
+  {
+    "name": "DECORMODS-filed-as-itself",
+    "file": "src/systems/decorCatalogue.js",
+    "old": "    let kind = c.model != null ? modelKind(c.as ?? c.model) : c.person ? 'people' : flatKind(c.as ?? c.flat[0]);",
+    "new": "    let kind = c.model != null ? modelKind(c.model) : c.person ? 'people' : flatKind(c.flat[0]);",
+    "tests": [
+      "test/decormods.test.js"
+    ]
+  },
+  {
+    "name": "DECORMODS-unnamed",
+    "file": "src/systems/decorCatalogue.js",
+    "old": "    const own = c.base ?? (c.model != null",
+    "new": "    const own = (c.model != null",
+    "tests": [
+      "test/decormods.test.js"
+    ]
+  },
+  {
+    "name": "DECORMODS-numbered-first",
+    "file": "src/systems/decorCatalogue.js",
+    "old": "nature: 3, mod: 4, modstreet: 5 });",
+    "new": "nature: 3, mod: -1, modstreet: 5 });",
+    "tests": [
+      "test/decormods.test.js"
+    ]
+  },
+  {
+    "name": "DECORMODS-kind-unset",
+    "file": "src/systems/decorCatalogue.js",
+    "old": "    if (c.from === 'mod' && (kind === 'furniture' || kind === 'decor')) kind = 'mods';",
+    "new": "    if (false) kind = 'mods';",
+    "tests": [
+      "test/decormods.test.js"
+    ]
+  },
+  {
+    "name": "DECORMODS-street-indoors",
+    "file": "src/systems/decorCatalogue.js",
+    "old": "const OUTSIDE = new Set(['street', 'nature', 'modstreet']);",
+    "new": "const OUTSIDE = new Set(['street', 'nature']);",
+    "tests": [
+      "test/decormods.test.js"
+    ]
+  },
+  {
+    "name": "DECORMODS-scan-unjoined",
+    "file": "src/systems/decorScan.js",
+    "old": "[...decorCatalogue(mods ? addDecorMods(read, modLive) : read), HALL_BOARD_ENTRY]",
+    "new": "[...decorCatalogue(read), HALL_BOARD_ENTRY]",
+    "tests": [
+      "test/decormods.test.js"
+    ]
+  },
+  {
+    "name": "DECORMODS-stand-in-unmeasured",
+    "file": "src/systems/decorScan.js",
+    "old": "      return standInRadius(id);",
+    "new": "      return null;",
+    "tests": [
+      "test/decormods.test.js"
+    ]
+  },
+  {
+    "name": "DECORMODS-alias-unmeasured",
+    "file": "src/systems/decorScan.js",
+    "old": "      const rec = arch?.getRecordIndex?.(classicModelIdOf(id));",
+    "new": "      const rec = arch?.getRecordIndex?.(id);",
+    "tests": [
+      "test/decormods.test.js"
+    ]
+  }
+]
