@@ -162,7 +162,7 @@ export function paintJunction(canvas, buf, { mapPixel, direction, settings, deps
   const img = ctx.createImageData(w, h);
   const out = new Uint32Array(img.data.buffer);
   // the buffer is bottom-up, as every generated map texture in this
-  // port is (ui/travelMapWindow.js:1575-1582)
+  // port is (ui/travelMapWindow.js:1583-1590)
   for (let row = 0; row < h; row++) out.set(buf.subarray((h - row - 1) * w, (h - row) * w), row * w);
   ctx.putImageData(img, 0, 0);
   return true;

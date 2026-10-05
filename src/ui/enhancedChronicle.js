@@ -29,6 +29,7 @@ import { followOn, trackButton } from './questTracker.js';   // GUIDE4: the HUD'
 import { breakableNote } from '../systems/notebook.js';   // JOURNAL1: a note the notebook's wrap can take, whatever was typed
 import { pageOfNote, pageRefusalText } from '../net/journalPage.js';   // JOURNAL1: a note as the page it would be shown as, or why it cannot be
 import { isBountyQuestId, abandonBountyQuest, shareBountyQuest, bountyQuestShareable } from '../systems/bountyJournal.js';   // BOUNTY1: a bounty's Abandon and Share
+import { isHuntQuestId, abandonHuntQuest } from '../systems/huntJournal.js';   // RVN7c: a revenant's hunt - its Abandon
 
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -530,7 +531,21 @@ function render() {
           };
           top.append(ab);
         }
-        if (section === 'quests' && e.uid != null && !e.main && !isBountyQuestId(e.uid)
+        // RVN7c (bible/12-Enhanced-AI/Feud-Arc.md 18.3): a hunt's Abandon (twice), its lair forgotten - never a share
+        if (section === 'quests' && isHuntQuestId(e.uid)) {
+          const armed = bountyArmed === e.uid;
+          const ab = el('button', 'cr-rm cr-share', armed ? 'Click again' : 'Abandon');
+          ab.title = 'Give up this hunt';
+          ab.setAttribute('aria-label', armed ? 'Click again to give up this hunt' : 'Abandon this hunt');
+          ab.onclick = () => {
+            if (bountyArmed !== e.uid) { bountyArmed = e.uid; render(); return; }
+            bountyArmed = null;
+            abandonHuntQuest(e.uid);
+            render();
+          };
+          top.append(ab);
+        }
+        if (section === 'quests' && e.uid != null && !e.main && !isBountyQuestId(e.uid) && !isHuntQuestId(e.uid)
           && (deps.partyMembers?.() ?? []).length) {
           const share = el('button', 'cr-rm cr-share', 'Share');
           share.title = 'Share this quest with your party';

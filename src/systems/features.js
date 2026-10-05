@@ -354,14 +354,20 @@ export const FEATURES = Object.freeze([
     id: 'enhanced-ai',
     group: 'combat',
     title: 'Enhanced AI',
-    note: 'Enemies take turns: two strike while the rest circle, stepping back after a blow or when hurt; archers '
-      + 'keep away, cowards flee, tough foes wind up heavy blows marked on the ground. Trees, rocks and crates block '
-      + 'sight, arrows and spells. Dungeons only for now for pathfinding: towns, interiors and doors are to come. Off '
-      + 'keeps the classic movement and sight. This is not Daggerfall Unity’s “Smarter Enemies” setting, which the '
-      + 'port does not run.',
+    note: 'Enemies take turns and back off when hurt; archers keep away, cowards flee. Wound-up blows are marked on the '
+      + 'ground: hit hard to stagger, dodge to punish; red, hatched iron cannot be stopped. Trees, rocks and crates block '
+      + 'sight and missiles. Dungeons only for now for pathfinding: towns, interiors and doors are to come. Off keeps '
+      + 'the classic movement and sight. This is not Daggerfall Unity’s “Smarter Enemies” setting, which the port does '
+      + 'not run.',
     effect: 'At once - the dungeon pathfinding from the next dungeon you enter.',   // AUDIT TACT D7: the tactics, cover and blows read the switch live
     kinds: Object.freeze(['enhanced']),
-    control: Object.freeze({ store: 'prefs', key: 'enhancedAI', initial: false, online: true }),   // OFF by default and it stays off: DFU's classic motor is the 1:1 law, this the port's departure (as EnhancedCombatAI is DFU's own opt-in)
+    control: Object.freeze({
+      store: 'prefs', key: 'enhancedAI', initial: false, online: true,   // OFF by default and it stays off: DFU's classic motor is the 1:1 law, this the port's departure (as EnhancedCombatAI is DFU's own opt-in)
+      // TELL9 (bible/12-Enhanced-AI/Feud-Arc.md 11.3): telegraph contrast - thicker lines, a white keyline, a pattern for
+      // every guard (render/foeTelegraph.js telegraphContrastOn); what THIS screen draws, so the player's online too
+      also: Object.freeze([Object.freeze({ store: 'prefs', key: 'telegraphContrast', initial: false, online: 'player' })]),
+      parts: Object.freeze([Object.freeze({ key: 'telegraphContrast', label: 'Telegraph contrast' })]),
+    }),
   }),
   // CLIMB1 (2026-09-30, the Enhanced Climbing arc - bible/03-World/Parkour-Arc.md):
   // the ledge sensor, the mantle and the vault (player/parkour.js). Offline
