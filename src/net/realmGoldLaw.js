@@ -239,3 +239,23 @@ export function liquidWealthOf(/** @type {any} */ snap) {
   const deeds = deedsOf(snap).reduce((s, d) => s + d.value, 0);
   return purse + banks + items + deeds;
 }
+
+/**
+ * MARKET-AUDIT (2026-10-04): A REALM ACT'S RESERVE OVER A WALLET - `reserve` pays `n` at once (the wallet's `pay`: the
+ * purse, its letters, then a bank account) and answers `back`, which gives back EXACTLY what that payment took - the undo
+ * the wallet's `pay` answers (systems/court.js payUndoable) - and only for a wallet that answers none, its `credit` of the
+ * whole. Once, whoever asks: a refusal (systems/realmSaves.js realmGoldAct runs the reserve's answer) or a `repeat` that
+ * moved no gold on the record (the act's apply calls `back`). Every reserve gave back its whole cost as `credit` - coins in
+ * the purse, or the bank's - whatever had paid it: a refused act turned a letter of credit into a purse past carrying.
+ * @param {{ pay: (n: number) => ((() => void) | void), credit?: (n: number) => void }} wallet @param {number} n
+ */
+export function walletReserve(wallet, n) {
+  let undo = /** @type {(() => void) | null} */ (null), paid = false, done = false;
+  const back = () => {
+    if (!paid || done) return;
+    done = true;
+    if (undo) undo(); else wallet.credit?.(n);
+  };
+  const reserve = () => { const u = wallet.pay(n); undo = typeof u === 'function' ? u : null; paid = true; return back; };
+  return { reserve, back };
+}

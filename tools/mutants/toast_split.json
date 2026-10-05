@@ -83,8 +83,8 @@
   {
     "name": "TOAST-SPLIT-market-stores-count-the-toasts",
     "file": "src/ui/marketTab.js",
-    "old": "el('span', 'notice-tip', `${have",
-    "new": "el('span', 'notice-hint', `${have",
+    "old": "const says = el('span', 'notice-tip');",
+    "new": "const says = el('span', 'notice-hint');",
     "tests": [
       "test/toast_split.test.js"
     ]

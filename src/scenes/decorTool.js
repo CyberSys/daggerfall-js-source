@@ -105,6 +105,7 @@ import { localAabb, transformedAabb } from '../render/frustum.js';
 import { billboardSize } from '../world/rmbFlats.js';
 import { lookAt, perspective, mirrorProjectionX, trs, multiply } from '../world/mat4.js';
 import { isTextEntryTarget } from '../ui/input.js';
+import { walletReserve } from '../net/realmGoldLaw.js';   // MARKET-AUDIT: a refusal gives back exactly what the payment took
 
 /** The free camera's pace, metres a second; Run's pace; and how far it may go from where it began. */
 export const DECOR_FLY_SPEED = 3;
@@ -902,11 +903,13 @@ export function createDecorTool(deps) {
         // and gets it back on a refusal (systems/realmSaves.js realmGoldAct)
         const visit = deps.visit?.();
         const wallet = deps.wallet();
+        // MARKET-AUDIT: a refusal and a repeat give back exactly what the payment took (purse, letters, account)
+        const paid = walletReserve(wallet, price);
         const res = await act({
-          reserve: () => { wallet.pay(price); return () => wallet.credit?.(price); },
+          reserve: paid.reserve,
           // AUDIT REALM: a placement answered as the piece already standing (`repeat`) moved no gold on the record - the
           // reserve comes back, or the next checkpoint would write the price paid twice
-          apply: (/** @type {any} */ a) => { if (a.data?.repeat) wallet.credit?.(price); },
+          apply: (/** @type {any} */ a) => { if (a.data?.repeat) paid.back(); },
           call: (/** @type {any} */ at) => deps.homeDecor.place({ mapId: r.mapId, buildingKey: r.buildingKey, character: deps.character?.(), piece, realm: at }),
         });
         if (!res?.ok) { p.refused = { text: deps.refusal?.(res?.error) ?? 'The piece could not be placed.', at: now() }; return false; }
@@ -998,7 +1001,7 @@ export function createDecorTool(deps) {
   async function writeChangeRealm(r, piece, act, { pay = 0, refund = 0 } = {}) {
     const wallet = deps.wallet();
     const res = await act({
-      reserve: pay > 0 ? () => { wallet.pay(pay); return () => wallet.credit?.(pay); } : null,
+      reserve: pay > 0 ? walletReserve(wallet, pay).reserve : null,   // MARKET-AUDIT: a refusal gives back exactly what it took
       // AUDIT REALM L1-F3: a shrink's half comes back as the SERVICE paid it (`gold`: half of what records paid for the
       // piece - nothing for a piece from before the realm), never this client's half of a cost the record never paid;
       // and a shrink that landed with its answer lost cannot know it, so it ends the session instead (`needsAnswer`)
