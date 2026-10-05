@@ -22,7 +22,7 @@ import { wodSiteId, yieldsTo } from '../world/wodShared.js';   // WOD7: a camp's
 import { alignBillboardToGround, alignControllerToGround } from '../world/groundAlign.js';   // WOD3: SpawnLoot's drop; CSA-D: BoardBoat's AlignControllerToGround
 import { PRIVATEERS_HOLD_BLOCK, HOLD_MODELS, HOLD_FLATS, holdModelMatrix, holdFireLights, rollHoldFoes } from '../world/wodPrivateersHold.js';   // WOD4: the camp at Privateer's Hold
 import { rollLootRarity, pileSource, dungeonRarityTier, dungeonFamily, stampWonWeapons } from '../systems/lootRarity.js';   // WOD3: LR1 over the camps' piles; SIGIL1: their weapons' sigils
-import { revenantToReturn, revenantSpawnOptions, revenantPresence, takeRevenantNotice, revenantSay, releaseRevenantStand, revenantRecord, revenantMomentEvent } from '../systems/revenant.js';   // REVENANT: who comes back, and what the player is told
+import { revenantToReturn, revenantSpawnOptions, revenantPresence, takeRevenantNotice, revenantSay, releaseRevenantStand, revenantRecord, revenantMomentEvent, revenantRumor } from '../systems/revenant.js';   // REVENANT: who comes back, and what the player is told
 import { SKY_CLEAR } from '../render/renderer.js'; import { centreFromFeet } from '../characters/enemyAnchor.js';   // REVIEW 2026-09-05: one line, so the cites below it hold
 import { Arch3dFile } from '../formats/arch3dFile.js';
 import { requestLook, releaseLook, makeLookGate, bindCursorToggle, setCursorActive, cursorActive, holdCursor } from '../player/pointerLock.js';   // U45: bindCursorToggle is PlayerMouseLook.cursorActive; releaseLook: the chat's open (AUDIT CHAT C2); HERB-CURSOR: an act's free cursor
@@ -10764,6 +10764,8 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  (:2777) and this read did not. The streamer is frozen while a mode
    *  is mounted (state.update sits below the modal early return), so
    *  state.current IS the entrance pixel DFU holds. */
+  /** RVN7b: where a town's news is asked - my map pixel and its region (a revenant's lair near is the news). */
+  function rumorHere() { const p = playerTravelPixel(); return { px: p.x, py: p.y, region: _questRegionIndex() }; }
   function playerTravelPixel() {
     if ((modes?.mode ?? 'exterior') === 'dungeon') return { x: state.current.x, y: state.current.y };
     const wc = state.worldCoords(walkMode ? player.pos : cam.pos);
@@ -16097,7 +16099,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // quest topic mark its dialog-linked resources. Unset, every %hnt
     // answer printed its macros raw; it is the mill's seam, one home.
     expandQuestTokens,
-    getNewsOrRumors: (session) => rumorMill.getNewsOrRumors(session),
+    getNewsOrRumors: (session) => revenantRumor(rumorHere(), session) ?? rumorMill.getNewsOrRumors(session),   // RVN7b (bible/12-Enhanced-AI/Feud-Arc.md 18.2): a revenant's lair near, the news may be of it
     isPlayerInside: () => (modes?.mode ?? 'exterior') !== 'exterior',
     /** ROAD-B B4: GameManager.IsPlayerInsideCastle (GameManager.cs:420-423)
      *  is PlayerEnterExit.IsPlayerInsideDungeonCastle and nothing else, and

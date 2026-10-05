@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL, RVN1-RVN6 and RVN7a built; RVN7b-RVN13 next)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL, RVN1-RVN6 and RVN7a-b built; RVN7c-RVN13 next)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -7,7 +7,7 @@ detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
 (section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts), AUDIT
-TELL, RVN1 to RVN6, and RVN7 in parts (RVN7a the lair); each slice's record is at the foot.**
+TELL, RVN1 to RVN6, and RVN7 in parts (RVN7a the lair, RVN7b the rumour); each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -742,6 +742,11 @@ deed underground makes that dungeon its lair.
   (`numAnswersGivenTellMeAboutOrRumors`), as the mill does. Nothing is written into the mill or the save.
 - One rumour in two carries its weakness: hinted (1), or one time in three named (2) - "Folk say it can't abide fire."
 - Hearing of its lair marks `lairKnown`.
+- **As built (RVN7b; the record at the foot)**: the person's answer is the mill's own gate first (a person with no news
+  left has none of it either; a spymaster always has); the distance is the boards' (the longer side, `distanceWord`),
+  the way `compassWord`'s; a town on its lair's very pixel says "in the Tomb of Vaness, close by". The weakness hinted by
+  its kind: "some element is its bane", "a metal bites it deep", "one kind of weapon hurts it more than the rest", "it
+  shuns the sun"; named, "it can't abide fire". What the player knows of its weakness never goes back.
 
 ### 18.3 The map and the journal
 
@@ -2007,3 +2012,21 @@ and `dungeonContext.js`.
   (RVN7d).
 - Pins `test/rvn7a_lair.test.js` (6). Mutants `tools/mutants/rvn7a.json` (24): 24 dead. Mutant records re-aimed by
   content (2): `survtiers3`'s two cite mutants (a citation they read moved) - judged again: dead.
+
+### RVN7b - BUILT 2026-10-04 (the loot-rarity row on; the world host's talk)
+
+- **The law** - `systems/revenantFeud.js`: `RUMOR_WEAK` 0.5, `RUMOR_NAMED` 1/3, `RUMOR_HINTS` (18.2 as built);
+  RVN7a's `RUMOR_CHANCE` 0.35 and `RUMOR_PX` 20.
+- **The rumour** - `revenant.revenantRumor(here, session)`: `here` my map pixel and region; among the living, unsworn
+  revenants with a lair within RUMOR_PX or in my region (an unknown region matches none), one time in RUMOR_CHANCE the
+  roll's pick: "They say a scarred orc called Grushnak the Butcher has been seen near Tomb of Vaness, a long walk to the
+  east." - its kind scarred when it carries a scar; one time in RUMOR_WEAK its weakness, hinted or (RUMOR_NAMED) named,
+  `weakKnown` raised and never lowered. It spends the person's answer (`numAnswersGivenTellMeAboutOrRumors`, the mill's
+  `MAX_ANSWERS_TELL_ME_ABOUT_OR_RUMORS`), marks `lairKnown`, saves. Nothing is written into the mill.
+- **The host** - `scenes/world.js`: the talk's `getNewsOrRumors` asks the revenants first (`rumorHere`: my travel pixel
+  and `_questRegionIndex`), then the mill. The town's talk is the world host's alone: `scenes/exterior.js` (FLAGGED,
+  section 32 - no index, its revenants roam), `scenes/worldModes.js` (its interiors talk through the world host's
+  pipeline) and `scenes/dungeonContext.js` (no town) have nothing more to wire.
+- **Not built here** - the map's mark and the journal's row (RVN7c), the lair stand (RVN7d); the rumour's own voice
+  lines (RVN12).
+- Pins `test/rvn7b_rumor.test.js` (5). Mutants `tools/mutants/rvn7b.json` (28): 28 dead.

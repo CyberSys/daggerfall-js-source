@@ -430,6 +430,11 @@ survivors run to it, or two of its kin step out of a portal. The page lists who 
 **Its lair (RVN7a).** A revenant that wins a fight in the open world, or escapes one, goes to ground in a named
 dungeon four to ten map pixels from where it happened - the one nearest a direction drawn on its id, the dungeons the
 town boards' bounties use. With none in reach it roams. A deed underground makes that dungeon its lair, and a lair
-moved is one the player must hear of again. The page says what the player knows of it. The law:
-`bible/12-Enhanced-AI/Feud-Arc.md` section 18 and its RVN7a record.
+moved is one the player must hear of again. The page says what the player knows of it.
+
+**The rumour (RVN7b).** Ask a townsperson for news within twenty map pixels of a living revenant's lair, or in its
+lair's region, and one time in three or so the answer is of it - its kind, its name, its lair, how far and which way -
+spending that person's one answer, and the player then knows its lair. One rumour in two carries its weakness, hinted by
+its kind or, one time in three, named. The law: `bible/12-Enhanced-AI/Feud-Arc.md` section 18 and its RVN7a and RVN7b
+records.
 

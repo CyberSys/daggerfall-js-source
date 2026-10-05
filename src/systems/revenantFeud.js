@@ -421,6 +421,11 @@ const sanitizeLair = (v) => (v && typeof v === 'object' && Number.isInteger(v.px
 /** RVN7 (18.2): a rumour's odds; within this many map pixels of its lair (or in its region) a town's news may be of it. */
 export const RUMOR_CHANCE = 0.35;
 export const RUMOR_PX = 20;
+/** RVN7b (18.2): one rumour in two carries its weakness - hinted, or one time in three named. */
+export const RUMOR_WEAK = 0.5;
+export const RUMOR_NAMED = 1 / 3;
+/** RVN7b (18.2): a weakness hinted in a town's words, by its kind. */
+export const RUMOR_HINTS = Object.freeze({ element: 'some element is its bane', metal: 'a metal bites it deep', weapon: 'one kind of weapon hurts it more than the rest', sun: 'it shuns the sun' });
 /** RVN7 (18.4): a lair stand's drop - its gold x1.25. */
 export const LAIR_GOLD = 1.25;
 /** RVN7 (18.1): ITS LAIR, chosen at a deed in the open world - of the named dungeons in the ring about the deed's map

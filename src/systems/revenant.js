@@ -47,6 +47,8 @@ import { registerPlayerHurtListener } from '../characters/playerEntity.js';   //
 import { registerPlayerStruckListener, registerPlayerStrikeListener } from '../combat/formulas.js';   // REVENANT-HARM: a foe's blow leaves its mark (its poison's ticks come later); RVN1: my blow, in its fight's ledger
 import { markPlayerHarm, playerHarmMark, clearPlayerHarm, HARM_MARK_STRUCK_MS } from './harmMark.js';
 import { playerDoor } from './playerDoor.js';
+import { MAX_ANSWERS_TELL_ME_ABOUT_OR_RUMORS } from './rumorMill.js';   // RVN7b: a person's one answer, the mill's own gate
+import { compassWord, distanceWord } from './bountyBoard.js';   // RVN7b: a town crier's words for where
 import { registerModSaveData } from './modSaveData.js';
 import { appStorage } from './appStorage.js';
 import { characterIdOf, mintCharacterId } from './characterId.js';
@@ -61,7 +63,7 @@ import { getSeed, setSeed, srand } from '../formats/dfRandom.js';
 import { personalityFor, isPersonality, personalityLabel, voiceLine, beastBody, possessive, MUTE_KINDS } from './revenantPersonality.js';   // REVENANT-VOICE: who it is, and how it talks
 // FEUD, Part B (bible/12-Enhanced-AI/Feud-Arc.md sections 12-26): what a revenant remembers - its record's new fields and
 // the draws it is born with (systems/revenantFeud.js), and the fight's ledger (systems/feudLedger.js, a leaf)
-import { lairAfter, sameLair, feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK, lessonOf, withLesson, adaptEdge, adaptBlowClass, ADAPT, isWeakBlow, metalOf, WEAK, WEAK_NAMES, FLINCH_LINES, FLINCH_HEALTH, WEAKNESS_ELEMENTS, signatureStamp } from './revenantFeud.js';
+import { RUMOR_CHANCE, RUMOR_PX, RUMOR_WEAK, RUMOR_NAMED, RUMOR_HINTS, weaknessKind, lairAfter, sameLair, feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK, lessonOf, withLesson, adaptEdge, adaptBlowClass, ADAPT, isWeakBlow, metalOf, WEAK, WEAK_NAMES, FLINCH_LINES, FLINCH_HEALTH, WEAKNESS_ELEMENTS, signatureStamp } from './revenantFeud.js';
 import { tagHit, HIT_TAGS } from '../ui/hitNumbers.js';   // RVN3: the "Weakness" word on my blow's number
 import { SOUND } from './soundClips.js';   // RVN3: the hiss of a weakness found
 import { revenantSay as sayRevenant } from './revenantVoice.js';   // RVN3: the reveal's card (the re-export below binds no local name)
@@ -828,6 +830,36 @@ export function revenantUnbrokenEvent(r, playerName, { rolls = Math.random, arch
 export function revenantSignatureEvent(r, noun, { archive = null } = {}) {
   const body = `${r.given} readies ${noun ?? 'its signature'}!`;
   return revenantEvent('signature', r, { body, line: body, archive });
+}
+/** RVN7b (bible/12-Enhanced-AI/Feud-Arc.md 18.2): A TOWN'S NEWS OF A REVENANT - "Any news?" asked `here` ({ px, py,
+ *  region }: my map pixel and region) within RUMOR_PX of a living, unsworn revenant's lair, or in its lair's region,
+ *  one time in RUMOR_CHANCE is answered with it: "They say a scarred orc called Grushnak the Butcher has been seen near
+ *  the Tomb of Vaness, a day's ride to the north-east." It spends the person's one answer as the mill's own does (the
+ *  mill's gate first: a person with no news left has none of it either), marks its lair known, and one time in
+ *  RUMOR_WEAK carries its weakness - hinted, or one time in RUMOR_NAMED named ("Folk say it can't abide fire.").
+ *  Nothing is written into the mill. Answers the words, or null - the mill's turn. */
+export function revenantRumor(here, session, { rolls = Math.random } = {}) {
+  if (!revenantOn() || !here || !session || !Number.isInteger(here.px) || !Number.isInteger(here.py)) return null;
+  if (!((session.numAnswersGivenTellMeAboutOrRumors | 0) < MAX_ANSWERS_TELL_ME_ABOUT_OR_RUMORS || session.isSpyMaster)) return null;
+  const inRegion = (r) => Number.isInteger(here.region) && here.region >= 0 && r.lair.region === here.region;
+  const near = livingRevenants().filter((r) => r.lair && (inRegion(r) || Math.hypot(r.lair.px - here.px, r.lair.py - here.py) <= RUMOR_PX));
+  if (!near.length || !(rolls() < RUMOR_CHANCE)) return null;
+  const r = near[Math.min(near.length - 1, Math.floor(rolls() * near.length))];
+  const dx = r.lair.px - here.px, dy = r.lair.py - here.py, d = Math.max(Math.abs(dx), Math.abs(dy));
+  const kind = String(enemyDisplayName(r.mobileType) ?? 'creature').toLowerCase();
+  const what = r.scars?.length ? `a scarred ${kind}` : `${/^[aeiou]/.test(kind) ? 'an' : 'a'} ${kind}`;
+  const where = d === 0 ? `in ${r.lair.name}, close by` : `near ${r.lair.name}, ${distanceWord(d)} to the ${compassWord(dx, dy)}`;
+  let words = `They say ${what} called ${r.name} has been seen ${where}.`;
+  if (r.weak && rolls() < RUMOR_WEAK) {
+    const named = rolls() < RUMOR_NAMED;
+    r.weakKnown = /** @type {0|1|2} */ (Math.max(r.weakKnown | 0, named ? 2 : 1));
+    words += named ? ` Folk say it can't abide ${String(WEAK_NAMES[r.weak] ?? r.weak).toLowerCase()}.` : ` Folk say ${RUMOR_HINTS[weaknessKind(r.weak)] ?? 'something hurts it more than the rest'}.`;
+  }
+  r.lairKnown = true;
+  session.numAnswersGivenTellMeAboutOrRumors = (session.numAnswersGivenTellMeAboutOrRumors | 0) + 1;
+  touch(r);
+  persist();
+  return words;
 }
 /** RVN4 (section 15): ITS LAST STAND, written on its record - the deed (`laststand`) at the character's minute. Answers
  *  the record, or null for one that is no revenant of mine. */
