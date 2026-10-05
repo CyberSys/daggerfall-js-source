@@ -335,7 +335,7 @@ export class PeerBodies {
   bonesOf(id, names) {
     const b = this._bodies.get(id);
     if (!this._standing(b)) return null;
-    const bones = b.rig.thirdBones?.(names) ?? null;
+    let bones = null; try { bones = b.rig.thirdBones?.(names) ?? null; } catch (e) { console.error('[peerBodies] bonesOf', e); }   // as every rig call here (AUDIT MWBODY A1): a throw never ends the frame
     return bones ? { feet: b.feet, yaw: b.yaw, bones } : null;
   }
 

@@ -4612,7 +4612,7 @@ left in it.) SirMcMobdon already holds SHADOW-FANG's title and glyph (black #0d0
     at the front edges), fourteen folds deepening to the hem, the hem billowing and a wave running down the back.
     Clasped at the throat (CLOAK_CLASP_Y 1.43): open below it, wider to the hem; the collar whole round the neck.
   - THE HOOD, up round the head: its middle at the eye (CLOAK_HOOD_Y 1.68 m, EYE_HEIGHT 1.7), every bearing clear of the
-    head, sitting 3.5 cm behind the body's middle with its peak fallen 5 cm further back; its peak 1.88 m, a hand over
+    head, sitting 3.5 cm behind the body's middle with its peak fallen 5 cm further back; its peak 1.88 m, 8 cm over
     the 1.8 m crown ("not as tall"); narrower across than deep; its face open from 1.53 to 1.80 m, a brow over it.
   - IT FACES ITS WEARER'S WAY: the wearers carry `yaw` (`scenes/world.js auraFrame` - one's own body's facing,
     `player.bodyYawFor`, as the third person draws it; a peer's from `net/peerClimb.js peerBodyYaw`); `uYaw` turns the
@@ -4648,16 +4648,19 @@ left in it.) SirMcMobdon already holds SHADOW-FANG's title and glyph (black #0d0
     pose's `wb`), wrapped whole past the tear so the shreds' flights meet themselves, -1 while not turned. Over
     CLOAK_RIP_S (1.2 s) the cape bursts outward, seams split across it on a warped grid and its pieces go one after
     another, embers along every tear; torn through, no cloth is drawn at all. CLOAK_SHREDS (14) scraps of it - shadow
-    with smouldering torn edges, half of them with a strip of the hem's wolf's teeth - fly from their places on the
+    with smouldering torn edges, half of them with a strip of the opening's wolf's teeth - fly from their places on the
     cape out to float round the beast (0.7 to 1.15 m out, 0.3 to 2.1 m up), going round either way at their own
     paces, bobbing, turning and tumbling; dimmer to the beast's own eye. The emblems fade with the tear. A wearer first
     seen already turned is already torn (no tear replayed); turned back, the cloak kindles again from nothing. Any
     beast form tears it (the wereboar's too - neither body wears a cape).
   - KINDLED: drawn in out of smoke from the hem up, embers along the line it has reached; the ground out from the feet.
-    Never seen from inside it: the wearer's own first person sees no shadow over the view. Every rate whole over the
+    Never seen from inside it: an eye within 0.3 m of the hood's middle (CLOAK_INSIDE_M - the wearer's own first person)
+    sees no shadow over the view, the cloth fading in over the next 0.15 m out; a camera over the wearer or a peer at
+    their shoulder sees it whole (AUDIT 2). Every rate whole over the
     clock (`cloakRatesWhole`, the shreds' among them), every pattern round a whole number, so no seam and no jump at
-    the wrap. THE FOUR HOSTS, untouched: the pass's hosts are AEGIS's (`scenes/world.js`, `scenes/worldModes.js`,
-    `scenes/dungeonContext.js`; `scenes/exterior.js` draws no aura - FLAGGED, unchanged).
+    the wrap. THE FOUR HOSTS: `scenes/world.js` WIRED (`auraFrame` hands each wearer's yaw, beast form and saddle;
+    `drawAuras` hangs and swings each cape - below); `scenes/worldModes.js` and `scenes/dungeonContext.js` draw through
+    world.js's pass, unchanged; `scenes/exterior.js` draws no aura - FLAGGED, unchanged).
   - IT MOVES WITH THE BODY (Mac: "Does this work with the paper doll animations? Like the aura flows with it?", then
     "Tie the cape to animations"). Two halves, both per wearer:
     - THE POSE, off the body's own skeleton: `drawAuras` (after every body is posed and drawn this frame) reads the
@@ -4679,16 +4682,21 @@ left in it.) SirMcMobdon already holds SHADOW-FANG's title and glyph (black #0d0
       hand and a half; lifted 0.04 m per m/s of fall up to 0.25 m; lagging 0.12 s of turn up to 0.6 rad) and carried
       there on a damped spring (1.2 Hz, damping 0.45: it swings past when they stop and settles). The vertex half
       trails the cloth the more the lower, rising as a pendulum does; lifts and fills it in a fall; lags it round on a
-      turn below the shoulders (the fragment half's facing turned with it). A jump of more than 3 m in a frame (a
-      door, a teleport, the floating origin moving the world) is no motion: nothing is read off it and the swing it had
-      carries on (it first reset to hanging still - a pop at every floating-origin crossing - AUDIT). It never hangs
-      through the legs (below the shoulders the cloth keeps a hand off the body's axis), never swings past 0.7 of its
-      hang (so the pendulum never folds the hem over), swings shorter crouched, and a rise never drops it below the
-      feet; a knee's tent is a hand at most.
+      turn below the shoulders (the fragment half's facing turned with it). A jump of more than 0.5 m in a frame and
+      faster than 30 m/s (a door, a teleport, a snapped step, the floating origin moving the world) is no motion:
+      nothing is read off it and the swing carries on as it was going (AUDIT 2: first it reset, then it zeroed the
+      speed - a sag and a swing back at every floating-origin crossing). A frame on the clock's same tick (a coarsened
+      clock) reads nothing; back after more than half a second (a death, the travel view) it hangs still; the spring is
+      stepped in sixtieths of a second, so a long frame never blows it up. It never hangs through the legs (below the
+      shoulders the cloth is pushed out along its own bearing to 0.15-0.22 m off the body's axis - AUDIT 2: pushed
+      along its own direction, a strafe reversed parted neighbours across the axis into a sheet across the legs),
+      never swings past 0.7 of its hang (so the pendulum never folds the hem over), swings shorter crouched, and a rise
+      never drops it below the feet; a knee's tent is 0.2 m at most.
     - WITHOUT BONES - the sprite body (the EOTB lane), first person (which poses no third-person body; nor is the cape
       drawn over one's own view), a peer with no body standing (building, past BODY_RANGE, a doll), the wolf's
-      skeleton - it hangs at rest (CLOAK_REST_POSE), my own pressed down to my crouch (`player.height` over
-      CAPSULE_HEIGHT while crouching), and swings all the same. The head's turn (`uCapeH` w) is carried by the shader
+      skeleton - it hangs at rest (CLOAK_REST_POSE), my own pressed down to my body's height (`player.height` over
+      CAPSULE_HEIGHT - a crouch, a swim - to 0.4 at the least), and swings all the same. Off the bones the shoulders
+      stand no lower than that floor and the head 0.18 m over them at least (AUDIT 2: nearer, the collar folds). The head's turn (`uCapeH` w) is carried by the shader
       and pinned, but nothing sets it yet: the head bone's axes in the retail skeleton are not verified here. The
       inventory's paper doll draws no aura. A RIDER's cape is folded away (mine `player.riding`, a peer's pose `rd`):
       its cloth and its emblems not drawn, its pool kept - a cape hung from a standing body would stand through the
@@ -4697,7 +4705,7 @@ left in it.) SirMcMobdon already holds SHADOW-FANG's title and glyph (black #0d0
   so the shadow reads; mirrored as the game's projection is) from a third-person camera, behind, in front, beside, at
   three-quarters, close on the hood, half kindled, through the tear and torn, posed (a run's trail, a turn's lag, a
   crouch, a head turned, a stride's knee, a fall's lift), and from the wearer's own eye - and through the committed
-  `tools/auraProbe.mjs`, which draws all four auras with no body: 52/52, the cloak's 19 - no GL error; the floor past
+  `tools/auraProbe.mjs`, which draws all four auras with no body: 53/53, the cloak's 20 - no GL error; the floor past
   its pool untouched and the pool round the hem; the cloth shading the floor behind it; nothing over the hood's
   peak; the glyph on its back (the wolf lit, beside it dark, in red); the opening's embroidery either side, none
   across its middle and its lining seen through it; the clasp lit; turned with its wearer; no jump at the wrap;
@@ -4708,7 +4716,7 @@ left in it.) SirMcMobdon already holds SHADOW-FANG's title and glyph (black #0d0
   checks could not fail - three own-eye points read off the canvas, "unkindled" compared a frame with itself, the hood
   was read against the black sky, and "open" passed with the opening gone.) NOT SEEN: in a real game client on a real
   body (ARENA2's, the Morrowind rig's or Bloodmoon's wolf).
-- Pins: `test/shadowcloak.test.js` (18) - the vocabulary; the grant; the real service end to end (wardrobe and signed
+- Pins: `test/shadowcloak.test.js` (19) - the vocabulary; the grant; the real service end to end (wardrobe and signed
   token); the account card's note (the aura's name, never its key); the token (one carrying every glyph and the cloak
   inside the relay's own bound) and the relay at world167; the law's measures (the hood's height and place, the
   cape's, the opening, nothing of the projection left, the mesh's every cell two triangles tiling it); the emblem as
@@ -4719,15 +4727,16 @@ left in it.) SirMcMobdon already holds SHADOW-FANG's title and glyph (black #0d0
   lining, rim, the glyph on its back and its eye, the clasp, the mantle, the embroidery and none down the collar, the
   torn hem's trailing smoke, the back trailing longest, the first person, the kindling and its embers, the wrap); the
   tear (seams first, pieces by three quarters, none through, and `auraBeastStep`); the ground; the emblems and
-  shreds (the hem's teeth on half the shreds); the draw (farthest first; premultiplied; the lining with front faces
-  culled, then the outside with back faces culled; the emblems before the cloth for an eye in front; no cloth round
-  the wearer's own eye; the shreds' cards only once torn and alone once through; a rider's cape folded; the frame's
+  shreds (the opening's teeth on half the shreds); the draw (farthest first; premultiplied; the lining with front faces
+  culled, then the outside with back faces culled; the emblems before the cloth for an eye in front, the shreds after it
+  always, none of it with the ground's depth offset; no cloth round the wearer's own eye; the shreds' cards only once
+  torn and alone once through; a rider's cape folded; the frame's
   state handed back on a throw); the hosts; the pose (crouch, lean, head and its turn, breadth, trail, pendulum,
   twist, lift, knee, the billow, the vertices' wrap, never below the feet, a knee's tent capped); the winding (every
   cell outward and unfolded at rest and under the strongest poses; a strafe never through the legs); no `pow` of a
   negative base anywhere the cloak's shader runs; and the swing and the pose from the body (the spring, the rig's
   frame against drawThird's own model, the bones, the placing, the crouch, a peer's bones off its standing body).
-  All of the shader RUN in `test/glsl.mjs`. `tools/mutants/shadowcloak.json` (126, all dead). The vocabulary's
+  All of the shader RUN in `test/glsl.mjs`. `tools/mutants/shadowcloak.json` (150, all dead). The vocabulary's
   newest-word and one-list pins in `aegis.test.js` and `primarch.test.js` moved (PIN MOVED), `shadowfang.test.js`'s
   wardrobe holds the cloak; the relay's pins moved to world167 crediting SHADOW-CLOAK (`auditbounty1.test.js` holds the
   credit), the account's to acct79 (past SERPENT1's world165 and acct78, then the relay alone past SERPENT2's world166, at the merges of main). Re-aimed by
@@ -4765,4 +4774,41 @@ left in it.) SirMcMobdon already holds SHADOW-FANG's title and glyph (black #0d0
   - Left as they are, said here: the fragment half measures the cloth in its rest-pose metres, so a crouch squashes
     the back's emblem to the crouch's height; an off-screen peer body keeps its last pose (as its skin does); a gear
     rebuild hangs the cape at rest for those frames; the head's turn is carried but unset.
+- **AUDIT 2** (Mac: "Audit everything"): five read-only lenses over the whole branch - the shader and the draw (in real
+  WebGL: transform feedback, a half-float NaN scan, A/B renders); the runtime that feeds the cape; the grant, the wire,
+  the deploy and both merges of main; the safety net (hand mutations in a copy); the docs and the process. Found and
+  fixed:
+  - The cloth's "inside" was the eye's distance from the wearer's AXIS, flat: a third-person camera looking down from
+    past about 70 degrees ghosted its own cape (none at all close in), a peer within 1 m faded and within 0.55 m was
+    gone, a peer below the eye was never drawn. Now the eye's distance from the HOOD'S MIDDLE, in three dimensions (0.3
+    m, fading over 0.15 m) - in the draw and in the fragment half alike.
+  - The fragment half read `uCapeH`, which only the vertex half declared - a stage a driver refuses, and the one program
+    is all four auras (caught by the new eager compile below before it shipped; declared).
+  - The swing: a coarsened clock's repeated tick zeroed the speed every other frame (a run trailed a tenth of its
+    trail); a floating-origin crossing sagged and swung back; a 1-3 m placement read as 60-175 m/s and flicked the hem;
+    back after a gap the old trail swung on. All as above.
+  - The legs' push along the cloth's own direction (above); the pose off the bones floored (above) and the shader's
+    hang never negative (0/0 at a pose at the feet).
+  - The cloth and its cards drew with the ground's depth offset (-1, -4): slivers over a body before it. Off for them.
+    Tearing, the shreds were laid before the cloth for an eye in front and lay under its shade: now after it.
+  - `peerBodies.bonesOf` called the rig unguarded, the one rig call there without AUDIT MWBODY A1's catch: caught.
+    The swim's height now presses the sprite body's cape too (it read `player.crouching`). No pose object per drawn
+    body per frame, no closure per cloak.
+  - The first merge of main had kept the account's whole version history twice (107 KB on the line): once now. The arc
+    said the account renumbered past SERPENT2: the relay alone did.
+  - The net: nothing compiled each stage whole - `test/glsl.mjs` compiles a body on its first call, with the test's
+    bindings standing in for any name, so a stage reading another's uniform passed; `eager` now compiles every body at
+    load and the cloak's stages are compiled bare, and the evaluator refuses a keyword or reserved word as a name (the
+    fix above first named a variable `out`). The shared rest pose's two guards, the spring's substeps, the swing's
+    three caps, the floors, the opening's narrowing, the swim's floor were unpinned - pinned; the host pins matched
+    through a leading `//` - they read code now; three probe checks could not fail (over the hood's peak against black
+    sky, an unkindled point in the sky, the shreds counted off the ground's pool) - read against the lit floor and off
+    the pool. 24 mutants added, 19 re-aimed: `shadowcloak.json` 150, all dead.
+  - Docs: the hem's teeth (the band is the opening's), "THE FOUR HOSTS, untouched" (world.js is wired), far/near for
+    the culled sides, world165 in the Testing row, a pronoun in `shadowfang.test.js`, five cites main already had wrong
+    (`fpArm.js` drawThird and its refold, `mwView.js` mwViewDrawBody and its drawThird, `world.js` the two body calls,
+    `fpArm.js` clipSweepTimes).
+  - Left as they are, said here: a compile failure or a slow compile of the one program takes all four auras with it
+    (the eager compile and the probe are the guard); the off-screen peer's pose, the gear rebuild's rest frames, the
+    emblem's crouch squash and the unset head turn as above.
 

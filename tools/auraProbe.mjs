@@ -241,7 +241,7 @@ try {
   const cback = await cl(behind, Q, 1, [[0.12, 0.35, -0.42], [1.4, 0.0, -0.6], [0, p.cloakH + 0.15, -0.1], ...wolf.map(onBack), ...besideWolf.map(onBack)], cAt);
   if (shotsAt) await page.locator('#c').screenshot({ path: join(shotsAt, 'cloak_back.png') });
   check('from behind the cloth shades what is behind it', lum(cback.px[0]) < lum(cback.px[1]) * 0.8, `${lum(cback.px[0])} on the cloth vs ${lum(cback.px[1])} on the floor beside`);
-  check('nothing over the hood\'s peak', lum(cback.px[2]) < 30, JSON.stringify(cback.px[2]));
+  check('nothing over the hood\'s peak', lum(cback.px[2]) < 30, JSON.stringify(cback.px[2]));   // and against the lit floor, below (AUDIT 2)
   const wolfLum = cback.px.slice(3, 3 + wolf.length).map(lum), besideLum = cback.px.slice(3 + wolf.length).map(lum);
   const med = (a) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
   check('the wearer\'s glyph on its back - the wolf lit, beside it dark, in red', besideWolf.length >= 8 && med(wolfLum) > med(besideLum) + 40 && cback.px.slice(3, 3 + wolf.length).filter((c) => c[0] > 2 * c[1]).length > wolf.length * 0.8, `the wolf ${med(wolfLum)} (of ${wolf.length}) vs beside ${med(besideLum)} (of ${besideWolf.length})`);
@@ -265,14 +265,17 @@ try {
   const cBefore = await cl(behind, p.period - 1 / 240, 1, cwp, cAt), cAfter = await cl(behind, 1 / 240, 1, cwp, cAt);
   const cJump = cBefore.px.map((c, i) => Math.abs(lum(c) - lum(cAfter.px[i])));
   check('no jump where the clock wraps', Math.max(...cJump) <= 45, cJump.join(' '));
-  const ccold = await cl(behind, Q, 0, [[0.12, 0.35, -0.42], [0, 1.2, -0.3], [0.3, 0.0, -0.55]], cAt);
-  const cfloor = await bare(behind, [[0.12, 0.35, -0.42], [0, 1.2, -0.3], [0.3, 0.0, -0.55]], cAt);
+  const coldPts = [[0.12, 0.35, -0.42], [0, 0.8, -0.4], [0.3, 0.0, -0.55]];   // every one over the lit floor (AUDIT 2: one was sky in both frames)
+  const ccold = await cl(behind, Q, 0, coldPts, cAt);
+  const cfloor = await bare(behind, coldPts, cAt);
   check('unkindled, nothing is drawn', ccold.px.every((c, i) => Math.abs(lum(c) - lum(cfloor.px[i])) < 6), JSON.stringify(ccold.px));
   // the hood read against the LIT floor (AUDIT: against the black sky a shadow cannot show): from above and behind
-  const high = [0, 3.4, -2.4], hoodPts = [[0, 1.75, -0.12], [0.08, 1.7, -0.14], [-0.08, 1.7, -0.14]];
+  const high = [0, 3.4, -2.4], hoodPts = [[0, 1.75, -0.12], [0.08, 1.7, -0.14], [-0.08, 1.7, -0.14]], overPeak = [[0, p.cloakH + 0.04, -0.06], [0, p.cloakH + 0.08, -0.06], [0.06, p.cloakH + 0.04, -0.06], [-0.06, p.cloakH + 0.04, -0.06]];
   const hoodBare = await bare(high, [[0.12, 0.45, -0.42], ...hoodPts], cAt), hoodWhole = await cl(high, Q, 1, [[0.12, 0.45, -0.42], ...hoodPts], cAt), chalf = await cl(high, Q, 0.5, [[0.12, 0.45, -0.42], ...hoodPts], cAt);
   const dHood = (f) => Math.max(...hoodPts.map((_, i) => Math.abs(lum(f.px[i + 1]) - lum(hoodBare.px[i + 1]))));
   check('half kindled, drawn to the waist and not to the hood', lum(chalf.px[0]) < lum(hoodBare.px[0]) * 0.85 && dHood(chalf) < 12 && dHood(hoodWhole) > 60, `waist ${lum(chalf.px[0])} vs ${lum(hoodBare.px[0])}; the hood ${dHood(chalf)} half kindled, ${dHood(hoodWhole)} whole`);
+  const peakBare = await bare(high, overPeak, cAt), peakWhole = await cl(high, Q, 1, overPeak, cAt);
+  check('nothing over the hood\'s peak, read against the lit floor', peakWhole.px.every((c, i) => Math.abs(lum(c) - lum(peakBare.px[i])) < 6), `${peakWhole.px.map(lum).join(' ')} vs ${peakBare.px.map(lum).join(' ')}`);
   // the emblems aloft: over the back, from behind, at four moments something there that the bare frame has not
   const overBack = Array.from({ length: 300 }, (_, i) => [-0.9 + (i % 20) * 0.095, 1.2 + Math.floor(i / 20) * 0.075, -0.6]);
   const aloftBare = await bare(behind, overBack, cAt);
@@ -289,7 +292,7 @@ try {
   const shaded = (f) => f.px.filter((c, i) => lum(c) < lum(clothBare.px[i]) - 40).length;
   const emberOf = (f) => Math.max(...f.px.map((c) => (c[0] > 2 * c[1] ? c[0] : 0)));
   check('torn when its wearer turns beast - splitting mid-tear, embers along it; torn through, no cloth over the floor (a shred passing at most)', shaded(whole) >= 50 && shaded(tearing) < shaded(whole) * 0.5 && emberOf(tearing) > emberOf(whole) + 40 && shaded(torn) <= 10, `${shaded(whole)} shaded whole, ${shaded(tearing)} mid-tear, ${shaded(torn)} torn; embers ${emberOf(tearing)} mid-tear vs ${emberOf(whole)} whole`);
-  const ringPts = Array.from({ length: 400 }, (_, i) => [-1.4 + (i % 20) * 0.147, 0.2 + Math.floor(i / 20) * 0.1, 0]);
+  const ringPts = Array.from({ length: 400 }, (_, i) => [-1.4 + (i % 20) * 0.147, 0.35 + Math.floor(i / 20) * 0.1, 0]);   // none whose ray ends in the pool at the feet (AUDIT 2: it counted the ground for shreds)
   const ringBare = await bare([0, 1.2, -4], ringPts, [0, 1.1, 0]);
   const shredN = [];
   for (const t of [3.1, 17.9, 44.4]) { const f = await cl([0, 1.2, -4], t, 1, ringPts, [0, 1.1, 0], 0, p.cloakRipS + t); shredN.push(f.px.filter((c, i) => Math.abs(lum(c) - lum(ringBare.px[i])) > 40).length); }

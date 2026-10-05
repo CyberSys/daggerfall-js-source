@@ -2771,7 +2771,7 @@ export function createFpArm() {
   let heldMemo = null;           // { base, spec, inner, tracks, sampler }
   let lastFrame = null;          // { model, view, proj, rect } - what draw() last composed with
   let lastThirdModel = null;   // AUDIT FIELD-GUN-MW F2: drawThird's model matrix, for the muzzle in the world
-  let drawnPose = null;   // SHADOW-CLOAK (AUDIT): the arm and the pose drawThird last drew - a host that poses again before the auras (the dungeon) never hands a cape the next frame's
+  let drawnArm = null, drawnMats = null;   // SHADOW-CLOAK (AUDIT): the arm and the pose drawThird last drew - a host that poses again before the auras (the dungeon) never hands a cape the next frame's
   /** The muzzle vertex of a weapon piece, found once off its unposed source and kept on the piece. */
   const muzzleIndexOf = (piece) => {
     if (piece.muzzleIndex == null) piece.muzzleIndex = farthestVertexIndex(piece.source);
@@ -4993,11 +4993,11 @@ export function createFpArm() {
      *  own frame, [right, up, forward] in metres from its feet (drawThird places that frame in the world by its feet and
      *  yaw: the rig's x is its right, y its forward and z up, the race's weight across and height up), null for a bone its
      *  skeleton lacks; null whole while no third-person body is posed (first person, a stand-in, nothing built). The pose
-     *  it was last DRAWN in (drawnPose), so a host that poses again before its auras are drawn (the dungeon's) never
+     *  it was last DRAWN in (drawnArm, drawnMats), so a host that poses again before its auras are drawn (the dungeon's) never
      *  hands a cape the next frame's. Do not keep it: the next pose answers anew. */
     thirdBones(names) {
       if (!thirdActive() || !thirdBuilt) return null;
-      const arm = thirdBuilt.arm, drawn = drawnPose && drawnPose.arm === arm ? drawnPose.mats : null;   // the pose it was drawn in, while it is this arm's
+      const arm = thirdBuilt.arm, drawn = drawnArm === arm ? drawnMats : null;   // the pose it was drawn in, while it is this arm's
       return armBonesInBody(drawn ? { skeleton: arm.skeleton, mats: drawn } : arm, names, built && built.raceScale);
     },
 
@@ -5055,7 +5055,7 @@ export function createFpArm() {
         NIF_TO_PASS,
       );
       lastThirdModel = model;   // AUDIT FIELD-GUN-MW F2: the body's frame, for the muzzle behind the camera
-      drawnPose = { arm: t.arm, mats: t.arm.mats };   // SHADOW-CLOAK (AUDIT): the pose this body was drawn in
+      drawnArm = t.arm; drawnMats = t.arm.mats;   // SHADOW-CLOAK (AUDIT): the pose this body was drawn in
       // The box the sprite law needs, measured off the POSED pieces in
       // MW axes and mapped: MW z is world up, MW x/y are the horizontal
       // pair. The azimuth-safe half-width holds under yaw for free,
