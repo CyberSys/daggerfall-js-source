@@ -463,6 +463,13 @@ export function mwViewDrawBody(canvas, { proj, view, eye, feet, yaw, viewYaw = y
   return fpArm.drawThird(canvas, { proj, view, eye, feet, yaw, grow: face?.grow > 1 ? face.grow : 1, up: face?.up ?? null });
 }
 
+/** SHADOW-CLOAK: the third-person Morrowind body's named bones where they stand this frame, in its own frame
+ *  (fpArm.thirdBones) - or null: the sprite lane's body has no bones, and first person poses no third-person body. */
+export function mwViewBodyBones(names) {
+  if (eotbLane() || !mwCamera.thirdPerson()) return null;
+  return fpArm.thirdBones(names);
+}
+
 /** EOTB5's door, matching `setEotbBodyReady`: the host hands the seam
  *  the one call that paints the mod's sprite. Null until then, which
  *  is why `eotbBodyReady` answers false. */

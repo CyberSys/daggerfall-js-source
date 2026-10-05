@@ -111,7 +111,7 @@
   {
     "name": "REALM6-buy-never-reserves",
     "file": "src/systems/onlineHomes.js",
-    "old": "        reserve: () => { pay(price); return () => refund?.(price); },\n",
+    "old": "        reserve: paid.reserve,\n",
     "new": "",
     "tests": [
       "test/realm6.test.js"
@@ -130,7 +130,7 @@
   {
     "name": "REALM6-tool-place-unreserved",
     "file": "src/scenes/decorTool.js",
-    "old": "          reserve: () => { wallet.pay(price); return () => wallet.credit?.(price); },\n          // AUDIT REALM: a placement answered",
+    "old": "          reserve: paid.reserve,\n          // AUDIT REALM: a placement answered",
     "new": "          // AUDIT REALM: a placement answered",
     "tests": [
       "test/realm6.test.js"
@@ -166,7 +166,7 @@
   {
     "name": "REALM6-tool-licence-unreserved",
     "file": "src/scenes/decorTool.js",
-    "old": "      reserve: pay > 0 ? () => { wallet.pay(pay); return () => wallet.credit?.(pay); } : null,\n",
+    "old": "      reserve: pay > 0 ? walletReserve(wallet, pay).reserve : null,   // MARKET-AUDIT: a refusal gives back exactly what it took\n",
     "new": "",
     "tests": [
       "test/realm6.test.js"

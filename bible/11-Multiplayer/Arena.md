@@ -1048,5 +1048,5 @@ correctness, the online trust), every finding reproduced and fixed here:
   my damage is the striker's the formula named; bodies come off the stage they stood on; no Recall off the sand.
 - **The laurel.** Ten rated bouts against five accounts, a pair's rated bouts ten a season.
 
-Deploy order: the account service (acct79, migration 0082) BEFORE the relay (world167), BEFORE the site. The record:
+Deploy order: the account service (acct81, migration 0082) BEFORE the relay (world168), BEFORE the site. The record:
 `01-Overview/Audit-Arena-Ladder.md`.

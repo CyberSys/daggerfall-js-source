@@ -808,9 +808,10 @@ etc".
   Apothecaries' sixteen reagents (`MINED_KEYS`; marketLaw.js `storesForm`) - every DFU template of theirs, a looted
   Unicorn Horn, Saint's Hair or Ectoplasm as much as one withdrawn from the Stores, since the pack cannot tell the two apart.
 - **Priced in Marks.**
-- **Regional markets** - DECIDED: a listing stands on the boards of the region it was listed in. A buyer in that
-  region takes it at once; a buyer anywhere else pays the **courier fee** and the goods reach their Stores after the
-  **courier's time**. So a signature material (4.7) is cheap at home and dear abroad, and hauling is a trade.
+- **One market, regional prices** - DECIDED (GLOBAL-MARKET, 10.9): a listing stands on every board of the Bay. A buyer
+  in the region it was listed in takes it at once; a buyer anywhere else pays the **courier fee** and the goods reach
+  their Stores after the **courier's time**. So a signature material (4.7) is cheap at home and dear abroad, and
+  hauling is a trade.
 - **Buyout first, bids later** - DECIDED: PROF5 ships buyouts (a listed price, taken whole or, for materials, in part);
   **PROF5b** adds timed auctions for **Masterworks only** - 24 hours, a 5% minimum raise, and a bid in the last 2
   minutes adds 2 (BUILT, section 27).
@@ -820,7 +821,8 @@ etc".
 ### 10.3 Buy orders
 
 A standing order ("buy 200 Mithril Ore at 8 each") on a board: the Marks are escrowed when it is posted; any gatherer
-in that region fills it straight from their Stores, in whole or in part; at most **20** an account; unfilled after 7
+at any board fills it straight from their Stores, in whole or in part (from another region, the courier comes out of the
+pay - GLOBAL-MARKET, 10.9); at most **20** an account; unfilled after 7
 days, the rest is returned.
 
 ### 10.4 Fees, the Tithe and couriers
@@ -976,6 +978,74 @@ buyer had.
   B7) and sells only for Marks - from its maker's listing or, R2-S2, from another account's pack (`market.js` listGood,
   `market-drakes-goods`) alike; the refusal says "Goods bought with silver, and pieces made with them, sell only for silver".
 - **As built**: `06-Systems/Online-Arc.md` GOLD-MARKET (acct40, `0041_gold_market.sql`).
+
+### 10.9 GLOBAL-MARKET - every board is the Bay's market (DECIDED and BUILT 2026-10-04, Mac: "ensure the market is global")
+
+FOUND: the listings were the Bay's already - the Materials, Crafted, Goods and Auctions views read every region's, each
+row's courier quoted to the reader's board - but a buy order stood on the boards of its own region alone: the Orders view
+read `region = ?1` and a fill from any other board was refused `market-elsewhere`; and the List form said a listing
+"stands on the boards of" the lister's region, which it never did.
+
+- **Buy orders, the Bay's**: the Orders view reads every board's open orders, dearest first (a family's chosen from the
+  500 dearest, then the hundred shown), each with its road from the reader's board.
+- **A fill from another region pays the courier** - by the load, the buy's formula (10.4), out of the filler's pay
+  (the filler is the one not going): burnt from the order's escrow, its Tithe share to the seat of the filler's board
+  (as a buy's courier share is the buyer's board's). The units reach the orderer's Stores **at once**, as a fill here -
+  DECIDED: an order's units have no road table, and the poster has paid already; the fee is what keeps prices regional.
+  A fill whose courier would take all it pays is refused before anything moves (`market-courier-dear`); the tab names
+  the pay and does not offer such a fill, and a fill carries the pay its filler agreed (`least`) - a pay moved under it
+  is `market-price-moved`. Both hubs are witnessed (SEAT0 3.2), as a buy's.
+- **The words**: a listing, an auction and an order "stand on every board in the Bay", a buyer, bidder or gatherer
+  outside the lister's region paying a courier.
+- **Not changed**: a home's trader (HOME-VENDOR) stays a stall a buyer visits - its stock is bought at it alone.
+- **As built**: `server-account/src/market.js` marketRead (orders) and marketFill; `src/ui/marketTab.js` orderRow;
+  `test/globalmarket.test.js`; `tools/mutants/globalmarket.json`.
+
+### 10.10 MARKET-AUDIT - the board audited (2026-10-04, Mac: "I think the ingame market board is broken. Please audit this")
+
+Three lanes - the service, the client's book, the tab and its host - read the market end to end over the real Worker
+and reproduced each finding before it was fixed (`test/marketaudit.test.js`, `tools/mutants/marketaudit.json`).
+
+- **MARKET-BAG - the break a player sees.** Since BAG1 every harvest is carried (bag, then pack), and the List form and
+  a fill read the Stores alone: a gatherer's List form offered no material and every order said "0 in your Stores",
+  Fill shut, with no word why. What is carried now counts toward a silver listing and a fill, and its shortfall goes
+  into the Stores first (`profBook.ensureInStores`, a station's own way); the form says how many go in. A gold listing
+  stays its Stores' own and gold's units (the wall, 10.8).
+- **The service.** S1: a one-Mark unit its running-total tax took whole (every twentieth unit of a one-Mark listing)
+  wrote a seller's line of 0, which the ledger refuses - a 500, the buy kept and asked again for ever; such a sale now
+  pays its seller nothing and writes no line. S2: a fill its tax left paying nothing was refused as "the buyer's Stores
+  cannot hold that many" (market_fills.pay is at least a Mark) - now `market-taxed-out`, and an order's LAST units pay
+  their filler a Mark, the tax short by it (`marketLaw.js` fillTaxOn), so no order is left unfillable. S3: a gold unit
+  whose tax and fee passed its price broke `market_gold`'s CHECK and was said `stores-full` - the held share floors at
+  nothing (goldSaleOf's own floor). S4: the Orders view's family read after its cutoff - in the query now.
+- **The book.** B1: a refused gold buy gave its whole cost back as purse coins (`addGold`) whatever paid it - a letter of
+  credit and the bank's gold turned into coin, checkpointed into the record; the wallet's pay answers the undo of exactly
+  what it took (`court.js` deductGoldUndoable, and the bank's share). B2: a read that joined one under way answered null
+  when an act overtook it - the tab threw and stood blank; it is read again. B4: Buy pressed again after a lost answer
+  minted a fresh id and bought twice; it asks the kept buy again with its own.
+- **The tab.** U2: crafted pieces of one name are told apart by quality and wear. U3: a piece past the 64 the read
+  names (`MARKET_HELD_MAX`) is offered both ways, the service's refusal saying which is wrong - it was never offered. U4:
+  a market that shuts while its tab is read keeps the tab and its shut word (AUDIT 30 U11's word was unreachable). U5: a
+  failed read keeps the view's filters and the counters. U6: an act's word stays with its view. U7: another character's
+  delivery says it waits for that one, and is not asked after.
+- **The rest, fixed (2026-10-05, Mac: "Fix everything").** Every realm act that pays out of the purse reserves through
+  one law, `net/realmGoldLaw.js` walletReserve: the payment's own undo (`systems/court.js` payUndoable - the purse and
+  its letters, then the account, each given back where it was, once) on a refusal or a `repeat`, and a wallet's whole-cost
+  `credit` only where its `pay` answers none - the guild's founding and deposits, a room's rent, a home's claim, a decor
+  piece and its change, as the market's gold buy; every online wallet's `pay` answers it (`world.js`, `worldModes.js`
+  bankPurse `pay`). The account door: a 2xx whose body never came is `offline`, `unknown` - no word on the act, never an
+  empty success (`accountClient.js` call). The book: the minute's cache keyed by the account and character; a cache hit
+  says its board's listing cap; a collect the service refused is said, and an act still kept; a realm act's own words
+  (`held`, `left`, `unknown`) worded. The tab: the opening settle reads "Reading the market..."; the family filters
+  offer only what the market knows a material of (the Spoils of War's two are a metal and a cloth); a closed listing
+  reads its whole; an answer's redraw waits while one of its lists is held open. The window: an act that throws leaves
+  no button greyed (all four of its doors). The service: a home's trader's stock is its own count (`VENDOR_STOCK_MAX`,
+  60 - "such a listing stands on no regional board", yet thirty at a stall shut the board; `vendor-full`); an auction
+  posted settles first, as a listing does; the default Materials view keeps the board's own region's fifty cheapest
+  beside the Bay's hundred. The host: the Market tab stands while the professions' read is unanswered (its own read says
+  whether it is open). `MARKET-ANY-service-the-goods-family-unfiltered` is recorded equivalent - the Goods view's
+  family is chosen in its query; the JS filter after it is belt-and-braces. `test/marketaudit2.test.js`,
+  `tools/mutants/marketaudit2.json`.
 
 ## 11. Writs - the Work tab
 
@@ -1958,9 +2028,10 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   price) at most the Marks cap (`bad-price`), posted at a board for **7 days** - never a material nothing yields, the
   Daedric and Warforged ingots and the Bear Hide (`marketLaw.js` UNYIELDED, `market-unyielded`; the catalogue leaves
   them out) - AUDIT 30 N6; AUDIT 32 R8: since PROF7 the Daedric and Warforged ingots and Standard-bearer's Silk, the Bear
-  Hide Hunting's now; **the Marks are escrowed when it is posted**, no fee (10.4 names none). Any character at a
-  board of the order's region **fills it from its Stores**, in whole or in part, **bought units first**; the filler is
-  paid the price less the tax from the escrow (on the order's running total, as a listing's - AUDIT 30); the units reach
+  Hide Hunting's now; **the Marks are escrowed when it is posted**, no fee (10.4 names none). Any character at any
+  board (GLOBAL-MARKET, 10.9) **fills it from its Stores**, in whole or in part, **bought units first**; the filler is
+  paid the price less the tax from the escrow (on the order's running total, as a listing's - AUDIT 30) and, from another
+  region, less the courier (10.9); the units reach
   the orderer's posting character's Stores **at once, as bought** (an order buys "here" - where it was posted), refused
   past that Stores' room (`market-order-full`). Its own poster may not fill it. A cancel or the seventh day returns the
   rest of the escrow.
@@ -2008,7 +2079,8 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   stock answer never told the Marks book its balance; every market and stock answer does now). Crafted - each piece's
   name as its record mints it, its quality, maker and wear, cheapest landed first too. My listings - this account's,
   with Cancel, the fee kept, and **List** (a Stores material, or a piece chosen from the pack and the home's things),
-  and its buy orders with Withdraw. Orders - the region's open orders with **Fill N from the Stores** and each one's
+  and its buy orders with Withdraw. Orders - every board's open orders (GLOBAL-MARKET, 10.9), each "here" or its region and
+  what a fill pays, with **Fill N from the Stores** and each one's
   median (no line - AUDIT 30 N8), this account's own among them with **Withdraw** (AUDIT 30 R6: this line said
   Cancel), and **Post an order**. History. **On the road**, atop the tab while anything travels: "40 Mithril Ore from
   Wayrest - 32 minutes".

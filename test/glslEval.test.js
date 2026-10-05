@@ -337,3 +337,13 @@ test('errors: duplicate names, type errors GLSL would reject, bad arguments', ()
   assert.throws(() => glslFunctions('#define X 1\nfloat f() { return 1.0; }'), /#define is not supported/);
   assert.throws(() => glslFunctions('struct S { float a; };'), /struct is not supported/);
 });
+
+test('eager compiles every body at load, as a driver compiles a stage - a body naming what its source never declares throws though nothing calls it; lazily it would wait for the call; and no keyword or reserved word names anything (SHADOW-CLOAK AUDIT 2: a fragment stage read a uniform only its vertex stage declared, and a variable was named `out`)', () => {
+  const src = 'uniform float uA;\nfloat used() { return uA; }\nfloat unused() { return uB * 2.0; }';
+  assert.doesNotThrow(() => glslFunctions(src), 'lazily: never called, never compiled');
+  assert.throws(() => glslFunctions(src, {}, { eager: true }), /'uB' is not declared/);
+  assert.equal(glslFunctions('uniform float uA;\nfloat f() { return uA; }', {}, { eager: true }).f(), 0, 'what it declares, it compiles');
+  for (const word of ['out', 'in', 'inout', 'uniform', 'precision', 'class', 'gl_Thing', 'a__b']) assert.throws(() => glslFunctions(`float f() { float ${word} = 1.0; return 0.0; }`), /reserved/, word);
+  assert.throws(() => glslFunctions('float out(float x) { return x; }'), /reserved/, 'a function');
+  assert.throws(() => glslFunctions('float f(float out) { return 1.0; }'), /reserved/, 'a parameter');
+});

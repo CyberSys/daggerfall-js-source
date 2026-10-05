@@ -329,6 +329,16 @@ export class PeerBodies {
     return f ? f.reason : null;
   }
 
+  /** SHADOW-CLOAK: a peer's body's named bones where they stand - { feet, yaw, bones }: the feet and the eased yaw the
+   *  body is drawn at and its bones in its own frame (the rig's thirdBones) - or null without a standing body. A body out
+   *  of view keeps its last pose, as its skin does. */
+  bonesOf(id, names) {
+    const b = this._bodies.get(id);
+    if (!this._standing(b)) return null;
+    let bones = null; try { bones = b.rig.thirdBones?.(names) ?? null; } catch (e) { console.error('[peerBodies] bonesOf', e); }   // as every rig call here (AUDIT MWBODY A1): a throw never ends the frame
+    return bones ? { feet: b.feet, yaw: b.yaw, bones } : null;
+  }
+
   /** WEREWOLF1 (AUDIT E4): does this peer stand in a Morrowind WOLF here - the one body the rider layer yields a beast
    *  on foot to (a person's body standing on a transformation's first frame is not the beast's). */
   wolfStands(id) { const b = this._bodies.get(id); return !!b?.wolf && this._standing(b); }

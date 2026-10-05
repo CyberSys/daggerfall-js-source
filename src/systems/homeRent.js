@@ -26,6 +26,7 @@ import {
 } from '../net/homeLaw.js';
 import { ARENA_TEXT } from './arenaText.js';   // ARENA4b: a room the arena's move carried, named
 import { goldSum, EMPIRE_ACCOUNT_WORDS } from './homeWords.js';   // AUDIT HOME-PRICE E4: the door's sums and account, as the home's own lines say them
+import { walletReserve } from '../net/realmGoldLaw.js';   // MARKET-AUDIT: a refusal gives back exactly what the payment took
 
 /** The door's verb for a home with a room free to rent (onlineHomes.js HOME_VERB's own row). */
 export const RENT_VERB = 'home-rent';
@@ -113,7 +114,7 @@ export const rentable = (rooms) => (rooms ?? []).filter((r) => r.listed && (!r.t
  * RENT ONE (or renew one's own) for `days`: the purse pays at once and gets it back on a refusal, the tenant's record
  * pays on the service in the rent's own write, and the town is read again so the door opens. Answers `{ ok, until,
  * cost }` or `{ ok: false, error }` - `gold` for a purse too short, `realm-only` for a character with no record.
- * @param {{ api: any, homes?: any, realm?: any, wallet: { gold: number, pay: (n: number) => void, credit?: (n: number) => void },
+ * @param {{ api: any, homes?: any, realm?: any, wallet: { gold: number, pay: (n: number) => ((() => void) | void), credit?: (n: number) => void },
  *   mapId: number, buildingKey: number, character: string|null, room: number, days: number, price: number }} o
  */
 export async function rentHomeRoom({ api, homes = null, realm = null, wallet, mapId, buildingKey, character, room, days, price }) {
@@ -122,7 +123,7 @@ export async function rentHomeRoom({ api, homes = null, realm = null, wallet, ma
   if (!realm?.act) return { ok: false, error: 'realm-only' };
   if (!(wallet.gold >= cost)) return { ok: false, error: 'gold' };
   const r = await realm.act({
-    reserve: () => { wallet.pay(cost); return () => wallet.credit?.(cost); },
+    reserve: walletReserve(wallet, cost).reserve,   // MARKET-AUDIT: a refusal gives back exactly what it took
     call: (/** @type {any} */ at) => api.rentRoom({ mapId, buildingKey, character, room, days, price, realm: at }),
   });
   if (!r?.ok) return { ok: false, error: r?.error ?? 'server' };

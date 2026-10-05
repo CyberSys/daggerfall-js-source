@@ -53,7 +53,9 @@
 // is what the compiler would do). Evaluation is float64 unless fp32 is set.
 // Function bodies compile on their first call, so a fragment may carry
 // functions that use names it does not declare, as long as they are not
-// called; a type error in a body surfaces on that first call.
+// called; a type error in a body surfaces on that first call. `eager`
+// compiles every body at load instead - as a driver compiles a stage - so
+// with no bindings a body naming what its stage never declares throws.
 
 export class GlslDiscard extends Error {
   constructor() { super('GLSL discard'); this.name = 'GlslDiscard'; }
@@ -79,6 +81,9 @@ const arrayOf = (elem, n) => {
   return ARRAYS.get(name);
 };
 const BUILTIN_VARS = { gl_FragCoord: 'vec4', gl_Position: 'vec4', gl_PointSize: 'float', gl_FragDepth: 'float', gl_PointCoord: 'vec2', gl_VertexID: 'int', gl_InstanceID: 'int', gl_FrontFacing: 'bool' };
+// GLSL ES 3.00's keywords and the reserved words every ES 3.00 compiler refuses (3.6, 3.7): none of them may name a
+// variable, a parameter or a function - a driver refuses `float out;`, and so does this.
+const RESERVED = new Set(['attribute', 'const', 'uniform', 'varying', 'layout', 'centroid', 'flat', 'smooth', 'break', 'continue', 'do', 'for', 'while', 'switch', 'case', 'default', 'if', 'else', 'in', 'out', 'inout', 'true', 'false', 'invariant', 'discard', 'return', 'lowp', 'mediump', 'highp', 'precision', 'struct', 'volatile', 'asm', 'class', 'union', 'enum', 'typedef', 'template', 'this', 'goto', 'inline', 'public', 'static', 'extern', 'interface', 'long', 'short', 'double', 'half', 'fixed', 'unsigned', 'input', 'output', 'sizeof', 'cast', 'namespace', 'using']);
 const QUALS = new Set(['const', 'uniform', 'in', 'out', 'inout', 'highp', 'mediump', 'lowp', 'flat', 'smooth', 'centroid', 'invariant', 'precise', 'layout']);
 
 // ─── tokenizer ─────────────────────────────────────────────────────────
@@ -144,7 +149,7 @@ class Parser {
   accept(v) { if (this.is(v)) { this.p++; return true; } return false; }
   expect(v) { if (!this.accept(v)) this.fail(`expected '${v}'`); }
   fail(msg, t = this.peek()) { throw new SyntaxError(`GLSL line ${t.line}: ${msg}, found '${t.v}'`); }
-  ident() { const t = this.next(); if (t.k !== 'id') this.fail('expected a name', t); return t.v; }
+  ident() { const t = this.next(); if (t.k !== 'id') this.fail('expected a name', t); if (RESERVED.has(t.v) || t.v.startsWith('gl_') || t.v.includes('__')) this.fail(`'${t.v}' is reserved in GLSL ES 3.00 and cannot name anything`, t); return t.v; }
 
   program() {
     const items = [];
@@ -377,7 +382,7 @@ const zero = (t) => (t.arr ? Array.from({ length: t.arr }, () => zero(t.elem)) :
 const dotv = (a, b) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; };
 const BRK = 1, CNT = 2, RET = 3;
 
-export function glslFunctions(src, bindings = {}, { fp32 = false } = {}) {
+export function glslFunctions(src, bindings = {}, { fp32 = false, eager = false } = {}) {
   const R = fp32 ? Math.fround : (x) => x;
   const items = new Parser(tokenize(src)).program();
   const G = {};                 // the global store (exposed as .globals)
@@ -783,6 +788,7 @@ export function glslFunctions(src, bindings = {}, { fp32 = false } = {}) {
     }
   }
   const out = { globals: G };
+  if (eager) for (const Fn of fnTable.values()) if (Fn.body && !Fn.impl) compileFn(Fn);
   for (const Fn of fnTable.values()) {
     if (!Fn.body) continue;
     if (Fn.name === 'globals') err(Fn.node, "a function named 'globals' would hide the global store");
