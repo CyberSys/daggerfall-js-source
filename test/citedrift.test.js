@@ -566,7 +566,7 @@ const SOURCE_CITES = [
   // the line goes red at the citation instead of at a reader.
   ['src/characters/playerEntity.js', /exterior\.js:(\d+) and applyHeadlessChargen/,
     EX, /createChargenFlow\(fetchBytes\)\.then/],
-  ['src/combat/weaponRig.js', /\(exterior\.js:(\d+), world\.js:9459\)/,
+  ['src/combat/weaponRig.js', /\(exterior\.js:(\d+), world\.js:9462\)/,
     EX, /^ {4}say: \(l\) => townTalk\.say\(l\),$/],
   ['src/scenes/dungeonContext.js', /exterior\.js:(\d+) and worldModes\.js:\d+/,
     EX, /onPlayerArrowHitFoe: \(m, t\) => playerArrowHitFoe\(/],
@@ -700,7 +700,7 @@ const SOURCE_CITES = [
   // and the table captured ONE, with a sixth number baked into the pick - so
   // citeMerge bumped the LITERAL at the BOX1/TI3 merge and left the doc, and
   // four of the five had been stale for waves (`worldModes.js:8917` for a line
-  // that is 5921, `world.js:23584` for 8836, `interior.js:326` for 329,
+  // that is 5921, `world.js:23589` for 8836, `interior.js:326` for 329,
   // `dungeon.js:985` for 959). Every one is captured now, against the
   // projection each host really builds.
   ['bible/10-UI/Settings-Screen-Spec.md', /`exterior\.js:(\d+)`, `dungeon\.js:\d+`/, EX, /^ {6}fieldOfView\(\)( \+ climbFeel\.fovRad\(\))?,/],   // CLIMB4: the climb's kick on the lens
@@ -722,7 +722,7 @@ const SOURCE_CITES = [
   // PAIRS never checked. Five Ledger rows cite `world.js:N`, `exterior.js:M`
   // and this table captured M alone - so M was resolved at every wave and N
   // was never read at all. All five N's were stale by thousands of lines
-  // (`world.js:11562` for a line that is 8950; `:1968` for 1215; `:3928` for
+  // (`world.js:11567` for a line that is 8950; `:1968` for 1215; `:3928` for
   // 2194; `:3903` for 3066; `:3920` for 8907), and citeMerge rewrote one of
   // them INSIDE THE PICK REGEX at the QS6 merge - which is WM3's hazard
   // exactly: a literal in the pick decides whether the entry matches at all,
@@ -974,7 +974,7 @@ test('CD6: every `src/` line Port-Status cites is the line it describes', () => 
 //
 // The G1 lane re-resolved ~180 `:NNN` cites after moving code in four
 // hosts, and the pass advanced only the LEADING number of every
-// multi-number citation: `cityGuards.js:1020-924`, `world.js:15716-15621`,
+// multi-number citation: `cityGuards.js:1020-924`, `world.js:15721-15626`,
 // `worldModes.js:1583 against :1350`. Forty of them came out as ranges
 // that cannot exist, and every pin in this file was green throughout,
 // because each one resolves a single number a human chose to list.
