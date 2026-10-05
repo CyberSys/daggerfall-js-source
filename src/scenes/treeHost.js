@@ -219,7 +219,7 @@ export function treeKind({ book, renderer = null, flatBatchAabb = null, getTextu
       let dx = c[0] + tr[0] - from[0], dz = c[2] + tr[2] - from[2];
       const l = Math.hypot(dx, dz);
       if (l < 1e-6) { dx = 0; dz = 1; } else { dx /= l; dz /= l; }
-      const b = renderer.createBillboardBatch(g.batch.archive, g.batch.record, g.size, [c], g.scales ? { scales: [g.scales[n.flat.i]], tints: [g.tints[n.flat.i]] } : undefined);   // LPT1: a low-poly tree falls as its far picture, at its own size and tint
+      const b = renderer.createBillboardBatch(g.batch.archive, g.batch.record, g.size, [c], g.scales ? { scales: [g.scales[n.flat.i]] } : undefined);   // LPT1: a low-poly tree falls as its far picture, at its own size
       const reach = Math.max(g.size.w, g.size.h);
       b._box = [c[0] - reach, c[1] - 1, c[2] - reach, c[0] + reach, c[1] + g.size.h, c[2] + reach];
       b.noShadow = true;

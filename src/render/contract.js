@@ -60,8 +60,8 @@
  * @property {Float32Array} [bounds]                  EL5: the sphere [cx, cy, cz, r] about the origin the shadow and air replays cull by
  * @property {number} [_quads]                        BLOOD1b: how many quads the buffer holds, so `moveBillboardBatch` cannot write past it
  * @property {ArrayLike<number>|null} [_scales]       LPT1: each flat's share of the batch's size (null: all whole), kept for a move
- * @property {ArrayLike<number>|null} [_tints]        LPT1: each flat's tint, 0.5..1 (null: all white), kept for a move
- * @property {object|null} [lptProto]                 LPT1: the low-poly tree a far picture stands for - it gives way to the tree near the eye (renderer setLowPolyTrees)
+ * @property {object|null} [lptProto]                 LPT1: the low-poly tree a far picture stands for (its handle) - it gives way to the tree near the eye (renderer setLowPolyTrees)
+ * @property {number} [farH]                          LPT1: the height MAC1's far-ring rule reads in place of size.h (a far picture's classic flat's)
  * @property {boolean} [_dyn]                         BLOOD1b: born DYNAMIC_DRAW, because its centres move every frame
  * @property {object|null} [_place]                  PERF-EXT1: a static batch's placements on a grid (bounds.js placementGrid) - the shadow pass asks its QUADS; null for one flat, one built dynamic, one moved; and its quads' half-diagonal, once a size (placedHalfDiagonal, the review)
  * @property {Float32Array} [_moveScratch]            BLOOD1b: the move's own vertex staging, kept rather than re-minted each frame

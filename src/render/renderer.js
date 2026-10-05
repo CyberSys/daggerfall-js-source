@@ -9,7 +9,7 @@
 
 import { CLOUD_SHADOW_GLSL } from './cloudShadow.js';   // EE5 / VC4: the cloud shadow's reader - VC6c's one home, shared with the air pass's shafts
 import { BAYER_GLSL, DISSOLVE_GLSL } from './orderedDither.js';   // SHIP-FADE: the mesh shader's dissolve over the port's one bayer4
-import { LPT_FS_HEAD, LPT_FS_TEXEL } from './lowPolyTreesGlsl.js';   // LPT1: a low-poly tree's fragment half, both lanes' billboard shaders
+import { LPT_FS_HEAD, LPT_FS_KEEP, LPT_FS_TEXEL } from './lowPolyTreesGlsl.js';   // LPT1: a low-poly tree's fragment half, both lanes' billboard shaders
 import { FOG_GLSL } from './fogGlsl.js';
 import { COLUMN_GLSL } from './columnGlsl.js';   // DW-F: the water column's share - a foe under Iliac Puddle No More's sea is in the depth texture its top reads   // AUDIT 68 S17-fog-glsl-dup: fogFactorAt's one home, for all seven world programs
 // ABOVE the first shader text on purpose: every template below is built
@@ -370,22 +370,25 @@ uniform vec4 uElitePad;   // ELITE FOES: the quad widened past the sprite (left,
 uniform sampler2D uTex;   // ELITE FOES: the sprite's own size, for the pad's floor in texels (the fragment shader's same sampler)
 // LPT1 (bible/07-Rendering/Low-Poly-Trees.md): A LOW-POLY TREE IS DRAWN BY THIS PROGRAM TOO, so it is lit, fogged and
 // shadowed as the flats are, under either lane. uMesh 1: aCenter is its mesh's vertex, aCorner its uv; the instance's
-// root and turn, its scale and its tint ride aInst/aInst2 (render/lowPolyTreesRender.js). uLptCut: the eye (xyz) and
-// the radius (w, 0 off) inside which the 3D tree stands for its far picture, uLptBand the crossfade past it.
+// root and turn ride aInst, its scale aScale (render/lowPolyTreesRender.js). uLptCut: the eye (xyz) and the radius
+// (w, 0 off) inside which the 3D tree stands for its far picture, uLptBand the crossfade past it. A submesh's material:
+// uMeshColor (its _Color), uMeshAlpha (0 an opaque card; else what its alpha is multiplied by so its cut lands on the
+// flats' 0.5 - 0.5 / its _Cutoff).
 layout(location=2) in vec3 aNormal;
 layout(location=3) in vec4 aInst;
-layout(location=4) in vec2 aInst2;
+layout(location=4) in float aScale;
 uniform float uMesh;
 uniform vec3 uMeshScale;
-uniform float uMeshOpaque;
+uniform vec3 uMeshColor;
+uniform float uMeshAlpha;
 uniform vec4 uLptCut;
 uniform float uLptBand;
-uniform vec4 uLptSun;   // the sun's direction (xyz) and whether it shades (w)
+uniform vec4 uLptSun;   // the sun's direction (xyz) and its share of the faces' light (w, 0..1 - the far picture's own light the rest)
 out vec2 vUV;
 out vec3 vBBWorld;
 out vec3 vBBBase;   // EL2: the flat's placement base, where the lane's shadow is read for the whole sprite (the classic FS declares it not, which GLSL allows)
-out float vShade;   // LPT1: a tree's light on its own faces and its tint (1 on a flat)
-out float vOpaque;  // LPT1: 1 on a tree's opaque cards - the alpha cut never takes them
+out vec3 vShade;    // LPT1: a tree's light on its own faces times its material's colour (1 on a flat)
+out float vAlpha;   // LPT1: what a texel's alpha is multiplied by (1 on a flat; 0 an opaque card, which no cut takes)
 out float vFade;    // LPT1: the crossfade - 1 whole; below 1 a far picture's share; 2..3 a tree's, 2 plus its share
 void main() {
   // Bottom-anchored: centre sits half a height above the placement base.
@@ -406,13 +409,10 @@ void main() {
   // A small sprite (a rat, a bat) still gets room: at least 2 texels round it and 20 above for the embers to climb.
   vec4 ep = uElitePad;
   if (ep.x > 0.0) { vec2 ts = vec2(textureSize(uTex, 0)); ep = max(ep, vec4(2.0, 2.0, 2.0, ep.w > 0.1 ? 20.0 : 2.0) / vec4(ts, ts)); }   // a corpse's pad (top 0.03) needs no room for embers   // a corpse's pad (top 0.03) needs no room for embers
-  // LPT1: A FLAT'S OWN SCALE AND TINT RIDE ON ITS CORNER - |x|'s fraction twice over is its share of the batch's size,
-  // its whole part halved the grey it takes (in 255ths): 1 and none for every flat but a low-poly tree's far picture,
-  // whose batch is sized for the tallest tree it stands (renderer createBillboardBatch scales, tints). The quad
-  // grows about its base; the picture's uv does not.
-  float ax = abs(aCorner.x);
-  float tq = floor(ax * 0.5);
-  float fs = (ax - tq * 2.0) * 2.0;
+  // LPT1: A FLAT'S OWN SCALE RIDES ON ITS CORNER - |x| twice over is its share of the batch's size: 1 for every flat
+  // but a low-poly tree's far picture, whose batch is sized for the tallest tree it stands (renderer
+  // createBillboardBatch scales). The quad grows about its base; the picture's uv does not.
+  float fs = abs(aCorner.x) * 2.0;
   vec2 ac = vec2(aCorner.x < 0.0 ? -0.5 : 0.5, aCorner.y);
   vec2 cu = vec2(mix(-0.5 - ep.x, 0.5 + ep.z, ac.x + 0.5), mix(-0.5 - ep.y, 0.5 + ep.w, ac.y + 0.5));
   vec2 cn = vec2(cu.x * fs, (cu.y + 0.5) * fs - 0.5);
@@ -451,8 +451,8 @@ void main() {
   // (aCorner.y = +0.5) samples v = 1 - matching the mesh path's negated-V
   // convention. The previous 0.5 - aCorner.y flipped every billboard.
   vUV = vec2(cu.x + 0.5, cu.y + 0.5);
-  vShade = 1.0 - tq / 255.0;
-  vOpaque = 0.0;
+  vShade = vec3(1.0);
+  vAlpha = 1.0;
   vFade = 1.0;
   bool gone = false;
   // LPT1: A FAR PICTURE NEAR THE EYE GIVES WAY to its 3D tree: none inside the radius, crossfading across the band
@@ -463,7 +463,7 @@ void main() {
   // LPT1: A LOW-POLY TREE - its vertex turned about +Y and scaled at its root, its uv, its light and its share
   if (uMesh > 0.5) {
     float tc = cos(aInst.w), tsn = sin(aInst.w);
-    vec3 p = aCenter * uMeshScale * aInst2.x;
+    vec3 p = aCenter * uMeshScale * aScale;
     vec3 nm = normalize(aNormal / uMeshScale);
     world = vec3(tc * p.x + tsn * p.z, p.y, -tsn * p.x + tc * p.z) + aInst.xyz;
     vec3 wn = vec3(tc * nm.x + tsn * nm.z, nm.y, -tsn * nm.x + tc * nm.z);
@@ -474,13 +474,19 @@ void main() {
       float along = dot(aInst.xz, wdir);
       float ph = fract(aInst.x * 0.37 + aInst.z * 0.91) * 6.2832;
       float gust = sin(uFlatWind.z * 1.7 - along * 0.35 + ph) * 0.5 + 0.5;
-      float lean = clamp(p.y / max(uSize.y, 1e-3), 0.0, 1.0);
-      world.xz += wdir * wl * (0.55 + gust * 0.75) * 0.0015 * uSway * lean * lean * uSize.y * aInst2.x;
+      float lean = clamp(p.y / max(uSize.y * aScale, 1e-3), 0.0, 1.0);   // AUDIT LPT A3: up THIS tree's height, as its far picture's quad
+      world.xz += wdir * wl * (0.55 + gust * 0.75) * 0.0015 * uSway * lean * lean * uSize.y * aScale;
     }
     vBBBase = aInst.xyz;
     vUV = aCorner;
-    vShade = aInst2.y * (uLptSun.w > 0.0 ? clamp(0.72 + 0.28 * dot(wn, uLptSun.xyz), 0.5, 1.0) : 1.0);
-    vOpaque = uMeshOpaque;
+    // its faces' light (AUDIT LPT A2): the far picture's own - from above and the eye's side, LPT_IMPOSTOR_LIGHT turned to
+    // face the eye - crossfaded to the sun's by its share, so at night and at the handover the two are one picture
+    vec2 toEye = uLptCut.xz - aInst.xz;
+    vec2 fe = length(toEye) > 1e-4 ? normalize(toEye) * 0.8 : vec2(0.0, 0.8);
+    float faceEye = clamp(0.72 + 0.28 * dot(wn, vec3(fe.x, 0.6, fe.y)), 0.5, 1.0);
+    float faceSun = clamp(0.72 + 0.28 * dot(wn, uLptSun.xyz), 0.5, 1.0);
+    vShade = uMeshColor * mix(faceEye, faceSun, uLptSun.w);
+    vAlpha = uMeshAlpha;
     vFade = uLptCut.w > 0.0 ? 3.0 - clamp((distance(aInst.xz, uLptCut.xz) - uLptCut.w) / max(uLptBand, 1e-3), 0.0, 1.0) : 3.0;
   }
   vBBWorld = world;
@@ -633,7 +639,7 @@ void main() {
   // for the emission map, read after the cut's discard.
   vec4 tex = texture(uTex, uv);
   vec3 emissionTexel = texture(uEmissionTex, uv).rgb;
-  // ELITE FOES: an elite's widened quad reaches past its sprite - the margin is empty, never a wrapped texel; ECV1: nor
+${LPT_FS_KEEP}  // ELITE FOES: an elite's widened quad reaches past its sprite - the margin is empty, never a wrapped texel; ECV1: nor
   // is the chameleon's ripple past the edge (the texture wraps REPEAT: never pull the far edge onto this one)
   if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) tex = vec4(0.0);
 ${LPT_FS_TEXEL}  // Spectral flats keep their 180-alpha translucency (blended pass);
@@ -927,9 +933,9 @@ const BB_CORNERS = Object.freeze([
   Object.freeze([0.5, 0.5]),
   Object.freeze([0.5, -0.5]),
 ]);
-/** LPT1: a flat's corner x with its own scale and tint on it (BB_VS reads them back): the corner times the scale (its
- *  share of the batch's size, 0..1), plus twice the grey it takes in 255ths - 0 for a flat at 1 and white. */
-export const bbCornerX = (x, scale = 1, tint = 1) => Math.sign(x) * (Math.abs(x) * scale + 2 * Math.min(255, Math.max(0, Math.round((1 - tint) * 255))));
+/** LPT1: a flat's corner x with its own scale on it (BB_VS reads it back: |x| twice over) - the corner times its share
+ *  of the batch's size, 0..1; a whole flat's corner is its own. */
+export const bbCornerX = (x, scale = 1) => x * scale;
 /** AUDIT-EL F5: what a WORLD host passes beginFrame - the lane replays its records for this frame and not for a map's, a video's or a menu's. */
 export const WORLD_FRAME = Object.freeze({ world: true });
 /** The classic world programs' point-light cap (uPointLights[16] in every shader above); a lane brings its own. */
@@ -1194,7 +1200,10 @@ export const CLOUD_SHADOW_UNIT = 15;
 export const BB_SURFACE_UNIT = 6;
 /** @type {Readonly<Record<string, WebGLUniformLocation | null>>} */
 const NO_COLUMN_LOCS = Object.freeze({});
-const NO_LPT_LOCS = Object.freeze({ uMesh: null, uMeshScale: null, uMeshOpaque: null, uLptCut: null, uLptBand: null, uLptSun: null });   // LPT1: a set bound before the trees declares none
+const NO_LPT_LOCS = Object.freeze({ uMesh: null, uMeshScale: null, uMeshColor: null, uMeshAlpha: null, uLptCut: null, uLptBand: null, uLptSun: null });   // LPT1: a set bound before the trees declares none
+/** LPT1 (AUDIT LPT A2): the sun scale at which a 3D tree's faces take the sun's light whole - below it they cross to the
+ *  far picture's own light, which is all they take at night. */
+export const LPT_SUN_FULL = 0.25;
 
 export function textureParams(gl, opts = {}) {
   return opts.smooth
@@ -1389,6 +1398,7 @@ export class Renderer {
     this._ambientTri = null;
 
     this.textures = new Map(); // "archive_record" -> WebGLTexture
+    this.lptAtlases = new Set();   // LPT1: the low-poly trees' atlases (createAtlasTexture) - their owner frees them; retro's mip switch reaches them
     this._alphaArt = new WeakSet();   // OVH2: textures uploaded { alpha: true } - authored with real alpha, drawn blended
     // AUDIT 68 X3-release-texture-variant-keys: every key uploadTexture
     // minted under one "archive_record", so release frees what was made
@@ -2065,7 +2075,7 @@ export class Renderer {
     this.bbUSway = gl.getUniformLocation(this.bbProgram, 'uSway');   // WIND3
     this.bbUTip = gl.getUniformLocation(this.bbProgram, 'uTip');   // PROF4: a felled tree's fall
     // LPT1: a low-poly tree's mesh mode and the far pictures' handover (BB_VS)
-    this.bbLpt = Object.fromEntries(['uMesh', 'uMeshScale', 'uMeshOpaque', 'uLptCut', 'uLptBand', 'uLptSun'].map((n) => [n, gl.getUniformLocation(this.bbProgram, n)]));
+    this.bbLpt = Object.fromEntries(['uMesh', 'uMeshScale', 'uMeshColor', 'uMeshAlpha', 'uLptCut', 'uLptBand', 'uLptSun'].map((n) => [n, gl.getUniformLocation(this.bbProgram, n)]));
     // DW-F: COLUMN_GLSL's (both lanes' flats declare it)
     this.bbColumn = Object.fromEntries(['uColumnOn', 'uSurfaceTex', 'uDwCamFwd', 'uSeaY', 'uTopColor', 'uTopVision', 'uSurfaceScroll', 'uPixelOrigin'].map((n) => [n, gl.getUniformLocation(this.bbProgram, n)]));
     // EL1: the lane's own uniforms, per program (null on the classic set, which never declares them)
@@ -2533,6 +2543,8 @@ export class Renderer {
     for (const tex of [...this.textures.values(), ...this.emissionTextures.values()]) { if (this._replacements.has(tex)) continue; gl.bindTexture(gl.TEXTURE_2D, tex); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, level); }
     gl.bindTexture(gl.TEXTURE_2D, null);
     this._tex0Bound = null;   // PERF-TEX3: this path owns unit 0 - the shadow may not speak for it
+    for (const tex of this.lptAtlases) { gl.bindTexture(gl.TEXTURE_2D, tex); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, level); }   // LPT1 (AUDIT LPT A5): the low-poly trees' atlases with them
+    gl.bindTexture(gl.TEXTURE_2D, null);
     for (const tex of this.tileArrays.values()) { gl.bindTexture(gl.TEXTURE_2D_ARRAY, tex); gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAX_LEVEL, level); }
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, null);
     this._tArrayTex = null;   // PERF-TEX2: the terrain's array shadow - its next draw binds its own again
@@ -5094,7 +5106,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
    * @param {number[][]} centers   one [x, y, z] per flat, the BASE
    * @returns {import('./contract.js').BillboardBatch}
    */
-  createBillboardBatch(archive, record, size, centers, { dynamic = false, scales = null, tints = null } = {}) {
+  createBillboardBatch(archive, record, size, centers, { dynamic = false, scales = null } = {}) {
     const gl = this.gl;
     const count = centers.length;
     const verts = new Float32Array(count * 4 * 5);
@@ -5102,13 +5114,13 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     const corners = BB_CORNERS;
     for (let f = 0; f < count; f++) {
       const [cx, cy, cz] = centers[f];
-      const fs = scales ? scales[f] : 1, tg = tints ? tints[f] : 1;   // LPT1: a flat's own share of the batch's size and its tint, carried on its corner (BB_VS)
+      const fs = scales ? scales[f] : 1;   // LPT1: a flat's own share of the batch's size, carried on its corner (BB_VS)
       for (let c = 0; c < 4; c++) {
         const o = (f * 4 + c) * 5;
         verts[o] = cx;
         verts[o + 1] = cy;
         verts[o + 2] = cz;
-        verts[o + 3] = bbCornerX(corners[c][0], fs, tg);
+        verts[o + 3] = bbCornerX(corners[c][0], fs);
         verts[o + 4] = corners[c][1];
       }
       const b = f * 4;
@@ -5183,13 +5195,14 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     // flat - a pixel-wide wood's sphere reaches every shadow in its pixel,
     // its trees do not. Never for one built dynamic: its centres move.
     // DW-F: `dwColumn`, the host's - one flat standing in a carved sea's column (the water column's share).
-    // LPT1: `_scales` and `_tints`, each flat's own share of the size and its tint (a move keeps them), and
-    // `lptProto`, the host's - the 3D tree a far picture gives way to near the eye.
+    // LPT1: `_scales`, each flat's own share of the size (a move keeps them); `lptProto`, the host's - the 3D tree a far
+    // picture gives way to near the eye; `farH`, the host's - the height MAC1's far-ring rule reads (the classic flat's,
+    // which a far picture stands for).
     // DISC29-E: the shadow record's `_shAnim` (a flat animating in place, which the lo tier keeps) - a boolean, born
     // undefined as `_shMovedAt` (AUDIT PRE-MERGE 0929 E1: `_shPlacedAt`, the stillness it was once judged by, is gone).
     return {
       vao, indexCount: count * 6, archive, record, size, buffers: [vb, ib], origin: null, frame: null, bounds, _quads: count, _dyn: !!dynamic,
-      _scales: scales ?? null, _tints: tints ?? null, lptProto: undefined,
+      _scales: scales ?? null, lptProto: undefined, farH: undefined,
       _place: count > 1 && !dynamic ? placementGrid(centers) : null,
       _box: undefined, sway: undefined, tip: undefined, conceal: undefined, hitFlash: undefined, eliteGlow: undefined, eliteTime: undefined, elitePad: undefined, dissolve: undefined, tint: undefined, noShadow: undefined, selfCard: undefined, _dead: undefined, _moveScratch: undefined, dwColumn: undefined,
       _bbKey: undefined, _bbKeyId: undefined, _bbKeyRecord: undefined, _bbKeyFrame: undefined, _bbKeyArchive: undefined,
@@ -5224,14 +5237,14 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     const verts = (batch._moveScratch && batch._moveScratch.length >= count * 20)
       ? batch._moveScratch
       : (batch._moveScratch = new Float32Array(count * 20));
-    const scales = batch._scales, tints = batch._tints;   // LPT1: each flat keeps its own scale and tint where it moves
+    const scales = batch._scales;   // LPT1: each flat keeps its own scale where it moves
     for (let f = 0; f < count; f++) {
       const c = centers[f];
-      const fs = scales ? scales[f] : 1, tg = tints ? tints[f] : 1;
+      const fs = scales ? scales[f] : 1;
       for (let k = 0; k < 4; k++) {
         const o = (f * 4 + k) * 5;
         verts[o] = c[0]; verts[o + 1] = c[1]; verts[o + 2] = c[2];
-        verts[o + 3] = bbCornerX(BB_CORNERS[k][0], fs, tg);
+        verts[o + 3] = bbCornerX(BB_CORNERS[k][0], fs);
         verts[o + 4] = BB_CORNERS[k][1];
       }
     }
@@ -5837,9 +5850,10 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
   /**
    * LPT1 (bible/07-Rendering/Low-Poly-Trees.md): THE FRAME'S LOW-POLY TREES, or null for none - drawn by drawBillboards
    * after its opaque flats, on the billboard program. `eye` and `radius`/`band` are the handover (a far picture whose
-   * batch's `lptProto` is in `cut` - a prototype whose 3D tree this frame draws - gives way inside the radius); `gpu` the trees'
-   * buffers (render/lowPolyTreesRender.js); `runs` one prototype's instances each - `start` and `count` in the instance
-   * buffer, its root `scale`, its `size` (w, h) and `sway`, and its submeshes' `subs` ({ offset in bytes, count, tex, opaque }).
+   * batch's `lptProto` is in `cut` - a handle whose 3D trees this frame draws - gives way inside the radius); `gpu` the trees'
+   * buffers (render/lowPolyTreesRender.js); `runs` one handle's instances each - `drawStart` and `drawCount` its visible
+   * ones in the instance buffer, its root `scale`, its `size` (w, h) and `sway`, and its submeshes' `subs` ({ offset in
+   * bytes, count, tex, alpha - uMeshAlpha, color - uMeshColor, cull - 2 front faces alone }).
    * @param {{eye:number[], radius:number, band:number, gpu:any, runs:any[], cut:Set<any>}|null} frame
    */
   setLowPolyTrees(frame) { this._lpt = frame && frame.gpu ? frame : null; }
@@ -5853,36 +5867,79 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     if (on && f) gl.uniform1f(L.uLptBand, f.band);
   }
 
-  /** LPT1: the trees' instanced draws - one a prototype's submesh - and the program left in flat mode. */
+  /** LPT1: the trees' instanced draws - one a prototype's submesh, its visible instances - and the program left in flat
+   *  mode. A submesh brings its material: its atlas, its colour, its cut, and its faces (a front-only material culls
+   *  its back faces as the world's meshes do - AUDIT LPT A6). */
   _drawLowPolyTrees() {
     this._close2D();   // PERF-2D: a draw closes the 2D run first (drawBillboards has; this says so of itself)
     const gl = this.gl, f = this._lpt, L = this.bbLpt ?? NO_LPT_LOCS;
     gl.uniform1f(L.uMesh, 1);
     this._uploadLptCut(1);
-    const ld = this._lightDir;   // the sun's direction, toward it (the mesh path's uLightDir) - shading the tree's faces by day alone
-    gl.uniform4f(L.uLptSun, ld?.[0] ?? 0, ld?.[1] ?? 1, ld?.[2] ?? 0, this._clockLit && this._sunScale > 0 ? 1 : 0);
+    const ld = this._lightDir;   // the sun's direction, toward it (the mesh path's uLightDir); its share by its scale (AUDIT LPT A2)
+    const sun = this._clockLit ? Math.min(1, Math.max(0, (this._sunScale ?? 0) / LPT_SUN_FULL)) : 0;
+    gl.uniform4f(L.uLptSun, ld?.[0] ?? 0, ld?.[1] ?? 1, ld?.[2] ?? 0, sun);
     gl.uniform3f(this.bbUOrigin, 0, 0, 0);
     if (this._bbTipOn) { gl.uniform3f(this.bbUTip, 0, 0, 0); this._bbTipOn = false; }
     this._bindVao(f.gpu.vao);
     this._bindEmission(this._blackTex);   // a tree glows nowhere
-    let lastOpaque = -1;
+    let lastAlpha = -1, lastCull = 0, lr = -1, lg = -1, lb = -1;
     for (const run of f.runs) {
-      if (!run.count) continue;
-      f.gpu.pointInstances(run.start);
+      if (!run.drawCount) continue;
+      f.gpu.pointInstances(run.drawStart);
       gl.uniform3f(L.uMeshScale, run.scale[0], run.scale[1], run.scale[2]);
       gl.uniform2f(this.bbUSize, run.size[0], run.size[1]);
       gl.uniform1f(this.bbUSway, run.sway || 0);
       for (const sub of run.subs) {
         if (!sub.tex) continue;
         this._bindTex0(sub.tex);   // PERF-TEX3: unit 0 through its helper, the shadow kept
-        const op = sub.opaque ? 1 : 0;
-        if (op !== lastOpaque) { gl.uniform1f(L.uMeshOpaque, op); lastOpaque = op; }
-        gl.drawElementsInstanced(gl.TRIANGLES, sub.count, gl.UNSIGNED_INT, sub.offset, run.count);
+        if (sub.alpha !== lastAlpha) { gl.uniform1f(L.uMeshAlpha, sub.alpha); lastAlpha = sub.alpha; }
+        const [r, g, b] = sub.color;
+        if (r !== lr || g !== lg || b !== lb) { gl.uniform3f(L.uMeshColor, r, g, b); lr = r; lg = g; lb = b; }
+        if (sub.cull !== lastCull) { if (sub.cull === 2) gl.enable(gl.CULL_FACE); else gl.disable(gl.CULL_FACE); lastCull = sub.cull; }
+        gl.drawElementsInstanced(gl.TRIANGLES, sub.count, gl.UNSIGNED_INT, sub.offset, run.drawCount);
         this.stats.draws++;
       }
     }
+    if (lastCull === 2) gl.disable(gl.CULL_FACE);   // the flats' pass draws both faces
     gl.uniform1f(L.uMesh, 0);
     this._bindVao(null);
+  }
+
+  /** LPT1: A LOW-POLY TREE ATLAS'S TEXTURE - `levels` of a mip chain allocated, filled after by uploadAtlasRows a band
+   *  at a time (the build breathes between), sampled as the mod's own (Point: nearest, its mips nearest - AUDIT LPT A4),
+   *  wrapped (REPEAT), and kept with the world's textures under retro mode's mip switch (AUDIT LPT A5). */
+  createAtlasTexture(width, height, levels) {
+    const gl = this.gl, tex = gl.createTexture();
+    this._activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    for (let i = 0, w = width, h = height; i < levels; i++, w = Math.max(1, w >> 1), h = Math.max(1, h >> 1)) gl.texImage2D(gl.TEXTURE_2D, i, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, this._retroMips ? levels - 1 : 0);   // RETRO1: no chain read while retro mode says so
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    this._tex0Bound = null;   // PERF-TEX3: this path owns unit 0 - the shadow may not speak for it
+    this.lptAtlases.add(tex);
+    return tex;
+  }
+
+  /** LPT1: rows of an atlas's level - `y` from the level's bottom (the port's texel order), `rows` RGBA bottom-up. */
+  uploadAtlasRows(tex, level, y, width, rows) {
+    const gl = this.gl;
+    this._activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texSubImage2D(gl.TEXTURE_2D, level, 0, y, width, rows.length / (width * 4), gl.RGBA, gl.UNSIGNED_BYTE, rows);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    this._tex0Bound = null;
+  }
+
+  /** LPT1 / EVERY ALLOCATION HAS AN OWNER: an atlas given back. */
+  releaseAtlasTexture(tex) {
+    if (!this.lptAtlases.delete(tex)) return;
+    if (this._tex0Bound === tex) this._tex0Bound = null;
+    this.gl.deleteTexture(tex);
   }
 
   drawBillboards(batches, camRight, camUp) {
@@ -6107,6 +6164,13 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     // own atlases and send their own size and origin. Drawn ONCE: the frame's set is spent here, so a later call this
     // frame (a spell, the gibs) or a scene the host leaves for (an interior) draws none and gives no picture way
     if (this._lpt?.runs.length) {
+      // AUDIT LPT A1: the trees take none of the last flat's own state - a struck peer sorted last flashed every tree
+      if (lastFlash !== 0) { gl.uniform1f(this.bbUHitFlash, 0); lastFlash = 0; }
+      if (lastGlow !== 0) { gl.uniform1f(this.bbUEliteGlow, 0); lastGlow = 0; }
+      if (this._bbPadOn) { gl.uniform4f(this.bbUElitePad, 0, 0, 0, 0); this._bbPadOn = false; }
+      if (this._bbDissolveOn) { gl.uniform4f(this.bbUDissolve, 0, 0, 0, 0); this._bbDissolveOn = false; }
+      if (this._bbTintOn) { gl.uniform3f(this.bbUBatchTint, 1, 1, 1); this._bbTintOn = false; }
+      if (this._bbColumnOn) { gl.uniform1f(bc.uColumnOn, 0); this._bbColumnOn = 0; }
       this._drawLowPolyTrees();
       lastKey = null; lastW = NaN; lastH = NaN; lastOx = NaN; lastOy = NaN; lastOz = NaN; lastSway = null;
       this._bbLptCutOn = -1;

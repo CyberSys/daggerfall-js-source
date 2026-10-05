@@ -6,10 +6,8 @@
 //
 // THE LAYOUT, the billboard program's: location 0 the vertex (BB_VS aCenter), 1 its uv (aCorner), 2 its normal (aNormal)
 // - the vendored f32 x 8 a vertex as it stands (tools/lowPolyTreesExtract.mjs packMeshes); 3 and 4 the instance, a
-// divisor each: [x, y, z, yaw] (aInst) and [scale, tint] (aInst2) - LPT_INSTANCE_FLOATS a tree.
-
-/** Floats an instance: its root (x, y, z), its turn about +Y, its scale and its tint. */
-export const LPT_INSTANCE_FLOATS = 6;
+// divisor each: [x, y, z, yaw] (aInst) and its scale (aScale) - LPT_INSTANCE_FLOATS a tree (world/lowPolyTrees.js's).
+import { LPT_INSTANCE_FLOATS } from '../world/lowPolyTrees.js';
 
 export class LowPolyTreesGpu {
   /**
@@ -53,7 +51,8 @@ export class LowPolyTreesGpu {
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
   }
 
-  /** The frame's instances, `count` of them, packed LPT_INSTANCE_FLOATS a tree; the buffer grows by doubling. */
+  /** The frame's instances (the visible ones), `count` of them, packed LPT_INSTANCE_FLOATS a tree; the buffer grows by
+   *  doubling. */
   setInstances(data, count) {
     const gl = this.gl;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer);
@@ -71,7 +70,7 @@ export class LowPolyTreesGpu {
     const gl = this.gl, stride = LPT_INSTANCE_FLOATS * 4, at = first * stride;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer);
     gl.vertexAttribPointer(3, 4, gl.FLOAT, false, stride, at);
-    gl.vertexAttribPointer(4, 2, gl.FLOAT, false, stride, at + 16);
+    gl.vertexAttribPointer(4, 1, gl.FLOAT, false, stride, at + 16);
   }
 
   destroy() {

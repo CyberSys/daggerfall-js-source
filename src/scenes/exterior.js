@@ -224,7 +224,8 @@ import { isEnhanced } from '../systems/uiSkin.js';
 import { getPref } from '../systems/uiPrefs.js';   // WATER1: the water's switch
 import { createCoverIndex, isCoverFlat, coverProxies } from '../ai/cover.js';   // TACT1: billboards are cover
 import { createLowPolyTrees } from '../systems/lowPolyTreesAssets.js';   // LPT1: Low Poly Trees - the host's one door (as world.js)
-import { LPT_ARCHIVES, LPT_SCALE_MAX, lptVariety } from '../world/lowPolyTrees.js';   // LPT1
+import { LPT_ARCHIVES, LPT_SCALE_MAX, buildTreeSet } from '../world/lowPolyTrees.js';   // LPT1
+import { spherePlanes } from '../render/bounds.js';   // LPT1 (AUDIT LPT B4): the near trees' sphere test reads normalised planes
 import { isTreeRecord } from '../world/terrainNature.js';   // AUDIT TACT B2: a tree is a trunk and a crown
 import { noteLocalPlayer, tacticsNow, tickTactics } from '../ai/tactics.js';   // TACT2/TACT4; AUDIT TACT: the clock's tick
 import { foeFrameDt } from '../characters/enemyMotor.js';   // AUDIT TACT: the foes' own step, for the brain's clock
@@ -1008,12 +1009,13 @@ export async function bootExterior(canvas, renderer, params, status) {
   const billboardBatches = [];
   let flatCount = 0;
   // LPT1 (bible/07-Rendering/Low-Poly-Trees.md): LOW POLY TREES, as world.js stands them - every flat here a location's
-  // (no terrain nature: DFU's terrain variety is never theirs), one set in world space (this host has no floating origin)
+  // (no terrain nature: DFU's terrain variety is never theirs), one set in world space (this host has no floating origin).
+  // The season is installed once, before the flats (above), and this host holds its handles for its life.
   const lowPolyTrees = modSetting('low-poly-trees', 'Enabled') && params.get('trees') !== 'off' ? createLowPolyTrees({
     renderer, getTexture,
-    seasonal: seasons ? { key: () => `s${seasons.installedSeason}`, picture: (a, r) => seasons.lookup(a, r)?.texture ?? null } : null,
+    seasonal: seasons ? { key: (a) => (seasons.lookup(a, 1) ? `s${seasons.installedSeason}.${seasons.generation}` : ''), picture: (a, r) => seasons.lookup(a, r)?.texture ?? null, generation: () => seasons.generation } : null,   // AUDIT LPT C2: the season only where it re-skins the tree's own archive (world.js)
   }) : null;
-  const lptTrees = [], lptProtos = [], lptSway = new Map();
+  const lptHandles = [], lptGroups = [], lptSway = new Map();
   for (const [key, centers] of flatGroups) {
     const [archive, record] = key.split('_').map(Number);
     const t = textureFiles.get(archive);
@@ -1023,11 +1025,11 @@ export async function bootExterior(canvas, renderer, params, status) {
     const far = lpt ? await lowPolyTrees.farPicture(lpt) : null;
     if (far) {
       const plain = sib ? sib.size : billboardSize(t, record);
-      let pi = lptProtos.indexOf(lpt);
-      if (pi < 0) pi = lptProtos.push(lpt) - 1;
-      for (const c of centers) { const v = lptVariety(0, 0, c[0], c[2], true); lptTrees.push(pi, c[0], c[1], c[2], v.scale, v.tint, v.yaw); }
+      lowPolyTrees.acquire(far); lptHandles.push(far);
+      lptGroups.push({ h: lptHandles.length - 1, centers, wild: null });
       const batch = renderer.createBillboardBatch(archive, far.record, far.size, centers, { scales: centers.map(() => 1 / LPT_SCALE_MAX) });
-      batch.lptProto = lpt;
+      batch.lptProto = far;
+      batch.farH = plain.h;   // AUDIT LPT A8 (as world.js)
       batch._box = flatBatchAabb(centers, far.size);
       batch.sway = floraSwayOf(archive, natureArchive, plain.h);
       lptSway.set(lpt, batch.sway);
@@ -1059,8 +1061,9 @@ export async function bootExterior(canvas, renderer, params, status) {
     if (isCoverFlat(archive, record, size)) collider.cover.add('tact1:flats', centers.flatMap((c) => coverProxies(c, size, { tree: archive === natureArchive && isTreeRecord(natureArchive, record) })));   // TACT1; AUDIT TACT B2: a tree's trunk and crown
   }
 
-  const lptSets = lptTrees.length ? [{ ox: 0, oy: 0, oz: 0, protos: lptProtos, trees: Float32Array.from(lptTrees) }] : [];   // LPT1: the location's 3D trees, gatherNear's one set
-  const lptOpts = { swayOf: (proto) => lptSway.get(proto) ?? 0 };
+  const lptSets = lptGroups.length ? [{ ox: 0, oy: 0, oz: 0, handles: lptHandles, ...buildTreeSet(0, 0, lptGroups) }] : [];   // LPT1: the location's 3D trees, gatherNear's one set
+  const _lptPlanes = new Float32Array(24);
+  const lptOpts = { swayOf: (proto) => lptSway.get(proto) ?? 0, planes: cullOn ? _lptPlanes : null };
 
   // AUDIT 26 (F019): the street StaticNPCs' identity + extent, once
   // their archives are loaded (they are flats, so the batch pass above
@@ -1083,7 +1086,7 @@ export async function bootExterior(canvas, renderer, params, status) {
   //     re-running the pass idempotently when its bridge lands - and it
   //     can only do that because it keeps the NPC flats OUT of the
   //     pixel's billboard batches on purpose (`if (npcFlatSet.has(flat))
-  //     continue;`, world.js:3927) and stands them in batches of their
+  //     continue;`, world.js:3935) and stands them in batches of their
   //     own over the ACTIVE set. THIS host builds one batch per
   //     (archive, record) for the WHOLE city, up front, with every
   //     street NPC's center already inside it (the batch loop above), and
@@ -1139,7 +1142,7 @@ export async function bootExterior(canvas, renderer, params, status) {
         // that can see the player or would have spawned in classic.
         // `activeCount() > 0` was a different question - one unaware
         // guard alive anywhere in town killed the collapse.
-        enemiesNearby: areEnemiesNearby([...(cityGuards?.guards ?? []), ...(exteriorFoes?.foes ?? [])]),   // ROAD-G G2: BOTH street pools, world.js:5096's line
+        enemiesNearby: areEnemiesNearby([...(cityGuards?.guards ?? []), ...(exteriorFoes?.foes ?? [])]),   // ROAD-G G2: BOTH street pools, world.js:5111's line
         swimming: !!player.isPlayerSwimming, entity: playerEntity,   // XL-1: PlayerEntity.cs:2406/:2426 read PlayerEnterExit.IsPlayerSwimming - PlayerMotor.IsSwimming is false outdoors (:421)
         day: !isNight(minuteNow()), inside: false,
       });
@@ -1721,7 +1724,7 @@ export async function bootExterior(canvas, renderer, params, status) {
   const exteriorFoePool = () => [...cityGuards.guards, ...exteriorFoes.foes];
   // ROAD-B/ROAD-G G2: the AREA, for GameManager.MakeEnemiesHostile
   // (:790-806) - the street's two pools joined with whatever inside
-  // pool the mode machine holds, which is world.js:5788's line.
+  // pool the mode machine holds, which is world.js:5803's line.
   const _liveEnemyDatabase = () => [
     ...exteriorFoes.foes, ...cityGuards.guards, ...(modes?.insideFoes?.() ?? []),
   ];
@@ -1757,7 +1760,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // which ticks in dungeon mode, fell straight through to the street
     // law - 2-5 Knight_CityWatch placed against the EXTERIOR collider
     // at the player's dungeon-local feet, the exact case cityGuards'
-    // own note describes. Written in world.js:8562's shape, so one pin
+    // own note describes. Written in world.js:8577's shape, so one pin
     // covers both hosts (`modes` is the `var` below; the thunk is lazy).
     enterExitFlags: () => ({
       isPlayerInsideDungeon: (modes?.mode ?? 'exterior') === 'dungeon',
@@ -1796,7 +1799,7 @@ export async function bootExterior(canvas, renderer, params, status) {
    *  shape, for ever), the Wabbajack's exterior arm refused to transform
    *  a struck foe, and SoulBound's break release and the Sanguine Rose
    *  had nowhere to put a Daedroth above ground. It is the SAME factory
-   *  the other two exterior hosts mount - world.js:5855 over the street
+   *  the other two exterior hosts mount - world.js:5870 over the street
    *  collider, worldModes' `makeInteriorFoes` over a building's - and
    *  the deps are this host's own.
    *
@@ -1807,7 +1810,7 @@ export async function bootExterior(canvas, renderer, params, status) {
    *  here that the per-minute INTERMITTENT
    *  SPAWN roll (:486-492) still has no caller on this route - that
    *  loop carries the passive-guard and NPC-guard-conversion arms with
-   *  it (world.js:8802-8989) and is its own slice; this pool does not
+   *  it (world.js:8817-9004) and is its own slice; this pool does not
    *  wait on it. */
   const exteriorFoes = createExteriorFoes({
     renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, hitEffects,
@@ -2234,7 +2237,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // The MASTERY box (RaiseSkills :1390-1401) - TEXT.RSC 4020.
     box: (rows) => townTalk.showOverlay(new ActionTextBox(rows)),
     ask: (rows, onYes, onNo, opts = {}) => townTalk.showOverlay(new YesNoBoxWindow({ rows, onYes, onNo, ...opts })),   // SOFTCAP3: the Master Skills box - DFU's Yes/No or OK box (both skins)
-    advanceMinutes: (n) => { playerTicker.advance(n); runEncounterTick(walkMode ? player.pos : cam.pos, true); },   // CAMP1-REST: every tick this drives IS a rest   // ROAD-G TAIL: the catch-up loop rides the rest's minutes, as world.js:10572 has it
+    advanceMinutes: (n) => { playerTicker.advance(n); runEncounterTick(walkMode ? player.pos : cam.pos, true); },   // CAMP1-REST: every tick this drives IS a rest   // ROAD-G TAIL: the catch-up loop rides the rest's minutes, as world.js:10587 has it
     // QX1: TickRest's per-hour QuestMachine.Instance.Tick (:379),
     // through THIS host's own bridge. It used to be `null` with a note
     // saying "grep questBridge in this file returns nothing" - true
@@ -2576,7 +2579,7 @@ export async function bootExterior(canvas, renderer, params, status) {
   /** AUDIT 58 (f2/hosts): HOISTED, because the enchant ctx below needs
    *  the same object. A caster reaches applySpell as `{ entity, sinks }`
    *  and the sinks are what a Transfer effect heals the caster through
-   *  (effects.js:965/:979) - world.js:9430 hoisted its copy for exactly
+   *  (effects.js:965/:979) - world.js:9445 hoisted its copy for exactly
    *  that reason when reflection was wired, and this host's stayed
    *  inline only because nothing else had asked for it. */
   const playerSpellSinks = {
@@ -2627,7 +2630,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // neither key, so on this route - and, because worldModes takes THIS
     // instance indoors, in every shop entered from it - `cast X spell do`
     // and `cast X effect do` could never latch and never fire. The other
-    // two engine-owning hosts wire the identical pair (world.js:9074-9075,
+    // two engine-owning hosts wire the identical pair (world.js:9089-9090,
     // dungeonContext.js:2841-2842); `questBridge` is assigned below this
     // mount, so the chain is optional both ways.
     onNewReadySpell: (sp) => questBridge?.machine?.notifyNewReadySpell?.(sp),
@@ -3734,14 +3737,14 @@ export async function bootExterior(canvas, renderer, params, status) {
     // below) has always been the clone, so a read off the file was a
     // read of a different Map: `change repute with _npc_ by 30` landed
     // on one and `when repute with _npc_ is at least N` asked the
-    // other. world.js:15869 is the same line.
+    // other. world.js:15884 is the same line.
     getFactionData: (id) => _questStore()?.dict.get(id) ?? null,
     /** PersistentFactionData.FindFactions by type - Person.cs's
      *  _getRandomFactionOfType (:967-1018). Unmounted, a Person
      *  declared `factiontype Temple/Daedra/Witches_Coven` threw. */
     findFactionsOfType: (type) => { const s = _questStore(); return s ? [...s.dict.values()].filter((f) => f.type === type) : []; },
     /** FindFactionByTypeAndRegion (PersistentFactionData.cs:236-265),
-     *  %rn/%rt's producer - world.js:15765-15778. */
+     *  %rn/%rt's producer - world.js:15780-15793. */
     findFactionByTypeAndRegion: (type, regionIndex) => {
       const s = _questStore();
       return s ? findFactionByTypeAndRegion(s.dict, type, regionIndex) : null;
@@ -3780,7 +3783,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     currentWeatherKey: () => currentWeather() ?? null,   // Q5: the Weather trigger's read
     isPlayerInLocationRect: () => _musicInLocationRect(),
     playerPixel: () => _locPixel,   // F114: the quest clock's travel arm
-    // QG1: CastSpellDo's two world reads, world.js:15675-15678's pair.
+    // QG1: CastSpellDo's two world reads, world.js:15690-15693's pair.
     // Without them the action self-completes at parse (actions.js:2812/:2819)
     // and a `cast X spell do` on this route could never be armed, whatever
     // the ready-spell doors above raise.
@@ -3811,7 +3814,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     /** Place.AssignQuestResource's hot-place tail (Place.cs:508-527) -
      *  AddQuestResourceObjects over whatever site the player already
      *  stands in. The mode machine owns the mount and is already
-     *  mode-aware (worldModes:1258), so this is world.js:15581's line
+     *  mode-aware (worldModes:1258), so this is world.js:15596's line
      *  over this host's own modes bag. */
     mountCurrentSiteQuestResources: () => modes?.mountQuestResources?.(),
     /** AUDIT 63 F1: the same static-NPC behaviour cache
@@ -3824,7 +3827,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // meets a Foe could complete on this route.
     /** GameObjectHelper.CreateFoeGameObjects (:1243-1305), data side:
      *  `count` inactive handles, activation deferred to placement.
-     *  Bridge-only, no host state - world.js:15589's call verbatim. */
+     *  Bridge-only, no host state - world.js:15604's call verbatim. */
     createFoeGameObjects: (foe, count) => mintQuestFoeWave(questBridge.machine, foe, count),
     /** CreateFoe.TryPlacement (:183-211), ALL THREE ARMS. The INSIDE
      *  two are the mode machine's - worldModes.tryPlaceQuestFoe places
@@ -3839,7 +3842,7 @@ export async function bootExterior(canvas, renderer, params, status) {
      *  city's rect for its whole life (`_musicInLocationRect` is
      *  `() => true`), so the wilderness arm (:252-257) has no reachable
      *  branch here at all and the ring is the default one, unqualified.
-     *  Everything else is world.js:15766's arm term for term: the cast
+     *  Everything else is world.js:15781's arm term for term: the cast
      *  origin is the controller CENTRE (DFU rays from
      *  PlayerObject.transform.position, not the feet), the FOV is
      *  handed over in DEGREES (`fieldOfView()` answers radians), the
@@ -3950,7 +3953,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // to the pending pile rather than straight into the pack. The
     // flagless form is a different question and has its own caller
     // below (`inTownLocation`, CanRest's second arm). This is the
-    // closure S40 gave this host, and world.js:16459's line.
+    // closure S40 gave this host, and world.js:16474's line.
     isPlayerInTown: () => _isPlayerInTownStrict(),
     // Q5: the un-pended quest actions' doors, all of them this host's
     // own arms - the crime setter (V4's SuppressCrime gate), the gold
@@ -3975,7 +3978,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // which is the one seam that really does ask the narrower question.
     makeEnemiesHostile: _makeEnemiesHostile,
     // GameManager.ClearEnemies destroys every active enemy object; the
-    // encounter half is world.js:16560's line and the watch half is this
+    // encounter half is world.js:16575's line and the watch half is this
     // host's own (cityGuards owns its live list).
     clearEnemies: () => { cityGuards.clearLive?.(); for (const f of [...exteriorFoes.foes]) { if (!f.dead) exteriorFoes.removeFoe(f); } lockOn.unlock(); },   // AUDIT 62 F16: a removed foe is never flagged dead, so the lock must be let go here
     // MT-iii/MT-iv: ChangeFoeInfighting / ChangeFoeTeam's instance walk
@@ -4000,13 +4003,13 @@ export async function bootExterior(canvas, renderer, params, status) {
   // (:10916) alone, so on ?exterior every HUD line this host and its
   // interior arm spoke was dropped from the journal's Messages page -
   // a page exterior.js:1102 wires up and can reach. Same moment and
-  // same order as world.js:16457/:16465, for the same reason: the
+  // same order as world.js:16472/:16480, for the same reason: the
   // notebook only exists once the bridge above is built.
   townTalk.hudMessageSink = (t) => questBridge?.notebook?.addMessage(t);
   // AUDIT 63 F5: DaggerfallTalkWindow.OnPop's notebook filing
   // (DaggerfallTalkWindow.cs:319). townTalk holds the one talk-window
   // door and no notebook; the bridge holds the notebook and is built
-  // here, so the sink is handed down at this moment - world.js:16761's
+  // here, so the sink is handed down at this moment - world.js:16776's
   // line for this host.
   townTalk.notebookSink = (tokens) => questBridge?.notebook?.addNoteTokens(tokens);
   questBridge.onInitWorld();   // QuestMachine's OnInitWorld - this route's ONE city is its world
@@ -4265,7 +4268,7 @@ export async function bootExterior(canvas, renderer, params, status) {
       // search; an empty list means an owned house never resolves even
       // in its OWN town, so this host sold every deed for nothing
       // before F26's guard and would refuse every sale after it. Same
-      // two inputs the world host uses (world.js:22855).
+      // two inputs the world host uses (world.js:22870).
       buildings: locationBuildings(dfLocation.exterior?.buildings ?? [], loc.blocks, { locationIndex: dfLocation.locationIndex ?? 0 }),
       mapId: dfLocation?.mapTableData?.mapId ?? 0,
       regionIndex: dfLocation.regionIndex ?? 0, townBlocks: homeTownBlocks(dfLocation),   // AUDIT HOME-PRICE C1: the town's size
@@ -4350,7 +4353,7 @@ export async function bootExterior(canvas, renderer, params, status) {
    *  host's only pool is the WATCH, which mints watchmen and exposes
    *  no free spawn pair", so a soul released or a Rose used in the
    *  street released nothing at all. That premise died with the
-   *  encounter mount above, and world.js:9617-9633 is the shape.
+   *  encounter mount above, and world.js:9632-9648 is the shape.
    *  INTERIOR still refuses - worldModes' interior pool exposes no
    *  loose-spawn door - which is EC1's answer and world.js's own for
    *  the same mode. AUDIT 68 S23-coven-punishment-interior-only: at
@@ -4437,7 +4440,7 @@ export async function bootExterior(canvas, renderer, params, status) {
      *  been another host's. The encounter pool mounted above owns both,
      *  so an encounter or quest foe struck in the street is removed and
      *  re-stood by the pool that owns its billboard, exactly as
-     *  world.js:9564-9565 does it. ROAD-G TAIL: a WATCHMAN transforms
+     *  world.js:9579-9580 does it. ROAD-G TAIL: a WATCHMAN transforms
      *  too, through removeGuard. (The sentence that stood here:) it was left standing:
      *  the street pool cannot remove a record it does not own, which is
      *  the same departure worldModes records for the indoor watch. */
@@ -5602,7 +5605,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // ROAD-G G2: THE ENEMY ARM EXISTS NOW - the note here said "this
     // host mounts no bow-armed pool", which stopped being true with the
     // encounter mount above, and an archer's shaft would have flown
-    // through the player for ever. world.js:26951-27230 is the shape.
+    // through the player for ever. world.js:26966-27245 is the shape.
     arrows.update(dt, {
       // enemy arrows hunt only a WALKING player - the fly camera has no
       // capsule to hit
@@ -5695,7 +5698,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     renderer.drawFoeTelegraphs?.(drawableBlows(tacticsNow(), walkMode ? player.pos : cam.pos));   // TACT4: a foe's wind-up on the ground
     for (const b of arenaBouts.batches()) _visBatches.push(b);   // ARENA-FIX 12: the crowd in the colosseum's tiers, and what it throws
     bloodMarks.draw(camRight, UP_Y);   // BLOOD1a: the marks go down BEFORE the billboards, so a body standing in its own blood is over it and not under it. ABOVE setFlatWind for the reason its own neighbour gives: WIND3 pins the wind and the draw as ADJACENT.
-    if (lowPolyTrees && lptSets.length) lowPolyTrees.frame(lptSets, cam.pos[0], cam.pos[1], cam.pos[2], lptOpts);   // LPT1: the near 3D trees, for the flats' call below
+    if (lowPolyTrees && lptSets.length) { if (cullOn) spherePlanes(_pv, _lptPlanes); lowPolyTrees.frame(lptSets, cam.pos[0], cam.pos[1], cam.pos[2], lptOpts); }   // LPT1: the near 3D trees, for the flats' call below - culled to the frame's view (AUDIT LPT B4)
     renderer.setFlatWind(floraSwayOn() && wd.on ? [wd.windV[0], wd.windV[1], now / 1000, wd.gust] : null);   // WIND3: the flats lean with the one wind; the flora batches carry their share (sway)
     renderer.drawBillboards(_visBatches, camRight, UP_Y);
     if (_castBatches.length) renderer.recordShadowBillboards(_castBatches, camRight, UP_Y);   // SHADOW-REACH: for the maps alone, on the same wind
@@ -5863,7 +5866,7 @@ export async function bootExterior(canvas, renderer, params, status) {
         const swing = {};   // AUDIT DISC19: one swing, one attack grunt, however many pools it is offered to
         if (!cityGuards.resolvePlayerHit(weaponRig.playerWeapon, eye, fwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing })) {
           // ROAD-G G2: encounter foes resolve AFTER the watch and
-          // BEFORE civilians - world.js:27363's order, and the order
+          // BEFORE civilians - world.js:27378's order, and the order
           // matters because a watchman standing over a quest foe must
           // still be the one the swing finds.
           if (exteriorFoes.resolvePlayerHit(weaponRig.playerWeapon, eye, fwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing })) {

@@ -37,13 +37,13 @@ import { openScene, bundleContainer, UCLASS, decodeMesh } from './lib/unityScene
 import { TextureFile } from '../src/formats/textureFile.js';
 import { DFPalette } from '../src/formats/dfPalette.js';
 import { classicRecordRgba } from '../src/formats/derivedTexture.js';
-import { orientedSize, orientedSource, composeAtlas, fillPicture, LPT_FILL_CELL, LPT_ORIENTATIONS } from '../src/world/lowPolyTrees.js';
+import { orientedSize, orientedSource, composeAtlas, fillPicture, LPT_FILL_CELL, LPT_ORIENTATIONS, LPT_ARCHIVES } from '../src/world/lowPolyTrees.js';
 import { isMain } from './lib/isMain.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 /** The nature archives the mod replaces, and the only ones its pictures are cut from. */
-export const LPT_SOURCE_ARCHIVES = Object.freeze([500, 501, 502, 503, 504, 505, 506, 507, 508, 509, 510, 511]);
-const PATCH = 3, TOLERANCE = 6, MIN_BLIT = 40, CLEAN = 0.9, KEEP_MIN = 60, FILL_MIN = 40, REACH = 2;
+export const LPT_SOURCE_ARCHIVES = LPT_ARCHIVES;   // ONE DFU MEMBER, ONE EXPORT (AUDIT LPT D15): the runtime's own list
+const PATCH = 3, TOLERANCE = 6, MIN_BLIT = 40, FILL_MIN = 40, FILL_MIN_OPAQUE = 4, REACH = 2, USE_CELL = 8;
 
 /** A texture's texels, top-down RGBA (Unity stores rows bottom-up; mip 0 only). */
 export function textureRgba(scene, t) {
@@ -111,7 +111,7 @@ const patchKey = (d, w, x, y) => {
  * @param {Map<string, {a:number,r:number,f:number,rgba:any}>} records
  * @param {{snow?: boolean}} [opts] a winter archive's picture (its crowns may be capped)
  */
-export function atlasSpec(pic, records, { snow = false } = {}) {
+export function atlasSpec(pic, records, { snow = false, uses = [] } = {}) {
   const W = pic.width, H = pic.height;
   // a texel is the picture's when it is drawn: its alpha on an alpha picture, not black on an opaque one
   const drawn = new Uint8Array(W * H);
@@ -174,25 +174,29 @@ export function atlasSpec(pic, records, { snow = false } = {}) {
   }
   // KEPT: every upright copy (as it stands or mirrored), and a turned one that is a clean crop; the rest are pieces of
   // a folded crown, which a fill stands for
-  const kept = blits.map((b) => !(srcs[b.si].o >> 1) || (b.clean >= CLEAN && b.n >= KEEP_MIN));
+  const kept = blits.map(() => true);
   const keptIndex = new Int32Array(blits.length).fill(-1);
   const keptBlits = [];
   blits.forEach((b, bi) => {
     if (!kept[bi]) return;
     keptIndex[bi] = keptBlits.length;
     const { img } = srcs[b.si];
-    // ERASE: the record's texels inside the clip this copy did not claim (another copy holds them, or the author cut them)
+    // ERASE: where this copy must not paint - the record's texels inside the clip the author cut, or a LATER copy holds.
+    // Each span is a whole gap between the texels this copy claims (a record's clear texel and one an earlier copy
+    // painted are passed through - the paint skips them anyway), so its ends are this copy's own claims or the clip's
+    // edges and never the record's silhouette (AUDIT LPT D13)
     const erase = [];
     for (let y = b.clip[1]; y < b.clip[3]; y++) {
-      let run = -1;
+      let gap = b.clip[0], cut = false;
       for (let x = b.clip[0]; x <= b.clip[2]; x++) {
-        let cut = false;
-        if (x < b.clip[2]) {
+        const i = y * W + x;
+        if (x < b.clip[2] && owner[i] !== bi) {
           const sx = x - b.ox, sy = y - b.oy;
-          cut = sx >= 0 && sy >= 0 && sx < img.width && sy < img.height && !!img.data[(sy * img.width + sx) * 4 + 3] && owner[y * W + x] !== bi;
+          if (sx >= 0 && sy >= 0 && sx < img.width && sy < img.height && img.data[(sy * img.width + sx) * 4 + 3] && !(owner[i] >= 0 && owner[i] < bi)) cut = true;
+          continue;
         }
-        if (cut && run < 0) run = x;
-        if (!cut && run >= 0) { erase.push(y, run, x); run = -1; }
+        if (cut) erase.push(y, gap, x);
+        gap = x + 1; cut = false;
       }
     }
     const s0 = srcs[b.si];
@@ -228,7 +232,7 @@ export function atlasSpec(pic, records, { snow = false } = {}) {
   const fills = [];
   let fillErr = 0, fillTexels = 0;
   for (const g of groups) {
-    if (g.n < FILL_MIN) continue;
+    if (g.n < (pic.alpha ? FILL_MIN : FILL_MIN_OPAQUE)) continue;
     const gw = g.x1 - g.x0 + 1, gh = g.y1 - g.y0 + 1;
     // its cells: where in its box the region lies (a quarter of a cell's texels), never its picture
     const cols = Math.ceil(gw / LPT_FILL_CELL), rows = Math.ceil(gh / LPT_FILL_CELL);
@@ -254,6 +258,26 @@ export function atlasSpec(pic, records, { snow = false } = {}) {
       tally.set(k, (tally.get(k) ?? 0) + Math.min(b.n, ix * iy));
     });
     const tops = [...tally].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k]) => k);
+    // the flats whose trees draw from this region - the author made a tree's picture out of the flat it stands for
+    // (AUDIT LPT C5): their records first among the candidates
+    const mine = new Map();
+    for (const u of uses) {
+      let n = 0;
+      for (let y = Math.floor(g.y0 / USE_CELL); y <= Math.floor(g.y1 / USE_CELL); y++) for (let x = Math.floor(g.x0 / USE_CELL); x <= Math.floor(g.x1 / USE_CELL); x++) if (u.cells.has(y * 4096 + x)) n++;
+      if (n) mine.set(u.key, (mine.get(u.key) ?? 0) + n);
+    }
+    for (const [k] of [...mine].sort((a, b) => b[1] - a[1]).slice(0, 4).reverse()) if (records.has(`${k}_0`) && !tops.includes(k)) tops.unshift(k);
+    if (!tops.length) {   // no copy within reach: the nearest kept copy's record
+      let nearest = null;
+      blits.forEach((b) => {
+        const dx = Math.max(0, b.clip[0] - g.x1, g.x0 - b.clip[2]), dy = Math.max(0, b.clip[1] - g.y1, g.y0 - b.clip[3]);
+        const d = dx * dx + dy * dy;
+        if (!nearest || d < nearest.d) nearest = { d, k: `${srcs[b.si].a}_${srcs[b.si].r}` };
+      });
+      if (nearest) tops.push(nearest.k);
+    }
+    // a winter picture's region may be the winter record of a summer copy beside it: its twin a candidate too
+    if (snow) for (const k of [...tops]) { const [a, r] = k.split('_').map(Number); if (!(a & 1) && records.has(`${a + 1}_${r}_0`) && !tops.includes(`${a + 1}_${r}`)) tops.push(`${a + 1}_${r}`); }
     if (!tops.length) continue;
     // the author's own stats over the group's texels
     let mr = 0, mg = 0, mb = 0;
@@ -280,6 +304,11 @@ export function atlasSpec(pic, records, { snow = false } = {}) {
       if (!src) continue;
       for (const sn of snow ? [0, 1] : [0]) {
         const f = ['top', a, r, g.x0, g.y0, gw, gh, sn, hex];
+        const e = score(fillPicture(f, src));
+        if (!best || e < best.e) best = { f, e };
+      }
+      for (const mir of [0, 1]) {
+        const f = ['fit', a, r, g.x0, g.y0, gw, gh, mir, hex];
         const e = score(fillPicture(f, src));
         if (!best || e < best.e) best = { f, e };
       }
@@ -314,11 +343,12 @@ export function atlasSpec(pic, records, { snow = false } = {}) {
   for (let i = 0; i < W * H; i++) { if (drawn[i]) drawnCount++; if (drawn[i] && claimedBy(i)) claimed++; }
   return {
     size: [W, H], blits: keptBlits, fills,
-    stats: { drawn: drawnCount, claimed, filled: fillTexels, fillError: fillTexels ? fillErr / fillTexels : 0, kept: keptBlits.length, pieces: blits.length - keptBlits.length, fills: fills.length, tops: fills.filter((f) => f[0] === 'top').length },
+    stats: { drawn: drawnCount, claimed, filled: fillTexels, fillError: fillTexels ? fillErr / fillTexels : 0, kept: keptBlits.length, fills: fills.length, tops: fills.filter((f) => f[0] === 'top').length, fits: fills.filter((f) => f[0] === 'fit').length },
   };
 }
 
-/** Painted back from the records, every texel a kept blit claimed: how many come back within the match's tolerance. */
+/** Painted back from the records, the copies alone: how many texels they paint, how many of those come back within
+ *  the match's tolerance, and (with `claimed`, the count the match made) whether every texel a copy claimed is painted. */
 export function verifySpec(spec, pic, records, eraseBytes = null) {
   const back = composeAtlas({ size: spec.size, blits: spec.blits }, (a, r, f) => records.get(`${a}_${r}_${f}`)?.rgba ?? null, eraseBytes);   // the copies alone
   let painted = 0, exact = 0;
@@ -365,10 +395,18 @@ export function readBundle(bytes) {
     if (!materialKey.has(m.pathId)) {
       const env = (m.v.m_SavedProperties?.m_TexEnvs ?? []).find((e) => e.first === '_MainTex');
       const tex = env ? textureOf(env.second.m_Texture) : null;
-      const cut = (m.v.m_SavedProperties?.m_Floats ?? []).find((f) => f.first === '_Cutoff')?.second ?? 0.5;
+      const floats = m.v.m_SavedProperties?.m_Floats ?? [];
+      const float = (n) => floats.find((f) => f.first === n)?.second;
+      const cut = float('_Cutoff') ?? 0.5;
+      // the faces it draws: SpeedTree's _Cull, SpeedTree8's _TwoSided (both a CullMode - 0 off, 2 back), Standard's back
+      const shader = scene.get(m.v.m_Shader)?.v?.m_ParsedForm?.m_Name ?? '';
+      const cull = shader === 'Standard' ? 2 : (shader === 'Nature/SpeedTree8' ? float('_TwoSided') : float('_Cull')) ?? 2;
+      // its colour (_Color, which every one of the mod's shaders multiplies the texture by) - kept when not white
+      const c = (m.v.m_SavedProperties?.m_Colors ?? []).find((e) => e.first === '_Color')?.second;
+      const color = c && (c.r !== 1 || c.g !== 1 || c.b !== 1) ? [c.r, c.g, c.b].map((v) => Math.round(v * 1000) / 1000) : undefined;
       const k = unique(m.v.m_Name, materials);
       materialKey.set(m.pathId, k);
-      materials[k] = { tex, cutoff: Math.round(cut * 1000) / 1000 };
+      materials[k] = { tex, cutoff: Math.round(cut * 1000) / 1000, cull, ...(color ? { color } : {}) };
     }
     return materialKey.get(m.pathId);
   };
@@ -430,6 +468,30 @@ export function packMeshes(meshes) {
   return { bin, index, vertexBytes: vBytes };
 }
 
+/** Each prefab drawing from texture `name`: its flat (`ARCHIVE_RECORD`) and the atlas cells its triangles' uv boxes
+ *  cover (USE_CELL texels a cell, top-down) - which flat's tree a region of the picture belongs to. */
+function usesOfAll(meshes, materials, prefabs) {
+  const out = new Map();
+  for (const [key, pf] of Object.entries(prefabs)) {
+    const m = meshes[pf.mesh];
+    const uv = m.channels.uv0?.data;
+    if (!uv) continue;
+    m.submeshes.forEach((sm, si) => {
+      const tex = materials[pf.materials[Math.min(si, pf.materials.length - 1)]]?.tex;
+      if (!tex) return;
+      if (!out.has(tex)) out.set(tex, new Map());
+      const byKey = out.get(tex);
+      if (!byKey.has(key)) byKey.set(key, []);
+      const tris = byKey.get(key);
+      for (let t = 0; t < sm.count; t += 3) {
+        const v = [0, 1, 2].map((k) => m.indices[sm.start + t + k] + sm.baseVertex);
+        tris.push(v.map((i) => [uv[i * 2], uv[i * 2 + 1]]));
+      }
+    });
+  }
+  return out;
+}
+
 function main() {
   const args = process.argv.slice(2);
   const ai = args.indexOf('--arena2');
@@ -439,14 +501,27 @@ function main() {
   const { scene, manifest, meshes, materials, textures, prefabs } = readBundle(new Uint8Array(readFileSync(bundlePath)));
   const records = sourceRecords(arena2);
   const atlases = {}, pics = {};
+  const allUses = usesOfAll(meshes, materials, prefabs);
+  const usesOf = (name, pic) => [...(allUses.get(name) ?? new Map())].map(([key, tris]) => {
+    const cells = new Set();
+    for (const tri of tris) {
+      const xs = tri.map(([u]) => (u - Math.floor(Math.min(...tri.map((q) => q[0])))) * pic.width);
+      const ys = tri.map(([, v]) => (1 - (v - Math.floor(Math.min(...tri.map((q) => q[1]))))) * pic.height);
+      for (let y = Math.floor(Math.max(0, Math.min(...ys)) / USE_CELL); y <= Math.floor(Math.min(pic.height - 1, Math.max(...ys)) / USE_CELL); y++) {
+        for (let x = Math.floor(Math.max(0, Math.min(...xs)) / USE_CELL); x <= Math.floor(Math.min(pic.width - 1, Math.max(...xs)) / USE_CELL); x++) cells.add(y * 4096 + x);
+      }
+    }
+    return { key, cells };
+  });
   for (const [name, t] of Object.entries(textures)) {
     const pic = textureRgba(scene, t);
     pics[name] = pic;
-    const spec = atlasSpec(pic, records, { snow: /^5(05|07|09|11)/.test(name) });
+    const spec = atlasSpec(pic, records, { snow: /^5(05|07|09|11)/.test(name), uses: usesOf(name, pic) });
     const check = verifySpec(spec, pic, records);
     if (check.exact !== check.painted) throw new Error(`${name}: ${check.painted - check.exact} of ${check.painted} painted texels do not come back`);
+    if (check.painted !== spec.stats.claimed) throw new Error(`${name}: the copies claim ${spec.stats.claimed} texels and paint ${check.painted}`);   // AUDIT LPT C9: every claimed texel painted, no more
     const { stats } = spec;
-    console.log(`${name.padEnd(22)} ${pic.width}x${pic.height}  copied ${(100 * stats.claimed / stats.drawn).toFixed(1)}% of ${stats.drawn} (${stats.kept} blits, every texel back exact), filled ${(100 * stats.filled / stats.drawn).toFixed(1)}% (${stats.fills} fills, ${stats.tops} crowns, mean error ${stats.fillError.toFixed(0)}/765), ${stats.pieces} crown pieces dropped`);
+    console.log(`${name.padEnd(22)} ${pic.width}x${pic.height}  copied ${(100 * stats.claimed / stats.drawn).toFixed(1)}% of ${stats.drawn} (${stats.kept} blits, every texel back exact), filled ${(100 * stats.filled / stats.drawn).toFixed(1)}% (${stats.fills} fills: ${stats.tops} crowns, ${stats.fits} fitted; mean error ${stats.fillError.toFixed(0)}/765)`);
     atlases[name] = { size: spec.size, alpha: pic.alpha, blits: spec.blits, fills: spec.fills };
   }
   // the erase lists packed into Trees/atlases.bin, and a spec another atlas already holds named once (`same`)
