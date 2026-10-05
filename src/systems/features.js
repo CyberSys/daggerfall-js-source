@@ -746,7 +746,7 @@ export const FEATURES = Object.freeze([
     control: Object.freeze({ store: 'prefs', key: WINDMILLS_KEY, initial: true, online: 'player' }),
   }),
   modFeature('seasons-iliac-bay', 'Takes effect when the world next loads.', 'sight'),   // FT18: was world
-  modFeature('low-poly-trees', 'Takes effect when the world next loads.', 'sight'),   // LPT1: read as each pixel is built
+  modFeature('low-poly-trees', 'Takes effect when the world next loads.', 'sight'),   // LPT1: read once, as the world loads
   modFeature('roads-hazelnut', 'Takes effect when the world next loads.', 'world'),
   // TO1 (2026-09-17): TRAVEL OPTIONS - `world`, because what it changes
   // is how you cross it. The effect line is the SWITCH's (FT9: when each

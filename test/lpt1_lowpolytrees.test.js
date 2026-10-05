@@ -80,6 +80,10 @@ test('LPT1 the vendored data: 253 prototypes over the twelve nature archives, 11
   const u16 = new Uint16Array(bin.buffer, bin.byteOffset + JSON_.vertexBytes, idx);
   for (const m of JSON_.meshes) for (const [at, n] of m.subs) for (let k = 0; k < n; k++) assert.ok(u16[m.index + at + k] < m.vertices);
   assert.equal(JSON.parse(read('vendor/low-poly-trees/lowpolytrees.dfmod.json')).ModVersion, '5');
+  // a prototype's standing size is its mesh's box under its root's scale: 500_1 is mesh 0 at 0.2
+  const m0 = JSON_.meshes[0], p1 = lptProto(LPT, 500, 1);
+  assert.deepEqual(JSON_.prefabs['500_1'].scale, [0.2, 0.2, 0.2]);
+  assert.ok(near(p1.size.w, 2 * 0.2 * Math.max(...[...m0.min, ...m0.max].filter((_, i) => i % 3 !== 1).map(Math.abs)), 1e-5) && near(p1.size.h, 0.2 * m0.max[1], 1e-5));
 });
 
 test('LPT1 each submesh carries its material whole (AUDIT LPT C6/A4/A6): its cut, the faces it draws and its colour', () => {
@@ -118,6 +122,7 @@ test('LPT1 orientations: the eight ways a record lands are a bijection of its te
   assert.deepEqual(orientedSource(0, w, h, 1, 2), [1, 2]);
   assert.deepEqual(orientedSource(1, w, h, 1, 2), [3, 2], 'mirrored in x');
   assert.deepEqual(orientedSource(4, w, h, 0, 0), [w - 1, h - 1], 'a half turn');
+  assert.deepEqual([orientedSource(2, w, h, 0, 0), orientedSource(6, w, h, 0, 0)], [[0, h - 1], [w - 1, 0]], 'a quarter turn one way, three quarters the other');
   // the blit's own form (AUDIT LPT B7): one affine step a blit, the same texel for every place and orientation
   for (let o = 0; o < LPT_ORIENTATIONS; o++) {
     const [sx0, sxdx, sxdy, sy0, sydx, sydy] = orientedStep(o, w, h), [ow, oh] = orientedSize(w, h, o);
@@ -171,6 +176,9 @@ test('LPT1 fills: a top folds the record\'s crown (a disc, snow-capped in winter
   assert.ok(c[0] > plain[0] && Math.abs(c[0] - LPT_SNOW[0]) < Math.abs(plain[0] - LPT_SNOW[0]), 'snow whitens the middle');
   const tile = tileCrop(rec(8, 8, 4), 6, 3, 2, 2, 2, 2);
   assert.deepEqual([px(tile, 0, 0)[0], px(tile, 1, 0)[0], px(tile, 2, 0)[0], px(tile, 3, 0)[0]], [2, 3, 3, 2], 'mirrored at every other repeat');
+  assert.deepEqual([px(tile, 0, 0)[1], px(tile, 0, 1)[1], px(tile, 0, 2)[1]], [2, 3, 3], '...down as across');
+  assert.deepEqual(fillPicture(['top', 500, 3, 0, 0, 12, 12, 1], tree).data, snowy.data, 'a top\'s snow flag reaches the fold');
+  assert.deepEqual(fillPicture(['top', 500, 3, 0, 0, 12, 12, 0], tree).data, top.data);
   // a fit: the drawn box (x 2..5, y 1..2 of an 8 x 4 record) over 8 x 4 - each texel the box's at its share
   const boxed = rec(8, 4, 5, (x, y) => x < 2 || x > 5 || y < 1 || y > 2);
   const fit = fitRecord(boxed, 8, 4);
@@ -235,7 +243,7 @@ test('LPT1 atlasMips: the chain halves to 1x1, a level\'s colour is its DRAWN te
  * A ONE-PROTOTYPE MOD, built here: `quads` - each { x0, x1, y0, y1, z, flip } a quad facing -z (the viewer of the far
  * picture) with uv 0..1, its own submesh and material ({ cutoff, cull, color, opaque }); `flip` winds it away.
  */
-function synthLpt(quads, atlas) {
+function synthLpt(quads, atlas, scale = [1, 1, 1]) {
   const verts = [], idx = [], subs = [], materials = {}, mats = [];
   quads.forEach((q, i) => {
     const v = verts.length / 8;
@@ -254,7 +262,7 @@ function synthLpt(quads, atlas) {
     vertexBytes: vb.byteLength,
     meshes: [{ vertex: 0, vertices: verts.length / 8, index: 0, subs, min: [Math.min(...xs), Math.min(...ys), 0], max: [Math.max(...xs), Math.max(...ys), 0] }],
     materials, atlases: { A: { size: [atlas.width, atlas.height], alpha: !quads.some((q) => q.opaque), blits: [] } },
-    prefabs: { '504_1': { mesh: 0, scale: [1, 1, 1], materials: mats } },
+    prefabs: { '504_1': { mesh: 0, scale, materials: mats } },
   };
   const lpt = readLowPolyTrees(json, bin, new Uint8Array(0));
   return { lpt, proto: lptProto(lpt, 504, 1) };
@@ -276,6 +284,13 @@ test('LPT1 renderImpostor, texel for texel: the tree as the far picture\'s viewe
   const cut = renderImpostor(lpt, proto, () => quadAtlas(84));
   assert.equal(px(cut, H - 1, H - 1)[3], 0, 'alpha 84 is cut');
   assert.equal(px(cut, 0, H - 1)[3], 255);
+  // the root's scale: a half-size quad at twice the scale is the same tree, texel for texel
+  const big = synthLpt([{ x0: -0.5, x1: 0.5, y0: 0, y1: 1, z: 0, cutoff: 0.333, color: [0.5, 1, 1] }], quadAtlas(85), [2, 2, 2]);
+  assert.deepEqual(big.proto.size, { w: 2, h: 2 });
+  assert.deepEqual(renderImpostor(big.lpt, big.proto, () => quadAtlas(85)).data, pic.data);
+  // the nearer face holds its texel whichever is drawn first: the near quad (z -1, white) before the far (z 1, no red)
+  const both = synthLpt([{ x0: -1, x1: 1, y0: 0, y1: 2, z: -1 }, { x0: -1, x1: 1, y0: 0, y1: 2, z: 1, color: [0, 1, 1] }], quadAtlas());
+  assert.equal(px(renderImpostor(both.lpt, both.proto, () => quadAtlas()), 0, 0)[0], Math.round(255 * sh), 'the depth test');
 });
 
 test('LPT1 renderImpostor: a front-only material (cull 2) draws its front faces alone, a two-sided one both (AUDIT LPT A6); an opaque card is never cut; the picture is trimmed to what it draws, the root centred (AUDIT LPT B6)', () => {
@@ -413,7 +428,7 @@ test('LPT1 a flat\'s scale rides on its corner: bbCornerX packs it and BB_VS rea
 const I16 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 const BBU = { uProj: I16, uView: I16, uRight: [1, 0, 0], uUp: [0, 1, 0], uOrigin: [0, 0, 0], uSize: [2, 4], uFlatWind: [0, 0, 0, 0], uSway: 0, uTip: [0, 0, 0], uFacePoint: [0, 0, 0, 0], uElitePad: [0, 0, 0, 0], uMesh: 0, uMeshScale: [1, 1, 1], uMeshColor: [1, 1, 1], uMeshAlpha: 1, uLptCut: [0, 0, 0, 0], uLptBand: 20, uLptSun: [0, 1, 0, 0], aNormal: [0, 1, 0], aInst: [0, 0, 0, 0], aScale: 1 };
 const bbAt = (b) => { const f = glslFunctions(bbVertexShader(), { ...BBU, ...b }, { fp32: true }); f.main(); return f.globals; };
-const v3 = (v) => v.map((x) => Math.round(x * 1e4) / 1e4);
+const v3 = (v) => v.map((x) => Math.round(x * 1e4) / 1e4 + 0);   // + 0: no -0
 
 test('LPT1 BB_VS: a far picture\'s quad is its share of the batch\'s size about its base, its uv the picture\'s whole, its shade and alpha a flat\'s; inside the radius it is gone, across the band it fades', () => {
   const top = bbAt({ aCenter: [10, 0, 0], aCorner: [bbCornerX(0.5, 0.5), 0.5] });
@@ -427,6 +442,12 @@ test('LPT1 BB_VS: a far picture\'s quad is its share of the batch\'s size about 
   assert.ok(near(cut(150).vFade, 0.5, 1e-3), 'half across the band');
   assert.equal(cut(300).vFade, 1);
   assert.equal(bbAt({ aCenter: [100, 0, 0], aCorner: [0.5, -0.5] }).vFade, 1, 'no cut uniform, no cut');
+  // a felled tree's far picture tips over at its own share (AUDIT LPT D4): its top corner laid down the fall's way
+  const fell = bbAt({ aCenter: [10, 0, 0], aCorner: [bbCornerX(0.5, 0.5), 0.5], uTip: [0, 1, Math.PI / 2] });
+  assert.deepEqual(v3(fell.vBBWorld), [10.5, 0, 2], 'half its width across, half its height along the ground');
+  // a far picture's crown leans by its own share of the batch's size
+  const leanAt = (s) => { const at = { aCenter: [10, 0, 0], aCorner: [bbCornerX(0.5, s), 0.5], uFlatWind: [2, 0, 0, 0] }; return bbAt({ ...at, uSway: 1 }).vBBWorld[0] - bbAt(at).vBBWorld[0]; };
+  assert.ok(leanAt(1) > 0 && near(leanAt(0.5) / leanAt(1), 0.5, 1e-3), 'a smaller tree leans less');
 });
 
 test('LPT1 BB_VS mesh mode: the tree\'s vertex turned about +Y and scaled at its root by its own scale, its uv the mesh\'s, its alpha its material\'s; its share 2 + how far across the band it stands', () => {
@@ -453,9 +474,9 @@ test('LPT1 BB_VS mesh mode light (AUDIT LPT A2): at night a face takes the far p
   assert.equal(LPT_SUN_FULL, 0.25);
 });
 
-test('LPT1 BB_VS mesh mode sway (AUDIT LPT A3): the crown leans by the height up THIS tree - a tree twice the size leans twice as far at its top', () => {
+test('LPT1 BB_VS mesh mode sway (AUDIT LPT A3): the crown leans by the height up THIS tree - a tree twice the size leans twice as far at the same share of its height', () => {
   const lean = (scale) => {
-    const at = { uMesh: 1, aCorner: [0, 0], aCenter: [0, 10, 0], aInst: [3, 0, 4, 0], aScale: scale, uSize: [3, 10], uFlatWind: [2, 0, 0, 0] };
+    const at = { uMesh: 1, aCorner: [0, 0], aCenter: [0, 5, 0], aInst: [3, 0, 4, 0], aScale: scale, uSize: [3, 10], uFlatWind: [2, 0, 0, 0] };
     return bbAt({ ...at, uSway: 1 }).vBBWorld[0] - bbAt(at).vBBWorld[0];
   };
   assert.ok(lean(1) > 0);
@@ -538,6 +559,7 @@ function treeFrame(lane) {
   const handle = { key: '504_12|' };
   const far = r.createBillboardBatch(504, '12#lpt', { w: 4, h: 8 }, [[0, 0, -3]], { scales: [0.7] });
   far.lptProto = handle;
+  far.origin = new Float32Array([5, 0, 5]);   // a batch with an origin of its own: the trees must not stand on it
   const plain = r.createBillboardBatch(182, 0, { w: 1, h: 2 }, [[1, 0, -4]]);
   const gpu = { vao: { id: 'treeVao' }, pointInstances: (at) => calls.push(['pointInstances', at]) };
   const leaf = { id: 'atlas' }, bark = { id: 'bark' };
@@ -580,6 +602,9 @@ test('LPT1 drawBillboards with a tree frame: the far picture of a drawn handle g
     assert.deepEqual(second.filter((c) => c[0] === 'enable' || c[0] === 'disable').map((c) => c.join(':')), ['enable:CULL_FACE'], 'a front-only material culls its backs');
     assert.deepEqual(second.filter((c) => c[0] === 'bindTexture' && c[1] === 3553).map((c) => c[2]), [bark]);
     assert.deepEqual(calls.slice(calls.indexOf(inst[1])).filter((c) => c[0] === 'enable' || c[0] === 'disable').map((c) => c.join(':')).slice(0, 1), ['disable:CULL_FACE'], 'and the flats\' pass draws both faces again');
+    const set = (name) => first.filter((c) => c[1] === name).at(-1)?.slice(2);
+    assert.deepEqual([set('uOrigin'), set('uSize'), set('uSway'), set('uLptCut'), set('uMeshScale')], [[0, 0, 0], [3, 9], [0.6], [1, 2, 3, 140], [1, 1, 1]], `${tag}: the trees' own origin, size, sway, cut and scale`);
+    assert.deepEqual(first.filter((c) => c[0] === 'bindVertexArray').at(-1)[1], { id: 'treeVao' }, 'the trees\' vertex array');
     const sun = calls.filter((c) => c[0] === 'uniform4f' && c[1] === 'uLptSun').at(-1);
     assert.ok(near(sun[2], 0.3) && near(sun[3], 0.8) && near(sun[4], 0.2) && near(sun[5], 0.5), `${tag}: the sun's direction, half its share at half LPT_SUN_FULL`);
     calls.length = 0;
@@ -675,15 +700,15 @@ const fakeTexture = (archive, records = 40) => ({
   archive, recordCount: records, palette: { getRed: (i) => i, getGreen: (i) => i * 2 % 256, getBlue: () => 9 },
   getDFBitmap: (record) => ({ width: 32, height: 48, data: new Uint8Array(32 * 48).fill(1 + record) }),
 });
-function door({ seasonal = null, records = 40 } = {}) {
+function door({ seasonal = null, records = 40, onAtlas = null } = {}) {
   const { gl, calls } = recordingGl();
   const uploads = [], released = [], frames = [], atlases = [], rows = [], freed = [];
   const clock = { t: 0 };
   let ids = 0, gets = 0;
   const renderer = {
     gl, uploadTexture: (a, r, c) => uploads.push([a, r, c.width, c.height]), releaseTexture: (a, r) => released.push([a, r]), setLowPolyTrees: (f) => frames.push(f),
-    createAtlasTexture: (w, h, levels) => { const tex = { atlas: ++ids, w, h, levels }; atlases.push(tex); return tex; },
-    uploadAtlasRows: (tex, level, y, width, data) => rows.push({ tex, level, y, n: data.length / (width * 4), head: Array.from(data.subarray(0, 4)) }),
+    createAtlasTexture: (w, h, levels) => { const tex = { atlas: ++ids, w, h, levels }; atlases.push(tex); onAtlas?.(); return tex; },
+    uploadAtlasRows: (tex, level, y, width, data) => rows.push({ tex, level, y, n: data.length / (width * 4), head: Array.from(data.subarray(0, width * 4)) }),
     releaseAtlasTexture: (tex) => freed.push(tex),
   };
   let breaths = 0;
@@ -707,6 +732,7 @@ test('LPT1 the door: the data read once; a prototype\'s HANDLE - its atlases pai
   const [, , W, H] = d.uploads[0], [W0, H0] = impostorSize(p);
   assert.deepEqual(d.uploads.map((u) => u.slice(0, 2)), [[504, '12#lpt']]);
   assert.ok(near(h.size.w, p.size.w * (W / W0) * LPT_SCALE_MAX) && near(h.size.h, p.size.h * (H / H0) * LPT_SCALE_MAX), 'the trimmed share of the tallest tree');
+  assert.ok(W < W0 || H < H0, `trimmed (${W} x ${H} of ${W0} x ${H0})`);
   assert.equal(await d.lpt.farPicture(p), h, 'once');
   assert.ok(d.breaths() > 50, 'painted a step at a time');
   assert.equal(d.lpt.sourceOf(p), '');
@@ -724,7 +750,8 @@ test('LPT1 the atlases\' upload (AUDIT LPT B7): the chain into one texture a ban
   assert.ok(one.every((r) => r.n <= LPT_ATLAS_BAND));
   const pic = d.lpt._atlases.get(`${p.subs[0].atlas}|`).pic;
   const top = one.find((r) => r.level === 0 && r.y === 1024 - LPT_ATLAS_BAND);
-  assert.deepEqual(top.head, px(pic, 0, LPT_ATLAS_BAND - 1), 'the picture\'s top band lands at the top, its last row first');
+  assert.deepEqual(top.head, Array.from(pic.data.subarray((LPT_ATLAS_BAND - 1) * 1024 * 4, LPT_ATLAS_BAND * 1024 * 4)), 'the picture\'s top band lands at the top, its last row first');
+  assert.notDeepEqual(top.head, Array.from(pic.data.subarray(0, 1024 * 4)), '(its first row is another)');
 });
 
 test('LPT1 the frame: the near set gathered and handed on, again only when the eye moves LPT_REGATHER_M, a pixel moves (a recentre), its set is made or let go, or a tree is felled; culled to the view EVERY frame (AUDIT LPT B4), each run its handle\'s', async () => {
@@ -733,10 +760,16 @@ test('LPT1 the frame: the near set gathered and handed on, again only when the e
   const h = await d.lpt.farPicture(d.lpt.proto(504, 12)), k = await d.lpt.farPicture(d.lpt.proto(500, 1));
   const edge = LPT_NEAR_M + LPT_BAND_M + LPT_REGATHER_M - 1;   // past the band, inside the way the eye may go before the next gather
   const set = { ox: 0, oy: 0, oz: 0, handles: [h, k], trees: Float32Array.from([0, 5, 0, 5, 1, 0, 1, 6, 0, 6, 1, 0, 0, 0, 0, edge, 1, 0]) };
-  d.lpt.frame([set], 0, 0, 0, { stamp: 1 });
+  d.lpt.frame([set], 0, 0, 0, { stamp: 1, swayOf: (q) => (q === h.proto ? 0.4 : 0) });
   const f = d.frames.at(-1);
   assert.deepEqual(f.runs.map((r) => [r.run.handle, r.drawCount]), [[h, 2], [k, 1]], 'a tree the eye may walk into the band toward before the next gather is there');
   assert.ok(f.cut.has(h) && f.cut.has(k));
+  // the run as the renderer reads it (AUDIT LPT D5): the prototype's root scale, its standing size, its sway, and each
+  // submesh's buffer range, atlas texture, alpha, colour and faces
+  const p = h.proto, at = d.lpt._lpt.meshes[p.mesh].subs;
+  assert.deepEqual({ ...f.runs[0], run: null, subs: null }, { run: null, scale: p.scale, size: [p.size.w, p.size.h], sway: 0.4, subs: null, drawStart: 0, drawCount: 2 });
+  assert.deepEqual(f.runs[0].subs.map((s) => [s.count, s.alpha, s.color, s.cull]), p.subs.map((s, i) => [at[i][1], lptAlphaOf(s), s.color, s.cull]));
+  assert.deepEqual(f.runs[0].subs.map((s) => s.tex), p.subs.map((s) => d.lpt._atlases.get(`${s.atlas}|`).tex));
   assert.equal(LPT_REGATHER_M, 3);
   const runs = f.runs;
   d.lpt.frame([set], LPT_REGATHER_M - 0.5, 0, 0, { stamp: 1 });
@@ -861,6 +894,22 @@ test('LPT1 SeasonHelper.installing: up while an install refills the cache (the p
   assert.equal(helper.installing, false);
 });
 
+test('LPT1 a paint whose atlases were given back while it ran keeps nothing (EVERY ALLOCATION HAS AN OWNER)', async () => {
+  const d = door();
+  await d.lpt.load();
+  const pending = d.lpt.farPicture(d.lpt.proto(504, 12));
+  d.lpt.destroy();
+  assert.equal(await pending, null);
+  assert.deepEqual([d.uploads, d.atlases.length, d.lpt._atlases.size, d.lpt._handles.size], [[], 0, 0, 0], 'given back mid-paint: nothing even made');
+  // ...and given back mid-upload: the texture made for it is given back as it finishes
+  let e = null;
+  e = door({ onAtlas: () => e.lpt.destroy() });
+  await e.lpt.load();
+  assert.equal(await e.lpt.farPicture(e.lpt.proto(504, 12)), null);
+  assert.ok(e.atlases.length > 0);
+  assert.deepEqual([e.uploads, e.freed], [[], e.atlases], 'each one freed');
+});
+
 test('LPT1 destroy: the buffers, every atlas and every far picture given back (EVERY ALLOCATION HAS AN OWNER)', async () => {
   const d = door();
   await d.lpt.load();
@@ -914,7 +963,14 @@ test('LPT1 the hosts: world.js and exterior.js stand the trees behind the mod\'s
   assert.match(fr, /if \(!set\.trees\) \{ const made = buildTreeSet\(set\.px, set\.py, set\.groups\);/, '...made as it comes near');
   assert.match(fr, /_lptOpts\.planes = planes;/);
   assert.match(w, /if \(lowPolyTrees\) lowPolyTreesFrame\(cullOn \? _planes : null\);/, 'the frame\'s normalised planes');
-  assert.match(x, /if \(cullOn\) spherePlanes\(_pv, _lptPlanes\);/, 'the location host normalises its own');
+  assert.match(x, /if \(cullOn\) spherePlanes\(_pv, _lptPlanes\); lowPolyTrees\.frame\(lptSets, cam\.pos\[0\], cam\.pos\[1\], cam\.pos\[2\], lptOpts\);/, 'the location host normalises its own, at its eye');
+  assert.match(x, /renderer\.createBillboardBatch\(archive, far\.record, far\.size, centers, \{ scales: centers\.map\(\(\) => 1 \/ LPT_SCALE_MAX\) \}\)/, 'a location\'s tree at its own size');
+  assert.match(fr, /set\.ox = p\._t\[0\]; set\.oy = p\._t\[1\]; set\.oz = p\._t\[2\];/, 'each set at its pixel\'s translation this frame');
+  assert.match(fr, /_lptOpts\.stamp = FOREST_STAMP\.n;/, 'a felling regathers');
+  for (const [name, src] of [['world.js', w], ['exterior.js', x]]) {
+    assert.match(src, /batch\.sway = floraSwayOf\(archive, natureArchive, plain\.h\);/, `${name}: the flat's sway share`);
+    assert.match(src, /coverProxies\(c, plain, \{ tree:/, `${name}: the flat's cover (AUDIT LPT D3)`);
+  }
   assert.ok(LPT_NEAR_M + LPT_BAND_M + LPT_REGATHER_M < 819.2, 'the 3x3 reaches every tree in reach');
 });
 

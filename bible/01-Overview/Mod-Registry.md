@@ -149,7 +149,7 @@ not the date the slice shipped, where those differ.
 | `windmills-kamer` | five `.dae` meshes + placements | Kamer | 2.0 | `WindMills.rar`, supplied by Mac 2026-08-29 | granted by the author, confirmed by Mac 2026-08-29 | WM1 | 2026-08-29 | `03-World/Windmills.md` |
 | `daggerfall-arena` | manifest verbatim; the colosseum (model 864102) as data - his own 4,773 triangles, the 23-slot RuntimeMaterials table, the collider record, and 18 placements of Daggerfall's own dungeon models rebuilt from the player's ARCH3D; ARENADAG.RMB cut from his DFARENA.RMB; his 32-block dungeon; no texture (both are Daggerfall's own) | Kamer | 1.0 | `daggerfall_arena.rar` (one `.dfmod`), supplied by Mac 2026-10-02; `tools/daggerfallArenaExtract.mjs` writes every file but the README | granted by the author, relayed by Mac 2026-10-02 | ARENA1 | 2026-10-02 | `11-Multiplayer/Arena.md` |
 | `world-of-daggerfall` | manifest, the eight C# sources (carried inside the bundle as TextAssets, so nothing here is a decompile), the 65 prefab layouts verbatim, and the 2,413 instance lists read through the ported reader into one pack per region folder with every source file's sha256 recorded | Kamer | 2.0 | shipped `.rar` `World_of_Daggerfall_WindowsLinux-181-2-0-1773339543`, handed over by Mac 2026-09-23; `tools/worldOfDaggerfallAssets.mjs` reproduces every vendored file byte for byte | granted by the author (the grant that covers his windmills), confirmed by Mac 2026-09-23 | WOD1-WOD5 | 2026-09-23 | `03-World/World-Of-Daggerfall.md` |
-| `low-poly-trees` | manifest, and the author's geometry - every mesh's positions, normals and uv0 and its submeshes' indices, each prefab's mesh, root scale and materials, each material's cut - with each texture as an ATLAS SPEC (the records it copies and where, never a texel) | SquidKamer | 5 | shipped `.rar` `LowPolyTrees_V5-380-v5-1669847452` (one `.dfmod`), handed over by Mac 2026-10-05; `tools/lowPolyTreesExtract.mjs` rebuilds every vendored file from it and the player's ARENA2 | handed over by Mac 2026-10-05 - **RECORD OPEN** | LPT1 | 2026-10-05 | `07-Rendering/Low-Poly-Trees.md` |
+| `low-poly-trees` | manifest, and the author's geometry - every mesh's positions, normals and uv0 and its submeshes' indices, each prefab's mesh, root scale and materials, each material's cut, faces and colour - with each texture as an ATLAS SPEC (the records it copies and where, never a texel) | SquidKamer | 5 | shipped `.rar` `LowPolyTrees_V5-380-v5-1669847452` (one `.dfmod`), handed over by Mac 2026-10-05; `tools/lowPolyTreesExtract.mjs` rebuilds every vendored file but the README from it and the player's ARENA2 | handed over by Mac 2026-10-05 - **RECORD OPEN** | LPT1 | 2026-10-05 | `07-Rendering/Low-Poly-Trees.md` |
 | `world-tooltips` | manifest, settings, and the mod's OWN source - the bundle ships `Modded_HUDTooltipWindow.cs` as a Unity TextAsset, so nothing here is a decompile | jefetienne | 1.1 | shipped zip `World_Tooltips_-_Windows_1.1-158-1-1-1655327614`, handed over by Mac 2026-09-21; `tools/worldTooltipsAssets.mjs` reproduces all three vendored files byte for byte | MIT ("Copyright (c) 2009-2018 jefetienne", shipped as `LICENSE-world-tooltips`, beside Daggerfall Workshop's own) | WORLD-HOVER | 2026-09-21 | `10-UI/UI-Arc.md` |
 
 ## Known deviations, per row
@@ -159,13 +159,14 @@ full account; this is the index to it.
 
 - **`low-poly-trees`** - no picture of the mod is carried. Its thirty
   textures are Daggerfall's own sprites (the five small ones whole, each
-  1024x1024 atlas 76-100% classic records copied pixel for pixel), and a
+  larger atlas 75-91% classic records copied texel for texel), and a
   render of game data is game data, so each is vendored as a SPEC and
   painted at runtime from the player's TEXTURE.500-511 - or from Seasons
-  of the Iliac Bay's seasonal pictures while a season stands. The regions
-  no record copies (the author's top-down crowns, snow-capped on the
-  winter atlases) are FILLS the game folds out of the same record: near
-  the author's, not his. DFU stands the models only within one terrain of
+  of the Iliac Bay's seasonal pictures while it re-skins the tree's own
+  archive. The regions no record copies (the author's top-down crowns,
+  snow-capped on the winter atlases, and some larger side views) are
+  FILLS the game makes from the same record: near the author's, not his
+  (`01-Overview/Audit-Low-Poly-Trees.md` measures how near). DFU stands the models only within one terrain of
   the player and its classic flats beyond; the port stands the same
   model's far picture beyond (`07-Rendering/Low-Poly-Trees.md`).
 - **`oblivion-remaster-leveling`** - the only row that is not a

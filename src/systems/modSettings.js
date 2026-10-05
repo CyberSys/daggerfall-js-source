@@ -84,7 +84,7 @@ export const MOD_SETTINGS = Object.freeze({
     }),
   }),
   // LPT1 (2026-10-05): LOW POLY TREES 5 (SquidKamer). No modsettings of its own - 253 prefabs - so one switch: the
-  // port's Enabled, read when a pixel is built (a flip reaches the world as it next loads). The player's own online: it
+  // port's Enabled, read once when the world loads (a flip reaches it as it next loads). The player's own online: it
   // changes how the trees are drawn, never where they stand (bible/07-Rendering/Low-Poly-Trees.md).
   'low-poly-trees': Object.freeze({
     title: 'Low Poly Trees',

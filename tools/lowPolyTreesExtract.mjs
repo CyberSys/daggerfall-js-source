@@ -13,23 +13,25 @@
 //   its mesh, the root's scale and its submeshes' materials; each material as its texture and its alpha cut (0 for the
 //   opaque ones); and each texture as an ATLAS SPEC, below.
 // - NO PICTURE. Measured here against every record of TEXTURE.500-511, each of the mod's textures is Daggerfall's own
-//   sprites: the five small ones a classic record whole, each 1024x1024 atlas 80-91% classic records copied pixel for
-//   pixel (turned or mirrored in places, cut down in others), the rest the author's TOP-DOWN crowns folded out of the
-//   same records (and on the winter atlases capped with painted snow) plus a few hand-written record numbers. A render
-//   of game data IS game data (01-Overview/Port-Doctrine.md), so the spec names what to copy and the runtime paints
-//   the atlas from the player's own records (src/world/lowPolyTrees.js composeAtlas): BLITS - the record, its turn,
-//   where it lands, the rectangle it may paint - in the greedy order the match found them, the first paint holding a
-//   texel; and TOPS - a rectangle and the record its crown was folded from, which the runtime folds itself (synthTop).
-//   The spec is checked here: painted from the same records, every texel a kept blit claimed comes back exact.
+//   sprites: the five small ones a classic record whole, each larger atlas 75-91% classic records copied texel for
+//   texel (turned or mirrored in places, cut down in others), the rest the author's top-down crowns and larger side
+//   views made from the same records (on the winter atlases capped with painted snow) plus a few hand-written record
+//   numbers. A render of game data IS game data (01-Overview/Port-Doctrine.md), so the spec names what to copy and the
+//   runtime paints the atlas from the player's own records (src/world/lowPolyTrees.js paintAtlas): BLITS - the record,
+//   its turn, where it lands, the rectangle it may paint and its ERASE spans (each the whole gap between this copy's
+//   own claims, so none traces a record's silhouette - AUDIT LPT D13) - in the greedy order the match found them, the
+//   first paint holding a texel; and FILLS - a region no copy paints, the record it was made from and a coarse map of
+//   its 8-texel cells, painted as a folded crown (synthTop), a tiled crop (tileCrop) or the record stretched over it
+//   (fitRecord), whichever comes nearer the author's own. The spec is checked here: painted from the same records,
+//   every texel a copy claimed comes back (main throws otherwise).
 //
 // THE MATCH: every record of the twelve nature archives, in all eight orientations, indexed by its 3x3 patches of
 // colour; every second texel of the atlas votes for (record, orientation, offset); offsets with votes are verified texel
-// by texel (within 6 of 765 - the bundle's own rounding) and taken greedily, largest first, a texel to the first. A
-// blit is KEPT when it is a clean copy - at least 90% of the record's texels under its claimed rectangle matched, 60
-// texels at the least (a whole record, or a crop of one: the swamp's leaf clusters are crops); the rest are pieces of a
-// top-down crown, folded and warped, which no rectangle of a record reproduces. What the kept
-// blits leave is grouped (2 px reach); a group of 200 texels or more outside every kept blit's rectangle is a TOP, its
-// record the one the pieces inside it voted for (else the nearest kept blit's).
+// by texel (within 6 of 765 - the bundle's own rounding) and taken greedily, largest first, a texel to the first, each
+// copy MIN_BLIT texels at the least. Every verified copy is KEPT (AUDIT LPT C5: the pieces of a folded crown too - each
+// an exact copy). What they leave is grouped (REACH texels); a group of FILL_MIN texels (FILL_MIN_OPAQUE on an opaque
+// atlas) is a FILL, its candidates the records of the flats whose trees sample it, the copies about it, the winter
+// twins on a winter atlas, else the nearest copy's (AUDIT LPT C4).
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -41,9 +43,14 @@ import { orientedSize, orientedSource, composeAtlas, fillPicture, LPT_FILL_CELL,
 import { isMain } from './lib/isMain.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-/** The nature archives the mod replaces, and the only ones its pictures are cut from. */
-export const LPT_SOURCE_ARCHIVES = LPT_ARCHIVES;   // ONE DFU MEMBER, ONE EXPORT (AUDIT LPT D15): the runtime's own list
 const PATCH = 3, TOLERANCE = 6, MIN_BLIT = 40, FILL_MIN = 40, FILL_MIN_OPAQUE = 4, REACH = 2, USE_CELL = 8;
+
+/** A fill's cell map as world/lowPolyTrees.js fillCells reads it: hex, four cells a digit, the first its high bit. */
+const hexOf = (cells) => {
+  let hex = '';
+  for (let i = 0; i < cells.length; i += 4) hex += ((cells[i] << 3) | ((cells[i + 1] ?? 0) << 2) | ((cells[i + 2] ?? 0) << 1) | (cells[i + 3] ?? 0)).toString(16);
+  return hex;
+};
 
 /** A texture's texels, top-down RGBA (Unity stores rows bottom-up; mip 0 only). */
 export function textureRgba(scene, t) {
@@ -68,7 +75,7 @@ export function sourceRecords(arena2) {
   const palette = new DFPalette();
   palette.load(new Uint8Array(readFileSync(join(arena2, 'ART_PAL.COL'))));
   const recs = new Map();
-  for (const a of LPT_SOURCE_ARCHIVES) {
+  for (const a of LPT_ARCHIVES) {   // the nature archives the mod replaces, and the only ones its pictures are cut from
     const name = `TEXTURE.${a}`;
     const path = [name, name.toLowerCase()].map((n) => join(arena2, n)).find((p) => existsSync(p));
     if (!path) throw new Error(`${name} is not in ${arena2}`);
@@ -172,8 +179,7 @@ export function atlasSpec(pic, records, { snow = false, uses = [] } = {}) {
     for (const i of px) owner[i] = blits.length;
     blits.push({ ...c, n: px.length, clip: [x0, y0, x1 + 1, y1 + 1], clean: px.length / Math.max(1, under) });
   }
-  // KEPT: every upright copy (as it stands or mirrored), and a turned one that is a clean crop; the rest are pieces of
-  // a folded crown, which a fill stands for
+  // KEPT: every verified copy (AUDIT LPT C5 - a folded crown's pieces are exact copies too)
   const kept = blits.map(() => true);
   const keptIndex = new Int32Array(blits.length).fill(-1);
   const keptBlits = [];
@@ -245,8 +251,7 @@ export function atlasSpec(pic, records, { snow = false, uses = [] } = {}) {
       }
       cellOn[cy * cols + cx] = n >= 0.25 * all ? 1 : 0;
     }
-    let hex = '';
-    for (let i = 0; i < cellOn.length; i += 4) hex += ((cellOn[i] << 3) | ((cellOn[i + 1] ?? 0) << 2) | ((cellOn[i + 2] ?? 0) << 1) | (cellOn[i + 3] ?? 0)).toString(16);
+    const hex = hexOf(cellOn);
     const outside = g.n;
     const tally = new Map();
     const pad = 8;
@@ -336,6 +341,22 @@ export function atlasSpec(pic, records, { snow = false, uses = [] } = {}) {
       }
     }
     if (!best) continue;
+    if (!pic.alpha) {
+      // AUDIT LPT A9: an opaque card samples black wherever nothing is painted - on an opaque atlas each cell of the
+      // fill's map is painted when it brings back more of the author's colour than it lays over his black
+      const fp = fillPicture(best.f, records.get(`${best.f[1]}_${best.f[2]}_0`).rgba);
+      const on = new Uint8Array(cols * rows);
+      for (let cy = 0; cy < rows; cy++) for (let cx = 0; cx < cols; cx++) {
+        let gain = 0, loss = 0;
+        for (let y = cy * LPT_FILL_CELL; y < Math.min(gh, (cy + 1) * LPT_FILL_CELL); y++) for (let x = cx * LPT_FILL_CELL; x < Math.min(gw, (cx + 1) * LPT_FILL_CELL); x++) {
+          const i = (g.y0 + y) * W + g.x0 + x;
+          if (!fp.data[(y * gw + x) * 4 + 3] || claimedBy(i)) continue;
+          if (drawn[i]) gain++; else loss++;
+        }
+        on[cy * cols + cx] = gain > loss ? 1 : 0;
+      }
+      best.f[best.f[0] === 'tile' ? 11 : 8] = hexOf(on);
+    }
     fills.push(best.f);
     fillErr += best.e * outside; fillTexels += outside;
   }

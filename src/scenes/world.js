@@ -4824,8 +4824,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     renderer.gl.deleteTexture(p.tilemapTex);
     gatherHost?.onDestroyed(p);   // PROF1/PROF2: its nodes' batches are in its list, freed on the next line
     for (const b of p.batches) renderer.destroyBatch(b);
-    if (p.lowPolyTrees) for (const h of p.lowPolyTrees.handles) lowPolyTrees?.release(h);   // LPT1 (AUDIT LPT B5): the far pictures' handles it held
     for (const w of p.windmills ?? []) { w.hum?.stop(); w.hum = null; }   // WM4c: the mill's hum leaves with its pixel
+    if (p.lowPolyTrees) for (const h of p.lowPolyTrees.handles) lowPolyTrees?.release(h);   // LPT1 (AUDIT LPT B5): the far pictures' handles it held
     if (deepWaters) deepWaters.destroyed(p);   // DW-B: the seafloor, its walls and the surface leave with the pixel
     if (dwDecor) dwDecor.destroyed(p);   // DW-E2: and its decorations (the terrain's DeepWaters_DecorationBatch child)
     if (oceanHoles) oceanHoles.destroyed(p);   // OH-B: and its pit (the terrain's OceanHole_Pit child)

@@ -2540,11 +2540,10 @@ export class Renderer {
     this._retroMips = want;
     const gl = this.gl, level = want ? 1000 : 0;   // 1000: GL's own default
     this._activeTexture(gl.TEXTURE0);
-    for (const tex of [...this.textures.values(), ...this.emissionTextures.values()]) { if (this._replacements.has(tex)) continue; gl.bindTexture(gl.TEXTURE_2D, tex); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, level); }
+    // LPT1 (AUDIT LPT A5): the low-poly trees' atlases with them (a renderer a test stubs may hold none)
+    for (const tex of [...this.textures.values(), ...this.emissionTextures.values(), ...(this.lptAtlases ?? [])]) { if (this._replacements.has(tex)) continue; gl.bindTexture(gl.TEXTURE_2D, tex); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, level); }
     gl.bindTexture(gl.TEXTURE_2D, null);
     this._tex0Bound = null;   // PERF-TEX3: this path owns unit 0 - the shadow may not speak for it
-    for (const tex of this.lptAtlases) { gl.bindTexture(gl.TEXTURE_2D, tex); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, level); }   // LPT1 (AUDIT LPT A5): the low-poly trees' atlases with them
-    gl.bindTexture(gl.TEXTURE_2D, null);
     for (const tex of this.tileArrays.values()) { gl.bindTexture(gl.TEXTURE_2D_ARRAY, tex); gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAX_LEVEL, level); }
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, null);
     this._tArrayTex = null;   // PERF-TEX2: the terrain's array shadow - its next draw binds its own again
@@ -5912,6 +5911,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     const gl = this.gl, tex = gl.createTexture();
     this._activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, tex);
+    this._tex0Bound = null;   // PERF-TEX3: this path owns unit 0 - the shadow may not speak for it
     for (let i = 0, w = width, h = height; i < levels; i++, w = Math.max(1, w >> 1), h = Math.max(1, h >> 1)) gl.texImage2D(gl.TEXTURE_2D, i, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
@@ -5919,7 +5919,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, this._retroMips ? levels - 1 : 0);   // RETRO1: no chain read while retro mode says so
     gl.bindTexture(gl.TEXTURE_2D, null);
-    this._tex0Bound = null;   // PERF-TEX3: this path owns unit 0 - the shadow may not speak for it
+    this._tex0Bound = null;
     this.lptAtlases.add(tex);
     return tex;
   }
@@ -5929,6 +5929,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     const gl = this.gl;
     this._activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, tex);
+    this._tex0Bound = null;   // PERF-TEX3: this path owns unit 0
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     gl.texSubImage2D(gl.TEXTURE_2D, level, 0, y, width, rows.length / (width * 4), gl.RGBA, gl.UNSIGNED_BYTE, rows);
     gl.bindTexture(gl.TEXTURE_2D, null);
