@@ -466,12 +466,42 @@ People section), `ui/chronicleDoor.js` (the `people` door), the host's (`scenes/
   name, the town, the words), and "No one in the Bay knows you yet." before anyone does. The streaming host hands it
   over where the living world is on.
 
+## LW8 - the doors open (2026-10-05)
+
+`livingTown.js insideAt`; `scenes/livingIndoors.js` (`createLivingIndoors`, `soundRoom`); the building mode's two hooks
+(`scenes/worldModes.js`: the press, the billboard pass) and the host's layer (`scenes/world.js`). Mac: NPCs "dynamically
+all have tasks ... perform activities" - LW2 shut the door behind a resident; this stands what is behind it.
+
+- **Who is inside** (`insideAt`): each resident whose day has them in at the building's door at the clock's minute -
+  the evening's drinkers at the tavern, the errand's customers at a shop, the faithful at the temple, members at the
+  guild hall, a household at home awake - never one asleep, never the building's own STAFF at their work where it is no
+  house (DFU's static people stand for them, as they always have), never the taken, the gone (at sea, abroad), the dead
+  or one still in the street (a walk running late); in the order of their ids.
+- **Where** (`soundRoom`). A room has no grid to walk: it is SOUNDED once from where the player came in - a fan of
+  `INDOOR_FAN` (12) directions walked out to `INDOOR_SPREAD_M` (2.4 to 6.6 m) through the room's own collider (never
+  through a wall), each landing on this room's floor (no floor, or another - a stair's foot - no spot), kept
+  `INDOOR_APART_M` (1.3 m) from every other, `INDOOR_CLEAR_M` (1.1 m) from the building's static people and
+  `INDOOR_DOOR_M` (1.8 m) from the way in. Each resident takes a spot in the order of their ids over an order the
+  building's key deals, facing into the room, in their own clothes (indoors no one is armed), to `INDOOR_MAX` (12).
+- **Coming and going**: who is inside is read every `INDOOR_TICK_S` (1 s); on the way in the room is as the day has it,
+  all at once (LW2's arrival law); after it one who comes or goes waits for the player to look away (or be
+  `INDOOR_SEEN_M`, 14 m, off).
+- **Talk** (the building mode's press, `host.livingPersonsAct`): a resident in the room is offered the press before the
+  ladder's own winner - the street's own talk ray (`townTalk.tryActivate`) on the room's talk seats - and their regard
+  hears it through the room's door (a refusal from an enemy, a word, a tone). A hand caught in a purse here is seen by
+  those in the room within `WITNESS_M`. Drawn on the building's own billboard pass (`host.livingBillboards`).
+- **The host** stands the layer in a building of a living town (the room's collider and floor, its static people, the
+  sky's clock), steps it in the modal frame and frees it in the street. EVERY ALLOCATION HAS AN OWNER: each body is the
+  sprites' (`travellerSprites.js`), synced each frame from the layer's list; `clear()` frees them all.
+- **Not yet:** a resident walking in the room (it has no grid), and their own talk to each other indoors.
+
 ## The four hosts
 
 - `scenes/world.js` - WIRED (LW2 the towns, LW3 the roads and the Overworld).
 - `scenes/exterior.js` - FLAGGED: the fixed-city page keeps DFU's pool (its own doors and summaries are read at other
   seams; its town is not yet a LivingTown) and has no roads (one location, no map around it).
-- `scenes/worldModes.js` - FLAGGED: indoors the street pool answers nobody (AUDIT 62 F14) and a building's people are
-  its static NPCs; a resident whose day has them in the tavern is not yet stood inside it.
+- `scenes/worldModes.js` - WIRED through the host (LW8): the building mode's press offers the room's residents to the
+  street's own talk ray (`host.livingPersonsAct`) and its billboard pass draws them (`host.livingBillboards`); the
+  street pool still answers nobody indoors (AUDIT 62 F14) and a building's static NPCs stay DFU's own.
 - `scenes/dungeonContext.js` - WIRED through the host (LW6): its own loose stand (`spawnLooseFoe` allied, `removeLooseFoe`)
   and its `location()` carry the companies met in it; it keeps no town population.

@@ -7312,6 +7312,7 @@ export function createWorldModes(host) {
     // gives a door at 5 - a mis-order that only got louder once the
     // families below started reaching for the ray themselves.
     if (_enemyArm(RAY_DISTANCE, _pick?.distance ?? Infinity)) return true;
+    if (host.livingPersonsAct?.(eye, dir, _pick?.distance ?? Infinity)) return true;   // LW8: a resident in the room, nearer than the ladder's winner - the street's own talk ray (the host's townTalk.tryActivate)
     if (_pick && _pick === _boatPick) { host.csaActivate?.(_pick); return true; }   // CSA-D: RegisterCustomActivation's silent reach - no "too far" of the port's
     const key = _pick?.key ?? null;
     if (key === null) return false;
@@ -9351,7 +9352,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:16927's own wave-46 note); the interior
+          // a blow (world.js:16956's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -9415,6 +9416,8 @@ export function createWorldModes(host) {
     renderer.drawFoeTelegraphs?.(drawableBlows(tacticsNow(), player.pos));   // TACT4: a foe's wind-up on the ground
     interiorBloodMarks.draw(camRight, UP_Y);
     renderer.drawBillboards([...interiorCtx.billboardBatches, ...(host.extraBillboards?.() ?? [])], camRight, UP_Y);   // ONLINE1: the peers on the interior's own pass
+    const livingInside = host.livingBillboards?.() ?? [];   // LW8: the residents the day has in this building
+    if (livingInside.length) renderer.drawBillboards(livingInside, camRight, UP_Y);
     // HE1: the blood, on the same axis and the same call the exterior
     // host makes for its own pool.
     interiorHitEffects.tick(dt);
@@ -12078,7 +12081,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3653-3675), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:12802). So an F9 pressed in a shop
+     *  unconditionally (world.js:12831). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -12117,7 +12120,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:13161)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:13190)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -12127,7 +12130,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:11707`
+     *  HARD2c: this used to spell them out, and named `world.js:11736`
      *  and `dungeonContext.js:8457` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */

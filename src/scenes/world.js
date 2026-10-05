@@ -117,6 +117,7 @@ import { createLivingRoads } from './livingRoads.js';   // LW3: the parties on t
 import { createRoadFights, LIVE_M } from './roadFights.js';   // LW4b: a beset party's fight, stood live
 import { createRoadStands, FIGHT_NEAR_M } from './roadStands.js';   // LW7b: the armed beyond the walls - a hostile drawing, a friend at the player's side
 import { createDungeonDivers } from './dungeonDivers.js';   // LW6: the divers met in the dungeon
+import { createLivingIndoors } from './livingIndoors.js';   // LW8: the residents inside the building the player is in
 import { createTravellerSprites, classLookOf } from '../world/travellerSprites.js';   // LW3: their bodies, and the armed walk's sprite
 import { GUARD_TEXTURE, MobilePerson, PERSON_TEXTURES, PERSON_MOVE_SPEED } from '../characters/mobilePerson.js';
 import { bowDamageArrow, weaponOfMaterial, armorOfMaterial } from '../combat/enemyEquipment.js';   // MAC-N1: the recovered shaft is CreateWeapon's arrow, value and all; OH-E: UpgradeLoot's SetItem + ApplyWeaponMaterial / ApplyArmorSettings
@@ -2396,6 +2397,34 @@ export async function bootWorld(canvas, renderer, params, status) {
       _livingDiversList = here ? diversAt(here, skyMinutes(), livingTripWorld, { mpm: PERSON_MOVE_SPEED / livingBaseRate(), memo: _livingTripMemo }).divers : [];
     }
     livingDivers.frame(_livingDiversList, skyMinutes());
+  };
+  // LW8: THE DOORS OPEN (scenes/livingIndoors.js) - the residents whose day has them inside the building the player is
+  // in, stood in its room and talked to through the street's own ray; their regard hears it through the room's own door
+  // (a caught hand seen by those in the room)
+  let livingIndoors = null;
+  const _livingIndoorsDoor = {
+    refuses: (p) => livingIndoors?.town()?.refuses(p) ?? null,
+    talked: (p) => livingIndoors?.town()?.talked(p) ?? null,
+    caught: (p) => livingIndoors?.caught(p) ?? null,
+    toned: (p, tone) => livingIndoors?.town()?.toned(p, tone) ?? null,
+  };
+  const livingTownOfMap = (mapId) => {
+    for (const p of built.values()) if (p.population instanceof LivingTown && (p.population.o.town.mapId >>> 0) === (mapId >>> 0)) return p.population;
+    return null;
+  };
+  const livingIndoorsStep = (dt) => {
+    if (!livingWorldOn() || _mode() !== 'interior') { if (livingIndoors?.size) livingIndoors.clear(); return; }
+    livingIndoors ??= createLivingIndoors({
+      sprites: createTravellerSprites({ renderer, getTexture, uploadRecordFrame, living: _livingIndoorsDoor }),
+      building: () => { const b = modes?.interiorBuilding; const town = b ? livingTownOfMap(b.townMapId ?? 0) : null; return b && town ? { key: b.buildingKey, town } : null; },
+      collider: () => modes?.interiorCollider ?? null,
+      floorAt: (x, y, z) => { const d = modes?.interiorCollider?.raycast([x, y, z], [0, -1, 0], 3); return Number.isFinite(d) ? y - d : null; },
+      origin: () => null,   // the player's own feet, on the way in
+      staticFeet: () => (modes?.interiorCtx?.people ?? []).filter((p) => p.active !== false).map((p) => [p.x, p.y, p.z]),
+      clock: skyMinutes,
+      ready: () => !_loading && !modes?.transitioning,
+    });
+    livingIndoors.frame(dt, player.pos, cam.yaw, cam.pos);
   };
   /** LW3: a resident's class sprite for the armed walk - its art loaded into the people's own texture table (the people
    *  pass reads its frames there), null until it is. */
@@ -15994,7 +16023,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10947-11011 -
+  // worldModes answers it in BOTH modes (worldModes.js:10950-11014 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -22910,6 +22939,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     modeLights: () => (csaOn() && !modes?.sailingCabin ? csa.lights(cam.pos) : []),   // CSA-C: ...and its lit lanterns (CABIN-HULL: none lights her cabin from outside)
     csaActivationPick: (eye, dir) => csaActivationPick(eye, dir),   // CSA-D: ...and the one ray on it, in the building's or the dungeon's ladder
     csaActivate: (pick) => csaActivate(pick),
+    livingBillboards: () => (livingIndoors?.batches() ?? []),   // LW8: the residents inside, on the building's own pass
+    livingPersonsAct: (eye, dir, nearer) => !!livingIndoors?.size && townTalk.tryActivate(eye, dir, livingIndoors.seats(), nearer),   // LW8: ...and the street's own talk ray on them
     csaDrawWindWidget: () => csaDrawWindWidget(),   // CSA-E: the wind widget over a mode's HUD
     csaOnPlayerDeath: () => { if (csaRuntime) csaCall(() => csaRuntime.OnPlayerDeath()); },   // CSA-J (the audit): PlayerEntity.OnDeath and OnExhausted reach ComeSailAway.OnPlayerDeath in every mode (Start 1059-1060)
     csaFrame: (dt, axes) => { _csaAxes = axes; csaFrame(dt); },   // CSA-C: a MonoBehaviour's Update and LateUpdate indoors too - a boat placed on a dungeon's water is baked, lit and drawn there; CSA-J (the audit): from the modes' frame, after its motor, on its axes
@@ -25881,6 +25912,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       ambience.update(dt, { inside: true, underground: modes.mode === 'dungeon', indoorRainSource: betterAmbience.rainPlaying() });
       if (livingRoads) livingRoads.clear();   // LW3: indoors, underground - the road's bodies freed with the open world they stood in
       livingDiversStep(now);   // LW6: underground, the companies diving here met
+      livingIndoorsStep(dt);   // LW8: in a building, the residents whose day has them inside
       if (dwPlayer) {
         audio.setListenerLowPass(0);   // DW-D: UpdateAudioFilter's IsPlayerInside - RemoveAudioFilter
         // AUDIT DW-F: UpdateSwimSfxAndWeather asks IsPlayingGame and IsPlayerSwimming && !IsWaterWalking and nothing of
@@ -27706,6 +27738,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       livePersonBatches.push(...livingRoads.batches());
     } else if (livingRoads) livingRoads.clear();
     if (_livingWatchTurned.length) livingWatchStep();   // LW7: a struck watchman's guard, watched
+    if (livingIndoors?.size) livingIndoors.clear();   // LW8: the street again - the room's residents freed
     // G1: the guards drive + draw on the same flats' axis. WINFOE1
     // (2026-09-17, Mac: "enemies should still be able to do damage"): the
     // ENEMY pools no longer freeze under a window - a rest, the

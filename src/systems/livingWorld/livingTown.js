@@ -39,7 +39,7 @@
 import { POP_VISIBLE_RANGE, POP_RECYCLE_DISTANCE, maxPopulationFor } from '../townPopulation.js';
 import { PERSON_MOVE_SPEED } from '../../characters/mobilePerson.js';
 import { townPlaces, exitToward, harbourDock } from './places.js';
-import { townCensus } from './census.js';
+import { townCensus, isHome } from './census.js';
 import { dayPlan, entryAt, isOutdoor, DAY_START_MIN, DAY_MIN } from './dayPlan.js';
 import { BUILDING_TYPES } from '../../world/buildingNames.js';
 import { createPathBook, pointAlong } from './townPaths.js';
@@ -276,6 +276,28 @@ export class LivingTown {
     const plan = this.planOf(res, this.dayOf(t));
     const i = entryAt(plan, t);
     return i >= 0 ? { e: plan[i], prev: plan[i - 1] ?? null, next: plan[i + 1] ?? null } : null;
+  }
+
+  /**
+   * LW8: WHO IS INSIDE building `key` at minute `t` - each resident whose day has them in at its door (arrived: not on
+   * the street, a walk running late still out), but those asleep, the building's own staff at their work where it is no
+   * house (its static people stand for them, DFU's own), and the taken, the gone and the dead. In the order of their ids.
+   * @param {number} key @param {number} t @returns {{ res: Resident, e: Entry }[]}
+   */
+  insideAt(key, t) {
+    const day = this.dayOf(t);
+    const house = isHome(this.places.types.get(key) ?? -1);
+    const out = [];
+    for (const res of this.peopleOf(day).concat(this._crewsNow())) {
+      if (this._taken.get(res.id) === day || this._gone(res) || this.o.deadAt?.(res, t)) continue;
+      const at = this.entryOf(res, t);
+      const e = at?.e;
+      if (!e || e.kind === 'walk' || isOutdoor(e) || e.at?.building !== key) continue;
+      if (e.kind === 'sleep' || (e.kind === 'work' && !house && res.work === key)) continue;
+      if (this.where(res, t, false)) continue;   // still in the street: a walk running late
+      out.push({ res, e });
+    }
+    return out.sort((a, b) => (a.res.id < b.res.id ? -1 : 1));
   }
 
   /** The walk's line, if its path is known (undefined: not searched yet; null: no way). */
