@@ -2,8 +2,8 @@
   {
     "name": "SERAPHWINGS-the-root-in-front",
     "file": "src/render/auraRing.js",
-    "old": "uCapeS.z - ${g3(WING_ROOT.back)});",
-    "new": "uCapeS.z + ${g3(WING_ROOT.back)});",
+    "old": "-${g3(WING_ROOT.back)});",
+    "new": "${g3(WING_ROOT.back)});",
     "tests": [
       "test/seraphwings.test.js"
     ]
@@ -11,8 +11,8 @@
   {
     "name": "SERAPHWINGS-the-sides-swapped",
     "file": "src/render/auraRing.js",
-    "old": "return vec3(p < ${g1(WING_PLUMES)} ? -1.0 : 1.0,",
-    "new": "return vec3(p < ${g1(WING_PLUMES)} ? 1.0 : -1.0,",
+    "old": "return vec4(p < ${g1(WING_PLUMES + WING_COVERTS)} ? -1.0 : 1.0,",
+    "new": "return vec4(p < ${g1(WING_PLUMES + WING_COVERTS)} ? 1.0 : -1.0,",
     "tests": [
       "test/seraphwings.test.js"
     ]
@@ -20,8 +20,8 @@
   {
     "name": "SERAPHWINGS-one-wing",
     "file": "src/render/auraRing.js",
-    "old": "return vec3(p < ${g1(WING_PLUMES)} ? -1.0 : 1.0,",
-    "new": "return vec3(p < ${g1(WING_PLUMES)} ? 1.0 : 1.0,",
+    "old": "return vec4(p < ${g1(WING_PLUMES + WING_COVERTS)} ? -1.0 : 1.0,",
+    "new": "return vec4(p < ${g1(WING_PLUMES + WING_COVERTS)} ? 1.0 : 1.0,",
     "tests": [
       "test/seraphwings.test.js"
     ]
@@ -29,8 +29,8 @@
   {
     "name": "SERAPHWINGS-the-fan-flat",
     "file": "src/render/auraRing.js",
-    "old": "float th = mix(${g3(WING_SPREAD[0])}, ${g3(WING_SPREAD[1])}, s.y)",
-    "new": "float th = mix(${g3(WING_SPREAD[0])}, ${g3(WING_SPREAD[0])}, s.y)",
+    "old": "mix(${g3(WING_SPREAD[0])}, ${g3(WING_SPREAD[1])}, s.y)",
+    "new": "mix(${g3(WING_SPREAD[0])}, ${g3(WING_SPREAD[0])}, s.y)",
     "tests": [
       "test/seraphwings.test.js"
     ]
@@ -38,8 +38,8 @@
   {
     "name": "SERAPHWINGS-the-fan-upside-down",
     "file": "src/render/auraRing.js",
-    "old": "float th = mix(${g3(WING_SPREAD[0])}, ${g3(WING_SPREAD[1])}, s.y)",
-    "new": "float th = mix(${g3(WING_SPREAD[1])}, ${g3(WING_SPREAD[0])}, s.y)",
+    "old": "mix(${g3(WING_SPREAD[0])}, ${g3(WING_SPREAD[1])}, s.y)",
+    "new": "mix(${g3(WING_SPREAD[1])}, ${g3(WING_SPREAD[0])}, s.y)",
     "tests": [
       "test/seraphwings.test.js"
     ]
@@ -47,8 +47,8 @@
   {
     "name": "SERAPHWINGS-every-plume-long",
     "file": "src/render/auraRing.js",
-    "old": "float reach = mix(${g3(WING_REACH[0])}, ${g3(WING_REACH[1])},",
-    "new": "float reach = mix(${g3(WING_REACH[1])}, ${g3(WING_REACH[1])},",
+    "old": "mix(${g3(WING_REACH[0])}, ${g3(WING_REACH[1])}, smoothstep(0.0, 0.8, s.y))",
+    "new": "mix(${g3(WING_REACH[1])}, ${g3(WING_REACH[1])}, smoothstep(0.0, 0.8, s.y))",
     "tests": [
       "test/seraphwings.test.js"
     ]
@@ -65,8 +65,8 @@
   {
     "name": "SERAPHWINGS-the-width-one",
     "file": "src/render/auraRing.js",
-    "old": "float width = mix(${g3(WING_W.broad)}, ${g3(WING_W.fine)}, fine)",
-    "new": "float width = mix(${g3(WING_W.broad)}, ${g3(WING_W.broad)}, fine)",
+    "old": "mix(${g3(WING_W.broad)} * (st.w > 0.5 ? 0.6 : 1.0), ${g3(WING_W.fine)}, fine)",
+    "new": "mix(${g3(WING_W.broad)} * (st.w > 0.5 ? 0.6 : 1.0), ${g3(WING_W.broad)}, fine)",
     "tests": [
       "test/seraphwings.test.js"
     ]
@@ -83,7 +83,7 @@
   {
     "name": "SERAPHWINGS-no-waves",
     "file": "src/render/auraRing.js",
-    "old": "float amp = (0.08 + 0.01 * s.z) * pow(t, 1.4);",
+    "old": "float amp = (s.w > 0.5 ? 0.04 : 0.08 + 0.01 * m) * pow(t, 1.4);",
     "new": "float amp = 0.0;",
     "tests": [
       "test/seraphwings.test.js"
@@ -92,8 +92,8 @@
   {
     "name": "SERAPHWINGS-no-breath",
     "file": "src/render/auraRing.js",
-    "old": "+ 0.07 * breathe +",
-    "new": "+ 0.0 * breathe +",
+    "old": "+ 0.07 * breathe -",
+    "new": "+ 0.0 * breathe -",
     "tests": [
       "test/seraphwings.test.js"
     ]
@@ -128,8 +128,8 @@
   {
     "name": "SERAPHWINGS-the-shoulders-ignored",
     "file": "src/render/auraRing.js",
-    "old": "uCapeS.y - ${g3(WING_ROOT.below)},",
-    "new": "${g3(CLOAK_SHOULDER_Y)} - ${g3(WING_ROOT.below)},",
+    "old": "vec3 wingBack(vec3 l) { return uCapeS.xyz +",
+    "new": "vec3 wingBack(vec3 l) { return vec3(0.0, ${g3(CLOAK_SHOULDER_Y)}, 0.0) +",
     "tests": [
       "test/seraphwings.test.js"
     ]
@@ -173,7 +173,7 @@
   {
     "name": "SERAPHWINGS-the-root-blazing",
     "file": "src/render/auraRing.js",
-    "old": "float along = smoothstep(0.0, 0.16, t) *",
+    "old": "float along = smoothstep(0.04, 0.22, t) *",
     "new": "float along = 1.0 *",
     "tests": [
       "test/seraphwings.test.js"
@@ -200,8 +200,8 @@
   {
     "name": "SERAPHWINGS-the-light-still",
     "file": "src/render/auraRing.js",
-    "old": "float n = fbmP(vec2(t * ${g1(WING_FLOW.cells)} - uTime * ${g3(WING_FLOW.rate)}, k * 3.7)",
-    "new": "float n = fbmP(vec2(t * ${g1(WING_FLOW.cells)}, k * 3.7)",
+    "old": ": fbmP(vec2(t * ${g1(WING_FLOW.cells)} - uTime * ${g3(WING_FLOW.rate)}, k * 3.7)",
+    "new": ": fbmP(vec2(t * ${g1(WING_FLOW.cells)}, k * 3.7)",
     "tests": [
       "test/seraphwings.test.js"
     ]
@@ -218,8 +218,8 @@
   {
     "name": "SERAPHWINGS-the-motes-never-fade",
     "file": "src/render/auraRing.js",
-    "old": "float life = smoothstep(0.0, 0.15, s.x) * (1.0 - smoothstep(0.6, 1.0, s.x));\n  return (WING_CORE",
-    "new": "float life = 1.0;\n  return (WING_CORE",
+    "old": "float life = smoothstep(0.0, 0.15, s.x) * (1.0 - smoothstep(0.6, 1.0, s.x));\n  float streak",
+    "new": "float life = 1.0;\n  float streak",
     "tests": [
       "test/seraphwings.test.js"
     ]
@@ -281,8 +281,8 @@
   {
     "name": "SERAPHWINGS-the-look-a-shade",
     "file": "src/render/auraRing.js",
-    "old": "glyphs: WING_MOTES, mesh: 'wings' }),",
-    "new": "glyphs: WING_MOTES, mesh: 'wings', shade: true }),",
+    "old": "glyphs: WING_CARDS, mesh: 'wings' }),",
+    "new": "glyphs: WING_CARDS, mesh: 'wings', shade: true }),",
     "tests": [
       "test/seraphwings.test.js"
     ]
@@ -290,7 +290,7 @@
   {
     "name": "SERAPHWINGS-the-motes-dropped",
     "file": "src/render/auraRing.js",
-    "old": "glyphs: WING_MOTES, mesh: 'wings' }),",
+    "old": "glyphs: WING_CARDS, mesh: 'wings' }),",
     "new": "glyphs: 0, mesh: 'wings' }),",
     "tests": [
       "test/seraphwings.test.js"

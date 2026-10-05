@@ -21,7 +21,7 @@ import { RELAY_VERSION } from '../src/net/wire.js';
 import { standService } from './accountDb.mjs';
 import {
   AURA_LOOK, auraLookOf, AURA_STEPS, AURA_GROUND_R, AURA_LIFT_M, AURA_CLOCK_PERIOD, AURA_VS, AURA_FS, AURA_CARDS, AuraRingRenderer,
-  WING_PLUMES, WING_STRANDS, WING_SEGS, WING_ROOT, WING_SPREAD, WING_REACH, WING_W, WING_HZ, WING_FLOW, WING_MOTES,
+  WING_PLUMES, WING_COVERTS, WING_PER_SIDE, WING_CARDS, WING_STRANDS, WING_SEGS, WING_ROOT, WING_SPREAD, WING_REACH, WING_W, WING_HZ, WING_FLOW, WING_MOTES,
   WING_MOTE_LIFE, WING_POOL_R, WING_RGB, WING_STRAND_COUNT, WING_VERTS, wingRatesWhole, auraWingsGrid,
   CLOAK_SHOULDER_Y, CLOAK_HOOD_Y, CLOAK_REST_POSE,
 } from '../src/render/auraRing.js';
@@ -45,7 +45,7 @@ test('SERAPH-WINGS vocabulary: the wings join AURAS last, "Seraph Wings" in word
   assert.equal(AURA_TEXT.seraphwings, 'Seraph Wings');
   assert.equal(AURA_PAINT.seraphwings, 'founder', 'the button in gold - the developer\'s own paint is a red');
   assert.ok(TITLES.includes(AURA_PAINT.seraphwings));
-  assert.deepEqual({ ...AURA_LOOK.seraphwings }, { kind: 4, ringR: WING_POOL_R, flameH: WING_REACH[1], glyphs: WING_MOTES, mesh: 'wings' }, 'the fifth kind: its pool, its reach, its motes, its own mesh - and no shade');
+  assert.deepEqual({ ...AURA_LOOK.seraphwings }, { kind: 4, ringR: WING_POOL_R, flameH: WING_REACH[1], glyphs: WING_CARDS, mesh: 'wings' }, 'the fifth kind: its pool, its reach, its sparks and its backlight, its own mesh - and no shade');
   assert.equal(auraLookOf('seraphwings'), AURA_LOOK.seraphwings);
   assert.equal(new Set(Object.values(AURA_LOOK).map((l) => l.kind)).size, AURAS.length, 'a kind each');
   const [r, g, b] = WING_RGB.gold, f = TITLE_RGBA.founder;
@@ -144,7 +144,7 @@ test('SERAPH-WINGS token and relay: a token may carry the wings and verifies; th
 // ── THE WINGS' LAW AND SHAPE ────────────────────────────────────────
 
 const I = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
-const BASE = { uSeed: 0.37, uRingR: WING_POOL_R, uGroundR: AURA_GROUND_R, uFlameH: WING_REACH[1], uFogMode: 0, uFogDensity: 0, uFogRange: [0, 1], uAt: [0, 0, 0], uFocus: [0, 0, 0, 0], uLift: AURA_LIFT_M, uVP: I, uAura: 4, uSide: 1, uTorn: -1, uSwing: [0, 0, 0, 0], uCapeS: [0, CLOAK_SHOULDER_Y, 0, 1], uCapeH: [0, CLOAK_HOOD_Y, 0, 0], uKneeL: [0, 0, 0], uKneeR: [0, 0, 0] };
+const BASE = { uSeed: 0.37, uRingR: WING_POOL_R, uGroundR: AURA_GROUND_R, uFlameH: WING_REACH[1], uFogMode: 0, uFogDensity: 0, uFogRange: [0, 1], uAt: [0, 0, 0], uFocus: [0, 0, 0, 0], uLift: AURA_LIFT_M, uVP: I, uAura: 4, uSide: 1, uTorn: -1, uSwing: [0, 0, 0, 0], uCapeS: [0, CLOAK_SHOULDER_Y, 0, 1], uCapeH: [0, CLOAK_HOOD_Y, 0, 0], uKneeL: [0, 0, 0], uKneeR: [0, 0, 0], uTorsoU: [0, 1, 0], uTorsoF: [0, 0, 1] };
 const FAR = [0, 1.5, -6];   // an eye well behind the wearer
 /** Strand k's point at its length's share t, as the vertex half lays it (the middle of its ribbon). */
 const strandAt = (k, t, { time = 13.2, yaw = 0, eye = FAR, pose = {} } = {}) => {
@@ -152,13 +152,15 @@ const strandAt = (k, t, { time = 13.2, yaw = 0, eye = FAR, pose = {} } = {}) => 
   const a = across(0), b = across(1);
   return { mid: a.map((x, i) => (x + b[i]) / 2), width: Math.hypot(...a.map((x, i) => x - b[i])) };
 };
-const broad = (side, plume) => (side < 0 ? 0 : WING_PLUMES * WING_STRANDS) + plume * WING_STRANDS;
+const broad = (side, plume) => (side < 0 ? 0 : WING_PER_SIDE) + plume * WING_STRANDS;   // a primary's broad strand
 
 test('SERAPH-WINGS the law: every rate whole over the clock and every mote\'s life dividing it; the mesh every strand\'s ribbon, root to tip, two triangles a segment; the fan from below level to high over the head, the high plumes the long ones; the pool inside the ground\'s quad; cards enough for the motes (mutants: a rate off whole, the fan)', () => {
   assert.ok(wingRatesWhole(), 'every rate whole');
   for (const hz of [...Object.values(WING_HZ), WING_FLOW.rate, WING_FLOW.fray]) assert.ok(Number.isInteger(Math.round(hz * AURA_CLOCK_PERIOD * 1e6) / 1e6), `${hz} whole over ${AURA_CLOCK_PERIOD} s`);
   for (const l of WING_MOTE_LIFE) assert.equal(AURA_CLOCK_PERIOD % l, 0, `a mote's life of ${l} s divides the clock`);
-  assert.equal(WING_STRAND_COUNT, 2 * WING_PLUMES * WING_STRANDS);
+  assert.equal(WING_PER_SIDE, (WING_PLUMES + WING_COVERTS) * WING_STRANDS, 'the primaries and the coverts');
+  assert.equal(WING_STRAND_COUNT, 2 * WING_PER_SIDE);
+  assert.equal(WING_CARDS, WING_MOTES + 1, 'the sparks and the backlight');
   assert.equal(WING_VERTS, WING_STRAND_COUNT * WING_SEGS * 6);
   const g = auraWingsGrid();
   assert.equal(g.length, WING_VERTS * 2, 'two numbers a vertex');
@@ -173,7 +175,7 @@ test('SERAPH-WINGS the law: every rate whole over the clock and every mote\'s li
   assert.ok(WING_REACH[1] > WING_REACH[0] * 1.5, 'the high plumes the long ones');
   assert.ok(WING_W.broad > 2 * WING_W.fine, 'a broad strand and fine ones');
   assert.ok(WING_POOL_R <= AURA_GROUND_R, 'its pool inside the ground quad');
-  assert.ok(AURA_CARDS >= WING_MOTES, 'cards enough for its motes');
+  assert.ok(AURA_CARDS >= WING_CARDS, 'cards enough for its sparks and its backlight');
 });
 
 test('SERAPH-WINGS the vertex half, RUN: every strand grows out of the upper back, behind the shoulders\' middle; the left plumes out to the wearer\'s left, the right to their right; up the fan each tip higher, the highest over the head, the lowest below the shoulders and off the ground; none sweeping in front of the wearer; turned with the facing; a ribbon its width across, broad wider than fine, turned to the eye; flowing - the tips move, the roots stay; the same at the clock\'s wrap (mutants: the root, the side, the fan, the facing, the width, the flow)', () => {
@@ -202,12 +204,12 @@ test('SERAPH-WINGS the vertex half, RUN: every strand grows out of the upper bac
   // the waves are more than the fan's breath: a breath (6 s) apart the breath is where it was and the waves are not
   const breathApart = Math.max(...[broad(1, 2), broad(1, 4), broad(-1, 5), broad(-1, 1) + 1].map((kk) => { const a = strandAt(kk, 1, { time: 13.2 }).mid, b = strandAt(kk, 1, { time: 13.2 + 1 / WING_HZ.breathe }).mid; return Math.hypot(...a.map((x, i) => x - b[i])); }));
   assert.ok(breathApart > 0.03, `waves running along them (${breathApart.toFixed(3)} m a breath apart)`);
-  // the fan breathes: over twelve seconds (whole periods of the breath and of every wave) the middle plumes' tips rise
-  // and fall with the breath - the waves, at other rates, cancel out of it
+  // the fan breathes: over twenty-four seconds (whole periods of the breath, the beat and every wave) the middle plumes'
+  // tips rise and fall with the breath - the waves and the beat, at other rates, cancel out of it
   const mids = [broad(-1, 3), broad(1, 3), broad(-1, 4), broad(1, 4)];
   let corr = 0;
-  for (let i = 0; i < 48; i++) { const time = 2 + i * 0.25; corr += mids.reduce((a, kk) => a + strandAt(kk, 1, { time }).mid[1], 0) / mids.length * Math.sin(2 * Math.PI * WING_HZ.breathe * time); }
-  assert.ok(Math.abs(corr / 48) > 0.02, `the fan breathing open and closed (${(corr / 48).toFixed(3)})`);
+  for (let i = 0; i < 96; i++) { const time = 2 + i * 0.25; corr += mids.reduce((a, kk) => a + strandAt(kk, 1, { time }).mid[1], 0) / mids.length * Math.sin(2 * Math.PI * WING_HZ.breathe * time); }
+  assert.ok(Math.abs(corr / 96) > 0.02, `the fan breathing open and closed (${(corr / 96).toFixed(3)})`);
   const k = broad(1, 4), now = strandAt(k, 1, { time: 13.2 }).mid, then = strandAt(k, 1, { time: 14.2 }).mid;
   assert.ok(Math.hypot(...now.map((x, i) => x - then[i])) > 0.03, 'flowing: the tip moves');
   const r0 = strandAt(k, 0, { time: 13.2 }).mid, r1 = strandAt(k, 0, { time: 14.2 }).mid;
@@ -305,7 +307,7 @@ test('SERAPH-WINGS the draw: the wings\' mesh uploaded; a wearer of them drawn i
   r.draw([{ at: [0, 0, 0], aura: 'seraphwings', yaw: 0 }, { at: [3, 0, 3], aura: 'dagonfire' }], new Float32Array(I), new Float32Array(I), [0, 1.5, -5], 10);
   assert.equal(r.drawn, 2);
   const seq = calls.filter((c) => c[0] === 'drawArrays' || (c[0] === 'uniform1i' && c[1] === 'uAura') || ((c[0] === 'enable' || c[0] === 'disable') && c[1] === 12)).map((c) => c[0] === 'drawArrays' ? c[3] : c[0] === 'uniform1i' ? `aura ${c[2]}` : `${c[0]} offset`);
-  assert.deepEqual(seq, ['enable offset', 'aura 0', 6, AURA_STEPS * 6, 'aura 4', 6, 'disable offset', WING_VERTS, WING_MOTES * 6, 'enable offset', 'disable offset'], 'farthest first: the fire, then the wings - their pool with the offset, their strands and motes without it, the offset back');
+  assert.deepEqual(seq, ['enable offset', 'aura 0', 6, AURA_STEPS * 6, 'aura 4', 6, 'disable offset', WING_VERTS, WING_CARDS * 6, 'enable offset', 'disable offset'], 'farthest first: the fire, then the wings - their pool with the offset, their strands, sparks and backlight without it, the offset back');
   assert.ok(!calls.some((c) => c[0] === 'blendFunc' && c[2] === 13), 'added whole - never premultiplied');
   const at = calls.findIndex((c) => c[0] === 'drawArrays' && c[3] === WING_VERTS), bound = calls.slice(0, at).filter((c) => c[0] === 'bindVertexArray').pop();
   assert.equal(bound[1], r.wingsVao, 'the strands off the wings\' own mesh');

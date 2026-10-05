@@ -241,7 +241,7 @@ test('SHADOW-CLOAK the law: a CAPE clasped at the throat, its hood up round the 
   assert.ok(cloakRatesWhole(), 'every cloak rate whole over the clock');
   for (const r of [...Object.values(CLOAK_HZ), ...Object.values(CLOAK_FLOW), ...Object.values(CLOAK_SHRED_HZ)]) assert.ok(Number.isInteger(Math.round(r * AURA_CLOCK_PERIOD * 1e6) / 1e6), `whole: ${r}`);
   for (const l of CLOAK_EMBLEM_LIFE) assert.equal(AURA_CLOCK_PERIOD % l, 0, `an emblem's life divides the clock: ${l}`);
-  assert.equal(AURA_CARDS, Math.max(WARD_GLYPHS, CLOAK_EMBLEMS + CLOAK_SHREDS), 'the third draw has cards enough for the most any look floats');
+  assert.equal(AURA_CARDS, Math.max(WARD_GLYPHS, CLOAK_EMBLEMS + CLOAK_SHREDS, AURA_LOOK.seraphwings.glyphs), 'the third draw has cards enough for the most any look floats (SERAPH-WINGS: its sparks and backlight - PIN MOVED)');
   for (const gone of ['cloakHex', 'cloakRain', 'cloakGlitch', 'cloakWisp', 'flicker']) assert.ok(!AURA_VS.includes(gone) && !AURA_FS.includes(gone), `"less digital": no ${gone}`);
 });
 

@@ -341,7 +341,9 @@ try {
   check('flowing - another moment, another picture', wFlow > 2000, `${wFlow}`);
   const wB = await wg(wBehind, p.period - 1 / 240, 1, wGrid, wAt), wA = await wg(wBehind, 1 / 240, 1, wGrid, wAt);
   const swWJump = Math.max(...wB.px.map((c, i) => Math.abs(lum(c) - lum(wA.px[i]))));
-  check('no jump where the clock wraps', swWJump <= 45, `${swWJump}`);
+  const wMidA = await wg(wBehind, 60 - 1 / 240, 1, wGrid, wAt), wMidB = await wg(wBehind, 60 + 1 / 240, 1, wGrid, wAt);
+  const wStep = Math.max(...wMidA.px.map((c, i) => Math.abs(lum(c) - lum(wMidB.px[i]))));
+  check('no jump where the clock wraps - no more than their own motion over the same moment', swWJump <= Math.max(45, 1.5 * wStep + 10), `${swWJump} at the wrap, ${wStep} mid-clock`);
   const wCold = await wg(wBehind, 13.2, 0, wGrid, wAt), swWHalf = await wg(wBehind, 13.2, 0.5, wGrid, wAt);
   const wHalfN = wLit(swWHalf).filter(Boolean).length, wWholeN = wLitNow.filter(Boolean).length;
   check('unkindled nothing, half kindled less', wCold.px.every((c, i) => Math.abs(lum(c) - lum(wBare.px[i])) < 6) && wHalfN > 0 && wHalfN < wWholeN * 0.7, `half ${wHalfN} of ${wWholeN}`);
