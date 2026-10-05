@@ -388,7 +388,7 @@ are the **narrowed remainders** Wave D recorded rather than shipped
 
 **Blocked - no 1:1 target.**
 
-- ~~**`src/scenes/dungeonContext.js:2447`** - the two window seams this
+- ~~**`src/scenes/dungeonContext.js:2448`** - the two window seams this
   host cannot mount (`onTeleport`'s INTERIM shape). *There is no
   standalone dungeon scene in DFU to port from; `?dungeon` is the
   port's own dev route. Closing it means porting the trade window and
@@ -625,7 +625,7 @@ are the **narrowed remainders** Wave D recorded rather than shipped
 
 **Added after this page's measurement, and counted here so the tally follows the tree.**
 
-- ~~**`src/scenes/dungeonContext.js:1382`** - the dungeon's non-layout foe
+- ~~**`src/scenes/dungeonContext.js:1383`** - the dungeon's non-layout foe
   run is private (ONLINE-DUNGEON-FOES, 2026-09-20). *Mac's two online
   reports - "non-reactive enemies in dungeons" and "the lysander ghost
   enemy isn't synced between players" - are one line. `_layoutFoes` is
@@ -827,8 +827,8 @@ that was a claim once and is a pointer at a stranger now.
 - **`src/scenes/dungeonContext.js:4741`** - the dungeon stream's gap.
   *`12-Enhanced-AI/Feud-Arc.md` 10.1 and section 32: the host's `roomRecord`
   carries none of the street record's `z`, `nm`, `yd`, `ex` or `sp`, and FEUD
-  added only its own wind-up fields there; the day the stream carries them, the
-  sentence goes.*
+  added only its own wind-up fields there (RVN13 its `ad`, `wq` and `p2` - and so
+  no band follower's `rt`); the day the stream carries them, the sentence goes.*
 
 ## 2. Port-Ledger section C rows still routed and not struck
 

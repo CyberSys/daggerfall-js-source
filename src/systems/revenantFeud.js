@@ -535,6 +535,36 @@ export function lessonOf(kinds, learned, mobileType, career = null) {
 }
 /** RVN2 (13.1): `learned` with `a` learned at `rank` - at most min(rank, ADAPT_MAX), the oldest forgotten. */
 export const withLesson = (learned, a, rank) => [...(learned ?? []).filter((x) => x !== a), a].slice(-Math.max(1, Math.min(rank | 0, ADAPT_MAX)));
+// ── RVN13 (section 25): a revenant on the wire ──────────────────────
+/** RVN13: its adaptations as a mask - bit i for ADAPTATIONS[i] (sixteen bits; net/wire.js FOE_ADAPT_MASK_MAX). */
+export const adaptMask = (learned) => (Array.isArray(learned) ? learned : []).reduce((m, a) => { const i = ADAPTATIONS.indexOf(a); return i >= 0 ? (m | (1 << i)) >>> 0 : m; }, 0);
+/** RVN13: a mask read back - the adaptations its bits name, in ADAPTATIONS' order, at most ADAPT_MAX. */
+export const maskAdapt = (mask) => ADAPTATIONS.filter((_, i) => ((Number(mask) >>> i) & 1) === 1).slice(0, ADAPT_MAX);
+/** RVN13: its weakness on the wire - its index in WEAKNESSES (net/wire.js FOE_WEAK_MAX the last), -1 for none; and back. */
+export const weakIndex = (weak) => WEAKNESSES.indexOf(weak);
+export const weakAt = (i) => (Number.isInteger(i) && i >= 0 && i < WEAKNESSES.length ? WEAKNESSES[i] : null);
+/** RVN13 (section 25): a revenant's own on its foe record, from its stamp (`entity.revenant`) - `ad` its adaptations
+ *  (none learned: absent), `wq` its weakness, `p2` 1 in its last stand's second phase. */
+export function feudWire(rev) {
+  if (!rev) return {};
+  const ad = adaptMask(rev.learned), wq = weakIndex(rev.weak);
+  return { ...(ad ? { ad } : {}), ...(wq >= 0 ? { wq } : {}), ...(rev.p2 ? { p2: 1 } : {}) };
+}
+/** RVN13 (25): what a puppet stands with of its owner's revenant (`r` its record): its adaptations, its weakness and
+ *  their edge - the formulas, the doors and the brain read them on it, so a peer's roll against it sees what its owner's
+ *  would (the owner applies none of them twice: a relayed blow is a final number) - and its second phase's look. */
+export function feudFromWire(rev, r) {
+  const learned = r?.ad != null ? maskAdapt(r.ad) : [];
+  const weak = r?.wq != null ? weakAt(r.wq) : null;
+  return { ...(rev ?? {}), learned, weak, edge: adaptEdge(learned, weak), p2: r?.p2 === 1 ? (rev?.p2 ?? phaseTwo()) : null };
+}
+/** RVN13 (25): a follower's band's name, from its master's puppet - its given name (the first word of what its owner
+ *  calls it) and its kind's word. Null without both. */
+export function puppetBandName(masterName, masterType) {
+  const given = typeof masterName === 'string' ? masterName.split(/[, ]/)[0] : '';
+  const w = bandWord(masterType);
+  return given && w ? `${possessive(given)} ${w}` : null;
+}
 /** RVN12a (section 23): a learned adaptation in the words of its `{how}` - the habit of mine it learned against. */
 export const ADAPT_HOW = Object.freeze({
   mailed: 'blade', braced: 'hammer', hewnHard: 'axe', unflinching: 'fists', arrowWise: 'arrows', fireproof: 'fire',

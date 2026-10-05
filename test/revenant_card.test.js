@@ -311,8 +311,8 @@ test('REVENANT-DUNGEON, REVENANT-WIRE, the single-location host: a special foe o
   assert.equal(validFoeRecord({ ...base, nm: 7 }), null);
   const x = read('src/scenes/exteriorFoes.js');
   assert.match(x, /\.\.\.\(!onWatch && typeof f\.entity\?\.revenant\?\.name === 'string' && f\.entity\.revenant\.name \? \{ nm: /, 'the owner sends it');
-  assert.match(x, /\$\{r\.z \?\? 0\},\$\{r\.nm \?\? ''\}(?:,\$\{r\.yd \?\? 0\},\$\{r\.ex \?\? 0\},\$\{r\.sp \?\? 0\})?(?:\$\{r\.wk !== undefined[^\n]*blowWireKey\(r\)[^\n]*\})?`;/, 'a changed name is sent again (REVENANT-FATE: and a kneel, a burning or an oath begun; PIN MOVED - TELL8: and a wind-up)');
-  assert.match(x, /if \(typeof r\.nm === 'string' && r\.nm && f\.entity\.revenant\?\.name !== r\.nm\) f\.entity\.revenant = \{ id: null, name: r\.nm, rank: 0 \};/, 'the puppet called so');
+  assert.match(x, /\$\{r\.z \?\? 0\},\$\{r\.nm \?\? ''\}(?:,\$\{r\.yd \?\? 0\},\$\{r\.ex \?\? 0\},\$\{r\.sp \?\? 0\})?(?:,\$\{r\.ad \?\? 0\},\$\{r\.wq \?\? -1\},\$\{r\.p2 \?\? 0\},\$\{r\.rt \?\? -1\})?(?:\$\{r\.wk !== undefined[^\n]*blowWireKey\(r\)[^\n]*\})?`;/, 'a changed name is sent again (REVENANT-FATE: and a kneel, a burning or an oath begun; PIN MOVED - TELL8: and a wind-up)');
+  assert.match(x, /if \(typeof r\.nm === 'string' && r\.nm && f\.entity\.revenant\?\.name !== r\.nm\) \{? ?f\.entity\.revenant = \{ id: null, name: r\.nm, rank: 0 \};/, 'the puppet called so');   // PIN MOVED (RVN13: and its wire's own stood again)
   // the single-location host
   const e = read('src/scenes/exterior.js');
   assert.match(e, /revenantPresence\(exteriorFoes\.foes, \{ now \}\);\s*\n\s*revenantSay\(takeRevenantNotice\(playerEntity\), \(l\) => townTalk\.say\(l\)\);/);

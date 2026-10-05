@@ -463,7 +463,7 @@ test('AUDIT SET P-M3: a joiner\'s killing blow, applied at the host, is named on
   const rec = mount(`${declSrc('foeMaxOf')} ${fnSrc('roomRecord')} return { roomRecord };`, { q2: (x) => x, q3: (x) => x, FOE_HEALTH_MAX, FOE_LEVEL_MAX, KILLED_BY_MS, _sharedFoe: () => false, fightN: () => 1 });
   const r = rec.roomRecord(rat, 0, true);
   assert.equal(r.v, 'peer-7');
-  assert.ok(rat._sentKey.endsWith(',peer-7'), 'the name rides the key');
+  assert.ok(rat._sentKey.split(',').includes('peer-7'), 'the name rides the key');   // PIN MOVED (RVN13, Feud-Arc.md 25: a revenant's own ride the key after it)
   assert.equal('v' in rec.roomRecord(bat, 1, true), false, 'the host\'s kill names nobody');
   assert.equal('v' in rec.roomRecord(foeRec(), 2, true), false, 'a live foe names nobody');
   // AUDIT FINAL F7: for KILLED_BY_MS after the death, never for as long as the body lies - 453 elite corpses named by

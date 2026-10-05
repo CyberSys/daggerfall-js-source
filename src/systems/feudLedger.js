@@ -36,6 +36,12 @@ export function setFeudClock(fn) { _clock = typeof fn === 'function' ? fn : null
 /** RVN3: systems/revenant.js's word on whether a blow is of a body's weakness - `info` `{ cls, metal }` as the ledger's
  *  writers know it, or `{ kind, weapon, element, attacker }` as a door does - and what follows a blow of it (`onWeak`). */
 export function setFeudWeakTest(fn, onWeak = null) { _weak = typeof fn === 'function' ? fn : null; _onWeak = typeof onWeak === 'function' ? onWeak : null; }
+/** RVN13 (bible/12-Enhanced-AI/Feud-Arc.md 25): a PEER's blow of its weakness (the relayed hit's `wc`) - revealed to me as
+ *  my own would be (the reveal's own once-a-stand and first-found law). */
+export function feudRevealWeak(entity) {
+  if (!entity?.revenant || !_onWeak) return;
+  try { _onWeak(entity); } catch { /* the reveal is no blow's business */ }
+}
 /** RVN3: is this blow of `entity`'s weakness (false with no test, or for a body with none)? */
 export function feudWeakBlow(entity, info = {}) {
   if (!_weak || !entity?.revenant) return false;

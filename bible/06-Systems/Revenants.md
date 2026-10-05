@@ -510,3 +510,11 @@ signature, band and lair; a sworn one's loyalty; and a fallen one that once tore
 cards wear FEUD's edges: a last stand blood with an ember rim, a signature iron red, a theft amber, a betrayal black.
 The law: `bible/12-Enhanced-AI/Feud-Arc.md` section 24 and its RVN12b record.
 
+## 32. Online (FEUD RVN13, 2026-10-05)
+
+A revenant's adaptations, its weakness and its last stand now ride the foe stream (relay world164), so another player
+fighting your revenant hits it as you would - its learned resistances and its weakness count on their blows too - and
+sees its last stand's ember rim; a follower is named for its band on every screen. A party member's blow of its weakness
+reveals that weakness to you. What it took, its festering, its lair, the rumours and a sworn one's loyalty stay your
+character's own. The law: `bible/12-Enhanced-AI/Feud-Arc.md` section 25 and its RVN13 record.
+

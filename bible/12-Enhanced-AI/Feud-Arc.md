@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL and RVN1-RVN12 built; RVN13 next)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL and RVN1-RVN13 built; AUDIT FEUD next)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -7,7 +7,7 @@ detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
 (section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts), AUDIT
-TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), RVN8, RVN9, RVN10, RVN11 in three parts (RVN11a loyalty, RVN11b desertion, RVN11c betrayal), and RVN12 in two (RVN12a the words, RVN12b the page and the card); each slice's record is at the foot.**
+TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), RVN8, RVN9, RVN10, RVN11 in three parts (RVN11a loyalty, RVN11b desertion, RVN11c betrayal), RVN12 in two (RVN12a the words, RVN12b the page and the card), and RVN13; each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -972,6 +972,14 @@ For the living, under what it is:
 - A peer's blow of its weakness on my revenant reveals it to me (the relayed hit's `wc`, 10.4).
 - The theft, loyalty, festering, the lair and the rumours are the character's own: no wire.
 - One relay bump with TELL8.
+- **As built (RVN13; the record at the foot)**: `ad` is a sixteen-bit mask (sixteen adaptations were built, not
+  twelve), refused with more than three set (ADAPT_MAX); `wq` the weakness's index in `WEAKNESSES`. The wire names
+  none of them (`FOE_ADAPT_MASK_MAX`, `FOE_ADAPT_MAX`, `FOE_WEAK_MAX` - the tests hold them in step). TELL8's relay had
+  shipped, so RVN13 bumps its own: **world164**. Both streams carry `ad`, `wq` and `p2` (FEUD's own fields - the
+  dungeon's gap stays FLAGGED); `rt` rides the street's alone, since no name rides the dungeon's. A puppet stands with
+  them only when they change; a follower is named for its master's band from the master's puppet (its given name, the
+  first word of what its owner calls it, and its kind's word). A peer's blow of my revenant's weakness reveals it
+  through the reveal's own door (`feudLedger.feudRevealWeak`).
 
 ## 26. The record, whole
 
@@ -1192,7 +1200,8 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
 - **A party's shared revenant.** A revenant stays its character's memory (REVENANT's own law); a peer helps fight it,
   and nothing more.
 - **The dungeon stream's gaps.** `roomRecord` carries no `z`, `nm`, `yd`, `ex` or `sp` today; FEUD adds only its own
-  fields there and leaves the gap FLAGGED.
+  fields there and leaves the gap FLAGGED (RVN13: with no `nm` there, no band follower's `rt` either - a follower in a
+  dungeon stands unnamed on a joiner's screen; the same flag names it).
 - **The single-location host.** `scenes/exterior.js` builds its pool without `fates`, so its revenants die outright;
   and it builds no location index, so they roam (no lair - RVN7a). FLAGGED in every RVN slice's record.
 - **RVN11a's fields.** RVN1 changed the record once for every field FEUD foresaw; loyalty's own moves needed two more on
@@ -2373,3 +2382,26 @@ and `dungeonContext.js`.
   (the page's learned row is chips now). Mutant records re-aimed by content (4): `rvn10`'s ally-unsaved,
   history-ally-dropped and page-name-dropped (the history's extra fields), `rvn2`'s page-unnamed (the chips) - each
   judged again: dead.
+
+### RVN13 - BUILT 2026-10-05 (the loot-rarity row on; both foe streams; relay world164)
+
+- **The law** - `systems/revenantFeud.js`: `adaptMask`/`maskAdapt` (a bit for each of ADAPTATIONS, read back at most
+  ADAPT_MAX), `weakIndex`/`weakAt`, `feudWire(stamp)` (`ad`, `wq`, `p2`), `feudFromWire(stamp, record)` (its learned,
+  its weakness, their `adaptEdge`, its phase two), `puppetBandName(masterName, masterType)`.
+- **The wire** - `net/wire.js validFoeRecord`: `ad` (1..FOE_ADAPT_MASK_MAX, at most FOE_ADAPT_MAX set), `wq`
+  (0..FOE_WEAK_MAX), `p2` (1), `rt` (0..FOE_SEQ_MAX) - each refused whole outside its law. `RELAY_VERSION` **world164**
+  and its `relayversion` row; the tests that name the relay moved with it.
+- **Four hosts** - `scenes/exteriorFoes.js` (the world's street, `scenes/exterior.js`'s and `scenes/worldModes.js`'s
+  interiors): its record writes the four (a follower's master by its number) and keys them; its puppet stands with
+  them when they change, a follower named for its master's band; a peer's blow of my revenant's weakness reveals it.
+  `scenes/dungeonContext.js`: its room record writes `ad`, `wq`, `p2` and keys them; a joiner's copy stands with them;
+  a joiner's weak blow reveals it to the host. `scenes/world.js` - carries both pools' streams unchanged.
+- **Not on the wire** - the theft, loyalty, festering, the lair and the rumours: the character's own.
+- **The dungeon stream's gap** - no `nm` rides the room record, so no follower's `rt` either: AUDIT TELL's flag on
+  that stream names it (one gap, one flag - the open flags stay nine), and section 32 says so.
+- Pins `test/rvn13_wire.test.js` (6). Mutants `tools/mutants/rvn13.json` (35): 35 dead. Pins moved (9):
+  `audit68_dungeonctx` (the name rides the key, its fields after), `revenant_card` (the key; the puppet's name stood
+  again), `tell8_online` (both keys), `world2` (the room record's line), `world3` (its key), `world6biiie` (the peer's
+  hit's reveal after it), `audittell` (the flag's words); and the relay's name in 27 tests (world163 -> world164,
+  `relayversion` excluded as its own law asks, its world164 row added). Mutant records re-aimed by content (2): `revenant`'s puppet-unnamed (the name's line now forgets the wire's),
+  `soc1`'s S38 (the version) - each judged again: dead.

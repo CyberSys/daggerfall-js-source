@@ -4417,7 +4417,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1498`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1499`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4801,7 +4801,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:6021`). With the property missing that call is a
+(`dungeonContext.js:6027`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -7151,7 +7151,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1164`, `src/net/online.js:2452`):**
+**Now (`src/net/wire.js:1178`, `src/net/online.js:2452`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -14271,6 +14271,15 @@ record; in short:
   `test/guild1b.test.js` re-aimed at the one account, and `test/fb0930b_bankregion.test.js`'s online half. Mutants:
   `tools/mutants/empireaccount.json` (41, all dead); `realm0.json` (4), `realm5.json` (1), `auditrealm.json` (1),
   `fb0930b_bankregion.json` (3) and `survtiers3.json` (2) re-aimed by content.
+
+## RVN13 - a revenant on the foe stream (2026-10-05)
+
+The Feud arc's revenants online (`bible/12-Enhanced-AI/Feud-Arc.md` section 25 and its RVN13 record; relay
+**world164**): both foe streams carry a revenant's own - `ad` its adaptations (a mask), `wq` its weakness (an index),
+`p2` its last stand's second phase - and the street's a band follower's master (`rt`, by its number, for its name). A
+puppet stands with them, so a peer's roll against it sees what its owner's would (the owner applies none twice: a
+relayed blow is a final number). A peer's blow of the owner's revenant's weakness (the hit's `wc`) reveals it to the
+owner. The theft, loyalty, festering, the lair and the rumours stay the character's own.
 
 ## TELL8 - a wind-up on the foe stream (2026-10-04)
 
