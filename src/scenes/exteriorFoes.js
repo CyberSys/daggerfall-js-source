@@ -1015,10 +1015,15 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         // (which refuses a rest with a seen foe in it) already assumes. A lone wanderer carries no campId and
         // is untouched - it is still the classic rest interruption.
         const campAsleep = f.campId != null && !!senses.playerEntity?.isResting && !isLocalPlayerTarget(ai.target);
+        // WILD-ALERT (2026-10-04, Mac: "Wilderness enemies now approach/non approach based on distance and a stealth
+        // check"): nor a wilderness foe that has not NOTICED a fast traveller (systems/wildAlert.js, the host's stealth
+        // check a classic minute apart) - the same switch, the same "not already on the player" clause
+        const wildUnaware = !!senses.wildUnaware?.(f) && !isLocalPlayerTarget(ai.target);
         // AUDIT BRANCH (WoD) M1: a PLACED foe hunts no peer - it never rides, so no peer holds its puppet, and a blow at
         // a peer lands only through the puppet the peer stands; its site is the peer's own, with its own foes
         const result = runTargetMachine(f, [...senses.candidates(), PLAYER_TARGET, ...(f.placed && !f.site ? [] : _questLike(f) ? questPeerCandidates(f) : peerCandidates()), ...coopCandidates(f)], pf, cdt, {   // QUEST-PARTY: a quest foe hunts only the party it rides to
           noTargetMode: campAsleep,   // WORLD6b-ii: the peers are MY foes' candidates; AUDIT WORLD6b-ii A5: after ME (a peer never beats me on a tie), A9: a puppet never steps here
+          dropLocal: wildUnaware,   // AUDIT-F5: the unaware leave ME off the list and no one else - a peer it fights stays its foe (noTargetMode dropped the peers too)
           playerEntity: senses.playerEntity ?? null,
           playerHeight: senses.playerHeight,   // AUDIT 62 F23: GetTargets measures the player at its LIVE capsule too
         });
@@ -1032,6 +1037,17 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         return result;
       },
     };
+  }
+  /** WILD-ALERT (AUDIT-F1): A FOE THAT NOTICED THE FAST TRAVELLER COMES FOR THEM. The host's stealth check (systems/
+   *  wildAlert.js) only lifted the gate, and the foe's own target pass - once a second, by its own eyes - came long after a
+   *  traveller at the journey's pace had passed: no "!", no hold of the clock, no meeting. Noticed, it is handed the player
+   *  as its target at the feet it noticed them at (MakeEnemyHostileToAttacker's bookkeeping: the last known place, the
+   *  blind pursuit's GiveUpTimer - systems/encounters.js foeAlerted reads both), and its campmates are woken as a member's
+   *  own notice wakes them (CAMP1). */
+  function noticedPlayer(f, playerFeet) {
+    if (!f?.ai || f.dead || f.puppet) return;
+    f.ai.makeEnemyHostileToAttacker?.(PLAYER_TARGET, playerFeet ?? null);
+    if (f.campId != null) wakeCampmates(f);
   }
   /** CAMP1: a campmate within alert radius that has not already noticed
    *  the player is handed the same target directly - it has not seen
@@ -3054,7 +3070,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   /** DROPS-AUDIT CAMP-CAP: the encounter slots still free, the spawns in flight counted. */
   const encounterRoom = () => MAX_ACTIVE_ENCOUNTER_FOES - activeCount() - spawning.filter((s) => s.capped).length;
 
-  return { foes, spawnFoe, damageFoe, encounterRoom, newCampId, partyHit, healFoe, pendingFeet: () => spawning.map((p) => p.feet), handleAttackFromPlayer, attackFromPlayer, update, resolvePlayerHit, poisonFoe, batches, offsetAll, activeCount, lootTargets, hoverName, hoverContents, liveTargets, liveHoverName, takeLoot, pileBody: (key) => pileBody(corpseEntryFor(foes, key, 'foeCorpse', corpseLens)), corpseAt: corpseLens.feetOf, corpseKeyOf: (f) => (corpseLens.isCorpse(f) && !f.corpseDisabled ? `foeCorpse:${idOf(f)}` : null), snapshotWorld, restoreWorld, destroy,   // LOOT-STACK: a body as the loot window's tab; PROF7: where a body lies, the lens's one home (Hunting's bodies); AUDIT 32 H8: its loot's key while it may be searched
+  return { foes, spawnFoe, damageFoe, encounterRoom, newCampId, noticedPlayer, partyHit, healFoe, pendingFeet: () => spawning.map((p) => p.feet), handleAttackFromPlayer, attackFromPlayer, update, resolvePlayerHit, poisonFoe, batches, offsetAll, activeCount, lootTargets, hoverName, hoverContents, liveTargets, liveHoverName, takeLoot, pileBody: (key) => pileBody(corpseEntryFor(foes, key, 'foeCorpse', corpseLens)), corpseAt: corpseLens.feetOf, corpseKeyOf: (f) => (corpseLens.isCorpse(f) && !f.corpseDisabled ? `foeCorpse:${idOf(f)}` : null), snapshotWorld, restoreWorld, destroy,   // LOOT-STACK: a body as the loot window's tab; PROF7: where a body lies, the lens's one home (Hunting's bodies); AUDIT 32 H8: its loot's key while it may be searched
     /** AUDIT 39: CleanupUntrackedObjects' enemy half (StreamingWorld.cs
      *  :1624-1635), which a teleport reaches too through
      *  ClearStreamingWorld -> CollectLooseObjects(true) (:993-998) -

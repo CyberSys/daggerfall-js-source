@@ -276,7 +276,7 @@ Severity: **Medium** a wrong outcome a player meets; **Low** a cost, a leak on a
 | A10 | Low | The dungeon walk's test of the exit door was dead (70300 is no furnishing). | Struck from the catalogue; the census keeps the export (`rdbLayout.js`). Two `decordungeon.json` records re-aimed. |
 | A11 | Low | `addDecorMods` wrote the key's format out again. | `decorKey`. `DECORMODS-key-own-format`. |
 | A12 | Low | **Three copies of one choice** (THE ONE CONSTRUCTION SEAM): the town's pixels, a location's flats and DECOR-LPT's yard each chose a nature flat's picture - Low Poly Trees', the season's (its key, its upload), the record - the yard's copy already short of the town's. | `world/naturePicture.js`, every host's one choice; `test/naturepicture.test.js` sweeps `src/` (no other file writes the season's key or asks the door for a far picture); SIB1's and TEX1's host pins moved to it; `tools/mutants/naturepicture.json` 7. |
-| A13 | Process | The pull request conflicted with main (#629): no workflow runs on a conflicted head. | Main merged in (`2990a2de`), every cite moved by `citeMerge`. |
+| A13 | Process | The pull request conflicted with main (#629): no workflow runs on a conflicted head. | Main merged in (`2990a2de`), every cite moved by `citeMerge`; and again with this audit, main's #621 and #628 (the cite-only conflicts taken from main, every cite moved by `citeMerge`, the Suite line recounted, survtiers3's two seed records re-aimed by content). |
 
 `test/decorlpt.test.js` 10, `test/decoroutdoor.test.js` 12, `test/decormods.test.js` 8, `test/naturepicture.test.js` 3
 (new). `tools/mutants/`: `decorlpt.json` 15, `decoroutdoor.json` 28, `decormods.json` 20, `nudedecor.json` 11,
