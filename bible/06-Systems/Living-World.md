@@ -313,6 +313,37 @@ the trample (`retire`), the probes.
   ALLOCATION HAS AN OWNER: each body stood is the layer's until its fight ends, and `clear()` (the roads' own, at every
   sweep: indoors, a mode's change, the teardown) takes out every one.
 
+## LW5 - the ports (2026-10-05)
+
+`systems/livingWorld/portCrews.js`, pure; `places.js harbourDock`; the LivingTown reads the ships; the host composes
+them with the Bay's own packets (`scenes/world.js`, `naval/seaLanes.js`).
+
+- **The crews are the town's sailors.** A port town's sailors (the census's two to six) are the crews of the Bay's
+  packets that call there: a port's PACKETS are every packet of every lane with the port at either end, lane by lane
+  (their keys in order), packet by packet (`portPackets`), and its sailors, in slot order, are dealt over them, round
+  again (`berthOf`) - so a packet's crew is the hands of both its ports, and a port's sailors are scattered over every
+  lane it keeps.
+- **Where a sailor is is where their packet is, on HER clock** (`sailorAt`) - the shared one the naval host stands and
+  steers her by (`seaLanes.js packetAt`, `raidNowMs`): under way, AT SEA (aboard: in no street); lying at their own
+  port, at HOME (ashore, their own day: the dock's work by day, the tavern after); lying at the far port, ABROAD -
+  ashore there till her dwell is done, a visitor in that town. So the hands on a port's quay are the crews of the
+  ships lying at it, and a ship seen leaving takes her hands with her. MAC: NPCs "LINK WITH THE SHIP AI AT PORTS".
+- **The crews ashore** (`crewsAshore`): every packet calling at a port that lies there now, and of her crew the far
+  port's hands - each in off the town's dock when she made fast, lodged at one of its taverns, back aboard by her
+  sailing (the host turns her dwell, on the ships' clock, into the sky's minutes at its rate now; the town plans the
+  stay again only when that moves past `CREW_REPLAN_MIN`, 5 minutes - the two clocks drift by a hair at each census).
+  The host asks the ships' clock of a town's OWN sailors alone (`res.town`): a visiting crew is the crews' own.
+- **The dock.** A Ship building's door where the town has one; else - most ports: Daggerfall stands no piers - the
+  street cell nearest its harbour's first berth (`harbourDock`, within `HARBOUR_RING`, 120 cells, facing the water;
+  HARBOUR-BOOK's harbour, sounded off the terrain the same for every player), found once the harbour is sounded, its
+  sailors planned again to work it.
+- **Only while the Bay's ships sail** (the naval host on: `naval.enabled`). Off, a port's sailors keep their own days
+  ashore, as LW1 made them.
+- **The clocks.** The packets run on the shared clock's real seconds, the living world on the sky's minutes; a sailor's
+  place is read off the ships' clock as it stands NOW, so where the ships are and where their hands are always agree.
+  A traveller's own passage over the water - a trip by sea on a timetable of the sky's minutes - is not yet (the
+  roads' trips keep to the land; a town across the water is no destination).
+
 ## The four hosts
 
 - `scenes/world.js` - WIRED (LW2 the towns, LW3 the roads and the Overworld).

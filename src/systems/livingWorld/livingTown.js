@@ -31,7 +31,7 @@
 //    it came, lodged at a tavern, out by the same exit when it leaves.
 import { POP_VISIBLE_RANGE, POP_RECYCLE_DISTANCE, maxPopulationFor } from '../townPopulation.js';
 import { PERSON_MOVE_SPEED } from '../../characters/mobilePerson.js';
-import { townPlaces, exitToward } from './places.js';
+import { townPlaces, exitToward, harbourDock } from './places.js';
 import { townCensus } from './census.js';
 import { dayPlan, entryAt, isOutdoor, DAY_START_MIN, DAY_MIN } from './dayPlan.js';
 import { BUILDING_TYPES } from '../../world/buildingNames.js';
@@ -40,6 +40,9 @@ import { spotCircles, circleLine, circleStands, aloneStand, ROUND_S, lineMinutes
 import { LIVING_GREETINGS, fillLine, firstNameOf } from './lines.js';
 import { lwSeed, textSeed } from './seed.js';
 
+/** LW5: a visiting crew's day is planned again only when its arrival moved this far (the clock's minutes) - it is read
+ *  off the ships' clock and the sky's at each census, and the two drift by a hair. */
+export const CREW_REPLAN_MIN = 5;
 /** The census read this often (real seconds). */
 export const LIVING_TICK_S = 0.25;
 /** How far a resident is stood from the player (m) - DFU's recycle distance. */
@@ -93,10 +96,16 @@ export class LivingTown {
    *   tripsOf?: (day: number) => ({ away: Map<string, { t0: number, t1: number, yaw: number, armed: boolean }[]>, visitors: { res: Resident, inT: number, outT: number, yaw: number }[],
    *     holders?: Map<string, Resident|null>, news?: { kind: string, who: string, foe: string, place: string }[] } | undefined),
    *   armOf?: (res: Resident) => ({ mobileType: number, basics: any, archive: number, frameCount: (record: number) => number, sex?: 'male'|'female' } | null),
+   *   ashore?: (res: Resident) => ('home'|'sea'|'abroad'|null),
+   *   crews?: () => { res: Resident, inT: number, outT: number }[],
+   *   harbour?: () => ({ x: number, z: number } | null),
    * }} o - `tripsOf(day)` the roads' word on the town for a day (trips.js through the host's book: who of it is away
    *   when, who of elsewhere stays here), undefined while its ways are still being asked; `armOf(res)` a resident's
    *   class sprite once its art is loaded, else null - `clock` the sky's minute (worldTick.js skyMinutes); `rate` the clock's minutes a real second now (a
-   *   journey's scale in it); `mpm` the walking pace in the clock's metres a minute (LW0 decision 3)
+   *   journey's scale in it); `mpm` the walking pace in the clock's metres a minute (LW0 decision 3). LW5: `ashore(res)`
+   *   where one of its sailors is by their packet's clock (portCrews.js - at sea or abroad, in no street of this town);
+   *   `crews()` the hands of the packets lying here from elsewhere, each ashore from `inT` to `outT` (the clock's
+   *   minutes); `harbour()` the harbour's berth in the location's frame (the dock of a port with no Ship building)
    */
   constructor(nav, o) {
     this.nav = nav;
@@ -106,7 +115,7 @@ export class LivingTown {
     this.maxPopulation = maxPopulationFor(o.town.blocks);
     /** @type {Row[]} */
     this.pool = [];
-    /** @type {Map<string, { day: number, plan: Entry[], roads?: boolean }>} */
+    /** @type {Map<string, { day: number, plan: Entry[], roads?: boolean, inT?: number }>} */
     this._plans = new Map();
     this._paths = createPathBook(nav);
     this._timer = Infinity;
@@ -133,6 +142,35 @@ export class LivingTown {
     this._rows = [];
     /** LW4: today's people, kept while the roads' word for the day stands. @type {{ day: number, roads: any, list: Resident[] } | null} */
     this._people = null;
+    /** LW5: the crews ashore here from elsewhere, read at each census. @type {Map<string, { res: Resident, inT: number, outT: number }>} */
+    this._crewOf = new Map();
+    /** LW5: the dock found off the harbour (a port with no Ship building), once found. @type {any} */
+    this._harbourDock = null;
+  }
+
+  /** LW5: the town's dock - a Ship building's, else the street nearest its harbour's berth (once the harbour is
+   *  sounded: the sailors are planned again to work it), else none. */
+  dockSpot() {
+    if (this.places.dock.length) return this.places.dock[0];
+    if (this._harbourDock) return this._harbourDock;
+    const h = this.o.harbour?.() ?? null;
+    if (!h) return null;
+    this._harbourDock = harbourDock(this.nav, this.places, h.x, h.z);
+    if (this._harbourDock) { this.places.dock.push(this._harbourDock); this._plans.clear(); }
+    return this._harbourDock;
+  }
+
+  /** LW5: a sailor at sea, or ashore at the far port, is in no street of this town. @param {Resident} res */
+  _gone(res) {
+    const a = this.o.ashore?.(res) ?? null;
+    return a === 'sea' || a === 'abroad';
+  }
+
+  /** LW5: the crews of the packets lying here from elsewhere, read afresh at each census. @returns {Resident[]} */
+  _crewsNow() {
+    const got = this.o.crews?.() ?? [];
+    this._crewOf = new Map(got.map((c) => [c.res.id, c]));
+    return got.map((c) => c.res);
   }
 
   /** The living day `t` falls in. @param {number} t */
@@ -141,10 +179,22 @@ export class LivingTown {
   /** A resident's day - a traveller's bent round its trips, a visitor's round its stay. @param {Resident} res @param {number} day */
   planOf(res, day) {
     let e = this._plans.get(res.id);
-    if (!e || e.day !== day) {
+    const crew = this._crewOf.get(res.id) ?? null;
+    if (!e || e.day !== day || (crew && !(Math.abs((e.inT ?? -Infinity) - crew.inT) <= CREW_REPLAN_MIN))) {   // LW5: a crew's arrival read off two clocks: replanned only when it moved
       const roads = this._roadsOf(day);
       const visit = roads?.visitorOf.get(res.id) ?? null;
       let plan;
+      if (crew) {
+        // LW5: a hand of a packet lying here - in off the dock when she made fast, lodged at a tavern, back aboard by her
+        // sailing (the square, a town with no dock)
+        const dock = this.dockSpot() ?? this.places.square ?? null;
+        const D0 = day * DAY_MIN + DAY_START_MIN;
+        const away = [{ t0: D0 - DAY_MIN, t1: crew.inT, exit: dock, armed: false }, { t0: crew.outT, t1: D0 + 2 * DAY_MIN, exit: dock, armed: false }];
+        plan = dayPlan(res, this.places, day, { mpm: this.o.mpm, visitor: true, home: this._lodging(res), away });
+        e = { day, plan, roads: true, inT: crew.inT };
+        this._plans.set(res.id, e);
+        return e.plan;
+      }
       if (visit) {
         const exit = exitToward(this.places, visit.yaw);
         const D0 = day * DAY_MIN + DAY_START_MIN;
@@ -295,8 +345,10 @@ export class LivingTown {
     /** @type {Map<string, any>} */
     const spotOf = new Map();
     const wanted = [];
-    for (const res of this.peopleOf(day)) {
+    if (this.o.harbour && !this.places.dock.length && !this._harbourDock) this.dockSpot();   // LW5: the harbour sounded since
+    for (const res of [...this.peopleOf(day), ...this._crewsNow()]) {
       if (this._taken.get(res.id) === day) continue;
+      if (this._gone(res)) continue;   // LW5: aboard, or ashore at the far port
       const at = this.entryOf(res, t);
       if (!at) continue;
       if (at.e.kind !== 'walk' && isOutdoor(at.e)) {

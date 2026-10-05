@@ -58,7 +58,7 @@ import { questTracker } from '../ui/questTracker.js';   // GUIDE5: the quest the
 import { marksOn, questMapMarks } from '../ui/questMarks.js'; import { boatCompassPoints } from '../ui/boatMarks.js';   // GUIDE5: where the quests point, on the held map and the compass; BOAT-MARK: where my boats lie, on the compass
 import { settlementsOf, loadModRoads, basicRoadsPathsPoint, WATER_BYTE } from '../world/roadsProducer.js';   // ROADS 3 / AUDIT ROADS F2 / ROADS 22; WOD2: Basic Roads' getPathsPoint, the question World of Daggerfall's loader asks
 import { modSetting, modSettingsOf, modSettingsGeneration, MOD_SETTINGS, latchModLoaded } from '../systems/modSettings.js';   // ROADS 24; HCC: the mod's eight switches; CSA-D: a mod's title for the load's failure line; AUDIT PRE-MERGE 0928 S4: the next-load mods latched at mount
-import { hasPortFor, hasPort, setSeatHarbours, PORT_LOCATION_IDS } from '../systems/travelPorts.js';   // AUDIT-RR2 G22: Travel Options' port list for RR's ship gate; SEAT2b part two: a members' Harbour among them (hasPortFor)
+import { hasPortFor, hasPort, setSeatHarbours, PORT_LOCATION_IDS, maskMapId } from '../systems/travelPorts.js';   // AUDIT-RR2 G22: Travel Options' port list for RR's ship gate; SEAT2b part two: a members' Harbour among them (hasPortFor)
 import { WoodsFile, MAP_WIDTH, MAP_HEIGHT } from '../formats/woodsFile.js';
 import { buildTerrainIndices, isOutdoorWaterTile, TERRAIN_TILE_DIM, TERRAIN_SKIRT_DEPTH, surfaceHeightAt, surfaceNormalAt, groundOffPlane, terrainSampleHeightAt, lowestGroundUnder } from '../world/terrainSurface.js';   // GRASS-LIT2: the ground's normal under a blade
 import { waterUniforms, buildWaterIndices, waterSwitchOn } from '../render/waterSurface.js';   // WATER1: the enhanced water surface over the pixel's own grid; WATER-AUDIT: its own index set
@@ -110,6 +110,7 @@ import { townTrips, visitorsOf as tripVisitorsOf, awayOf as tripAwayOf, placeCyc
 import { placeAt, turnKey } from '../systems/livingWorld/lives.js';   // LW4: who holds a traveller's place
 import { troubleOf, troubledTrip } from '../systems/livingWorld/trouble.js';   // LW4: trouble on the road
 import { foeWord } from '../systems/livingWorld/lines.js';   // LW4: a foe's word for the town's talk and a mark
+import { portPackets, berthOf, sailorAt, crewsAshore } from '../systems/livingWorld/portCrews.js';   // LW5: the Bay's sailors
 import { createWayBook } from '../systems/livingWorld/ways.js';   // LW3: the travellers' ways, planned by the living world itself
 import { createLivingRoads } from './livingRoads.js';   // LW3: the parties on the road near the player
 import { createRoadFights, LIVE_M } from './roadFights.js';   // LW4b: a beset party's fight, stood live
@@ -481,7 +482,7 @@ import { horseOffsetHeight as csaHorseOffsetHeight } from '../ui/hudLarge.js';  
 import { raycastColliders, rayBoxEntry, colliderPoses, invertAffine, BUILTIN_COLLIDER_MESHES, boxColliderTriangles } from '../world/prefabColliders.js';   // CSA-C: a boat's colliders under the ray; CSA-D: and in the world's collider
 import { DECK_STEP, DECK_HEADROOM, intoDeck, outOfDeck, mainLevel } from '../systems/naval/navalDeck.js';   // DECK-WALK: a body off her deck by more than a tread has left it; her deck's frame (AUDIT NAV2 F33: the headroom a deck point's ray starts under)
 import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame, raidAtSea as warmAshesRaidAtSea, raidRefusal as warmAshesRaidRefusal, raidUnderWay as warmAshesRaidUnderWay, WA_RAID_QUESTS, WA_SEA_REGION } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea; OWS3: its raid, seen coming; THE MERGE (NAV-D, OWS3): one raid at a time
-import { laneNetwork, laneWay, packetsAt, LANE_PATH_PX } from '../systems/naval/seaLanes.js';   // SEA-LANES: the Bay's packets
+import { laneNetwork, laneWay, packetsAt, packetAt, LANE_PATH_PX, LANE_DWELL_S } from '../systems/naval/seaLanes.js';   // SEA-LANES: the Bay's packets; LW5: where one is, and her dwell
 import { raidersNear, raiderAt, raiderSight, chaseStep as raiderChaseStep, pixelOfNative, NATIVE_PIXEL as RAID_NATIVE_PIXEL, RAIDER_CONTACT_M, RAIDER_CONTACT_PLAY_M, RAIDER_CHASE_MPS, RAIDERS_WIRE_MAX, RAIDER_WORD_MS, raiderWordOf, validRaiderWord, raiderLifeOf, raiderNearMe, RAIDER_LABEL, RAIDER_LIFE_MS } from '../systems/seaRaiders.js';   // OWS3: Warm Ashes' raiders on the Overworld's sea
 import { RAIDER_LEAD_S } from '../systems/naval/navalRaiders.js';   // NAV-R: a raider ship steers its seeded course this far on
 import { setRaidingPartiesHost, raidFrame as raidingPartiesFrame, raidState, raidingPartiesOn, raidTypeName as raidKindName, raidDefendingHere, outOfSight as raidOutOfSight, raidWireWord, raidPeerWord, raidRelayWord, raidTownsFor, RAID_SPAWN_MIN_DISTANCE, RAID_SPAWN_MAX_DISTANCE } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties, the towns' raids
@@ -2249,6 +2250,42 @@ export async function bootWorld(canvas, renderer, params, status) {
     for (let d = 0; d <= NEWS_DAYS; d++) { const tr = townTrips(town, noon - d * 1440, livingTripWorld, o); if (tr) told.push(...tr); }
     const news = newsOf(told, noon).map((n) => ({ ...n, foe: n.foe != null ? livingFoeWord(n.foe, 2) : '' }));
     return { away, visitors, holders, news };
+  };
+  // LW5: THE BAY'S SAILORS (systems/livingWorld/portCrews.js) - a port's sailors the crews of the packets calling at it,
+  // each where her clock has her (the shared one the naval host stands and steers her by, raidNowMs): aboard under way,
+  // ashore at home, or ashore at the far port as her visitors - while the Bay's ships sail (the naval host on); off, a
+  // port's sailors keep their own days ashore
+  const _livingLaneCounts = new Map();
+  const livingLaneWay = (lane) => { let way = _laneWays.get(lane.key); if (way === undefined) { way = laneWay(lane, laneOpen, laneOpenNative); _laneWays.set(lane.key, way); } return way; };
+  const livingLaneCount = (lane) => {
+    let n = _livingLaneCounts.get(lane.key);
+    if (n === undefined) { const way = livingLaneWay(lane); n = way ? packetsAt(lane, way, 0).length : 0; _livingLaneCounts.set(lane.key, n); }
+    return n;
+  };
+  const livingPacketAt = (b) => { const way = livingLaneWay(b.lane); return way ? packetAt(b.lane, way, raidNowMs(), b.k, b.count) : null; };
+  const livingSailing = () => !!naval?.enabled && !!mapDict;
+  let _livingTownByPort = null;
+  const livingSailorsOf = (portId) => {
+    if (!_livingTownByPort) { _livingTownByPort = new Map(); for (const t of livingTownsIndex().values()) if (t.port) _livingTownByPort.set(maskMapId(t.mapId), t); }
+    const town = _livingTownByPort.get(portId);
+    return town ? livingTripWorld.rosterOf(town).filter((r) => r.job === 'sailor') : [];
+  };
+  const _livingBerths = new Map();
+  /** Where one of a port's sailors is now ('home', 'sea', 'abroad'), null for anyone else or the ships not sailing. */
+  const livingAshore = (town, res) => {
+    if (res.job !== 'sailor' || res.town !== town?.mapId || !town?.port || !livingSailing()) return null;   // its own sailors: a visiting crew is the crews' own
+    const portId = maskMapId(town.mapId);
+    let book = _livingBerths.get(portId);
+    if (!book) { book = { packets: portPackets(laneNet(), portId, livingLaneCount), sailors: livingSailorsOf(portId) }; _livingBerths.set(portId, book); }
+    return sailorAt(berthOf(res, book.sailors, book.packets), portId, livingPacketAt).at;
+  };
+  /** The hands of the packets lying at a port from elsewhere, each ashore from her making fast to her sailing (the
+   *  clock's minutes, at its rate now). */
+  const livingCrews = (town) => {
+    if (!town?.port || !livingSailing()) return [];
+    const nowS = raidNowMs() / 1000, t = skyMinutes(), rate = livingBaseRate();
+    return crewsAshore(maskMapId(town.mapId), laneNet(), livingLaneCount, livingPacketAt, livingSailorsOf)
+      .map((c) => ({ res: c.res, inT: t - Math.max(0, nowS - (c.until - LANE_DWELL_S)) * rate, outT: t + Math.max(0, c.until - nowS) * rate }));
   };
   /** LW3: a resident's class sprite for the armed walk - its art loaded into the people's own texture table (the people
    *  pass reads its frames there), null until it is. */
@@ -4309,6 +4346,13 @@ export async function bootWorld(canvas, renderer, params, status) {
           relations: () => livingRelations, playerName: () => playerEntity.name ?? '', weather: () => weather,
           townName: dfLocation.name, regionName: dfLocation.regionName ?? '',
           tripsOf: (day) => livingTripsOf(livingTown, day), armOf: livingArmOf,   // LW3: its travellers away and armed, its visitors
+          ashore: (res) => livingAshore(livingTown, res), crews: () => livingCrews(livingTown),   // LW5: its sailors by their ships' clock; the crews lying here
+          harbour: () => {   // LW5: its harbour's berth in the location's frame (the dock of a port with no Ship building)
+            const b = harbourBook.get(`port:${maskMapId(livingTown.mapId)}`)?.harbour?.berths?.[0];
+            if (!b) return null;
+            const tr = state.pixelTranslation(px, py);
+            return { x: b.pos[0] - locOrigin[0] - tr[0], z: b.pos[1] - locOrigin[2] - tr[2] };
+          },
         }) : new TownPopulation(nav, {
           suppressSpawns: () => racialSuppressPopulationSpawns(playerEntity),   // V4: the transformed lycanthrope empties the streets
           totalBlocks: loc.width * loc.height,

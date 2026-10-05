@@ -922,6 +922,12 @@
    "has": "rosterGrandChampions(playerEntity.arenaLeague, Math.floor(worldMinutes()))",
    "clock": "event",
    "why": "ARENA3: the Keeper of the Hall reads the Hall of Champions - the roster's Grand Champions by the season"
+  },
+  {
+   "file": "src/scenes/world.js",
+   "has": "const nowS = raidNowMs() / 1000, t = skyMinutes(), rate = livingBaseRate();",
+   "clock": "sky",
+   "why": "LW5: a visiting crew's stay - her dwell on the ships' clock turned into the sky's minutes the living world lives by"
   }
  ]
 }

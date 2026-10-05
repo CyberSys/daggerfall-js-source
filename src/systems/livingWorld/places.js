@@ -96,6 +96,24 @@ export function nearestNetCell(nav, net, netId, x, z, ring) {
 const centre = (c) => [c[0] * NAV_CELL + HALF_CELL, c[1] * NAV_CELL + HALF_CELL];
 const yawTo = (fx, fz, tx, tz) => Math.atan2(tx - fx, tz - fz);
 
+/** LW5: how far from a harbour's berth a town's dock is looked for (street cells - a berth lies off the shore, often
+ *  eighty metres and more out, HARBOUR-BOOK's). */
+export const HARBOUR_RING = 120;
+
+/**
+ * LW5: A DOCK FROM THE HARBOUR - a port with no Ship building (most: Daggerfall stands no piers) has its dock where its
+ * streets meet the water nearest its harbour's berth (`x`, `z` the berth, the location's frame): the street cell nearest
+ * it, facing it. Null where no street lies within HARBOUR_RING.
+ * @param {{ width: number, height: number }} nav @param {{ net: Int32Array, netId: number }} places @param {number} x @param {number} z
+ * @returns {Spot|null}
+ */
+export function harbourDock(nav, places, x, z) {
+  const c = nearestNetCell(nav, places.net, places.netId, x, z, HARBOUR_RING);
+  if (!c) return null;
+  const [cx, cz] = centre(c);
+  return { key: 'dharbour', kind: 'dock', cell: c, x: cx, z: cz, yaw: yawTo(cx, cz, x, z) };
+}
+
 /**
  * The town's places.
  * @param {{ width: number, height: number, weightAt: (gx: number, gy: number) => number }} nav
