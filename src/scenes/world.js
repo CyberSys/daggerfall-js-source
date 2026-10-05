@@ -469,7 +469,7 @@ import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords, registerM
 import { applyDeathPenalty, deathPenaltyText, stateDeathLoss, statedDeathLoss } from '../systems/deathPenalty.js';   // DEATH-PENALTY: an online death costs a tenth of the purse
 import { createBountyHost } from './bountyHost.js';   // BOUNTY1: the town's bounty boards - the hunts, their packs, their purse
 import { createBountyFarms, farmSpotLocal, pickFarm } from './bountyFarms.js';   // BOUNTY-FARM: a farm on a farm bounty's pixel, while it is held
-import { questBoardIndices } from '../systems/bountyBoard.js';   // BOUNTY1: which of a town's boards post bounties (half)
+import { questBoardIndices, bountyDungeons } from '../systems/bountyBoard.js';   // BOUNTY1: which of a town's boards post bounties (half); RVN7: a revenant's lair, in the boards' ring
 import { createBountyOverlay, closeBountyDoor, bountyDoorOpen } from '../ui/bountyDoor.js';   // BOUNTY1: the board's window and the payday notice
 import { isQualifyingThreatState } from '../systems/horseFollow.js';   // HCC: CollectThreats' qualification, the mod's own five-term test
 import { totalWeight } from '../systems/inventory.js';   // HCC: PlayerEntity.WagonWeight
@@ -1151,6 +1151,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const _bountyFarmLocs = [];   // BOUNTY-FARM: the game's own farmsteads - the nearest lends a farm bounty its buildings
   const _bountyDungeonPixels = new Map();   // BOUNTY1: the game's own dungeons, by pixel -> name, for a board's underground hunts
   const _bountyGraveyardPixels = new Set();   // BOUNTY-GRAVEYARD: the game's own graveyards, by pixel - a board's hunt there stands outside
+  const _dungeonRegionPixels = new Map();   // RVN7: those dungeons' regions, by pixel - a revenant's lair names its region (its rumours' reach)
   const _bountyLocPixels = new Set();   // BOUNTY1: the pixels the game's OWN locations stand on (no spawn, no mod row), for a hunt's ground
   // AUDIT OW4 D5: THE INDEX'S GENERATION - bumped at every set and delete after the boot's fill (the spawns: stood,
   // expired, taken back by a road), so a reader that keeps a list off the index (the Overworld's dungeons) sees ANY
@@ -1179,6 +1180,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (lt === LOCATION_TYPES.HomeFarms) _bountyFarmLocs.push({ px: p.x, py: p.y, loc });   // BOUNTY-FARM: the game's own farms, whose first block a farm bounty stands
         if (loc.hasDungeon && lt !== LOCATION_TYPES.TownCity && lt !== LOCATION_TYPES.TownHamlet && lt !== LOCATION_TYPES.TownVillage) {
           _bountyDungeonPixels.set(`${p.x},${p.y}`, String(loc.name ?? ''));
+          _dungeonRegionPixels.set(`${p.x},${p.y}`, r);   // RVN7
           if (lt === LOCATION_TYPES.Graveyard || /graveyard|cemetery/i.test(String(loc.name ?? ''))) _bountyGraveyardPixels.add(`${p.x},${p.y}`);
         }
       }
@@ -9356,6 +9358,11 @@ export async function bootWorld(canvas, renderer, params, status) {
   const veilOf = (id) => _veils.get(id) ?? null;
   const magic = createPlayerMagic({
     renderer, audio, getTexture, uploadRecord, uploadRecordFrame,
+    lairHere: () => {   // RVN7 (bible/12-Enhanced-AI/Feud-Arc.md 18.1): a deed in the open world - my map pixel, and the named dungeons in the boards' ring about it
+      const p = playerTravelPixel();
+      const dungeons = bountyDungeons(p.x, p.y, (x, y) => _bountyDungeonPixels.get(`${x},${y}`) || null).map((d) => ({ ...d, region: _dungeonRegionPixels.get(`${d.px},${d.py}`) ?? -1 }));
+      return { px: p.x, py: p.y, dungeons };
+    },
     allyMarks: (sp) => allyMarksNear(sp),   // AID1 onto ALLY-CAST: the party mates' bodies, for a beneficial touch, missile or blast (declared beside allyTargetPick, below) - SPELL-GIFT: the spell rides, for the strangers its list may reach
     peerBodies: () => peersNear(),   // SPELLFX1: every player's body, where a peer's drawn missile stops (declared below this engine's build)
     companionBodies: () => [...crewAshore.bodies(), ...revenantAshore.bodies()],   // COMPANION-KIT: my companions here - my healing and buffs reach them (REVENANT-COMPANION: the sworn too)
@@ -9484,7 +9491,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:3110 mounts the same one, gated on
+  // and dungeonContext.js:3116 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:7103
@@ -12217,7 +12224,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:8501), so exterior mode and a
+    // composer, dungeonContext.js:8507), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {

@@ -425,3 +425,11 @@ executed or tears away they scatter - each runs and is gone ("The warband scatte
 survivors run to it, or two of its kin step out of a portal. The page lists who rides with it. The law:
 `bible/12-Enhanced-AI/Feud-Arc.md` section 17 and its RVN6 record.
 
+## 23. The hunt (FEUD RVN7, 2026-10-04 - in parts)
+
+**Its lair (RVN7a).** A revenant that wins a fight in the open world, or escapes one, goes to ground in a named
+dungeon four to ten map pixels from where it happened - the one nearest a direction drawn on its id, the dungeons the
+town boards' bounties use. With none in reach it roams. A deed underground makes that dungeon its lair, and a lair
+moved is one the player must hear of again. The page says what the player knows of it. The law:
+`bible/12-Enhanced-AI/Feud-Arc.md` section 18 and its RVN7a record.
+

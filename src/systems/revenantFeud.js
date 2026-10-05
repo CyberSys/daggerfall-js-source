@@ -418,6 +418,39 @@ export const sanitizeLoyalty = (v, personality) => (Number.isFinite(v) ? Math.ma
 // ── RVN7's lair (section 18.1) ──────────────────────────────────────
 const sanitizeLair = (v) => (v && typeof v === 'object' && Number.isInteger(v.px) && Number.isInteger(v.py) && typeof v.name === 'string' && v.name
   ? { px: v.px, py: v.py, name: v.name.slice(0, 80), region: Number.isInteger(v.region) ? v.region : -1 } : null);
+/** RVN7 (18.2): a rumour's odds; within this many map pixels of its lair (or in its region) a town's news may be of it. */
+export const RUMOR_CHANCE = 0.35;
+export const RUMOR_PX = 20;
+/** RVN7 (18.4): a lair stand's drop - its gold x1.25. */
+export const LAIR_GOLD = 1.25;
+/** RVN7 (18.1): ITS LAIR, chosen at a deed in the open world - of the named dungeons in the ring about the deed's map
+ *  pixel (`dungeons`, the bounty boards' 4-10 px - systems/bountyBoard.js bountyDungeons, the host's index), the one
+ *  nearest a bearing drawn on its id (east 0, north a quarter turn - bountyBoard.compassWord's), the nearer of two as
+ *  near. None in the ring: null - it roams. */
+export function pickLair(id, px, py, dungeons) {
+  const list = (Array.isArray(dungeons) ? dungeons : []).filter((d) => sanitizeLair(d));
+  if (!list.length || !Number.isInteger(px) || !Number.isInteger(py)) return null;
+  const bearing = idStream(id, 'lair')() * Math.PI * 2;
+  let best = null, bestA = Infinity, bestR = Infinity;
+  for (const d of list) {
+    const dx = d.px - px, dy = d.py - py;
+    let a = Math.abs(Math.atan2(-dy, dx) - bearing) % (Math.PI * 2);
+    if (a > Math.PI) a = Math.PI * 2 - a;
+    const r = Math.hypot(dx, dy);
+    if (a < bestA - 1e-9 || (Math.abs(a - bestA) <= 1e-9 && r < bestR)) { best = d; bestA = a; bestR = r; }
+  }
+  return sanitizeLair(best);
+}
+/** RVN7 (18.1): its lair after a deed `here` (the host's word - playerDoor `lairHere`): underground, that dungeon; in the
+ *  open world the one it has, else one chosen about the deed's pixel; nowhere known (a host with no index), as it was.
+ *  Decided here: a lair once chosen is kept by a deed in the open world - the hunt the player was told of stays true. */
+export function lairAfter(r, here) {
+  const kept = sanitizeLair(r?.lair);
+  if (!here || typeof here !== 'object') return kept;
+  if (here.underground) return sanitizeLair(here.underground) ?? kept;
+  return kept ?? pickLair(r?.id, here.px, here.py, here.dungeons);
+}
+export const sameLair = (a, b) => (!a && !b) || (!!a && !!b && a.px === b.px && a.py === b.py);
 
 // ── RVN2's adaptations (section 13) ─────────────────────────────────
 /** The adaptations a revenant can learn. */

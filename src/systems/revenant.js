@@ -61,7 +61,7 @@ import { getSeed, setSeed, srand } from '../formats/dfRandom.js';
 import { personalityFor, isPersonality, personalityLabel, voiceLine, beastBody, possessive, MUTE_KINDS } from './revenantPersonality.js';   // REVENANT-VOICE: who it is, and how it talks
 // FEUD, Part B (bible/12-Enhanced-AI/Feud-Arc.md sections 12-26): what a revenant remembers - its record's new fields and
 // the draws it is born with (systems/revenantFeud.js), and the fight's ledger (systems/feudLedger.js, a leaf)
-import { feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK, lessonOf, withLesson, adaptEdge, adaptBlowClass, ADAPT, isWeakBlow, metalOf, WEAK, WEAK_NAMES, FLINCH_LINES, FLINCH_HEALTH, WEAKNESS_ELEMENTS, signatureStamp } from './revenantFeud.js';
+import { lairAfter, sameLair, feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK, lessonOf, withLesson, adaptEdge, adaptBlowClass, ADAPT, isWeakBlow, metalOf, WEAK, WEAK_NAMES, FLINCH_LINES, FLINCH_HEALTH, WEAKNESS_ELEMENTS, signatureStamp } from './revenantFeud.js';
 import { tagHit, HIT_TAGS } from '../ui/hitNumbers.js';   // RVN3: the "Weakness" word on my blow's number
 import { SOUND } from './soundClips.js';   // RVN3: the hiss of a weakness found
 import { revenantSay as sayRevenant } from './revenantVoice.js';   // RVN3: the reveal's card (the re-export below binds no local name)
@@ -385,6 +385,10 @@ export function revenantDeed(player, entity, deedName, { mobileType = entity?.mo
   // RVN2 (13.1): and one lesson LEARNED of it - at most its rank's adaptations, the oldest forgotten
   const lesson = lessonOf(kinds, r.learned, r.mobileType, entity.career ?? null);
   if (lesson) r.learned = withLesson(r.learned, lesson, r.rank);
+  // RVN7 (18.1): ITS LAIR - where the deed was done says where it goes to ground (the host's door: its map pixel and the
+  // dungeons in reach, or the dungeon it is in); a lair moved is a lair the player has not heard of
+  const lair = lairAfter(r, playerDoor()?.lairHere?.() ?? null);
+  if (!sameLair(lair, r.lair)) { r.lair = lair; r.lairKnown = false; }
   // the foe that did it wears its name at once - while it still stands (a killer over my body), it IS the revenant
   entity.revenant = revenantStamp(r);   // RVN2: and what it learned, at once
   computeEntityMods(entity);

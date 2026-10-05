@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL and RVN1-RVN6 built; RVN7-RVN13 next)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL, RVN1-RVN6 and RVN7a built; RVN7b-RVN13 next)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -7,7 +7,7 @@ detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
 (section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts), AUDIT
-TELL, and RVN1 to RVN6; each slice's record is at the foot.**
+TELL, RVN1 to RVN6, and RVN7 in parts (RVN7a the lair); each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -727,6 +727,12 @@ boards' ring (`systems/bountyBoard.js bountyDungeons`, over the world host's nam
 bearing drawn on its id - kept as `lair: {px, py, name, region}`. With none in the ring there is no lair: it roams. A
 deed underground makes that dungeon its lair.
 
+- **As built (RVN7a; the record at the foot)**: built in four parts (a the lair, b the rumour, c the map and the
+  journal, d the lair stand). The host says where a deed is done through the player's door (`lairHere`). A lair once
+  chosen is kept by a deed in the open world (the hunt the player was told of stays true); a deed underground moves it,
+  and a lair moved is one the player has not heard of (`lairKnown` false). A graveyard's crypt may be a lair (its stand
+  is underground).
+
 ### 18.2 Rumour
 
 - "Any news?" (the world host's talk deps, `getNewsOrRumors`) is wrapped. In a living, unsworn revenant's lair region,
@@ -1103,8 +1109,8 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
   and nothing more.
 - **The dungeon stream's gaps.** `roomRecord` carries no `z`, `nm`, `yd`, `ex` or `sp` today; FEUD adds only its own
   fields there and leaves the gap FLAGGED.
-- **The single-location host.** `scenes/exterior.js` builds its pool without `fates`, so its revenants die outright.
-  FLAGGED in every RVN slice's record.
+- **The single-location host.** `scenes/exterior.js` builds its pool without `fates`, so its revenants die outright;
+  and it builds no location index, so they roam (no lair - RVN7a). FLAGGED in every RVN slice's record.
 - **Corrected now in `06-Systems/Revenants.md`**: both of its pages are on the **Holdings** tab (HOLDINGS moved them on
   2026-10-03), and REVENANT-WIRE shipped as relay **`world153`** (its sections 6 and 15 named the branch's `world144`
   and `world152`, which are SEAT1b's and GLYPH-WEAR's today).
@@ -1977,3 +1983,27 @@ and `dungeonContext.js`.
 - Pins `test/rvn6_band.test.js` (7). Pin moved (marked `PIN MOVED (RVN6: ...)`): `revenant` (its escape's door - the
   band scatters first).
 - Mutants `tools/mutants/rvn6.json` (52): 52 dead.
+
+### RVN7a - BUILT 2026-10-04 (the loot-rarity row on; the world host and the dungeon)
+
+- **The law** - `systems/revenantFeud.js`: `RUMOR_CHANCE` 0.35, `RUMOR_PX` 20, `LAIR_GOLD` x1.25 (their slices' to read);
+  `pickLair(id, px, py, dungeons)` - of the named dungeons about the deed (the bounty boards' 4-10 px ring,
+  `bountyBoard.bountyDungeons`), the one nearest a bearing drawn on its id's side stream (east 0, north a quarter turn,
+  `compassWord`'s; the turn wraps), the nearer of two as near, sanitized `{px, py, name, region}`; none in reach, null
+  (it roams); `lairAfter(r, here)` (18.1 as built); `sameLair` (by its pixel).
+- **The deed** - `revenant.revenantDeed` reads `playerDoor().lairHere()` once its record is found or made, and a lair
+  moved forgets that the player knew it. Both deeds read it - the flight (the pools) and the kill (the death's check,
+  a microtask after the blow, while the host that ran it still holds the door).
+- **The door** - `systems/playerDoor.js` gains `lairHere()`; the ONE cast engine publishes it
+  (`hostMagic.createPlayerMagic({ lairHere })`).
+- **The page** - "Lair: none - it roams." / "Lair: unknown - the towns about it may have heard." / "Lair: Tomb of
+  Vaness." (`lairWords`; RVN7c adds the map).
+- **Four hosts** - `scenes/world.js` WIRED (my travel pixel - its interiors' too, the town's - and the game's own
+  named dungeons in the ring, with their regions: `_dungeonRegionPixels` beside the boards' index);
+  `scenes/dungeonContext.js` WIRED (`scenes/dungeon.js` hosts it: the dungeon names itself, its pixel and region);
+  `scenes/worldModes.js` - its interiors run the world host's engine, so its door; `scenes/exterior.js` - FLAGGED
+  (section 32): the single-location host builds no location index, so its revenants roam.
+- **Not built here** - the rumour (RVN7b), the map's mark and the journal's row (RVN7c), the lair stand and the rest
+  (RVN7d).
+- Pins `test/rvn7a_lair.test.js` (6). Mutants `tools/mutants/rvn7a.json` (24): 24 dead. Mutant records re-aimed by
+  content (2): `survtiers3`'s two cite mutants (a citation they read moved) - judged again: dead.

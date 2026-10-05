@@ -159,6 +159,11 @@ export function bandWords(r, kindName = (t) => String(t)) {
   const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : parts[0];
   return `Band: rides with ${list} - ${name}.`;
 }
+/** RVN7 (18.1; RVN12 completes the page): where it goes to ground - its lair as the player knows it. */
+export function lairWords(r) {
+  if (!r?.lair?.name) return 'Lair: none - it roams.';
+  return r.lairKnown ? `Lair: ${r.lair.name}.` : 'Lair: unknown - the towns about it may have heard.';
+}
 /** Its scars, newest first and each once - the ways it was hurt and what it learned (a deed's scar is the history's). */
 export function scarWords(r) {
   const seen = new Set();
@@ -229,6 +234,7 @@ function row(el, r, now, kindName) {
   if (sig) text.append(el('span', 'rvn-will', sig));
   const band = fallen ? '' : bandWords(r, kindName);   // RVN6
   if (band) text.append(el('span', 'rvn-will', band));
+  if (!fallen) text.append(el('span', 'rvn-will', lairWords(r)));   // RVN7
   const hist = (r.history ?? []).slice(-5);
   if (hist.length) {
     const ul = el('ul', 'rvn-history');
