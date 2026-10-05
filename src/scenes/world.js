@@ -2595,6 +2595,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const TV_FIND_REACH = 4;   // AUDIT OW5 D1: map pixels about the traveller's that a kilometre from the feet can reach
   let tvBandSeen = { at: null, life: -1, list: [] };   // TV7: the bands about the traveller, this life's (above its readers: BOOT-TDZ)
   const _bandChase = new Map();   // TV7: id -> { pos, since, best } - the bands chasing me (the chase is the chased one's)
+  const wildBands = createWildAlert();   // WILD-ALERT: the bands that noticed me (above its readers: BOOT-TDZ - the load's reset clears it)
   const _bandSpent = new Set();   // TV7: the bands that fought or gave up - gone for their life
   const _bandMake = new Map();    // TV7: id -> { mobileTypes, name } | null - each band made once
   const _bandPos = new Map();     // TV7: id -> { ms, x, z } - a wanderer's place, kept a quarter second
@@ -13573,6 +13574,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     tvDng = { at: null, dg: -1, list: [] };   // TV6: nor the dungeons
     tvFind = { at: null, dg: -1, n: -1, list: [] };   // AUDIT OW5 D1: nor the find's
     tvBandSeen = { at: null, life: -1, list: [] }; _bandChase.clear(); _bandSpent.clear(); _bandMake.clear(); _bandPos.clear(); _bandPeer.clear(); _bandSpentAt.length = 0;   // TV7: nor the bands
+    wildBands.prune(() => false);   // AUDIT-F3: nor what they had noticed - a band that chased the abandoned run chased again on the first frame, from wherever it stood
     travelView?.exit('load', true);   // AUDIT DEEP X-3: a load under the travel view cuts it first - its release put the head back over the camera the save restores
     _owSay.sp.clear(); _owSay.dg.clear();   // OW6L: nor what the abandoned run still owed its cell (the loaded ledger is the save's)
     // AUDIT OW4 D3: NOR THE SPAWNS THE ABANDONED RUN WAS TOLD OF - the Overworld marks a spawn once its pixel's line was
@@ -24892,8 +24894,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   // bother the player"; systems/wildAlert.js): a band within its sight NOTICES me on a stealth check a classic minute
   // apart, and only then gives chase; a wilderness foe a fast traveller passes is unaware the same way, and the pools
   // leave me off its list until it notices (`wildGated`). Unaware, neither comes, holds the clock or stops the journey.
-  const wildBands = createWildAlert();
-  const wildFoes = createWildAlert({ weak: true });
+  const wildFoes = createWildAlert({ weak: true });   // (the bands' own, wildBands, stands with the chases above: BOOT-TDZ)
   let _wildGate = false;   // this frame: a fast traveller (a journey driving, or the Overworld's keys) out of doors
   const wildStealth = () => skillValue(playerEntity, SKILLS.Stealth);
   const wildTravelling = () => (!!travelControlUI?.isShowing && !!travelOptions?.state?.autopilot) || tvWalking > 0;
@@ -24907,12 +24908,15 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   function wildFoesFrame(dt) {
     _wildGate = wildTravelling() && (modes?.mode ?? 'exterior') === 'exterior' && walkMode && playerSpawned;
     if (!_wildGate) return;
-    const fx = player.feetAt(), stealth = wildStealth(), sdt = dt * worldTimeScale(), now = performance.now() / 1000;
+    // AUDIT-F4: the checks are a classic minute of the game's clock apart - a window that holds the game holds them (the
+    // journey kept its scale under a pause, and a camp beside the road rolled twelve times a second while the calendar stood)
+    const fx = player.feetAt(), stealth = wildStealth(), sdt = gamePaused() ? 0 : dt * worldTimeScale(), now = performance.now() / 1000;
     for (const f of exteriorFoes.foes) {
       if (f.dead || f.puppet || !f.ai?.feet || !foeHostile(f)) continue;
       if (isLocalPlayerTarget(f.ai.target)) { wildFoes.alert(f, now); continue; }
       if (_inAnyLocationRect(f.ai.feet)) continue;
-      wildFoes.step(f, { distM: Math.hypot(f.ai.feet[0] - fx[0], f.ai.feet[2] - fx[2]), reachM: f.ai.sightRadius ?? SIGHT_RADIUS, stealth, scaledDt: sdt, now });
+      const s = wildFoes.step(f, { distM: Math.hypot(f.ai.feet[0] - fx[0], f.ai.feet[2] - fx[2]), reachM: f.ai.sightRadius ?? SIGHT_RADIUS, stealth, scaledDt: sdt, now });
+      if (s.noticed) exteriorFoes.noticedPlayer?.(f, fx);   // AUDIT-F1: noticed, it comes - on me now: the "!", the clock held, the meeting
     }
   }
   const bandNight = (ms) => { const m = ((online ? skyClassicMinutes(ms) : skyMinutes()) % 1440 + 1440) % 1440; return m < 360 || m > 1080; };   // TIME1: the sky's night at the instant given (the life's middle) - a pure function of the relay's ms, the same for every player
@@ -25009,8 +25013,14 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // CAMP-FAR - no pack lands beside the player out of nowhere) was brought a hundred metres nearer and stood beside them
     const minDistance = Math.max(BAND_STAND_MIN_M, dist - PACK_SPACING), maxDistance = Math.max(BAND_STAND_MIN_M, dist) + PACK_SPACING;
     for (const turn of [0, Math.PI / 2, -Math.PI / 2, Math.PI]) {
-      if (_standCampEncounter({ kind: 'band', mobileTypes: mk.mobileTypes, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,
-        minDistance, maxDistance, bearingDegrees: 0, yawRad: yaw + turn }, fx)) return true;
+      const stood = _standCampEncounter({ kind: 'band', mobileTypes: mk.mobileTypes, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,
+        minDistance, maxDistance, bearingDegrees: 0, yawRad: yaw + turn }, fx);
+      if (!stood) continue;
+      // AUDIT-F2: A BAND THAT CAUGHT ME STANDS ON ME - it chased me: each member alerted (never the gate's) and come for me,
+      // as a noticed foe comes (exteriorFoes.js noticedPlayer). Stood unaware, the gate held them off me and the keys'
+      // travel ran on through them
+      stood.foes.then((fs) => { for (const f of fs) if (f && !f.dead) { wildFoes.alert(f, performance.now() / 1000); exteriorFoes.noticedPlayer?.(f, player.feetAt()); } }).catch(() => {});
+      return true;
     }
     return false;
   }
@@ -25046,7 +25056,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       if (!bandNearMe(id, at, life)) continue;   // AUDIT OW3 T7-9: only a band that can be about me
       if (flag === 2) { _bandSpent.add(id); _bandChase.delete(id); _bandPeer.delete(id); continue; }
       _bandPeer.set(id, { x, z, at: now, from });
-      if (_bandChase.has(id) && chaseYields(online?.id ?? '', from)) _bandChase.delete(id);
+      if (_bandChase.has(id) && chaseYields(online?.id ?? '', from)) { _bandChase.delete(id); wildBands.forget(id); }   // AUDIT-F3: the peer's chase now - its notice of me with it (a stale word was a chase again from anywhere, unchecked)
     }
   }
   /** TV7b: my band word, on the cell's foes frame - asked with `frame` null whether it must ride (a chase moves every

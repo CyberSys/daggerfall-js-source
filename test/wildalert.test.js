@@ -118,8 +118,8 @@ function gateHost(over = {}) {
     wildFoes, playerEntity: {}, SKILLS: { Stealth: 'Stealth' }, skillValue: () => d.stealth,
     travelControlUI: { get isShowing() { return d.travelling; } }, travelOptions: { state: { get autopilot() { return d.travelling ? {} : null; } } },
     tvWalking: 0, modes: { get mode() { return d.mode; } }, get walkMode() { return d.walkMode; }, get playerSpawned() { return d.spawned; },
-    player: { feetAt: () => [0, 0, 0] }, worldTimeScale: () => d.scale, performance: { now: () => 0 },
-    exteriorFoes: { get foes() { return d.foes; } }, foeHostile, isLocalPlayerTarget, SIGHT_RADIUS, _inAnyLocationRect: (p) => d.rects(p),
+    player: { feetAt: () => [0, 0, 0] }, worldTimeScale: () => d.scale, performance: { now: () => 0 }, gamePaused: () => !!d.paused,
+    exteriorFoes: { get foes() { return d.foes; }, noticedPlayer: (f, feet) => (d.noticed ??= []).push({ f, feet }) }, foeHostile, isLocalPlayerTarget, SIGHT_RADIUS, _inAnyLocationRect: (p) => d.rects(p),
   };
   const names = Object.keys(scope);
   const body = `
@@ -171,10 +171,10 @@ test('WILD-ALERT host run: THE GATE - while a fast traveller crosses the wildern
   assert.deepEqual([n.wildFoes.alerted(n.d.foes[0]), n.gated(n.d.foes[0])], [true, false], 'noticed: no longer gated - it comes');
 });
 
-test('WILD-ALERT host wiring: the pools leave the gated foe off its list (the target machine\'s noTargetMode, CAMP-REST\'s switch), the senses carry the host\'s answer, the gate runs before the pools move, and the journey\'s stops and the view\'s danger count no gated foe (mutants: each seam)', () => {
+test('WILD-ALERT host wiring: the pools leave the gated foe off its list (the target machine\'s dropLocal - AUDIT-F5: me alone, never a peer), the senses carry the host\'s answer, the gate runs before the pools move, and the journey\'s stops and the view\'s danger count no gated foe (mutants: each seam)', () => {
   const ef = readFileSync(new URL('../src/scenes/exteriorFoes.js', import.meta.url), 'utf8');
   assert.match(ef, /const wildUnaware = !!senses\.wildUnaware\?\.\(f\) && !isLocalPlayerTarget\(ai\.target\);/);
-  assert.match(ef, /noTargetMode: campAsleep \|\| wildUnaware,/);
+  assert.match(ef, /noTargetMode: campAsleep,[^\n]*\n\s*dropLocal: wildUnaware,/, 'AUDIT-F5: the gate drops me alone (the target machine\'s own local switch)');
   const sh = readFileSync(new URL('../src/scenes/shared.js', import.meta.url), 'utf8');
   assert.match(sh, /playerCrouching = false, wildUnaware = null \} = \{\}\)/);
   assert.match(sh, /\n\s*wildUnaware,\n\s*playerEntity: playerEntity \?\? entity,/);

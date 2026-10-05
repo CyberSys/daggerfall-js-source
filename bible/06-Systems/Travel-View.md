@@ -1875,3 +1875,31 @@ layer); re-aimed `ow6_slowdown` (a wandering band holds nothing, a chase does; a
 `encounterplace` (the wanderer's placement check), `camproll`, `camp1_groups`, `waterfoes`, `ow6_camps`, `nav_h_host`,
 `tv1_travel_view`, `roadh_missiles`, `exteriorfoes`; `tools/mutants/wildalert.json` (32, all dead); seven older records
 re-aimed by content and dead, OW6-S-spent-band-slows retired with the wandering bands' arm it killed.
+
+## WILD-ALERT-FIX - the deep audit's five (2026-10-05)
+
+The deep audit of the branch (each finding verified against the code before the fix) found WILD-ALERT's notice half
+done; each is fixed and pinned (`test/wildalertfix.test.js`, `tools/mutants/wildalertfix.json`).
+
+- **A foe that notices comes** (`exteriorFoes.js noticedPlayer`, `wildFoesFrame`). The check only lifted the gate; the
+  "!", the hold of the clock and the meeting all read `foeAlerted` - the foe already on the player - and nothing put it
+  there but its own target pass, once a second by its own eyes. A rider at x60 passing a camp forty metres off was
+  noticed and gone before the camp looked: no "!", no slowing, no meeting. Noticed, a foe is now handed the player as
+  its target at the feet it noticed them at (MakeEnemyHostileToAttacker's bookkeeping, the blind pursuit's
+  GiveUpTimer), and its campmates are woken as a member's own notice wakes them (CAMP1).
+- **A band that caught the traveller stands on them** (`bandStand`). Its members stood unaware - the gate held them off
+  the player, and the Overworld's keys ran on through them. Each is stood alerted and comes, as a noticed foe does.
+- **A band's notice goes with its chase.** A chase handed to a peer kept its notice, so a stale peer word made it a
+  chase again from anywhere, unchecked; a load kept every notice, so a band that chased the abandoned run chased again
+  on the first frame - and, past nine hundred metres, was lost at once and spent for everyone in the cell. The yield
+  forgets it (`bandHear`), and a load forgets them all (`overworldLoadReset`; the store stands above its readers).
+- **The checks keep the game's clock** (`wildFoesFrame`). A window holding the game kept a journey's scale (Travel
+  Options keeps a journey alive under a pause), so a camp beside the road rolled twelve to twenty times a real second
+  while the calendar stood. The checks hold while the game is paused.
+- **The gate drops the traveller alone** (`enemyTargets.js` `dropLocal`, the port's own). It rode DFU's noTargetMode,
+  which drops every player - so while the owner fast travelled, their unaware wilderness foes stopped fighting the peer
+  beside it. The gate leaves the local player off the list and no one else.
+
+Recorded, not changed: the check is the owner's - a peer fast travelling past my foes is seen on DFU's senses (their
+notice of a peer would need the peer's Stealth and journey on the wire).
+

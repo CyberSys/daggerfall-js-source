@@ -147,8 +147,8 @@
   {
     "name": "WILD-cadence-real-time",
     "file": "src/scenes/world.js",
-    "old": "    const fx = player.feetAt(), stealth = wildStealth(), sdt = dt * worldTimeScale(), now = performance.now() / 1000;",
-    "new": "    const fx = player.feetAt(), stealth = wildStealth(), sdt = dt, now = performance.now() / 1000;",
+    "old": "    const fx = player.feetAt(), stealth = wildStealth(), sdt = gamePaused() ? 0 : dt * worldTimeScale(), now = performance.now() / 1000;",
+    "new": "    const fx = player.feetAt(), stealth = wildStealth(), sdt = gamePaused() ? 0 : dt, now = performance.now() / 1000;",
     "tests": [
       "test/wildalert.test.js"
     ]
@@ -248,8 +248,8 @@
   {
     "name": "WILD-pool-gate-dropped",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "          noTargetMode: campAsleep || wildUnaware,",
-    "new": "          noTargetMode: campAsleep,",
+    "old": "          dropLocal: wildUnaware,",
+    "new": "          dropLocal: false,",
     "tests": [
       "test/wildalert.test.js",
       "test/camp1_groups.test.js"
