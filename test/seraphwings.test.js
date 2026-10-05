@@ -23,8 +23,10 @@ import {
   AURA_LOOK, auraLookOf, AURA_STEPS, AURA_GROUND_R, AURA_LIFT_M, AURA_CLOCK_PERIOD, AURA_VS, AURA_FS, AURA_CARDS, AuraRingRenderer,
   WING_PLUMES, WING_COVERTS, WING_PER_SIDE, WING_CARDS, WING_STRANDS, WING_SEGS, WING_ROOT, WING_SPREAD, WING_REACH, WING_W, WING_HZ, WING_FLOW, WING_MOTES,
   WING_MOTE_LIFE, WING_POOL_R, WING_RGB, WING_STRAND_COUNT, WING_VERTS, wingRatesWhole, auraWingsGrid,
-  CLOAK_SHOULDER_Y, CLOAK_HOOD_Y, CLOAK_REST_POSE,
+  CLOAK_SHOULDER_Y, CLOAK_HOOD_Y, CLOAK_REST_POSE, CLOAK_ACROSS, auraTorso, auraSpriteBones, auraSpritePosed, auraCapePose, auraCapeStep,
+  EOTB_FIGURE, AURA_SADDLE_M, WING_COVERT, WING_BEAT, WING_HALO_M, WING_MOTE_LEN, WING_MOTE_M, WING_LIGHT, auraWingLights,
 } from '../src/render/auraRing.js';
+import { createEotbBody } from '../src/player/eotbBody.js';
 import { glslFunctions, GlslDiscard } from './glsl.mjs';
 
 const rd = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
@@ -36,6 +38,7 @@ const AFTER = 1_900_000_000;
 const LATER = AFTER + 30 * 86_400;
 const row = (handle, over = {}) => ({ handle, created_at: AFTER, registered_at: AFTER, ...over });
 const lum = (c) => c[0] + c[1] + c[2];
+const TAU = 2 * Math.PI;
 const DEVS = (v('DEVELOPER_HANDLES') ?? '').split(',').map((h) => h.trim()).filter(Boolean);
 
 // ── THE VOCABULARY, THE GRANT, THE WIRE ─────────────────────────────
@@ -204,6 +207,10 @@ test('SERAPH-WINGS the vertex half, RUN: every strand grows out of the upper bac
   // the waves are more than the fan's breath: a breath (6 s) apart the breath is where it was and the waves are not
   const breathApart = Math.max(...[broad(1, 2), broad(1, 4), broad(-1, 5), broad(-1, 1) + 1].map((kk) => { const a = strandAt(kk, 1, { time: 13.2 }).mid, b = strandAt(kk, 1, { time: 13.2 + 1 / WING_HZ.breathe }).mid; return Math.hypot(...a.map((x, i) => x - b[i])); }));
   assert.ok(breathApart > 0.03, `waves running along them (${breathApart.toFixed(3)} m a breath apart)`);
+  // and along each: between beats the curve the strand would be without its waves has no wiggle (a quadratic laid along
+  // its plume, a cubic droop) - its fourth difference along it is nothing, and the waves give it one
+  const wiggle = Math.max(...[broad(1, 4), broad(-1, 6), broad(1, 2) + 1].map((kk) => { const q = [0.4, 0.5, 0.6, 0.7, 0.8].map((t) => strandAt(kk, t, { time: 7.4 }).mid); return Math.hypot(...[0, 1, 2].map((i) => q[0][i] - 4 * q[1][i] + 6 * q[2][i] - 4 * q[3][i] + q[4][i])); }));
+  assert.ok(wiggle > 0.004, `waves along each strand (${wiggle.toFixed(4)})`);
   // the fan breathes: over twenty-four seconds (whole periods of the breath, the beat and every wave) the middle plumes'
   // tips rise and fall with the breath - the waves and the beat, at other rates, cancel out of it
   const mids = [broad(-1, 3), broad(1, 3), broad(-1, 4), broad(1, 4)];
@@ -309,17 +316,164 @@ test('SERAPH-WINGS the draw: the wings\' mesh uploaded; a wearer of them drawn i
   const seq = calls.filter((c) => c[0] === 'drawArrays' || (c[0] === 'uniform1i' && c[1] === 'uAura') || ((c[0] === 'enable' || c[0] === 'disable') && c[1] === 12)).map((c) => c[0] === 'drawArrays' ? c[3] : c[0] === 'uniform1i' ? `aura ${c[2]}` : `${c[0]} offset`);
   assert.deepEqual(seq, ['enable offset', 'aura 0', 6, AURA_STEPS * 6, 'aura 4', 6, 'disable offset', WING_VERTS, WING_CARDS * 6, 'enable offset', 'disable offset'], 'farthest first: the fire, then the wings - their pool with the offset, their strands, sparks and backlight without it, the offset back');
   assert.ok(!calls.some((c) => c[0] === 'blendFunc' && c[2] === 13), 'added whole - never premultiplied');
+  calls.length = 0;
+  const torso = Float32Array.of(0, 0.9, 0.436, 0, -0.436, 0.9);
+  r.draw([{ at: [0, 0, 0], aura: 'seraphwings', yaw: 0, cape: { ...CLOAK_REST_POSE, torso } }, { at: [3, 0, 3], aura: 'seraphwings' }], new Float32Array(I), new Float32Array(I), [0, 1.5, -5], 10);
+  const tor = (n) => calls.filter((c) => c[0] === 'uniform3f' && c[1] === n).map((c) => c.slice(2).map((x) => +x.toFixed(3)));
+  assert.deepEqual([tor('uTorsoU'), tor('uTorsoF')], [[[0, 1, 0], [0, 0.9, 0.436]], [[0, 0, 1], [0, -0.436, 0.9]]], 'each wearer\'s torso set beside its place - at rest without a pose, its own with one');
   const at = calls.findIndex((c) => c[0] === 'drawArrays' && c[3] === WING_VERTS), bound = calls.slice(0, at).filter((c) => c[0] === 'bindVertexArray').pop();
   assert.equal(bound[1], r.wingsVao, 'the strands off the wings\' own mesh');
 });
 
 test('SERAPH-WINGS the hosts: the draw hangs and swings every look with a mesh of its own - the cloak and the wings alike - on its wearer\'s body, read as code', () => {
   const w = rd('src/scenes/world.js');
-  assert.match(w, /import \{ AuraRingRenderer, auraWearers, auraLookOf, auraBeastStep, auraMotionStep, auraCapeStep, CLOAK_BONES, AURA_KINDLE_S \} from '\.\.\/render\/auraRing\.js';/);
+  assert.match(w, /import \{ AuraRingRenderer, auraWearers, auraLookOf, auraBeastStep, auraMotionStep, auraCapeStep, auraSpriteBones, auraSpritePosed, auraWingLights, CLOAK_BONES, AURA_KINDLE_S \} from '\.\.\/render\/auraRing\.js';/);
   const line = w.split('\n').find((l) => l.includes('for (const w of _auraDraw) if (auraLookOf(w.aura).mesh)'));
   assert.ok(line, 'the draw\'s line');
   const code = line.slice(0, line.indexOf('   //'));
   assert.ok(!code.trim().startsWith('//') && /for \(const w of _auraDraw\) if \(auraLookOf\(w\.aura\)\.mesh\) \{ auraCapeStep\(w, [^;]*\); auraMotionStep\(w, auraNow\); \}/.test(code), 'every meshed look hung on its body and swung');
+  assert.ok(code.includes('bones: mwViewBodyBones(CLOAK_BONES) ?? auraSpriteBones(mwViewSpriteFigure()) }') && code.includes(': peerBodies?.bonesOf(w.id, CLOAK_BONES) ?? auraSpritePosed(w, peerWalkers?.figureOf(w.id)),'), 'mine off my rig, else off my sprite as drawn; a peer\'s off their rig, else off their sprite');
   assert.equal(auraLookOf('seraphwings').mesh, 'wings');
   assert.ok(Math.abs(CLOAK_REST_POSE.shoulders[1] - CLOAK_SHOULDER_Y) < 1e-6, 'without bones, the wings hang from the rest pose\'s shoulders as the cape does');
 });
+
+// ── ON THE BACK: BOTH BODIES ────────────────────────────────────────
+
+test('SERAPH-WINGS on the back of a Morrowind body: the torso read off the rig - up its spine, across its shoulders, forward out of its chest - upright at rest, leaning as the back leans, turned as the shoulders turn, upright where the bones cannot say; and the wings laid along it - a lean tips them forward, a turn turns them (mutants: the torso ignored, its forward, its guard)', () => {
+  const near = (a, b, tol = 1e-6) => a.every((x, i) => Math.abs(x - b[i]) < tol);
+  const out = new Float32Array(6);
+  const L = [-0.2, 1.4, 0], R = [0.2, 1.4, 0];
+  assert.ok(near([...auraTorso(L, R, [0, 1.2, 0], [0, 1.5, 0], [0, 1.6, 0], out)], [0, 1, 0, 0, 0, 1]), 'upright, facing forward');
+  const lean = [...auraTorso(L, R, [0, 1.2, 0], [0, 1.48, 0.15], [0, 1.6, 0.2], out)];
+  assert.ok(lean[2] > 0.3 && lean[4] < -0.3 && Math.abs(Math.hypot(lean[0], lean[1], lean[2]) - 1) < 1e-6, `leaning forward, its up tips forward and its forward down (${lean.map((x) => x.toFixed(2))})`);
+  const turn = [...auraTorso([-0.2, 1.4, 0.1], [0.2, 1.4, -0.1], [0, 1.2, 0], [0, 1.5, 0], [0, 1.6, 0], out)];
+  assert.ok(turn[3] > 0.3 && turn[5] > 0.7, `the right shoulder drawn back: it faces to the right (${turn.map((x) => x.toFixed(2))})`);
+  assert.ok(near([...auraTorso(L, R, null, [0, 1.5, 0], [0, 1.65, 0], out)], [0, 1, 0, 0, 0, 1]), 'without the spine, up the neck');
+  assert.ok(near([...auraTorso(L, L, [0, 1.2, 0], [0, 1.5, 0], [0, 1.6, 0], out)], [...CLOAK_REST_POSE.torso]), 'no breadth across: at rest');
+  assert.ok(near([...auraTorso(L, R, [0, 1.5, 0], [0, 1.2, 0], [0, 1.0, 0], out)], [...CLOAK_REST_POSE.torso]), 'a back upside down: at rest');
+  const bones = { 'bip01 l upperarm': L, 'bip01 r upperarm': R, 'bip01 neck': [0, 1.48, 0.15], 'bip01 head': [0, 1.6, 0.2], 'bip01 spine2': [0, 1.2, 0], 'bip01 l calf': null, 'bip01 r calf': null };
+  assert.ok(near(lean.slice(0, 3), [0, 0.28 / Math.hypot(0.28, 0.15), 0.15 / Math.hypot(0.28, 0.15)], 1e-4), 'up the spine - its upper spine to its neck');
+  assert.ok(near([...auraCapePose(bones).torso], lean), 'the pose carries it');
+  // the wings along it
+  const k = broad(1, 7), at = (pose) => strandAt(k, 1, { pose }).mid;
+  const rest = at({}), c = Math.cos(0.4), sn = Math.sin(0.4);
+  const leant = at({ uTorsoU: [0, c, sn], uTorsoF: [0, -sn, c] }), turned = at({ uTorsoU: [0, 1, 0], uTorsoF: [Math.sin(0.5), 0, Math.cos(0.5)] });
+  assert.ok(leant[2] > rest[2] + 0.3, `a lean tips them forward (${rest[2].toFixed(2)} to ${leant[2].toFixed(2)})`);
+  assert.ok(Math.hypot(turned[0] - rest[0], turned[2] - rest[2]) > 0.3, 'a turn turns them');
+  assert.ok(near(strandAt(k, 0, { pose: { uTorsoU: [0, c, sn], uTorsoF: [0, -sn, c] } }).mid, [WING_ROOT.apart, CLOAK_SHOULDER_Y - WING_ROOT.below * c - WING_ROOT.back * -sn, -WING_ROOT.below * sn - WING_ROOT.back * c], 1e-5), 'the roots on the back as it leans');
+});
+
+test('SERAPH-WINGS on the back of an Eye of the Beholder sprite: its bones read off the frame drawn - the shoulders at its own shoulder line, not the rest pose\'s; sunk with a crouch; broad (within bounds) and high with a beast\'s bigger frame; a peer\'s at their own feet; none without a figure; the sprite body hands the frame it drew - none undrawn, none in the saddle - the view keeps it for the aura, and a peer\'s walker its own; a rider without bones hangs from over the saddle (mutants: the figure ignored, the shoulder line, the crouch, the saddle)', async () => {
+  const standing = auraSpriteBones({ base: 0, h: EOTB_FIGURE.refH });
+  assert.ok(Math.abs(standing['bip01 r upperarm'][1] - EOTB_FIGURE.refH * EOTB_FIGURE.shoulder) < 1e-9 && standing['bip01 r upperarm'][1] > CLOAK_SHOULDER_Y + 0.2, `the shoulders at the figure's own line (${standing['bip01 r upperarm'][1].toFixed(2)} m), well over the rest pose's ${CLOAK_SHOULDER_Y}`);
+  const p = auraCapePose(standing);
+  assert.ok(Math.abs(p.shoulders[1] - EOTB_FIGURE.refH * EOTB_FIGURE.shoulder) < 1e-6 && Math.abs(p.shoulders[3] - 1) < 1e-6, 'hung there, as broad as the rest');
+  assert.ok([...p.torso].every((x, i) => Math.abs(x - CLOAK_REST_POSE.torso[i]) < 1e-6), 'a flat figure stands upright');
+  assert.ok(Math.abs(strandAt(broad(1, 3), 0, { pose: { uCapeS: [...p.shoulders], uTorsoU: [0, 1, 0], uTorsoF: [0, 0, 1] } }).mid[1] - (p.shoulders[1] - WING_ROOT.below)) < 1e-6, 'the wings grow from there');
+  assert.ok(Math.abs(auraCapePose(auraSpriteBones({ base: -0.45, h: EOTB_FIGURE.refH })).shoulders[1] - (EOTB_FIGURE.refH * EOTB_FIGURE.shoulder - 0.45)) < 1e-6, 'crouched, sunk with the sprite');
+  const beast = auraCapePose(auraSpriteBones({ base: 0, h: 3.2 }));
+  assert.ok(Math.abs(beast.shoulders[1] - 3.2 * EOTB_FIGURE.shoulder) < 1e-6 && Math.abs(beast.shoulders[3] - CLOAK_ACROSS[1]) < 1e-6, 'a beast\'s bigger frame: higher, and as broad as the bounds allow');
+  assert.equal(auraSpriteBones(null), null);
+  assert.equal(auraSpriteBones({ base: 0, h: 0 }), null, 'no figure, no bones');
+  const w = { at: [3, 0, 4], yaw: 0.7 };
+  const posed = auraSpritePosed(w, { base: 0, h: 2 });
+  assert.ok(posed.feet === w.at && posed.yaw === 0.7 && posed.bones['bip01 head'], 'a peer\'s at their own feet and facing');
+  assert.equal(auraSpritePosed(w, null), null);
+  // the sprite body hands the frame it drew
+  const fake = () => ({ batches: [], uploadTexture() {}, createBillboardBatch(archive, rec, size) { const b = { archive, rec, size, origin: [0, 0, 0] }; this.batches.push(b); return b; }, destroyBillboardBatch() {}, drawBillboards() {} });
+  const r = fake();
+  const b = createEotbBody({ count: () => 3035, urlFor: (k2) => `/art/${k2}.png`, decode: async () => ({ width: 4, height: 6, colors: new Uint32Array(24) }) });
+  assert.equal(b.figure(), null, 'nothing drawn, no figure');
+  b.attach(r, () => ({}));
+  await new Promise((res) => setTimeout(res, 5));
+  b.toggle(true, false);
+  for (let i = 0; i < 12; i++) b.tick(1 / 60, { motion: { forward: 0, standing: true, speed: 0, grounded: true, height: 1.8 }, feet: [0, 2, 0], yaw: 0, cameraPos: [0, 3.5, -2] });
+  await new Promise((res) => setTimeout(res, 2));
+  assert.equal(b.draw(null, { eye: [0, 3.5, -2], feet: [0, 2, 0], yaw: 0 }), true);
+  const drawn = r.batches.at(-1), fig = b.figure();
+  assert.ok(fig && Math.abs(fig.h - drawn.size.h) < 1e-9 && Math.abs(fig.base - (drawn.origin[1] - 2)) < 1e-9, `the frame drawn, over its feet (${JSON.stringify(fig)})`);
+  b.toggle(false, false);
+  assert.equal(b.draw(null, { eye: [0, 3.5, -2], feet: [0, 2, 0], yaw: 0 }), false);
+  assert.equal(b.figure(), null, 'nothing drawn this frame: no figure kept from the last');
+  // the plumbing: the door hands the figure, the view keeps it, a peer's walker gives its own
+  const src = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
+  assert.match(src('src/player/eotbBody.js'), /setEotbDrawBody\(\(canvas, f\) => this\.draw\(canvas, f\), \(\) => this\.figure\(\)\);/);
+  assert.match(src('src/player/eotbBody.js'), /figure = last\.riding \? null : \{ base: c\[1\] - cam\.feet\[1\], h: batchSize\.h \* grow \};/, 'none in the saddle - a rider\'s frame is the horse\'s too');
+  const mv = src('src/player/mwView.js');
+  assert.match(mv, /const drawn = drawEotbBody\([^;]*\); spriteFigure = drawn \? eotbFigure\(\) : null; return drawn;/);
+  assert.match(mv, /export function mwViewSpriteFigure\(\) \{ return eotbLane\(\) \? spriteFigure : null; \}/);
+  assert.match(src('src/net/peerRiders.js'), /figureOf: layer\.figureOf,   \/\/ SERAPH-WINGS/);
+  // a rider with no bones: from over the saddle
+  const rider = auraCapeStep({ at: [0, 0, 0], mounted: true }, null, 1);
+  assert.ok(Math.abs(rider.cape.shoulders[1] - (CLOAK_SHOULDER_Y + AURA_SADDLE_M)) < 1e-6 && rider.cape !== CLOAK_REST_POSE && Math.abs(CLOAK_REST_POSE.shoulders[1] - CLOAK_SHOULDER_Y) < 1e-6, 'a rider\'s wings from over the saddle - the rest pose untouched');
+});
+
+// ── THE INSANE PARTS ────────────────────────────────────────────────
+
+test('SERAPH-WINGS the coverts and the beat, RUN: inside the primaries a layer of short coverts, shorter and softer; every eight seconds a slow stroke - the fan swept down and its tips forward, fast down and slow back, the tips after the roots - and the light flaring with it (mutants: the coverts\' reach, the stroke, its lag, the flare)', () => {
+  const covert = (side, q) => (side < 0 ? 0 : WING_PER_SIDE) + (WING_PLUMES + q) * WING_STRANDS;
+  const reachOf = (k) => { const r = strandAt(k, 0).mid, t = strandAt(k, 1).mid; return Math.hypot(...t.map((x, i) => x - r[i])); };
+  const covertMost = Math.max(...Array.from({ length: WING_COVERTS }, (_, q) => reachOf(covert(1, q))));
+  const primaryLeast = Math.min(...Array.from({ length: WING_PLUMES }, (_, p) => reachOf(broad(1, p))));
+  assert.ok(covertMost < primaryLeast + 0.1 && covertMost < WING_COVERT.reach[1] + 0.2, `the coverts short (${covertMost.toFixed(2)} m at most, the primaries ${primaryLeast.toFixed(2)} at least)`);
+  assert.ok(lum(fsW(1, [0.5, 0.5], { s: [covert(1, 3), 0, 1] })) < lum(fsW(1, [0.5, 0.5], { s: [covert(1, 3), 0, 0] })) * 0.6, 'and softer');
+  const F = glslFunctions(AURA_FS, { ...BASE, vP: [0, 0], vWorld: [0, 0, 0], vS: [0, 0, 0], uKind: 1, uTime: 0, uYaw: 0, uKindle: 1, uCamPos: FAR });
+  const peak = 0.18 * 8, rest = 0.9 * 8;
+  assert.ok(F.wingBeat(0, peak) > 0.99 && F.wingBeat(0, rest) < 0.01, 'the stroke at its height and between strokes');
+  assert.ok(F.wingBeat(0, 0.05 * 8) > F.wingBeat(1, 0.05 * 8) && F.wingBeat(1, peak + 0.06 * 8) > 0.99, 'the tips after the roots');
+  assert.ok(F.wingBeat(0, 0.09 * 8) > 0.4 && F.wingBeat(0, 0.46 * 8) > 0.4, 'fast down, slow back up');
+  const k = broad(1, 6), up = strandAt(k, 1, { time: rest }).mid, down = strandAt(k, 1, { time: peak + 0.06 * 8 }).mid;
+  assert.ok(down[1] < up[1] - 0.25 && down[2] > up[2] + 0.4, `the fan swept down and its tips forward (${up.map((x) => x.toFixed(2))} to ${down.map((x) => x.toFixed(2))})`);
+  assert.ok(WING_BEAT.down > 0.2 && WING_BEAT.forward > 0.2);
+});
+
+test('SERAPH-WINGS the backlight and the sparks, RUN: behind the upper back a card of radiance square to the eye, white at its heart, rays turning in it, none past its round, none unkindled, none over an eye among the wings; a spark a streak along the strand it rides, brightest at its head (mutants: the backlight\'s place, its facing, its rays, its gate, the streak\'s way, its head)', () => {
+  const card = (k, corner, o = {}) => { const f = glslFunctions(AURA_VS, { ...BASE, aP: [k * 2 + corner[0], corner[1]], uKind: 2, uTime: o.time ?? QUIET, uYaw: 0, uAt: [0, 0, 0], uCamPos: o.eye ?? FAR, ...(o.pose ?? {}) }); f.main(); return f.globals; };
+  const corners = [[0, 0], [1, 0], [1, 1], [0, 1]].map((c) => card(WING_MOTES, c).vWorld);
+  const mid = [0, 1, 2].map((i) => corners.reduce((a, c) => a + c[i], 0) / 4);
+  assert.ok(Math.abs(mid[0]) < 1e-6 && mid[2] < -WING_ROOT.back - 0.1 && mid[1] > CLOAK_SHOULDER_Y, `behind the upper back (${mid.map((x) => x.toFixed(2))})`);
+  const dot = (a, b) => a.reduce((s2, x, i) => s2 + x * b[i], 0);
+  for (const eye of [FAR, [2, 4.5, -4]]) {
+    const cs = [[0, 0], [1, 0], [1, 1], [0, 1]].map((c) => card(WING_MOTES, c, { eye }).vWorld);
+    const ax = cs[1].map((x, i) => x - cs[0][i]), ay = cs[3].map((x, i) => x - cs[0][i]), to = eye.map((x, i) => x - mid[i]);
+    assert.ok(Math.abs(Math.hypot(...ax) - WING_HALO_M) < 1e-6 && Math.abs(dot(ax, to)) < 1e-5 && Math.abs(dot(ay, to)) < 1e-5, `its size, square to the eye at ${eye}`);
+  }
+  assert.equal(card(WING_MOTES, [0.5, 0.5]).vS[1], 2, 'marked the backlight');
+  const halo = (uv, o = {}) => fsW(2, uv, { s: [0, 2, WING_MOTES], world: mid, ...o });
+  const heart = halo([0.5, 0.5]), ring = Array.from({ length: 48 }, (_, i) => lum(halo([0.5 + 0.18 * Math.cos(i / 48 * TAU), 0.5 + 0.18 * Math.sin(i / 48 * TAU)])));
+  assert.ok(lum(heart) > Math.max(...ring) && heart[2] / heart[0] > 0.4, 'white at its heart');
+  assert.ok(Math.max(...ring) > Math.min(...ring) * 1.25, 'rays in it');
+  const ringLater = Array.from({ length: 48 }, (_, i) => lum(halo([0.5 + 0.18 * Math.cos(i / 48 * TAU), 0.5 + 0.18 * Math.sin(i / 48 * TAU)], { time: QUIET + 3 })));
+  assert.ok(ring.some((x, i) => Math.abs(x - ringLater[i]) > 0.02), 'turning');
+  assert.equal(halo([0.02, 0.02]), 'discard', 'none past its round');
+  assert.equal(lum(halo([0.5, 0.5], { kindle: 0.4 })), 0, 'none till the wings are half unfurled');
+  assert.equal(lum(halo([0.5, 0.5], { eye: [mid[0], mid[1], mid[2] + 0.2] })), 0, 'none over an eye among the wings');
+  // a spark: its long side along its way
+  const sp = [[0, 0], [1, 0], [0, 1]].map((c) => card(3, c));
+  const across = sp[1].vWorld.map((x, i) => x - sp[0].vWorld[i]), along = sp[2].vWorld.map((x, i) => x - sp[0].vWorld[i]);
+  const age = sp[0].vS[0], sc = 1 - 0.4 * age;
+  assert.ok(Math.abs(Math.hypot(...along) - WING_MOTE_LEN * sc) < 1e-6 && Math.abs(Math.hypot(...across) - WING_MOTE_M * sc) < 1e-6, 'a streak: long along, narrow across');
+  const level = Array.from({ length: 8 }, (_, k) => { const c0 = card(k, [0, 0]).vWorld, c1 = card(k, [0, 1]).vWorld; const d = c1.map((x, i) => x - c0[i]); return Math.abs(d[1]) / Math.hypot(...d) < 0.9; }).filter(Boolean).length;
+  assert.ok(level >= 3, `along the strands it rides, out to the side - not all upright (${level} of 8)`);
+  const head = fsW(2, [0.5, 0.8], { s: [0.4, 0, 3] }), tail = fsW(2, [0.5, 0.2], { s: [0.4, 0, 3] });
+  assert.ok(lum(head) > lum(tail) * 1.5, 'brightest at its head');
+});
+
+test('SERAPH-WINGS the light on the world: a gold light behind the shoulders of each wearer of the wings - the nearest three within reach of the eye, its range as they kindle, carried (no glare, no shadow slot) - none for another aura or unkindled; and every host\'s light list carries them (mutants: the light, its colour, its cap, its reach, its gate)', () => {
+  const out = [];
+  const wearer = (at, o = {}) => ({ at, aura: 'seraphwings', yaw: 0, kindle: 1, ...o });
+  auraWingLights([wearer([0, 0, 0]), { at: [1, 0, 0], aura: 'shadowcloak' }, { at: [2, 0, 0], aura: 'radiance' }], [0, 1.6, -5], out);
+  assert.equal(out.length, 1, 'one light, for the wings alone');
+  const l = out[0];
+  assert.ok(Math.abs(l.y - (CLOAK_SHOULDER_Y + WING_LIGHT.lift)) < 1e-6 && Math.abs(l.z + WING_LIGHT.back) < 1e-6 && Math.abs(l.x) < 1e-6, 'behind the shoulders');
+  assert.ok(l.carried === true && l.range === WING_LIGHT.range && l.color[0] === 1 && l.color[0] > l.color[1] && l.color[1] > l.color[2], 'carried, its full range, gold');
+  auraWingLights([wearer([0, 0, 0], { yaw: Math.PI / 2 })], [0, 0, 0], out);
+  assert.ok(Math.abs(out[0].x + WING_LIGHT.back) < 1e-6 && Math.abs(out[0].z) < 1e-6, 'behind them as they face');
+  auraWingLights([wearer([0, 0, 0], { kindle: 0 }), wearer([0, 0, 0], { kindle: 0.5 })], [0, 0, 0], out);
+  assert.ok(out.length === 1 && Math.abs(out[0].range - WING_LIGHT.range * 0.75) < 1e-6 && Math.abs(out[0].color[0] - 0.5) < 1e-6, 'none unkindled; half kindled, dimmer and nearer');
+  auraWingLights([10, 2, 30, 5, 60].map((d) => wearer([d, 0, 0])), [0, 1.6, 0], out);
+  assert.deepEqual(out.map((x) => Math.round(x.x)), [2, 5, 10], 'the nearest three within reach, nearest first');
+  assert.equal(auraWingLights([wearer([WING_LIGHT.reach + 5, 0, 0])], [0, 1.6, 0], out).length, 0, 'none past its reach');
+  assert.match(rd('src/scenes/world.js'), /\n    for \(const l of auraWingLights\(_auraWearers, cam\.pos, _auraLights\)\) _peerLights\.push\(l\); return _peerLights;/, 'every host\'s light list - the open world\'s and the dungeon\'s and the building\'s through peerLights');
+});
+

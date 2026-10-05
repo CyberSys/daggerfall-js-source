@@ -562,8 +562,8 @@ test('SHADOW-CLOAK the hosts: the one gather every host draws through hands each
   // commented out whole still matched)
   const codeMatch = (src, re, msg) => { const m = re.exec(src); assert.ok(m, msg ?? String(re)); const from = src.lastIndexOf('\n', m.index) + 1; const lines = src.slice(from, m.index + m[0].length).split('\n'); assert.ok(!lines[0].slice(0, m.index - from).includes('//') && lines.slice(1).every((l) => !l.trim().startsWith('//')), `${msg ?? re}: not commented out`); };
   const w = rd('src/scenes/world.js');
-  codeMatch(w, /import \{ AuraRingRenderer, auraWearers, auraLookOf, auraBeastStep, auraMotionStep, auraCapeStep, CLOAK_BONES, AURA_KINDLE_S \} from '\.\.\/render\/auraRing\.js'; import \{ peerBodyYaw \} from '\.\.\/net\/peerClimb\.js';/);
-  codeMatch(w, /import \{ mwViewFirstPerson, mwViewFrame, mwViewWheel, mwViewDrawBody, mwViewBodyBones,/);
+  codeMatch(w, /import \{ AuraRingRenderer, auraWearers, auraLookOf, auraBeastStep, auraMotionStep, auraCapeStep, auraSpriteBones, auraSpritePosed, auraWingLights, CLOAK_BONES, AURA_KINDLE_S \} from '\.\.\/render\/auraRing\.js'; import \{ peerBodyYaw \} from '\.\.\/net\/peerClimb\.js';/);
+  codeMatch(w, /import \{ mwViewFirstPerson, mwViewFrame, mwViewWheel, mwViewDrawBody, mwViewBodyBones, mwViewSpriteFigure,/);
   codeMatch(w, /_auraSelf\.aura = mine; _auraSelf\.yaw = player\.bodyYawFor\(cam\.yaw\); auraBeastStep\(_auraSelf, !!liveLycanthropy\(playerEntity\)\?\.isTransformed, t\);/, 'mine: the body\'s facing, and turned beast');
   codeMatch(w, /w\.at\[2\] = p\[2\]; w\.yaw = peerBodyYaw\(d\.shown\) \?\? 0; auraBeastStep\(w, !!d\.shown\.wb, t\);/, 'a peer\'s: their pose\'s');
   codeMatch(w, /auraBeastStep\(_auraSelf[^\n]*\n\s+_auraSelf\.kindle = Math\.min\(1, \(t - _auraSelf\.since\) \/ AURA_KINDLE_S\); _auraSelf\.mounted = !!player\.riding;/, 'stepped before the kindling is read, so turning back kindles it again; and riding');
@@ -572,7 +572,7 @@ test('SHADOW-CLOAK the hosts: the one gather every host draws through hands each
   const line = w.split('\n').find((l) => l.includes('for (const w of _auraDraw) if (auraLookOf(w.aura).mesh)'));
   const code = line.slice(0, line.indexOf('   //'));
   assert.ok(!code.includes('//'), 'no comment inside the code half');
-  assert.match(code, /const auraNow = performance\.now\(\) \/ 1000; for \(const w of _auraDraw\) if \(auraLookOf\(w\.aura\)\.mesh\) \{ auraCapeStep\(w, w === _auraSelf \? \{ feet: player\.bodyFeetAt\(\), yaw: player\.bodyYawFor\(cam\.yaw\), bones: mwViewBodyBones\(CLOAK_BONES\) \} : peerBodies\?\.bonesOf\(w\.id, CLOAK_BONES\), w === _auraSelf \? player\.height \/ CAPSULE_HEIGHT : 1\); auraMotionStep\(w, auraNow\); \} _auraPass\?\.draw\(_auraDraw, proj, view, eye, auraNow, \{/, 'each cape hung on its body and swung where it is drawn, THEN every aura drawn');
+  assert.match(code, /const auraNow = performance\.now\(\) \/ 1000; for \(const w of _auraDraw\) if \(auraLookOf\(w\.aura\)\.mesh\) \{ auraCapeStep\(w, w === _auraSelf \? \{ feet: player\.bodyFeetAt\(\), yaw: player\.bodyYawFor\(cam\.yaw\), bones: mwViewBodyBones\(CLOAK_BONES\) \?\? auraSpriteBones\(mwViewSpriteFigure\(\)\) \} : peerBodies\?\.bonesOf\(w\.id, CLOAK_BONES\) \?\? auraSpritePosed\(w, peerWalkers\?\.figureOf\(w\.id\)\), w === _auraSelf \? player\.height \/ CAPSULE_HEIGHT : 1\); auraMotionStep\(w, auraNow\); \} _auraPass\?\.draw\(_auraDraw, proj, view, eye, auraNow, \{/, 'each cape hung on its body and swung where it is drawn, THEN every aura drawn');
   codeMatch(w, /const drawVeiledPeerBodies = \(\) => \{ peerBodies\?\.drawVeiled\(\); drawAuras\(\);/, 'drawn through the hook the street, the building and the dungeon all call - after the bodies');
   const a = rd('src/combat/fpArm.js');
   codeMatch(a, /lastThirdModel = model;[^\n]*\n\s+drawnArm = t\.arm; drawnMats = t\.arm\.mats;/, 'the body\'s bones read in the pose it was drawn in');

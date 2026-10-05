@@ -152,6 +152,9 @@ function figureLayer(art) {
     isDrawn: (id) => !!figs.get(id)?.batch,
     batchOf: (id) => figs.get(id)?.batch ?? null,   // PEERFX3: the one sprite a hurt flash tints
     heightOf: (id) => { const r = figs.get(id); return r?.batch && r.size && r.xml ? r.size.h + (r.xml.y / r.xml.scale) * (r.g ?? 1) : 0; },
+    /** SERAPH-WINGS (2026-10-05): the figure as drawn - { base, h }, its quad's foot and height over the feet (m) - or null:
+     *  what an aura on its back reads for the bones a sprite has not got (render/auraRing.js auraSpriteBones). */
+    figureOf: (id) => { const r = figs.get(id); return r?.batch && r.size && r.xml ? { base: (r.xml.y / r.xml.scale) * (r.g ?? 1), h: r.size.h } : null; },
     batches: () => [...figs.values()].map((r) => r.batch).filter(Boolean),
     offsetAll(offset) {
       for (const r of figs.values()) {
@@ -430,6 +433,7 @@ export function createPeerWalkers({ renderer = null, urlFor = eotbSpriteUrl, dec
     isWalking: layer.isDrawn,
     batchOf: layer.batchOf,   // PEERFX3
     heightOf: layer.heightOf,
+    figureOf: layer.figureOf,   // SERAPH-WINGS
     batches: layer.batches,
     drawLanterns,   // HT-WAIST-BACK
     offsetAll: layer.offsetAll,

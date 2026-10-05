@@ -4815,8 +4815,10 @@ left in it.) SirMcMobdon already holds SHADOW-FANG's title and glyph (black #0d0
 ## SERAPH-WINGS — the developers' own: the Seraph Wings (2026-10-05, world168, acct81)
 
 Mac, sending a painted angel whose wings are long ribbons of golden light: "So I want to build an aura for the
-developers. These are based off this image above. Golden Angel wings that flow". The wings are drawn from that idea -
-plumes of flowing light out of the back - in the pass's own shader; nothing of the painting is used.
+developers. These are based off this image above. Golden Angel wings that flow"; then "Just want to make sure this
+properly attachs to the back of the eye of the Beholder skins + morrowind skins" and "I want this to be insane". The
+wings are drawn from that idea - plumes of flowing light out of the back - in the pass's own shader; nothing of the
+painting is used.
 
 - **The grant** (`server-account/src/titles.js`): `DEVELOPER_AURA = 'seraphwings'`, held while the handle is in
   DEVELOPER_HANDLES - the developer title and glyph's own list, read off the config at every ask as they are -
@@ -4826,55 +4828,74 @@ plumes of flowing light out of the back - in the pass's own shader; nothing of t
 - **The vocabulary** (`src/net/identityToken.js`, in the relay bundle): `seraphwings` joins AURAS last. A relay before it
   refuses a token carrying it (`claimsValid`), so the relay is **world168** and the account service **acct81**; the
   account deploy waits on the relay's `/health` to serve world168 (SHADOW-FANG's AUDIT B1). No frame changes shape. A
-  token with every glyph and the wings stays inside the relay's 640 (the word is shorter than the ward's).
+  token with every glyph and the wings stays inside the relay's 640.
 - **The face** (`src/ui/playerBadge.js`): "Seraph Wings" (`AURA_TEXT`); the button in the Founder's gold (`AURA_PAINT
   seraphwings: 'founder'`) - the wings' own colour, where the developer title's paint is a red.
 - **The look** (`src/render/auraRing.js`, the fifth: `AURA_LOOK.seraphwings`, kind 4, its own mesh `wings`, added whole -
   light, never a shadow):
-  - THE WINGS: WING_PLUMES (7) plumes a side fanned from below level (-0.95 rad) to high over the head (1.15 rad), the
-    high plumes long (WING_REACH 1.05-1.9 m), each a broad strand (0.2 m) and two fine ones (0.07 m) either side of it -
-    ribbons of WING_SEGS (40) segments (`auraWingsGrid`), laid in the vertex half along a curve out of the upper back
-    (WING_ROOT: 0.12 m behind the shoulders' middle, 0.04 m below it, 0.07 m either side of the spine) - rising behind
-    the shoulder, then out along the plume's angle, the tips drooping as a long feather's do - turned to the eye along
-    their length, their width growing out of the back and narrowing to the tip. None sweeps in front of the wearer.
-  - THEY FLOW: waves run out along each strand (1/4 Hz, the fine strands' flutter 1/2 Hz), more the further out; the fan
-    breathes open and closed (1/6 Hz); in the fragment half noise runs out along each strand (WING_FLOW) and a pulse of
-    light with it (1/3 Hz). Gold through each strand (WING_RGB), white-hot at its heart, amber at its edge, the edge
-    fraying into wisps and the tip frayed away; faint where they leave the back, so the roots' meeting is no blaze.
-  - THE MOTES (the third draw's cards, WING_MOTES 16): small round lights riding a strand out and past its tip, a new
-    strand each flight, their lives (3, 4, 5 s) dividing the clock; none till the wings have unfurled.
+  - THE WINGS: two layers a side - WING_PLUMES (9) long primaries fanned from below level (-0.7 rad) to high over the
+    head (1.25 rad), the high ones long (WING_REACH 0.95 - 2.2 m), and inside them WING_COVERTS (6) short coverts
+    (WING_COVERT: 0.45 - 0.8 m) that give a wing its body, softer. Each plume a broad strand (0.34 m with its glow's
+    sheath) and four fine ones bundled about it as a feather's barbs; ribbons of WING_SEGS (32) segments
+    (`auraWingsGrid`, 150 strands), laid along a curve out of the upper back - rising first, then out along the
+    plume's angle, the tips drooping as a long feather's do - turned to the eye along their length.
+  - THEY FLOW: waves run out along each strand (1/4 Hz, the fine strands' flutter 1/2 Hz); the fan breathes (1/6 Hz);
+    and every eight seconds THE BEAT (`wingBeat`, WING_BEAT): a slow stroke, the fan swept down and its tips forward,
+    fast down and slow back up, the tips after the roots - the light flaring with it. In the fragment half noise and a
+    pulse of light run out along each strand; gold (WING_RGB), white-hot at the heart, amber at a frayed edge, the tips
+    burning as they fray; faint where they leave the back.
+  - THE BACKLIGHT: one card of radiance behind the upper back (WING_HALO_M 2.6 m), square to the eye - a soft gold glow,
+    white at its heart, rays turning slowly in it (1/30 Hz and 1/15 Hz), flaring with the beat.
+  - THE SPARKS (WING_MOTES 24): streaks of light riding a strand out and past its tip, long along their way as the eye
+    sees it and brightest at their head; their lives (3, 4, 5 s) dividing the clock.
   - THE GROUND: a faint pool of gold beneath (WING_POOL_R 1.3 m).
-  - ON THE BODY as the cape is: hung from the shoulders where the body's bones put them (`auraCapeStep` - `uCapeS`, its
-    breadth setting the roots apart, a crouch lowering them; at rest without bones), and swung as it is
-    (`auraMotionStep` - `uSwing`): a run's trail sweeping them back the more the further out, a fall lifting them, the
-    roots where they were. Unfurling from the root as they kindle. Nothing laid over an eye standing among them (the
-    wearer's own first person). Drawn without the ground's depth offset, which is handed back for the next wearer.
-  - Every rate whole over the clock (`wingRatesWhole`).
+  - THE LIGHT ON THE WORLD (`auraWingLights`, WING_LIGHT): a gold carried light behind the shoulders of the nearest
+    three wearers within 40 m of the eye (7 m as kindled), fed into every host's light list through world.js
+    `peerTorchLights` - the open world's (where the city's light colour stands for every carried light) and the
+    dungeon's and the building's (where it is gold).
+  - Unfurling from the root as they kindle (the backlight and the sparks after them); nothing laid over an eye standing
+    among them (the wearer's own first person); drawn without the ground's depth offset. Every rate whole over the
+    clock (`wingRatesWhole`).
+- **On the back, both bodies:**
+  - THE TORSO: every point is laid along the torso's own axes (`uTorsoU`, `uTorsoF` - `auraTorso`, carried on the pose
+    as `torso`): up the spine (`bip01 spine2` to the neck, joined to CLOAK_BONES; the neck to the head without it),
+    across the shoulders, forward out of the chest square to both - so the wings lean as the back leans and turn as
+    the shoulders turn. Upright where the bones cannot say, or where a back would be upside down.
+  - A MORROWIND BODY: its posed bones as drawn (fpArm.thirdBones mine, peerBodies.bonesOf a peer's) - the shoulders'
+    middle (`uCapeS`, its breadth setting the roots apart), the torso above.
+  - AN EYE OF THE BEHOLDER SPRITE has no bones: what stands for them is read off the frame drawn (`auraSpriteBones`,
+    EOTB_FIGURE) - its base and height over the feet (player/eotbBody.js `figure()`, handed to player/mwView.js through
+    the sprite's door and kept as `mwViewSpriteFigure()`; a peer's walker's `figureOf`, net/peerRiders.js), the
+    shoulder line at 0.8 of the frame's height (the sets' back frames measure 0.78 - 0.83: about 1.67 m, where the rest
+    pose's 1.42 m hung them a quarter-metre low), the neck and the head above it, the spine below, as broad as the
+    frame is to the standing one's 2.09 m (within bounds) - so a crouch sinks them with the sprite and a beast's bigger
+    frame carries them higher. None read off a rider's frame (the horse's too).
+  - A RIDER WITHOUT BONES hangs them from the rest pose lifted by the saddle (AURA_SADDLE_M 0.81 m: RIDE_EYE_HEIGHT less
+    EYE_HEIGHT).
+  - And swung as the cape is (`auraMotionStep` - `uSwing`: a run's trail sweeping them back the further out, a fall
+    lifting them, the roots where they were).
 - **The hosts** - THE FOUR HOSTS: `scenes/world.js` WIRED - the draw hangs and swings every look with a mesh of its own
-  (`auraLookOf(w.aura).mesh`: the cloak and the wings), where it hung the cloak alone; `scenes/worldModes.js` and
-  `scenes/dungeonContext.js` draw through world.js's pass, unchanged; `scenes/exterior.js` draws no aura - FLAGGED,
-  unchanged.
-- **Seen**, in headless Chromium's WebGL2 through the pass itself over a stand-in body (behind, in front, three-quarters,
-  beside, from above, half kindled, running, at two moments): the plumes fanned either side of the back and over the
-  head, flowing between moments, swept back running; and through the committed `tools/auraProbe.mjs`: 62/62, the
-  wings' 10 - no GL error; gold out to either side and over the head; gold or white-hot, warm; nothing past their
-  reach; flowing; no jump at the wrap; nothing unkindled and less half kindled; nothing over the view from the
-  wearer's own eye looking ahead; the same as the game mirrors it.
-- Pins: `test/seraphwings.test.js` (13) - the vocabulary; the grant (every developer, case-folded; off the list; a guest;
-  the other lists' holders; a developer on another list); the service end to end; the account card's note; the token
-  and the relay (world168, the bound); the law (rates whole, the mesh, the fan); the vertex half RUN (the roots, the
-  sides, the fan's order, none in front, the facing, the ribbon's width turned to the eye, the waves beyond the breath,
-  the breath itself, the roots still, the wrap); on the body (the pose, the breadth, the trail, the lift); the light RUN
-  (gold, white-hot heart, frayed edge, faint root and tip, alive along it and over time, the light flowing, the wrap,
-  the kindle, the eye, the fine strands); the ground and the motes; no pow of a negative and no NaN; the draw (the
-  mesh, the order, added whole, the offset, the wings' own mesh); the hosts. `tools/mutants/seraphwings.json` (39, all
-  dead). The relay's and the account's pins moved to world168 and acct81 crediting SERAPH-WINGS (`auditbounty1.test.js`
-  holds the credit); `aegis.json`, `primarch.json` and `shadowcloak.json`'s vocabulary and paint records, `wb9g.json`'s
-  flames record and the version records in `soc1.json`, `gatekeys.json` and `fb1004d_knight_house.json` re-aimed by
-  content.
-- Left as they are, said here: not seen in a running game client with a real body (the probe draws none); the wings
-  stay on a wearer turned beast and on a rider (nothing about them parts or folds); from first person, looking to the
-  side or behind, the wearer sees their own wings - only what stands in front of the eye is spared; one program draws
-  all five auras, so a compile failure would take them all (the eager compile in `test/shadowcloak.test.js` and the
-  probe are the guard).
+  (`auraLookOf(w.aura).mesh`), mine off my rig else my sprite's figure, a peer's off their rig else their walker's
+  figure; the wings' light rides `peerTorchLights`; `scenes/worldModes.js` and `scenes/dungeonContext.js` draw through
+  world.js's pass and take the light through `host.peerLights`, unchanged; `scenes/exterior.js` draws no aura -
+  FLAGGED, unchanged.
+- **Seen**, in headless Chromium's WebGL2 through the pass itself over a stand-in body: behind, in front,
+  three-quarters, beside, from above, half kindled, running, mid-beat, on a 2.09 m Beholder frame and on a Morrowind
+  torso leaning into a run; and through the committed `tools/auraProbe.mjs`: 62/62, the wings' 10.
+- Pins: `test/seraphwings.test.js` (18) - the vocabulary; the grant; the service end to end; the account card's note;
+  the token and the relay; the law (rates whole, the mesh, the fan); the vertex half RUN (roots, sides, the fan's order,
+  none in front, the facing, ribbons turned to the eye, waves beyond the breath and along each strand, the breath, the
+  roots still, the wrap); on the body (pose, breadth, trail, lift); the light RUN; the ground and the sparks; no pow of a
+  negative and no NaN; the draw (the mesh, farthest first, added whole, the offset, the wings' own mesh, each wearer's
+  torso); the hosts (mine off my rig else my sprite, a peer's likewise); the Morrowind back (the torso's axes, a lean, a
+  turn, its guards, the wings along it); the Beholder back (the figure's shoulders, a crouch, a beast, a peer's, the
+  sprite's own `figure()`, the plumbing, the saddle); the coverts and the beat; the backlight and the sparks; the light
+  on the world. `tools/mutants/seraphwings.json` (75, all dead). The relay's and the account's pins moved to world168
+  and acct81 crediting SERAPH-WINGS; the vocabulary, paint, flames, version and host-line records re-aimed by content.
+- Left as they are, said here: not seen in a running game client with a real body (the probe and the previews draw a
+  stand-in); the wings stay on a wearer turned beast (a beast's sprite frame carries them higher) and on a rider;
+  from first person, looking to the side or behind, the wearer sees their own wings - only what stands in front of
+  the eye is spared; the sprite figure's shoulder line is one fraction for every set (measured on the back frames);
+  outdoors the wings' light takes the city's light colour; one program draws all five auras, so a compile failure
+  would take them all (the eager compile and the probe are the guard).
 

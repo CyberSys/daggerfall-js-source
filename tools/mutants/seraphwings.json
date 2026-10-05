@@ -349,5 +349,329 @@
     "tests": [
       "test/seraphwings.test.js"
     ]
+  },
+  {
+    "name": "SERAPHWINGS-the-torso-ignored",
+    "file": "src/render/auraRing.js",
+    "old": "cross(uTorsoU, uTorsoF) * l.x + uTorsoU * l.y + uTorsoF * l.z",
+    "new": "vec3(1.0, 0.0, 0.0) * l.x + vec3(0.0, 1.0, 0.0) * l.y + vec3(0.0, 0.0, 1.0) * l.z",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-torso-unset",
+    "file": "src/render/auraRing.js",
+    "old": "gl.uniform3f(U.uTorsoU, torso[0], torso[1], torso[2]); gl.uniform3f(U.uTorsoF, torso[3], torso[4], torso[5]);",
+    "new": "",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-torso-off-the-neck",
+    "file": "src/render/auraRing.js",
+    "old": "const lo = spine && neck ? spine : neck, hi = spine && neck ? neck : head;",
+    "new": "const lo = neck, hi = head;",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-forward-backward",
+    "file": "src/render/auraRing.js",
+    "old": "let fx = ry * uz - rz * uy, fy = rz * ux - rx * uz, fz = rx * uy - ry * ux;",
+    "new": "let fx = rz * uy - ry * uz, fy = rx * uz - rz * ux, fz = ry * ux - rx * uy;",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-an-upside-down-back",
+    "file": "src/render/auraRing.js",
+    "old": " || uy / ul < 0.2) { out.set(CLOAK_REST_POSE.torso); return out; }",
+    "new": ") { out.set(CLOAK_REST_POSE.torso); return out; }",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-pose-without-a-torso",
+    "file": "src/render/auraRing.js",
+    "old": "  auraTorso(L, R, bones['bip01 spine2'] ?? null, N ?? null, H, o.torso ?? (o.torso = new Float32Array(6)));\n",
+    "new": "",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-shoulder-line",
+    "file": "src/render/auraRing.js",
+    "old": "shoulder: 0.8, neck: 0.85,",
+    "new": "shoulder: 0.68, neck: 0.85,",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-figure-unscaled",
+    "file": "src/render/auraRing.js",
+    "old": "const at = (f) => fig.base + fig.h * f,",
+    "new": "const at = (f) => fig.base + EOTB_FIGURE.refH * f,",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-crouch-unsunk",
+    "file": "src/render/auraRing.js",
+    "old": "const at = (f) => fig.base + fig.h * f,",
+    "new": "const at = (f) => fig.h * f,",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-no-saddle",
+    "file": "src/render/auraRing.js",
+    "old": "lift = w.mounted === true ? AURA_SADDLE_M : 0;",
+    "new": "lift = 0;",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-my-sprite-ignored",
+    "file": "src/scenes/world.js",
+    "old": " ?? auraSpriteBones(mwViewSpriteFigure())",
+    "new": "",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-a-peers-sprite-ignored",
+    "file": "src/scenes/world.js",
+    "old": " ?? auraSpritePosed(w, peerWalkers?.figureOf(w.id))",
+    "new": "",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-figure-never-kept",
+    "file": "src/player/eotbBody.js",
+    "old": "      figure = last.riding ? null : { base: c[1] - cam.feet[1], h: batchSize.h * grow };",
+    "new": "",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-a-riders-figure",
+    "file": "src/player/eotbBody.js",
+    "old": "figure = last.riding ? null :",
+    "new": "figure = false ? null :",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-a-stale-figure",
+    "file": "src/player/eotbBody.js",
+    "old": "      face = faceNow && Number.isFinite(faceNow.yaw) ? faceNow : null;\n      figure = null;\n",
+    "new": "      face = faceNow && Number.isFinite(faceNow.yaw) ? faceNow : null;\n",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-view-forgets-the-figure",
+    "file": "src/player/mwView.js",
+    "old": "spriteFigure = drawn ? eotbFigure() : null;",
+    "new": "spriteFigure = null;",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-coverts-long",
+    "file": "src/render/auraRing.js",
+    "old": "s.w > 0.5 ? mix(${g3(WING_COVERT.reach[0])}, ${g3(WING_COVERT.reach[1])}, s.y)",
+    "new": "s.w > 0.5 ? mix(${g3(WING_REACH[0])}, ${g3(WING_REACH[1])}, s.y)",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-coverts-bright",
+    "file": "src/render/auraRing.js",
+    "old": "* (s.z > 0.5 ? 0.45 : 1.0);",
+    "new": "* (s.z > 0.5 ? 1.0 : 1.0);",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-no-downstroke",
+    "file": "src/render/auraRing.js",
+    "old": "- ${g3(WING_BEAT.down)} * beat * (0.5 + 0.5 * s.y)",
+    "new": "- 0.0 * beat * (0.5 + 0.5 * s.y)",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-no-forward-stroke",
+    "file": "src/render/auraRing.js",
+    "old": "+ ${g3(WING_BEAT.forward)} * beat) * reach;",
+    "new": ") * reach;",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-tips-not-after",
+    "file": "src/render/auraRing.js",
+    "old": "fract(time ${hzGlsl(WING_HZ.beat)} - 0.06 * t)",
+    "new": "fract(time ${hzGlsl(WING_HZ.beat)})",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-stroke-quick-both-ways",
+    "file": "src/render/auraRing.js",
+    "old": "return smoothstep(0.0, 0.18, bp) * (1.0 - smoothstep(0.18, 0.75, bp));",
+    "new": "return smoothstep(0.0, 0.18, bp) * (1.0 - smoothstep(0.18, 0.36, bp));",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-backlight-in-front",
+    "file": "src/render/auraRing.js",
+    "old": "vec3 c = wingWorld(wingBack(vec3(0.0, 0.12, -0.32)));",
+    "new": "vec3 c = wingWorld(wingBack(vec3(0.0, 0.12, 0.32)));",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-backlight-upright",
+    "file": "src/render/auraRing.js",
+    "old": "w = c + r * o.x + cross(e, r) * o.y;",
+    "new": "w = c + r * o.x + vec3(0.0, 1.0, 0.0) * o.y;",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-backlight-without-rays",
+    "file": "src/render/auraRing.js",
+    "old": "+ rays * exp(-r * 2.6) * 0.32)",
+    "new": ")",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-backlight-not-white",
+    "file": "src/render/auraRing.js",
+    "old": "vec3 col = WING_CORE * exp(-r * r * 16.0) * 0.25 + WING_GOLD *",
+    "new": "vec3 col = WING_GOLD * exp(-r * r * 16.0) * 0.25 + WING_GOLD *",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-backlight-unkindled",
+    "file": "src/render/auraRing.js",
+    "old": "wingBeat(0.0, uTime)) * smoothstep(0.5, 1.0, uKindle)",
+    "new": "wingBeat(0.0, uTime))",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-backlight-over-the-eye",
+    "file": "src/render/auraRing.js",
+    "old": "smoothstep(0.5, 1.0, uKindle) * wingNear();\n}\n`;",
+    "new": "smoothstep(0.5, 1.0, uKindle);\n}\n`;",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-spark-upright",
+    "file": "src/render/auraRing.js",
+    "old": "w = c + across * o.x + along * o.y;",
+    "new": "w = c + across * o.x + vec3(0.0, 1.0, 0.0) * o.y;",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-spark-headless",
+    "file": "src/render/auraRing.js",
+    "old": " * smoothstep(-1.0, 0.5, q.y);   // brightest at its head",
+    "new": ";   // brightest at its head",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-a-light-for-every-aura",
+    "file": "src/render/auraRing.js",
+    "old": "if (!w || auraLookOf(w.aura).mesh !== 'wings' || !Array.isArray(w.at)) continue;",
+    "new": "if (!w || !w.aura || !Array.isArray(w.at)) continue;",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-lights-uncapped",
+    "file": "src/render/auraRing.js",
+    "old": "  if (out.length > L.max) out.length = L.max;\n",
+    "new": "",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-lights-unbounded",
+    "file": "src/render/auraRing.js",
+    "old": "    if (!(d <= L.reach)) continue;\n",
+    "new": "",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-a-light-unkindled",
+    "file": "src/render/auraRing.js",
+    "old": "    if (!(k > 0)) continue;\n    const yaw",
+    "new": "    const yaw",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-light-white",
+    "file": "src/render/auraRing.js",
+    "old": "color: [L.rgb[0] * k, L.rgb[1] * k, L.rgb[2] * k]",
+    "new": "color: [k, k, k]",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
+  },
+  {
+    "name": "SERAPHWINGS-the-light-never-cast",
+    "file": "src/scenes/world.js",
+    "old": "for (const l of auraWingLights(_auraWearers, cam.pos, _auraLights)) _peerLights.push(l); return _peerLights;",
+    "new": "return _peerLights;",
+    "tests": [
+      "test/seraphwings.test.js"
+    ]
   }
 ]

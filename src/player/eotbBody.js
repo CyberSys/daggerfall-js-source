@@ -260,6 +260,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
   let batch = null;
   let batchRec = null;
   let batchSize = null;
+  let figure = null;   // SERAPH-WINGS: the frame last drawn, as an aura reads it - its base and its height over the feet (m)
   /** The one sprite that decides whether this lane may open at all. See `ready()`. */
   let firstUp = false;
 
@@ -784,6 +785,10 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
      * camera), so the player's own sprite stood facing the lens at the head of every bout. A placing writes the facing
      * it places with, as the walk it stands for would; the next orientation pass repaints it. `yaw` the facing's.
      */
+    /** SERAPH-WINGS (2026-10-05): THE FIGURE LAST DRAWN - { base, h }, the quad's foot and its height over the feet (m),
+     *  this frame's; null when nothing was drawn or in the saddle. What an aura on the back reads for the bones a sprite
+     *  has not got (render/auraRing.js auraSpriteBones). */
+    figure() { return figure; },
     faceYaw,
     /**
      * Called by `combat/weaponRig.js` beside `fpArm.attach`.
@@ -810,7 +815,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
       if (renderer) {
         preload();
         setEotbBodyReady(() => this.ready());
-        setEotbDrawBody((canvas, f) => this.draw(canvas, f));
+        setEotbDrawBody((canvas, f) => this.draw(canvas, f), () => this.figure());   // SERAPH-WINGS: and the figure it drew
         setEotbPlayerState(playerState);
       }
       eotbCamera.setBillboard(this);
@@ -894,6 +899,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
 
     draw(canvas, { eye, feet, yaw, face: faceNow = null } = {}) {
       face = faceNow && Number.isFinite(faceNow.yaw) ? faceNow : null;
+      figure = null;
       if (!renderer || !activeFlag || !shown) return false;
       if (!cfg.graphic) { dropLantern(); return false; }   // HT-WAIST: no body drawn, no lantern on it
       if (feet) cam.feet = feet;
@@ -927,6 +933,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
       const c = place();
       if (!c) return false;
       batch.origin[0] = c[0]; batch.origin[1] = c[1]; batch.origin[2] = c[2];
+      figure = last.riding ? null : { base: c[1] - cam.feet[1], h: batchSize.h * grow };   // SERAPH-WINGS: a rider's frame is the horse's too - no shoulders read off it
       batch.conceal = material();
       // AUDIT DEEP R-2: under the travel view the quad turns to the VIEW's eye (and leans with the flats) - on the
       // traveller's own heading it went edge-on as the view orbited, a sliver at 90 degrees, mirrored at 180

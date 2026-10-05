@@ -1263,7 +1263,7 @@ export const AURA_CARDS = Math.max(...Object.values(AURA_LOOK).map((l) => l.glyp
 export const CLOAK_REST_POSE = Object.freeze({ shoulders: Float32Array.of(0, CLOAK_SHOULDER_Y, 0, 1), head: Float32Array.of(0, CLOAK_HOOD_Y, 0, 0), kneeL: new Float32Array(3), kneeR: new Float32Array(3), torso: Float32Array.of(0, 1, 0, 0, 0, 1) });   // SERAPH-WINGS: the torso upright and facing forward
 /** SHADOW-CLOAK: THE BONES IT HANGS FROM - the retail third-person skeleton's (base_anim.nif and its kin, lowercase as
  *  the skeleton's byName keeps them): the shoulder joints, the neck and the head, the knees. */
-export const CLOAK_BONES = Object.freeze(['bip01 l upperarm', 'bip01 r upperarm', 'bip01 neck', 'bip01 head', 'bip01 l calf', 'bip01 r calf']);
+export const CLOAK_BONES = Object.freeze(['bip01 l upperarm', 'bip01 r upperarm', 'bip01 neck', 'bip01 head', 'bip01 l calf', 'bip01 r calf', 'bip01 spine2']);   // SERAPH-WINGS: and the upper spine, the back's own up
 /** The rest shoulders' half-width its measures assume (m) - a broader or narrower body scales the cloth across, within
  *  CLOAK_ACROSS - and how far past the head's own joint (the top of the neck) its middle is, along the neck (m). */
 export const CLOAK_SHOULDER_HALF = 0.2;
@@ -1277,7 +1277,7 @@ export const CLOAK_HEAD_ABOVE = 0.09;
 export function auraCapePose(bones, out = null) {
   const L = bones?.['bip01 l upperarm'], R = bones?.['bip01 r upperarm'], N = bones?.['bip01 neck'], H = bones?.['bip01 head'];
   if (!L || !R || !H) return null;
-  const o = out ?? { shoulders: new Float32Array(4), head: new Float32Array(4), kneeL: new Float32Array(3), kneeR: new Float32Array(3) };
+  const o = out ?? { shoulders: new Float32Array(4), head: new Float32Array(4), kneeL: new Float32Array(3), kneeR: new Float32Array(3), torso: new Float32Array(6) };
   const half = Math.hypot(L[0] - R[0], L[1] - R[1], L[2] - R[2]) / 2;
   const S = o.shoulders, Hd = o.head;
   S[0] = (L[0] + R[0]) / 2; S[1] = Math.max((L[1] + R[1]) / 2, CLOAK_SHOULDER_Y * 0.4); S[2] = (L[2] + R[2]) / 2; S[3] = Math.max(CLOAK_ACROSS[0], Math.min(CLOAK_ACROSS[1], half / CLOAK_SHOULDER_HALF));   // never lower than a crouch's floor (AUDIT 2: a pose at the feet hangs nothing)
@@ -1285,8 +1285,73 @@ export function auraCapePose(bones, out = null) {
   Hd[0] = H[0] + (ux / ul) * CLOAK_HEAD_ABOVE; Hd[1] = Math.max(H[1] + (uy / ul) * CLOAK_HEAD_ABOVE, S[1] + 0.18); Hd[2] = H[2] + (uz / ul) * CLOAK_HEAD_ABOVE; Hd[3] = 0;   // the head a neck over the shoulders at least (AUDIT 2: nearer, the collar folds over itself)
   o.kneeL.set(bones['bip01 l calf'] ?? [0, 0, 0]);
   o.kneeR.set(bones['bip01 r calf'] ?? [0, 0, 0]);
+  auraTorso(L, R, bones['bip01 spine2'] ?? null, N ?? null, H, o.torso ?? (o.torso = new Float32Array(6)));
   return o;
 }
+/** SERAPH-WINGS: THE TORSO'S OWN AXES, written into `out` [up, forward] - up the spine (the upper spine to the neck, or
+ *  the neck to the head without it), across from the left shoulder to the right, and forward out of the chest square to
+ *  both - so what grows from the back leans and turns as the back does. Upright and facing forward where the bones
+ *  cannot say. Pure but for `out`. */
+export function auraTorso(L, R, spine, neck, head, out) {
+  const lo = spine && neck ? spine : neck, hi = spine && neck ? neck : head;
+  let ux = lo ? hi[0] - lo[0] : 0, uy = lo ? hi[1] - lo[1] : 1, uz = lo ? hi[2] - lo[2] : 0;
+  let rx = R[0] - L[0], ry = R[1] - L[1], rz = R[2] - L[2];
+  let fx = ry * uz - rz * uy, fy = rz * ux - rx * uz, fz = rx * uy - ry * ux;   // right x up: forward
+  const fl = Math.hypot(fx, fy, fz);
+  if (!(fl > 1e-6) || !(Math.hypot(ux, uy, uz) > 1e-6)) { out.set(CLOAK_REST_POSE.torso); return out; }
+  fx /= fl; fy /= fl; fz /= fl;
+  ux = fy * rz - fz * ry; uy = fz * rx - fx * rz; uz = fx * ry - fy * rx;   // forward x right: up, square to both
+  const ul = Math.hypot(ux, uy, uz);
+  if (!(ul > 1e-6) || uy / ul < 0.2) { out.set(CLOAK_REST_POSE.torso); return out; }   // a back upside down or flat is no back to grow from
+  out[0] = ux / ul; out[1] = uy / ul; out[2] = uz / ul; out[3] = fx; out[4] = fy; out[5] = fz;
+  return out;
+}
+
+/** SERAPH-WINGS: THE EYE OF THE BEHOLDER FIGURE - a sprite body has no bones, so what stands for them is read off the frame
+ *  it is drawn in: its base and its height over the feet (m - eotbBody figure(), peerRiders figureOf), the shoulder line
+ *  at `shoulder` of its height (the sets' back frames: 0.78 - 0.83), the neck and the head's joint above it, the spine
+ *  below; across as broad as its height is to the standing frame's (`refH`, the idle back frame's 110 px at 0.019 m). */
+export const EOTB_FIGURE = Object.freeze({ refH: 2.09, shoulder: 0.8, neck: 0.85, head: 0.89, spine: 0.7 });
+/** The bones a sprite figure stands for, in the body's frame - or null without a figure. Pure. */
+export function auraSpriteBones(fig) {
+  if (!fig || !Number.isFinite(fig.base) || !(fig.h > 0)) return null;
+  const at = (f) => fig.base + fig.h * f, half = CLOAK_SHOULDER_HALF * fig.h / EOTB_FIGURE.refH;
+  return {
+    'bip01 l upperarm': [-half, at(EOTB_FIGURE.shoulder), 0], 'bip01 r upperarm': [half, at(EOTB_FIGURE.shoulder), 0],
+    'bip01 neck': [0, at(EOTB_FIGURE.neck), 0], 'bip01 head': [0, at(EOTB_FIGURE.head), 0], 'bip01 spine2': [0, at(EOTB_FIGURE.spine), 0],
+    'bip01 l calf': null, 'bip01 r calf': null,
+  };
+}
+/** A peer's sprite figure as the pose `auraCapeStep` takes - at the wearer's own feet and facing - or null. Pure. */
+export const auraSpritePosed = (w, fig) => (fig ? { feet: w.at, yaw: w.yaw, bones: auraSpriteBones(fig) } : null);
+/** SERAPH-WINGS: THE WINGS' LIGHT ON THE WORLD - a gold light where they grow, behind the shoulders, for the nearest
+ *  wearers of them within `reach` of the eye (at most `max`): `range` (m) as the wings are kindled, `rgb` its colour.
+ *  A carried light (no glare of its own, no shadow slot - the torch's law). Outdoors the city's light colour stands
+ *  for every carried light (world.js); in a dungeon or a building it is gold. */
+export const WING_LIGHT = Object.freeze({ range: 7, rgb: Object.freeze([1.0, 0.76, 0.34]), lift: 0.15, back: 0.35, max: 3, reach: 40 });
+/** The wings' lights this frame, nearest first, written into `out` (one list, refilled) and answered. Pure but for
+ *  `out`. @param {any[]} wearers @param {number[]|Float32Array|null} eye @param {any[]} out */
+export function auraWingLights(wearers, eye, out) {
+  out.length = 0;
+  if (!Array.isArray(wearers) || !eye) return out;
+  const L = WING_LIGHT;
+  for (const w of wearers) {
+    if (!w || auraLookOf(w.aura).mesh !== 'wings' || !Array.isArray(w.at)) continue;
+    const k = Number.isFinite(w.kindle) ? Math.max(0, Math.min(1, w.kindle)) : 1;
+    if (!(k > 0)) continue;
+    const yaw = Number.isFinite(w.yaw) ? w.yaw : 0, c = Math.cos(yaw), sn = Math.sin(yaw), sh = (w.cape ?? CLOAK_REST_POSE).shoulders;
+    const x = w.at[0] + c * sh[0] + sn * (sh[2] - L.back), y = w.at[1] + sh[1] + L.lift, z = w.at[2] - sn * sh[0] + c * (sh[2] - L.back);
+    const d = Math.hypot(x - eye[0], y - eye[1], z - eye[2]);
+    if (!(d <= L.reach)) continue;
+    out.push({ x, y, z, range: L.range * (0.5 + 0.5 * k), color: [L.rgb[0] * k, L.rgb[1] * k, L.rgb[2] * k], carried: true, _d: d });
+  }
+  out.sort((a, b) => a._d - b._d);
+  if (out.length > L.max) out.length = L.max;
+  return out;
+}
+/** SERAPH-WINGS: how far a rider's shoulders stand over a walker's (m) - the saddle's (player/motor.js RIDE_EYE_HEIGHT less
+ *  EYE_HEIGHT): a mounted wearer without bones hangs from the rest pose lifted so far. */
+export const AURA_SADDLE_M = 0.81;
 
 /** SHADOW-CLOAK: THE POSE A WEARER'S CAPE HANGS FROM THIS FRAME, set on `w` (`w.cape`): `posed` the body's own - { feet,
  *  yaw, bones } (mwView mwViewBodyBones beside my body's feet and yaw; peerBodies bonesOf) - the cape placed where that
@@ -1297,10 +1362,11 @@ export function auraCapeStep(w, posed, crouch = 1) {
   if (posed?.feet && Number.isFinite(posed.yaw)) { w.at[0] = posed.feet[0]; w.at[1] = posed.feet[1]; w.at[2] = posed.feet[2]; w.yaw = posed.yaw; }   // where the body is drawn
   const o = posed?.bones ? auraCapePose(posed.bones, w.cape && w.cape !== CLOAK_REST_POSE ? w.cape : null) : null;
   if (o) { w.cape = o; return w; }
-  const k = Number.isFinite(crouch) ? Math.max(0.4, Math.min(1, crouch)) : 1;
-  if (k >= 1) { w.cape = CLOAK_REST_POSE; return w; }
-  const c = w.cape && w.cape !== CLOAK_REST_POSE ? w.cape : { shoulders: new Float32Array(4), head: new Float32Array(4), kneeL: new Float32Array(3), kneeR: new Float32Array(3) };
-  c.shoulders.fill(0); c.shoulders[1] = CLOAK_SHOULDER_Y * k; c.shoulders[3] = 1; c.head.fill(0); c.head[1] = CLOAK_HOOD_Y * k; c.kneeL.fill(0); c.kneeR.fill(0);
+  const k = Number.isFinite(crouch) ? Math.max(0.4, Math.min(1, crouch)) : 1, lift = w.mounted === true ? AURA_SADDLE_M : 0;   // SERAPH-WINGS: a rider's shoulders over the saddle
+  if (k >= 1 && !lift) { w.cape = CLOAK_REST_POSE; return w; }
+  const c = w.cape && w.cape !== CLOAK_REST_POSE ? w.cape : { shoulders: new Float32Array(4), head: new Float32Array(4), kneeL: new Float32Array(3), kneeR: new Float32Array(3), torso: new Float32Array(6) };
+  c.shoulders.fill(0); c.shoulders[1] = CLOAK_SHOULDER_Y * k + lift; c.shoulders[3] = 1; c.head.fill(0); c.head[1] = CLOAK_HOOD_Y * k + lift; c.kneeL.fill(0); c.kneeR.fill(0);
+  (c.torso ?? (c.torso = new Float32Array(6))).set(CLOAK_REST_POSE.torso);
   w.cape = c;
   return w;
 }

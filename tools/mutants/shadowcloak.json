@@ -715,11 +715,12 @@
   {
     "name": "SHADOWCLOAK-the-crouch-at-rest",
     "file": "src/render/auraRing.js",
-    "old": "c.shoulders[1] = CLOAK_SHOULDER_Y * k; c.shoulders[3] = 1; c.head.fill(0); c.head[1] = CLOAK_HOOD_Y * k;",
-    "new": "c.shoulders[1] = CLOAK_SHOULDER_Y; c.shoulders[3] = 1; c.head.fill(0); c.head[1] = CLOAK_HOOD_Y;",
+    "old": "c.shoulders[1] = CLOAK_SHOULDER_Y * k + lift; c.shoulders[3] = 1; c.head.fill(0); c.head[1] = CLOAK_HOOD_Y * k + lift;",
+    "new": "c.shoulders[1] = CLOAK_SHOULDER_Y + lift; c.shoulders[3] = 1; c.head.fill(0); c.head[1] = CLOAK_HOOD_Y + lift;",
     "tests": [
       "test/shadowcloak.test.js"
-    ]
+    ],
+    "note": "SERAPH-WINGS (re-aimed by content): the line now reads a sprite's figure too."
   },
   {
     "name": "SHADOWCLOAK-a-peer-with-no-body",
@@ -751,20 +752,22 @@
   {
     "name": "SHADOWCLOAK-my-bones-never-read",
     "file": "src/scenes/world.js",
-    "old": "bones: mwViewBodyBones(CLOAK_BONES) }",
-    "new": "bones: null }",
+    "old": "bones: mwViewBodyBones(CLOAK_BONES) ?? auraSpriteBones(mwViewSpriteFigure()) }",
+    "new": "bones: null ?? auraSpriteBones(mwViewSpriteFigure()) }",
     "tests": [
       "test/shadowcloak.test.js"
-    ]
+    ],
+    "note": "SERAPH-WINGS (re-aimed by content): the line now reads a sprite's figure too."
   },
   {
     "name": "SHADOWCLOAK-a-peers-bones-never-read",
     "file": "src/scenes/world.js",
-    "old": ": peerBodies?.bonesOf(w.id, CLOAK_BONES),",
-    "new": ": null,",
+    "old": ": peerBodies?.bonesOf(w.id, CLOAK_BONES) ?? auraSpritePosed(",
+    "new": ": null ?? auraSpritePosed(",
     "tests": [
       "test/shadowcloak.test.js"
-    ]
+    ],
+    "note": "SERAPH-WINGS (re-aimed by content): the line now reads a sprite's figure too."
   },
   {
     "name": "SHADOWCLOAK-my-crouch-ignored",
