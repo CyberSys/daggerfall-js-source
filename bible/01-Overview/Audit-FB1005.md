@@ -27,7 +27,7 @@ they landed at `7f391f72`. Each fix carries an `AUDIT FB1005 <ID>` comment and i
 | W3 | minor | The exemption began at `start()`, so a look turned onto the sand while E was held to WIND threw the net there. | The exemption begins at the throw (`phase !== 'wind'`). |
 | W4 = T5 | minor | `groundSampleAt`'s body was unpinned: reading the feet instead of the point, or the tile across the wrong axis, survived. | Its body pinned at its point and its tile; two records. |
 | W5 | nit | "beach dirt up to 141.9 m" - the 141.9 m sample is grass; dirt reaches 78.5 m. | The record and the test say both. |
-| B1 | minor | A bed's night still spent a Bedroll or a Campfire laid within 4 m (`onNightSlept`). | A bed's night spends none. |
+| B1 | minor | A bed's night still spent a Bedroll or a Campfire laid within 4 m (`onNightSlept`). | A bed's night spends none; REST2's source pin on the hosts' `onNightSlept` (`test/rest2_campfire.test.js`, which the full suite on the audited tree caught) reads the dungeon's own line. |
 | B3 | minor | Beds ignored the fire law's palace rule (AUDIT REST II F2): Castle Daggerfall's and Sentinel's beds were rest points. | `isPalaceLayout` (the fire law's own predicate) - a palace collects no bed. |
 | B4 | minor | The 4 m reach passed through floors: five of the 108 beds were in reach from the storey above or below (storeys some 3.2 m apart); the test's "floor above" case was 4.5 m. | The feet within `BED_STOREY_M` (1.5 m) of the bed's foot; the test at 3.2 m, and the reach's sphere pinned (a survivor of the lens's own). |
 | B5 = T13 | nit | The tavern import's comment had slid onto the new line. | Moved back. |
