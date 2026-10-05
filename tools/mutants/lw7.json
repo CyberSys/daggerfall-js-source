@@ -801,24 +801,6 @@
     ]
   },
   {
-    "name": "LW7-host-watch-near",
-    "file": "src/scenes/world.js",
-    "old": "g.ai.feet[2] - w.near[2]) < 4)) ?? null;",
-    "new": "g.ai.feet[2] - w.near[2]) < 40)) ?? null;",
-    "tests": [
-      "test/lw7_deeds.test.js"
-    ]
-  },
-  {
-    "name": "LW7-host-watch-slay",
-    "file": "src/scenes/world.js",
-    "old": "      if (w.guard?.dead) { w.town.slay(w.res, w.at); _livingWatchTurned.splice(i, 1); }",
-    "new": "      if (w.guard?.dead) { _livingWatchTurned.splice(i, 1); }",
-    "tests": [
-      "test/lw7_deeds.test.js"
-    ]
-  },
-  {
     "name": "LW7-host-watch-unstepped",
     "file": "src/scenes/world.js",
     "old": "    if (_livingWatchTurned.length) livingWatchStep();",

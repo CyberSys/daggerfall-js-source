@@ -654,6 +654,24 @@ defects; each is fixed and pinned (`test/lwfix1_review.test.js`, `tools/mutants/
   asleep) - before, the same building entered again kept its old sounding and its residents waited for the player to
   look away.
 
+## LW-FIX2 - the seams' three (2026-10-05)
+
+A second read (an agent auditing every member the living world's host reads off another module, each finding verified
+before the fix) found three more; each is fixed and pinned (`test/lwfix2_watch.test.js`, `tools/mutants/lwfix2.json`).
+
+- **The turned watch** (`scenes/livingWatch.js watchStep`). A struck watchman's guard, cut down, was ended through
+  `town.slay(...)`, a method no LivingTown has (`slay` is the host's option): a TypeError the moment he fell, in the
+  frame with no catch - the world's loop stopped. Now the town's whole deed, `slain` (the hand's turn at that minute,
+  his household turned, the witnesses' crime at the place he was struck).
+- **His guard found by its own mark.** On a swing the conversion stands his guard before it takes his body, so a
+  watch read "after" already held it and it was never found (and the trample read any guard stood next). The guard
+  now carries whom it stands for (`livingFrom`, set where it is stood: `cityGuards.js resolveCivilianHit`, the
+  trample's `rrRidingHost.js`), and is found by that alone.
+- **A room's doors on the clock's own minute** (`livingTown.js _liveMinute`): a word, a tone and a refusal asked
+  indoors read the street's stopped `_now` - the minute the player went in, or nought after a load made indoors (a word
+  noted on day -1 counted for nothing, the regard eased at once). They read the clock's own minute now (the street's
+  is the same minute while it stands).
+
 ## The four hosts
 
 - `scenes/world.js` - WIRED (LW2 the towns, LW3 the roads and the Overworld).

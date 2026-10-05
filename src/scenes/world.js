@@ -118,6 +118,7 @@ import { createRoadFights, LIVE_M } from './roadFights.js';   // LW4b: a beset p
 import { createRoadStands, FIGHT_NEAR_M } from './roadStands.js';   // LW7b: the armed beyond the walls - a hostile drawing, a friend at the player's side
 import { createDungeonDivers } from './dungeonDivers.js';   // LW6: the divers met in the dungeon
 import { createDeepRemains } from './deepRemains.js';   // LW6b: the fallen of a dive, found in its dungeon
+import { watchStep } from './livingWatch.js';   // LW-FIX2: a struck watchman's guard followed to his end
 import { fallenIn } from '../systems/livingWorld/trips.js';   // LW6b: ...the deep's word of them
 import { enemyLootTableKey } from '../systems/loot.js';   // LW6b: ...what they carried, their class's table
 import { goldStack } from '../systems/inventory.js';   // LW6b: ...and their purse
@@ -9562,19 +9563,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     const town = livingWorldOn() ? person?.living?.town : null;
     if (!town?.slain) return;
     if (!person.guard) { town.slain(person); return; }
-    if (town.struck(person)) _livingWatchTurned.push({ res: person.living.res, town, at: [...person.pos], near, before: new Set(cityGuards.guards), guard: null, waited: 0 });
+    if (town.struck(person)) _livingWatchTurned.push({ res: person.living.res, person, town, at: [...person.pos], guard: null, waited: 0 });   // LW-FIX2: his guard found by the mark the conversion puts on it (scenes/livingWatch.js)
   };
   const livingStruckPool = (pool) => (livingWorldOn() ? pool.map((e) => ({ ...e, disable: () => { livingDeedOf(e.person, e.pos); e.disable(); } })) : pool);
-  /** LW7: each turned watchman's guard found (the one the conversion stood, by the struck one's feet) and watched: cut
-   *  down, the resident is slain; gone with the crime, or never stood, let be. */
-  const livingWatchStep = () => {
-    for (let i = _livingWatchTurned.length - 1; i >= 0; i--) {
-      const w = _livingWatchTurned[i];
-      w.guard ??= cityGuards.guards.find((g) => !w.before.has(g) && (!w.near || Math.hypot(g.ai.feet[0] - w.near[0], g.ai.feet[2] - w.near[2]) < 4)) ?? null;
-      if (w.guard?.dead) { w.town.slay(w.res, w.at); _livingWatchTurned.splice(i, 1); }
-      else if (w.guard ? !cityGuards.guards.includes(w.guard) : ++w.waited > 600) _livingWatchTurned.splice(i, 1);
-    }
-  };
+  /** LW7: each turned watchman's guard found and watched (scenes/livingWatch.js - LW-FIX2: by the conversion's own mark on
+   *  it, and cut down the town's whole deed, `slain`): gone with the crime, or never stood, let be. */
+  const livingWatchStep = () => watchStep(_livingWatchTurned, cityGuards.guards);
   /** LW7: a swing that met no one in the street, at the road's travellers - the body on the ray within reach (no wall
    *  before it), DFU's one-hit civilian (WeaponManager.cs:504-521, less the watch: there is none on the road): struck
    *  down for good (the roads' deed), the blood, the Brotherhood's five and the racial override's hit. */
@@ -10299,7 +10293,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // encounter pool's remover for both. That was not a leak: removeFoe
     // (exteriorFoes.js:570-575) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
-    // got exactly what removeGuard (cityGuards.js:1630-1648) gives it -
+    // got exactly what removeGuard (cityGuards.js:1631-1649) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
     // (cityGuards.js:1034) and spliced out at the end of it (:1228).
     // Routing by POOL MEMBERSHIP is an OWNERSHIP fix: each pool owns the

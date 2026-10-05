@@ -374,8 +374,8 @@ test('LW7 the streaming host: every resident\'s place by the lives (`livingCycle
   assert.match(w, /const livingStruckPool = \(pool\) => \(livingWorldOn\(\) \? pool\.map\(\(e\) => \(\{ \.\.\.e, disable: \(\) => \{ livingDeedOf\(e\.person, e\.pos\); e\.disable\(\); \} \}\)\) : pool\);/);
   assert.match(w, /if \(!person\.guard\) \{ town\.slain\(person\); return; \}\n\s*if \(town\.struck\(person\)\) _livingWatchTurned\.push\(/);
   assert.match(w, /retire: \(person\) => \{ livingDeedOf\(person\); for \(const p of built\.values\(\)\) if \(p\.population\?\.retire\(person\)\) break; \},/);
-  assert.match(w, /w\.guard \?\?= cityGuards\.guards\.find\(\(g\) => !w\.before\.has\(g\) && \(!w\.near \|\| Math\.hypot\(g\.ai\.feet\[0\] - w\.near\[0\], g\.ai\.feet\[2\] - w\.near\[2\]\) < 4\)\) \?\? null;/);
-  assert.match(w, /if \(w\.guard\?\.dead\) \{ w\.town\.slay\(w\.res, w\.at\); _livingWatchTurned\.splice\(i, 1\); \}/);
+  // LW-FIX2: the guard found by the conversion's own mark, and cut down the town's whole deed (test/lwfix2_watch.test.js)
+  assert.match(w, /const livingWatchStep = \(\) => watchStep\(_livingWatchTurned, cityGuards\.guards\);/);
   assert.match(w, /if \(_livingWatchTurned\.length\) livingWatchStep\(\);/);
   assert.match(w, /else if \(!r\?\.spared && livingStrikeRoad\(cam\.pos, lookFwd\)\) surfacePlayer\(\);/);
   assert.match(w, /const near = nearestPerson\(eye, dir, livingRoads\.talkSeats\(\)\);[^\n]*\n\s*if \(!near \|\| near\.distance > WEAPON_REACH\) return false;\n\s*const wall = collider\.raycast\(eye, dir, near\.distance\);\n\s*if \(Number\.isFinite\(wall\) && wall < near\.distance - 1e-3\) return false;\n\s*if \(!livingRoads\.slain\(near\.entry\.person\)\) return false;/);

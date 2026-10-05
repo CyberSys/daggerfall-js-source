@@ -164,7 +164,7 @@
   {
     "name": "LW2-word-unnoted",
     "file": "src/systems/livingWorld/livingTown.js",
-    "old": "    this.o.relations?.()?.note(id, 'talk', this.dayOf(this._now));",
+    "old": "    this.o.relations?.()?.note(id, 'talk', this.dayOf(this._liveMinute()));",
     "new": "    void this.o.relations;",
     "tests": [
       "test/lw2_livingTown.test.js"

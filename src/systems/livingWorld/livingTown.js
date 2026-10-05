@@ -440,6 +440,11 @@ export class LivingTown {
     }
   }
 
+  /** LW-FIX2: the clock's minute now - the street's own while it stands (`_now`, read each frame), the clock's own when
+   *  it does not (a room's door asks a word, a tone, a refusal while the street is still: `_now` is the minute the
+   *  player went in, or nought after a load made indoors). */
+  _liveMinute() { return this.o.clock?.() ?? this._now; }
+
   /** The clock's minutes a real second at the walking pace's own rate (a journey's scale left out). */
   _baseRate() { return PERSON_MOVE_SPEED / Math.max(1e-6, this.o.mpm); }
 
@@ -608,7 +613,7 @@ export class LivingTown {
   talked(person) {
     const id = person?.living?.id;
     if (!id) return null;
-    this.o.relations?.()?.note(id, 'talk', this.dayOf(this._now));
+    this.o.relations?.()?.note(id, 'talk', this.dayOf(this._liveMinute()));
     return id;
   }
 
@@ -693,7 +698,7 @@ export class LivingTown {
     const id = person?.living?.id;
     const kind = tone === 0 ? 'polite' : tone === 2 ? 'insulted' : null;
     if (!id || !kind) return null;
-    this.o.relations?.()?.note(id, kind, this.dayOf(this._now));
+    this.o.relations?.()?.note(id, kind, this.dayOf(this._liveMinute()));
     return id;
   }
 
@@ -753,7 +758,7 @@ export class LivingTown {
     const id = person?.living?.id;
     const rel = this.o.relations?.();
     if (!id || !rel) return null;
-    const s = rel.standing(id, this.dayOf(this._now));
+    const s = rel.standing(id, this.dayOf(this._liveMinute()));
     return s === 'enemy' || s === 'hostile' ? fillLine(LIVING_REFUSAL, { a: firstNameOf(person.nameNPC) }) : null;
   }
 }
