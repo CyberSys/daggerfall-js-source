@@ -413,7 +413,38 @@ seams (`scenes/world.js`, `scenes/townTalk.js`). Mac: "make friends or enemies".
   NEWS_DAYS - `SLAIN_NEWS`, the player NAMED when it was seen, a murder nobody can name when not - and each who died at
   their side (`DIED_NEWS`); a fight on the road the player turned (the character's `won`) is told with them in it
   (`HELPED_NEWS`, else the road's own words). The circles fill the character's name (`{player}`).
-- **Next (LW7b):** an armed enemy draws on the player beyond the walls; an armed friend comes to their side.
+
+## LW7b - friends and enemies beyond the walls (2026-10-05)
+
+`scenes/roadStands.js` (`createRoadStands`), the roads' layer (`stands`), `scenes/dungeonDivers.js` and
+`scenes/roadFights.js` (a regard read at the meeting), the host's wiring (`scenes/world.js`). LW0: "a friend greets you
+by name, an enemy will not talk, and an armed one draws on you beyond the walls".
+
+- **An armed enemy draws.** A traveller on the road (not at their party's fight - that is the fights') who carries a
+  class and counts the player HOSTILE (regard at `HOSTILE_AT` or below - one of their own slain does it) within
+  `DRAW_M` (45 m) of a player on foot in the open world is stood LIVE as a foe of the encounter pool's own (loose,
+  transient: never a save's), in their class, at their level, by their name, where they walked ("Bo draws on you!") -
+  their party walks on without them, and the pool's own law (its senses, the wilderness's notice) has them come. Cut
+  down they are SLAIN - the character's hand, seen (their party stood by) - and their party's living turn against the
+  player (`slain`): a feud runs through a party one death at a time.
+- **An armed friend comes.** A traveller who counts the player a FRIEND (`FRIEND_AT` and above) within `HELP_M` (70 m)
+  while the player is FIGHTING (the host's: a foe on the player within `FIGHT_NEAR_M`, 30 m, by the threat law) is
+  stood at their side - allied (team PlayerAlly, a `shipmate` no blow of the player's reaches), by name ("Cy comes to
+  your side.") - and goes back to their party once the fight has been done `CALM_S` (8 s). Cut down they DIED at the
+  player's side (the turn `died`: their place empty for it, their town talks of it - `DIED_NEWS`).
+- **The end is the pool's.** The dead are the pool's own (a corpse to search, a body never taken out - not even by the
+  clear); a stand is let go - the body taken out, the member back with their party - when the player is past `KEEP_M`
+  (200 m) from where it was stood, or nothing can stand (indoors, the Overworld up, a sweep). A body the pool would not
+  stand is tried once (the roads draw the member again). Online each character's enemies and friends are their own:
+  this client stands them, the stream shows them as any encounter's.
+- **A roadside fight's enemies keep the ring** (`roadFights.js`): a member of a beset party who counts the player an
+  enemy, or hostile, is not stood beside them - the rest are; a fight won still earns every survivor's regard (the way
+  back from enmity is a life saved).
+- **A company's regard in the deep** (`dungeonDivers.js`). A diving company with one who counts the player HOSTILE draws
+  on them - stood before the player through the dungeon's own loose stand, not allied, by name ("Ada Lark's company -
+  and Bo draws on you!") - and the rest keep to their dive; cut down, SLAIN and the company's living turned; their hours
+  done the dead stay the pool's and the living go. With none hostile, its ENEMIES keep away and the rest stand with the
+  player as LW6's company; a company all enemies passes the player by.
 
 ## The four hosts
 

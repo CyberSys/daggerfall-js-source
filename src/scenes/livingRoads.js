@@ -139,9 +139,11 @@ export function partyPlaces(trip, at) {
  *   relations?: () => any, playerName?: () => string, weather?: () => (string|null), foeName?: (type: number, n: number) => string,
  *   fights?: ReturnType<typeof import('./roadFights.js').createRoadFights> | null,
  *   slay?: (res: any, t: number, seen: boolean) => void,
+ *   stands?: ReturnType<typeof import('./roadStands.js').createRoadStands> | null,
  * }} deps - `here` the player's native place (null: nowhere on the map - indoors, underground); `baseRate` the clock's
  *   minutes a real second at the walking pace's own rate (the rounds' and the lines' beat on the clock); `foeName` a
- *   foe's word for a mark ("Orcs"); LW7 `slay(res, t, seen)` the player struck a traveller down (the host's turn)
+ *   foe's word for a mark ("Orcs"); LW7 `slay(res, t, seen)` the player struck a traveller down (the host's turn); LW7b
+ *   `stands` the armed beyond the walls (roadStands.js)
  */
 export function createLivingRoads(deps) {
   /** @type {{ trip: any, at: any }[]} */
@@ -196,6 +198,20 @@ export function createLivingRoads(deps) {
     busy.clear();
     const fights = deps.fights ?? null;
     if (fights) fights.frame(parties.map((p) => ({ trip: p.trip, at: partyAt(p.trip, t) })), here, t, { ground: !overworld });   // LW4b: the fights stood live
+    if (deps.stands) {
+      // LW7b: THE ARMED BEYOND THE WALLS - each armed member of a party on the road (not at its fight: that is the fights')
+      // where they walk, for their regard to stand them: a hostile drawing, a friend at the player's side
+      const cands = [];
+      if (here && !overworld) {
+        for (const p of parties) {
+          const at = partyAt(p.trip, t);
+          if ((at.phase !== 'out' && at.phase !== 'back') || at.fight) continue;
+          const members = membersAt(p.trip, t);
+          for (const m of partyPlaces(members === p.trip.party ? p.trip : { ...p.trip, party: members }, at)) if (m.res.cls != null) cands.push({ res: m.res, trip: p.trip, x: m.x, z: m.z, yaw: m.yaw });
+        }
+      }
+      deps.stands.frame(cands, here, t, { dt, ground: !overworld });
+    }
     if (here) {
       const reach = overworld ? TRAVELLER_FAR_M + 60 : ROADS_PLAY_M;
       for (const p of parties) {
@@ -209,6 +225,7 @@ export function createLivingRoads(deps) {
         const places = fight ? fightPlaces(p.trip, at, members) : partyPlaces(members === p.trip.party ? p.trip : { ...p.trip, party: members }, at);
         for (const m of places) {
           if (allies?.has(m.res.id)) continue;
+          if (deps.stands?.stood(m.res.id)) continue;   // LW7b: a body of the pool's now
           const distM = Math.hypot(m.x - here.x, m.z - here.z) / NATIVE_PER_M;
           if (distM > reach) continue;
           if (fight) busy.add(m.res.id);
@@ -363,6 +380,6 @@ export function createLivingRoads(deps) {
       return s === 'enemy' || s === 'hostile' ? fillLine(LIVING_REFUSAL, { a: firstNameOf(person.nameNPC) }) : null;
     },
     /** Every body freed and the parties forgotten (the host's teardown). */
-    clear() { deps.sprites.clear(); deps.fights?.clear(); parties = []; remains = []; list.length = 0; greetings = []; timer = Infinity; strikes.clear(); busy.clear(); },
+    clear() { deps.sprites.clear(); deps.fights?.clear(); deps.stands?.clear(); parties = []; remains = []; list.length = 0; greetings = []; timer = Infinity; strikes.clear(); busy.clear(); },
   };
 }

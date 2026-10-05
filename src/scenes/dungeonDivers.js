@@ -14,9 +14,17 @@
 // stands is SPARED, and every survivor's regard moved (`helped`; the spared `saved`). A party the dive no longer
 // lists (its hours over, its leader fallen and its people out) is let go.
 //
-// EVERY ALLOCATION HAS AN OWNER: each body stood is this layer's until its company leaves; `clear()` (the dungeon
-// left, a sweep) forgets every one - the dungeon's pool goes with its context.
+// LW7b: A COMPANY'S REGARD. One of its armed who counts the player HOSTILE draws on them: stood as a FOE (the dungeon's
+// loose stand, not allied), by name, class and level - and the rest of the company keeps to its dive. Cut down, they are
+// SLAIN (the character's hand, seen: their company stood by) and their company's living turned against the player. With
+// none hostile, its ENEMIES keep away (no word for the player, no blade beside them) and the rest stand with the player;
+// a company all enemies passes the player by.
+//
+// EVERY ALLOCATION HAS AN OWNER: each body stood is this layer's until its company leaves (a foe cut down the pool's
+// own); `clear()` (the dungeon left, a sweep) forgets every one - the dungeon's pool goes with its context.
 // ═══════════════════════════════════════════════════════════════════
+import { membersAt } from '../systems/livingWorld/trips.js';
+import { firstNameOf } from '../systems/livingWorld/lines.js';
 
 /** How far behind the player a company is stood when met (m), and how near each keeps (m, the first; each after a pace
  *  further). */
@@ -38,11 +46,14 @@ export const DIVER_HEEL_STEP_M = 1.2;
  *   day: () => number,
  *   say?: (text: string) => void,
  *   door?: any,
+ *   spawnFoe?: (mobileType: number, feet: number[], o: { yaw: number, level: number, gender: string }) => Promise<any>,
+ *   slay?: (res: any, t: number, seen: boolean) => void,
  * }} deps - `spot(from, dx, dz)` a place walked out from the player's feet (never inside a wall); `owner()` whether
- *   this player stands the divers here (the election); `day()` the living day (the regards' clock)
+ *   this player stands the divers here (the election); `day()` the living day (the regards' clock); LW7b `spawnFoe` the
+ *   dungeon's loose stand for one who draws on the player, `slay(res, t, seen)` the host's hand turn
  */
 export function createDungeonDivers(deps) {
-  /** @type {Map<string, { trip: any, allies: Map<string, any>, fell: Set<string>, met: boolean }>} */
+  /** @type {Map<string, { trip: any, allies: Map<string, any>, foes: Map<string, any>, fell: Set<string>, met: boolean }>} */
   const companies = new Map();
 
   const takeOut = (rec) => { try { if (deps.inPool(rec)) deps.remove(rec); } catch (e) { console.warn('[divers] a body would not leave', e?.message ?? e); } };
@@ -50,19 +61,42 @@ export function createDungeonDivers(deps) {
     const c = companies.get(id);
     if (!c) return;
     for (const rec of c.allies.values()) takeOut(rec);
+    for (const rec of c.foes.values()) if (!rec.dead) takeOut(rec);   // LW7b: one cut down is the pool's own
     companies.delete(id);
   }
   const turn = (kind, key) => deps.relations?.()?.turn(kind, key);
 
-  /** Meet a company: its members behind the player, keeping with them. */
+  /** Meet a company: its members behind the player, keeping with them - LW7b: or its hostile drawing on them. */
   function meet(trip, members) {
     const L = deps.leader();
     if (!L) return;
-    const c = { trip, allies: new Map(), fell: new Set(), met: true };
+    const c = { trip, allies: new Map(), foes: new Map(), fell: new Set(), met: true };
     companies.set(trip.id, c);
-    members.forEach((m, i) => {
+    const rel = deps.relations?.();
+    const standing = (m) => rel?.standing(m.id, deps.day()) ?? 'neutral';
+    const armed = members.filter((m) => m.cls != null);
+    const hostile = deps.spawnFoe ? armed.filter((m) => standing(m) === 'hostile') : [];
+    if (hostile.length) {
+      // LW7b: one who counts the player HOSTILE draws on them - before the player, the rest of the company keeping to its dive
+      hostile.forEach((m, i) => {
+        const side = (i - (hostile.length - 1) / 2) * 1.4;
+        const feet = deps.spot(L.feet, Math.sin(L.yaw) * DIVER_STAND_M + Math.cos(L.yaw) * side, Math.cos(L.yaw) * DIVER_STAND_M - Math.sin(L.yaw) * side);
+        Promise.resolve(deps.spawnFoe?.(m.cls, feet, { yaw: L.yaw + Math.PI, level: m.level ?? 1, gender: m.sex ?? 'male' })).then((rec) => {
+          if (!rec) return;
+          if (companies.get(trip.id) !== c) { takeOut(rec); return; }
+          rec.living = { id: m.id, res: m, town: deps.door ?? null };
+          if (rec.entity) rec.entity.name = m.name;
+          c.foes.set(m.id, rec);
+        }).catch(() => {});
+      });
+      deps.say?.(`${trip.leader.name}'s company - and ${firstNameOf(hostile[0].name)} draws on you!`);
+      return;
+    }
+    const stand = members.filter((m) => m.cls == null || (standing(m) !== 'enemy' && standing(m) !== 'hostile'));   // LW7b: an enemy keeps away
+    if (!stand.some((m) => m.cls != null)) { deps.say?.(`${trip.leader.name}'s company passes you by.`); return; }
+    stand.forEach((m, i) => {
       if (m.cls == null) return;
-      const side = (i - (members.length - 1) / 2) * 1.4;
+      const side = (i - (stand.length - 1) / 2) * 1.4;
       const back = DIVER_STAND_M + Math.floor(i / 3);
       const dx = -Math.sin(L.yaw) * back + Math.cos(L.yaw) * side, dz = -Math.cos(L.yaw) * back - Math.sin(L.yaw) * side;
       const feet = deps.spot(L.feet, dx, dz);
@@ -79,6 +113,14 @@ export function createDungeonDivers(deps) {
     deps.say?.(`You meet ${trip.leader.name}'s company, come down into ${trip.to?.name ?? 'the deep'}.`);
   }
 
+  /** LW7b: a company's foe cut down - slain by the player's hand before their company, its living turned against them. */
+  function slain(c, mid, rec, t) {
+    c.fell.add(mid);
+    deps.slay?.(rec.living.res, t, true);
+    const rel = deps.relations?.();
+    for (const m of membersAt(c.trip, t)) if (m.id !== mid) rel?.note(m.id, 'slain', deps.day());
+  }
+
   return {
     /**
      * One frame in the dungeon: each company diving here met (this player standing it), each read - the fallen, the
@@ -92,6 +134,7 @@ export function createDungeonDivers(deps) {
         if (!companies.has(trip.id) && deps.owner() && members.some((m) => m.cls != null)) meet(trip, members);
       }
       for (const [id, c] of [...companies]) {
+        for (const [mid, rec] of c.foes) if (rec.dead && !c.fell.has(mid)) slain(c, mid, rec, t);   // LW7b
         for (const [mid, rec] of c.allies) {
           if (!rec.dead || c.fell.has(mid)) continue;
           c.fell.add(mid);

@@ -89,8 +89,11 @@ export function createRoadFights(deps) {
         .then((rec) => { if (rec) { if (fights.get(enc.id) !== f) takeOut(rec); else { rec._lwFight = enc.id; f.foes.push(rec); } } }));
     });
     const members = membersAt(trip, t);
+    const rel = deps.relations?.();
     members.forEach((m, i) => {
       if (m.cls == null) return;
+      const standing = rel?.standing(m.id, day());
+      if (standing === 'enemy' || standing === 'hostile') return;   // LW7b: no enemy of the player's fights beside them - they keep the ring
       const a = (i / Math.max(1, members.length)) * Math.PI * 2;
       const feet = deps.sceneOf(at.x + Math.sin(a) * 64, at.z + Math.cos(a) * 64);
       stands.push(Promise.resolve(deps.spawn(m.cls, feet, { yaw: a, level: m.level ?? 1, allied: true, gender: m.sex ?? 'male' }))

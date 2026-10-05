@@ -114,6 +114,7 @@ import { portPackets, berthOf, sailorAt, crewsAshore } from '../systems/livingWo
 import { createWayBook } from '../systems/livingWorld/ways.js';   // LW3: the travellers' ways, planned by the living world itself
 import { createLivingRoads } from './livingRoads.js';   // LW3: the parties on the road near the player
 import { createRoadFights, LIVE_M } from './roadFights.js';   // LW4b: a beset party's fight, stood live
+import { createRoadStands, FIGHT_NEAR_M } from './roadStands.js';   // LW7b: the armed beyond the walls - a hostile drawing, a friend at the player's side
 import { createDungeonDivers } from './dungeonDivers.js';   // LW6: the divers met in the dungeon
 import { createTravellerSprites, classLookOf } from '../world/travellerSprites.js';   // LW3: their bodies, and the armed walk's sprite
 import { GUARD_TEXTURE, MobilePerson, PERSON_TEXTURES, PERSON_MOVE_SPEED } from '../characters/mobilePerson.js';
@@ -2251,6 +2252,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     return h != null && h <= t;
   };
   const livingSlay = (res, t, seen) => { livingRelations.turn('slain', turnKey(res, livingCycleOf(res, Math.floor((t - 240) / 1440))), { t, seen, who: res.name }); };
+  const livingDied = (res, t) => { livingRelations.turn('died', turnKey(res, livingCycleOf(res, Math.floor((t - 240) / 1440))), { t, who: res.name }); };   // LW7b: at the player's side
   const livingTroubleWorld = {
     climateAt: (px, py) => maps.getClimateIndex(px, py),
     foesOf: ({ climateIndex, dungeonType, minute, level, size, rolls }) => (dungeonType != null
@@ -2382,6 +2384,8 @@ export async function bootWorld(canvas, renderer, params, status) {
         day: () => Math.floor((skyMinutes() - 240) / 1440),
         say: (text) => d.hudSay?.(text),
         door: _livingRoadsDoor,
+        spawnFoe: (type, feet, o) => d.spawnLooseFoe(type, feet, { yawRad: o.yaw, allied: false, gender: o.gender, level: o.level }),   // LW7b: one who draws on the player
+        slay: livingSlay,
       }), { pool: d });
       _livingDiversAt = -Infinity;
     }
@@ -2436,6 +2440,20 @@ export async function bootWorld(canvas, renderer, params, status) {
         return turnKey(place, placeCycle(place, roster, Math.floor(trip.outT0 / 1440), livingScale()));
       },
       dies: (res, trip) => livingTroubleWorld.dies(res, trip),
+      door: _livingRoadsDoor,
+    }),
+    // LW7b: THE ARMED BEYOND THE WALLS - a traveller who counts the player hostile draws on them, a friend comes to their
+    // fight; each the encounter pool's own body while it stands (loose, transient), this character's alone to stand
+    stands: createRoadStands({
+      spawn: (type, feet, o) => exteriorFoes.spawnFoe(type, feet, { allied: o.allied, yaw: o.yaw, gender: o.gender, level: o.level, loose: true, transient: true }),
+      remove: (f) => exteriorFoes.removeFoe(f),
+      inPool: (f) => exteriorFoes.foes.includes(f),
+      ready: () => !!walkMode && !!playerSpawned && !_loading && !modes?.transitioning && _mode() === 'exterior' && !playerAfloat(),
+      sceneOf: (nx, nz) => tvSceneOf(nx, nz, 0),
+      relations: () => livingRelations,
+      slay: livingSlay, died: livingDied,
+      fighting: () => hccThreats().some((q) => Math.hypot(q[0] - player.pos[0], q[2] - player.pos[2]) <= FIGHT_NEAR_M),
+      say: (text) => townTalk.say(text),
       door: _livingRoadsDoor,
     }),
   }));
