@@ -1194,6 +1194,7 @@ export const CLOUD_SHADOW_UNIT = 15;
 export const BB_SURFACE_UNIT = 6;
 /** @type {Readonly<Record<string, WebGLUniformLocation | null>>} */
 const NO_COLUMN_LOCS = Object.freeze({});
+const NO_LPT_LOCS = Object.freeze({ uMesh: null, uMeshScale: null, uMeshOpaque: null, uLptCut: null, uLptBand: null, uLptSun: null });   // LPT1: a set bound before the trees declares none
 
 export function textureParams(gl, opts = {}) {
   return opts.smooth
@@ -5846,14 +5847,16 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
   /** LPT1: the handover's uniform - on (the eye and the radius) or off. */
   _uploadLptCut(on) {
     const f = this._lpt, gl = this.gl;
-    if (on && f) gl.uniform4f(this.bbLpt.uLptCut, f.eye[0], f.eye[1], f.eye[2], f.radius);
-    else gl.uniform4f(this.bbLpt.uLptCut, 0, 0, 0, 0);
-    if (on && f) gl.uniform1f(this.bbLpt.uLptBand, f.band);
+    const L = this.bbLpt ?? NO_LPT_LOCS;   // a set bound before LPT1 (a test's stub) declares none
+    if (on && f) gl.uniform4f(L.uLptCut, f.eye[0], f.eye[1], f.eye[2], f.radius);
+    else gl.uniform4f(L.uLptCut, 0, 0, 0, 0);
+    if (on && f) gl.uniform1f(L.uLptBand, f.band);
   }
 
   /** LPT1: the trees' instanced draws - one a prototype's submesh - and the program left in flat mode. */
   _drawLowPolyTrees() {
-    const gl = this.gl, f = this._lpt, L = this.bbLpt;
+    this._close2D();   // PERF-2D: a draw closes the 2D run first (drawBillboards has; this says so of itself)
+    const gl = this.gl, f = this._lpt, L = this.bbLpt ?? NO_LPT_LOCS;
     gl.uniform1f(L.uMesh, 1);
     this._uploadLptCut(1);
     const ld = this._lightDir;   // the sun's direction, toward it (the mesh path's uLightDir) - shading the tree's faces by day alone
@@ -5861,11 +5864,8 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     gl.uniform3f(this.bbUOrigin, 0, 0, 0);
     if (this._bbTipOn) { gl.uniform3f(this.bbUTip, 0, 0, 0); this._bbTipOn = false; }
     this._bindVao(f.gpu.vao);
-    this._activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, this._blackTex);
-    this._activeTexture(gl.TEXTURE0);
-    this._tex0Bound = null; this._tex1Bound = null;
-    let lastTex = null, lastOpaque = -1;
+    this._bindEmission(this._blackTex);   // a tree glows nowhere
+    let lastOpaque = -1;
     for (const run of f.runs) {
       if (!run.count) continue;
       f.gpu.pointInstances(run.start);
@@ -5874,7 +5874,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       gl.uniform1f(this.bbUSway, run.sway || 0);
       for (const sub of run.subs) {
         if (!sub.tex) continue;
-        if (sub.tex !== lastTex) { gl.bindTexture(gl.TEXTURE_2D, sub.tex); lastTex = sub.tex; this.stats.texBinds++; }
+        this._bindTex0(sub.tex);   // PERF-TEX3: unit 0 through its helper, the shadow kept
         const op = sub.opaque ? 1 : 0;
         if (op !== lastOpaque) { gl.uniform1f(L.uMeshOpaque, op); lastOpaque = op; }
         gl.drawElementsInstanced(gl.TRIANGLES, sub.count, gl.UNSIGNED_INT, sub.offset, run.count);
@@ -5981,8 +5981,8 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       gl.uniform3f(this.bbUBatchTint, 1, 1, 1);   // ARENA5: every flat unwashed until a washed batch says otherwise
       this._bbTintOn = false;
       // LPT1: every flat a flat, and none giving way, until a far picture's batch or the trees say otherwise
-      gl.uniform1f(this.bbLpt.uMesh, 0);
-      gl.uniform4f(this.bbLpt.uLptCut, 0, 0, 0, 0);
+      gl.uniform1f((this.bbLpt ?? NO_LPT_LOCS).uMesh, 0);   // LPT1: flat mode, the handover off (a test's stub set declares neither)
+      gl.uniform4f((this.bbLpt ?? NO_LPT_LOCS).uLptCut, 0, 0, 0, 0);
       this._bbLptCutOn = 0;
       if (this._dwColumn && bc.uColumnOn) {
         const dw = this._dwColumn, v = this._view;

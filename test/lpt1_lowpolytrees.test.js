@@ -15,7 +15,7 @@ import {
   LPT_BAND_M, gatherNear, runSteps, LPT_SNOW,
 } from '../src/world/lowPolyTrees.js';
 import { packErase, packMeshes } from '../tools/lowPolyTreesExtract.mjs';
-import { createLowPolyTrees, LPT_REGATHER_M, LPT_SOURCES_KEPT, resampleRgba, topDownOf } from '../src/systems/lowPolyTreesAssets.js';
+import { createLowPolyTrees, LPT_REGATHER_M, LPT_SOURCES_KEPT, nearestRgba, topDownOf } from '../src/systems/lowPolyTreesAssets.js';
 import { LowPolyTreesGpu, LPT_INSTANCE_FLOATS } from '../src/render/lowPolyTreesRender.js';
 import { LPT_FS_HEAD, LPT_FS_TEXEL } from '../src/render/lowPolyTreesGlsl.js';
 import { Renderer, WORLD_FRAME, bbVertexShader, bbCornerX } from '../src/render/renderer.js';
@@ -522,7 +522,7 @@ test('LPT1 SEASONS OF THE ILIAC BAY: under a season the atlases are painted from
   assert.deepEqual(d.released, [[504, '12#lpt']], 'the oldest source\'s far picture given back');
   assert.ok(d.calls.some((c) => c[0] === 'deleteTexture'), 'and its atlases');
   // resampled to the classic size, rows put top-down and the alpha cut as a flat's is
-  const r = resampleRgba({ width: 2, height: 2, data: Uint8Array.from([1, 1, 1, 255, 2, 2, 2, 255, 3, 3, 3, 255, 4, 4, 4, 255]) }, 4, 4);
+  const r = nearestRgba({ width: 2, height: 2, data: Uint8Array.from([1, 1, 1, 255, 2, 2, 2, 255, 3, 3, 3, 255, 4, 4, 4, 255]) }, 4, 4);
   assert.deepEqual([px(r, 0, 0)[0], px(r, 3, 0)[0], px(r, 0, 3)[0]], [1, 2, 3]);
   const t = topDownOf({ width: 1, height: 2, colors: Uint8Array.from([9, 9, 9, 200, 5, 5, 5, 20]) });
   assert.deepEqual(Array.from(t.data), [5, 5, 5, 0, 9, 9, 9, 255]);

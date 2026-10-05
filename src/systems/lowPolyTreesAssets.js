@@ -34,7 +34,7 @@ const defaultFetch = async (url) => {
 };
 
 /** A top-down RGBA picture resampled (nearest) to w x h. */
-export function resampleRgba(pic, w, h) {
+export function nearestRgba(pic, w, h) {
   if (pic.width === w && pic.height === h) return pic;
   const data = new Uint8Array(w * h * 4);
   for (let y = 0; y < h; y++) {
@@ -110,7 +110,7 @@ export function createLowPolyTrees({ renderer, getTexture, seasonal = null, fetc
     if (!bm?.width) return null;
     const sib = frame === 0 ? seasonal?.picture?.(archive, record) : null;
     const img = sib?.image ?? sib;
-    if (img?.width) return resampleRgba(topDownOf(img), bm.width, bm.height);
+    if (img?.width) return nearestRgba(topDownOf(img), bm.width, bm.height);
     return classicRecordRgba(bm, t.palette);
   };
 

@@ -38,8 +38,8 @@ const GROUND = process.env.GROUND ? `&ground=${encodeURIComponent(process.env.GR
 const TREES = process.env.TREES === 'off' ? '&trees=off' : '';
 
 const SCENES = {
-  city: `/play/?world&region=Daggerfall&loc=Daggerfall&class=1&novideo&shot&fps${TREES}`,
-  road: `/play/?world&spawn=random&class=1&novideo&shot&fps${TREES}`,
+  city: `/play/?world&region=Daggerfall&loc=Daggerfall&class=1&novideo&shot&fps`,
+  road: `/play/?world&spawn=random&class=1&novideo&shot&fps`,
   dungeon: `/play/?shot&class=0&fps`,
 };
 
@@ -54,7 +54,7 @@ page.on('pageerror', (e) => errors.push(e.message));
 
 const rows = [];
 for (const name of WANT) {
-  const url = SCENES[name];
+  const url = SCENES[name] && `${SCENES[name]}${TREES}`;   // LPT1: the trees' door on every scene the TREES switch names
   if (!url) { console.warn(`perf: no scene "${name}"`); continue; }
   await page.goto(`http://localhost:${PORT}${url}${GROUND}`);
   await page.waitForFunction(() => window.__shotReady === true, null, { timeout: 300000 });

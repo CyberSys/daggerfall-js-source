@@ -4783,7 +4783,8 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  gathered (when the eye or they moved, or a tree was felled) and handed to the renderer for the flats' call. */
   function lowPolyTreesFrame() {
     _lptSets.length = 0;
-    for (const p of _pixelOrder) {
+    for (let i = 0; i < _pixelOrder.length; i++) {
+      const p = _pixelOrder[i];
       if (p._dist2 > 2) break;   // nearest first (NEAR-FIRST): past the eye's eight neighbours no tree is in reach
       const set = p.lowPolyTrees;
       if (!set || !p._t) continue;
