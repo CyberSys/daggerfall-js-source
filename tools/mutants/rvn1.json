@@ -398,8 +398,8 @@
   {
     "name": "RVN1-no-signature-at-rank-2",
     "file": "src/systems/revenant.js",
-    "old": "    if (r.rank >= SIG_RANK && !r.sig) r.sig = drawSignature(r.id, r.mobileType);",
-    "new": "",
+    "old": "    if (r.rank >= SIG_RANK && !r.sig) r.sig = drawSignature(r.id, r.mobileType);   // RVN1 (RVN5's field)",
+    "new": "    // RVN1 (RVN5's field)",
     "tests": [
       "test/rvn1_ledger.test.js"
     ]

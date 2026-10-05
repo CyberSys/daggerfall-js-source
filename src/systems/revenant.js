@@ -49,7 +49,8 @@ import { markPlayerHarm, playerHarmMark, clearPlayerHarm, HARM_MARK_STRUCK_MS } 
 import { playerDoor } from './playerDoor.js';
 import { MAX_ANSWERS_TELL_ME_ABOUT_OR_RUMORS } from './rumorMill.js';   // RVN7b: a person's one answer, the mill's own gate
 import { compassWord, distanceWord } from './bountyBoard.js';   // RVN7b: a town crier's words for where
-import { setHuntJournal, HUNT_QUEST_PREFIX } from './huntJournal.js';   // RVN7c: a hunt in the quest log, and its Abandon
+import { setHuntJournal, HUNT_QUEST_PREFIX } from './huntJournal.js';
+import { MINUTES_PER_DAY } from './gameDate.js';   // RVN9: the character's day   // RVN7c: a hunt in the quest log, and its Abandon
 import { registerModSaveData } from './modSaveData.js';
 import { appStorage } from './appStorage.js';
 import { characterIdOf, mintCharacterId } from './characterId.js';
@@ -69,7 +70,7 @@ import { getSeed, setSeed, srand } from '../formats/dfRandom.js';
 import { personalityFor, isPersonality, personalityLabel, voiceLine, beastBody, possessive, MUTE_KINDS } from './revenantPersonality.js';   // REVENANT-VOICE: who it is, and how it talks
 // FEUD, Part B (bible/12-Enhanced-AI/Feud-Arc.md sections 12-26): what a revenant remembers - its record's new fields and
 // the draws it is born with (systems/revenantFeud.js), and the fight's ledger (systems/feudLedger.js, a leaf)
-import { idStream, TOOK_MAX, LAIR_RING_R, RUMOR_CHANCE, RUMOR_PX, RUMOR_WEAK, RUMOR_NAMED, RUMOR_HINTS, weaknessKind, lairAfter, sameLair, feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK, lessonOf, withLesson, adaptEdge, adaptBlowClass, ADAPT, isWeakBlow, metalOf, WEAK, WEAK_NAMES, FLINCH_LINES, FLINCH_HEALTH, WEAKNESS_ELEMENTS, signatureStamp } from './revenantFeud.js';
+import { FESTER, festersOn, WRATH_MAX, idStream, TOOK_MAX, LAIR_RING_R, RUMOR_CHANCE, RUMOR_PX, RUMOR_WEAK, RUMOR_NAMED, RUMOR_HINTS, weaknessKind, lairAfter, sameLair, feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK, lessonOf, withLesson, adaptEdge, adaptBlowClass, ADAPT, isWeakBlow, metalOf, WEAK, WEAK_NAMES, FLINCH_LINES, FLINCH_HEALTH, WEAKNESS_ELEMENTS, signatureStamp } from './revenantFeud.js';
 import { tagHit, HIT_TAGS } from '../ui/hitNumbers.js';   // RVN3: the "Weakness" word on my blow's number
 import { SOUND } from './soundClips.js';   // RVN3: the hiss of a weakness found
 import { revenantSay as sayRevenant } from './revenantVoice.js';   // RVN3: the reveal's card (the re-export below binds no local name)
@@ -705,6 +706,15 @@ export function applyRevenant(entity, r, { now = nowMinutes() } = {}) {
   entity.healthMult = (entity.healthMult ?? 1) * (1 + REVENANT_HEALTH_PER_RANK * r.rank);   // TELL1: what was stood on the kind's own health (ai/tells.js kindHealth - its poise)
   const prior = Number.isFinite(entity.damageScale) && entity.damageScale > 0 ? entity.damageScale : 1;
   entity.damageScale = prior * (1 + REVENANT_DAMAGE_PER_RANK * r.rank);
+  // RVN9 (Feud-Arc.md 20): its wrath at this stand - health and blows a wrath - and facing it clears it
+  const wrath = Math.max(0, Math.min(WRATH_MAX, r.wrath | 0));
+  if (wrath) {
+    entity.maxHealth = Math.max(1, Math.round(entity.maxHealth * (1 + FESTER.HEALTH * wrath)));
+    entity.health = entity.maxHealth;
+    entity.healthMult *= 1 + FESTER.HEALTH * wrath;
+    entity.damageScale *= 1 + FESTER.BLOWS * wrath;
+  }
+  r.wrath = 0;
   // RVN2 (13.2): a Relentless one's Speed (on its stats, at the stand); a Night-stalker's blows (it comes only by night -
   // revenantToReturn); an elemental one's saving throw (the fold, folded now - a stand has had no magic round yet)
   const edge = entity.revenant.edge;
@@ -841,8 +851,8 @@ const KICKERS = Object.freeze({
   arrive: 'Companion', dismiss: 'Sent away', downed: 'Companion down', kill: 'Companion', battle: 'Companion', release: 'Released',
   // RVN3: its weakness found or hinted; its will unbroken; RVN4: its last stand
   weakness: 'Weakness', unbroken: 'Unbroken', laststand: 'Last stand',
-  // RVN5: its signature, called out; RVN7d: found in its lair
-  signature: 'Signature', lair: 'Its lair',
+  // RVN5: its signature, called out; RVN7d: found in its lair; RVN9: festered
+  signature: 'Signature', lair: 'Its lair', festered: 'Grows bolder',
 });
 /** @typedef {{ kind: string, kicker: string, id: string|null, name: string, rank: number, sub: string, mood: string|null,
  *   portrait: { archive: number, record: number } | null, speech: string|null, body: string|null, line: string }} RevenantEvent */
@@ -975,6 +985,46 @@ export function forgetRevenantLair(id) {
   return true;
 }
 setHuntJournal({ abandon: (id) => forgetRevenantLair(id) });
+/** RVN9 (bible/12-Enhanced-AI/Feud-Arc.md 20): FESTERING - the character's day against the store's `lastDay`, whole days
+ *  caught up (FESTER.CATCHUP at most): a living, unsworn, not-out revenant FESTER.DAYS past its due day gains a wrath,
+ *  and another every FESTER.EVERY days more; at WRATH_MAX it ranks up on its own (the `festered` deed, a new epithet, its
+ *  card's notice) and its wrath goes back to none - never past rank 5, where its wrath stops at three. Asked by the
+ *  notice's step in the encounter tick (it knows the player). Online the character's clock stands while the player is
+ *  away, so nothing festers between sessions. Answers the records that ranked up. */
+export function revenantFester(player, { now = nowMinutes(), rolls = Math.random } = {}) {
+  if (!revenantOn()) return [];
+  const day = Math.floor(now / MINUTES_PER_DAY);
+  if (!Number.isInteger(day) || day < 0) return [];
+  if (_state.lastDay == null) { _state.lastDay = day; persist(); return []; }   // the first count: from here
+  if (day === _state.lastDay) return [];   // the encounter tick's every ask: nothing new (a clock wound back counts no day, and starts again from it)
+  const up = [];
+  for (let d = Math.max(_state.lastDay + 1, day - FESTER.CATCHUP + 1); d <= day; d++) {
+    for (const r of livingRevenants()) {
+      if (r.out || !festersOn(Math.floor((r.dueAt ?? 0) / MINUTES_PER_DAY), d)) continue;
+      if (r.rank >= REVENANT_MAX_RANK) { r.wrath = Math.min(WRATH_MAX, (r.wrath | 0) + 1); touch(r); continue; }
+      r.wrath = (r.wrath | 0) + 1;
+      if (r.wrath >= WRATH_MAX) {
+        r.rank += 1;
+        r.wrath = 0;
+        r.epithet = revenantEpithet('festered', r.rank, player?.name ?? '', rolls, r.epithet);
+        r.name = joinName(r.given, r.epithet);
+        if (r.rank >= SIG_RANK && !r.sig) r.sig = drawSignature(r.id, r.mobileType);
+        deed(r, 'festered', d * MINUTES_PER_DAY);
+        r.notice = 'festered';
+        up.push(r);
+      }
+      touch(r);
+    }
+  }
+  _state.lastDay = day;
+  persist();
+  return up;
+}
+/** RVN9 (20): its rank-up, told - "Grushnak grows bolder - it has waited too long." */
+export function revenantFesterEvent(r, { archive = null } = {}) {
+  const body = `${r.given} grows bolder - it has waited too long.`;
+  return revenantEvent('festered', r, { body, line: body, archive });
+}
 /** RVN7d (18.4): a rest in its own lair, answered - "You wake to Grushnak standing over you." */
 export function revenantWakeEvent(r, { archive = null } = {}) {
   const body = `You wake to ${r.given} standing over you.`;
@@ -1044,12 +1094,13 @@ export { setRevenantPresenter, revenantSay } from './revenantVoice.js';
 
 /** The first pending notice, taken (said once): a revenant's kill, read when the player stands alive again - as the
  *  event a face draws (its `line` the text surfaces'). */
-export function takeRevenantNotice(player) {
+export function takeRevenantNotice(player, { now = nowMinutes(), rolls = Math.random } = {}) {
   if (!player || !(player.health > 0)) return null;
   ensureMirror(player);
+  revenantFester(player, { now, rolls });   // RVN9: the days it waited, caught up first - a rank-up is its own notice
   const r = _state.list.find((x) => x.notice && !x.defeated);
   if (!r) return null;
-  const ev = r.notice === 'slew' ? revenantRiseEvent(r, player.name) : null;
+  const ev = r.notice === 'slew' ? revenantRiseEvent(r, player.name) : r.notice === 'festered' ? revenantFesterEvent(r) : null;
   r.notice = null;
   touch(r);
   persist();

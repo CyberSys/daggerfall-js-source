@@ -93,6 +93,11 @@ export const RETINUE = Object.freeze([0, 0, 1, 2, 3, 3]);
 export const TOOK_MAX = 3;
 /** RVN9: its wrath, at most. */
 export const WRATH_MAX = 3;
+/** RVN9 (section 20): FESTERING - a wrath FESTER.DAYS past its due day and every FESTER.EVERY days more; whole days
+ *  caught up FESTER.CATCHUP at most; a wrath's health and blows at its stand. At WRATH_MAX it ranks up on its own. */
+export const FESTER = Object.freeze({ DAYS: 3, EVERY: 3, CATCHUP: 7, HEALTH: 0.10, BLOWS: 0.05 });
+/** RVN9 (20): does `day` (the character's) give a record due on `dueDay` a wrath? */
+export const festersOn = (dueDay, day) => { const past = day - dueDay - FESTER.DAYS; return past >= 0 && past % FESTER.EVERY === 0; };
 
 // ── the scars (section 12) ──────────────────────────────────────────
 /** What a fight can leave on a record: a leading source (a weapon class, an element, `silver`), `mixed` (none leading),

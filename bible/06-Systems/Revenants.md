@@ -455,3 +455,11 @@ the body, execute it and it is in the pile, spare it and it hands it back ("It's
 and it keeps it. A revenant holding a piece is never forgotten to make room. The law: `bible/12-Enhanced-AI/Feud-Arc.md`
 section 19 and its RVN8 record.
 
+## 25. Festering (FEUD RVN9, 2026-10-04)
+
+A revenant left alone grows angry. Three days past the day it was due, and every three days after, it gains a wrath -
+a tenth more health and a twentieth more force a wrath when it next stands, and facing it clears them. At three wraths
+it ranks up on its own ("Grushnak grows bolder - it has waited too long."), never past rank 5. Days are the character's
+own: online the clock stands while the player is away, so nothing festers between sessions. The law:
+`bible/12-Enhanced-AI/Feud-Arc.md` section 20 and its RVN9 record.
+

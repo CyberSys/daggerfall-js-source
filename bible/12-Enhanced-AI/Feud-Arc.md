@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL and RVN1-RVN8 built; RVN9-RVN13 next)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL and RVN1-RVN9 built; RVN10-RVN13 next)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -7,7 +7,7 @@ detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
 (section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts), AUDIT
-TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), and RVN8; each slice's record is at the foot.**
+TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), RVN8 and RVN9; each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -821,6 +821,11 @@ deed underground makes that dungeon its lair.
 - **Never** past rank 5 (its wrath stops at three); facing it (any stand) clears its wrath. Online, the character's
   clock stands while the player is away (`worldTick.skipDeadMinutes` and the own clock), so nothing festers between
   sessions. OPEN 17.
+- **As built (RVN9; the record at the foot)**: the day's count rides the notice's step (`takeRevenantNotice` - the
+  encounter tick asks it beside `revenantPresence`, and it knows the player); the first count only sets the day; a clock
+  wound back counts no day and starts again from it. A wrath falls on the days three, six, nine... past its due day
+  (`festersOn`), each caught-up day in turn. Its wrath is applied at the stand over its rank's health and blows, then
+  cleared.
 
 ## 21. New deeds (RVN10)
 
@@ -2136,3 +2141,24 @@ and `dungeonContext.js`.
 - **Not built here** - its next taunt's word on it (RVN12, `{item}`); the page's *Took* (RVN12).
 - Pins `test/rvn8_took.test.js` (6). Mutants `tools/mutants/rvn8.json` (34): 34 dead. Mutant record re-aimed by
   content (1): `revenantaudit`'s A6 (the cap's filter now spares a holder too) - judged again: dead.
+
+### RVN9 - BUILT 2026-10-04 (the loot-rarity row on; every host's encounter tick)
+
+- **The law** - `systems/revenantFeud.js`: `FESTER` (3 days, every 3, seven caught up, +10% health and +5% blows a
+  wrath), `festersOn(dueDay, day)`; RVN1's `WRATH_MAX` 3 and the record's `wrath` and the store's `lastDay`.
+- **The days** - `revenant.revenantFester(player, { now })`: the character's day (`MINUTES_PER_DAY`) against `lastDay`,
+  whole days caught up; the living, unsworn, not-out revenants fester on their days; at three a rank (the `festered`
+  deed at that day, a new epithet - the risen bank from rank 3, the slew bank's below until RVN12's words - a signature
+  drawn at rank 2, its notice), its wrath to none; at rank 5 its wrath stops at three. The notice's card:
+  `revenantFesterEvent` - *Grows bolder*, "Grushnak grows bolder - it has waited too long."
+- **The stand** - `applyRevenant`: health x(1 + 0.10 a wrath) and blows x(1 + 0.05 a wrath) over its rank's, then its
+  wrath cleared.
+- **Four hosts** - `scenes/world.js` and `scenes/exterior.js` WIRED through their encounter tick's
+  `takeRevenantNotice` (unchanged - the notice's step counts the days); `scenes/worldModes.js` and
+  `scenes/dungeonContext.js` run under the world host's tick; online the character's own clock stands while away
+  (TIME1), so nothing festers between sessions.
+- **Not built here** - the page's pips (RVN12); a festered epithet bank of its own (RVN12).
+- Pins `test/rvn9_fester.test.js` (6). Mutants `tools/mutants/rvn9.json` (29): 28 dead, 1 recorded equivalent (the
+  tick's fast path for a day already counted: without it the loop counts no day and sets the day to itself). Mutant
+  record re-aimed by content (1): `rvn1`'s rank-2 signature (the festering's rank-up draws one too, so its line named two
+  sites) - judged again: dead.
