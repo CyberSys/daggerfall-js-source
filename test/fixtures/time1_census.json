@@ -928,6 +928,24 @@
    "has": "const nowS = raidNowMs() / 1000, t = skyMinutes(), rate = livingBaseRate();",
    "clock": "sky",
    "why": "LW5: a visiting crew's stay - her dwell on the ships' clock turned into the sky's minutes the living world lives by"
+  },
+  {
+   "file": "src/scenes/world.js",
+   "has": "day: () => Math.floor((skyMinutes() - 240) / 1440),",
+   "clock": "sky",
+   "why": "LW6: the living day a regard is noted on, met in the deep"
+  },
+  {
+   "file": "src/scenes/world.js",
+   "has": "_livingDiversList = here ? diversAt(here, skyMinutes(), livingTripWorld,",
+   "clock": "sky",
+   "why": "LW6: the companies diving the player's dungeon at the sky's minute"
+  },
+  {
+   "file": "src/scenes/world.js",
+   "has": "livingDivers.frame(_livingDiversList, skyMinutes());",
+   "clock": "sky",
+   "why": "LW6: the companies met read at the sky's minute - their hours done"
   }
  ]
 }

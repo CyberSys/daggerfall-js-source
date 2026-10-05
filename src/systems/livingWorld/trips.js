@@ -54,6 +54,11 @@ export const STAY_DAYS = Object.freeze({ merchant: [1, 2], adventurer: [1, 1], p
 export const HIRE_MAX = 3;
 /** The farthest a traveller's home can be from a town and still be read for visitors or the roads (map pixels). */
 export const TRIP_REACH_PX = 18;
+/** LW6: the share of an adventurer's trips that are DIVES - into a dungeon in reach, when one is - and the reach
+ *  (map pixels, nearest and farthest), and the hours inside (the clock's minutes, fewest and most). */
+export const DIVE_CHANCE = 0.55;
+export const DIVE_RANGE_PX = Object.freeze([1, 8]);
+export const DIVE_MIN = Object.freeze([240, 600]);
 /** The calendar's walking pace (metres a clock minute): DFU's 1.3 m/s over CLASSIC_MINUTES_PER_SECOND. */
 export const CALENDAR_MPM = 1.3 / 0.2;
 
@@ -68,17 +73,20 @@ export const CALENDAR_MPM = 1.3 / 0.2;
  *   rosterOf: (town: LwTown) => Resident[],
  *   templeTown?: (town: LwTown) => boolean,
  *   holderOf?: (res: Resident, k: number) => (Resident | null),
+ *   dungeonsNear?: (px: number, py: number, rMax: number) => LwTown[],
  *   fated?: (res: Resident, k: number) => boolean,
  *   fate?: (trip: Trip) => Trip,
  * }} TripWorld - the host's: towns near a pixel (the game's own rows, populated); the planner's way between two towns
  *   (undefined while it is being asked, null for none); a town's travellers (census.js travellerRoster). LW4: who holds
  *   a traveller's place in a cycle (lives.js - null while it stands empty; unasked, the census's own), whether its
  *   holder dies that cycle (and so sets out whatever the chance said - a fated death is on the road), and the trouble
- *   a trip meets (trouble.js - the trip as it left it)
+ *   a trip meets (trouble.js - the trip as it left it). LW6: the dungeons near a pixel (`dungeon: true` rows - an
+ *   adventurer's dives)
  * @typedef {{ id: string, k?: number, kind: string, leader: Resident, party: Resident[], from: LwTown, to: LwTown, way: Way,
  *   pace: number, outT0: number, outT1: number, backT0: number, backT1: number, trim0: number, trim1: number,
  *   enc?: any, halt?: { t0: number, t1: number, fightEnd: number, s: number, leg: 'out'|'back' },
- *   fallen?: { res: Resident, t: number, s: number }[], turned?: boolean }} Trip - LW4: `k` its cycle; the trouble's
+ *   fallen?: { res: Resident, t: number, s: number, inside?: boolean }[], turned?: boolean, dive?: { t0: number, t1: number } }} Trip - LW6: `dive` an
+ *   adventurer's hours in the dungeon it went to (its `to` a dungeon). LW4: `k` its cycle; the trouble's
  *   `enc`, its `halt`, the `fallen` and whether it `turned` home (trouble.js troubledTrip)
  */
 
@@ -163,6 +171,15 @@ export function ownTrip(res, home, k, world, { mpm }) {
   const start = k * len - phase;
   const rng = lwRng(res.town, res.slot, k, 0x74726970);   // 'trip'
   if (rng() >= chance && !world.fated?.(res, k)) return null;   // LW4: a death the lives hold for this cycle is met on the road
+  const pace = (TRIP_PACE[/** @type {keyof typeof TRIP_PACE} */ (res.job)] ?? 1) * mpm * NATIVE_PER_M;   // native a clock minute
+  // LW6: an adventurer's cycle a DIVE now and then - its own dice, so a cycle that is none is the trip it always was
+  if (res.job === 'adventurer' && world.dungeonsNear) {
+    const drng = lwRng(res.town, res.slot, k, 0x64697665);   // 'dive'
+    if (drng() < DIVE_CHANCE) {
+      const dive = diveTrip(res, home, k, world, { start, len, pace, rng: drng });
+      if (dive !== null) return dive;   // undefined (a way asked) or the dive; none that fits, the town trip
+    }
+  }
   const [rMin, rMax] = TRIP_RANGE_PX[/** @type {keyof typeof TRIP_RANGE_PX} */ (res.job)] ?? [3, 12];
   const near = world.townsNear(home.px ?? 0, home.py ?? 0, rMax)
     .filter((t) => t.mapId !== home.mapId && Math.max(Math.abs((t.px ?? 0) - (home.px ?? 0)), Math.abs((t.py ?? 0) - (home.py ?? 0))) >= rMin);
@@ -183,7 +200,6 @@ export function ownTrip(res, home, k, world, { mpm }) {
   const dist = (t) => Math.hypot((t.px ?? 0) - (home.px ?? 0), (t.py ?? 0) - (home.py ?? 0));
   const nearer = near.filter((t) => t !== first && dist(t) < dist(first)).sort((a, b) => dist(b) - dist(a) || a.mapId - b.mapId);
   const order = [first, ...nearer];
-  const pace = (TRIP_PACE[/** @type {keyof typeof TRIP_PACE} */ (res.job)] ?? 1) * mpm * NATIVE_PER_M;   // native a clock minute
   const [sLo, sHi] = STAY_DAYS[/** @type {keyof typeof STAY_DAYS} */ (res.job)] ?? [1, 1];
   const stay = rollInt(rng, sLo, sHi);
   const departH = res.job === 'adventurer' ? 6 + rng() * 2 : 7 + rng() * 2;
@@ -208,6 +224,51 @@ export function ownTrip(res, home, k, world, { mpm }) {
     if (backT1 > (start + len) * DAY_MIN + DAY_START_MIN) continue;
     return { id: `${res.id}:${k}`, k, kind: res.job, leader: res, party: [res], from: home, to: /** @type {LwTown} */ (to), way, pace,
       outT0, outT1, backT0, backT1, trim0, trim1 };
+  }
+  return null;
+}
+
+/**
+ * LW6: A DIVE - an adventurer's trip to a dungeon within DIVE_RANGE_PX (the nearer the likelier; the pick, then the
+ * nearer ones, farthest first, as a trip's town), set out of a morning, walked by day, its hours inside (DIVE_MIN) in
+ * place of a stay, and home - inside the cycle, or none (null); undefined while a way is asked.
+ * @param {Resident} res @param {LwTown} home @param {number} k @param {TripWorld} world
+ * @param {{ start: number, len: number, pace: number, rng: () => number }} o
+ * @returns {Trip|null|undefined}
+ */
+export function diveTrip(res, home, k, world, { start, len, pace, rng }) {
+  const [rMin, rMax] = DIVE_RANGE_PX;
+  const near = (world.dungeonsNear?.(home.px ?? 0, home.py ?? 0, rMax) ?? [])
+    .filter((d) => Math.max(Math.abs((d.px ?? 0) - (home.px ?? 0)), Math.abs((d.py ?? 0) - (home.py ?? 0))) >= rMin);
+  if (!near.length) return null;
+  const dist = (d) => Math.hypot((d.px ?? 0) - (home.px ?? 0), (d.py ?? 0) - (home.py ?? 0));
+  /** @type {Record<string, number>} */
+  const weights = {};
+  for (const d of near) weights[String(d.mapId)] = 1 / (1 + dist(d) / 4);
+  const pick = pickWeighted(rng, weights);
+  const first = near.find((d) => String(d.mapId) === pick);
+  if (!first) return null;
+  const order = [first, ...near.filter((d) => d !== first && dist(d) < dist(first)).sort((a, b) => dist(b) - dist(a) || a.mapId - b.mapId)];
+  const inside = rollInt(rng, DIVE_MIN[0], DIVE_MIN[1]);
+  const departH = 6 + rng() * 2;
+  const offsetRoll = rng();
+  for (const to of order) {
+    const plan = world.routeOf(home, to);
+    if (plan === undefined) return undefined;
+    if (!plan || !(plan.pixels?.length >= 2)) continue;
+    const way = wayOf(plan);
+    const trim0 = Math.min(townTrim(home), way.len * 0.4), trim1 = Math.min(townTrim(to), way.len * 0.4);
+    const walk = Math.max(0, way.len - trim0 - trim1) / pace;
+    const estDays = 2 * Math.ceil(walk / ((WALK_TO_H - WALK_FROM_H) * 60)) + Math.ceil(inside / DAY_MIN) + 1;
+    if (estDays > len - 1) continue;
+    const dayOffset = Math.floor(offsetRoll * (len - estDays));
+    const outT0 = (start + dayOffset) * DAY_MIN + Math.floor(departH * 60);
+    const outT1 = whenWalked(outT0, walk);
+    const backT0 = outT1 + inside;   // out of the dungeon - by night, the walk home waits for the light (whenWalked)
+    const backT1 = whenWalked(backT0, walk);
+    if (!(backT1 <= (start + len) * DAY_MIN + DAY_START_MIN)) continue;   // home inside the cycle
+    return { id: `${res.id}:${k}`, k, kind: res.job, leader: res, party: [res], from: home, to, way, pace,
+      outT0, outT1, backT0, backT1, trim0, trim1, dive: { t0: outT1, t1: backT0 } };
   }
   return null;
 }
@@ -381,7 +442,7 @@ export function newsOf(trips, t) {
     const known = tr.backT1;
     if (!(known <= t && t - known < NEWS_DAYS * DAY_MIN)) continue;
     const who = tr.fallen?.[0]?.res ?? tr.leader;
-    out.push({ id: tr.id, kind: tr.fallen?.length ? 'fell' : enc.kind, who: who.name, foe: enc.foes?.[0] ?? null, place: tr.to?.name ?? '', t: known });
+    out.push({ id: tr.id, kind: tr.fallen?.length ? 'fell' : enc.kind, who: who.name, foe: enc.foes?.[0] ?? null, place: tr.to?.name ?? '', t: known, dive: !!tr.dive });
   }
   return out.sort((a, b) => b.t - a.t);
 }
@@ -511,7 +572,7 @@ export function remainsNear(px, py, t, world, o, rPx = 6) {
     for (const trip of trips) {
       if (!trip.fallen?.length) continue;
       trip.fallen.forEach((f, i) => {
-        if (!(f.t <= t && t < f.t + REMAINS_MIN)) return;
+        if (f.inside || !(f.t <= t && t < f.t + REMAINS_MIN)) return;   // LW6: the fallen of a dive lie in the dungeon
         const p = wayAt(trip.way, f.s);
         const ppx = Math.floor(p.x / NATIVE_PIXEL), ppy = 499 - Math.floor(p.z / NATIVE_PIXEL);
         if (Math.max(Math.abs(ppx - px), Math.abs(ppy - py)) > rPx) return;
@@ -522,4 +583,25 @@ export function remainsNear(px, py, t, world, o, rPx = 6) {
     }
   }
   return { remains, pending };
+}
+
+/**
+ * LW6: THE DIVERS in a dungeon at minute `t` - the parties of the towns within TRIP_REACH_PX inside it now (their dive,
+ * less the fallen by then). `pending` as partiesNear's.
+ * @param {LwTown} dungeon @param {number} t @param {TripWorld} world @param {{ mpm: number, memo?: Map<string, Trip|null> }} o
+ * @returns {{ divers: { trip: Trip, members: Resident[] }[], pending: boolean }}
+ */
+export function diversAt(dungeon, t, world, o) {
+  const divers = [];
+  let pending = false;
+  for (const town of world.townsNear(dungeon.px ?? 0, dungeon.py ?? 0, TRIP_REACH_PX)) {
+    const trips = townTrips(town, t, world, o);
+    if (trips === undefined) { pending = true; continue; }
+    for (const trip of trips) {
+      if (!trip.dive || trip.to?.mapId !== dungeon.mapId || !(trip.dive.t0 <= t && t < trip.backT0)) continue;
+      const members = membersAt(trip, t);
+      if (members.length) divers.push({ trip, members });
+    }
+  }
+  return { divers, pending };
 }

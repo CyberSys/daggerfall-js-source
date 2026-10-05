@@ -335,8 +335,8 @@
   {
     "name": "LW4-remains-forever",
     "file": "src/systems/livingWorld/trips.js",
-    "old": "        if (!(f.t <= t && t < f.t + REMAINS_MIN)) return;",
-    "new": "        if (!(f.t <= t)) return;",
+    "old": "        if (f.inside || !(f.t <= t && t < f.t + REMAINS_MIN)) return;",
+    "new": "        if (f.inside || !(f.t <= t)) return;",
     "tests": [
       "test/lw4_trouble.test.js"
     ]

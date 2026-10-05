@@ -45,7 +45,7 @@ export const foeStrength = (level) => 1 + 0.6 * Math.max(1, level);
 
 /**
  * @typedef {{ climateAt: (px: number, py: number) => number,
- *   foesOf: (q: { climateIndex: number, minute: number, level: number, size: number, rolls: () => number }) => (number[] | null),
+ *   foesOf: (q: { climateIndex: number, dungeonType?: number, minute: number, level: number, size: number, rolls: () => number }) => (number[] | null),
  *   foeLevel?: (type: number, level: number) => number, dies?: (res: any, trip: any) => boolean,
  *   turnOf?: (encId: string) => ('won'|'lost'|null) }} TroubleWorld - `turnOf` the character's own turn of an encounter
  *   (relations.js turns: a fight the player won for the party, or lost with it)
@@ -64,6 +64,7 @@ export function troubleOf(trip, world) {
   const walkMin = walk / trip.pace;
   const days = Math.max(1, Math.ceil(walkMin / 720));
   const dead = trip.party.filter((m) => world.dies?.(m, trip)).map((m) => m.id);
+  if (trip.dive && dead.length) return diveTrouble(trip, dead, world);   // LW6: a dive's fated meet their end inside
   const rng = lwRng(textSeed(trip.id), TROU);
   const kinds = trip.way.kinds ?? [];
   const ground = kinds.length ? kinds.reduce((a, k) => a + (GROUND_RISK[/** @type {keyof typeof GROUND_RISK} */ (k)] ?? 1), 0) / kinds.length : 1;
@@ -107,6 +108,27 @@ export function troubleOf(trip, world) {
 }
 
 /**
+ * LW6: THE DEEP'S TROUBLE - a dive carrying a fated death meets it INSIDE, at a seeded hour of its time there, among the
+ * dungeon's own (its type's table - the host's `foesOf` with `dungeonType`): the leader among the fated, the party FELL
+ * (the rest come out at once and walk home); else it WON at that cost. No halt on the road: it is under the ground.
+ * @param {import('./trips.js').Trip} trip @param {string[]} dead @param {TroubleWorld} world
+ */
+export function diveTrouble(trip, dead, world) {
+  const dive = /** @type {{ t0: number, t1: number }} */ (trip.dive);
+  const rng = lwRng(textSeed(trip.id), TROU, 0x64656570);   // 'deep'
+  const t0 = dive.t0 + (dive.t1 - dive.t0) * (0.2 + 0.6 * rng());
+  const s = trip.way.len - trip.trim1;
+  const p = wayAt(trip.way, s);
+  const armed = trip.party.filter((m) => m.cls != null);
+  const level = Math.max(1, ...armed.map((m) => m.level ?? 1), 2);
+  const foes = world.foesOf({ climateIndex: -1, dungeonType: /** @type {any} */ (trip.to).dungeonType ?? 0, minute: t0, level, size: Math.min(FOES_MAX, trip.party.length + 2), rolls: rng }) ?? [];
+  /** @type {'won'|'fell'} */
+  const kind = dead.includes(trip.leader.id) ? 'fell' : 'won';   // the character's turns are read in the lives (a member spared is no death)
+  return { id: `${trip.id}:e`, leg: 'dive', camp: false, t0, t1: t0 + HALT_MIN[kind], fightEnd: t0 + FIGHT_MIN[kind], s, x: p.x, z: p.z,
+    px: Math.floor(p.x / NATIVE_PIXEL), py: 499 - Math.floor(p.z / NATIVE_PIXEL), foes, level, kind, dead, inside: true };
+}
+
+/**
  * THE TRIP AS THE TROUBLE LEFT IT: its encounter (`enc`), the HALT where it fell, the FALLEN (out of the party from the
  * fight's middle), and - a party that fled or fell on the way out - TURNED: home from where it stood once the halt is
  * done, never at the town it set out for. A trip with no trouble is itself.
@@ -116,6 +138,14 @@ export function troubledTrip(trip, enc) {
   if (!enc) return trip;
   const byId = new Map(trip.party.map((m) => [m.id, m]));
   const fallAt = enc.t0 + FIGHT_MIN[enc.kind] * 0.6;
+  if (enc.leg === 'dive') {
+    // LW6: under the ground - the fallen lie there; a party whose leader fell comes out at once and walks home
+    const fallen = enc.dead.map((id) => ({ res: byId.get(id), t: fallAt, s: enc.s, inside: true })).filter((f) => f.res);
+    if (enc.kind !== 'fell') return { ...trip, enc, fallen, turned: false };
+    const walk = Math.max(0, trip.way.len - trip.trim0 - trip.trim1) / trip.pace;
+    const backT0 = Math.min(trip.backT0, enc.t1);
+    return { ...trip, enc, fallen, turned: false, backT0, backT1: whenWalked(backT0, walk), dive: { t0: /** @type {any} */ (trip.dive).t0, t1: backT0 } };
+  }
   const fallen = enc.dead.map((id) => ({ res: byId.get(id), t: fallAt, s: enc.s })).filter((f) => f.res);
   const halt = { t0: enc.t0, t1: enc.t1, fightEnd: enc.fightEnd, s: enc.s, leg: enc.leg };
   const turned = enc.leg === 'out' && (enc.kind === 'fled' || enc.kind === 'fell');

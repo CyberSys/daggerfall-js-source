@@ -344,6 +344,35 @@ them with the Bay's own packets (`scenes/world.js`, `naval/seaLanes.js`).
   A traveller's own passage over the water - a trip by sea on a timetable of the sky's minutes - is not yet (the
   roads' trips keep to the land; a town across the water is no destination).
 
+## LW6 - the deep (2026-10-05)
+
+`trips.js` (`diveTrip`, `diversAt`), `trouble.js diveTrouble`, pure; `scenes/dungeonDivers.js` and the host's dungeon
+index (`scenes/world.js`).
+
+- **The dives** (`diveTrip`). An adventurer's cycle is a DIVE now and then (`DIVE_CHANCE`, 0.55 - its own dice, so a
+  cycle that is none is the trip it always was): a dungeon of the game's own rows (a labyrinth, a keep, a ruin, a
+  graveyard, each with its dungeon's type - the host's `dungeonsNear`) within `DIVE_RANGE_PX` (1 to 8), the nearer the
+  likelier, walked out to by day as any trip's town, its hours inside (`DIVE_MIN`, 4 to 10) in place of a stay - out
+  of the dungeon by night, the walk home waits for the light - and home inside the cycle. None but an adventurer dives.
+- **The deep's trouble** (`diveTrouble`). A dive carrying a fated death (lives.js) meets it INSIDE, at a seeded hour of
+  its time there (a fifth to four fifths in), among the dungeon's own (its type's table: `encounters.js
+  chooseRandomEnemy` on the dungeon type, the party and two more): the leader among the fated, the party FELL and its
+  people come out at once and walk home; else it WON at that cost. No halt on the road - it was under the ground. The
+  fallen of a dive lie inside (`fallen.inside`), never at the door (`remainsNear` passes them by).
+- **What the town says** of a dive is the deep's own (`lines.js DIVE_NEWS`: "{who} went down into {place} and never
+  came up").
+- **Who is inside** (`diversAt`): the parties of the towns within reach diving a dungeon now, less the fallen - none
+  before their hours or after, and only in their own dungeon.
+- **The companies met** (`dungeonDivers.js`). A player in a dungeon during a company's dive - the one to stand it (the
+  camps' election online; offline always) - MEETS it ("You meet Ada Lark's company, come down into Mournoth."): its
+  members stood as the player's allies through the dungeon's own loose stand (allied, a `shipmate`), `DIVER_STAND_M`
+  (5 m) behind the player, by class, level and name, and keeping with the player through the halls (the motor's own
+  follow, `DIVER_HEEL_M` and a pace further each). One cut down FELL (the character's turn). Their hours done the
+  company makes for the surface: the fated still standing SPARED, every survivor's regard moved (`saved`, `helped`),
+  the bodies taken out; a company the dive lists no longer goes. The host asks the dives once a second and reads the
+  company each frame, a layer for each dungeon's pool (`livingDiversStep`, in the modal frame).
+- **Not yet:** the fallen of a dive lie in the dungeon as a thing to find.
+
 ## The four hosts
 
 - `scenes/world.js` - WIRED (LW2 the towns, LW3 the roads and the Overworld).
@@ -351,4 +380,5 @@ them with the Bay's own packets (`scenes/world.js`, `naval/seaLanes.js`).
   seams; its town is not yet a LivingTown) and has no roads (one location, no map around it).
 - `scenes/worldModes.js` - FLAGGED: indoors the street pool answers nobody (AUDIT 62 F14) and a building's people are
   its static NPCs; a resident whose day has them in the tavern is not yet stood inside it.
-- `scenes/dungeonContext.js` - no town population (LW6 brings the divers).
+- `scenes/dungeonContext.js` - WIRED through the host (LW6): its own loose stand (`spawnLooseFoe` allied, `removeLooseFoe`)
+  and its `location()` carry the companies met in it; it keeps no town population.

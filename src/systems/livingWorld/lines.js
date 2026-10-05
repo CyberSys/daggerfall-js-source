@@ -211,13 +211,30 @@ export const ROAD_NEWS = Object.freeze({
     Object.freeze(['They buried what they could find of {who}.', 'The road to {place}. Always that road.']),
   ]),
 });
+/** LW6: what the town says of a DIVE - `{place}` the dungeon. */
+export const DIVE_NEWS = Object.freeze({
+  driven: Object.freeze([
+    Object.freeze(['{who} went down into {place} and came back up grinning.', 'Grinning? Then there was gold in it.']),
+  ]),
+  won: Object.freeze([
+    Object.freeze(['{who} is back from {place}. Bloodied, but back.', 'Most who go down there say that once.']),
+    Object.freeze(['They say {who} cleared a nest of {foe} out of {place}.', 'Somebody had to.']),
+  ]),
+  fled: Object.freeze([
+    Object.freeze(['{who} came running out of {place}, white as a sheet.', '{foe}?', 'Wouldn\'t say. Wouldn\'t stop shaking either.']),
+  ]),
+  fell: Object.freeze([
+    Object.freeze(['{who} went down into {place} and never came up.', 'The deep keeps what it takes.']),
+    Object.freeze(['Has anyone seen {who}?', 'Not since {place}. Not since the {foe} down there.', 'Then we won\'t.']),
+  ]),
+});
 /** Of a meeting with news to tell, the share that tells it. */
 export const NEWS_SHARE = 0.4;
 
 /**
  * LW4: a meeting's news, if it tells one - NEWS_SHARE of the meetings with news to tell, the item drawn on the seed -
  * and its script by the news's end.
- * @param {number} seed @param {readonly { kind: string }[] | null | undefined} news
+ * @param {number} seed @param {readonly { kind: string, dive?: boolean }[] | null | undefined} news
  * @returns {{ item: any, script: readonly string[] } | null}
  */
 export function newsScript(seed, news) {
@@ -225,7 +242,7 @@ export function newsScript(seed, news) {
   const rng = seededRng((seed ^ 0x4e455753) >>> 0);   // 'NEWS'
   if (rng() >= NEWS_SHARE) return null;
   const item = news[Math.floor(rng() * news.length)];
-  const pool = ROAD_NEWS[/** @type {keyof typeof ROAD_NEWS} */ (item.kind)];
+  const pool = (item.dive ? DIVE_NEWS : ROAD_NEWS)[/** @type {keyof typeof ROAD_NEWS} */ (item.kind)];   // LW6: a dive's own words
   return pool ? { item, script: pool[Math.floor(rng() * pool.length)] } : null;
 }
 

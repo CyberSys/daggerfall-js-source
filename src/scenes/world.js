@@ -106,7 +106,7 @@ import { createRelations, LIVING_WORLD_VENDOR } from '../systems/livingWorld/rel
 import { ResidentWalker } from '../characters/residentWalker.js';
 import { firstNameOf } from '../systems/livingWorld/lines.js';
 import { travellerRoster, mintResident } from '../systems/livingWorld/census.js';   // LW3: a town's travellers, off its MAPS row alone; LW4: a newcomer to a place the road emptied
-import { townTrips, visitorsOf as tripVisitorsOf, awayOf as tripAwayOf, placeCycle, setsOut, newsOf, paceScale, NEWS_DAYS } from '../systems/livingWorld/trips.js';   // LW3: the roads, pure; LW4: the places' cycles, the town's news
+import { townTrips, visitorsOf as tripVisitorsOf, awayOf as tripAwayOf, placeCycle, setsOut, newsOf, paceScale, NEWS_DAYS, diversAt } from '../systems/livingWorld/trips.js';   // LW3: the roads, pure; LW4: the places' cycles, the town's news
 import { placeAt, turnKey } from '../systems/livingWorld/lives.js';   // LW4: who holds a traveller's place
 import { troubleOf, troubledTrip } from '../systems/livingWorld/trouble.js';   // LW4: trouble on the road
 import { foeWord } from '../systems/livingWorld/lines.js';   // LW4: a foe's word for the town's talk and a mark
@@ -114,6 +114,7 @@ import { portPackets, berthOf, sailorAt, crewsAshore } from '../systems/livingWo
 import { createWayBook } from '../systems/livingWorld/ways.js';   // LW3: the travellers' ways, planned by the living world itself
 import { createLivingRoads } from './livingRoads.js';   // LW3: the parties on the road near the player
 import { createRoadFights, LIVE_M } from './roadFights.js';   // LW4b: a beset party's fight, stood live
+import { createDungeonDivers } from './dungeonDivers.js';   // LW6: the divers met in the dungeon
 import { createTravellerSprites, classLookOf } from '../world/travellerSprites.js';   // LW3: their bodies, and the armed walk's sprite
 import { GUARD_TEXTURE, MobilePerson, PERSON_TEXTURES, PERSON_MOVE_SPEED } from '../characters/mobilePerson.js';
 import { bowDamageArrow, weaponOfMaterial, armorOfMaterial } from '../combat/enemyEquipment.js';   // MAC-N1: the recovered shaft is CreateWeapon's arrow, value and all; OH-E: UpgradeLoot's SetItem + ApplyWeaponMaterial / ApplyArmorSettings
@@ -212,7 +213,7 @@ import { nightDue, setNightListener, nightStamp, nightKindOf, isNightStamp, carr
 import { createNightWatch, carriedNightAction, createCampWatch, campPasses } from '../systems/partyRestLaw.js';   // AUDIT REST-PARTY: the party's night, pinned by execution   // AUDIT REST II P1/P2: its watch   // CAMP-ROLL: the camp's one roll
 import { ambushNight } from '../systems/restAct.js';   // AUDIT REST-PARTY A1: a resting encounter stood breaks the night that rolled it
 import { createStandingWatch, installLegalNotices } from './standingHost.js';   // REP1: the watch's stop; REP5: the law's notices
-import { SPAWNER_ARMS } from '../systems/encounters.js';   // SURV6: the hunt's beast stands on the wilderness arm
+import { SPAWNER_ARMS, chooseRandomEnemy } from '../systems/encounters.js';   // SURV6: the hunt's beast stands on the wilderness arm; LW6: a dungeon's own foes for a dive's trouble
 import { skillValue } from '../systems/skills.js';   // SURV6: the hunter's four skills
 import { refreshMentor, mentorStatusText, effectiveLevel } from '../systems/mentorMode.js';
 import { setMasterSkillsGate, MASTER_SKILLS_DUNGEON_TEXT } from '../systems/masterSkills.js';   // SOFTCAP3
@@ -2142,6 +2143,35 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     return _livingTowns;
   };
+  // LW6: THE DUNGEONS an adventurer dives - the game's own rows of a dungeon's kind (a labyrinth, a keep, a ruin, a
+  // graveyard), each with its dungeon's type
+  const LIVING_DIVE_TYPES = new Set([LOCATION_TYPES.DungeonLabyrinth, LOCATION_TYPES.DungeonKeep, LOCATION_TYPES.DungeonRuin, LOCATION_TYPES.Graveyard]);
+  let _livingDungeons = null, _livingDungeonById = null;
+  const livingDungeonsIndex = () => {
+    if (_livingDungeons) return _livingDungeons;
+    _livingDungeons = new Map(); _livingDungeonById = new Map();
+    for (const loc of _hubRows) {
+      const md = loc.mapTableData;
+      if (!md || !LIVING_DIVE_TYPES.has(md.locationType)) continue;
+      const p = longitudeLatitudeToMapPixel(md.longitude, md.latitude);
+      const d = { mapId: md.mapId >>> 0, name: String(loc.name ?? ''), px: p.x, py: p.y, type: md.locationType, region: loc.regionIndex, blocks: 1, dungeon: true, dungeonType: md.dungeonType ?? 0 };
+      _livingDungeons.set(p.y * 1000 + p.x, d); _livingDungeonById.set(d.mapId, d);
+    }
+    return _livingDungeons;
+  };
+  const _livingDungeonsNear = new Map();
+  const livingDungeonsNear = (px, py, r) => {
+    const key = `${px},${py},${r}`;
+    let got = _livingDungeonsNear.get(key);
+    if (got) return got;
+    got = [];
+    const idx = livingDungeonsIndex();
+    for (let y = py - r; y <= py + r; y++) for (let x = px - r; x <= px + r; x++) { const d = idx.get(y * 1000 + x); if (d) got.push(d); }
+    got.sort((a, b) => a.mapId - b.mapId);
+    if (_livingDungeonsNear.size > 512) _livingDungeonsNear.clear();
+    _livingDungeonsNear.set(key, got);
+    return got;
+  };
   const _livingNear = new Map();
   const livingTownsNear = (px, py, r) => {
     const key = `${px},${py},${r}`;
@@ -2169,6 +2199,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     routeOf: livingRouteOf,
     rosterOf: (t) => { let r = _livingRosters.get(t.mapId); if (!r) { r = travellerRoster(t); _livingRosters.set(t.mapId, r); } return r; },
     templeTown: (t) => t.type === LOCATION_TYPES.ReligionTemple || t.blocks >= 9,
+    dungeonsNear: livingDungeonsNear,   // LW6: an adventurer's dives
   };
   const _livingTripMemo = new Map();
   let _livingWaysSeen = 0;
@@ -2203,7 +2234,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   const livingScale = () => paceScale(PERSON_MOVE_SPEED / livingBaseRate());
   const livingTroubleWorld = {
     climateAt: (px, py) => maps.getClimateIndex(px, py),
-    foesOf: ({ climateIndex, minute, level, size, rolls }) => rollGroupComposition({ climateIndex, skyMinutes: minute, inLocationRect: false, playerLevel: level, size }, rolls)?.mobileTypes ?? null,
+    foesOf: ({ climateIndex, dungeonType, minute, level, size, rolls }) => (dungeonType != null
+      ? Array.from({ length: size }, () => chooseRandomEnemy({ dungeonType, playerLevel: level }, rolls)).filter((m) => m >= 0)   // LW6: the deep's own
+      : rollGroupComposition({ climateIndex, skyMinutes: minute, inLocationRect: false, playerLevel: level, size }, rolls)?.mobileTypes ?? null),
     foeLevel: (type, level) => (type >= 128 ? level : ENEMY_BASICS[type]?.level ?? level),
     dies: (res, trip) => {
       const town = livingTownOfId(res.town);
@@ -2286,6 +2319,49 @@ export async function bootWorld(canvas, renderer, params, status) {
     const nowS = raidNowMs() / 1000, t = skyMinutes(), rate = livingBaseRate();
     return crewsAshore(maskMapId(town.mapId), laneNet(), livingLaneCount, livingPacketAt, livingSailorsOf)
       .map((c) => ({ res: c.res, inT: t - Math.max(0, nowS - (c.until - LANE_DWELL_S)) * rate, outT: t + Math.max(0, c.until - nowS) * rate }));
+  };
+  // LW6: THE DIVERS MET (scenes/dungeonDivers.js) - the companies of adventurers inside the dungeon the player is in,
+  // asked of the dives once a second, met and read each frame; a layer for each dungeon's pool, gone with it
+  let livingDivers = null, _livingDiversAt = -Infinity, _livingDiversList = [];
+  const livingDungeonHere = () => {
+    const loc = modes?.dungeonCtx?.location?.();
+    if (!loc) return null;
+    const row = maps.getLocation(loc.regionIndex, loc.locationIndex);
+    livingDungeonsIndex();
+    return row?.mapTableData ? _livingDungeonById.get(row.mapTableData.mapId >>> 0) ?? null : null;
+  };
+  const livingDiversStep = (now) => {
+    const d = _dungeonPool();
+    if (!d?.spawnLooseFoe || !livingWorldOn()) { if (livingDivers) { livingDivers.clear(); livingDivers = null; } return; }
+    if (livingDivers?.pool !== d) {
+      livingDivers?.clear();
+      livingDivers = Object.assign(createDungeonDivers({
+        spawn: (type, feet, o) => d.spawnLooseFoe(type, feet, { yawRad: o.yaw, allied: true, gender: o.gender, level: o.level }),
+        remove: (f) => d.removeLooseFoe(f),
+        inPool: (f) => d.foes.includes(f),
+        leader: () => (playerSpawned ? { feet: [player.pos[0], player.pos[1], player.pos[2]], yaw: cam.yaw } : null),
+        spot: (from, dx, dz) => { const q = [from[0], from[1], from[2]]; try { d.collider?.move(q, dx, 0, dz, 1.8); } catch { /* the player's own spot */ } return [q[0], q[1], q[2]]; },
+        owner: () => amGroupRollOwner(online?.id ?? null, player.feetAt(), peersNear() ?? [], 200),
+        relations: () => livingRelations,
+        turnKeyOf: (res, trip) => {
+          const town = livingTownOfId(res.town);
+          const roster = town ? livingTripWorld.rosterOf(town) : [];
+          const place = roster.find((r) => r.slot === res.slot) ?? res;
+          return turnKey(place, placeCycle(place, roster, Math.floor(trip.outT0 / 1440), livingScale()));
+        },
+        dies: (res, trip) => livingTroubleWorld.dies(res, trip),
+        day: () => Math.floor((skyMinutes() - 240) / 1440),
+        say: (text) => d.hudSay?.(text),
+        door: _livingRoadsDoor,
+      }), { pool: d });
+      _livingDiversAt = -Infinity;
+    }
+    if (now - _livingDiversAt >= 1000) {
+      _livingDiversAt = now;
+      const here = livingDungeonHere();
+      _livingDiversList = here ? diversAt(here, skyMinutes(), livingTripWorld, { mpm: PERSON_MOVE_SPEED / livingBaseRate(), memo: _livingTripMemo }).divers : [];
+    }
+    livingDivers.frame(_livingDiversList, skyMinutes());
   };
   /** LW3: a resident's class sprite for the armed walk - its art loaded into the people's own texture table (the people
    *  pass reads its frames there), null until it is. */
@@ -25704,6 +25780,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       ambience.setPreset(presetForExterior(heardWeather(), isNight(minuteNow())));   // DISC9: the word the street last heard - the one truth Better Ambience's indoor rain reads too
       ambience.update(dt, { inside: true, underground: modes.mode === 'dungeon', indoorRainSource: betterAmbience.rainPlaying() });
       if (livingRoads) livingRoads.clear();   // LW3: indoors, underground - the road's bodies freed with the open world they stood in
+      livingDiversStep(now);   // LW6: underground, the companies diving here met
       if (dwPlayer) {
         audio.setListenerLowPass(0);   // DW-D: UpdateAudioFilter's IsPlayerInside - RemoveAudioFilter
         // AUDIT DW-F: UpdateSwimSfxAndWeather asks IsPlayingGame and IsPlayerSwimming && !IsWaterWalking and nothing of

@@ -6,11 +6,13 @@ import { townTrips, placeCycle, CALENDAR_MPM } from '../src/systems/livingWorld/
 import { placeAt, turnKey } from '../src/systems/livingWorld/lives.js';
 import { troubleOf, troubledTrip } from '../src/systems/livingWorld/trouble.js';
 import { rollGroupComposition } from '../src/systems/campEncounters.js';
+import { chooseRandomEnemy } from '../src/systems/encounters.js';
 import { ENEMY_BASICS } from '../src/characters/enemyBasics.js';
 import { DAY_MIN } from '../src/systems/livingWorld/dayPlan.js';
 
-/** Towns every `step` pixels on a `n` x `n` grid from (x0, y0); each town's blocks off its place. */
-export function synthMap({ x0 = 100, y0 = 100, n = 9, step = 5 } = {}) {
+/** Towns every `step` pixels on a `n` x `n` grid from (x0, y0); each town's blocks off its place - LW6: and, `dives`,
+ *  a dungeon in each square of four for the adventurers to dive. */
+export function synthMap({ x0 = 100, y0 = 100, n = 9, step = 5, dives = false } = {}) {
   const towns = [];
   let id = 1000;
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
@@ -31,14 +33,22 @@ export function synthMap({ x0 = 100, y0 = 100, n = 9, step = 5 } = {}) {
     rosterOf: (t) => { let r = rosters.get(t.mapId); if (!r) { r = travellerRoster(t); rosters.set(t.mapId, r); } return r; },
     templeTown: (t) => t.blocks >= 16,
   };
-  return { towns, world, asked: () => asked };
+  // LW6: a dungeon between each four towns (the grid's cell centres), each its type
+  const dungeons = [];
+  let did = 5000;
+  for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) {
+    const x = x0 + i * step + Math.floor(step / 2), y = y0 + j * step + Math.floor(step / 2);
+    dungeons.push({ mapId: did++, px: x, py: y, blocks: 1, name: `D${x}_${y}`, dungeon: true, dungeonType: (i + j) % 17 });
+  }
+  if (dives) world.dungeonsNear = (px, py, r) => dungeons.filter((d) => Math.max(Math.abs(d.px - px), Math.abs(d.py - py)) <= r).sort((a, b) => a.mapId - b.mapId);
+  return { towns, world, dungeons, asked: () => asked };
 }
 
 // LW4: the map with the lives and the trouble on it, as the host composes them (world.js) - for the trouble's pins and
 // the live fight's.
 /** The synthetic map with the lives and the trouble on it, as the host composes them (world.js). */
-export function livingMap({ turns = null, climate = 230 } = {}) {
-  const m = synthMap();
+export function livingMap({ turns = null, climate = 230, dives = false } = {}) {
+  const m = synthMap({ dives });
   const { towns, world } = m;
   const byId = new Map(towns.map((t) => [t.mapId, t]));
   const book = new Map();
@@ -54,7 +64,9 @@ export function livingMap({ turns = null, climate = 230 } = {}) {
   };
   const trouble = {
     climateAt: () => climate,
-    foesOf: ({ climateIndex, minute, level, size, rolls }) => rollGroupComposition({ climateIndex, skyMinutes: minute, inLocationRect: false, playerLevel: level, size }, rolls)?.mobileTypes ?? null,
+    foesOf: ({ climateIndex, dungeonType, minute, level, size, rolls }) => (dungeonType != null
+      ? Array.from({ length: size }, () => chooseRandomEnemy({ dungeonType, playerLevel: level }, rolls)).filter((x) => x >= 0)
+      : rollGroupComposition({ climateIndex, skyMinutes: minute, inLocationRect: false, playerLevel: level, size }, rolls)?.mobileTypes ?? null),
     foeLevel: (type, level) => (type >= 128 ? level : ENEMY_BASICS[type]?.level ?? level),
     dies: (res, trip) => { const roster = world.rosterOf(byId.get(res.town)); const place = roster.find((r) => r.slot === res.slot) ?? res; return placeOf(place, placeCycle(place, roster, Math.floor(trip.outT0 / DAY_MIN), 1)).dies; },
     turnOf: (id) => (turns?.won?.has(id) ? 'won' : turns?.lost?.has(id) ? 'lost' : null),
