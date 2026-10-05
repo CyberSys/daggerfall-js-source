@@ -27,7 +27,10 @@
 //             account you linked is an active patron entitled to that
 //             tier now (patreon.js) - Patreon's word, stored as WB9g's
 //             sale is, and read against the config at every ask.
-//   SHADOW FANG (SHADOW-FANG, 2026-09-26) the same, one player's own.
+//   SHADOW FANG (SHADOW-FANG, 2026-09-26) the same, one player's own -
+//             and since SHADOW-CLOAK (2026-10-04) an aura beside it: the
+//             Holo Shadow Cloak, granted with the title as the Oblivion
+//             Ward is.
 //   PENITENT (PENITENT, 2026-09-29) the same, Diggleborf's own.
 //   HERALD (HERALD, 2026-10-01) the same, and the Patreon tier's.
 //   AEGIS OF OBLIVION (AEGIS, 2026-10-03) the same, Sureme's own - and
@@ -159,7 +162,8 @@ export const TIER_LISTS = Object.freeze({
   apostle: 'APOSTLE_HANDLES',
   hierophant: 'HIEROPHANT_HANDLES',
   // SHADOW-FANG (2026-09-26, Mac): "SirMcMobdon gets a brand new title/glyph. Remove them from Apostle" - a title
-  // made for one player, granted the tiers' way: a list in the config, the title and its glyph together.
+  // made for one player, granted the tiers' way: a list in the config, the title and its glyph together. SHADOW-CLOAK
+  // (2026-10-04): and the third list to grant an aura with it (TIER_AURA, below).
   shadowfang: 'SHADOW_FANG_HANDLES',
   // PENITENT (2026-09-29, Mac): "This new custom title/glyph is for the user Diggleborf" - a second title made for one
   // player, granted the same way.
@@ -182,7 +186,7 @@ export const TIER_GLYPH = Object.freeze({ dungeonmaster: 'dm', disciple: 'discip
 /** AEGIS: THE AURA A LIST'S TITLE CARRIES, where it carries one - held while the handle is listed, exactly as its glyph
  *  is, and gone on the next token once it is not. A grant like the glyph and unlike the Broker's: derived from the
  *  config at every ask, never a sale recorded on the row. */
-export const TIER_AURA = Object.freeze({ aegis: 'oblivionward', primarch: 'radiance' });   // PRIMARCH: the Golden Radiance
+export const TIER_AURA = Object.freeze({ aegis: 'oblivionward', primarch: 'radiance', shadowfang: 'shadowcloak' });   // PRIMARCH: the Golden Radiance; SHADOW-CLOAK (2026-10-04, the owner, for SirMcMobdon: "I want to build a new unique AURA specifically for his account. A holo shadow cloak with red accents. Extremely detailed"): the Holo Shadow Cloak
 
 /** Does this player hold that list's title? A guest holds none, for the developer's reason. PATREON-LINK (2026-10-01,
  *  Mac: "having to manually hand out titles ... its really hard to keep up with it"): AND a Patreon tier's title is held
@@ -261,12 +265,18 @@ export function titlesHeld(player, env) {
   return held;
 }
 
+/** SERAPH-WINGS (2026-10-05, Mac: "I want to build an aura for the developers ... Golden Angel wings that flow"): THE
+ *  DEVELOPERS' AURA - held while the handle is in DEVELOPER_HANDLES, as the developer title and glyph are, and gone on
+ *  the next token once it is not. */
+export const DEVELOPER_AURA = 'seraphwings';
 /** WB9g: THE AURAS THIS PLAYER HOLDS - the Broker's, bought (the row's `insignia`), in the offers' order. AEGIS: and,
- *  first, the auras their listed titles carry (TIER_AURA), in TIER_LISTS' order - read off the config as the title is,
- *  so `env` is owed wherever a list could grant one (a caller without it reads the Broker's alone, as before). */
+ *  first, the auras their listed titles carry (TIER_AURA), in TIER_AURA's own order - read off the config as the title is,
+ *  so `env` is owed wherever a list could grant one (a caller without it reads the Broker's alone, as before).
+ *  SERAPH-WINGS: and, after those, a developer's wings (DEVELOPER_AURA). */
 export function aurasHeld(player, env) {
   const held = [];
   for (const [t, a] of Object.entries(TIER_AURA)) if (holdsTier(t, player, env) && !held.includes(a)) held.push(a);
+  if (isDeveloper(player, env) && !held.includes(DEVELOPER_AURA)) held.push(DEVELOPER_AURA);
   for (const a of insigniaKeys(player?.insignia, 'aura')) if (!held.includes(a)) held.push(a);
   return held;
 }

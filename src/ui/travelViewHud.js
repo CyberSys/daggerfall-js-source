@@ -38,6 +38,9 @@ import { guildTagText } from '../net/guildLaw.js';
 import { ribbonColours, heraldryOf, heraldryColourOf, heraldryKey } from '../net/heraldryLaw.js';   // AUDIT-SEATS: a Season's banner ribbon, under the name here too; AUDIT HERALDRY H4: the tag's frame
 import { drawShield } from './heraldryArt.js';   // AUDIT HERALDRY H4: the guild's shield, in its tag's frame, on the canvas
 import { TV_FILTER_GROUPS, TV_FILTER_TEXT, travelViewFilters, toggleTravelViewFilter, onTravelViewFilters, markShown, countGroups } from '../systems/travelViewFilters.js';   // OW-FILTER
+import { TV_WHO_GROUPS, TV_WHO_TEXT, TV_KIN_COLORS, travelViewWho, toggleTravelViewWho, cycleTravelViewRenown, cycleTravelViewNodeKm } from '../systems/travelViewFilters.js';   // OW-WHO / OW-NODE-KM / OW-KIN
+import { wheelPath } from './carriageWheel.js';   // OW-HUBS: a carriage town's wheel on its dot
+import { placeTip, readTip, tipKey, SEAT_TIP_TEXT_MAX } from './eventMapMarks.js';   // SEAT-TIP: the held map's card, at the pointer here too
 import { tickHudLayout } from './hudLayout.js';   // HUD-MOVE: the Overworld's block and the travel bar move too
 import { travelPathMode, setTravelPathMode, onTravelPathMode, TRAVEL_PATH_MODES, TRAVEL_PATH_TEXT } from '../systems/travelPathMode.js';   // OW-PATH: the Roads / Free switch
 
@@ -262,6 +265,30 @@ function build(doc, hooks) {
     filterBtns[g] = b; filterNums[g] = num;
     filters.append(b);
   }
+  // OW-WHO / OW-NODE-KM (FIELD BUGS 2026-10-04e): THE PLAYERS - by who they are to me, the least Renown - and how far off
+  // a gathering group still shows; the held map's key reads the same switches (systems/travelViewFilters.js)
+  filters.append(el('div', 'tview-label', TV_WHO_TEXT.title));
+  const whoBtns = {};
+  for (const g of TV_WHO_GROUPS) {
+    const b = el('button', 'tview-filter');
+    b.type = 'button';
+    b.dataset && (b.dataset.who = g);
+    b.append(el('span', `tview-fdot tview-fdot-kin-${g}`), el('span', 'tview-fword', TV_WHO_TEXT[g]));
+    b.onclick = (e) => { e.preventDefault(); toggleTravelViewWho(g); };
+    whoBtns[g] = b;
+    filters.append(b);
+  }
+  const renownBtn = el('button', 'tview-filter tview-cycle on');
+  renownBtn.type = 'button';
+  renownBtn.title = TV_WHO_TEXT.renownTip;
+  renownBtn.onclick = (e) => { e.preventDefault(); cycleTravelViewRenown(); };
+  const nodeBtn = el('button', 'tview-filter tview-cycle tview-cycle-wide on');
+  nodeBtn.type = 'button';
+  nodeBtn.title = TV_WHO_TEXT.nodeTip;
+  nodeBtn.onclick = (e) => { e.preventDefault(); cycleTravelViewNodeKm(); };
+  filters.append(renownBtn, nodeBtn);
+  // SEAT-TIP: the card a hovered plate answers with (a seat's: who holds it, this week's battle) - the held map's look
+  const tip = el('div', 'hmtip tview-tip');
   bar.append(head, dock, tools, filters, foot);   // OW-BLOCK: top to bottom
   // AUDIT TV B8: a press on the readout (Return, a plate) is the readout's - the host's window mousedown counts any
   // press as Mouse0 (the swing, the activation), so it stops here
@@ -272,9 +299,9 @@ function build(doc, hooks) {
   r.addEventListener?.('mousedown', own);
   r.addEventListener?.('mouseup', own);
   if (route) r.append(route);
-  r.append(canvas, you, bar, said);
+  r.append(canvas, you, bar, said, tip);
   doc.body.append(r);
-  return { root: r, parts: { you, ring, chev, canvas, bar, where, trip, hint, back, route, casing, line, said, modes, modeBtns, dock, idle, idleMap, filters, filterBtns, filterNums } };
+  return { root: r, parts: { you, ring, chev, canvas, bar, where, trip, hint, back, route, casing, line, said, modes, modeBtns, dock, idle, idleMap, filters, filterBtns, filterNums, whoBtns, renownBtn, nodeBtn, tip } };
 }
 
 /**
@@ -367,6 +394,7 @@ export function hideTravelViewHud() {
   if (root) root.style.display = 'none';
   listenPointer(parts?.canvas?.ownerDocument?.defaultView, false);
   hits = []; setHover(null);
+  showMarkTip(null, null, 0, 0);   // SEAT-TIP: no card outlives the view
 }
 
 /** Take it down for good (a host teardown). */
@@ -378,6 +406,7 @@ export function disposeTravelViewHud() {
   stopFilters?.(); stopFilters = null;
   listenPointer(parts?.canvas?.ownerDocument?.defaultView, false);
   setHover(null);
+  tipShown = '';   // SEAT-TIP: the card goes with the root
   root?.remove();
   root = null; parts = null; last = null;
   resetMarks();
@@ -393,6 +422,42 @@ function paintFilters(f) {
     b.setAttribute?.('aria-pressed', on ? 'true' : 'false');
     b.title = TV_FILTER_TEXT.tip(TV_FILTER_TEXT[g], on);
   }
+  // OW-WHO / OW-NODE-KM: the players' switches and the two steps
+  const w = travelViewWho();
+  for (const [g, b] of Object.entries(parts?.whoBtns ?? {})) {
+    const on = w[g] !== false;
+    b.className = on ? 'tview-filter on' : 'tview-filter';
+    b.setAttribute?.('aria-pressed', on ? 'true' : 'false');
+    b.title = TV_WHO_TEXT.tip(TV_WHO_TEXT[g], on);
+  }
+  if (parts?.renownBtn) parts.renownBtn.textContent = TV_WHO_TEXT.renown(w.renown);
+  if (parts?.nodeBtn) parts.nodeBtn.textContent = TV_WHO_TEXT.nodeKm(w.nodeKm);
+}
+/** SEAT-TIP: the hovered mark's card at the pointer, or none. `tip` is the mark's card or a function that makes it
+ *  (a seat's, asked only of the plate under the pointer); its words written only when they change, its box measured
+ *  once a card (a layout read each frame forced one), and its place written only when it moves. */
+let tipShown = '', tipSize = null, tipAt = '';
+function showMarkTip(tip, at, vw, vh) {
+  const box = parts?.tip;
+  if (!box) return;
+  const t = tip && at ? readTip(typeof tip === 'function' ? tip() : tip, { textMax: SEAT_TIP_TEXT_MAX }) : null;
+  if (!t) { if (tipShown) { tipShown = ''; tipSize = null; tipAt = ''; box.style.display = 'none'; } return; }
+  const key = tipKey(t);
+  if (key !== tipShown) {
+    tipShown = key; tipSize = null; tipAt = '';
+    const d = box.ownerDocument;
+    box.replaceChildren?.();
+    const line = (cls, text) => { const n = d.createElement('div'); n.className = cls; n.textContent = text; return n; };
+    box.append(line('hmtip-title', t.title), ...t.lines.map((l) => line('hmtip-line', l)));
+    box.style.display = 'block';
+  }
+  if (!tipSize || tipSize.vw !== vw) { const r = box.getBoundingClientRect?.() ?? { width: 0, height: 0 }; tipSize = { w: r.width, h: r.height, vw }; }
+  const p = placeTip(at.x, at.y, tipSize.w, tipSize.h, vw, vh);
+  const pos = `${p.left},${p.top}`;
+  if (pos === tipAt) return;
+  tipAt = pos;
+  box.style.left = `${p.left}px`;
+  box.style.top = `${p.top}px`;
 }
 /** OW-PATH: the switch's lit face. */
 let stopModes = null;
@@ -441,7 +506,7 @@ function syncDock(doc) {
 function resetMarks() { hits = []; drawnKeys = []; canvasDrew = false; canvasSig = []; furniture.at = -Infinity; }
 /** PERF-TV: the pointer's place over the page, followed while the readout stands (a plate under it is lit, and the
  *  cursor says it takes a click) - passive, never a handler that could stop the view's own. */
-const onPointerMoveHud = (e) => { pointer = { x: e.clientX, y: e.clientY }; };
+const onPointerMoveHud = (e) => { pointer = { x: e.clientX, y: e.clientY, ui: !!(root && e.target && e.target !== root && root.contains?.(e.target)) }; };   // SEAT-TIP: `ui` - over the block's own controls, not the land
 /** AUDIT DEEP2 E10: a finger lifted leaves no hover behind (a drag ended over a plate lit it until the next touch). */
 const onPointerUpHud = (e) => { if (e.pointerType === 'touch') pointer = null; };
 let pointerWin = null;
@@ -559,6 +624,8 @@ let canvasDrew = false;
 let canvasSig = [];     // last frame's picture, as drawn
 let hoverKey = null;
 let pointer = null;     // { x, y } the pointer over the page, while the readout is shown
+/** OW-HUBS: a carriage town's wheel on the Overworld, its radius (px). */
+export const TV_WHEEL_R = 5.5;
 /** OWS1: how far a ship's sail stands over its point (px) - a name worn above it stands above the sail. */
 export const SHIP_MARK_RISE = 9;
 /**
@@ -601,8 +668,8 @@ let plateFill = /** @type {string} */ (TRAVEL_VIEW_MARK_COLORS.plate);
 export const TV_PLUS_SHEET_ID = 'enhanced-plus-style';
 let plusFace = false;
 /** A label's image, made once (its shadow or its plate baked in) and kept by what it shows. */
-function labelSprite(doc, text, look, size, journey, hover, dpr) {
-  const key = `${plusFace ? 'px' : 'cl'}|${look}|${size}|${journey ? 1 : 0}|${hover ? 1 : 0}|${dpr}|${text}`;
+function labelSprite(doc, text, look, size, journey, hover, dpr, hub = false) {
+  const key = `${plusFace ? 'px' : 'cl'}|${look}|${size}|${journey ? 1 : 0}|${hover ? 1 : 0}|${hub ? 1 : 0}|${dpr}|${text}`;   // OW-HUBS: a carriage town's plate is its own
   let sp = sprites.get(key);
   if (sp) { sprites.delete(key); sprites.set(key, sp); return sp; }   // AUDIT DEEP2 E12: the newest at the back - the oldest goes first
   const c = doc.createElement('canvas');
@@ -622,15 +689,15 @@ function labelSprite(doc, text, look, size, journey, hover, dpr) {
   const C = TRAVEL_VIEW_MARK_COLORS;
   if (plate) {
     x.fillStyle = plateFill; x.fillRect(0.5, 0.5, w - 1, h - 1);
-    x.strokeStyle = hover ? C.brass : C.plateEdge; x.lineWidth = 1; x.strokeRect(0.5, 0.5, w - 1, h - 1);
+    x.strokeStyle = hover || hub ? C.brass : C.plateEdge; x.lineWidth = hub ? 1.5 : 1; x.strokeRect(0.5, 0.5, w - 1, h - 1);   // OW-HUBS: a carriage town's plate edged in brass
     x.fillStyle = hover || look === 'far' ? C.brass : C.bone;
     if (plusFace) { x.shadowColor = '#050608'; x.shadowBlur = 0; x.shadowOffsetX = 1; x.shadowOffsetY = 1; }   // OW-PLUS-FACE: the kit's cut shadow
   } else if (plusFace) {
     x.shadowColor = '#050608'; x.shadowBlur = 0; x.shadowOffsetX = 1; x.shadowOffsetY = 1;   // OW-PLUS-FACE
-    x.fillStyle = look === 'dest' ? C.brass : look === 'sub' ? 'rgba(233,228,217,0.8)' : look === 'raider' ? C.raider : C.bone;
+    x.fillStyle = TV_KIN_COLORS[look.slice(4)] && look.startsWith('kin-') ? TV_KIN_COLORS[look.slice(4)] : look === 'dest' ? C.brass : look === 'sub' ? 'rgba(233,228,217,0.8)' : look === 'raider' ? C.raider : C.bone;   // OW-KIN
   } else {
     x.shadowColor = '#000'; x.shadowBlur = 3; x.shadowOffsetY = 1;
-    x.fillStyle = look === 'dest' ? C.brass : look === 'sub' ? 'rgba(233,228,217,0.8)' : look === 'raider' ? C.raider : C.bone;   // OWS3: "Pirates" in their colour
+    x.fillStyle = TV_KIN_COLORS[look.slice(4)] && look.startsWith('kin-') ? TV_KIN_COLORS[look.slice(4)] : look === 'dest' ? C.brass : look === 'sub' ? 'rgba(233,228,217,0.8)' : look === 'raider' ? C.raider : C.bone;   // OWS3: "Pirates" in their colour; OW-KIN: a friend's, a guild-mate's name in theirs
   }
   x.fillText(text, padX, padY + 1);
   if (journey) { x.fillStyle = C.brass; x.fillText(' →', padX + tw, padY + 1); }
@@ -672,7 +739,7 @@ export const TRAVEL_VIEW_RIBBON = Object.freeze({ band: 2, edge: 1, gap: 1 });
  */
 function badgeSprite(doc, m, size, party, dpr, bk = badgeKey(m.badge)) {
   const b = m.badge, journey = /\bjourney\b/.test(m.kind ?? '');
-  const key = `badge|${size}|${party ? 1 : 0}|${journey ? 1 : 0}|${dpr}|${m.label}|${bk}`;
+  const key = `badge|${size}|${party ? 1 : 0}|${m.kin ?? ''}|${journey ? 1 : 0}|${dpr}|${m.label}|${bk}`;   // OW-KIN: a friend made is drawn anew
   const sp = sprites.get(key);
   if (sp) { sprites.delete(key); sprites.set(key, sp); return sp; }
   if (badgeBuilds <= 0) return null;   // N1-1: this frame's are made - the name alone until the next
@@ -739,7 +806,7 @@ function badgeSprite(doc, m, size, party, dpr, bk = badgeKey(m.badge)) {
     x.fillText(P.lv, cx + (lvW - x.measureText(P.lv).width) / 2, ry + (size - small) / 2);
     cx += lvW + gap;
   }
-  x.font = rowFont; x.fillStyle = party ? N.party : N.name;
+  x.font = rowFont; x.fillStyle = party ? N.party : (TV_KIN_COLORS[m.kin] ?? N.name);   // OW-KIN (FIELD BUGS 2026-10-04e): a friend's name in the friends' blue, a guild-mate's in violet - my party's stays its green
   x.fillText(m.label ?? '', cx, ry);
   cx += nameW;
   if (journey) { x.fillStyle = TRAVEL_VIEW_MARK_COLORS.brass; x.fillText(' →', cx, ry); cx += arrowW; }
@@ -826,16 +893,17 @@ function drawMarks(marks, vw, vh, dpr, feet = null) {
     if (b.y0 < notchDepth(furniture.topNotch, b.x0, b.x1) || b.y1 > vh - notchDepth(furniture.footNotch, b.x0, b.x1)) q.fade = true;
   }
   let hover = null;
-  for (let i = placed.length - 1; i >= 0 && pointer; i--) {
+  for (let i = placed.length - 1; i >= 0 && pointer && !pointer.ui; i--) {   // SEAT-TIP: the block's controls over a plate are the block's - no plate lit, no card
     const q = placed[i];
     if (!q.m.pick) continue;
     const b = pickBox(q, vw);   // BOUNTY-SNAP
     if (pointer.x >= b.x0 && pointer.x <= b.x1 && pointer.y >= b.y0 && pointer.y <= b.y1) { hover = q.m.key; break; }
   }
   setHover(hover);
+  showMarkTip(hover ? placed.find((q) => q.m.key === hover)?.m.tip ?? null : null, pointer, vw, vh);   // SEAT-TIP: a seat's card while its plate is under the pointer
   // the picture this frame would draw: unchanged (a camera at rest), the canvas already shows it
   const sig = [bw, bh, hover ?? ''];
-  for (const q of placed) sig.push(q.m.key, q.x, q.y, q.held ? Math.round(q.held.angle) : 999, q.m.label ?? '', q.m.sub ?? '', q.m.kind ?? '', q.bk, q.fade ? 1 : 0);
+  for (const q of placed) sig.push(q.m.key, q.x, q.y, q.held ? Math.round(q.held.angle) : 999, q.m.label ?? '', q.m.sub ?? '', q.m.kind ?? '', q.bk, q.fade ? 1 : 0, q.m.kin ?? '', q.m.hub ? 1 : 0);   // OW-KIN, OW-HUBS
   for (const q of placed) if (q.m.pick) nextHits.push({ key: q.m.key, ...pickBox(q, vw) });   // BOUNTY-SNAP: a bounty's on its ring alone
   hits = nextHits;
   sayPlaces(placed);
@@ -871,6 +939,10 @@ function drawMarks(marks, vw, vh, dpr, feet = null) {
       g.beginPath(); g.moveTo(x, y - 7); g.lineTo(x + 5, y); g.lineTo(x, y + 7); g.lineTo(x - 5, y); g.closePath(); g.fill(); g.stroke();
     } else if (look === 'camp') {   // OW6: a camp - a tent's peak, not a band's dot
       g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x + 6, y + 5); g.lineTo(x - 6, y + 5); g.closePath(); g.fill(); g.stroke();
+    } else if ((look === 'place' || look === 'far') && m.hub) {   // OW-HUBS: a carriage town - its wheel, brass on a dark edge
+      wheelPath(g, x, y, TV_WHEEL_R);
+      g.lineWidth = 3; g.strokeStyle = '#000'; g.stroke();
+      g.lineWidth = 1.5; g.strokeStyle = C.brass; g.stroke();
     } else if (look === 'wayfarer') {   // LW3: a party on the road - a pack's square, a caravan's the larger
       const r = /\bcaravan\b/.test(m.kind ?? '') ? 5 : 3.5;
       g.beginPath(); g.rect(x - r, y - r, r * 2, r * 2); g.fill(); g.stroke();
@@ -882,7 +954,7 @@ function drawMarks(marks, vw, vh, dpr, feet = null) {
     const plate = look === 'place' || look === 'far';
     if (m.badge && !q.sp) unmade = true;
     const sp = q.sp   // OVERWORLD NAMES: a player, named as in play
-      ?? labelSprite(doc, m.label, look, held && !plate ? 11 : plate ? 13 : 12, /\bjourney\b/.test(m.kind ?? ''), m.key === hover, dpr);
+      ?? labelSprite(doc, m.label, look === 'traveller' && m.kin ? `kin-${m.kin}` : look, held && !plate ? 11 : plate ? 13 : 12, /\bjourney\b/.test(m.kind ?? ''), m.key === hover, dpr, plate && !!m.hub);   // OW-KIN; OW-HUBS
     if (!sp) continue;
     const sb = m.sub ? labelSprite(doc, m.sub, 'sub', 11, false, false, dpr) : null;   // TV5: a far place's distance, under its plate
     // held at the foot, the label stands ABOVE its arrow - under it is the bar (EDGE-FURNITURE)

@@ -4417,7 +4417,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1484`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1490`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4786,7 +4786,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:8100` read, on one physical line:
+`src/scenes/worldModes.js:8136` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4801,7 +4801,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5851`). With the property missing that call is a
+(`dungeonContext.js:5867`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4928,9 +4928,9 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:10104` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:10210` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
-  provenance argument `applySpellToFoe` hands them (`hostMagic.js:487`)
+  provenance argument `applySpellToFoe` hands them (`hostMagic.js:496`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
   Threading it touches four hosts.
 - **A building interior streams no foes at all.** `makeInteriorFoes`
@@ -7158,7 +7158,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1143`, `src/net/online.js:2477`):**
+**Now (`src/net/wire.js:1143`, `src/net/online.js:2533`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -9472,7 +9472,10 @@ red deploy reads as a service that is not there.
   reads the lit verb for ITS door alone (`plaqueActionFor(key)`), against the door as it stands at the press.
 - **The deploy's smoke asks again** (`.github/workflows/account-deploy.yml`, `post`): a call that answers 404 is
   asked again, seven times five seconds apart, before the deploy is failed - an old instance wrote nothing for a
-  path it does not know. Every new route's call goes through it.
+  path it does not know. Every new route's call goes through it. DEPLOY-FLAKE (2026-10-04, the owner: "A test
+  failed on deploy"): a 5xx is asked again too. PR #592's run took its migration and its Worker, then read
+  `renown/xp -> 500` once, seconds after the gate-key probe had read 500 and then 400. A 5xx comes from a batch that
+  failed whole and wrote nothing; one that still fails after half a minute is a broken route.
 
 Pinned: `test/home2.test.js` (4) - the law, the plaque's fold executed, the door by source, the deploy; re-aimed by
 content in `test/home1.test.js` (House5, the Info-only offer) and `test/worldhover.test.js` (the door cache).
@@ -13801,7 +13804,8 @@ numbered, is one now:
 - **Main's own red, fixed here:** `test/tv6_dungeons.test.js` pinned travelViewWalkTo's options before TO-ROADS added
   `roads`.
 - **LIVED1 (#442, "your own time") came in last:** a character keeps its own clock online. Foraging's quest time
-  (FORAGE4's wait on the hunt's page) now also passes on that clock, as the hunt's minutes do after its page
+  (FORAGE4's wait on the hunt's page - the wait page alone since HUNT-OUT, 2026-10-04) now also passes on that clock,
+  after the page, as the hunt's minutes did
   (`systems/quest/questActionsExtension.js` RaiseTime: the wait online, the host's raiseTime - the character's time -
   in both lanes); MAC-LVL1's `restSimMinutes`, which LIVED1 retired, left the save's fields beside FORAGE4's
   `foragingWait`; DEATH-PENALTY's screen-loss pair rides the encounter loop's lift beside LIVED1's sky.
@@ -14510,3 +14514,170 @@ Pinned: `test/partylead.test.js` (3: the wire and the floor, the hub's refusals 
 `test/soc3_socialpanel.test.js` PARTY-LEAD (the button), `tools/mutants/partylead.json` (14, all dead). The relay pins
 moved to world164 (`test/relayversion.test.js` its row); soc1's S25 record aimed at the kick's own check (the lead asks
 the same first question), and relayversion's R1 at the hub's new last method.
+
+## SUNBABY2 (2026-10-04, "using the /event command, let's improve sunbaby, give it phases where it turns evil and starts raining fireballs upon daggerfall", then "and also a phase where it turns into todd howard") - the sun baby's phases: the wrath, its fire, and Todd
+
+SUNBABY1's event, unchanged at the door: `/event sunbaby` stages it, `/event off` ends it. What is new is that the sun
+now goes through PHASES while it is up. **No relay change** - the phases are read off the stage's own moment (the
+hub's `at`, already on every `event` frame and welcome) on the shared clock (`Date.now() + _sharedOffsetMs`, the one
+the dread's strikes read), so every player online wears the same face in the same second, a joiner comes in on it, and
+no world version moves.
+
+**The cycle - world/sunbabySky.js.** `SUNBABY_PHASES`: the laughing baby 60 s, the WRATH 45 s, the baby 30 s, TODD 30 s
+(`SUNBABY_CYCLE_S` 165), wrapping until a dev ends the event. `sunbabyPhase(sinceS)` answers the face and the two
+weights the look reads (`evil`, `todd` - the baby is the rest), each face smoothstepped in over `SUNBABY_MORPH_S` (6 s; 1 s since SUNBABY3)
+at the head of its phase from the face before; `fire` only while the wrath is WHOLE. The first phase of the first cycle
+comes whole - the event rises laughing, it does not morph out of Todd. `createSunbaby` keeps the stage's moment (kept
+through the end's fade, so the sky sets on the face it wore - another word moves nothing) and `frame(sharedMs)` answers
+the phase and a `line` (`SUNBABY_FACE_LINES`) for a change of face under a player who saw the face before - never on the
+first frame after any word, so a joiner is told nothing they did not watch change.
+
+**The look.** One pass still (render/sunbabySkyRenderer.js), handed the face as `uFace`. The WRATH: the dome burns from
+nursery blue to blood over ember (`SUNBABY_WRATH_ZENITH`, `SUNBABY_WRATH_HORIZON`), the flowers char and burn
+(`SUNBABY_EMBERS`, their hearts glowing), and the sun turns red in a dark rim with fiery rays, spikier and turning
+faster - slit eyes glaring yellow under brows that slant down to the nose, two horns from the crown, and a wide jagged
+grin of fangs over a furnace, cackling open as the giggle quickens, the whole face shuddering. TODD (SUNBABY3: his photograph now - the cartoon only until it loads): a cartoon of Todd
+Howard - swept dark hair over a side part, friendly brows, open eyes with a twinkle, a sure toothy grin and a five
+o'clock shadow, holding still while the baby bobbed - over a flower grid `SUNBABY_TODD_DETAIL` (4) times finer each
+way: sixteen times the detail. The cartoon is drawn from nothing but the tables (SUNBABY3 ships the photograph beside it); every
+colour lives once, in `world/sunbabySky.js`, and the GLSL is generated from it. Under the wrath the land sits under the
+sky it sees: the lifted ambient and the sun's key are reddened by `SUNBABY_WRATH_TINT` (`sunbabyLight`, `sunbabyKey`),
+and the haze and the water's sky lean to the burning horizon (`sunbabyHaze`, `sunbabyWaterSky`, through the sky
+controller's `setSunbabyFace`). At no wrath every one of them is SUNBABY1's exactly. The weather stays the clear day.
+
+**The fire.** While the word is staged and the wrath is whole, FIREBALLS FALL round every player. The dread's strike
+law (`sunbabyFireballs`, beside `dreadStrikes`, `slotHash` now exported from world/dreadSky.js for both): the shared
+clock's `SUNBABY_FIRE_SLOT_MS` (250 ms) slots each hold one when the seed's first draw falls under `SUNBABY_FIRE_CHANCE`
+(0.7 - about 2.8 a second), at a seeded moment in the slot, salted apart from the dread's schedule; at most
+`SUNBABY_FIRE_SLOTS_MAX` a tick. Each lands round the eye (8-30 m for 35% of them, out to 120 m for the rest) on the
+ground there (the terrain's height; my feet's where nothing is streamed), falling `SUNBABY_FIRE_FALL_M` (90 m) down a
+steep line (58-80 degrees) out of the sun's side of the sky - 3.6 s at the engine's missile speed. `createSunbabyRain`
+drops nothing on its first tick and walks its clock on while the fire does not hold, so the wrath brings no backlog;
+a jump resets it. Each fireball is the spell engine's own (scenes/hostMagic.js `skyFire`, beside SPELLFX1's
+`spellVisual`): a DRAWN fire missile - DFU's TEXTURE.375 flat, animated, `SKY_FIRE_SCALE` (3) times its size - that
+lands where it was thrown (the collider's ray meets buildings, not the terrain, so the engine counts the fall down and
+lands it), or on the roof or the body it meets first, and flashes there (record 1 of its archive, at the same scale,
+`hitEffects.showImpactFlash` taking a scale) and is HEARD there: fire's cast clip (352 - DFU has no impact clip, a
+missile's sound is its cast's) out to `SKY_FIRE_HEARD_M` (48 m). DRAWN ONLY: nothing is applied, spent or tallied - an
+event burns no one, and no player dies to a live event.
+
+**The four hosts.** world.js (the online host, where the hub link lives) is WIRED: the face framed each exterior frame
+and said through `townTalk.say`, handed to the sky (`sky.setSunbabyFace`, before its frame) and the light; the fire
+ticked round the traveller (`tvStand`, the dread's eye) and thrown through `magic.skyFire`. exterior.js (`?exterior`)
+has no hub link - FLAGGED, as EVENT1 and SUNBABY1 left it. worldModes.js (interiors) and dungeonContext.js draw no sky
+and drop no fire - FLAGGED: the event is outside; a player who steps out of a building into a changed face is told it.
+
+**Records.** test/sunbaby2_phases.test.js (11): the cycle and its morphs, the frame's lines and the joiner, the fire's
+slots, its landing and its rain, the land under the wrath, the GLSL from the tables and the pass's face, the engine's
+skyFire through a real `createPlayerMagic`, and the host seams. tools/mutants/sunbaby2.json (24, all dead). SUNBABY1's
+GLSL, fog, water and light pins and EVENT1's two light pins moved where the text moved (marked), and SUNBABY1's fog
+mutant was re-aimed at the new call (sunbaby1.json 20 and event1.json 44, all dead). The faces were rendered in headless
+Chromium and eyeballed (the baby, the wrath, the half-turned morph, Todd).
+
+## SUNBABY3 (2026-10-04, "Have it transition much faster and use this for todd howard", with his photograph) - Todd's photograph, and faster turns
+
+**Faster.** `SUNBABY_MORPH_S` 6 -> 1: each face turns into the next in one second, smoothstepped as before; the phases'
+lengths are unchanged (the baby 60 s, the wrath 45 s, the baby 30 s, Todd 30 s), and the fire still waits for the wrath
+to be whole (now one second in).
+
+**Todd's photograph.** The photograph Mac supplied, cropped to the face (a 360-pixel square of the 400, the face's
+circle half of it) and recompressed to a 256 JPEG of 11 KB by ImageMagick, ships as `src/assets/sunbaby/todd.jpg`
+(Vite bundles it: `SUNBABY_TODD_PHOTO_URL`, render/sunbabySkyRenderer.js). It is NOT the port's own art - a
+third-party photograph, kept at Mac's explicit request; the doctrine allow-list's row says so (`SUPPLIED`, no ARENA2
+pixel - test/doctrine.test.js). The pass fetches it when it is first built (the event's first showing, minutes before
+Todd's phase), uploads it inside its next draw (mipmapped - it is drawn small; the unpack flip held off and put back as
+another pass left it), and only then tells the shader (`uToddPhotoOn`); until then, or if it never loads (a warning),
+the SUNBABY2 cartoon stands in. A black texel stands in the texture before it, so the sampler never reads an incomplete
+one. The GLSL maps it into the face's disk (`SUNBABY_TODD_PHOTO_FIT` 0.9 face radii, the crop's circle) inside the gold
+rim, square to the eye and the right way up, by `textureGrad` with uv's derivatives taken before the sun's branch;
+the cartoon's every stroke is weighted by `todd x (1 - photoOn)`. The rays stay gold, and the photograph morphs in and
+out by Todd's weight like any face.
+
+**The four hosts.** Unchanged from SUNBABY2: the pass is the sky controller's; world.js WIRED, the other three
+FLAGGED.
+
+**Records.** test/sunbaby3_todd_photo.test.js (4): the file (a square 256 JPEG, small) and its doctrine row; the GLSL's
+mapping from the table, right way up, the cartoon only where the photograph is not on; the pass's load, its one
+upload inside a frame with the flip guarded, the uniform, a failed load and a Node without Image. SUNBABY2's morph pins
+and the GLSL call pin, and SUNBABY1's derivative, outColor and dispose pins moved (marked). tools/mutants/sunbaby3.json
+(10, all dead); sunbaby1.json and sunbaby2.json re-run, 44 all dead. The photograph was rendered in the pass in headless
+Chromium and eyeballed (whole, and half-morphed from the baby).
+
+## SERPENT1 (2026-10-04, Mac: "A new world event that requires players with a ship to meet up and take on a large scale sea serpent in the ocean"; "You make the decisions and online only") - the sea serpent
+
+The design and the record are `11-Multiplayer/Sea-Serpent.md`. What it asks of the online arc:
+
+- **A fight kept by a CELL room.** It has no room of its own: the cell its site stands in keeps it, and a ship near
+  it always holds that cell, as its own room or as a halo (`RANGE_PIXELS`). `net/online.js` `sendSerpent(word, cell)`
+  says a word down the socket of the cell named; `serpentReady(cell)` asks whether that socket's relay holds a serpent
+  (`serpentOk`, from its welcome, carried through a halo's promotion). The cell's alarm is shared: the serpent's beat
+  every 250 ms, the cell's own duties every 5 s and at their own firings.
+- **The `serpent` frame** (relay world165 - world162 on its branch, renumbered past PRIMARCH and SUNBABY1, then past PARTY-LEAD's world164, at the merges; `net/wire.js` `validSerpentIn`, `validSerpentOut`, `serpentGate`,
+  `SERPENT_RELAY_MIN`). In: `in`, `hit`, `held`, `esc`. Out: the fight's sixteen words. The hub's only word is the
+  kill, said to everyone online and to a hello while its day holds.
+- **The receipt** is `l1`, under the relay's one key, and the account service (acct78) counts it once a (day,
+  account).
+- **When:** the relay first, then the service (migration 0081 first), then the client. A client on an older relay sees
+  the omen and no fight. Merging deploys world165 and acct78, which drops connected players once.
+- Pins: `test/serpent1_law.test.js`, `test/serpent1_relay.test.js`, `test/serpent1_client.test.js`. Mutants:
+  `tools/mutants/serpent1.json` (43, all dead). Re-aimed by content: `auditrealm2_client.json` (2), `eventtip.json`,
+  `gatekeys.json`, `gateux.json`, `raid4.json`, `seapeace.json`, `survtiers3.json` (2) and `wb12d.json`.
+- **AUDIT SERPENT 2** (`01-Overview/Audit-Sea-Serpent.md`): every word a fight fans names its site (`sx`/`sz` on every
+  `serpent` frame of a fight; `validSerpentOut` projects it) and the client folds its own site's alone - a forged
+  site's fight heard on a halo socket in the next cell never reads as the client's serpent; a socket about two fights
+  hears both. A refusal no longer mutes the client; the cell's other changes are the brain's and the room's (one
+  timeline rule, the far newcomer, the slain kept, a still fight unwritten). Pins: `test/serpent1_audit2.test.js`;
+  mutants: `tools/mutants/serpent1_audit2.json` (14, all dead).
+
+## SERPENT2 (2026-10-04, the owner: "So this also shows in the pause menu timer?", then "This needs to happen, the discord integration needs to happen") - the serpent's herald and its timers
+
+The record is `11-Multiplayer/Sea-Serpent.md` section 14. What it asks of the online arc:
+
+- **A `site` word to the hub** (relay world166; `net/wire.js` `SERPENT_KINDS`, `validSerpentIn`,
+  `SERPENT_SITE_RELAY_MIN`, `relaySupportsSerpentSite`). The `serpent` frame's sixth kind, said to the hub alone - in a
+  cell it is junk: the day, the site's native point to the whole unit, and the port it lies off (`gatePlaceWire`'s
+  law). `net/online.js` `sendSerpentSite` says it once a socket and day, under the serpent frames' own bucket, only to
+  a hub that welcomed the primary socket with 166 or later (`serpentSiteOk`) - an older one closes the socket on a
+  kind it does not know. The world host says it on the serpent's frame from `serpentOmen.ahead()`, the site found from
+  its quiet on.
+- **The hub's vote and its herald** (`server/src/index.js`). The site is kept by the gate's vote law (`serpentsite`,
+  `foldGateSite`, two accounts agreeing). The herald's beat runs on the hub's alarm after the gate's (`_serpentHeraldBeat`,
+  its state `sherald`), and the bells arm that alarm from the first hello (`_serpentHeraldArm`). A kill a cell tells
+  the hub arms it now. Its posts go through the gate's door (`_heraldOf`, `_heraldSend`; `GATE_DISCORD_WEBHOOK`). The
+  bells ping `SERPENT_DISCORD_ROLE` (a var, empty by default) or else the gate's role. The kill is posted for the
+  agreed site alone, never a forged one.
+- **When:** the relay alone (world166) - the service is untouched. A client before it says no site; the herald then
+  names no port and posts no kill until two accounts on a current client agree. Merging deploys world166, which drops
+  connected players once.
+- Pins: `test/serpent2_herald.test.js` (13). `test/discordgates.test.js` stubs the serpent's herald on its hub, so it
+  pins the gate's alone. Mutants: `tools/mutants/serpent2.json` (49, all dead). Re-aimed by content:
+  `discordgates.json` (8: the serpent's copy of the `site` law, the beat and the place made their old text stand twice;
+  `heraldStamp` renamed), `wb12d.json` and `wb13b.json` (`heraldList`).
+
+## AURA-LIVE (2026-10-05, Mac: "Ensure other players can sew all auras") - a badge worn now reaches the room now
+
+The relay reads a badge - the aura, the title, the glyphs - off the token alone (ACC3, WB9g), and a token rides a
+hello. So an aura put on at the account card or the Broker was drawn at the wearer's own feet at once and at nobody
+else's until they changed area; the Broker said as much ("Others see it once you change area.").
+
+- `OnlineSession.rehello()` (`src/net/online.js`): each open socket - the room's and every halo's - says hello again on
+  a fresh token through a NEW socket of the same id. The relay already reads that as a reconnect
+  (`server/src/index.js`, the hello's replace loop): the old socket loses the id first, so its close says no leave;
+  it is closed CLOSE_REPLACED; the first hello's stamp is kept, so a world room's host keeps the seat (AUDIT WORLD A4);
+  and the new hello's join is fanned with the new badge, which every client reads through `_refresh`.
+- The old socket speaks for the room until the new one's token (and, in a battle's room, its pass) is minted, and only
+  then does the new one take its place (`_promote`) - so nothing goes unsaid but a hello's round trip, and the own lane
+  waits for the new welcome as `_open`'s does (OWN1 O2). From then on the old socket is no room's, so its replaced
+  close is ignored and is never the one-seat verdict; the welcome closes it by this hand if the relay has not.
+- A replacement whose room went while it minted (a leave, a crossing, a drop) is closed and the old socket's own paths
+  stand; one the relay refuses (busy) takes the old socket with it and the ordinary retry says hello; one that never
+  opens is dropped past BACKOFF_MAX_MS and the badge is owed again. At most once a REHELLO_GAP_MS (3 s) - a run of
+  changes costs the room's hello budget one hello a socket, and the latest badge goes.
+- The host, `src/scenes/world.js`: the minter's hook (`adoptIssued`) keeps the aura the last token said
+  (`_auraHeard`); `auraFrame` asks `online.rehello()` when my own (`ownAura`) differs from it - a wear since, from any
+  door - and never after a mint, which said it already. THE FOUR HOSTS: world.js WIRED; `worldModes.js`,
+  `dungeonContext.js` and `exterior.js` hold no session of their own - unchanged.
+- No relay change and no version: the relay's own reconnect law does it.
+- Pins: `test/auralive.test.js` (6) - end to end through the real Room (a peer draws the wings; no leave; the host's
+  seat kept; not superseded; taken off the same way), a run of changes one hello, the halo's socket, the refusals, the
+  host's ask; `tools/mutants/auralive.json` (12).

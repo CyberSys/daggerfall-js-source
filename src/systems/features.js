@@ -764,6 +764,7 @@ export const FEATURES = Object.freeze([
     control: Object.freeze({ store: 'prefs', key: WINDMILLS_KEY, initial: true, online: 'player' }),
   }),
   modFeature('seasons-iliac-bay', 'Takes effect when the world next loads.', 'sight'),   // FT18: was world
+  modFeature('low-poly-trees', 'Takes effect when the world next loads.', 'sight'),   // LPT1: read once, as the world loads
   modFeature('roads-hazelnut', 'Takes effect when the world next loads.', 'world'),
   // TO1 (2026-09-17): TRAVEL OPTIONS - `world`, because what it changes
   // is how you cross it. The effect line is the SWITCH's (FT9: when each
@@ -1007,6 +1008,25 @@ export const FEATURES = Object.freeze([
       also: Object.freeze([Object.freeze({ store: 'prefs', key: 'quickslots', initial: true, online: 'player' })]),   // QS: ui/enhancedHud.js hides the diamond on false
     }),
   }),
+  // LOAD1 (2026-10-05, Mac: "add loading screens where needed for the game in an enhanced UI type fashion, maybe make
+  // it where people can also use screenshots for the loading screen and a way to access them in the menu"): THE
+  // LOADING SCREEN (ui/loadingScreen.js) - the place, the step and a running bar over one of the player's own
+  // screenshots (systems/shotGallery.js; the menu's Screenshots pane decides which) or the menu's night sky. DFU has
+  // none - its loads are the fade - so Off is Daggerfall's. The player's own online: it is a picture, nobody else's.
+  Object.freeze({
+    id: 'loading-screen',
+    group: 'interface',
+    title: 'Loading screens',
+    note: 'While the world loads - starting a game, a dungeon\u2019s door, a fast travel, a save - a screen shows where '
+      + 'you are going over one of your screenshots (chosen under Screenshots in the menu) or the menu\u2019s night sky. '
+      + 'Off is Daggerfall\u2019s, with no screen.',
+    effect: 'Takes effect at the next load.',
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({
+      store: 'prefs', key: 'loadingScreen', initial: 'shots', online: 'player',   // ui/loadingScreen.js LOADING_PREF
+      tiers: Object.freeze([['shots', 'Your screenshots'], ['art', 'Night sky'], ['off', 'Off']]),
+    }),
+  }),
   // GUIDE3 (2026-09-29, Mac: "...make it more accessible", then "This is your baby"): THE HERALD - a quest's news as
   // a notice in the enhanced stack (ui/questHerald.js), fed by the quest bridge's tick. On by default (the arc's
   // DECISIONS: the silence it answers is DISC6's report); the player's own online, since news is no one else's.
@@ -1061,6 +1081,19 @@ export const FEATURES = Object.freeze([
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'wildernessCamps', initial: true, online: 'player' }),
   }),
+  // WILD-ROAD (FIELD BUGS 2026-10-04e, Discord: "having to completely halt my travel because 1 rat chose today to die
+  // can be quite the interruption"): systems/roadEncounters.js - the port's own. On a journey or the Overworld, a
+  // wanderer far beneath the traveller is passed by and the rest bring company now and then. Off is DFU's wanderer.
+  Object.freeze({
+    id: 'road-encounters',
+    group: 'world',
+    title: 'Encounters on the road',
+    note: 'While you travel, an enemy far below your level is passed by instead of stopping you, and the rest sometimes '
+      + 'come as a patrol. Off stops for every encounter, as Daggerfall does.',
+    effect: 'Takes effect at once.',
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'roadEncounters', initial: true, online: 'player' }),
+  }),
   // DISC19-F (2026-09-24, Discord through Mac: "enhance guard
   // interaction"): THE WATCH DEFENDS THE TOWN (systems/townWatch.js) -
   // the port's own. DFU's combat watch exists only for a crime; this
@@ -1082,7 +1115,7 @@ export const FEATURES = Object.freeze([
   // calories/README.md), not a port. The one switch for the whole of
   // it: the felt temperature and the five needs on the world minute,
   // the food, water and camping items the store shelves and a new
-  // character carries, camps and campfires, the costed rest, hunting.
+  // character carries, camps and campfires, the costed rest.
   // Off is the classic game: no needs, no provisions minted.
   // SURV-TIERS (2026-09-23): the one switch is three tiers now - Off,
   // Casual (the default: the needs only borrow stamina, and a rest,

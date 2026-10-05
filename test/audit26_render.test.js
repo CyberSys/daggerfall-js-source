@@ -106,7 +106,7 @@ test('audit26 F033: the flash is record 1 of the MISSILE\'s archive at 15fps, wi
   // the blood defaults are still the defaults and the flash is still
   // unscaled (WW1: DoClang/DoThud's x2 rides `scale`, 1 by default).
   assert.match(he, /function spawn\(record, pos, facing = null, \{ archive = BLOOD_ARCHIVE, fps = BLOOD_FPS, scale = 1, tracked = false, onTexture = null \} = \{\}\)/);
-  assert.match(he, /showImpactFlash: \(archive, pos\) => spawn\(IMPACT_RECORD, pos, null, \{ archive, fps: IMPACT_FPS \}\)/);
+  assert.match(he, /showImpactFlash: \(archive, pos, scale = 1\) => spawn\(IMPACT_RECORD, pos, null, \{ archive, fps: IMPACT_FPS, scale \}\)/);   // SUNBABY2 moved it: a sky fireball's flash is drawn larger
   assert.equal(BLOOD_ARCHIVE, 380);
   assert.equal(BLOOD_FPS, 10);
   // facing MUST be null - localPosition Vector3.zero means no
@@ -142,7 +142,8 @@ test('audit26 F033: both missile hosts flash, gated on element None and ByTouch,
     // SPELLFX1: and a FIFTH - a peer's drawn missile meeting a body
     // DUEL1: and a SIXTH - a harmful missile of mine meeting my duel opponent's body
     // WB4b: and a SEVENTH - a harmful missile of mine meeting the Burning Court's boss
-    const impacts = f === 'src/scenes/hostMagic.js' ? 7 : 3;
+    // SUNBABY2: and an EIGHTH - the sun baby's sky fireball landing where it was thrown
+    const impacts = f === 'src/scenes/hostMagic.js' ? 8 : 3;
     assert.equal((s.match(/(?<!function )showImpactFlash\(m, /g) ?? []).length, impacts,
       `${f} flashes at all ${impacts} impacts`);
     // the wall flash is OUTSIDE the AoE branch - DFU flashes on any

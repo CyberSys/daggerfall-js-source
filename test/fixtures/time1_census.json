@@ -14,6 +14,18 @@
    "why": "the gate's phases as relay ms"
   },
   {
+   "file": "src/net/serpentLaw.js",
+   "has": "export const serpentDayAt = (nowMs) => Math.floor(sharedClassicMinutes(nowMs) / SERPENT_DAY_MINUTES);",
+   "clock": "event",
+   "why": "the sea serpent's day - the gate's own, which days hold a serpent"
+  },
+  {
+   "file": "src/net/serpentLaw.js",
+   "has": "const at = (minute) => Math.round(wallMsForClassicMinutes(base + minute));",
+   "clock": "event",
+   "why": "the serpent's sighting, rising, storm and sounding as relay ms"
+  },
+  {
    "file": "src/net/nodeLaw.js",
    "has": "Math.floor(skyClassicMinutes(day",
    "clock": "sky",
@@ -377,12 +389,6 @@
    "has": "day: Math.floor(worldMinutes() / 1440",
    "clock": "event",
    "why": "the naval day - notoriety, grog, departures, traffic"
-  },
-  {
-   "file": "src/scenes/world.js",
-   "has": "winter: seasonValue(dateFromClassicMinutes(skyMinutes())) =",
-   "clock": "sky",
-   "why": "the hunter's winter"
   },
   {
    "file": "src/scenes/world.js",

@@ -1,59 +1,5 @@
 [
   {
-    "name": "HUNT-FOES-the-foe-never-asked",
-    "file": "src/scenes/hunting.js",
-    "old": "      interruptWhen: enemiesNear ? () => !!enemiesNear() : null,",
-    "new": "      interruptWhen: null,",
-    "tests": [
-      "test/fb1002_fieldbugs.test.js"
-    ]
-  },
-  {
-    "name": "HUNT-FOES-the-ask-not-interrupted",
-    "file": "src/ui/huntWindow.js",
-    "old": "    if (this.done || this.phase === HUNT_PHASE.Result) return;",
-    "new": "    if (this.done || this.phase !== HUNT_PHASE.Busy) return;",
-    "tests": [
-      "test/fb1002_fieldbugs.test.js"
-    ]
-  },
-  {
-    "name": "HUNT-FOES-the-result-interrupted",
-    "file": "src/ui/huntWindow.js",
-    "old": "    if (this.done || this.phase === HUNT_PHASE.Result) return;",
-    "new": "    if (this.done) return;",
-    "tests": [
-      "test/fb1002_fieldbugs.test.js"
-    ]
-  },
-  {
-    "name": "HUNT-FOES-the-minutes-under-the-box-again",
-    "file": "src/scenes/hunting.js",
-    "old": "        for (const id of outcome.skills ?? []) tally?.(id);\n        return rows;",
-    "new": "        for (const id of outcome.skills ?? []) tally?.(id);\n        advanceMinutes?.(minutes);\n        return rows;",
-    "tests": [
-      "test/fb1002_fieldbugs.test.js"
-    ]
-  },
-  {
-    "name": "HUNT-FOES-the-minutes-lost-with-the-slot",
-    "file": "src/scenes/hunting.js",
-    "old": "if (outcome) advanceMinutes?.(minutes, { quiet: !searched });",
-    "new": "if (searched && outcome) advanceMinutes?.(minutes, { quiet: !searched });",
-    "tests": [
-      "test/fb1002_fieldbugs.test.js"
-    ]
-  },
-  {
-    "name": "HUNT-FOES-the-loading-foe-unseen",
-    "file": "src/scenes/world.js",
-    "old": "    return exteriorFoes.pendingFeet().some((p) => Math.hypot(p[0] - f[0], p[2] - f[2]) <= HUNT_PENDING_NEAR_M);",
-    "new": "    return false;",
-    "tests": [
-      "test/fb1002_fieldbugs.test.js"
-    ]
-  },
-  {
     "name": "HELM-NET-busy-never-asked",
     "file": "src/scenes/fishHost.js",
     "old": "      if (dungeon || host.busy?.() || !foragingToolIn(entity, FT.FishingNet) || !inWater()) return [];",
@@ -94,15 +40,6 @@
     "file": "src/systems/comeSailAway.js",
     "old": "    if (fading != null) { fading.stopped = true; fading.settle?.(); }   // StopCoroutine(fading)",
     "new": "    if (fading != null) { fading.stopped = true; }   // StopCoroutine(fading)",
-    "tests": [
-      "test/fb1002_fieldbugs.test.js"
-    ]
-  },
-  {
-    "name": "HUNT-FOES-a-far-loading-foe-counted",
-    "file": "src/scenes/world.js",
-    "old": "    return exteriorFoes.pendingFeet().some((p) => Math.hypot(p[0] - f[0], p[2] - f[2]) <= HUNT_PENDING_NEAR_M);",
-    "new": "    return exteriorFoes.pendingFeet().length > 0;",
     "tests": [
       "test/fb1002_fieldbugs.test.js"
     ]

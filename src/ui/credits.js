@@ -188,7 +188,7 @@ export const CREDITS = Object.freeze({
       title: 'Climates & Calories',
       version: '1.7.1',
       author: 'Ralzar',
-      what: 'The survival arc (SURV): a felt temperature from climate, season, hour, weather, clothes and armour; hunger, thirst, sleep and wetness as needs; food that spoils; camps and campfires; a rest priced by where you sleep; hunting - in three tiers on the Features page: Off, Casual (the default: a need met costs nothing and a need neglected only lends out stamina, repaid when it is met) and Hard (the whole arc: attributes, health, sickness and the rest). Overhauled from the mod\u2019s rules rather than ported - its numbers were the starting point - with its own item art vendored: the foods\u2019 spoiled faces, raw meat and the waterskin.',
+      what: 'The survival arc (SURV): a felt temperature from climate, season, hour, weather, clothes and armour; hunger, thirst, sleep and wetness as needs; food that spoils; camps and campfires; a rest priced by where you sleep - in three tiers on the Features page: Off, Casual (the default: a need met costs nothing and a need neglected only lends out stamina, repaid when it is met) and Hard (the whole arc: attributes, health, sickness and the rest). Overhauled from the mod\u2019s rules rather than ported - its numbers were the starting point - with its own item art vendored: the foods\u2019 spoiled faces, raw meat and the waterskin.',
       terms: 'Overhauled with the author\u2019s permission, relayed by Mac (2026-09-17): not a 1:1 port; the rules were read off the shipped bundle\u2019s compiled script and rebuilt, and the mod\u2019s own item art is carried - see vendor/climates-calories/README.md.',
       contact: 'Ralzar, through the DFU forums (the manifest\u2019s ContactInfo)',
       vendor: Object.freeze(['climates-calories']),
@@ -224,6 +224,16 @@ export const CREDITS = Object.freeze({
       contact: 'DFU forums',
       vendor: Object.freeze(['world-of-daggerfall']),
       link: 'https://www.nexusmods.com/daggerfallunity/mods/181',
+    }),
+    // LPT1: Kamer's sixth (beside his wilderness), under the handle his manifest signs it with
+    Object.freeze({
+      title: 'Low Poly Trees',
+      version: '5',
+      author: 'SquidKamer',
+      what: 'The wilderness\u2019s trees, bushes and stumps in 3D: his 253 low-poly models standing where Daggerfall\u2019s nature flats stood, each tree its own size and turn, the same model\u2019s picture beyond the near ground so the view keeps its whole reach. Their leaves and bark are painted from your own Daggerfall pictures - and from Seasons of the Iliac Bay\u2019s, so they turn with the seasons.',
+      terms: 'Vendored on Mac\u2019s word (2026-10-05); SquidKamer\u2019s permission is still to be recorded - see vendor/low-poly-trees/README.md.',
+      contact: 'DFU Discord',
+      vendor: Object.freeze(['low-poly-trees']),
     }),
     Object.freeze({
       title: 'Basic Roads',

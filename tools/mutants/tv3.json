@@ -352,8 +352,8 @@
   {
     "name": "AUDIT-DEEP-T3-9-party-twice",
     "file": "src/scenes/world.js",
-    "old": ".filter((t) => !social?.inMyParty(social.accountOfPeer(t.id))).map((t) => ({ id: t.id, name: t.name, ...t.p, ship: isShipMark(t.p) }))",
-    "new": ".map((t) => ({ id: t.id, name: t.name, ...t.p, ship: isShipMark(t.p) }))",
+    "old": ".filter((t) => !social?.inMyParty(social.accountOfPeer(t.id))).map((t) => ({ id: t.id, name: t.name, ...t.p, ship: isShipMark(t.p), kin:",
+    "new": ".map((t) => ({ id: t.id, name: t.name, ...t.p, ship: isShipMark(t.p), kin:",
     "tests": [
       "test/tv3_travellers.test.js"
     ],
@@ -472,7 +472,7 @@
   {
     "name": "OVERWORLD-NAMES-the-near-unnamed",
     "file": "src/scenes/world.js",
-    "old": "      marks.push({ key: `peer:${d.id}`, at: [f[0], f[1] + h, f[2]], label: d.name ?? '', kind: `${party ? 'party' : 'traveller'}${isShipMark(t?.p) ? ' ship' : ''}${t?.p.tv ? ' journey' : ''}`, edge: party || !!t, badge: tvBadgeOf(d) });   // OWS1: at sea (their region mark says so), a ship\n",
+    "old": "      marks.push({ key: `peer:${d.id}`, at: [f[0], f[1] + h, f[2]], label: d.name ?? '', kind: `${party ? 'party' : 'traveller'}${isShipMark(t?.p) ? ' ship' : ''}${t?.p.tv ? ' journey' : ''}`, edge: party || !!t, badge: tvBadgeOf(d),\n        kin: travellerKin({ friend: !!social?.isFriendPeer(d.id), gt: d.gt }, myGt), lv: d.lv ?? null });   // OWS1: at sea (their region mark says so), a ship; OW-KIN / OW-WHO: who they are to me, and their Renown\n",
     "new": "",
     "tests": [
       "test/tv3_travellers.test.js"
@@ -512,8 +512,8 @@
   {
     "name": "AUDIT-NAMES-N2-1-the-badge-left-behind",
     "file": "src/scenes/travelView.js",
-    "old": ", badge: m.badge ?? null });",
-    "new": " });",
+    "old": ", badge: m.badge ?? null,\n",
+    "new": ",\n",
     "tests": [
       "test/tv3_travellers.test.js",
       "test/tv2_click_to_move.test.js"
@@ -533,8 +533,8 @@
   {
     "name": "AUDIT-NAMES-N2-2-every-stranger-held",
     "file": "src/scenes/world.js",
-    "old": "edge: party || !!t, badge: tvBadgeOf(d) });",
-    "new": "edge: true, badge: tvBadgeOf(d) });",
+    "old": "edge: party || !!t, badge: tvBadgeOf(d),",
+    "new": "edge: true, badge: tvBadgeOf(d),",
     "tests": [
       "test/tv3_travellers.test.js"
     ],

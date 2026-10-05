@@ -164,8 +164,8 @@
   {
     "name": "EVENT-TIP-a-square-ring",
     "file": "src/ui/heldMap.js",
-    "old": "    return Math.hypot(mx - g.cx, my - g.cy) <= g.r ? g : null;",
-    "new": "    return Math.max(Math.abs(mx - g.cx), Math.abs(my - g.cy)) <= g.r ? g : null;",
+    "old": "if (g && Math.hypot(mx - g.cx, my - g.cy) <= g.r) return g;",
+    "new": "if (g && Math.max(Math.abs(mx - g.cx), Math.abs(my - g.cy)) <= g.r) return g;",
     "tests": [
       "test/eventtip.test.js"
     ]

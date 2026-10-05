@@ -63,6 +63,7 @@ function enhancedMerchantServiceOverlay(hooks) {
           // AUDIT IT1 W1: a registered service's own name (GetServiceLabelText's custom arm), as the classic window
           // draws it - Immersive Travel's driver said "Sell" here, the default skin's only road to a carriage
           { label: hooks.label ?? merchantServiceLabel(hooks.service), onClick: () => { close(); hooks.onService?.(); } },
+          ...(hooks.portal ? [{ label: hooks.portal.label, onClick: () => { close(); hooks.portal.onBuy?.(); } }] : []),   // PORTAL1: the Portal Stone, for shards
           { label: 'Exit', onClick: close },
         ],
         onExit: close,

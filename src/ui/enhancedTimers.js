@@ -11,7 +11,7 @@
 import { eventTimerRows, timerText, localWhenText } from '../systems/eventTimers.js';
 
 /** A row's kind -> its marker class (colour in the sheet). */
-export const TIMER_KINDS = Object.freeze(['gate', 'raid', 'battle', 'seat', 'reset']);
+export const TIMER_KINDS = Object.freeze(['gate', 'serpent', 'raid', 'battle', 'seat', 'reset']);   // SERPENT-TIMERS: the sea serpent's
 
 /**
  * The hourglass, the button beside the profile mark.
@@ -22,17 +22,14 @@ export function timersMark(doc, { onOpen, open = false }) {
   const b = doc.createElement('button');
   b.type = 'button';
   b.className = 'px-timersmark';
-  b.setAttribute('aria-label', 'Timers: gates, raids, battles and resets');
+  b.setAttribute('aria-label', 'Timers: gates, the sea serpent, raids, battles and resets');
   b.setAttribute('aria-haspopup', 'dialog');   // AUDIT TIMERS1 UI-6
   b.setAttribute('aria-expanded', open ? 'true' : 'false');
   b.title = 'Timers';
   const glass = doc.createElement('span');
   glass.className = 'px-hourglass';
   glass.setAttribute('aria-hidden', 'true');
-  const word = doc.createElement('span');
-  word.className = 'px-timersword';
-  word.textContent = 'Timers';
-  b.append(glass, word);
+  b.append(glass);   // HOURGLASS-ALONE (2026-10-04, the owner: "remove the text \"timer\" from next of the hourglass"): the glass alone - its name is the label's and the title's
   b.addEventListener('click', () => onOpen());
   return b;
 }

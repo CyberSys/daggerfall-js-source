@@ -1080,15 +1080,6 @@
     ]
   },
   {
-    "name": "TOFIELD3-the-hunting-roll-is-held-at-the-mods-clock-again",
-    "file": "src/scenes/world.js",
-    "old": "    if (_mode() === 'exterior') hunting.tick();   // SURV6: the minute's hunting roll; the window takes the slot",
-    "new": "    if (_mode() === 'exterior' && worldTimeScale() <= 1) hunting.tick();   // SURV6: the minute's hunting roll; the window takes the slot",
-    "tests": [
-      "test/to1_travelOptions.test.js"
-    ]
-  },
-  {
     "name": "to-online-the-coordinates-door-stands-down-again",
     "file": "src/scenes/world.js",
     "old": "      coordsAllowed: () => !!travelOptions,",

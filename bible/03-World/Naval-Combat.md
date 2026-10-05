@@ -950,7 +950,8 @@ shooting cannons should have attack canceling." Each one root-caused (`test/deck
 - **SEA-HUNT** (DECLARED): the hunt asked outdoors-and-not-swimming, and the coast's first sea pixels read as land's
   climate, so a helm rolled the hunt. `huntRoll` takes `afloat` - off the host's one predicate, `playerAfloat` (a helm,
   a boat's deck, another's boat, a sea ship's deck, the water) - which a bounty's trail and a wilderness band now read
-  too (`bible/06-Systems/Climates-Calories.md` SEA-HUNT).
+  too (`bible/06-Systems/Climates-Calories.md` SEA-HUNT). HUNT-OUT (2026-10-04) removed the text hunt and its half
+  of this with it; the trail and the band still read `playerAfloat`.
 - **GUN-HOLD**: a laid broadside could only be fired - press to lay, release to fire, and no way to put it down but a
   window over it or bracing. ACTIVATE WHILE THE GUNS ARE LAID HOLDS FIRE (`navalHost.js holdFire`): the aim put down,
   "Hold fire." said, the release owes nothing and the guns stay loaded - the bow's own cancel (`playerWeapon.js`
@@ -963,7 +964,7 @@ shooting cannons should have attack canceling." Each one root-caused (`test/deck
   `tools/mutants/nav_h.json` NAV-H-the-guns-before-the-spell) - readying one is the player's own choice of what the
   press does.
 
-Mutants: `tools/mutants/deckfield.json` (19), all dead; three records re-aimed onto the new text (OW5-B1, NAV-F's board
+Mutants: `tools/mutants/deckfield.json` (19; 17 since HUNT-OUT took the hunt's two), all dead; three records re-aimed onto the new text (OW5-B1, NAV-F's board
 hint, SURV6's night gate), all dead.
 
 ## HELM-WAY (2026-09-29) - the ships handle, and a ship with no hands strikes
@@ -2027,3 +2028,26 @@ sides whole. What each met of the other, and what was decided:
 Not seen on a GPU in this session: the pass, the flags' colours and the deck fires are verified by their pins and by
 the Node harness, not by eye. The aim's arcs as lines (AUDIT NAV1, #4) were drawn by the pass itself in headless
 Chromium's SwiftShader - WebGL2 in software - and read off its pixels; the tags' layer was laid in the same browser.
+
+## The sea serpent's seams (SERPENT1, 2026-10-04)
+
+Mac: "A new world event that requires players with a ship to meet up and take on a large scale sea serpent in the
+ocean." The fight is `11-Multiplayer/Sea-Serpent.md`. What it asks of this host (`scenes/navalHost.js` `deps.serpent`,
+read at a frame, never at the build):
+
+- **A target kind.** Its segments above the sea join the shots' targets as `serpent:<segment>` oriented boxes. Every
+  ball meets them: a ship's, a peer's and mine. A ball on its hide throws up the sea and leaves no timber afloat.
+- **My ball on it** gives the gun's own harm (my Guns refit's with it) to the serpent host, which gathers it into the
+  cell's word (`landHit`'s serpent route). Anyone else's is their own machine's to say.
+- **The aim** reddens a broadside laid on it as on a ship (`SERPENT_AIM`). A look on it lays the guns on the segment
+  it meets, with no lead, since it swims its own way.
+- **A hostile near.** In its waters there is no rest, no time scale and no yard (`hostileNearMe`), and every hand goes
+  to the guns (`crewAlarm`). Ashore it is none of these (SEA-PEACE).
+- **Its blows on my ship** come through `serpentStrike(boat, hurt, { shake, line })`: the damage model's own hurt, the
+  deck's shake and the line. Its landings' spray comes through `serpentFx`: the breach's column, the lash's sheet, the
+  ram's bow wave and the venom's spatter. `serpentBoat()` hands it my ship: at my helm or aboard, her root, her
+  middle, her heading, her length and beam, and her whole hull and canvas.
+- **Come Sail Away's two seams.**
+  - `warp` (QUAYS') answers the coil's hold first: in its coils she is held where it took her.
+  - `drift`, new, is a world-space velocity added to the current under her: the maelstrom's pull and a blow's throw
+    (`systems/comeSailAway.js` `lateUpdateSailing`). Her helm still answers.

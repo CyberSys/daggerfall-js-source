@@ -51,6 +51,7 @@ import { GUILD_HALL_ENTRIES, GUILD_HALL_ENTRY_WORDS, guildHallPrice } from '../n
 import { heraldryOf } from '../net/heraldryLaw.js';   // GUILD1d: a hall's heraldry, off the town's answer
 import { layoutStampOfMapId, CLASSIC_LAYOUT } from './layoutPins.js';   // WD3: a home is bought in its town's layout
 import { goldSum as gold, EMPIRE_ACCOUNT_WORDS } from './homeWords.js';   // HOME-PRICE: every sum with its thousands; online, the Empire's account (EMPIRE-ACCOUNT)
+import { walletReserve } from '../net/realmGoldLaw.js';   // MARKET-AUDIT: a refusal gives back exactly what the payment took
 
 /** How long a town's answer is believed before a door asks again. */
 export const HOME_TOWN_TTL_MS = 60_000;
@@ -78,9 +79,16 @@ export function homeCandidate(bd) {
   return t === BUILDING_TYPES.HouseForSale || isResidence(t) || t === BUILDING_TYPES.House5 || t === BUILDING_TYPES.House6;
 }
 
-/** ...and whether one can be BOUGHT: a candidate no active quest is using (GetHousesForSale's own exclusion). */
+/** ...and whether one can be BOUGHT: a candidate no active quest is using (GetHousesForSale's own exclusion).
+ *  FIELD BUGS 2026-10-05 CRYPT-SALE (Discord: "I bought a house and only get the following message This house has
+ *  nothing of value"; "the house inside the graveyard in Wayrest"; "Wickcroft Tombs"): and one with a room to enter.
+ *  HOME2's House5 is the graveyard's crypt - six GRVE blocks, 67 buildings in 67 places - and its interior holds no
+ *  model, so DFU's AssignBlockData refuses it (DaggerfallInterior.cs:388-389); DFU never sells one (GetHousesForSale
+ *  takes HouseForSale and House1-4, BuildingDirectory.cs:156-184). The producers stamp `hasInterior`
+ *  (talkTopics.js); a record without the stamp is not refused. Not in homeCandidate: a crypt already bought stays its
+ *  owner's home, plaque and "Sell it" row with it. */
 export const homePurchasable = (bd, { isActiveQuestBuilding = null } = {}) =>
-  homeCandidate(bd) && !(isActiveQuestBuilding?.(bd) ?? false);
+  homeCandidate(bd) && bd.hasInterior !== false && !(isActiveQuestBuilding?.(bd) ?? false);
 
 /** The scene an online home's things are kept under - its own, never the building's (the header). */
 export const homeSceneName = (mapId, buildingKey) => `OnlineHome [MapID=${Number(mapId) >>> 0}, BuildingKey=${buildingKey}]`;
@@ -571,11 +579,13 @@ export async function buyOnlineHome(homes, { mapId, buildingKey, region, price, 
     if (realm) {
       // REALM P2.2b: the claim and the record's payment are one write on the service - the purse pays at once and gets it
       // back on a refusal (systems/realmSaves.js realmGoldAct); there is no claim to give back
+      // MARKET-AUDIT: a refusal and a repeat give back exactly what the payment took (purse, letters, account)
+      const paid = walletReserve({ pay, credit: (n) => refund?.(n) }, price);
       const r = await realm.act({
-        reserve: () => { pay(price); return () => refund?.(price); },
+        reserve: paid.reserve,
         // AUDIT REALM: a claim answered as the house already this character's (`repeat`) moved no gold on the record - the
         // purse's reserve comes back, or the next checkpoint would write the price paid twice
-        apply: (/** @type {any} */ res) => { if (res?.repeat) refund?.(price); },
+        apply: (/** @type {any} */ res) => { if (res?.repeat) paid.back(); },
         call: (/** @type {any} */ at) => homes.claim({ mapId, buildingKey, region, price, realm: at, layout }),
       });
       return r?.ok ? { ok: true } : { ok: false, error: r?.error ?? 'server' };

@@ -47,8 +47,8 @@
   {
     "name": "LOOT9-shard-unlisted",
     "file": "src/net/realmTradeLaw.js",
-    "old": "Object.freeze([570, 571]);",
-    "new": "Object.freeze([570]);",
+    "old": "Object.freeze([570, 571, 572]);",
+    "new": "Object.freeze([570, 572]);",
     "tests": [
       "test/loot9_reforge.test.js"
     ]
@@ -164,8 +164,8 @@
   {
     "name": "LOOT9-purse-counts-the-locked",
     "file": "src/systems/reforge.js",
-    "old": "isWelkyndShard(it) && !isLocked(it) ? (it.stackCount ?? 1) : 0",
-    "new": "isWelkyndShard(it) ? (it.stackCount ?? 1) : 0",
+    "old": "const spendable = (it) => isWelkyndShard(it) && !isLocked(it) && !isEquipped(it);",
+    "new": "const spendable = (it) => isWelkyndShard(it) && !isEquipped(it);",
     "tests": [
       "test/loot9_reforge.test.js"
     ]
@@ -182,7 +182,7 @@
   {
     "name": "LOOT9-spend-the-locked",
     "file": "src/systems/reforge.js",
-    "old": "    if (!isWelkyndShard(it) || isLocked(it)) continue;",
+    "old": "    if (!spendable(it)) continue;",
     "new": "    if (!isWelkyndShard(it)) continue;",
     "tests": [
       "test/loot9_reforge.test.js"

@@ -110,8 +110,9 @@
   {
     "name": "OWS1-held-map-truthy",
     "file": "src/ui/partyMapMarks.js",
-    "old": "ship: r.ship === true });",
-    "new": "ship: !!r.ship });",
+    "old": "ship: r.ship === true,\n",
+    "new": "ship: !!r.ship,\n",
+    "note": "re-aimed BY CONTENT (FIELD BUGS 2026-10-04e): the line grew a field of its own (OW-KIN, OW-WHO, OW-HUBS, SEAT-TIP)",
     "tests": [
       "test/ows1_ships.test.js"
     ]
@@ -119,8 +120,9 @@
   {
     "name": "OWS1-held-map-key",
     "file": "src/ui/partyMapMarks.js",
-    "old": "${m.journey ? 1 : 0},${m.ship ? 1 : 0},${m.name}",
-    "new": "${m.journey ? 1 : 0},${m.name}",
+    "old": "${m.journey ? 1 : 0},${m.ship ? 1 : 0},${m.kin",
+    "new": "${m.journey ? 1 : 0},${m.kin",
+    "note": "re-aimed BY CONTENT (FIELD BUGS 2026-10-04e): the line grew a field of its own (OW-KIN, OW-WHO, OW-HUBS, SEAT-TIP)",
     "tests": [
       "test/ows1_ships.test.js"
     ]
@@ -137,8 +139,9 @@
   {
     "name": "OWS1-held-map-rows",
     "file": "src/scenes/world.js",
-    "old": "...t.p, ship: isShipMark(t.p) })),",
-    "new": "...t.p, ship: false })),",
+    "old": "...t.p, ship: isShipMark(t.p), kin:",
+    "new": "...t.p, ship: false, kin:",
+    "note": "re-aimed BY CONTENT (FIELD BUGS 2026-10-04e): the line grew a field of its own (OW-KIN, OW-WHO, OW-HUBS, SEAT-TIP)",
     "tests": [
       "test/ows1_ships.test.js"
     ]

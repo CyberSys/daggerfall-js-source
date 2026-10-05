@@ -65,8 +65,8 @@
   {
     "name": "FS-drawn-missile-lands",
     "file": "src/scenes/hostMagic.js",
-    "old": "      if (m.visual) {\n        const body =",
-    "new": "      if (false) {\n        const body =",
+    "old": "      if (m.visual) {\n        // SUNBABY2: a sky fireball lands",
+    "new": "      if (false) {\n        // SUNBABY2: a sky fireball lands",
     "tests": [
       "test/friendlyspells.test.js"
     ]

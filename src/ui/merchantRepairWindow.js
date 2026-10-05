@@ -24,8 +24,10 @@
 //   (:78) and the panel sits at ((320-130)/2, (200-51)/2).
 // - the four buttons are panel-CHILD rects (:24-27): repair
 //   (5,5,120,7), talk (5,14,120,7), sell (5,23,120,7), exit
-//   (44,33,43,15). Every word is painted in the art - this window
-//   draws no text of its own.
+//   (44,33,43,15). Every word is painted in the art - the window's
+//   own four draw no text. (PORTAL1: the Portal Stone's row under the
+//   art is the port's own, and draws its label - merchantServiceWindow.js
+//   drawPortalRow.)
 // - `ParentPanel.BackgroundColor = Color.clear` (:62): the room stays
 //   visible behind the panel.
 // - all four handlers are `PlayOneShot(ButtonClick); CloseWindow();`
@@ -45,6 +47,7 @@ import { drawScreenDimBackdrop } from './chargenArt.js';
 import { audio } from '../systems/audio.js';   // F141: the ButtonClick roster
 import { SOUND } from '../systems/soundClips.js';
 import { firstHotkey } from '../systems/dialogShortcuts.js';   // A8: the DaggerfallShortcut table
+import { portalRowRect, PORTAL_ROW_KEY, drawPortalRow } from './merchantServiceWindow.js';   // PORTAL1: the Portal Stone's row, the shop popups' one
 
 /** The window's DaggerfallShortcut.Buttons in ctor ADD order (:82-103),
  *  which is the order Panel.ProcessHotkeySequences asks them in. */
@@ -83,6 +86,7 @@ const inRect = ([rx, ry, rw, rh], x, y) => x >= rx + REPAIR_PANEL_X && y >= ry +
  *   onTalk()    TalkManager.TalkToStaticNPC(merchantNPC) (:147)
  *   onSell()    WindowModes.Sell (:169)
  *   onClose()
+ *   portal?: { label, onBuy() }   PORTAL1: the Portal Stone's row (merchantServiceWindow.js portalRowRect)
  */
 export class MerchantRepairWindow {
   constructor(hooks) {
@@ -99,6 +103,7 @@ export class MerchantRepairWindow {
   input(code, e = null) {
     // Escape/Enter are the port host's close keys, not DFU buttons.
     if (code === 'Escape' || code === 'Enter') { this._act(null); return; }
+    if (code === PORTAL_ROW_KEY && this.hooks.portal) { this._act(this.hooks.portal.onBuy); return; }   // PORTAL1
     const hit = firstHotkey(MERCHANT_REPAIR_BUTTONS, code, e);
     if (hit === null) return;
     switch (hit) {
@@ -114,15 +119,17 @@ export class MerchantRepairWindow {
     if (inRect(REPAIR_RECTS.talk, vx, vy)) { this._act(this.hooks.onTalk); return true; }
     if (inRect(REPAIR_RECTS.sell, vx, vy)) { this._act(this.hooks.onSell); return true; }
     if (inRect(REPAIR_RECTS.exit, vx, vy)) { this._act(null); return true; }
+    if (this.hooks.portal && inRect(portalRowRect(REPAIR_PANEL_H), vx, vy)) { this._act(this.hooks.portal.onBuy); return true; }   // PORTAL1
     return true;   // the panel eats its own clicks
   }
 
-  draw(renderer, canvas) {
+  draw(renderer, canvas, font = null) {
     if (!_art) { this._close(); return; }   // art gone mid-session: release the slot
     const m = nativeMetrics(canvas);
     // AUDIT 26 F136 / AUDIT 24 ui: `ParentPanel.BackgroundColor =
     // Color.clear` (:62) - the letterbox is NOT painted, the room shows.
     drawScreenDimBackdrop(renderer, canvas);
     drawImg(renderer, _art, m, REPAIR_PANEL_X, REPAIR_PANEL_Y);
+    if (this.hooks.portal && font) drawPortalRow(renderer, m, font, REPAIR_PANEL_X, REPAIR_PANEL_Y, REPAIR_PANEL_H, this.hooks.portal.label);   // PORTAL1
   }
 }

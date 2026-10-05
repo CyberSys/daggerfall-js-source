@@ -175,7 +175,7 @@ export function pathLine(cells) {
  * @param {{ pts: number[][], len: number, cum: number[] }} line @param {number} s
  * @returns {{ x: number, z: number, yaw: number }}
  */
-export function pointAlong(line, s) {
+export function pointOnLine(line, s) {
   const { pts, cum } = line;
   if (!pts.length) return { x: 0, z: 0, yaw: 0 };
   if (pts.length === 1) return { x: pts[0][0], z: pts[0][1], yaw: 0 };

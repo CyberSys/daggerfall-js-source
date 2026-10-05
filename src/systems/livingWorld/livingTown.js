@@ -42,7 +42,7 @@ import { townPlaces, exitToward, harbourDock } from './places.js';
 import { townCensus, isHome } from './census.js';
 import { dayPlan, entryAt, isOutdoor, DAY_START_MIN, DAY_MIN } from './dayPlan.js';
 import { BUILDING_TYPES } from '../../world/buildingNames.js';
-import { createPathBook, pointAlong } from './townPaths.js';
+import { createPathBook, pointOnLine } from './townPaths.js';
 import { spotCircles, circleLine, circleStands, aloneStand, ROUND_S, lineMinutes } from './meetups.js';
 import { LIVING_GREETINGS, LIVING_KEEPSAKE, fillLine, firstNameOf } from './lines.js';
 import { keepsakeFor } from './keepsake.js';
@@ -372,7 +372,7 @@ export class LivingTown {
       if (line === null) return null;
       const w = this._walked(e, line, t);
       if (w.s < line.len) {
-        const p = pointAlong(line, w.s);
+        const p = pointOnLine(line, w.s);
         return { x: p.x, z: p.z, yaw: p.yaw, moving: true, e, fromDoor: e.from.kind === 'door' && (t - e.t0) < DOOR_POP_MIN };
       }
       if (!after || !isOutdoor(after) || after.kind === 'walk') return null;   // arrived: in through the door, out of the gate

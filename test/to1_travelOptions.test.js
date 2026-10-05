@@ -1821,7 +1821,7 @@ test('BOOT-TDZ: every Travel Options binding the STREAM reads is declared above 
 // exhaustion". Three defects, and none of them is the mod's model being
 // wrong - the port does run the mod's continuous accelerated journey, as
 // its own readme describes it, and never teleports on that path.
-test('TO-FIELD: the accelerated journey waits for the ground; TO-FIELD3 took the needs and the hunting roll back off the mod\'s clock (mutants: travel-drive-ungated)', () => {
+test('TO-FIELD: the accelerated journey waits for the ground; TO-FIELD3 took the needs back off the mod\'s clock (mutants: travel-drive-ungated)', () => {
   const w = read('src/scenes/world.js');
 
   // 1. THE WALK WAITS. The journey drives the motor at up to sixty times
@@ -1866,16 +1866,14 @@ test('TO-FIELD: the accelerated journey waits for the ground; TO-FIELD3 took the
   // own fatigue surcharge off a 60x ride. Mac removed it: "journeys no
   // longer sit as resting (needs charge normally again, health ticks
   // back)". `resting` is not a fatigue knob - it is the needs' one word
-  // for "sat still" - and it was holding four laws, not one: the two
-  // fatigue drains it was aimed at, the bare-skin block's naked-cold
-  // and sunburn ticks and the byFire exposure damage (the health), and
-  // - never counted by the change that set it - SURV6's hunting roll,
-  // which refuses outright on `resting` (hunting.js:120).
+  // for "sat still" - and it was holding more laws than one: the two
+  // fatigue drains it was aimed at, and the bare-skin block's naked-cold
+  // and sunburn ticks and the byFire exposure damage (the health).
   assert.match(w, /survivalEnv: \(\) => \(_mode\(\) === 'dungeon' \? \(playerEntity\.isResting \? modes\?\.dungeonCtx\?\.survivalEnvNow\?\.\(\) \?\? null : null\) : survivalEnvNow\(\)\),/,
     'the journey feeds the needs the world it is actually in');
   assert.doesNotMatch(w, /resting: true \}\n?\s*: survivalEnvNow/, 'and no travel arm sits the traveller down');
   assert.doesNotMatch(w, /worldTimeScale\(\) > 1 \? \{ \.\.\.survivalEnvNow\(\)/, 'the mod\'s clock does not reach the needs at all');
-  // the four laws that flag was holding, each still keyed on `resting`
+  // the laws that flag was holding, each still keyed on `resting`
   // in the leaf - which is WHY one flag could never have been the right
   // shape for a fatigue surcharge
   const n = read('src/systems/survival/needs.js');
@@ -1883,24 +1881,12 @@ test('TO-FIELD: the accelerated journey waits for the ground; TO-FIELD3 took the
   assert.match(n, /if \(hungerAfter === 'starving' && !resting\) tire\(DRAIN\.starving, 'hunger'\);/, 'the starving drain');
   assert.match(n, /if \(sleepNow === 'exhausted' && !resting && !wakingHeld\(s, now\)\) tire\(DRAIN\.exhausted, 'sleep'\);/, 'the exhausted drain (REST6: held while the Waking Salts last - AUDIT REST II H15: asked, not optional)');
   assert.match(n, /if \(!env\.insideBuilding && !vampire && !ctx\.beastForm && !sleeping && !resting\) \{/, 'the bare-skin health ticks');
-  assert.match(read('src/systems/survival/hunting.js'), /if \(!climate \|\| !outdoors \|\| (?:afloat \|\| )?inLocationRect \|\| night \|\| enemiesNear \|\| resting\) return null;/,
-    'and the hunting roll, which is the one the flag took without saying so');
 
   // 3. THE FOLLOW KEY IS NAMED WHERE THE TRIP IS BOUGHT. The mod does not
   // route along roads to a destination - road following is a mode the
   // player starts with a key, and the port had to move that key off the
   // mod's own F (this skin spends F on the social card), so the only
   // place it was named was the help inside a running journey.
-  // TO-FIELD3: and SURV6's roll is NOT held with them any more - Mac:
-  // "hunting rolls fire during travel again". The consequence is real
-  // and is the point: the roll fires once a game minute, a journey
-  // spends those at up to a hundred times real time, and every event
-  // opens a box the mod answers with interruptTravel() - so a long
-  // wilderness ride will be interrupted, often. The wilderness is alive
-  // while you cross it; the survival mod's own switch is the way out.
-  assert.match(w, /if \(_mode\(\) === 'exterior'\) hunting\.tick\(\);/,
-    'the wilderness rolls at the traveller whatever pace they are moving at');
-  assert.doesNotMatch(w, /worldTimeScale\(\) <= 1\) hunting\.tick\(\)/, 'no clock gate survives on the roll');
 
   const m = read('src/ui/heldMap.js');
   assert.match(m, /const _fk = this\._to\?\.followKeyText\?\.\(\);/, 'KB1: the registry\'s FollowPaths, as Controls binds it');

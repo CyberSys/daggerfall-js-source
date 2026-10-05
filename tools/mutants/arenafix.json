@@ -175,7 +175,7 @@
   {
     "name": "ARENAFIX-UNDERCROFT-REST",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    for (let l = 0; l < n && !_undercroftHall; l++) {",
+    "old": "    for (let l = 0; l < n && !(_undercroftHall && undercroftHallNear(_undercroftHall, lastPlayerFeet)); l++) {",
     "new": "    for (let l = 0; l < n; l++) {",
     "tests": [
       "test/arena_fix.test.js"

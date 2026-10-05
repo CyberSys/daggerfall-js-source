@@ -86,7 +86,7 @@
   {
     "name": "SUNBABY1-host-fog-unhazed",
     "file": "src/scenes/shared.js",
-    "old": "const c = sunbabyW > 0 ? sunbabyHaze(own, sunbabyW) : own;",
+    "old": "const c = sunbabyW > 0 ? sunbabyHaze(own, sunbabyW, sunbabyEvil) : own;",
     "new": "const c = own;",
     "tests": ["test/sunbaby1_event.test.js"]
   },

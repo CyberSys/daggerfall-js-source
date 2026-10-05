@@ -144,5 +144,14 @@
     "tests": [
       "test/home2.test.js"
     ]
+  },
+  {
+    "name": "DEPLOY-FLAKE-a-5xx-not-asked-again",
+    "file": ".github/workflows/account-deploy.yml",
+    "old": "if [ \"$got\" != \"404\" ] && [ \"${got#5}\" = \"$got\" ]; then break; fi",
+    "new": "if [ \"$got\" != \"404\" ]; then break; fi",
+    "tests": [
+      "test/home2.test.js"
+    ]
   }
 ]

@@ -25,6 +25,9 @@ export const VENDOR_STATION = 'vendor';
 export const VENDOR_LISTING_S = 30 * 86_400;
 /** The most stock rows a home's answer carries, and a region's directory. */
 export const VENDOR_STOCK_SHOWN = 60;
+/** MARKET-AUDIT: the pieces an account's traders stand at once - their own count, never the board's thirty (a stall stands
+ *  on no board), at most what one home's answer carries. */
+export const VENDOR_STOCK_MAX = VENDOR_STOCK_SHOWN;
 export const VENDOR_BOARD_SHOWN = 300;
 /** A search's longest words. */
 export const VENDOR_QUERY_MAX = 60;
@@ -77,4 +80,5 @@ export const VENDOR_REFUSAL_WORDS = Object.freeze({
   'vendor-stocked': 'The trader still has goods for sale - take them back first.',
   'home-vendor-stocked': 'A trader in this house still has goods for sale - take them back first.',
   'bad-vendor': 'That is no trader.',
+  'vendor-full': `Your traders stand ${VENDOR_STOCK_MAX} pieces already - take one back, or wait for one to sell.`,   // MARKET-AUDIT
 });

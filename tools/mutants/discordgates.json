@@ -38,8 +38,8 @@
   {
     "name": "DISCORD-GATES-the-open-said-as-the-seal",
     "file": "src/net/gateHerald.js",
-    "old": "open a breach ${stamp(t.openAt, 'R')} ",
-    "new": "open a breach ${stamp(t.sealAt, 'R')} ",
+    "old": "open a breach ${heraldStamp(t.openAt, 'R')} ",
+    "new": "open a breach ${heraldStamp(t.sealAt, 'R')} ",
     "tests": [
       "test/discordgates.test.js"
     ]
@@ -182,8 +182,8 @@
   {
     "name": "DISCORD-GATES-a-raw-place-taken",
     "file": "src/net/wire.js",
-    "old": "return /^[A-Za-z]/.test(m.pl) && gatePlaceWire(m.pl) === m.pl ? {",
-    "new": "return /^[A-Za-z]/.test(m.pl) ? {",
+    "old": "return /^[A-Za-z]/.test(m.pl) && gatePlaceWire(m.pl) === m.pl ? { k: 'site', d: m.d, px:",
+    "new": "return /^[A-Za-z]/.test(m.pl) ? { k: 'site', d: m.d, px:",
     "tests": [
       "test/discordgates.test.js"
     ]
@@ -218,8 +218,8 @@
   {
     "name": "DISCORD-GATES-the-herald-ignores-its-door",
     "file": "server/src/index.js",
-    "old": "this._herald = hook ? { hook, role: heraldRole(this.env?.GATE_DISCORD_ROLE) } : null;",
-    "new": "this._herald = { hook: String(this.env?.GATE_DISCORD_WEBHOOK), role: heraldRole(this.env?.GATE_DISCORD_ROLE) };",
+    "old": "this._herald = hook ? { hook, role: heraldRole(this.env?.GATE_DISCORD_ROLE), serpentRole: serpentHeraldRole(this.env?.SERPENT_DISCORD_ROLE, this.env?.GATE_DISCORD_ROLE) } : null;",
+    "new": "this._herald = { hook: String(this.env?.GATE_DISCORD_WEBHOOK), role: heraldRole(this.env?.GATE_DISCORD_ROLE), serpentRole: serpentHeraldRole(this.env?.SERPENT_DISCORD_ROLE, this.env?.GATE_DISCORD_ROLE) };",
     "tests": [
       "test/discordgates.test.js"
     ]
@@ -299,8 +299,8 @@
   {
     "name": "DISCORD-GATES-a-site-outside-the-hub-heard",
     "file": "server/src/index.js",
-    "old": "if (m.k === 'site') {\n        if (!isSocialRoom(a.key) || typeof a.sub",
-    "new": "if (m.k === 'site') {\n        if (typeof a.sub",
+    "old": "if (m.k === 'site') {\n        if (!isSocialRoom(a.key) || typeof a.sub !== 'string' || !a.sub) { this._junk(ws); return; }\n        try { await this._gateSite(",
+    "new": "if (m.k === 'site') {\n        if (typeof a.sub !== 'string' || !a.sub) { this._junk(ws); return; }\n        try { await this._gateSite(",
     "tests": [
       "test/discordgates.test.js"
     ]
@@ -308,8 +308,8 @@
   {
     "name": "DISCORD-GATES-the-omen-missed-at-its-instant",
     "file": "server/src/index.js",
-    "old": "if (due && due.at <= now) {",
-    "new": "if (due && due.at < now) {",
+    "old": "if (due && due.at <= now) {\n        const site = agreedGateSite(",
+    "new": "if (due && due.at < now) {\n        const site = agreedGateSite(",
     "tests": [
       "test/discordgates.test.js"
     ]
@@ -317,8 +317,8 @@
   {
     "name": "DISCORD-GATES-the-next-omen-never-armed",
     "file": "server/src/index.js",
-    "old": "      if (next.length) await this._hubArm(Math.min(...next));\n",
-    "new": "",
+    "old": "      if (next.length) await this._hubArm(Math.min(...next));\n    } catch (e) { console.warn('[herald] beat failed'",
+    "new": "    } catch (e) { console.warn('[herald] beat failed'",
     "tests": [
       "test/discordgates.test.js"
     ]
@@ -326,8 +326,8 @@
   {
     "name": "DISCORD-GATES-a-refusal-never-retried",
     "file": "server/src/index.js",
-    "old": "const next = [retry, owed && owed.at > now ? owed.at : null]",
-    "new": "const next = [owed && owed.at > now ? owed.at : null]",
+    "old": "const owed = st.owe || st.riteOwe ? null : heraldOmenDue(now, st.omen);\n      const next = [retry, owed && owed.at > now ? owed.at : null]",
+    "new": "const owed = st.owe || st.riteOwe ? null : heraldOmenDue(now, st.omen);\n      const next = [owed && owed.at > now ? owed.at : null]",
     "tests": [
       "test/discordgates.test.js"
     ]
@@ -353,8 +353,8 @@
   {
     "name": "DISCORD-GATES-the-place-sent-raw",
     "file": "src/net/online.js",
-    "old": "pl: gatePlaceWire(place) });",
-    "new": "pl: place });",
+    "old": "px, py, pl: gatePlaceWire(place) });",
+    "new": "px, py, pl: place });",
     "tests": [
       "test/discordgates.test.js"
     ]

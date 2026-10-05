@@ -69,6 +69,8 @@ THE KEYBINDING STANDARD records every departure from DFU's table.
 - **DFU's dead rows: build two, hide two.** `CenterView` (Home) levels the view through the look filter;
   `PrintScreen` (F8) saves the game canvas as a PNG (`ui/screenshot.js`, routed by the hosts like every world
   action, so an automap's own F8 - its third background - stays the automap's) - DFU binds both and reads neither.
+  LOAD1 (2026-10-05): the same PNG is also kept in the menu's Screenshots gallery (`systems/shotGallery.js`), where
+  the loading screens stand on it; the download is the player's switch on that pane (`10-UI/Loading-Screens.md`).
   `ToggleConsole` and `Slide` ship unbound and off the page, freeing `` ` `` and Left Ctrl. The dungeon's
   diagnostics readout, a raw F8 that answered only while F8 was unbound, is the `DebugOverlay` action, unbound.
 
@@ -418,3 +420,12 @@ buttons on its fixed art, Slide's among them, unbound.
   post-processing) and the Transport window's letters - F, H, C, S behind the Transport key - read off the shortcut
   table, as words and keys with no buttons. A mod's own keys are named on its Features tile too, read-only, with one
   press through to this page.
+
+## PAD-BINDS and PAD-ARRANGE (FIELD BUGS 2026-10-04e)
+
+The Controller bindings window (Enhanced Plus) has an Overworld and a Quick dial row, and both are d-pad tap or hold
+choices while the crossbar is in force - the Overworld on no key at all is the host's own door (`padAction`, the
+Overworld's alone). Under a window LT raises the hotbar to be arranged: A takes a slot in hand and puts it down on the
+press's click (a swap or a move), Y clears one; with the pad in hand "Add to hotbar" puts the new entry in hand and
+asks for a slot - A on it, or a bumper and the slot's own button on the crossbar (LB + X places too, never the quick
+act); on the row of ten the bumpers stay the tabs'. The mouse taking the hands back lets go of the hand. The record: `01-Overview/Field-Bugs-2026-10-04e.md`.

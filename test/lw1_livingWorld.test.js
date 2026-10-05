@@ -16,7 +16,7 @@ import {
   raceOfPeople, CENSUS_MAX, ADVENTURER_CLASSES, MERCENARY_CLASSES, COURIER_CLASSES, isHome, hasShopJob,
 } from '../src/systems/livingWorld/census.js';
 import { townPlaces, streetNet, exitToward, exitNearest, SOCIAL_OUT, MARKET_OUT } from '../src/systems/livingWorld/places.js';
-import { findTownPath, pathLine, pointAlong, stepCost, createPathBook } from '../src/systems/livingWorld/townPaths.js';
+import { findTownPath, pathLine, pointOnLine, stepCost, createPathBook } from '../src/systems/livingWorld/townPaths.js';
 import { dayPlan, entryAt, isOutdoor, walkMinutes, schedule, guardBeat, favourites, DAY_START_MIN, DAY_MIN, MIN_STAY, GEAR_MIN, HOME_GAP, WALK_DETOUR, WALK_EXTRA_M } from '../src/systems/livingWorld/dayPlan.js';
 import { spotCircles, circleLine, circleStands, aloneStand, lineMinutes, ROUND_S, TALK_SHARE, CIRCLE_APART } from '../src/systems/livingWorld/meetups.js';
 import { fillLine, firstNameOf, pickScript, TOWN_TALKS, JOB_TALKS, LIVING_GREETINGS, TOKEN_FALLBACK } from '../src/systems/livingWorld/lines.js';
@@ -176,9 +176,9 @@ test('LW1 town ways: the grid\'s A* keeps to the streets (a road step costs 1, g
   assert.deepEqual(line.pts, [P(0, 10), P(40, 10), P(40, 30)]);
   assert.equal(line.pts.length, 3, 'start, the one turn, the end');
   assert.ok(Math.abs(line.len - 60 * NAV_CELL) < 1e-9);
-  const mid = pointAlong(line, 40 * NAV_CELL + 5);
+  const mid = pointOnLine(line, 40 * NAV_CELL + 5);
   assert.ok(Math.abs(mid.x - (40 * NAV_CELL + HALF_CELL)) < 1e-9 && Math.abs(mid.yaw) < 1e-9, 'up the second leg, facing +z');
-  const first = pointAlong(line, 3);
+  const first = pointOnLine(line, 3);
   assert.ok(Math.abs(first.yaw - Math.PI / 2) < 1e-9, 'along the first, facing +x');
   // a wall across the grid: no way
   for (let y = 0; y < 64; y++) nav.grid[y * W + 50] = 0;

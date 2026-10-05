@@ -1376,7 +1376,7 @@
   {
     "name": "AUDIT-WB12d-the-stepped-down-forgets",
     "file": "src/net/online.js",
-    "old": "raidOk: this.raidOk, riteOk: this.riteOk, foeInventoryOk: this.foeInventoryOk",
+    "old": "raidOk: this.raidOk, riteOk: this.riteOk, serpentOk: this.serpentOk, foeInventoryOk: this.foeInventoryOk",
     "new": "foeInventoryOk: this.foeInventoryOk",
     "tests": [
       "test/wb12d_rite_world.test.js"
@@ -2530,8 +2530,8 @@
   {
     "name": "AUDIT-WB12d-T-herald-rite-by-nobody",
     "file": "src/net/gateHerald.js",
-    "old": "const who = names.length ? `, by ${listOf(",
-    "new": "const who = true ? `, by ${listOf(",
+    "old": "const who = names.length ? `, by ${heraldList(",
+    "new": "const who = true ? `, by ${heraldList(",
     "tests": [
       "test/wb12d_rite_relay.test.js",
       "test/discordgates.test.js",

@@ -112,8 +112,10 @@ Taken at the design, in the request's own order; each is Mac's to overrule.
   palace, market spots `MARKET_OUT` before the shops, a dock before a Ship; the square the net cell by the middle with
   the most net in its 7x7, sampled every third cell; an exit per side, the net cell nearest that edge.
 - **`townPaths.js`.** A* over the grid's static weights, four neighbours, a step `1 + (15 - weight) / 10` (a road 1,
-  grass 1.3, the average 1.8, stone 2.1), ties on opening order, one scratch set per grid; `pathLine` keeps the turns;
-  `createPathBook` keeps 768 walks and spends a frame's search budget - LW-PERF: a frame's CELLS (`cells`), the walks
+  grass 1.3, the average 1.8, stone 2.1), ties on opening order, one scratch set per grid; `pathLine` keeps the turns
+  and `pointOnLine` walks them (so named at the merge with main: SERPENT1's `serpentSite.js pointAlong` is another
+  function - a share of a sea lane - and one name for two pushed audit24's one-home ratchet past 30); `createPathBook`
+  keeps 768 walks and spends a frame's search budget - LW-PERF: a frame's CELLS (`cells`), the walks
   asked queued and searched in slices (`townPathSearch`, the same answer whole or sliced).
 - **`dayPlan.js`.** The living day 04:00-04:00 (`DAY_START_MIN`), every minute covered once. Wake and bed by temper
   (a lark 05-06 and 20-21, the day 06-07:30 and 21:30-23, an owl 08-10 and 00:30-02); the watch by shift

@@ -105,7 +105,7 @@ function buildPanel(doc, key, toast = false, hint = undefined) {
   // press a key" is DFU's ClickAnywhereToClose said the enhanced way,
   // and it is the default because the box IS that. A toast is not
   // dismissed and carries none; and a window whose box clears on its
-  // own terms - the hunt's busy page (Escape alone), the pack's and
+  // own terms - Foraging's wait page (its own end), the pack's and
   // the held map's refusals (the next action) - says so or says
   // nothing (`hint` false, or its own caption), never a promise the
   // page does not keep.
