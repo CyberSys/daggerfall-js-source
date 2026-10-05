@@ -13,14 +13,18 @@ import { Collider } from '../src/player/collider.js';
 import { MOBILE_TYPES as M } from '../src/characters/mobileTypes.js';
 import { setTacticsClock, resetTactics, tacticsStep, noteLocalPlayer, LOCAL_TARGET } from '../src/ai/tactics.js';
 import {
-  resetBlows, makeBlow, setLiveBlow, drawableBlows, blowConnects, blowScaled, registerBlowDodgedListener, SAND_DRAW_RANGE,
+  resetBlows, makeBlow, setLiveBlow, drawableBlows, blowConnects, blowScaled, registerBlowDodgedListener, SAND_DRAW_RANGE, liveBlows,
   BLOW_TIER_LEVEL, BLOW_COOLDOWN_MIN, BLOW_COOLDOWN_MAX, BLOW_CHANCE, blowShapesOf as foeShapesOf, inBlow as foeInBlow, BLOW as FOE_BLOW,
 } from '../src/ai/foeBlows.js';
 import { BLOW, BLOW_FAMILY, BLOW_CASTERS, blowShapesOf, inBlow } from '../src/ai/blowShapes.js';
 import { setPlayerBout, playerBoutOf, boutGate, inBout } from '../src/characters/enemyTargets.js';
-import { LADDER_TIERS, ladderAfter, arenaLadderRestore, BOUTS_PER_TIER } from '../src/systems/arenaLadder.js';
+import { LADDER_TIERS, ladderAfter, arenaLadderRestore, BOUTS_PER_TIER, nextLadderBout, arenaLadderSnapshot, BOUT_PURSE } from '../src/systems/arenaLadder.js';
+import { boutPoints } from '../src/systems/arenaLeague.js';
+import { revenantCandidate } from '../src/systems/revenant.js';
+import { createArenaBouts } from '../src/scenes/arenaBouts.js';
+import { createArenaClaims } from '../src/net/arenaClaims.js';
 import { newBout, boutTick, boutHit, boutAtMarks, takeBoutEvents, callMs, COUNT_MS, BOUT_LIMIT_MS } from '../src/systems/arenaBout.js';
-import { SAND_BARRED_EFFECTS, SAND_BARRED_KINDS, SAND_CEILING_M, onTheSand, sandPotionRefusal, sandSpellRefusal, stripSandBarred } from '../src/systems/arenaKit.js';
+import { SAND_BARRED_EFFECTS, SAND_BARRED_KINDS, SAND_CEILING_M, onTheSand, sandPotionRefusal, sandSpellRefusal, stripSandBarred, restoreSandHeld } from '../src/systems/arenaKit.js';
 import { PlayerMotor, JUMP_SPEED } from '../src/player/motor.js';
 import { JUMP_SPELL_MULTIPLIER, ATHLETICISM_MULTIPLIER, IMPROVED_ATHLETICISM_MULTIPLIER } from '../src/systems/skills.js';
 import { useItem, TEMPLATES } from '../src/systems/useItem.js';
@@ -30,13 +34,13 @@ import {
   arenaFoeStats, arenaLadderBout, ARENA_CLASS_SPEED, ARENA_BEAST_SPEED, ARENA_ELITE_HP_MULT, ARENA_ELITE_DMG_MULT, ARENA_BLOW_TIER_LEVEL,
   ARENA_BLOW_CHANCE, ARENA_BLOW_COOLDOWN_MIN_MS, ARENA_BLOW_COOLDOWN_MAX_MS, ARENA_BLOW_SHAPES, LADDER_JUDGES_SHARE, ARENA_TICKET_RE,
   validArenaIn, validArenaOut, ARENA_NO_TEXT, ARENA_FLOOR_CENTRE, arenaBoutRoom, ARENA_CHAMPION_MIN_BOUTS, ARENA_CHAMPION_MIN_FOES, ARENA_PAIR_SEASON_MAX,
-  ARENA_PAIR_DAY_MAX, ladderKey,
+  ARENA_PAIR_DAY_MAX, ladderKey, ARENA_ATTEMPT_LIFE_S, ARENA_KEEP_MS,
 } from '../src/net/arenaLaw.js';
 import { openBout, joinBout, stepBout } from '../src/net/arenaBrain.js';
 import { mintArenaReceipt, readArenaReceipt, arenaReceiptValid } from '../src/net/arenaReceipt.js';
 import { fakeRooms } from './fakeRoom.mjs';
 import { standService } from './accountDb.mjs';
-import { laurelWorthy, laurelOfBoard } from '../server-account/src/arena.js';
+import { laurelWorthy, laurelOfBoard, ARENA_ATTEMPTS_KEEP_S } from '../server-account/src/arena.js';
 import { createArenaOnline } from '../src/scenes/arenaOnline.js';
 import { arenaLadderOf } from '../src/net/arenaLaw.js';
 
@@ -174,8 +178,8 @@ test('AUDIT ARENA-LADDER T4: the hosts resolve a fighter\'s blow on a fighter by
   for (const h of ['src/scenes/world.js', 'src/scenes/exterior.js']) assert.match(rd(h), /registerBlowDodgedListener\('arena', \(ai\) => arenaBouts\.blowDodged\(ai\)\);/, h);
   const ab = rd('src/scenes/arenaBouts.js');
   assert.match(ab, /function blowDodged\(ai\) \{[\s\S]*?recordStrike\(C\.rec, t, from\);\s*boutMiss\(C\.b, \{ from, now: t \}\);/);
-  // a relay's telegraph drawn off its word, where it was wound up
-  assert.match(ab, /if \(w\.s && foe\?\.ai\?\.feet\) \{\s*const p = relayToStage\(C, w\.ox, w\.oz\);\s*const blow = makeBlow\(w\.s, \[p\[0\], foe\.ai\.feet\[1\], p\[1\]\], w\.yw, tacticsNow\(\), BLOW_COLOR\);\s*blow\.sand = true;\s*setLiveBlow\(foe\.ai, blow\);/);
+  // a relay's telegraph drawn off its word, where it was wound up (AUDIT ARENA-LADDER 2: at the relay's moment - R2 below)
+  assert.match(ab, /if \(w\.s && foe\?\.ai\?\.feet\) \{\s*const land = relayLandLocal\(C, w, t\);\s*const p = relayToStage\(C, w\.ox, w\.oz\);/);
 });
 
 /** A relay's ladder bout of `tier`/`bout`, its fighter on the sand and the law fighting at `t`. */
@@ -324,15 +328,17 @@ test('AUDIT ARENA-LADDER L4: THE LADDER\'S JUDGES\' FLOOR - at the time limit a 
 });
 
 test('AUDIT ARENA-LADDER L5: THE SAND\'S KIT LAW - in a bout of one\'s own no potion is drunk (the bottle kept), no Invisibility, Levitate, Chameleon, Shadow, Charm or Teleport is cast, and those already on the fighter come off; outside a bout, all as before (mutants: a barred type dropped; the bottle eaten; the strip unread)', () => {
-  assert.deepEqual([...SAND_BARRED_EFFECTS], [13, 14, 23, 24, 34, 43]);
+  assert.deepEqual([...SAND_BARRED_EFFECTS], [13, 14, 23, 24, 33, 34, 43]);   // AUDIT ARENA-LADDER 2: Pacify (the Calms) too
   const table = rd('src/systems/spellEffects.js');
-  for (const [type, name] of [[13, 'Invisibility'], [14, 'Levitate'], [23, 'Chameleon'], [24, 'Shadow'], [34, 'Charm'], [43, 'Teleport']]) assert.match(table, new RegExp(`\\[${type}, \\d+, '${name}'`), `${type} is ${name}`);
+  for (const [type, name] of [[13, 'Invisibility'], [14, 'Levitate'], [23, 'Chameleon'], [24, 'Shadow'], [33, 'Pacify'], [34, 'Charm'], [43, 'Teleport']]) assert.match(table, new RegExp(`\\[${type}, \\d+, '${name}'`), `${type} is ${name}`);
   const potion = { name: 'Potion', group: 'UselessItems1', templateIndex: TEMPLATES.Glass_Bottle, stackCount: 1 };
   const pack = [potion];
   assert.equal(onTheSand(), false);
   assert.equal(sandPotionRefusal(), null);
   assert.equal(sandSpellRefusal({ effects: [{ type: 14 }] }), null, 'off the sand: Levitate as ever');
   setPlayerBout({ id: 'b1', side: 0 });
+  assert.equal(onTheSand(), false, 'AUDIT ARENA-LADDER 2: a bout between players is not the ladder\'s - its kit as ever');
+  setPlayerBout({ id: 'b1', side: 0, kit: true });
   assert.equal(onTheSand(), true);
   const r = useItem(potion, pack, { drinkPotion: () => { throw new Error('drunk'); } });
   assert.equal(r.kind, 'refused');
@@ -348,7 +354,8 @@ test('AUDIT ARENA-LADDER L5: THE SAND\'S KIT LAW - in a bout of one\'s own no po
   assert.match(rd('src/scenes/hostMagic.js'), /why = spellRefusal\?\.\(sp\) \?\? sandSpellRefusal\(sp\);/, 'every host\'s one cast engine asks');
   const ab = rd('src/scenes/arenaBouts.js');
   assert.match(ab, /if \(boutLive\(C\.b\)\) stripSandBarred\(P\);/, 'the floor\'s frame takes them off');
-  assert.match(ab, /if \(C\.you && P && boutLive\(C\.b\)\) stripSandBarred\(P\);/, 'and the relay\'s');
+  assert.match(ab, /if \(C\.you && P && kitBout\(C\) && boutLive\(C\.b\)\) stripSandBarred\(P\);/, 'and the relay\'s ladder\'s');
+  assert.match(ab, /function kitBout\(C\) \{ return C\?\.relay \? C\.relay\.kind === 'pve' && !!C\.you : !!C\?\.ladder; \}/, 'a ladder or practice bout, or the relay\'s ladder I fight');
 });
 
 test('AUDIT ARENA-LADDER L6: A CEILING OVER THE SAND - my bout\'s ring holds the body under SAND_CEILING_M, its rise taken away; over any honest jump; a ring that names none (the duel\'s) is never touched in height (mutants: the ceiling unread; the rise kept; the ring naming none)', () => {
@@ -368,7 +375,7 @@ test('AUDIT ARENA-LADDER L6: A CEILING OVER THE SAND - my bout\'s ring holds the
   duel.arena = { centre: [0, 5, 0], radius: 14 };
   PlayerMotor.prototype._keepInArena.call(duel);
   assert.equal(duel.pos[1], 12, 'a duel\'s ring: height never touched');
-  assert.match(rd('src/scenes/arenaBouts.js'), /radius: cur\.ring \?\? RING_R, ceilAbove: SAND_CEILING_M \}/, 'my bout\'s ring names it');
+  assert.match(rd('src/scenes/arenaBouts.js'), /radius: cur\.ring \?\? RING_R, \.\.\.\(kitBout\(cur\) \? \{ ceilAbove: SAND_CEILING_M \} : \{\}\) \}/, 'my ladder bout\'s ring names it');
 });
 
 // ── THE BOUT'S HOLES ─────────────────────────────────────────────────────────────────────────────────────
@@ -378,6 +385,8 @@ test('AUDIT ARENA-LADDER A1: the sand\'s collapse is the bout\'s fall - 1 health
   assert.match(dc, /const sandSpare = opts\.playerSpare\?\.\(\) \?\? null;\s*if \(sandSpare\) \{ hurtEntity\(playerEntity, playerEntity\.health, \{ bypassShield: true, \.\.\.sandSpare \}\); playerEntity\.fatigue = Math\.max\(playerEntity\.fatigue \?\? 0, 1\); surfacePlayer\(\); return; \}/);
   const h = dc.indexOf('function onExhausted()');
   assert.ok(h > 0 && dc.indexOf('const sandSpare', h) < dc.indexOf('opts.csaOnPlayerDeath?.()', h) && dc.indexOf('const sandSpare', h) < dc.indexOf('advanceOwnMinutes(60)', h), 'asked before the death and the rest are acted on');
+  // AUDIT ARENA-LADDER 2: in my bout before its fight (no spare yet) a breath, never an hour of rest in the Herald's call
+  assert.match(dc, /   if \(foeDeps\?\.playerBoutOf\?\.\(\)\) \{ playerEntity\.fatigue = Math\.max\(playerEntity\.fatigue \?\? 0, 1\); surfacePlayer\(\); return; \}/);
 });
 
 test('AUDIT ARENA-LADDER A2: a fighter on the sand is its bout\'s - no dispel or Wabbajack takes it, and a body gone without falling voids my bout (healed, nothing won or lost) where it was a champion beaten (mutants: the dispel unfiltered; the Wabbajack unguarded; the gone body a fall; the import a comment)', () => {
@@ -389,12 +398,12 @@ test('AUDIT ARENA-LADDER A2: a fighter on the sand is its bout\'s - no dispel or
   assert.match(w, /dispelNearby\(list\.map\(\(no\) => no\.ref\)\.filter\(\(f\) => !inBout\(f\)\),/);
   assert.match(w, /^(?:(?!\/\/).)*import \{[^}\n]*inBout[^}\n]*\} from '\.\.\/characters\/enemyTargets\.js';/m, 'world.js: imported in code, not in a comment');
   assert.match(dc, /dispelNearby\(list\.map\(\(no\) => no\.ref\)\.filter\(\(f\) => !foeDeps\?\.inBout\?\.\(f\)\),/);
-  assert.match(dc, /arrowAimDirection, bumpAtkCount, inBout \}\] = await Promise\.all\(\[/, 'the dungeon: taken off the lazy module');
-  assert.match(dc, /resetAllyTeamOnPlayerAttack, boutGate, bumpAtkCount, inBout,/, '...and published on foeDeps');
+  assert.match(dc, /arrowAimDirection, bumpAtkCount, inBout, playerBoutOf \}\] = await Promise\.all\(\[/, 'the dungeon: taken off the lazy module');
+  assert.match(dc, /resetAllyTeamOnPlayerAttack, boutGate, bumpAtkCount, inBout, playerBoutOf,/, '...and published on foeDeps');
   for (const [h, s] of [['world.js', w], ['exterior.js', ex]]) assert.match(s, /if \(inBout\(f\)\) return;   \/\/ AUDIT ARENA-LADDER A2: the Wabbajack/, h);
   assert.match(dc, /if \(foeDeps\?\.inBout\?\.\(f\)\) return;   \/\/ AUDIT ARENA-LADDER A2: the Wabbajack/);
   const ab = rd('src/scenes/arenaBouts.js');
-  assert.match(ab, /if \(foe\.dead\) \{\s*if \(boutLive\(C\.b\) && !boutFighter\(C\.b, fid\)\?\.out\) \{ if \(!C\.ex\) \{ voidBout\(C\); return; \} boutFell\(C\.b, fid, t\); \}/);
+  assert.match(ab, /if \(foe\.dead\) \{\s*if \(boutLive\(C\.b\) && !boutFighter\(C\.b, fid\)\?\.out\) \{ if \(!C\.ex && !boutFighter\(C\.b, YOU\)\?\.out\) \{ voidBout\(C\); return; \} boutFell\(C\.b, fid, t\); \}/);   // AUDIT ARENA-LADDER 2: never once I am out
   assert.match(ab, /function voidBout\(C\) \{\s*deps\.say\?\.\(ARENA_TEXT\.verdict\.void\);\s*if \(C\.ladder\) \{ deps\.heal\?\.\(\); refundMine\(C\); \}\s*dismiss\(\);/);
 });
 
@@ -447,7 +456,7 @@ test('AUDIT ARENA-LADDER O1: the `in` word\'s ticket and the `atk` word\'s shape
   assert.equal(st.owed[0].z, 'feedc0de00000009');
 });
 
-test('AUDIT ARENA-LADDER O1b: the relay opens a ladder bout only for a ticket - one without is refused, said (mutants: the ticket unrequired)', async () => {
+test('AUDIT ARENA-LADDER O1b: the relay opens a ladder bout only for a ticket - one without (an older build\'s) is told the bout is over, a word that build ends its bout on (mutants: the ticket unrequired)', async () => {
   const W = fakeRooms();
   const R = W.room(arenaBoutRoom('00000000000000ad'));
   const p = R.connect();
@@ -455,17 +464,20 @@ test('AUDIT ARENA-LADDER O1b: the relay opens a ladder bout only for a ticket - 
   await R.hello(p, 'fight-x', { x: C[0], y: 0.3, z: C[2], yaw: 0, pitch: 0, mv: 0 }, { name: 'Ceryn', kind: 'linked', tokenSub: 'acct-x', charLevel: 5 });
   await R.raw(p, JSON.stringify({ t: 'arena', k: 'in', r: 'f', tier: 0, bout: 0, lv: 5 }));
   const no = p.sent.filter((m) => m.t === 'arena' && m.k === 'no').at(-1);
-  assert.equal(no?.m, 'no ticket');
-  assert.equal(ARENA_NO_TEXT['no ticket'], ARENA_TEXT.online.ticketFail);
+  assert.equal(no?.m, 'no bout', 'AUDIT ARENA-LADDER 2: a word an older build ends its bout on');
+  assert.equal(ARENA_NO_TEXT['no bout'], 'That bout is over.');
+  assert.match(rd('src/scenes/arenaOnline.js'), /const over = w\.k === 'no' && \(w\.m === 'no bout' \|\|/, 'and every build ends its bout on it');
   assert.equal(await R.room._boutOf?.() ?? null, null, 'no bout opened');
 });
 
 const T0 = Math.floor(Date.now() / 1000);
 let _j = 0;
 const jid = () => (0xc000 + ++_j).toString(16).padStart(16, '0');
-const ticketReceipt = (S, who, tier, step, won, z, h = 'fall') => mintArenaReceipt({ a: 'l', j: jid(), s: who.id, q: tier, u: step, r: won ? 1 : 0, h, z }, S.gatePriv, { subtle, nowS: T0 });
-const attempt = (S, who, tier, bout) => S.call('/v1/arena/attempt', { tier, bout }, who.secret);
-const claim = (S, who, receipt) => S.call('/v1/arena/claim', { receipt }, who.secret);
+const ticketReceipt = (S, who, tier, step, won, z, h = 'fall', j = jid(), nowS = T0) => mintArenaReceipt({ a: 'l', j, s: who.id, q: tier, u: step, r: won ? 1 : 0, h, z }, S.gatePriv, { subtle, nowS });
+/** AUDIT ARENA-LADDER 2: an attempt asked for a room of its own (the bout's id - the receipt's `j`). */
+const attempt = (S, who, tier, bout, room = jid()) => S.call('/v1/arena/attempt', { tier, bout, room }, who.secret);
+/** A claim - with the fighting character named when `who.fighting` (a won bout's Renown is that character's). */
+const claim = (S, who, receipt) => S.call('/v1/arena/claim', { receipt, ...(who.fighting ? { character: who.character, name: who.handle } : {}) }, who.secret);
 /** Fight and claim the account's next bout - an attempt, its receipt carried. */
 async function fight(S, who, won, h = 'fall') {
   const board = await S.call('/v1/arena/board', {}, who.secret);
@@ -474,7 +486,7 @@ async function fight(S, who, won, h = 'fall') {
   const tier = Math.floor(next / 4), bout = L.won;
   const a = await attempt(S, who, tier, bout);
   assert.equal(a.status, 200, JSON.stringify(a.body));
-  return claim(S, who, await ticketReceipt(S, who, tier, bout, won, a.body.ticket, h));
+  return claim(S, who, await ticketReceipt(S, who, tier, bout, won, a.body.ticket, h, a.body.room));
 }
 
 test('AUDIT ARENA-LADDER O2: THE SERVICE\'S ATTEMPTS - a ticket for the account\'s next bout alone; a loss claimed breaks the tier\'s run; an attempt left open is FORFEIT at the next (a loss, its run broken), and its win carried after is refused; another account\'s ticket takes nothing (mutants: the order unchecked; the run kept; the forfeit unwritten; the ticket\'s owner unread)', async () => {
@@ -498,11 +510,11 @@ test('AUDIT ARENA-LADDER O2: THE SERVICE\'S ATTEMPTS - a ticket for the account\
   const next = await attempt(S, A, 0, 0);
   assert.equal(next.status, 200, 'the forfeit broke the run: the first bout is next');
   assert.equal(next.body.forfeits, 1);
-  const late = await claim(S, A, await ticketReceipt(S, A, 0, 2, true, open.body.ticket));
+  const late = await claim(S, A, await ticketReceipt(S, A, 0, 2, true, open.body.ticket, 'fall', open.body.room));
   assert.deepEqual([late.body.recorded, late.body.why], [false, 'forfeit'], 'its win carried after: refused');
   // another account's ticket
   const mine = await attempt(S, B, 0, 0);
-  const stolen = await claim(S, A, await ticketReceipt(S, A, 0, 0, true, mine.body.ticket));
+  const stolen = await claim(S, A, await ticketReceipt(S, A, 0, 0, true, mine.body.ticket, 'fall', mine.body.room));
   assert.deepEqual([stolen.body.recorded, stolen.body.why], [false, 'reused']);
   // the record keeps every bout: two losses (one forfeit), four wins out of the climb's two... and the board's reach
   const r = S.env?.DB?._raw ?? null;
@@ -548,38 +560,258 @@ test('AUDIT ARENA-LADDER O4: THE LAUREL TAKES TEN RATED BOUTS AGAINST FIVE ACCOU
   assert.match(rd('server-account/src/arena.js'), /const rated = Number\(pair\?\.n \?\? 0\) < ARENA_PAIR_DAY_MAX && Number\(pairSeason\?\.n \?\? 0\) < ARENA_PAIR_SEASON_MAX;/);
 });
 
-test('AUDIT ARENA-LADDER O5: the client asks its ticket - every receipt carried first, the `in` waiting for it; no ticket and the bout is let go, said (mutants: the claims not flushed first; the `in` sent without the ticket; the failure silent)', async () => {
-  const order = [], said = [], boutSent = [];
+/** The online arena's client over stubs: `attempt` answers as `attemptAnswer(tier, bout, room)` does (the real
+ *  accountClient's shapes), `enterFloor` as `entering` does; the calls kept in `order`. */
+function onlineClient({ attemptAnswer, entering = () => true, guest = false } = {}) {
+  const order = [], said = [], boutSent = [], entered = [];
   const session = { status: 'open', arenaOk: true, room: 'world:1,1', sendArena: (w) => { boutSent.push(w); return true; } };
   const board = { me: { ladder: arenaLadderOf([]) } };
-  const entered = [];
-  const mk = (attemptOk) => createArenaOnline({
-    now: () => 0, session: () => session, say: (l) => said.push(l), makeHall: () => ({ status: 'open', join() {}, leave() {}, sendArena: () => true }),
+  const A = createArenaOnline({
+    now: () => 0, session: () => session, say: (l) => said.push(l), guest: () => guest, makeHall: () => ({ status: 'open', join() {}, leave() {}, sendArena: () => true }),
     bouts: { ask() {}, relayWord: () => true, dismiss() {}, holds: () => false, relay: () => null },
-    account: { board: async () => ({ ok: true, data: board }), claim: async () => { order.push('claim'); return { ok: true, data: {} }; },
-      attempt: async () => { order.push('attempt'); return attemptOk ? { ok: true, data: { ticket: 'feedc0de0000000a' } } : { ok: false, data: { error: 'busy' } }; }, me: () => null },
-    enterFloor: (k, o) => { entered.push([k, o]); return true; }, level: () => 4, maxHealth: () => 60,
+    account: { board: async () => { order.push('board'); return { ok: true, data: board }; }, claim: async () => { order.push('claim'); return { ok: true, data: {} }; },
+      attempt: async (tier, bout, room) => { order.push(['attempt', tier, bout, room]); return attemptAnswer(tier, bout, room); }, me: () => null },
+    enterFloor: async (k, o) => { order.push('enter'); entered.push([k, o]); return entering(); }, level: () => 4, maxHealth: () => 60,
   });
-  const A = mk(true);
-  A.model();
-  await new Promise((r) => setTimeout(r, 0));
-  assert.equal(A.fightLadder().ok, true);
-  session.room = arenaBoutRoom(entered.at(-1)[1]);
-  A.tick();
-  assert.equal(boutSent.length, 0, 'the `in` waits for its ticket');
-  await new Promise((r) => setTimeout(r, 0));
-  A.tick();
-  assert.equal(boutSent.at(-1)?.z, 'feedc0de0000000a');
-  assert.equal(order.at(-1), 'attempt');
-  assert.match(rd('src/scenes/arenaOnline.js'), /try \{ await claims\.flush\(\); \} catch \{[^}]*\}\s*const r = await Promise\.resolve\(deps\.account\.attempt\?\.\(b\.tier, b\.bout\)\)/, 'the receipts carried before the ask');
-  const B = mk(false);
-  B.model();
-  await new Promise((r) => setTimeout(r, 0));
-  boutSent.length = 0;
-  assert.equal(B.fightLadder().ok, true);
-  await new Promise((r) => setTimeout(r, 0));
-  await new Promise((r) => setTimeout(r, 0));
-  assert.ok(said.includes(ARENA_TEXT.online.ticketFail), 'said');
-  B.tick();
-  assert.equal(boutSent.length, 0, 'and let go: no `in`');
+  return { A, order, said, boutSent, entered, session };
+}
+const settle = async (n = 4) => { for (let i = 0; i < n; i++) await new Promise((r) => setTimeout(r, 0)); };
+
+test('AUDIT ARENA-LADDER O5: the client asks its ticket once the floor is entered, for the room it fights in - every receipt answered first, the `in` waiting for it; no ticket and the bout is let go, said (mutants: the ticket asked before the floor; the room unsent; the `in` sent without the ticket; the failure silent)', async () => {
+  const c = onlineClient({ attemptAnswer: (tier, bout, room) => ({ ok: true, data: { ticket: 'feedc0de0000000a', tier, bout, room } }) });
+  c.A.model();
+  await settle();
+  assert.equal(c.A.fightLadder().ok, true);
+  c.session.room = arenaBoutRoom(c.entered.at(-1)[1]);
+  c.A.tick();
+  assert.equal(c.boutSent.length, 0, 'the `in` waits for its ticket');
+  await settle();
+  c.A.tick();
+  assert.equal(c.boutSent.at(-1)?.z, 'feedc0de0000000a');
+  assert.match(rd('src/scenes/arenaOnline.js'), /try \{ await claims\.flush\(\); await claims\.idle\?\.\(\); \} catch \{[^}]*\}\s*if \(bout !== b\) return;\s*if \(claims\.ladderKept/, 'every receipt carried and answered before the ask');
+  const ask = c.order.find((x) => Array.isArray(x) && x[0] === 'attempt');
+  assert.ok(c.order.indexOf('enter') < c.order.indexOf(ask), 'asked once the floor is entered');
+  assert.equal(ask[3], c.entered.at(-1)[1], 'for the room it is fought in');
+  // a refusal: said, let go
+  const d = onlineClient({ attemptAnswer: () => ({ ok: false, error: 'busy' }) });
+  d.A.model();
+  await settle();
+  assert.equal(d.A.fightLadder().ok, true);
+  await settle();
+  assert.ok(d.said.includes(ARENA_TEXT.online.ticketFail), 'said');
+  d.A.tick();
+  assert.equal(d.boutSent.length, 0, 'and let go: no `in`');
+});
+
+// ── AUDIT ARENA-LADDER 2: the audit of the audit ─────────────────────────────────────────────────────────
+
+test('AUDIT ARENA-LADDER 2 S1: A LATE LOSS NEVER BRICKS A CLIMB - a loss of a tier carried after its champion fell breaks no run there; the climb goes on (mutants: the champion guard dropped)', async () => {
+  const S = await standService();
+  const A = await S.registered('Teodor');
+  for (let i = 0; i < 3; i++) await fight(S, A, true);
+  // the champion lost on a relay before tickets (a receipt kept on another device), then beaten
+  const lost = await mintArenaReceipt({ a: 'l', j: jid(), s: A.id, q: 0, u: 3, r: 0, h: 'fall' }, S.gatePriv, { subtle, nowS: T0 });
+  assert.equal((await fight(S, A, true)).body.recorded, true, 'the champion beaten');
+  assert.equal((await claim(S, A, lost)).body.recorded, true, 'the old loss carried after');
+  const me = (await S.call('/v1/arena/board', {}, A.secret)).body.me.ladder;
+  assert.deepEqual([me.tier, me.won, me.champs[0]], [1, 0, true], 'nothing of the Pit voided under its champion');
+  assert.equal((await fight(S, A, true)).body.recorded, true, 'and the next tier\'s first bout counts');
+});
+
+test('AUDIT ARENA-LADDER 2 S2: ONE TICKET, ONE BOUT - a receipt of another room, or signed past the ticket\'s life, keeps nothing; a room is ticketed once; an attempt already done records nothing more (mutants: the room unread; the life unread; the room twice; done unread)', async () => {
+  assert.equal(ARENA_ATTEMPT_LIFE_S * 1000, ARENA_KEEP_MS, 'the life is the relay\'s keep of a finished bout');
+  const S = await standService();
+  const A = await S.registered('Hesta');
+  const a = await attempt(S, A, 0, 0);
+  const elsewhere = await claim(S, A, await ticketReceipt(S, A, 0, 0, true, a.body.ticket, 'fall', jid()));
+  assert.deepEqual([elsewhere.body.recorded, elsewhere.body.why], [false, 'reused'], 'fought in another room on it');
+  const raw = S.env?.DB?._raw;
+  const at0 = raw.prepare('SELECT at FROM arena_attempts WHERE id = ?').get(a.body.ticket).at;
+  raw.prepare('UPDATE arena_attempts SET at = ? WHERE id = ?').run(T0 - ARENA_ATTEMPT_LIFE_S - 60, a.body.ticket);
+  const late = await claim(S, A, await ticketReceipt(S, A, 0, 0, true, a.body.ticket, 'fall', a.body.room));
+  raw.prepare('UPDATE arena_attempts SET at = ? WHERE id = ?').run(at0, a.body.ticket);
+  assert.deepEqual([late.body.recorded, late.body.why], [false, 'reused'], 'its room again, a keep later');
+  assert.equal((await claim(S, A, await ticketReceipt(S, A, 0, 0, true, a.body.ticket, 'fall', a.body.room))).body.recorded, true, 'its own bout counts');
+  const twice = await attempt(S, A, 0, 1, a.body.room);
+  assert.deepEqual([twice.status, twice.body.error], [503, 'busy'], 'a room is ticketed once');
+  // an out-of-order win done, carried again: nothing
+  const b = await attempt(S, A, 0, 1);
+  raw.prepare('UPDATE arena_attempts SET done = 1 WHERE id = ?').run(b.body.ticket);
+  const again = await claim(S, A, await ticketReceipt(S, A, 0, 1, true, b.body.ticket, 'fall', b.body.room));
+  assert.deepEqual([again.body.recorded, again.body.why], [false, 'order'], 'an attempt done records nothing more');
+});
+
+test('AUDIT ARENA-LADDER 2 S3: A STEP WON AGAIN PAYS NOTHING - no banner points, no Renown, and the ladder the board answers says so before the bout (`paid`); a guest is refused the ladder online; done attempts of a week ago let go (mutants: the repeat unread; its Renown paid; paid unsaid; a guest\'s attempt minted; nothing pruned)', async () => {
+  const S = await standService();
+  const A = await S.registered('Rudd', { renown: 10 });
+  A.fighting = true;
+  await S.call('/v1/arena/team', { banner: 'red' }, A.secret);
+  const first = await fight(S, A, true);
+  assert.equal(first.body.recorded, true);
+  assert.ok(first.body.banner === 'red' && first.body.points > 0 && !first.body.repeat, 'the first win of a step pays');
+  assert.ok(first.body.renown, 'its Renown too');
+  await fight(S, A, false);
+  const me = (await S.call('/v1/arena/board', {}, A.secret)).body.me.ladder;
+  assert.deepEqual([me.won, me.paid], [0, 1], 'the board tells the step was won before');
+  assert.equal(nextLadderBout(me).repeat, true);
+  assert.equal(nextLadderBout(me).purse, 0, 'so the client holds no purse for it');
+  const again = await fight(S, A, true);
+  assert.equal(again.body.recorded, true, 'the climb moves');
+  assert.equal(again.body.repeat, true);
+  assert.deepEqual([again.body.points, again.body.banner, again.body.renown ?? null], [0, null, null], 'no points, no banner, no Renown');
+  const next = await fight(S, A, true);
+  assert.ok(!next.body.repeat && next.body.points > 0, 'a step never won before pays again');
+  // a guest
+  const G = await S.guest();
+  const g = await S.call('/v1/arena/attempt', { tier: 0, bout: 0, room: jid() }, G.secret);
+  assert.deepEqual([g.status, g.body.error], [403, 'ladder-needs-account']);
+  // the done attempts of a week ago
+  const raw = S.env?.DB?._raw;
+  raw.prepare('UPDATE arena_attempts SET at = at - ? WHERE player = ? AND done = 1').run(ARENA_ATTEMPTS_KEEP_S + 60, A.id);
+  const before = raw.prepare('SELECT COUNT(*) AS n FROM arena_attempts WHERE player = ?').get(A.id).n;
+  await attempt(S, A, 0, 2);
+  const after = raw.prepare('SELECT COUNT(*) AS n FROM arena_attempts WHERE player = ?').get(A.id).n;
+  assert.ok(before >= 4 && after === 1, `pruned (${before} -> ${after})`);
+});
+
+test('AUDIT ARENA-LADDER 2 S4: the client - a guest is told the ladder takes a registered account; a floor not entered asks no ticket; a 409 asks the board again and says why; a ticketed receipt still kept asks nothing (mutants: the guest asked; the ticket before the floor; the board not asked; the kept receipt unread)', async () => {
+  const g = onlineClient({ guest: true, attemptAnswer: () => ({ ok: true, data: { ticket: 'feedc0de0000000b' } }) });
+  g.A.model();
+  await settle();
+  assert.deepEqual(g.A.fightLadder(), { ok: false, text: ARENA_TEXT.online.guestLadder });
+  // a floor that loads slowly and fails: no ticket was asked meanwhile
+  const f = onlineClient({ entering: () => new Promise((r) => setTimeout(() => r(false), 40)), attemptAnswer: () => ({ ok: true, data: { ticket: 'feedc0de0000000c' } }) });
+  f.A.model();
+  await settle();
+  f.A.fightLadder();
+  await new Promise((r) => setTimeout(r, 80));
+  await settle();
+  assert.ok(!f.order.some((x) => Array.isArray(x) && x[0] === 'attempt'), 'no floor, no ticket - nothing forfeit');
+  const o = onlineClient({ attemptAnswer: () => ({ ok: false, error: 'order' }) });
+  o.A.model();
+  await settle();
+  const boards = o.order.filter((x) => x === 'board').length;
+  o.A.fightLadder();
+  await settle(6);
+  assert.ok(o.order.filter((x) => x === 'board').length > boards, 'the board asked again');
+  assert.ok(o.said.some((l) => /not your next ladder bout/i.test(l)), 'and the service\'s reason said');
+  assert.match(rd('src/scenes/arenaOnline.js'), /if \(claims\.ladderKept\?\.\(\)\) \{ say\(O\.stillRecording\); endBout\(\); return; \}/);
+  // the queue: a flush asked mid-flight waits for it, and a kept ticketed ladder receipt is told
+  let release; const gate = new Promise((r) => { release = r; });
+  const calls = [];
+  const kp = await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
+  const rc = await mintArenaReceipt({ a: 'l', j: '00000000000000d1', s: 'acct-q', q: 0, u: 0, r: 1, h: 'fall', z: 'feedc0de000000d1' }, kp.privateKey, { subtle, nowS: Math.floor(Date.now() / 1000) });
+  const Q = createArenaClaims({ claim: async (r) => { calls.push(r); await gate; return { ok: false, error: 'offline' }; }, me: () => 'acct-q' });
+  Q.add(rc);
+  const second = Q.flush();
+  let done = false; void second.then(() => { done = true; });
+  await settle();
+  assert.equal(done, false, 'a flush asked mid-flight is the running one\'s answer - not a quiet 0 at once');
+  assert.equal(Q.ladderKept(), true, 'a ticketed ladder receipt of mine still kept');
+  release();
+  await Q.idle();
+  assert.ok(calls.length >= 2, 'and the one asked behind it ran too');
+});
+
+test('AUDIT ARENA-LADDER 2 B1: the kit law\'s holes - every fighter is pacify-immune (a Calm through a weapon refused too), an elite fighter never flees as a revenant, a held ring\'s stripped effect comes back after the bout (mutants: the immunity unset; the revenant gate dropped; the held effect unmarked)', () => {
+  assert.match(rd('src/scenes/arenaBouts.js'), /foe\.entity\.bout = tags\.get\(f\.id\); foe\.entity\.items = \[\]; foe\.entity\.pacifyImmune = true; \}/);
+  assert.match(rd('src/systems/effects.js'), /if \(target\.pacifyImmune\) \{ out\.swayRefused = /, 'the one sway door refuses an immune target, whatever cast it');
+  const elite = { level: 12, eliteFoe: true, mobileType: M.Barbarian };
+  assert.equal(revenantCandidate(elite), true, 'an elite in the street may come back');
+  assert.equal(revenantCandidate({ ...elite, bout: { id: 'b', side: 1 } }), false, 'never one on the sand');
+  const ring = { name: 'Ring' };
+  const P = { activeEffects: [{ kind: 'chameleonNormal', roundsRemaining: 9, heldItem: ring }] };
+  assert.equal(stripSandBarred(P), 1);
+  assert.equal(P._sandHeld, true, 'a held item\'s effect marked');
+  assert.equal(restoreSandHeld(P), true, 'restarted at the bout\'s end');
+  assert.equal(P._sandHeld, undefined);
+  assert.equal(restoreSandHeld(P), false, 'once');
+  const ab = rd('src/scenes/arenaBouts.js');
+  assert.equal((ab.match(/restoreSandHeld\(P\)/g) ?? []).length, 3, 'the healers (both) and a bout let go');
+});
+
+test('AUDIT ARENA-LADDER 2 B2: A BOUT WON AGAIN AFTER A LOST RUN PAYS NO PURSE AND NO POINTS - offline as online; a bout never won before pays; a new tier starts unpaid (mutants: paid unkept; the repeat purse paid; the points paid)', () => {
+  let L = arenaLadderRestore(null);
+  L = ladderAfter(L, { won: true }).ladder;
+  L = ladderAfter(L, { won: true }).ladder;
+  L = ladderAfter(L, { won: false }).ladder;
+  assert.deepEqual([L.won, L.paid], [0, 2]);
+  const n = nextLadderBout(L);
+  assert.deepEqual([n.repeat, n.purse], [true, 0]);
+  assert.equal(boutPoints({ won: true, repeat: true }), 0);
+  assert.ok(boutPoints({ won: true }) > 0);
+  L = ladderAfter(ladderAfter(L, { won: true }).ladder, { won: true }).ladder;
+  const third = nextLadderBout(L);
+  assert.deepEqual([third.bout, third.repeat, third.purse], [2, false, BOUT_PURSE[0]], 'the bout never won pays');
+  L = ladderAfter(ladderAfter(L, { won: true }).ladder, { won: true }).ladder;
+  assert.deepEqual([L.tier, L.won, L.paid], [1, 0, 0], 'a new tier unpaid');
+  assert.equal(arenaLadderRestore({ tier: 0, won: 2 }).paid, 2, 'a save before it: what is won was paid');
+  assert.equal(arenaLadderSnapshot(L).paid, 0);
+  const ab = rd('src/scenes/arenaBouts.js');
+  assert.match(ab, /: C\.next\.repeat \? ARENA_TEXT\.purse\.repeat :/);
+  assert.match(ab, /purse, repeat: !!C\.next\.repeat, champion:/);
+  assert.match(rd('src/scenes/arenaOnline.js'), /if \(d\?\.recorded === true\) won = d\.won === true && d\.repeat !== true;/);
+});
+
+test('AUDIT ARENA-LADDER 2 R1: the relay - one telegraph on the sand at a time (a pair of elite champions never lands two at once); fighters level on the card are a draw (mutants: the one-at-a-time gate dropped; the first fighter\'s card)', () => {
+  const { st, t, C } = relayLadder(4, 3);   // two elite Warriors
+  for (const a of st.ai) { a.pos = [C[0], C[2] + 1.6]; a.mv = null; }
+  const words = stepBout(st, t, () => 0);
+  const tele = words.filter((w) => w.k === 'atk' && w.s);
+  assert.equal(tele.length, 1, 'one wind-up');
+  assert.equal(words.filter((w) => w.k === 'atk').length, 2, 'the other swings plainly');
+  // the card: the player short of the floor, two fighters level - a draw
+  const b = newBout({ id: 'j', kind: 'ladder', fighters: [{ id: 'p', name: 'Me', side: 0, maxHealth: 100, ai: false }, { id: 'a', name: 'A', side: 1, maxHealth: 100, ai: true }, { id: 'c', name: 'C', side: 2, maxHealth: 100, ai: true }], ring: { centre: [0, 0], radius: 14 }, now: 0, judgesFloor: LADDER_JUDGES_SHARE });
+  boutTick(b, callMs(b));
+  for (const f of b.fighters) boutAtMarks(b, f.id, callMs(b));
+  const t0 = callMs(b) + COUNT_MS;
+  boutTick(b, t0);
+  boutHit(b, { from: 'p', to: 'a', dmg: 10, now: t0 + 1 });
+  boutTick(b, t0 + BOUT_LIMIT_MS);
+  assert.deepEqual([b.result.how, b.result.side], ['judges', null], 'a draw - never the first fighter\'s');
+});
+
+test('AUDIT ARENA-LADDER 2 R2: a relay\'s telegraph on this screen - its mark lands at the relay\'s moment (`at` on this clock), the fighter swings at the landing, not the word; a plain blow swings at once; a ladder champion stands elite (mutants: the clock unread; the swing at the word; the elite unsent)', async () => {
+  let TT = 100, now = 5000;
+  setTacticsClock(() => TT);
+  const spawned = [];
+  const c = [ARENA_FLOOR_CENTRE[0], ARENA_FLOOR_CENTRE[1], ARENA_FLOOR_CENTRE[2]];
+  const stage = { kind: 'floor', centre: () => c, remove: () => {}, heightAt: () => null,
+    spawn: async (mobile, feet, o) => { const foe = { mobile, o, entity: { health: 20, maxHealth: 20 }, ai: { feet: [...feet], yaw: o.yaw ?? 0, isHostile: true }, attack: { swingSeq: 0 } }; spawned.push(foe); return foe; } };
+  const D = createArenaBouts({ now: () => now, playerEntity: { name: 'Alva', health: 80, maxHealth: 80 }, say() {}, notice() {}, drawHud() {}, heal() {}, pay() {} });
+  D.setStage(stage);
+  const O = '0123456789abcdef';
+  D.startRelay({ o: O, kind: 'pve', me: 'p0', next: { tier: 0, bout: 3, purse: 50, champion: true, grand: false }, names: (i) => ({ name: `R${i}`, home: 'W', epithet: '' }), send: { hit: () => true, yield: () => true }, myHealth() {} });
+  D.relayWord({ k: 'mv', i: 'a0', x: c[0] + 2, z: c[2], tx: c[0] + 2, tz: c[2], v: 0, at: 5000 });
+  D.relayWord({ k: 'st', o: O, kind: 'pve', ph: 'call', pa: 5000, fa: null, lim: 180000, tier: 0, bout: 3, f: [['p0', 'Alva', 0, 90, 90, '', 0, -1, 0, '', ''], ['a0', '-', 1, 26, 26, '', 1, 136, 50, '', '']], me: 'p0', sp: 2 });
+  await settle();
+  const foe = spawned[0];
+  assert.equal(foe.o.elite, true, 'the champion stands elite');
+  D.relayWord({ k: 'ev', e: [{ k: 'fight', at: 9000 }] });
+  now = 6000;   // the relay's 10000 (its fight at 9000 heard at my 5000)
+  D.relayWord({ k: 'atk', i: 'a0', at: 10_500, x: c[0], z: c[2], tg: 'p0', s: 'lunge', yw: -1.57, ox: c[0] + 2, oz: c[2] });
+  const b = liveBlows().get(foe.ai);
+  assert.ok(b, 'the mark drawn');
+  assert.ok(Math.abs((b.land - TT) - 0.5) < 1e-6, `landing at the relay's moment, 0.5 s on (${(b.land - TT).toFixed(3)})`);
+  assert.notEqual(foe._pup.strike, 'melee', 'no swing at the word');
+  now = 6400; D.frame(0.4, {});
+  assert.notEqual(foe._pup.strike, 'melee', 'nor before the landing');
+  now = 6500; D.frame(0.1, {});
+  assert.equal(foe._pup.strike, 'melee', 'the swing at the landing');
+  foe._pup.strike = null;
+  D.relayWord({ k: 'atk', i: 'a0', at: 11_000, x: c[0], z: c[2], tg: 'p0' });
+  assert.equal(foe._pup.strike, 'melee', 'a plain blow swings at once');
+  setTacticsClock(() => T);
+});
+
+test('AUDIT ARENA-LADDER 2 T1: A LANDED VERDICT IS ITS MARK\'S ALONE - a fighter whose target changed between the landing and its damage frame swings classically, unweighed (mutants: the mark unread at the resolution)', () => {
+  noteLocalPlayer([40, 0, 40], [0, 0, 1]);
+  const a = fighter({ feet: [0, 0, 0], side: 0 }), b = fighter({ feet: [0, 0, 1.6], side: 1 });
+  const s = windUp(a, b);
+  T = s.blow.land + 0.01;
+  tacticsStep(a.ai, 0, 1.6);
+  assert.equal(a.ai._blowVerdict, true);
+  a.ai._armedTargeting = false;   // the motor turns on the player at once - the brain only at its next tick
+  assert.equal(blowConnects(a.ai, false, T), false, 'the classic answer for the player, never the bout-mate\'s verdict');
+  assert.equal(blowScaled(a.ai, 10), 10, 'and no weight');
 });

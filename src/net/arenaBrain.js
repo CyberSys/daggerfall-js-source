@@ -391,7 +391,9 @@ function aiStep(st, a, now, rng) {
       // AUDIT ARENA-LADDER: SOMETIMES A TELEGRAPHED BLOW - a fighter of the tier that telegraphs (its level, or an elite's
       // - a champion), its cooldown spent, the roll: its shape wound up from where it stands at its foe, a player or
       // another fighter, every screen drawing it off the word
-      const shapes = (a.level >= ARENA_BLOW_TIER_LEVEL || a.elite) && now >= (a.blowAt ?? 0) ? blowShapesOf(a.mobile) : [];
+      // AUDIT ARENA-LADDER 2: and nobody else winding one up - the brain's one wind-up near its mark (ai/foeBlows.js
+      // windupNear: on the sand, one at a time), so a pair of elite champions never lands two at once
+      const shapes = (a.level >= ARENA_BLOW_TIER_LEVEL || a.elite) && now >= (a.blowAt ?? 0) && !st.ai.some((o) => o !== a && o.atk?.s && o.atk.at > now) ? blowShapesOf(a.mobile) : [];
       if (shapes.length && rng() < ARENA_BLOW_CHANCE) {
         const s = shapes[Math.floor(rng() * shapes.length)];
         const at = aiAt(a, now), yw = Math.atan2(foe.p[0] - at[0], foe.p[1] - at[1]);

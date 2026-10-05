@@ -128,7 +128,7 @@ test('ARENA2 ladder: THE SAVE - any shape back to a whole ladder; the snapshot a
   assert.deepEqual([odd.record.wins, odd.record.losses, odd.record.purses], [3, 0, 1e9]);
   const L = ladderAfter(fresh, { won: true, purse: 50 }).ladder;
   const s = arenaLadderSnapshot(L);
-  assert.deepEqual(s, { v: 1, tier: 0, won: 1, champs: Array(10).fill(false), grand: false, record: { ...L.record } });
+  assert.deepEqual(s, { v: 1, tier: 0, won: 1, paid: 1, champs: Array(10).fill(false), grand: false, record: { ...L.record } });   // AUDIT ARENA-LADDER 2: `paid`, the tier's bouts ever won
   s.champs[0] = true;
   assert.equal(L.champs[0], false, 'a copy, never the live ladder');
   // through the save's own envelope

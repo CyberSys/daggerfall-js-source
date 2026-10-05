@@ -52,7 +52,7 @@ test('ARENA2 driver: a ladder bout - the call, the fight, my blows, the floor, t
   assert.deepEqual(f.entity.items, [], 'no loot on the sand');
   assert.equal(f.entity.bout.side, 1);
   assert.equal(f.entity.bout.hold, true, 'held before the word');
-  assert.deepEqual(r.log.bouts[0], { id: r.A.bout()?.id ?? r.log.bouts[0].id, side: 0, out: false, hold: true });
+  assert.deepEqual(r.log.bouts[0], { id: r.A.bout()?.id ?? r.log.bouts[0].id, side: 0, out: false, hold: true, kit: true });   // AUDIT ARENA-LADDER 2: `kit` - a ladder bout's law
   assert.ok(r.A.holds(), 'the duel\'s law from the call');
   assert.deepEqual(r.A.ring(), { centre: [50, 0, 40], radius: RING_R, ceilAbove: SAND_CEILING_M });   // AUDIT ARENA-LADDER: and the kit law's ceiling over the sand
   assert.equal(r.A.scoreWant(), ARENA_SONGS.march);

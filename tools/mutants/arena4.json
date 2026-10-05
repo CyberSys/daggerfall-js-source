@@ -1123,8 +1123,8 @@
   {
     "name": "ARENA4-PUPPET-TELEGRAPH",
     "file": "src/scenes/arenaBouts.js",
-    "old": "if (foe?._pup) { foe._pup.strike = 'melee';",
-    "new": "if (foe?._pup) { foe._pup.strike = null;",
+    "old": "if (foe?._pup) { if (!w.s) foe._pup.strike = 'melee';",
+    "new": "if (foe?._pup) { if (!w.s) foe._pup.strike = null;",
     "tests": [
       "test/arena4_client.test.js"
     ]
@@ -1222,8 +1222,8 @@
   {
     "name": "ARENA4-GLUE-LADDER-NEXT",
     "file": "src/scenes/arenaOnline.js",
-    "old": "void goTo({ o: newBoutId(), kind: 'pve', tier: next.tier, bout: next.bout, next });",
-    "new": "void goTo({ o: newBoutId(), kind: 'pve', tier: next.tier, bout: 0, next });",
+    "old": "const go = goTo({ o: newBoutId(), kind: 'pve', tier: next.tier, bout: next.bout, next });",
+    "new": "const go = goTo({ o: newBoutId(), kind: 'pve', tier: next.tier, bout: 0, next });",
     "tests": [
       "test/arena4_client.test.js"
     ]

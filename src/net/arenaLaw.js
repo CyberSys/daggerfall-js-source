@@ -264,6 +264,11 @@ export const LADDER_JUDGES_SHARE = 0.5;
  *  loss never claimed is still a loss (a new attempt forfeits the one left open), and no other account's bout can take
  *  the row. 16 hex, as a bout's id. */
 export const ARENA_TICKET_RE = /^[0-9a-f]{16}$/;
+/** AUDIT ARENA-LADDER 2: A TICKET IS ONE BOUT'S - asked for the room it is fought in (its bout id, the receipt's `j`) and
+ *  good for a receipt the relay signs within this many seconds of it. The relay forgets a finished bout ARENA_KEEP_MS after
+ *  its end and would open another in the same room, so the life is that keep (pinned equal): one ticket, one room, one
+ *  bout - never a loss fought again on it and its receipt dropped. */
+export const ARENA_ATTEMPT_LIFE_S = 600;
 /** A ladder bout's key: `tier * 4 + bout` (0..39) - the climb's one order. */
 export const ladderKey = (tier, bout) => tier * (ARENA_TIER_BOUTS + 1) + bout;
 /**
@@ -717,7 +722,6 @@ export const ARENA_NO_TEXT = Object.freeze({
   'not yours': 'That bout is not yours to fight.',
   void: 'The bout is void - a fighter never came to the sand.',
   'no contest': 'The bout is void - both fighters left the sand.',   // AUDIT PRE-MERGE 1003b S9
-  'no ticket': 'The Herald could not enter your bout. Try again in a moment.',   // AUDIT ARENA-LADDER: a ladder bout opened with no attempt's ticket
   // ARENA6: a private session's
   'host guest': 'Only a registered account can host a private session.',
   taken: 'That code is already in use - host again for a new one.',

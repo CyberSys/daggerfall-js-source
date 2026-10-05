@@ -118,11 +118,20 @@ export function blowConnects(ai, classic, now = tacticsNow()) {
   const v = ai?._blowVerdict;
   if (v == null) return classic;
   const fresh = now == null || ai._blowAt == null || now - ai._blowAt <= BLOW_VERDICT_LIFE;
+  // AUDIT ARENA-LADDER 2: a verdict is its mark's alone (`_blowFor`, the target key it landed on - ai/tactics.js): a foe
+  // whose target changed between the landing and its damage frame (the motor turns on an attacker at once, the brain
+  // only at its next tick) swings classically - a lunge landed on a bout-mate never decided a blow at me, nor mine one
+  // at a foe in the street
+  const turned = ai._blowFor !== undefined && !!_blowTargetOf && _blowTargetOf(ai) !== ai._blowFor;
   ai._blowVerdict = null;
-  if (!fresh) { ai._blowMult = undefined; return classic; }
+  if (!fresh || turned) { ai._blowMult = undefined; return classic; }
   if (!v) { ai._blowMult = undefined; tellDodged(ai); }   // dodged: the weight is spent with it, and the dodge is told
   return v;
 }
+/** AUDIT ARENA-LADDER 2: the brain's own spelling of a foe's target (ai/tactics.js targetKey), registered upward - the
+ *  brain imports this file. */
+let _blowTargetOf = null;
+export function setBlowTargetOf(fn) { _blowTargetOf = typeof fn === 'function' ? fn : null; }
 /** AUDIT ARENA-LADDER: A DODGED BLOW IS A MISS - the hosts' hit resolution returns before DFU's damage roll on a dodge,
  *  so the formula's resolution observer (combat/formulas.js) never heard it: the arena's judges counted no miss for the
  *  fighter whose lunge was stepped out of, and its replay showed no swing. Keyed listeners (the formula's own shape):

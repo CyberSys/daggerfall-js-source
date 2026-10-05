@@ -118,7 +118,7 @@ let _playerBout = null;
  *  out of a Grand Melee stayed the fighters' target, beaten at the breath of life to its end. boutGate reads its fields
  *  as it reads a fighter's (`String(id)`, `side | 0`); `playerBoutOf` answers the read as plain data. */
 export function setPlayerBout(b) { _playerBout = b ?? null; }
-export const playerBoutOf = () => (_playerBout ? { id: String(_playerBout.id), side: _playerBout.side | 0, out: !!_playerBout.out, ...(_playerBout.hold ? { hold: true } : {}) } : null);
+export const playerBoutOf = () => (_playerBout ? { id: String(_playerBout.id), side: _playerBout.side | 0, out: !!_playerBout.out, ...(_playerBout.hold ? { hold: true } : {}), ...(_playerBout.kit ? { kit: true } : {}) } : null);   // AUDIT ARENA-LADDER 2: `kit` a ladder bout's (systems/arenaKit.js)
 /** AUDIT ARENA-LADDER A2: a fighter on the sand is its bout's alone - no Dispel Daedra/Undead sends it off and no
  *  Wabbajack changes it (either door removed the body past the foe yield floor, and the driver read the gone body as a
  *  FALL: a champion dispelled in the Herald's call was a champion beaten, its purse and its title paid). */

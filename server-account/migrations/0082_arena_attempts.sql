@@ -16,7 +16,9 @@
 --   arena_attempts  one row an attempt at a ladder bout, minted by
 --                   /v1/arena/attempt for the account's next bout (its
 --                   id the ticket, 16 hex). The relay opens a ladder bout
---                   only for one and signs it into the receipt (`z`);
+--                   only for one and signs it into the receipt (`z`),
+--                   asked for ONE room (`room`, the receipt's bout id)
+--                   and good for a receipt signed within ARENA_ATTEMPT_LIFE_S;
 --                   arena_pve's row is keyed by it (a ladder bout's room
 --                   id is no longer the row's key - another account could
 --                   reopen that room and take the row, AUDIT ARENA-LADDER
@@ -30,11 +32,14 @@ CREATE TABLE IF NOT EXISTS arena_attempts (
   player  TEXT NOT NULL,
   tier    INTEGER NOT NULL CHECK (tier BETWEEN 0 AND 9),
   step    INTEGER NOT NULL CHECK (step BETWEEN 0 AND 3),
+  room    TEXT NOT NULL,                    -- the bout's room id (16 hex) it was asked for: the receipt's `j` must be it
   at      INTEGER NOT NULL,
   done    INTEGER NOT NULL DEFAULT 0 CHECK (done IN (0, 1)),   -- 1 once claimed or forfeited
   FOREIGN KEY (player) REFERENCES players(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_arena_attempts_open ON arena_attempts (player, done);
+-- one ticket a room: a second attempt asked for a room already ticketed is refused
+CREATE UNIQUE INDEX IF NOT EXISTS idx_arena_attempts_room ON arena_attempts (room);
 
 ALTER TABLE arena_pve ADD COLUMN voided INTEGER NOT NULL DEFAULT 0 CHECK (voided IN (0, 1));
 -- one WIN a step among the rows of the climb (a voided win is a run a loss broke)

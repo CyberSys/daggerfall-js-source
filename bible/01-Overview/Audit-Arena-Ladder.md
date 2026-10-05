@@ -17,8 +17,9 @@ the owner chose the climb's law from four questions:
   (world168 - world167 on this branch until main's SHADOW-CLOAK took it) and an account-service migration (0082, acct81 - acct79 until
   main's GLOBAL-MARKET and SHADOW-CLOAK took acct79 and acct80).
 
-Pinned by `test/arenaladder_audit.test.js` (23, each red on the code before it) and mutation-checked
-(`tools/mutants/arenaladder.json`, 54, all dead). Nothing here was seen in a browser.
+Pinned by `test/arenaladder_audit.test.js` (23 at the first pass, each red on the code before it) and mutation-checked
+(`tools/mutants/arenaladder.json`, 54 at the first pass, all dead); the second pass - AUDIT ARENA-LADDER 2, at the
+foot - added its own. Nothing here was seen in a browser.
 
 ## Telegraphs (the owner's first ask)
 
@@ -38,7 +39,8 @@ word was a 350/450 ms lead on every blow, casters included.
 | T7 | The Grand Melee: my damage was carded to the nearest fighter facing me - a lunge reaches 4.5 m, so the fighter behind me in its lane took the card | `attackerOfMe` reads the striker the formula named a moment ago (`C.hitMe`) first |
 
 Which fighters telegraph: of the tier (TACT4's) - T5's Warriors, T6's Giant Scorpion, all of T7 to T10, and every tier's
-champion now (an elite); never a caster (Healer, Sorcerer, Mage).
+champion now (an elite) but T6's, the Spriggan, whose kind has no shapes (corrected at AUDIT 2); never a caster (Healer,
+Sorcerer, Mage).
 
 ## The climb (the owner's second ask)
 
@@ -79,8 +81,9 @@ champions, Invisibility no class fighter sees through and a Calm on the fighter;
 1. The account service, **acct81**, with migration **0082** (`npx wrangler d1 migrations apply daggerfall-accounts
    --remote`, then deploy).
 2. The relay, **world168** (`npx wrangler deploy` in `server/`). Every connected player reconnects once.
-3. The site (CI). Between 2 and 3 an older client's ladder `in` carries no ticket and is refused ('no ticket', said as
-   "The Herald could not enter your bout"); its exhibitions, players' bouts and private sessions are untouched.
+3. The site (CI). Between 2 and 3 an older client's ladder `in` carries no ticket and is told 'no bout' ("That bout is
+   over." - the word that build ends its bout on, AUDIT 2 R5); its exhibitions, players' bouts and private sessions are
+   untouched.
 
 ## Not done (named so they are not mistaken for missing)
 
@@ -105,3 +108,52 @@ champions, Invisibility no class fighter sees through and a Calm on the fighter;
 refusal, and world.js's dispel filter; `scenes/dungeonContext.js` (the floor instance and the undercroft's pit) - the
 collapse, the dispel filter, the Wabbajack guard, the foe-vs-foe shape; `scenes/worldModes.js` - both stages spawn the
 champion elite. `scenes/exteriorFoes.js` carries the street's foe-vs-foe shape for both above-ground hosts.
+
+## AUDIT ARENA-LADDER 2 (2026-10-05) - the audit of the audit
+
+The owner, on the work above: "Audit this". Four read-only lenses again (the telegraphs between fighters, the offline
+ladder and the bout's fixes, the relay, the account service and the client's ticket), every finding reproduced on the
+real modules (the brain, the bout driver, the relay's brain over `test/fakeRoom.mjs`, the service over node:sqlite)
+and fixed here. Pinned by `test/arenaladder_audit.test.js` (nine AUDIT ARENA-LADDER 2 tests, O5 rewritten - 32 in all)
+and `test/qx1_exterior_host.test.js` (the Recall refusal, driven); mutation-checked in `tools/mutants/arenaladder.json`:
+32 `ARENA-LADDER-2-` records (each fix taken out, and a pin fails) and nine of the first pass's re-aimed onto the new code,
+all dead - three survived their first run and were mended (a pin for the flush before the ask, a slow failing floor, and
+a redundant line taken out: `arenaLadderRestore` already keeps `paid` at least `won`).
+
+| | Finding | Done |
+|---|---|---|
+| S1 | HIGH: a climb could brick for good - `breakRun` voided a tier's bouts under its beaten champion (a late loss carried after the champion fell, or two attempts raced), and the climb's count never met its next key again: every win after it `order` | `breakRun` breaks no run in a tier whose champion is beaten |
+| S2 | HIGH: one ticket opened any number of bouts - the relay checks a ticket's shape, never its use, and the service never read the receipt's bout; a modified client lost, dropped the receipt and fought again on the same ticket until it won | A TICKET IS ONE BOUT: the attempt is asked for the room it is fought in (`room`, migration 0082; one ticket a room), the claim refuses a receipt of another room or one signed past the ticket's life (`ARENA_ATTEMPT_LIFE_S`, the relay's keep of a finished bout - a second bout in the same room comes no sooner), and an attempt already done records nothing more |
+| S3 | MEDIUM: a ticket asked before the floor was entered - an attempt is spent when asked, so a floor that failed to load cost the tier's run unfought | The ticket is asked once the floor is entered and the bout is still mine |
+| S4 | MEDIUM: the service's 409 never reached the client (`call()` drops an error's body), so a device behind the climb asked the stale bout for ever, its words unsaid | On `order` the board is asked again and the service's reason said (`accountRefusalText`; sentences for `order`, `bad-bout`) |
+| S5 | MEDIUM: carrying the receipts before asking was best-effort - a flush asked while one ran answered 0 at once, and a win still on its way was forfeit by the ask | `flush` answers the running flush and runs again after it (`idle`); no ticket is asked while a ticketed ladder receipt of mine is still kept ("Your last ladder bout is still being recorded") |
+| S6 | MEDIUM-LOW: a step won again after a lost run paid its banner points and its Renown again - the Pit farmed (and offline its purse) | A STEP WON AGAIN PAYS NOTHING: no purse, no banner points, no Renown (`repeat`); the ladder carries `paid` (the tier's bouts ever won - offline in the save, online counted from the rows) so the purse line says so before the service does |
+| S7 | LOW-MEDIUM: a guest's losses broke no run (a guest's bouts are no rows), so its climb carried at registration was its wins alone | The ladder online takes a registered account (`ladder-needs-account`; the Herald says so) |
+| S8 | LOW: `arena_attempts` was never pruned | Done attempts a week old are let go at the next ask |
+| B1 | MEDIUM: Calm (Pacify, effect 33) was not barred - Calm Humanoid (a vampire's own spell) idled a champion to the judges' card offline; and a Cast-When-Strikes weapon reached a fighter past the cast engine | Pacify barred; every fighter `pacifyImmune` (WB8a's door - every path, a weapon's spell and a tongue's pacify too) |
+| B2 | MEDIUM: an elite champion could flee the sand as a revenant (an elite is a revenant candidate), voiding a won bout or making the arena's champion a revenant | `revenantCandidate` refuses a fighter on the sand |
+| B3 | MEDIUM: a body gone after my yield voided the bout - my loss erased | A gone body voids my bout only while I am in it; out, it is the fall it was |
+| B4 | LOW-MEDIUM: the strip killed a held ring's effect for good (the reroll re-pins only an item whose bundle stands) | Marked when stripped, restarted at the healers or a bout let go (`restoreSandHeld`) |
+| B5 | LOW: the kit law and the ceiling held every bout of mine - a bout between players too, whose kit the owner was never asked about | The ladder's alone (the tag's `kit`: a ladder or practice bout, the relay's ladder I fight) |
+| B6 | LOW: a collapse in my bout's call (before the spare) rested an hour mid-call | A breath, no rest |
+| T1 | LOW: a landed verdict was nobody's in particular - a fighter whose target changed before its damage frame (the motor turns at once, the brain at its next tick) landed it on the new one, out of reach and weighed; in the street, a verdict at me could decide a blow at a foe | A verdict is its mark's (`_blowFor`, the target key it landed on): otherwise the classic swing, unweighed |
+| R1 | LOW-MEDIUM: the relay had no "one wind-up at a time" - the Myrmidon tier's champions (two elite Warriors) landed two telegraphs together | A fighter winds up only while no other's telegraph is pending |
+| R2 | LOW: the client drew the relay's telegraph on its own clock (a round trip late) and the fighter swung at the word, the blow played out before the mark had filled | The mark lands at the relay's `at` on this clock, and the fighter swings at the landing (the floor's puppet and the city's body) |
+| R3 | LOW: fighters level on the judges' card gave the first one the bout | A draw |
+| R4 | LOW: an online champion looked plain | Stood elite (its size and glow) |
+| R5 | LOW, deploy window: an older client's ticketless `in` was refused with a word it only printed, its bout left standing | Answered `no bout` - the word every build ends its bout on |
+
+Corrections to the record above: the T6 champion (the Spriggan) has no telegraphed shapes, so not EVERY champion
+telegraphs - all the others do. The ARENA2-LOSS-MOVES mutant (`tools/mutants/arena2.json`) had become the law itself at
+the first pass (a loss now resets the run) and is re-aimed (a loss taking a tier back).
+
+THE OLDER MUTANTS, RUN AGAIN: every record of the arena's, the telegraphs', the revenants', the duels' and ONE-SEAT's
+lists on a file this work touched (902) was run on the finished tree - 899 dead. Of the three that lived, ARENA6's
+LADDER-BOUT-IN-SESSION-ROOM was this pass's (a ticketless `in` is told 'no bout' by the ladder's own door now, so its pin
+sends a ticket - PIN MOVED); ARENA2-TRIAGE-3 needs the game's own data (its test skips here, ARENA2_PATH); and
+ONESEAT-hidden-tab-lingers survives on main as it stands - none of this work's.
+
+Still not done: a relay eviction or a socket lost past the room's keep during a bout leaves the attempt open, so the next
+ask forfeits it (an infrastructure fault becomes a loss); swings with two damage markers (the Giant, an Orc at times) are
+decided by the verdict on the first only - TACT4's, unchanged; the relay sets a fighter's telegraph cooldown at the
+wind-up, the brain at the landing.

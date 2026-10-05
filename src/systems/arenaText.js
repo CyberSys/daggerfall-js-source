@@ -141,6 +141,7 @@ export const ARENA_TEXT = F({
     favoured: (gold) => `The crowd loves you! Purse: ${gold} gold.`,
     hated: (gold) => `The crowd hates you. Purse cut to ${gold} gold.`,
     lost: 'No purse for the beaten.',
+    repeat: 'You have won this bout before, so it pays no purse this time.',   // AUDIT ARENA-LADDER 2: a step won again after a lost run
   }),
   /** The ladder's progress, said after a win. */
   ladder: F({
@@ -617,6 +618,8 @@ export const ARENA_TEXT = F({
     reused: 'This bout was already recorded, so it does not count.',
     forfeit: 'You started another ladder bout before this one was recorded, so it counts as a loss.',   // AUDIT ARENA-LADDER: an attempt left open is forfeit
     ticketFail: 'The Herald could not enter your bout. Try again in a moment.',   // AUDIT ARENA-LADDER: no attempt's ticket from the service
+    stillRecording: 'Your last ladder bout is still being recorded. Try again in a moment.',   // AUDIT ARENA-LADDER 2: a ticketed receipt still kept
+    guestLadder: 'Register this account to climb the ladder online.',   // AUDIT ARENA-LADDER 2
     guest: 'Register your account to keep your bouts.',
     points: (n, b) => `+${n} for ${b}.`,
     // the stands

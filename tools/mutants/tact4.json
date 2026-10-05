@@ -101,8 +101,8 @@
   {
     "name": "TACT4-verdict-kept",
     "file": "src/ai/foeBlows.js",
-    "old": "  ai._blowVerdict = null;\n  if (!fresh)",
-    "new": "  if (!fresh)",
+    "old": "  ai._blowVerdict = null;\n  if (!fresh || turned)",
+    "new": "  if (!fresh || turned)",
     "tests": [
       "test/tact4.test.js"
     ]

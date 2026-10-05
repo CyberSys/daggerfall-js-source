@@ -43,7 +43,7 @@ import { verifyArenaReceipt } from '../../src/net/arenaReceipt.js';
 import {
   arenaSeasonOf, arenaSeasonEndsS, arenaSeasonDay, eloAfter, ARENA_ELO_START, arenaLadderOf, ladderKey, ARENA_BANNERS, ARENA_TEAM_POINTS,
   ARENA_TIERS, ARENA_TIER_BOUTS, ARENA_PAIR_DAY_MAX, ARENA_CHAMPION_MIN_BOUTS, arenaRatingOk, ARENA_ELO_MIN, ARENA_ELO_MAX,
-  ARENA_CHAMPION_MIN_FOES, ARENA_PAIR_SEASON_MAX, ARENA_TICKET_RE, arenaNextOf,   // AUDIT ARENA-LADDER
+  ARENA_CHAMPION_MIN_FOES, ARENA_PAIR_SEASON_MAX, ARENA_TICKET_RE, arenaNextOf, ARENA_BOUT_ID_RE, ARENA_ATTEMPT_LIFE_S,   // AUDIT ARENA-LADDER
 } from '../../src/net/arenaLaw.js';
 import { displayName } from './accounts.js';
 import { titleWorn, glyphsOf } from './titles.js';
@@ -129,7 +129,11 @@ export async function arenaPveOf({ db }, playerId) {
 /** The account's ladder, in the save ladder's own shape (src/net/arenaLaw.js arenaLadderOf). */
 export async function arenaLadderOfAccount(ctx, playerId) {
   const { won, record } = await arenaPveOf(ctx, playerId);
-  return arenaLadderOf(won, record);
+  const L = arenaLadderOf(won, record);
+  // AUDIT ARENA-LADDER 2: `paid` - the current tier's bouts ever won, broken runs' too (src/systems/arenaLadder.js): a bout
+  // won again after a lost run is told so before it is fought (no purse, no points, no Renown - claimLadder's `repeat`)
+  const p = await ctx.db.prepare(`SELECT COUNT(DISTINCT step) AS n FROM arena_pve WHERE player = ?1 AND tier = ?2 AND won = 1 AND step < ${ARENA_TIER_BOUTS}`).bind(playerId, L.tier).first();
+  return { ...L, paid: Math.max(L.won ?? 0, Math.min(ARENA_TIER_BOUTS, Number(p?.n ?? 0) || 0)) };
 }
 
 /** One side's rows of a season's rated bouts between players, as a CTE - an account per row, its rating after, and
@@ -250,7 +254,7 @@ export async function claimArena(ctx, player, receipt, publicKey, fighter = {}) 
   const r = c.a === 'l' ? await claimLadder(ctx, player, c, season, member?.banner ?? null) : await claimPlayers(ctx, player, c, season);
   // ARENA4b: the bout kept is the caller's win - counted now, or counted before (a players' bout another claimed first)
   const won = c.a === 'l' ? (r.recorded ? r.won : r.why === 'claimed' && c.r === 1) : r.result === 'won' && r.rated === true;
-  if (!won) return r;
+  if (!won || r.repeat) return r;   // AUDIT ARENA-LADDER 2: a step won again pays no Renown
   const renown = await arenaRenownFor(ctx, player, c.z ?? c.j, c.a === 'l' ? { kind: 'ladder', tier: c.q, step: c.u } : { kind: 'pvp' }, fighter);   // AUDIT ARENA-LADDER: a ticketed bout's Renown keyed by its ticket, as its row is
   return renown ? { ...r, renown } : r;
 }
@@ -258,13 +262,17 @@ export async function claimArena(ctx, player, receipt, publicKey, fighter = {}) 
 /**
  * AUDIT ARENA-LADDER: A LOSS BREAKS THE TIER'S RUN (the owner's call, "Lose the tier's run") - the account's won rows of
  * the tier's three bouts, not yet broken, are `voided`: kept (the record counts them), out of the climb, which goes back
- * to the tier's first bout. A champion beaten stays beaten (its step, 3, is never voided). The statement, for a batch,
+ * to the tier's first bout. A champion beaten stays beaten (its step, 3, is never voided) - AUDIT ARENA-LADDER 2: and a
+ * tier whose champion is beaten has no run left to break (a late loss of it, carried after the champion fell, voided the
+ * tier's bouts under a live champion row and the climb's count never met its next key again: every win after it refused
+ * `order`, for good). The statement, for a batch,
  * set BEFORE the loss row's INSERT and guarded so it breaks the run once, for the first claim of its loss alone: a
  * ticketed loss while its attempt is still open (`ticket`), a loss from a relay before tickets while no row holds its
  * bout's id (`bout`) - a receipt carried twice never breaks a run won again since.
  */
 const breakRun = (db, playerId, tier, { ticket = null, bout = null } = {}) => db.prepare(`UPDATE arena_pve SET voided = 1
     WHERE player = ?1 AND tier = ?2 AND step < ${ARENA_TIER_BOUTS} AND won = 1 AND voided = 0
+      AND NOT EXISTS (SELECT 1 FROM arena_pve WHERE player = ?1 AND tier = ?2 AND step = ${ARENA_TIER_BOUTS} AND won = 1)
       AND ${ticket ? 'EXISTS (SELECT 1 FROM arena_attempts WHERE id = ?3 AND done = 0)' : 'NOT EXISTS (SELECT 1 FROM arena_pve WHERE bout = ?3)'}`).bind(playerId, tier, ticket ?? bout);
 /** The INSERT of a ladder row, keyed `key` (the attempt's ticket, or a relay before tickets' bout id): THE ORDER IS THE
  *  WRITE'S - a win lands only while the account's won rows of the climb number exactly its step's key. */
@@ -273,14 +281,28 @@ const ladderRow = (db, key, playerId, season, c, won, banner, nowS) => db.prepar
       WHERE ?6 = 0 OR (SELECT COUNT(*) FROM arena_pve WHERE player = ?2 AND won = 1 AND voided = 0) = ?10`)
   .bind(key, playerId, season, c.q, c.u, won ? 1 : 0, c.h, banner, nowS, ladderKey(c.q, c.u));
 
+/** AUDIT ARENA-LADDER 2: is this a step the account won before a lost run broke it - won again, it pays nothing (no
+ *  banner points, no Renown): a broken run is never a purse to farm. */
+const wonBefore = async (db, playerId, tier, step) => step < ARENA_TIER_BOUTS
+  && !!(await db.prepare('SELECT 1 FROM arena_pve WHERE player = ?1 AND tier = ?2 AND step = ?3 AND won = 1 AND voided = 1').bind(playerId, tier, step).first());
+
 async function claimLadder(ctx, player, c, season, banner) {
   const { db, nowS } = ctx;
   const won = c.r === 1;
+  const repeat = won && await wonBefore(db, player.id, c.q, c.u);
+  if (repeat) banner = null;
   // AUDIT ARENA-LADDER: A TICKETED ATTEMPT (`z`, net/arenaReceipt.js) - its row keyed by the ticket, the account's own
   // and this tier and bout's; a loss breaks the tier's run in the same write, and the attempt is done
   if (c.z !== undefined) {
-    const att = await db.prepare('SELECT player, tier, step, done FROM arena_attempts WHERE id = ?1').bind(c.z).first();
-    if (!att || att.player !== player.id || Number(att.tier) !== c.q || Number(att.step) !== c.u) return { recorded: false, why: 'reused', ladder: await arenaLadderOfAccount(ctx, player.id) };
+    const att = await db.prepare('SELECT player, tier, step, room, at, done FROM arena_attempts WHERE id = ?1').bind(c.z).first();
+    // AUDIT ARENA-LADDER 2: ONE TICKET, ONE BOUT - the receipt's bout is the room the ticket was asked for, signed within the
+    // ticket's life (a second bout in that room comes a keep after the first): a ticket fought again elsewhere, or in its
+    // room after the relay forgot the first, keeps nothing
+    if (!att || att.player !== player.id || Number(att.tier) !== c.q || Number(att.step) !== c.u || att.room !== c.j || c.i > Number(att.at) + ARENA_ATTEMPT_LIFE_S) return { recorded: false, why: 'reused', ladder: await arenaLadderOfAccount(ctx, player.id) };
+    // ...and an attempt already done (claimed, forfeit at a later ask, or its win refused out of order) records nothing more
+    const was = await db.prepare('SELECT won FROM arena_pve WHERE bout = ?1').bind(c.z).first();
+    if (was) return { recorded: false, why: Number(was.won) === (won ? 1 : 0) ? 'claimed' : 'forfeit', ladder: await arenaLadderOfAccount(ctx, player.id) };
+    if (Number(att.done) === 1) return { recorded: false, why: 'order', ladder: await arenaLadderOfAccount(ctx, player.id) };
     const res = await db.batch([
       ...(won ? [] : [breakRun(db, player.id, c.q, { ticket: c.z })]),
       ladderRow(db, c.z, player.id, season, c, won, banner, nowS),
@@ -295,7 +317,7 @@ async function claimLadder(ctx, player, c, season, banner) {
     }
     return {
       recorded: true, kind: 'ladder', won, tier: c.q, bout: c.u, how: c.h, ladder,
-      points: won && banner ? pvePoints(c.q, c.u) : 0, banner, grand: won && c.q === GRAND_TIER && c.u === ARENA_TIER_BOUTS,
+      points: won && banner ? pvePoints(c.q, c.u) : 0, banner, grand: won && c.q === GRAND_TIER && c.u === ARENA_TIER_BOUTS, ...(repeat ? { repeat: true } : {}),
     };
   }
   // a relay before tickets (its receipts carried for their week): keyed by the bout's id, as it was - a loss breaks the
@@ -316,7 +338,7 @@ async function claimLadder(ctx, player, c, season, banner) {
   }
   return {
     recorded: true, kind: 'ladder', won, tier: c.q, bout: c.u, how: c.h, ladder,
-    points: won && banner ? pvePoints(c.q, c.u) : 0, banner, grand: won && c.q === GRAND_TIER && c.u === ARENA_TIER_BOUTS,
+    points: won && banner ? pvePoints(c.q, c.u) : 0, banner, grand: won && c.q === GRAND_TIER && c.u === ARENA_TIER_BOUTS, ...(repeat ? { repeat: true } : {}),
   };
 }
 
@@ -355,6 +377,8 @@ async function claimPlayers(ctx, player, c, season) {
   }
   return { error: 'busy' };   // the receipt is kept and carried again (net/arenaClaims.js - every error but a receipt's)
 }
+/** AUDIT ARENA-LADDER 2: how long a done attempt is kept (a week - a receipt's own life), then let go. */
+export const ARENA_ATTEMPTS_KEEP_S = 7 * 86400;
 /**
  * AUDIT ARENA-LADDER: AN ATTEMPT AT THE ACCOUNT'S NEXT LADDER BOUT - its ticket (16 hex), which the relay opens the bout
  * for and signs into its receipt (`z`). Every attempt still open is FORFEIT first: its loss row written now (`forfeit`),
@@ -363,31 +387,37 @@ async function claimPlayers(ctx, player, c, season) {
  * forfeit. `tier`/`bout` must be the account's next (`order` and the ladder otherwise - a device behind the climb).
  * A guest's attempt is minted and forfeit alike, and nothing of it is kept as a row (a guest's bouts are not counted).
  */
-export async function arenaAttempt(ctx, player, tier, bout) {
+export async function arenaAttempt(ctx, player, tier, bout, room) {
   const { db, nowS, rand } = ctx;
+  // AUDIT ARENA-LADDER 2: A GUEST CLIMBS NOTHING ONLINE - its bouts are kept as no rows, so its losses broke no run and a
+  // guest's climb carried at registration was the wins alone; the ladder online takes a registered account
+  if (!player.handle) return { error: 'ladder-needs-account' };
   if (!Number.isInteger(tier) || tier < 0 || tier >= ARENA_TIERS || !Number.isInteger(bout) || bout < 0 || bout > ARENA_TIER_BOUTS) return { error: 'bad-bout' };
+  if (typeof room !== 'string' || !ARENA_BOUT_ID_RE.test(room)) return { error: 'bad-bout' };   // AUDIT ARENA-LADDER 2: the room it is for
+  // AUDIT ARENA-LADDER 2: the done attempts of a week ago let go - nothing reads them past a receipt's life
+  await db.prepare('DELETE FROM arena_attempts WHERE player = ?1 AND done = 1 AND at < ?2').bind(player.id, nowS - ARENA_ATTEMPTS_KEEP_S).run();
   const open = (await db.prepare('SELECT id, tier, step FROM arena_attempts WHERE player = ?1 AND done = 0').bind(player.id).all()).results ?? [];
   if (open.length) {
     const season = arenaSeasonOf(nowS);
-    const member = player.handle ? await arenaMemberOf(ctx, player.id) : null;
+    const member = await arenaMemberOf(ctx, player.id);
     const stmts = [];
     for (const a of open) {
-      if (player.handle) {
-        stmts.push(breakRun(db, player.id, Number(a.tier), { ticket: a.id }));
-        stmts.push(ladderRow(db, a.id, player.id, season, { q: Number(a.tier), u: Number(a.step), h: 'forfeit' }, false, member?.banner ?? null, nowS));
-      }
+      stmts.push(breakRun(db, player.id, Number(a.tier), { ticket: a.id }));
+      stmts.push(ladderRow(db, a.id, player.id, season, { q: Number(a.tier), u: Number(a.step), h: 'forfeit' }, false, member?.banner ?? null, nowS));
       stmts.push(db.prepare('UPDATE arena_attempts SET done = 1 WHERE id = ?1').bind(a.id));
     }
     await db.batch(stmts);
   }
   const next = arenaNextOf((await arenaPveOf(ctx, player.id)).won);
-  if (player.handle && (!next || next.tier !== tier || next.bout !== bout)) return { error: 'order', ladder: await arenaLadderOfAccount(ctx, player.id) };
+  if (!next || next.tier !== tier || next.bout !== bout) return { error: 'order', ladder: await arenaLadderOfAccount(ctx, player.id), forfeits: open.length };
   const b = new Uint8Array(8);
   rand(b);
   const ticket = [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
   if (!ARENA_TICKET_RE.test(ticket)) return { error: 'busy' };
-  await db.prepare('INSERT INTO arena_attempts (id, player, tier, step, at, done) VALUES (?1, ?2, ?3, ?4, ?5, 0)').bind(ticket, player.id, tier, bout, nowS).run();
-  return { ticket, tier, bout, forfeits: player.handle ? open.length : 0 };
+  // AUDIT ARENA-LADDER 2: one ticket a room (idx_arena_attempts_room) - a room already ticketed is refused
+  const ins = await db.prepare('INSERT OR IGNORE INTO arena_attempts (id, player, tier, step, room, at, done) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0)').bind(ticket, player.id, tier, bout, room, nowS).run();
+  if (!(Number(ins?.meta?.changes ?? 0) > 0)) return { error: 'busy' };
+  return { ticket, tier, bout, room, forfeits: open.length };
 }
 
 /** AUDIT PRE-MERGE 1003 S6: how many times a players' claim reads the two ratings again when a bout of either landed

@@ -1047,6 +1047,15 @@ correctness, the online trust), every finding reproduced and fixed here:
   body gone without falling voids the bout; the player's tag is held live (out of a Grand Melee, out of its fight);
   my damage is the striker's the formula named; bodies come off the stage they stood on; no Recall off the sand.
 - **The laurel.** Ten rated bouts against five accounts, a pair's rated bouts ten a season.
+- **AUDIT ARENA-LADDER 2 (2026-10-05, the owner: "Audit this").** The audit of the audit, four lenses again: a ticket
+  is one bout (asked for its room, refused past `ARENA_ATTEMPT_LIFE_S`, migration 0082's `room`); a run broken under a
+  beaten champion no more (it had bricked the climb); the ticket asked once the floor is entered, the receipts carried
+  first (`flush`'s `idle`, a kept ladder receipt holding the ask); the service's `order` reaching the client; A STEP
+  WON AGAIN PAYS NOTHING (no purse, no banner points, no Renown - the ladder's `paid`); the ladder online for a
+  registered account alone; Calm barred and every fighter `pacifyImmune`; no fighter a revenant; a gone body after my
+  yield the loss it was; a held ring's effect restored after the strip; the kit law the ladder's alone; a collapse in
+  the call a breath; a landed verdict its mark's (`_blowFor`); on the relay one wind-up at a time, the mark landing
+  on the relay's clock, a tie a draw, a champion stood elite, an old client's ladder `in` answered `no bout`.
 
 Deploy order: the account service (acct81, migration 0082) BEFORE the relay (world168), BEFORE the site. The record:
 `01-Overview/Audit-Arena-Ladder.md`.

@@ -195,6 +195,8 @@ Every version of the door grief, fixed without asking further (Mac: "stop asking
   (`ai/tactics.js` `blowAim`), its verdict where that fighter stands and the foe-vs-foe hit paths asking `blowConnects`
   and `blowScaled` as the player's do; a dodge is told (`registerBlowDodgedListener`), a miss for the judges. The
   relay's ladder fighters throw the same shapes (`net/arenaBrain.js`, the families in the leaf `ai/blowShapes.js`).
+  A verdict is its mark's (AUDIT ARENA-LADDER 2, `_blowFor`): a holder whose target changed before its damage frame
+  swings the classic swing, unweighed; on the relay one fighter winds up at a time.
   Street infighting and a peer's foe still see none. The record: `bible/01-Overview/Audit-Arena-Ladder.md`.
 - **The ground** - `render/foeTelegraph.js` (`renderer.drawFoeTelegraphs`): one flat quad at the foe's feet, the shape
   the fragment's own `inBlow` (pinned point for point), a dim rim at once, filling outward through the wind-up, a

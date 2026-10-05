@@ -61,7 +61,7 @@ export const EXHIBITION_PURSE = 100;
 /** A fresh ladder: tier 0, nothing won. */
 export function newArenaLadder() {
   return {
-    v: ARENA_LADDER_VERSION, tier: 0, won: 0, champs: Array(LADDER_TIERS.length).fill(false), grand: false,
+    v: ARENA_LADDER_VERSION, tier: 0, won: 0, paid: 0, champs: Array(LADDER_TIERS.length).fill(false), grand: false,
     record: { wins: 0, losses: 0, yields: 0, falls: 0, ringouts: 0, purses: 0, streak: 0, best: 0 },
   };
 }
@@ -73,6 +73,7 @@ export function arenaLadderRestore(raw) {
   if (!raw || typeof raw !== 'object') return L;
   L.tier = int(raw.tier, 0, LADDER_TIERS.length - 1);
   L.won = int(raw.won, 0, BOUTS_PER_TIER);
+  L.paid = Math.max(L.won, int(raw.paid, 0, BOUTS_PER_TIER, L.won));   // AUDIT ARENA-LADDER 2: a save before it - what is won was paid
   if (Array.isArray(raw.champs)) L.champs = L.champs.map((_, i) => raw.champs[i] === true);
   L.grand = raw.grand === true;
   // a champion beaten below the tier is the climb's own record - a tier above any champion beaten is the next
@@ -83,11 +84,13 @@ export function arenaLadderRestore(raw) {
 /** The ladder as the save writes it (a copy). */
 export function arenaLadderSnapshot(L) {
   const s = arenaLadderRestore(L);
-  return { v: ARENA_LADDER_VERSION, tier: s.tier, won: s.won, champs: [...s.champs], grand: s.grand, record: { ...s.record } };
+  return { v: ARENA_LADDER_VERSION, tier: s.tier, won: s.won, paid: s.paid, champs: [...s.champs], grand: s.grand, record: { ...s.record } };
 }
 
-/** THE NEXT BOUT on the ladder: `{ tier, bout, champion, grand, opponents, free, beasts, purse, label }` - the bout
- *  index (0..2), or the champion once three are won; null when the Grand Champion has been beaten. */
+/** THE NEXT BOUT on the ladder: `{ tier, bout, champion, grand, opponents, free, beasts, purse, label, repeat }` - the bout
+ *  index (0..2), or the champion once three are won; null when the Grand Champion has been beaten. AUDIT ARENA-LADDER 2:
+ *  `repeat` a bout of the tier already won once and won again after a lost run (`paid`, the tier's bouts ever won) - it
+ *  pays no purse and no banner points, so a broken run is never a purse to farm. */
 export function nextLadderBout(L) {
   const s = arenaLadderRestore(L);
   if (s.grand) return null;
@@ -95,9 +98,10 @@ export function nextLadderBout(L) {
   const champion = s.won >= BOUTS_PER_TIER;
   const grand = champion && s.tier === LADDER_TIERS.length - 1;
   const opponents = champion ? t.champion : t.bouts[s.won];
+  const repeat = !champion && s.won < s.paid;
   return {
     tier: s.tier, bout: champion ? BOUTS_PER_TIER : s.won, champion, grand, opponents, free: !!t.free && !champion, beasts: !!t.beasts,
-    purse: champion ? CHAMPION_PURSE[s.tier] : BOUT_PURSE[s.tier],
+    purse: champion ? CHAMPION_PURSE[s.tier] : repeat ? 0 : BOUT_PURSE[s.tier], repeat,
     label: grand ? ARENA_TEXT.grandLabel : champion ? ARENA_TEXT.champLabel : ARENA_TEXT.boutLabel(s.won + 1),
     tierName: ARENA_TEXT.tiers[s.tier],
   };
@@ -123,8 +127,8 @@ export function ladderAfter(L, { won, how = '', purse = 0 }) {
       s.champs[next.tier] = true;
       out.title = ARENA_TEXT.titles[next.tier];
       if (next.grand) { s.grand = true; out.grand = true; s.won = BOUTS_PER_TIER; }
-      else { s.tier = Math.min(LADDER_TIERS.length - 1, s.tier + 1); s.won = 0; out.tierUp = true; }
-    } else s.won = Math.min(BOUTS_PER_TIER, s.won + 1);
+      else { s.tier = Math.min(LADDER_TIERS.length - 1, s.tier + 1); s.won = 0; s.paid = 0; out.tierUp = true; }
+    } else s.won = Math.min(BOUTS_PER_TIER, s.won + 1);   // AUDIT ARENA-LADDER 2: `paid` follows - arenaLadderRestore keeps it at least `won`
   } else {
     r.losses++; r.streak = 0;
     out.runLost = s.won > 0;

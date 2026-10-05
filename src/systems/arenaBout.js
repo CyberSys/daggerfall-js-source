@@ -272,7 +272,7 @@ function timeUp(b, now) {
     const dealt = tallies.find((t) => t.side === side)?.dealt ?? 0;
     if (dealt < b.judgesFloor * theirs) {
       const ai = tallies.filter((t) => !b.fighters.some((f) => f.side === t.side && !f.ai));
-      side = ai.length ? judgeBout(ai) ?? ai[0].side : null;
+      side = ai.length ? judgeBout(ai) : null;   // AUDIT ARENA-LADDER 2: fighters level on the card - a draw, never the first one's
     }
   }
   finish(b, side, 'judges', now, tallies);
