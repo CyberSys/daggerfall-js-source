@@ -194,7 +194,7 @@ test('TV7 host: the bands about the traveller kept a life and a pixel; made once
   assert.match(w, /if \(!isEnhanced\(\) \|\| \(modes\?\.mode \?\? 'exterior'\) !== 'exterior' \|\| !walkMode \|\| !playerSpawned \|\| getPref\('wildernessCamps'\) === false\n\s*\|\| playerEntity\.preventEnemySpawns \|\| player\.isPlayerSwimming \|\| aboard\n\s*\|\| _inAnyLocationRect\(player\.feetAt\(\)\)\) \{ bandDrop\(\); return; \}/, 'the enhanced interface, outdoors, the camps\' own switch, never at sea, never into a town - and a chase so ended is spent (AUDIT OW3 T7-7)');
   assert.match(w, /function bandDrop\(\) \{ for \(const id of _bandChase\.keys\(\)\) bandSpend\(id\); _bandChase\.clear\(\); \}/);
   assert.match(w, /function bandRoom\(mk\) \{ return campMembers\(mk\.mobileTypes\)\.length <= \(exteriorFoes\.encounterRoom\?\.\(\) \?\? Infinity\); \}\n(?:\s*\/?\*[^\n]*\n)*\s*function bandStand\(mk, yaw, dist\) \{\n\s*if \(!bandRoom\(mk\)\) return false;/, 'the room the band\'s members need, one home (AUDIT OW5b E1)');
-  assert.match(w, /function bandStand\(mk, yaw, dist\) \{[\s\S]{0,300}?const fx = player\.feetAt\(\);[\s\S]{0,500}?const minDistance = Math\.max\(BAND_STAND_MIN_M, dist - PACK_SPACING\), maxDistance = Math\.max\(BAND_STAND_MIN_M, dist\) \+ PACK_SPACING;\n\s*for \(const turn of \[0, Math\.PI \/ 2, -Math\.PI \/ 2, Math\.PI\]\) \{\n\s*if \(_standCampEncounter\(\{ kind: 'band', mobileTypes: mk\.mobileTypes, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,\n\s*minDistance, maxDistance, bearingDegrees: 0, yawRad: yaw \+ turn \}, fx\)\) return true;\n\s*\}\n\s*return false;/, 'on its own bearing, then a quarter turn either way, then behind (AUDIT OW3 T7-1)');
+  assert.match(w, /function bandStand\(mk, yaw, dist\) \{[\s\S]{0,300}?const fx = player\.feetAt\(\);[\s\S]{0,500}?const minDistance = Math\.max\(BAND_STAND_MIN_M, dist - PACK_SPACING\), maxDistance = Math\.max\(BAND_STAND_MIN_M, dist\) \+ PACK_SPACING;\n\s*for \(const turn of \[0, Math\.PI \/ 2, -Math\.PI \/ 2, Math\.PI\]\) \{\n\s*const stood = _standCampEncounter\(\{ kind: 'band', mobileTypes: mk\.mobileTypes, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,\n\s*minDistance, maxDistance, bearingDegrees: 0, yawRad: yaw \+ turn \}, fx\);\n\s*if \(!stood\) continue;[\s\S]{0,900}?\n\s*return true;\n\s*\}\n\s*return false;/, 'on its own bearing, then a quarter turn either way, then behind (AUDIT OW3 T7-1; WILD-ALERT-FIX: what stood, alerted)');
   assert.match(w, /if \(!anchor\) return null;   \/\/ AUDIT OW3 T7-1/, 'the camps\' stand says whether it stood (THE MERGE: null for nobody, what stood for BOUNTY1\'s pack)');
   assert.match(w, /\}\)\.catch\(\(\) => null\)\);\n\s*\}\n\s*if \(!placed\) return null;[^\n]*\n\s*return \{ foes: Promise\.all\(stands\), anchorFeet \};[^\n]*\n\s*\};\n\s*\/\/ BOUNTY1: A BOUNTY'S PACK/, 'stood is a member placed (AUDIT OW4 B3)');
   assert.match(w, /if \(!spot\) continue;\n\s*placed\+\+;/);
@@ -249,7 +249,7 @@ test('TV7b host: the band word rides my cell\'s foes frame (a chase asks for a f
   assert.match(w, /if \(cell\) csaWord\(frame, full\);(?: if \(cell\) csaAboardWord\(frame, full\);)? if \(cell\) bandWord\(frame, full\);/, 'and rides it');
   assert.match(w, /if \(!full && !_bandChase\.size && key === _bandWordKey\) return false;/, 'a chase is said every frame; a spent list on a change and the full frames');
   assert.match(w, /if \(flag === 2\) \{ _bandSpent\.add\(id\); _bandChase\.delete\(id\); _bandPeer\.delete\(id\); continue; \}/, 'a peer\'s spent band: spent here');
-  assert.match(w, /_bandPeer\.set\(id, \{ x, z, at: now, from \}\);\n\s*if \(_bandChase\.has\(id\) && chaseYields\(online\?\.id \?\? '', from\)\) _bandChase\.delete\(id\);/, 'one band, one chaser');
+  assert.match(w, /_bandPeer\.set\(id, \{ x, z, at: now, from \}\);\n\s*if \(_bandChase\.has\(id\) && chaseYields\(online\?\.id \?\? '', from\)\) \{ _bandChase\.delete\(id\); wildBands\.forget\(id\); \}/, 'one band, one chaser (WILD-ALERT-FIX: its notice of me with it)');
   assert.match(w, /const pc = bandPeerChase\(b\.id\);\n\s*if \(pc\) return pc;/, 'a peer\'s chase shown where it runs');
   assert.match(w, /if \(performance\.now\(\) - p\.at > BAND_WORD_MS\) \{ _bandPeer\.delete\(id\); return null; \}/, 'a word gone stale: the band wanders on');
 });
@@ -286,7 +286,7 @@ const bandHost = async (over = {}) => {
     owed: [], owSaySpent: (id) => d.owed.push(id),   // OW6L: a spend is owed to the cell's ledger
     // WILD-ALERT: a band within its sight notices on a stealth check (systems/wildAlert.js) - these runs stand a band that
     // always notices, as every band within sight did before; test/wildalert.test.js runs the check itself
-    wildBands: { step: (id, q) => ({ alerted: q.distM <= q.reachM, noticed: q.distM <= q.reachM }), prune: () => {} }, wildStealth: () => 50,
+    wildBands: { step: (id, q) => ({ alerted: q.distM <= q.reachM, noticed: q.distM <= q.reachM }), prune: () => {}, forget: () => {} }, wildStealth: () => 50,
     // SEA-HUNT: the host's one afloat predicate (world.js playerAfloat - its text pinned in deckfield.test.js), read off
     // these same stand-ins: a helm, a boat's effect, the water
     playerAfloat: () => !!d.csaRuntime?.isSailing?.() || (d.playerEntity.activeEffects ?? []).some((e) => d.isBoatEffectBundle(e?.bundleName)) || !!d.player.isPlayerSwimming,
@@ -299,7 +299,7 @@ const bandHost = async (over = {}) => {
       BAND_STAND_RETRY_MS, BANDS_WIRE_MAX, BAND_LIFE_MS, BAND_STAND_MIN_M } = law;
     const NATIVE_PER_M = 40, PACK_SPACING = 6, PACK_ALERT_RADIUS = 30;
     const partyGroupMembers = (t) => t, partySize = () => 1, campMembers = (t) => t, exteriorFoes = { encounterRoom: () => d.room ?? Infinity };
-    const _standCampEncounter = (hit) => { d.standCalls.push(hit.yawRad); d.standAt?.push([hit.minDistance, hit.maxDistance]); d.order?.push('stand'); return d.standOk(hit); };
+    const _standCampEncounter = (hit) => { d.standCalls.push(hit.yawRad); d.standAt?.push([hit.minDistance, hit.maxDistance]); d.order?.push('stand'); return d.standOk(hit) ? { foes: Promise.resolve([]), anchorFeet: [0, 0, 0] } : null; };   // the host's own shape: what stood, or null
     let _bandClock = 0;
     ${src.spend} ${src.drop} ${src.room} ${src.stand} ${src.hear} ${src.frame}
     // the host's frame hands its own dt (AUDIT OW5b B1): the time since the last frame, clamped at 0.1 s (world.js frame)
