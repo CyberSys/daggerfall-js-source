@@ -519,7 +519,7 @@ import { climbRigInput } from '../player/climbPose.js';   // CLIMB6: the body's 
 import { PlayerMotor, startRestGroundedCheck, motionBagOf, climbPoseOf, MAX_FRAME_DT, CAPSULE_HEIGHT, CAPSULE_RADIUS, RIDE_EYE_HEIGHT, afloatMessageStep, CANNOT_FLOAT_HUD_SECONDS } from '../player/motor.js';   // SPELLFX1: a peer's eye when its body has not said its height
 import { travelDriveForward, travelLookaheadFor } from '../systems/travelAutopilot.js';   // TO-FIELD / AUDIT-FIELD F8: the journey's ground gate, pure so the pins can drive it   // StartRestGroundedCheck's ONE home; WW2: the one motion bag
 import { createTravelSteer, createColliderProbe, steerDrive } from '../systems/travelSteer.js';   // TRAVEL-NAV1: the journey goes round what is in its way, and stops short of what it cannot
-import { exteriorSurfaces, downProbe, rayDistanceFor, ON_EXTERIOR_WATER, exteriorSwimming } from '../player/exteriorSurface.js';   // ROAD-B (b3): PlayerMotor's three exterior surface methods; OT1: IsPlayerSwimming above ground
+import { exteriorSurfaces, downProbe, rayDistanceFor, ON_EXTERIOR_WATER, exteriorSwimming, feetWaterCoverage, SWIM_COVERAGE } from '../player/exteriorSurface.js';   // ROAD-B (b3): PlayerMotor's three exterior surface methods; OT1: IsPlayerSwimming above ground
 import { isOnFoot } from '../systems/transport.js';   // TransportManager.IsOnFoot - the raycast's reach and the mounted footstep gate
 import { floorLanding } from '../player/enterExit.js';   // FixStanding for the exterior arrivals (2026-08-27)
 import { jumpSpeedMultiplier, isEnhancedJumping, tallySkill, SKILLS } from '../systems/skills.js';   // TO1: the avoid-encounter roll reads skillValue live (imported above) Stealth   // AUDIT 64 F2: CheckAirControl's IsEnhancedJumping disjunct
@@ -9199,6 +9199,9 @@ export async function bootWorld(canvas, renderer, params, status) {
             climateAt: (x, y) => { try { return maps.getClimateIndex(x, y); } catch { return null; } },
             day: () => utcDayOfMs(Date.now() + _sharedOffsetMs),
             busy: () => !!csaRuntime?.isSailing?.() || !!naval?.aiming || !!naval?.boarding,   // HELM-NET: no cast at the helm, over the laid guns or in a boarding
+            // FIELD BUGS 2026-10-05 SHORE-CAST: the cast's point over water the feet would swim in (MAC2's coverage law) -
+            // null off the built ground, which the kind reads as unknown
+            waterAt: (pos) => { const g = groundSampleAt(pos); const c = g ? feetWaterCoverage(g.tile, g.feet) : null; return c == null ? null : c >= SWIM_COVERAGE; },
             // the tug's buzz (5.2: "the pad and phone buzz") - the touch layer's own pulse, under its own pref (TI2)
             tug: () => { if (!getPref('touchHaptics')) return; try { navigator.vibrate?.(120); } catch { /* a platform without it */ } },
             trophy: (species) => {
@@ -9632,7 +9635,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:3078 mounts the same one, gated on
+  // and dungeonContext.js:3085 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:7286
@@ -10952,8 +10955,10 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  tilemap, and a caller must read that as "no information" rather
    *  than as any particular tile. */
   const TERRAIN_TILE_WORLD = 2 * TERRAIN_TILE_DIM;
-  const playerGroundSample = () => {
-    const wc = state.worldCoords(walkMode ? player.pos : cam.pos);
+  const playerGroundSample = () => groundSampleAt(walkMode ? player.pos : cam.pos);
+  /** FIELD BUGS 2026-10-05 SHORE-CAST: playerGroundSample's own read at any scene point - the fishing cast's. */
+  const groundSampleAt = (pos) => {
+    const wc = state.worldCoords(pos);
     const p = worldCoordToMapPixel(wc.x, wc.z);
     const built_ = built.get(`${p.x},${p.y}`);
     if (!built_?.tilemap) return null;
@@ -12375,7 +12380,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:8440), so exterior mode and a
+    // composer, dungeonContext.js:8447), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
