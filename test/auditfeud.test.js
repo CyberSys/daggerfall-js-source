@@ -319,15 +319,17 @@ test('AUDIT FEUD H4: EVERY COMMENT ON ITS OWN LINE - the trailing notes FEUD\'s 
 
 // ── section 28: the revenant's duel ─────────────────────────────────
 
-test('AUDIT FEUD (section 28): THE REVENANT\'S DUEL - an Orc revenant fought to its end through the pools\' own law: its last stand from rank 3, then its will - its weakness struck, it kneels; traded with, it tears away; two staggers off two perfect dodges, it kneels; a rank-1 kneels with no stand; RVN\'s targets as the arc names them (mutants: the stand skipped; the will unread; the dodge left before the late sample; a target moved)', async () => {
+// PIN MOVED (FEUD BALANCE, Feud-Arc.md OPEN 22-24 - Mac: one stagger or one perfect dodge breaks the will; dodging pays in
+// the blows not taken, never slower)
+test('AUDIT FEUD (section 28): THE REVENANT\'S DUEL - an Orc revenant fought to its end through the pools\' own law: its last stand from rank 3, then its will - its weakness struck, it kneels; traded with and never staggered, it tears away; one perfect dodge, it kneels; a rank-1 kneels with no stand; RVN\'s targets as the arc names them (mutants: the stand skipped; the will unread; the dodge left before the late sample; a target moved)', async () => {
   const { revenantFight, FEUD_TARGETS } = await import('../tools/tellDuel.mjs');
-  assert.deepEqual(JSON.parse(JSON.stringify(FEUD_TARGETS)), { DODGE_PAYS: 0.75, KNEEL_WEAK: 0.9, KNEEL_DODGE: 0.7, KNEEL_TRADE_MAX: 0.2, RANK_RATIO: [2, 3] });
+  assert.deepEqual(JSON.parse(JSON.stringify(FEUD_TARGETS)), { DODGE_SPARES: 0.1, KNEEL_WEAK: 0.9, KNEEL_DODGE: 0.7, KNEEL_TRADE_MAX: 0.2, RANK_RATIO: [2, 3] });
   const weak = revenantFight({ rank: 3, weak: true, seed: 3 });
   assert.deepEqual([weak.end, weak.stood, weak.weak > 0], ['knelt', true, true]);
-  const trade = revenantFight({ rank: 3, seed: 3 });
-  assert.deepEqual([trade.end, trade.stood, trade.staggers < 2], ['tore', true, true]);
-  const dodge = revenantFight({ rank: 3, mode: 'dodge', seed: 14 });
-  assert.deepEqual([dodge.end, dodge.staggers, dodge.perfect, dodge.hitsOnMe], ['knelt', 2, 2, 0]);
+  const trade = revenantFight({ rank: 3, seed: 4 });
+  assert.deepEqual([trade.end, trade.stood, trade.staggers, trade.perfect], ['tore', true, 0, 0]);
+  const dodge = revenantFight({ rank: 3, mode: 'dodge', seed: 4 });
+  assert.deepEqual([dodge.end, dodge.staggers, dodge.perfect, dodge.hitsOnMe], ['knelt', 0, 1, 0], 'one perfect dodge breaks it');
   const one = revenantFight({ rank: 1, seed: 3 });
   assert.deepEqual([one.end, one.stood], ['knelt', false]);
 });

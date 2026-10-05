@@ -156,7 +156,7 @@ export function weaknessWords(r) {
   return 'Weakness: unknown.';
 }
 /** RVN3 (14.2): from rank 3, the rule of its will. */
-export const willWords = (r) => (willMatters(r?.rank) ? 'Its will must be broken - strike its weakness, or stagger it twice.' : '');
+export const willWords = (r) => (willMatters(r?.rank) ? 'Its will must be broken - strike its weakness, stagger it, or dodge its blow perfectly.' : '');   // FEUD BALANCE (Feud-Arc.md OPEN 22)
 /** RVN4 (section 15): from rank 3, its last stand - once a fight it rises again from the edge of death. */
 export const lastStandWords = (r) => ((r?.rank | 0) >= LAST_STAND_RANK ? `Last stand: once a fight it rises again, at ${Math.round(lastStandHealth(r.rank) * 100)}% of its health.` : '');
 /** RVN5 (section 16; RVN12 completes the page): what its signature does, by its shape (a pyre's by its element). */

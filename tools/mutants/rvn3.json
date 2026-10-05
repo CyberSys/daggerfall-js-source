@@ -20,8 +20,8 @@
   {
     "name": "RVN3-the-will-staggers-moved",
     "file": "src/systems/revenantFeud.js",
-    "old": "((ledger.weak | 0) > 0 || (ledger.staggers | 0) >= WILL_STAGGERS)",
-    "new": "((ledger.weak | 0) > 0 || (ledger.staggers | 0) > WILL_STAGGERS)",
+    "old": "((ledger.weak | 0) > 0 || (ledger.staggers | 0) + (ledger.perfect | 0) >= WILL_STAGGERS)",
+    "new": "((ledger.weak | 0) > 0 || (ledger.staggers | 0) + (ledger.perfect | 0) > WILL_STAGGERS)",
     "tests": [
       "test/rvn3_weak.test.js"
     ]
@@ -29,8 +29,8 @@
   {
     "name": "RVN3-the-weakness-breaks-nothing",
     "file": "src/systems/revenantFeud.js",
-    "old": "((ledger.weak | 0) > 0 || (ledger.staggers | 0) >= WILL_STAGGERS)",
-    "new": "((ledger.staggers | 0) >= WILL_STAGGERS)",
+    "old": "((ledger.weak | 0) > 0 || (ledger.staggers | 0) + (ledger.perfect | 0) >= WILL_STAGGERS)",
+    "new": "((ledger.staggers | 0) + (ledger.perfect | 0) >= WILL_STAGGERS)",
     "tests": [
       "test/rvn3_weak.test.js"
     ]

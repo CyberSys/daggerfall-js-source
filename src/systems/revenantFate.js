@@ -90,7 +90,8 @@ export function roarStep(f, now = Date.now()) {
  *  - inside the leaving hold (`f.leaving`, 900 ms), whose hand-off is its escape. */
 export const TEAR_MS = Object.freeze({ delay: 120, ms: 720 });
 /** RVN3 (14.2): DOES ITS WILL HOLD at the killing blow - a revenant of rank WILL_RANK and up whose weakness this fight has
- *  not struck nor been staggered WILL_STAGGERS times (its ledger, systems/feudLedger.js)? Then it does not kneel. */
+ *  not struck, nor staggered or dodged perfectly WILL_STAGGERS times (its ledger, systems/feudLedger.js)? Then it does not
+ *  kneel. */
 export function revenantWillHolds(f) {
   const r = revenantById(f?.entity?.revenant?.id);
   return !!r && willMatters(r.rank) && !willBroken(f.entity._feud);

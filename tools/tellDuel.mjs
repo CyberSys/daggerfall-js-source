@@ -17,7 +17,9 @@
 //            the weakest giant DFU rolls);
 //   FAIR     no telegraphed blow lands on a player who is out of its shape from 70% of its wind-up on.
 // AUDIT FEUD: and RVN's (revenantFight, below) - an Orc revenant fought to its end, trading or dodging perfectly:
-//   DODGE PAYS  a perfect dodger brings a rank-3 revenant to its end in 75% of a trader's time or less;
+//   DODGE PAYS  a perfect dodger takes a tenth of the telegraphed blows a trader does or fewer, and is no slower to bring a
+//               rank-3 revenant to its end (FEUD BALANCE, Mac's OPEN 24: what dodging buys - the will below, the blows not
+//               taken - and not speed);
 //   THE WILL    at rank 3, with its weakness it kneels 90% or more; without it but dodging, 70% or more; trading, 20% or less;
 //   THE RANKS   a rank-5 takes about 2.5 times a rank-1's time (2 to 3).
 // `--tell` measures TELL's alone, `--feud` RVN's alone. A class foe needs its CLASS*.CFG (ARENA2's data, not in the
@@ -242,9 +244,10 @@ const { BLOW_EFFECT, blowEffectOf } = await import('../src/systems/blowEffects.j
 const { weaponFeudClass } = await import('../src/systems/revenantFeud.js');
 const { walkSpeed } = await import('../src/player/motor.js');
 
-/** Section 28's RVN targets: the dodger's time to its end at most this share of the trader's; the will's kneels; a
- *  rank-5's time over a rank-1's in this band ("about 2.5 times"). */
-export const FEUD_TARGETS = Object.freeze({ DODGE_PAYS: 0.75, KNEEL_WEAK: 0.9, KNEEL_DODGE: 0.7, KNEEL_TRADE_MAX: 0.2, RANK_RATIO: Object.freeze([2, 3]) });
+/** Section 28's RVN targets: the telegraphed blows a perfect dodger takes, at most this share of a trader's, its time to
+ *  the end no longer (FEUD BALANCE, OPEN 24 - it was its time, at most 0.75 of the trader's); the will's kneels; a rank-5's
+ *  time over a rank-1's in this band ("about 2.5 times"). */
+export const FEUD_TARGETS = Object.freeze({ DODGE_SPARES: 0.1, KNEEL_WEAK: 0.9, KNEEL_DODGE: 0.7, KNEEL_TRADE_MAX: 0.2, RANK_RATIO: Object.freeze([2, 3]) });
 const WALK = walkSpeed(50);   // player/motor.js: DFU's walk at Speed 50 (4.43 m/s)
 const CLOSE = 0.25;           // the dodger and the trader close to this inside their reach
 const FEUD_ME = Object.freeze({ isPlayer: true, name: 'Duelist', characterId: 'char-duel', level: 10, items: [] });
@@ -360,7 +363,7 @@ export function measureFeud({ fights = 1000, weapons = ['Dagger', 'Longsword', '
   const ratio = (mode) => +(ranks.find((x) => x.mode === mode && x.rank === 5).mean / ranks.find((x) => x.mode === mode && x.rank === 1).mean).toFixed(2);
   const ref = 'Longsword';
   const verdict = {
-    DODGE_PAYS: { share: +(at(ref, 'dodge', false).mean / at(ref, 'trade', false).mean).toFixed(3), held: at(ref, 'dodge', false).mean <= T.DODGE_PAYS * at(ref, 'trade', false).mean },
+    DODGE_PAYS: { struck: +(at(ref, 'dodge', false).hitsOnMe / at(ref, 'trade', false).hitsOnMe).toFixed(3), time: +(at(ref, 'dodge', false).mean / at(ref, 'trade', false).mean).toFixed(3), held: at(ref, 'dodge', false).hitsOnMe <= T.DODGE_SPARES * at(ref, 'trade', false).hitsOnMe && at(ref, 'dodge', false).mean <= at(ref, 'trade', false).mean },
     WILL_WEAK: { kneel: at(ref, 'trade', true).kneel, held: at(ref, 'trade', true).kneel >= T.KNEEL_WEAK },
     WILL_DODGE: { kneel: at(ref, 'dodge', false).kneel, held: at(ref, 'dodge', false).kneel >= T.KNEEL_DODGE },
     WILL_TRADE: { kneel: at(ref, 'trade', false).kneel, held: at(ref, 'trade', false).kneel <= T.KNEEL_TRADE_MAX },

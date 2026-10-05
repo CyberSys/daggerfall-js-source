@@ -11,8 +11,8 @@
   {
     "name": "RVN4-rank-4-share-moved",
     "file": "src/systems/revenantFeud.js",
-    "old": "export const LAST_STAND_HEALTH = Object.freeze({ 3: 0.35, 4: 0.45, 5: 0.55 });",
-    "new": "export const LAST_STAND_HEALTH = Object.freeze({ 3: 0.35, 4: 0.35, 5: 0.55 });",
+    "old": "export const LAST_STAND_HEALTH = Object.freeze({ 3: 0.3, 4: 0.35, 5: 0.4 });",
+    "new": "export const LAST_STAND_HEALTH = Object.freeze({ 3: 0.3, 4: 0.3, 5: 0.4 });",
     "tests": [
       "test/rvn4_stand.test.js"
     ]

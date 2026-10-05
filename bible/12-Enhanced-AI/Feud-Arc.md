@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL, RVN1-RVN13 and AUDIT FEUD built; three balance calls open, section 31)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL, RVN1-RVN13, AUDIT FEUD and FEUD BALANCE built)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -7,7 +7,7 @@ detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
 (section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts), AUDIT
-TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), RVN8, RVN9, RVN10, RVN11 in three parts (RVN11a loyalty, RVN11b desertion, RVN11c betrayal), RVN12 in two (RVN12a the words, RVN12b the page and the card), RVN13, and AUDIT FEUD - its balance table measured three of RVN's targets missed, and section 31 puts them to Mac (OPEN 22-24); each slice's record is at the foot.**
+TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), RVN8, RVN9, RVN10, RVN11 in three parts (RVN11a loyalty, RVN11b desertion, RVN11c betrayal), RVN12 in two (RVN12a the words, RVN12b the page and the card), RVN13, AUDIT FEUD (its balance table measured three of RVN's targets missed - section 31's OPEN 22-24) and FEUD BALANCE (Mac's calls on them, built: every target of section 28 holds); each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -57,7 +57,8 @@ section 31). Everything else is the proposal.
 - **It has a weakness** (an element, a metal, a weapon, the daylight), hidden until struck, hinted by its own flinches
   and by rumour. Struck, it takes 50% more and staggers twice as easily.
 - **Its will must be broken.** From rank 3 a revenant kneels only if, in that fight, its weakness was struck or it was
-  staggered twice. Otherwise, at the killing blow, it escapes - ranked up, and adapted again.
+  staggered twice (FEUD BALANCE, OPEN 22: once - or a perfect dodge of its blow). Otherwise, at the killing blow, it
+  escapes - ranked up, and adapted again.
 - **The last stand.** From rank 3, the first killing blow instead brings it roaring back (35-55% health, a ring burst,
   faster, harder, ember-lit) - once a stand.
 - **A signature blow** from rank 2, named for it ("Grushnak's Skullsplitter"), iron from rank 3.
@@ -626,7 +627,8 @@ holds passes the lesson to the next of the fight's scars - `revenantFeud.lessonO
 ### 14.2 The will
 
 - **From rank 3 (`WILL_RANK`) its will must be broken.** It is broken in a stand when its weakness has been struck, or
-  when it has been staggered `WILL_STAGGERS` (2) times (TELL1 or TELL4).
+  when it has been staggered `WILL_STAGGERS` (2) times (TELL1 or TELL4). FEUD BALANCE (OPEN 22, Mac 2026-10-05):
+  `WILL_STAGGERS` 1, and a perfect dodge of its blow at me (TELL4's, the ledger's `perfect`) counts as a stagger.
 - At the killing blow (after its last stand, 15), a revenant whose will is **unbroken does not kneel**. At 1 health it
   tears away - ash and smoke on the dissolve's ember lane (`systems/dissolve.js`) - through `escapeFoe` with the `fled`
   deed: it ranks up and learns from this fight. The card: "Grushnak staggers into the smoke, unbroken."
@@ -645,7 +647,8 @@ before the yield in both damage doors (`exteriorFoes.js damageFoe`, `dungeonCont
 
 ### 15.2 What
 
-- **Health** to `LAST_STAND_HEALTH` of its maximum: 0.35 at rank 3, 0.45 at 4, 0.55 at 5.
+- **Health** to `LAST_STAND_HEALTH` of its maximum: 0.35 at rank 3, 0.45 at 4, 0.55 at 5 (FEUD BALANCE, OPEN 23: 0.30,
+  0.35, 0.40).
 - **The roar** (`LAST_STAND_ROAR`, 1.2 s): no blow reaches it (the held refusal the yield uses); the attack frame held;
   with Enhanced AI, an iron ring about its feet lands as the roar ends (8.1: push and rattle). Without it, the roar
   alone.
@@ -945,7 +948,8 @@ For the living, under what it is:
 
 - **Learned**: its adaptations as chips, each with its effect ("Arrow-wise - your arrows bite less; it closes fast").
 - **Weakness**: "Unknown" / "An element" / "Fire (learned)".
-- **Will** (rank 3 and up): "Must be broken - strike its weakness, or stagger it twice."
+- **Will** (rank 3 and up): "Must be broken - strike its weakness, or stagger it twice." (FEUD BALANCE: "...strike
+  its weakness, stagger it, or dodge its blow perfectly.")
 - **Last stand** (rank 3 and up); **Signature** (its name and its shape's glyph); **Band** ("Rides with two Orcs -
   Grushnak's Warband"); **Took** (the pieces); **Lair** ("Near the Tomb of Vaness - on your map" / "Rumoured near
   Daggerfall" / "Roams"); **Festering** (three pips); **Scars** (its last fights' leading ways).
@@ -1042,8 +1046,8 @@ gets the value in the last column.
 | `ADAPT_MAX` | 3 (at most the rank) | 13.1 |
 | the adaptations (`revenantFeud.js ADAPT`) | section 13.2's table; an element +25 (RVN2) | 13.2 |
 | the weakness / daylight | x1.5 / x1.25 | 14.1 |
-| `WILL_RANK` / `WILL_STAGGERS` | 3 / 2 | 14.2 |
-| `LAST_STAND_HEALTH` rank 3 / 4 / 5 | 0.35 / 0.45 / 0.55 | 15.2 |
+| `WILL_RANK` / `WILL_STAGGERS` | 3 / 2 (FEUD BALANCE: 1, a perfect dodge counted) | 14.2 |
+| `LAST_STAND_HEALTH` rank 3 / 4 / 5 | 0.35 / 0.45 / 0.55 (FEUD BALANCE: 0.30 / 0.35 / 0.40) | 15.2 |
 | `LAST_STAND_ROAR` | 1.2 s | 15.2 |
 | phase two | blows x1.2, +20 Speed, wind-ups x0.85, cooldowns x0.7 | 15.2 |
 | `SIG_RANK` / its damage / its cooldown | 2 / x2.0 / 12-18 s | 16.1 |
@@ -1072,7 +1076,7 @@ revenant at each rank; a thousand seeded fights a cell. It prints a table, and t
 | A light weapon rarely breaks alone | a dagger, solo, at a medium foe's front: 15% of the wind-ups its blows land on or fewer |
 | A heavy weapon usually does | a warhammer, the same: 60% or more (of the wind-ups it lands on - AUDIT TELL: one swing at most comes in a wind-up, and DFU's hit roll on it, so a miss or a late swing breaks nothing whatever the weapon) |
 | Massive means massive | no single blow of a non-weakness weapon at a giant's front breaks it |
-| Dodging pays | a perfect dodger kills a rank-3 revenant at least 25% faster than one who trades blows |
+| Dodging pays | a perfect dodger kills a rank-3 revenant at least 25% faster than one who trades blows - FEUD BALANCE (OPEN 24): a perfect dodger takes a tenth of the telegraphed blows a trader does or fewer, and is no slower to bring a rank-3 revenant to its end (what dodging buys: the will, and the blows not taken) |
 | The will is learnable | a rank-3 revenant fought with its weakness kneels 90% of the time or more; without it, but dodging, 70% or more; by trading blows alone, 20% or less |
 | A rank means something | a rank-5 revenant takes about 2.5 times a rank-1's time to kill |
 | Fair | no telegraphed blow lands on a player who leaves its shape inside its first 70% |
@@ -1082,7 +1086,10 @@ will by its weakness (100%) and the trader's will (0.3%) hold; three miss as bui
 rank-3 fight lasts about 11 s and holds two or three telegraphed blows, so two staggers come one fight in nine),
 **dodging pays** (90.5%: a dodger swings no faster, and the fight holds few windows) and **a rank's weight** (rank 5
 over rank 1: 3.25 trading, 2.98 dodging - the last stand's share grows with the rank). Each is a number Mac called (OPEN 11,
-12, 5), so AUDIT FEUD tuned none: OPEN 22-24 below put them to him, each measured.
+12, 5), so AUDIT FEUD tuned none: OPEN 22-24 below put them to him, each measured. **FEUD BALANCE** built his calls
+(each as recommended): the will by dodging 89.7%, by its weakness 100%, by trading 13.9%; a perfect dodger struck by
+5.6% of a trader's telegraphed blows, in 90.4% of its time; rank 5 over rank 1, 2.95 trading and 2.70 dodging - every
+target holds.
 
 ## 29. Tests, mutants and probes
 
@@ -1204,6 +1211,8 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
 
 **OPEN after AUDIT FEUD (2026-10-05) - the balance, measured (section 28; an Orc revenant, a longsword, 1000 fights a
 cell; each alternative measured at 300).**
+
+**ANSWERED 2026-10-05: Mac - all three as recommended. Built as FEUD BALANCE (its record at the foot).**
 
 22. **The will.** As built (OPEN 11: its weakness, or two staggers): with its weakness 100%, dodging 11.6%, trading
     0.3% - the dodging target (70%) missed. Recommended: **broken by its weakness, or by one stagger or one perfect
@@ -2533,3 +2542,39 @@ was fixed. "Every host" is the four by name: `scenes/world.js`, `scenes/exterior
   (2), `rvn12a` (2), `rvn13` (2), `audittell`, `revenantaudit`, `rvn1`, `rvn11b`, `rvn12b`, `rvn8`, `rvn9`, `tell8`
   (one each) - each judged again, all dead; `rvn9`'s day-twice, recorded equivalent, dies now (R4's pin) and is
   recorded so.
+
+### FEUD BALANCE - BUILT 2026-10-05 (Mac, on AUDIT FEUD's OPEN 22-24: each as recommended)
+
+- **The will (OPEN 22)** - `revenantFeud.WILL_STAGGERS` 1, and `willBroken` counts a perfect dodge of its blow with its
+  staggers: the ledger's `perfect`, written by the brain at a blow that missed ME with my feet inside it at its late
+  sample (TELL4, `tactics.beginOverreach` - a peer's perfect dodge is the peer's fight). Its weakness breaks it as ever;
+  so does one stagger (a poise break, an overreach's first blow) or one perfect dodge. With the Enhanced AI switch off
+  there is neither, and its weakness alone breaks it (14.2's law kept). The page: "Its will must be broken - strike its
+  weakness, stagger it, or dodge its blow perfectly."
+- **The last stand (OPEN 23)** - `LAST_STAND_HEALTH` 0.30 / 0.35 / 0.40 at ranks 3 / 4 / 5 (from 0.35 / 0.45 / 0.55);
+  the page says its share ("at 30% of its health").
+- **Dodging pays (OPEN 24)** - section 28's row rewritten to what dodging buys: a perfect dodger is struck by a tenth of
+  the telegraphed blows a trader takes or fewer, and is no slower to bring a rank-3 to its end (the will is the other
+  half, its own target). `tools/tellDuel.mjs`: `FEUD_TARGETS.DODGE_SPARES` 0.1 for the time share `DODGE_PAYS` 0.75;
+  its verdict reads both.
+- **Measured** (`node tools/tellDuel.mjs --feud`, 1000 fights a cell; TELL's cells unaffected):
+
+  | A rank-3 Orc revenant | knelt | time to its end (mean) | telegraphed blows on me |
+  |---|---|---|---|
+  | Longsword, trading | 13.9% | 12.1 s | 1.95 |
+  | Longsword, dodging | 89.7% | 10.9 s | 0.11 |
+  | Longsword, its weakness | 100% | 8.8 s | 1.57 |
+  | Dagger, trading / dodging | 0.1% / 98.9% | 23.0 / 22.1 s | 2.98 / 0.15 |
+  | Warhammer, trading / dodging | 29.4% / 92.2% | 12.7 / 11.5 s | 1.88 / 0.16 |
+
+  Rank 5 over rank 1: 2.95 trading (16.2 / 5.5 s), 2.70 dodging (14.5 / 5.4 s). Every RVN target holds: the will by
+  its weakness 100%, by dodging 89.7%, by trading 13.9% (the reference longsword - a warhammer's poise breaks stagger a
+  trader's foe one fight in three: 29.4%, the heavy weapon's own way to its will), dodging pays (struck 5.6%, time
+  90.4%), the ranks (2.95 / 2.70).
+- **Hosts** - none: the will, the stand and the page are read where they were (`revenantFate.revenantWillHolds` and
+  `beginLastStand` in both pools' damage doors, `revenantPage`); the wire carries no number of these.
+- Pins `test/feudbalance.test.js` (4). Pins moved (each marked): `rvn3_weak` (the law's breaking, the page's words),
+  `rvn4_stand` (the shares, four places, and the page), `auditfeud` (the duel's seeds and the target). Mutants
+  `tools/mutants/feudbalance.json` (8), all dead; re-aimed by content (4): `rvn3` (2), `rvn4` (1), `auditfeud`'s target
+  (1) - each judged again, all dead.
+

@@ -48,9 +48,10 @@ export const ADAPT = Object.freeze({
   RELENTLESS_SPEED: 25,
   NIGHT_BLOWS: 1.15,            // a Night-stalker's blows (it comes only by night)
 });
-/** RVN3: from this rank its will must be broken; this many staggers break it. */
+/** RVN3: from this rank its will must be broken; this many staggers break it - FEUD BALANCE (Feud-Arc.md OPEN 22, Mac,
+ *  2026-10-05): one, and a perfect dodge of its blow counts as one (the duel harness: two came one rank-3 fight in nine). */
 export const WILL_RANK = 3;
-export const WILL_STAGGERS = 2;
+export const WILL_STAGGERS = 1;
 /** RVN3 (14.1): a blow of its weakness (a weapon class or a metal) x1.5; a daylight weakness x1.25 on every blow while
  *  the sky reads day; an element's on the saving throw (the fold); its poise weight x2 is TELL's (`POISE_WEAK`). */
 export const WEAK = Object.freeze({ STRUCK: 1.5, DAYLIGHT: 1.25, RESIST: -50 });
@@ -60,7 +61,7 @@ export const FLINCH_HEALTH = 0.5;
  *  of its health by rank; its roar (s) - no blow reaches it, and (the Enhanced AI switch on) an iron ring about its feet
  *  lands as it ends; then PHASE TWO for the rest of the stand. */
 export const LAST_STAND_RANK = 3;
-export const LAST_STAND_HEALTH = Object.freeze({ 3: 0.35, 4: 0.45, 5: 0.55 });
+export const LAST_STAND_HEALTH = Object.freeze({ 3: 0.3, 4: 0.35, 5: 0.4 });   // FEUD BALANCE (OPEN 23, Mac, 2026-10-05): from 35 / 45 / 55% - a rank 5 about 2.5 times a rank 1's fight
 export const LAST_STAND_ROAR = 1.2;
 export const PHASE_TWO = Object.freeze({
   BLOWS: 1.2,                   // its blows (damageScale)
@@ -241,8 +242,9 @@ export function isWeakBlow(weak, cls, metal = null, day = false) {
   if (weak === 'daylight') return !!day;
   return weak === cls || (metal != null && weak === metal);
 }
-/** RVN3 (14.2): its will broken in this fight (its ledger) - its weakness struck, or staggered WILL_STAGGERS times. */
-export const willBroken = (ledger) => !!ledger && ((ledger.weak | 0) > 0 || (ledger.staggers | 0) >= WILL_STAGGERS);
+/** RVN3 (14.2): its will broken in this fight (its ledger) - its weakness struck, or staggered or dodged perfectly
+ *  WILL_STAGGERS times in all (FEUD BALANCE, OPEN 22: a perfect dodge counts as a stagger). */
+export const willBroken = (ledger) => !!ledger && ((ledger.weak | 0) > 0 || (ledger.staggers | 0) + (ledger.perfect | 0) >= WILL_STAGGERS);
 /** RVN3 (14.2): must its will be broken (rank WILL_RANK and up)? */
 export const willMatters = (rank) => (rank | 0) >= WILL_RANK;
 /** RVN3 (14.1): WHAT IT SHIES FROM - the narrator's line, one a weakness, in no personality's voice. */

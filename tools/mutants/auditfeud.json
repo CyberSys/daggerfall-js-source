@@ -453,8 +453,8 @@
   {
     "name": "AF-S28-target-moved",
     "file": "tools/tellDuel.mjs",
-    "old": "DODGE_PAYS: 0.75,",
-    "new": "DODGE_PAYS: 0.95,",
+    "old": "DODGE_SPARES: 0.1,",
+    "new": "DODGE_SPARES: 0.5,",
     "tests": [
       "test/auditfeud.test.js"
     ]

@@ -75,7 +75,7 @@ beforeEach(() => {
 
 // ── the law ─────────────────────────────────────────────────────────
 
-test('RVN3 THE LAW: a blow of its weakness - its class, its metal; the daylight\'s every blow by day and none by night; the will broken by its weakness struck or two staggers, from rank 3; fourteen flinch lines and names, one a weakness (mutants: a metal unread; the daylight by night; the will\'s line moved; a weakness with no line)', () => {
+test('RVN3 THE LAW: a blow of its weakness - its class, its metal; the daylight\'s every blow by day and none by night; the will broken by its weakness struck or one stagger or perfect dodge (FEUD BALANCE), from rank 3; fourteen flinch lines and names, one a weakness (mutants: a metal unread; the daylight by night; the will\'s line moved; a weakness with no line)', () => {
   assert.deepEqual({ ...F.WEAK }, { STRUCK: 1.5, DAYLIGHT: 1.25, RESIST: -50 });
   assert.equal(F.isWeakBlow('blade', 'blade'), true);
   assert.equal(F.isWeakBlow('blade', 'axe'), false);
@@ -90,8 +90,10 @@ test('RVN3 THE LAW: a blow of its weakness - its class, its metal; the daylight\
   assert.equal(F.willMatters(2), false);
   assert.equal(F.willMatters(3), true);
   assert.equal(F.willBroken(null), false);
-  assert.equal(F.willBroken({ weak: 0, staggers: 1 }), false);
-  assert.equal(F.willBroken({ weak: 0, staggers: 2 }), true);
+  // PIN MOVED (FEUD BALANCE, Feud-Arc.md OPEN 22 - Mac: one stagger or one perfect dodge breaks it)
+  assert.equal(F.willBroken({ weak: 0, staggers: 0, perfect: 0 }), false);
+  assert.equal(F.willBroken({ weak: 0, staggers: 1 }), true);
+  assert.equal(F.willBroken({ weak: 0, staggers: 0, perfect: 1 }), true);
   assert.equal(F.willBroken({ weak: 1, staggers: 0 }), true);
   assert.deepEqual(Object.keys(F.FLINCH_LINES).sort(), [...F.WEAKNESSES].sort(), 'one line a weakness');
   assert.equal(new Set(Object.values(F.FLINCH_LINES)).size, 14, 'fourteen, each its own');
@@ -345,7 +347,7 @@ test('RVN3 THE WILL: from rank 3 a revenant my fight has not broken does not kne
   assert.ok(ev, 'its words');
   assert.equal(ev.body, `${rec.given} staggers into the smoke, unbroken.`);
   assert.equal(ev.kicker, 'Unbroken');
-  // broken by two staggers: it kneels
+  // broken by its staggers: it kneels
   N._resetRevenantForTests();
   const r2 = revenantOf(p, 3);
   const pool2 = rig(p);
@@ -397,5 +399,5 @@ test('RVN3 the page: its weakness as I know it - unknown, its kind, what it is; 
   assert.equal(weaknessWords({ weak: 'daylight', weakKnown: 1 }), 'Weakness: The sun.');
   assert.equal(weaknessWords({ weak: 'axe', weakKnown: 2 }), 'Weakness: Axes.');
   assert.equal(willWords({ rank: 2 }), '');
-  assert.equal(willWords({ rank: 3 }), 'Its will must be broken - strike its weakness, or stagger it twice.');
+  assert.equal(willWords({ rank: 3 }), 'Its will must be broken - strike its weakness, stagger it, or dodge its blow perfectly.');   // PIN MOVED (FEUD BALANCE, OPEN 22)
 });
