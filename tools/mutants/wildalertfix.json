@@ -62,8 +62,8 @@
   {
     "name": "WAFIX-load-forget",
     "file": "src/scenes/world.js",
-    "old": "    wildBands.prune(() => false);   // AUDIT-F3",
-    "new": "    void wildBands;   // AUDIT-F3",
+    "old": "_bandSpentAt.length = 0; wildBands.prune(() => false);",
+    "new": "_bandSpentAt.length = 0; void wildBands;",
     "tests": [
       "test/wildalertfix.test.js",
       "test/wildalert.test.js"

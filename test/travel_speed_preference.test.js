@@ -31,7 +31,8 @@ function rig({ onRoad = () => false } = {}) {
 test('RATE-LAW: a route runs at its LEG\'s rate - a road x100, a track x100, the open ground x60 - asked of the clock as each leg begins and only on a change, and said on the panel (mutants: the leg\'s kind unread, a track off the road, the clock asked every frame)', () => {
   const { to, ui, asked, w, frame } = rig();
   const legs = [{ x: 501, y: 250, kind: 'road' }, { x: 502, y: 250, kind: 'track' }, { x: 503, y: 250, kind: 'open' }, { x: 504, y: 250, kind: 'road' }];
-  assert.equal(to.beginTravelAlongRoute({ legs, point: { pixel: { x: 504, y: 250 }, ...mid(504, 250) }, name: 'There' }), true);
+  // a PLACE's route (AUDIT-D1: a spot's last stretch asks the host's lanes - test/ratelawfix.test.js)
+  assert.equal(to.beginTravelAlongRoute({ legs, summary: { pixel: { x: 505, y: 250 }, name: 'There', mapId: 7 } }), true);
   assert.deepEqual(asked, [TRAVEL_ROAD_RATE], 'the first leg, a road: x100');
   assert.deepEqual([ui.timeAcceleration, ui.onRoad], [100, true]);
   frame(); frame();

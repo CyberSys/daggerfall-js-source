@@ -13573,8 +13573,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     tvFar = { at: null, near: -1, list: [] };   // TV5: nor the far places
     tvDng = { at: null, dg: -1, list: [] };   // TV6: nor the dungeons
     tvFind = { at: null, dg: -1, n: -1, list: [] };   // AUDIT OW5 D1: nor the find's
-    tvBandSeen = { at: null, life: -1, list: [] }; _bandChase.clear(); _bandSpent.clear(); _bandMake.clear(); _bandPos.clear(); _bandPeer.clear(); _bandSpentAt.length = 0;   // TV7: nor the bands
-    wildBands.prune(() => false);   // AUDIT-F3: nor what they had noticed - a band that chased the abandoned run chased again on the first frame, from wherever it stood
+    tvBandSeen = { at: null, life: -1, list: [] }; _bandChase.clear(); _bandSpent.clear(); _bandMake.clear(); _bandPos.clear(); _bandPeer.clear(); _bandSpentAt.length = 0; wildBands.prune(() => false);   // TV7: nor the bands - AUDIT-F3: nor what they had noticed (a band that chased the abandoned run chased again on the first frame, from wherever it stood)
     travelView?.exit('load', true);   // AUDIT DEEP X-3: a load under the travel view cuts it first - its release put the head back over the camera the save restores
     _owSay.sp.clear(); _owSay.dg.clear();   // OW6L: nor what the abandoned run still owed its cell (the loaded ledger is the save's)
     // AUDIT OW4 D3: NOR THE SPAWNS THE ABANDONED RUN WAS TOLD OF - the Overworld marks a spawn once its pixel's line was
@@ -14047,7 +14046,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     // multi-line messages always did, and a plain PUSH, because that
     // is what MessageBox is.
     messageBox: (line) => messageBox(line),
-    setTimeScale: (n) => { travelAsked = n; setWorldTimeScale(n); },   // TV2: the mod's own ask (its caps included), recorded for the view's governor
+    // AUDIT-D3: a new ask never lifts a hold - the clock running under the last ask (the governor's: the land loading, an
+    // enemy near, the ground's walking pace) keeps it till the governor's next frame weighs the new one; a lower ask is
+    // the clock's at once. RATE-LAW asks again at every change of ground, and each lifted the hold for a frame
+    setTimeScale: (n) => { const held = worldTimeScale() < travelAsked; travelAsked = n; if (!held || n < worldTimeScale()) setWorldTimeScale(n); },   // TV2: the mod's own ask (its caps included), recorded for the view's governor
     now: () => performance.now() / 1000,          // UNSCALED real seconds, as Time.unscaledTime is
     worldTimeNow: () => worldMinutes(),
     locationWorldRect: (summary) => {

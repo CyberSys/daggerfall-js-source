@@ -681,7 +681,7 @@ export function createTravelOptions(deps = {}) {
 
   /** RATE-LAW (2026-10-04, Mac: "Roads now travel at x100 and non roads at x60"): IS THE JOURNEY ON A ROAD? A planned
    *  route's leg says by its kind - a road or a track (ROAD_LEG_KINDS) - and the walk back to the road after a stop
-   *  (AUDIT OW3 J3's `join`) is the open ground's; the follow key walks a road or a track by definition, and a town's
+   *  (AUDIT OW3 J3's `join`) is the open ground's (the last stretch to a spot, and a route of no legs, the host's lanes); the follow key walks a road or a track by definition, and a town's
    *  ring is paved (world/roadPainter.js); the mod's straight journeys - to a place or to bare coordinates - ask the
    *  host what the traveller stands on (`deps.onRoad`, the network's own lanes), so a straight line that runs along a
    *  road runs at the road's rate while it does. */
@@ -689,6 +689,9 @@ export function createTravelOptions(deps = {}) {
     const r = st.route;
     if (r) {
       if (r.join) return false;
+      // AUDIT-D1/D2: the last stretch to a SPOT aims at the spot itself, off its pixel's step wherever the spot lies (the
+      // road's x100 to a camp half a pixel from the road), and a route of no legs is a straight walk - the host's lanes say
+      if (r.point && r.i >= r.legs.length - 1) return !!deps.onRoad?.();
       const leg = r.legs[Math.min(r.i, r.legs.length - 1)];
       return !!leg && ROAD_LEG_KINDS.includes(leg.kind);
     }

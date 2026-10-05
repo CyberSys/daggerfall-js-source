@@ -447,12 +447,12 @@ must be assigned there, never re-declared. Mutants
     active" (`:1273`), so a ring walked after any stopped journey ran
     under a stale name - the one condition that keeps `InitLocationRects`
     refreshing the rects mid-journey (`:606-612`). The port's arm
-    forgets the name as the other two do (`travelOptions.js:796`).
+    forgets the name as the other two do (`travelOptions.js:799`).
 17. **The recovery walk's give-up is a junction** (`:727-1050`, ROAD-CRASH
     below). When `SelectNextPath`'s nine shifts narrow nothing, the mod
     hands `GetTargetPixel` a multi-bit mask whose `default` arm is the
     pixel the player stands in: a leg arrived before it starts, forever.
-    The port stops at a junction instead (`travelOptions.js:863`).
+    The port stops at a junction instead (`travelOptions.js:866`).
 18. **The journey steers round what is in its way, and stops short of what
     it cannot pass** (TRAVEL-NAV, below). The mod's autopilot beelines and
     its body grinds against whatever stands on the line. The port's own
@@ -698,7 +698,7 @@ third was a thing the port never said out loud.
   (`PlayerEntity.cs:402-418`, and `systems/worldTick.js` verbatim), so
   the journey's vanilla drain IS DFU's - and Travel Options watches that
   very number with its own cautious stop (`TravelOptionsMod.cs:1079`,
-  ported at `travelOptions.js:1113`). The NEEDS are this port's own
+  ported at `travelOptions.js:1116`). The NEEDS are this port's own
   addition, from a mod Travel Options has never heard of, and they
   charged on top of it on a traveller who by construction never stops to
   eat, drink or sleep. An accelerated journey is sat as `resting` now -
@@ -792,16 +792,16 @@ options"*. No crash text came with it; the whole follow path was read
 for a throw the frame loop cannot survive, and there is one.
 
 **The throw.** `FollowPath`'s third arm walks the border ring of a town
-(`:658-664`; `travelOptions.js:779-799`). Unlike the two path arms
+(`:658-664`; `travelOptions.js:782-802`). Unlike the two path arms
 before it, it never forgot the named destination, and `InterruptTravel`
 "leaves current destination active" (`:1273`) - so a ring walked after
 ANY stopped journey (a foe, low fatigue, CAMP, the map's own stop near
 a town) ran with that name still set. That is the one condition under
 which `InitLocationRects` keeps refreshing the rects MID-journey
 (`:606-612`, `autopilot == null || destinationName != null`;
-`travelOptions.js:727-730`). A town's ring reaches into its neighbour
+`travelOptions.js:730-733`). A town's ring reaches into its neighbour
 pixels; the crossing fired `OnMapPixelChanged`, the host's
-`locationTileRect` answered null for the neighbour (world.js:14054 -
+`locationTileRect` answered null for the neighbour (world.js:14056 -
 null both for a pixel not yet built and for one with no location),
 `SetLocationRects` nulled both rects (`:602-604`), and the walk's own
 `OnArrival` (`circumnavigateLocation`, `:753-797`) read
@@ -810,7 +810,7 @@ is a NullReferenceException logged per frame and the mod stalls with
 the panel up; this host's frame loop dies on it, and `main.js`'s
 overlay prints the stack in red. Three fixes, at the root:
 
-- **The ring arm forgets the name** (`travelOptions.js:796`), as the
+- **The ring arm forgets the name** (`travelOptions.js:799`), as the
   two path arms do. With the name gone the rects hold for the whole
   walk exactly as they do for every path leg, and everything else that
   reads `destinationName` now reads the walk as the followed path it
@@ -818,14 +818,14 @@ overlay prints the stack in red. Three fixes, at the root:
   resumes IT rather than the old named journey (`:1210`), the
   LocationPause "nearby" arm stays out of it, and `isPathFollowing` is
   true. Departure 16.
-- **The walk guards its rects** (`travelOptions.js:893-897`) - the
+- **The walk guards its rects** (`travelOptions.js:896-900`) - the
   seam's own guard for a state the mod cannot survive either. A walk
   whose rects are gone ends where it stands, as a junction's does
   (`:1063`, CloseWindow, whose host onClose is InterruptTravel; a host
   whose panel is already down is interrupted outright), and the follow
   key asked again answers "no path here" through `FollowPath`'s own
   rect test.
-- **The recovery walk's give-up is a junction** (`travelOptions.js:863`).
+- **The recovery walk's give-up is a junction** (`travelOptions.js:866`).
   `nextPathDirection` returns the mod's RAW mask when its nine shifts
   narrow nothing (the reset at zero is not a rotate: from north the
   walk visits only N, NW and W, so a pixel with E and SE faced from the
@@ -1457,6 +1457,24 @@ Pins: `test/travel_speed_preference.test.js` (the law through the real mod and p
 `travellerOnRoad` lifted and run), `test/tv_wasd.test.js`, `test/enemy_pace.test.js`, `test/to1_travelOptions.test.js`,
 `test/to_live.test.js`, `test/disc22e_travel_click.test.js`; `tools/mutants/ratelaw.json` (19, all dead); the retired
 spinner's and limit's records left their files (to1, fb1002c, tv_wasd) with the code they killed.
+
+### RATE-LAW-FIX (2026-10-05) - the deep audit's three
+
+The deep audit of the branch found three holes in the law; each is fixed and pinned (`test/ratelawfix.test.js`,
+`tools/mutants/ratelawfix.json`).
+- **A route's last stretch to a spot** ran at its pixel's step's rate - the last leg aims at the spot itself, which
+  can lie anywhere in its pixel: a road route to a camp half a pixel from the road ran there at x100 across the
+  field. That stretch asks the host's lanes (`travellerOnRoad`), as a straight walk does.
+- **A route of no legs** (straight across to a spot, TV2's `beginTravelToPoint`) read a leg that is not there and
+  always ran at x60, down a road too. It is a straight walk, and asks the host.
+- **A change of ground lifted the hold for a frame.** The mod asks the clock afresh at each change of ground, and the
+  host's ask set the clock outright - over the governor's hold (an enemy near, the land loading, the view down's
+  walking pace) until its next frame: a lurch at every road's edge. The ask is recorded and a held clock kept for the
+  governor to weigh; a lower ask (an interrupt's x1) is the clock's at once.
+
+Recorded, not changed: OW6's lead-in before an enemy's reach is THREAT_WARN_S of real time at the journey's rate, so
+at the law's x60 and x100 it starts 1.5 to 2.5 times as far out as at the old dial's x40 (a rider at x100 slows about
+960 m short of a band's sight, not 384) - a tuning for the owner to call.
 
 ## Pins
 

@@ -533,7 +533,7 @@ test('TV2 host wiring: THE CAP - governed before the frame reads the travel scal
   // AUDIT TV A2: the ASK is the mod's - its ground's rate (RATE-LAW; it was the spinner) and its own caps (the ring walk's
   // x15, an interrupt's x1), recorded where the mod sets the clock - so the governor never lifts a journey past the mod's
   assert.doesNotMatch(w, /onTimeAccelerationChanged/, 'RATE-LAW: no spinner to tell the host');
-  assert.match(w, /setTimeScale: \(n\) => \{ travelAsked = n; setWorldTimeScale\(n\); \},/);
+  assert.match(w, /setTimeScale: \(n\) => \{ const held = worldTimeScale\(\) < travelAsked; travelAsked = n; if \(!held \|\| n < worldTimeScale\(\)\) setWorldTimeScale\(n\); \},/, 'AUDIT-D3: the ask recorded, a hold never lifted by it');
   assert.match(w, /const want = journey \? travelAsked : walk;/);   // PIN MOVED (TV-WASD): a journey's ask, else the keys' travel
   assert.equal((w.match(/if \(!ok\) return false;\n(?:\s*partyWalkBegin\([^\n]*\n)?\s*travelGovernor\.reset\(\);   \/\/ AUDIT DEEP T2-8/g) ?? []).length, 2, 'a new click\'s journey forgets the old ceiling - the road\'s and the spot\'s');
   assert.match(w, /const radius = Math\.max\(1, grid - 1\);/, 'never its outermost ring, queued anew at every crossing and fogged (AUDIT DEEP T2-2) - and every ring inside it, always (AUDIT DEEP2 B-2: the early warning)');

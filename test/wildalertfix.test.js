@@ -118,7 +118,7 @@ test('WILD-ALERT-FIX a band\'s notice goes with its chase: a chase handed to a p
   bandHear('high', [['b2', 0, 0, 1]]);
   assert.deepEqual([_bandChase.has('b2'), wildBands.alerted('b2')], [true, true], 'mine still: kept');
   const reset = cut(W, 'fn', 'overworldLoadReset');
-  assert.match(reset, /\n\s*wildBands\.prune\(\(\) => false\);/, 'the load forgets every band\'s notice');
+  assert.match(reset, /_bandSpentAt\.length = 0; wildBands\.prune\(\(\) => false\);/, 'the load forgets every band\'s notice');
   wildBands.prune(() => false);
   assert.equal(wildBands.alerted('b2'), false);
   assert.ok(W.indexOf('const wildBands = createWildAlert();') < W.indexOf('function overworldLoadReset()'), 'declared above its reader (BOOT-TDZ)');
