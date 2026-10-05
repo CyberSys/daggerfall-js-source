@@ -28,18 +28,20 @@ import { MOD_SETTINGS, setModSetting, _resetModSettings } from '../src/systems/m
 import { setPref, getPref, _resetForTests } from '../src/systems/uiPrefs.js';
 import { setTacticsClock, resetTactics, noteLocalPlayer, windupStruck, LOCAL_TARGET } from '../src/ai/tactics.js';
 import { resetBlows, inBlow, BLOW_TIER_LEVEL } from '../src/ai/foeBlows.js';
-import { blowK, blowWeight, behind, poiseOf, weightClass } from '../src/ai/tells.js';
+import { blowK, blowWeight, behind, poiseOf, weightClass, TELL } from '../src/ai/tells.js';
 import { EnemyAI } from '../src/characters/enemyMotor.js';
 import { EnemyAttack } from '../src/characters/enemyAttack.js';
 import { Collider } from '../src/player/collider.js';
-import { calculateAttackDamage, enemyWeightClassicUnits } from '../src/combat/formulas.js';
+import { calculateAttackDamage, enemyWeightClassicUnits, chooseEnemyWeapon, weaponKnockbackApplies, weaponKnockbackSpeed } from '../src/combat/formulas.js';
 import { makeEnemyEntity } from '../src/characters/enemyEntity.js';
 import { ENEMY_BASICS } from '../src/characters/enemyBasics.js';
 import { MOBILE_TYPES as M } from '../src/characters/mobileTypes.js';
 import { WEAPONS } from '../src/characters/weapons.js';
 import { createWeapon } from '../src/combat/enemyEquipment.js';
 import { promoteEliteFoe } from '../src/systems/eliteFoes.js';
-import { getMeleeWeaponAnimTime, MELEE_NUM_FRAMES, HIT_FRAME_MELEE } from '../src/characters/weaponStates.js';
+import { getMeleeWeaponAnimTime, MELEE_NUM_FRAMES, HIT_FRAME_MELEE, CLASSIC_UPDATE_INTERVAL } from '../src/characters/weaponStates.js';
+import { liveStat } from '../src/systems/statMods.js';   // AUDIT FEUD 2: the foe's live Speed, as the pools hand it (phase two's +20)
+import { blowEffectOf, BLOW_EFFECT } from '../src/systems/blowEffects.js';   // AUDIT FEUD 2: what a landing does to me
 import '../src/combat/swingLaw.js';   // registers the reader: the swing reads the weapon in the hand
 import { weaponTypeForItem } from '../src/combat/fpsWeapon.js';
 import { EQUIP_SLOTS } from '../src/systems/equip.js';
@@ -61,6 +63,33 @@ const STATS = (v) => ({ strength: v, intelligence: 50, willpower: 50, agility: v
 function seeded(seed) {
   let a = seed >>> 0;
   return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+
+/** AUDIT FEUD 2: THE POOLS' OWN STEPS, shared by both fights. A foe's motor and attack component as the pools build them
+ *  (scenes/exteriorFoes.js: its live Speed - phase two's +20 rides it). */
+function foeMotor(ent) {
+  const ai = new EnemyAI(new Collider(() => 0), [0, 0, 4], Math.PI, { vitals: () => ent, liveSpeed: () => liveStat(ent, 'speed') });
+  const atk = new EnemyAttack({ liveSpeed: () => liveStat(ent, 'speed'), playerLevel: () => 10, reflexes: 2 });
+  return { ai, atk };
+}
+/** A telegraphed landing on me (the brain's `_blowFx`): its blow rolled as the pool rolls it (exteriorFoes.js
+ *  resolveFoeMeleeVsPlayer - DFU's hit roll on the player, the blow's own multiple), and its knockdown queued only when it
+ *  did damage (hostCombat.js landBlowEffect) - and not inside the last one's guard. Answers the new `{ downUntil,
+ *  guardUntil }`. */
+export function landOnMe(ai, ent, type, player, T, down) {
+  const w = ai._blowFx;
+  ai._blowFx = null;
+  const dmg = Math.round(calculateAttackDamage(ent, player.entity, { weapon: chooseEnemyWeapon(ent.weapon, ENEMY_BASICS[type]) }) * (Number(ai._blowMult) > 0 ? ai._blowMult : 1));
+  if (dmg > 0 && blowEffectOf(w.kind, w.iron).knockdown && T >= down.guardUntil) return { downUntil: T + BLOW_EFFECT.KNOCKDOWN_S, guardUntil: T + BLOW_EFFECT.KNOCKDOWN_S + BLOW_EFFECT.KNOCKDOWN_GUARD };
+  return down;
+}
+/** My blow's shove, as the pools write DFU's (exteriorFoes.js damageFoe, C15): unless the poise held it, and whenever
+ *  the foe may be knocked again - away from my feet, a stagger's half again. */
+export function knockFoe(ai, type, weight, dmg, word, p) {
+  if (word === 'hold' || !weaponKnockbackApplies(ai.knockbackSpeed, false, ENEMY_BASICS[type]?.weight ?? 0)) return;
+  const dx = ai.feet[0] - p[0], dz = ai.feet[2] - p[2], d = Math.hypot(dx, dz) || 1;
+  ai.knockbackSpeed = weaponKnockbackSpeed(dmg, weight) * (word === 'stagger' ? TELL.STAGGER_KNOCK : 1);
+  ai.knockbackDir = [dx / d, 0, dz / d];
 }
 
 /** The scripted player: a level, a skill and a Strength, the weapon in the right hand - steel, or `material`. */
@@ -101,10 +130,10 @@ export function fight({ type, weapon, elite = false, mode = 'trade', seconds = 3
     const foe = makeFoe(type, { elite });
     const player = weapon ? makePlayer(weapon, { material: metalFor(type) }) : null;
     const ent = foe.entity;
-    const ai = new EnemyAI(new Collider(() => 0), [0, 0, 4], Math.PI, { vitals: () => ent });
-    const atk = new EnemyAttack({ liveSpeed: () => 50, playerLevel: () => 10, reflexes: 2 });
+    const { ai, atk } = foeMotor(ent);
     const p = [0, 0, 0];
     const out = { windups: 0, iron: 0, struck: 0, broken: 0, hitsOnMe: 0, hitsOut70: 0, swings: 0 };
+    let down = { downUntil: -Infinity, guardUntil: -Infinity };
     let blow = null, out70 = false, leaveAt = 0, landedOn = false;
     let swingT = rand() * (player?.swing ?? 1), struck = false;
     for (let step = 0; step < Math.round(seconds / DT); step++) {
@@ -128,22 +157,24 @@ export function fight({ type, weapon, elite = false, mode = 'trade', seconds = 3
       if (ai._blowFx) {   // the brain stamped a landing that hit me (TELL6e)
         out.hitsOnMe++;
         if (mode === 'dodge' && out70) out.hitsOut70++;
-        ai._blowFx = null;
+        down = player ? landOnMe(ai, ent, type, player, T, down) : (ai._blowFx = null, down);
       }
       if (mode === 'trade' && player) {
         const d = Math.hypot(fx, fz);
-        swingT += DT;
+        if (T >= down.downUntil) swingT += DT;   // AUDIT FEUD 2: knocked down, the swing stands (the rig's `paralyzed`)
         if (swingT >= player.swing) { swingT -= player.swing; struck = false; out.swings++; }
-        if (!struck && swingT >= player.hitAt && d <= REACH) {
-          struck = true;
-          const dmg = calculateAttackDamage(player.entity, ent, { weapon: player.item });
+        if (!struck && swingT >= player.hitAt) {
+          struck = true;   // AUDIT FEUD 2: the hit frame is a moment - out of reach then, the swing missed
+          const dmg = d <= REACH ? calculateAttackDamage(player.entity, ent, { weapon: player.item }) : 0;
           const live = s?.state === 'windup' ? s.blow : null;
+          let word = null;
           if (dmg > 0 && live) {
             if (live === blow && !landedOn && live.guard !== 'iron') { landedOn = true; out.struck++; }
             const v = blowWeight(dmg, blowK({ kind: 'melee', weapon: player.item }), { back: behind(live.origin, live.yaw, p) });
-            const word = windupStruck(ai, ent, foe.weight, v);
+            word = windupStruck(ai, ent, foe.weight, v);
             if ((word === 'stagger' || word === 'break') && live === blow) { out.broken++; blow = null; }
           }
+          if (dmg > 0) knockFoe(ai, type, foe.weight, dmg, word, p);
         }
       }
     }
@@ -232,16 +263,18 @@ export function measureAll({ fights = 1000, seconds = 30 } = {}) {
 // (systems/revenantFate.js: its last stand from rank 3 - the roar no blow reaches, phase two - then its will: broken, it
 // kneels; unbroken, it tears away). The player trades blows, or dodges PERFECTLY: in the shape until the brain's late
 // sample (TELL4's TELL_LATE), out of it before the landing - then the overreach it earned, x1.3 and its first blow a
-// stagger. Both swing whenever the foe is in reach; an iron slam, ring or charge that lands knocks the trader down
-// (BLOW_EFFECT.KNOCKDOWN_S, no swing). Never modelled: a flight (the chase is not the duel), the player's own health.
+// stagger. Both swing whenever the foe is in reach; an iron slam, ring or charge that lands and does damage knocks the
+// trader down (BLOW_EFFECT.KNOCKDOWN_S - its swing stands meanwhile, as the rig's `paralyzed` holds it). AUDIT FEUD 2: the
+// pools' own steps besides - a swing whose hit frame finds the foe out of reach misses, every landed blow the poise did not
+// hold shoves the foe (DFU's knockback, C15), the foe's live Speed (phase two's +20), its signature from rank 2, the
+// dodger back in only once the brain has judged the landing. Never modelled: a flight (the chase is not the duel), the
+// player's own health, the band (its followers, rank 5's rally at its stand).
 globalThis.localStorage ??= (() => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { m.set(k, String(v)); }, removeItem: (k) => { m.delete(k); }, clear: () => m.clear(), key: (i) => [...m.keys()][i] ?? null, get length() { return m.size; } }; })();
 const RV = await import('../src/systems/revenant.js');
 const FATE = await import('../src/systems/revenantFate.js');
 const { windupDoor } = await import('../src/scenes/hostCombat.js');
 const { beginRoar } = await import('../src/ai/tactics.js');
-const { TELL } = await import('../src/ai/tells.js');
-const { BLOW_EFFECT, blowEffectOf } = await import('../src/systems/blowEffects.js');
-const { weaponFeudClass } = await import('../src/systems/revenantFeud.js');
+const { weaponFeudClass, drawSignature, SIG_RANK } = await import('../src/systems/revenantFeud.js');
 const { walkSpeed } = await import('../src/player/motor.js');
 
 /** Section 28's RVN targets: the telegraphed blows a perfect dodger takes, at most this share of a trader's, its time to
@@ -270,16 +303,16 @@ export function revenantFight({ type = M.Orc, weapon = 'Longsword', rank = 3, mo
     const ent = foe.entity;
     ent.level = Math.max(ent.level | 0, RV.REVENANT_MIN_LEVEL);
     const player = makePlayer(weapon, { material: metalFor(type) });
-    const r = RV.revenantDeed(FEUD_ME, { mobileType: type, level: ent.level, champion: 'mighty', health: 1, maxHealth: 50, team: 'Monster' }, 'fled', { mobileType: type, rolls: () => 0, now: 1 });
+    const r = RV.revenantDeed(FEUD_ME, { mobileType: type, level: ent.level, champion: 'mighty', health: 1, maxHealth: 50, team: 'Monster', _voiceId: `duel-${seed}` }, 'fled', { mobileType: type, rolls: () => 0, now: 1 });   // AUDIT FEUD 2: its id the seed's - its draws (name, personality, signature) with it
     Object.assign(r, { rank, learned: [], wrath: 0, weak: weak ? weaponFeudClass(player.item).cls : 'fire', out: false });
+    if (rank >= SIG_RANK && !r.sig) r.sig = drawSignature(r.id, r.mobileType);   // AUDIT FEUD 2: its signature, as a deed that ranks it to 2 draws it
     RV.applyRevenant(ent, r, { now: 2 });
-    const ai = new EnemyAI(new Collider(() => 0), [0, 0, 4], Math.PI, { vitals: () => ent });
-    const atk = new EnemyAttack({ liveSpeed: () => 50, playerLevel: () => 10, reflexes: 2 });
+    const { ai, atk } = foeMotor(ent);
     const f = { entity: ent, ai, mobileType: type, gender: 'male', dead: false };
     const p = [0, 0, 0];
-    const out = { end: 'time', t: seconds, staggers: 0, weak: 0, stood: false, windups: 0, overreach: 0, hitsOnMe: 0, perfect: 0, swings: 0 };
+    const out = { end: 'time', t: seconds, staggers: 0, weak: 0, stood: false, windups: 0, overreach: 0, hitsOnMe: 0, perfect: 0, swings: 0, sig: !!ent.revenant?.sigBlow };
     let lastState = null;
-    let blow = null, downUntil = -Infinity, guardUntil = -Infinity;
+    let blow = null, down = { downUntil: -Infinity, guardUntil: -Infinity };
     let swingT = rand() * player.swing, struck = false;
     const done = (end) => { const l = ent._feud ?? {}; Object.assign(out, { end, t: +T.toFixed(3), staggers: l.staggers | 0, weak: l.weak | 0, perfect: l.perfect | 0 }); return out; };
     for (let step = 0; step < Math.round(seconds / DT); step++) {
@@ -297,21 +330,19 @@ export function revenantFight({ type = M.Orc, weapon = 'Longsword', rank = 3, mo
       // the perfect dodge: inside at the brain's late sample (its first 16 Hz turn inside TELL_LATE of the landing - by
       // TELL_LATE less a turn), out before the landing: half TELL_LATE before it
       if (mode === 'dodge' && blow && T >= blow.land - TELL.TELL_LATE / 2 && T < blow.land && inBlow(blow, p[0], p[2])) stepOut(blow, p);
-      if (ai._blowFx) {   // a landing that hit me (TELL6e)
-        out.hitsOnMe++;
-        if (blowEffectOf(ai._blowFx.kind, ai._blowFx.iron).knockdown && T >= guardUntil) { downUntil = T + BLOW_EFFECT.KNOCKDOWN_S; guardUntil = downUntil + BLOW_EFFECT.KNOCKDOWN_GUARD; }
-        ai._blowFx = null;
-      }
-      // back into reach at a walk (DFU's at Speed 50) - the dodger once the wind-up it left has landed
+      if (ai._blowFx) { out.hitsOnMe++; down = landOnMe(ai, ent, type, player, T, down); }   // a landing that hit me (TELL6e)
+      // back into reach at a walk (DFU's at Speed 50) - the dodger once the wind-up it left has been judged (AUDIT FEUD 2:
+      // the brain's next 16 Hz turn after its landing - walking back at the landing itself walked into it)
       const d = Math.hypot(fx, fz);
-      if (d > REACH - CLOSE && T >= downUntil && !(mode === 'dodge' && blow && T < blow.land)) {
+      if (d > REACH - CLOSE && T >= down.downUntil && !(mode === 'dodge' && blow && T < blow.land + CLASSIC_UPDATE_INTERVAL)) {
         const k = Math.min(WALK * DT, d - (REACH - CLOSE)) / d;
         p[0] += fx * k; p[2] += fz * k;
       }
-      swingT += DT;
+      if (T >= down.downUntil) swingT += DT;   // AUDIT FEUD 2: knocked down, the swing stands (the rig's `paralyzed`)
       if (swingT >= player.swing) { swingT -= player.swing; struck = false; out.swings++; }
-      if (struck || swingT < player.hitAt || T < downUntil || Math.hypot(ai.feet[0] - p[0], ai.feet[2] - p[2]) > REACH) continue;
-      struck = true;
+      if (struck || swingT < player.hitAt) continue;
+      struck = true;   // AUDIT FEUD 2: the hit frame is a moment - out of reach then, the swing missed
+      if (Math.hypot(ai.feet[0] - p[0], ai.feet[2] - p[2]) > REACH) continue;
       if (FATE.fateHeld(f) || f.roaring) continue;   // the pools' door: no blow reaches it
       const dmg = calculateAttackDamage(player.entity, ent, { weapon: player.item });
       if (!(dmg > 0)) continue;
@@ -320,9 +351,8 @@ export function revenantFight({ type = M.Orc, weapon = 'Longsword', rank = 3, mo
         if (FATE.revenantLastStandDue(f)) { FATE.beginLastStand(FEUD_ME, f, { now: T * 1000, clock: T, roar: (sec) => beginRoar(ai, ent, sec), rolls: rand }); out.stood = true; continue; }
         return done(FATE.revenantWillHolds(f) ? 'tore' : 'knelt');
       }
-      if (s?.state === 'windup' || s?.state === 'overreach') {
-        windupDoor(f, dmg, { kind: 'melee', weapon: player.item, from: p, weight: foe.weight });
-      }
+      const word = s?.state === 'windup' || s?.state === 'overreach' ? windupDoor(f, dmg, { kind: 'melee', weapon: player.item, from: p, weight: foe.weight }) : null;
+      knockFoe(ai, type, foe.weight, dmg, word, p);   // AUDIT FEUD 2: DFU's shove, as the pools write it
     }
     return done('time');
   } finally {
@@ -339,7 +369,9 @@ export function revenantCell(opts, fights) {
   for (let i = 0; i < fights; i++) rows.push(revenantFight({ ...opts, seed: 0xfe0d + i * 7919 }));
   const ts = rows.map((x) => x.t).sort((a, b) => a - b);
   const n = (end) => rows.filter((x) => x.end === end).length;
+  const sum = (k) => rows.reduce((a, x) => a + x[k], 0);
   return {
+    raw: { mean: sum('t') / fights, hitsOnMe: sum('hitsOnMe') / fights },   // AUDIT FEUD 2: the verdict's ratios, unrounded
     fights, knelt: n('knelt'), tore: n('tore'), time: n('time'),
     kneel: +(n('knelt') / fights).toFixed(3),
     mean: +(ts.reduce((a, x) => a + x, 0) / fights).toFixed(2), median: ts[Math.floor(fights / 2)],
@@ -350,6 +382,23 @@ export function revenantCell(opts, fights) {
   };
 }
 
+/** AUDIT FEUD 2: RVN's targets read off a measure's cells (`duel` the rank-3 cells, `ranks` the longsword's by rank) -
+ *  the reference longsword's; each ratio from the cells' unrounded means. */
+export function feudVerdict(duel, ranks) {
+  const at = (weapon, mode, weak) => duel.find((x) => x.weapon === weapon && x.mode === mode && x.weak === weak);
+  const T = FEUD_TARGETS;
+  const ratio = (mode) => +(ranks.find((x) => x.mode === mode && x.rank === 5).raw.mean / ranks.find((x) => x.mode === mode && x.rank === 1).raw.mean).toFixed(2);
+  const ref = 'Longsword';
+  const verdict = {
+    DODGE_PAYS: { struck: +(at(ref, 'dodge', false).raw.hitsOnMe / at(ref, 'trade', false).raw.hitsOnMe).toFixed(3), time: +(at(ref, 'dodge', false).raw.mean / at(ref, 'trade', false).raw.mean).toFixed(3), held: at(ref, 'dodge', false).raw.hitsOnMe <= T.DODGE_SPARES * at(ref, 'trade', false).raw.hitsOnMe && at(ref, 'dodge', false).raw.mean <= at(ref, 'trade', false).raw.mean },
+    WILL_WEAK: { kneel: at(ref, 'trade', true).kneel, held: at(ref, 'trade', true).kneel >= T.KNEEL_WEAK },
+    WILL_DODGE: { kneel: at(ref, 'dodge', false).kneel, held: at(ref, 'dodge', false).kneel >= T.KNEEL_DODGE },
+    WILL_TRADE: { kneel: at(ref, 'trade', false).kneel, held: at(ref, 'trade', false).kneel <= T.KNEEL_TRADE_MAX },
+    RANKS: { trade: ratio('trade'), dodge: ratio('dodge'), held: ['trade', 'dodge'].every((m) => ratio(m) >= T.RANK_RATIO[0] && ratio(m) <= T.RANK_RATIO[1]) },
+  };
+  return verdict;
+}
+
 export function measureFeud({ fights = 1000, weapons = ['Dagger', 'Longsword', 'Warhammer'] } = {}) {
   const duel = [];
   for (const weapon of weapons) {
@@ -358,24 +407,15 @@ export function measureFeud({ fights = 1000, weapons = ['Dagger', 'Longsword', '
   }
   const ranks = [];
   for (const mode of ['trade', 'dodge']) for (let rank = 1; rank <= 5; rank++) ranks.push({ weapon: 'Longsword', mode, rank, ...revenantCell({ weapon: 'Longsword', mode, rank }, fights) });
-  const at = (weapon, mode, weak) => duel.find((x) => x.weapon === weapon && x.mode === mode && x.weak === weak);
-  const T = FEUD_TARGETS;
-  const ratio = (mode) => +(ranks.find((x) => x.mode === mode && x.rank === 5).mean / ranks.find((x) => x.mode === mode && x.rank === 1).mean).toFixed(2);
-  const ref = 'Longsword';
-  const verdict = {
-    DODGE_PAYS: { struck: +(at(ref, 'dodge', false).hitsOnMe / at(ref, 'trade', false).hitsOnMe).toFixed(3), time: +(at(ref, 'dodge', false).mean / at(ref, 'trade', false).mean).toFixed(3), held: at(ref, 'dodge', false).hitsOnMe <= T.DODGE_SPARES * at(ref, 'trade', false).hitsOnMe && at(ref, 'dodge', false).mean <= at(ref, 'trade', false).mean },
-    WILL_WEAK: { kneel: at(ref, 'trade', true).kneel, held: at(ref, 'trade', true).kneel >= T.KNEEL_WEAK },
-    WILL_DODGE: { kneel: at(ref, 'dodge', false).kneel, held: at(ref, 'dodge', false).kneel >= T.KNEEL_DODGE },
-    WILL_TRADE: { kneel: at(ref, 'trade', false).kneel, held: at(ref, 'trade', false).kneel <= T.KNEEL_TRADE_MAX },
-    RANKS: { trade: ratio('trade'), dodge: ratio('dodge'), held: ['trade', 'dodge'].every((m) => ratio(m) >= T.RANK_RATIO[0] && ratio(m) <= T.RANK_RATIO[1]) },
-  };
+  const verdict = feudVerdict(duel, ranks);
   return { fights, duel, ranks, verdict };
 }
 
 if (isMain(import.meta.url)) {
   const arg = (n, d) => (process.argv.includes(n) ? Number(process.argv[process.argv.indexOf(n) + 1]) : d);
   const t0 = Date.now();
-  const onlyFeud = process.argv.includes('--feud'), onlyTell = process.argv.includes('--tell');
+  const wantFeud = process.argv.includes('--feud'), wantTell = process.argv.includes('--tell');
+  const onlyFeud = wantFeud && !wantTell, onlyTell = wantTell && !wantFeud;   // AUDIT FEUD 2: both named, both run
   const r = onlyFeud ? null : measureAll({ fights: arg('--fights', 1000), seconds: arg('--seconds', 30) });
   const fr = onlyTell ? null : measureFeud({ fights: arg('--fights', 1000) });
   if (process.argv.includes('--json')) console.log(JSON.stringify({ tell: r, feud: fr }, null, 2));

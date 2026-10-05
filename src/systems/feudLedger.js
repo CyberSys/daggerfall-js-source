@@ -25,7 +25,7 @@ const COUNTS = Object.freeze(['staggers', 'dodged', 'perfect', 'backHits', 'weak
 let _gate = null;
 /** @type {null | ((entity: any, info: any) => boolean)} */
 let _weak = null;
-/** @type {null | ((entity: any) => void)} */
+/** @type {null | ((entity: any, opts?: { peer?: boolean }) => void)} */
 let _onWeak = null;
 /** @type {null | (() => { now?: number, night?: boolean })} */
 let _clock = null;
@@ -40,7 +40,7 @@ export function setFeudWeakTest(fn, onWeak = null) { _weak = typeof fn === 'func
  *  my own would be (the reveal's own once-a-stand and first-found law). */
 export function feudRevealWeak(entity) {
   if (!entity?.revenant || !_onWeak) return;
-  try { _onWeak(entity); } catch { /* the reveal is no blow's business */ }
+  try { _onWeak(entity, { peer: true }); } catch { /* the reveal is no blow's business */ }   // AUDIT FEUD 2: no word of mine for it
 }
 /** RVN3: is this blow of `entity`'s weakness (false with no test, or for a body with none)? */
 export function feudWeakBlow(entity, info = {}) {

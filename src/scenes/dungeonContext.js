@@ -1655,8 +1655,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   }
   // ── RVN7d (bible/12-Enhanced-AI/Feud-Arc.md 18.4): A REVENANT IN ITS LAIR, and its band ───────────────────────────
   /** AUDIT FEUD: may this level be a lair - never the Burning Court nor the Arena's floor ("dungeon 0", the map's corner),
-   *  nor a spawned dungeon (its pixel a borrowed template's): profIdentity's own guard. */
-  function lairable() { return !(dfLocation?.spawned || isGateArena(dfLocation) || isArenaFloor(dfLocation)); }
+   *  nor a spawned dungeon (it comes and goes with its clock - no home to come back to): profIdentity's own guard. AUDIT
+   *  FEUD 2: nor the Ocean Holes abyss - it borrows its template's map table (its pixel another dungeon's), its id the
+   *  abyss's own (world/oceanHoles.js getAbyssMapId, 0x60000000 and up). */
+  function lairable() { return !(dfLocation?.spawned || isGateArena(dfLocation) || isArenaFloor(dfLocation) || (Number(dfLocation?.mapTableData?.mapId) >>> 0) >= 0x60000000); }
   /** This dungeon's map pixel - a revenant's lair is named by it (RVN7a's door, `lairHere`, names the same). */
   function lairPixel() {
     const mt = dfLocation.mapTableData;
@@ -3087,6 +3089,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   }
 
   const magic = createPlayerMagic({
+    isPuppet: (f) => isPuppetFoe(f),   // AUDIT FEUD 2: a room's foe another client runs - no rout of mine
     lairHere: () => {   // RVN7 (bible/12-Enhanced-AI/Feud-Arc.md 18.1): a deed underground - this dungeon is its lair
       const mt = dfLocation.mapTableData;
       if (!mt || !dfLocation.name || !lairable()) return null;
@@ -4451,7 +4454,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // body now, verbatim.
               playerArrowHitFoe(m, f, {
                 playerEntity, playerWeapon, playerFeet,
-                dealDamage: (t, d) => damageFoe(t, d, lastPlayerFeet, m.dir, { kind: 'arrow' }),   // WORLD2: the kind rides the hit; C15: arrows knock along their flight; MT-iv: the player arm keys on the feet, so an arrow kill reverts a struck ally too
+                dealDamage: (t, d) => damageFoe(t, d, lastPlayerFeet, m.dir, { kind: 'arrow', weapon: m.weapon ?? null }),   // AUDIT FEUD 2: the bow (a metal weakness rides to the host)   // WORLD2: the kind rides the hit; C15: arrows knock along their flight; MT-iv: the player arm keys on the feet, so an arrow kill reverts a struck ally too
                 audio,
                 hitEffects,
                 say: (l) => hudText.add(l),   // C-slice: equipment breaks speak
@@ -6120,7 +6123,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const _whole = whole || takeWholeBlow(foe.entity);
     // TELL8 (10.4): MY blow on a puppet winding up rides to its owner with its class - its K, my feet against its facing;
     // AUDIT FEUD: a blow of its weakness rides winding up or not (RVN13: the host's reveal)
-    const _wc = fromPlayer && !peer && foe._ownFrom !== ARENA_PUPPET_OWNER ? blowClassOf(foe.ai, { kind, weapon, claws: !weapon && !!playerEntity?.isInBeastForm, round }, playerFeet, !round && feudWeakBlow(foe.entity, { kind, weapon, element, attacker: playerEntity })) : null;   // AUDIT TELL: from behind judged from the blow's own feet, as the local door judges it (windupDoor's `from`) - a round with none is never from behind
+    const _wc = fromPlayer && !peer && foe._ownFrom !== ARENA_PUPPET_OWNER ? blowClassOf(foe.ai, { kind, weapon, claws: !weapon && !!playerEntity?.isInBeastForm, round }, playerFeet, !round && damage > 0 && feudWeakBlow(foe.entity, { kind, weapon, element, attacker: playerEntity })) : null;   // AUDIT TELL: from behind judged from the blow's own feet, as the local door judges it (windupDoor's `from`) - a round with none is never from behind
     // the STRIKER's own HUD - the target frame (PX30) and the concealed reveal (ECV1) - before the divert (AUDIT
     // WORLD2 B6: a joiner's blow never marked) and never for a peer's blow applied here (C4: a peer's poke across the
     // room hijacked the host's target frame)

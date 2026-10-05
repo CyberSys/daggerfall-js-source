@@ -75,8 +75,9 @@ test('AUDIT FEUD W1: A PEER\'S BLOW OF ITS WEAKNESS RIDES - winding up or not, i
   const puppet = { mobileType: M.Orc, revenant: F.feudFromWire({ id: null, name: 'Grushnak the Butcher', rank: 0 }, { wq: F.weakIndex('blade') }) };
   assert.equal(L.feudWeakBlow(puppet, { kind: 'melee', weapon: sword, attacker: { isPlayer: true } }), true);
   assert.equal(L.feudWeakBlow(puppet, { kind: 'melee', weapon: createWeapon(W.Mace, 1, () => 0.5), attacker: { isPlayer: true } }), false);
-  assert.ok(read('src/scenes/exteriorFoes.js').includes('const _wc = blowClassOf(f.ai, { kind, weapon, claws: !weapon && !!playerEntity?.isInBeastForm, round }, playerFeet, !round && feudWeakBlow(f.entity, { kind, weapon, element, attacker: playerEntity }));'));
-  assert.ok(read('src/scenes/dungeonContext.js').includes("const _wc = fromPlayer && !peer && foe._ownFrom !== ARENA_PUPPET_OWNER ? blowClassOf(foe.ai, { kind, weapon, claws: !weapon && !!playerEntity?.isInBeastForm, round }, playerFeet, !round && feudWeakBlow(foe.entity, { kind, weapon, element, attacker: playerEntity })) : null;"));
+  // PIN MOVED (AUDIT FEUD 2: a blow that landed - `damage > 0` - alone; the street's behaviour pinned in auditfeud2 W1)
+  assert.ok(read('src/scenes/exteriorFoes.js').includes('const _wc = blowClassOf(f.ai, { kind, weapon, claws: !weapon && !!playerEntity?.isInBeastForm, round }, playerFeet, !round && damage > 0 && feudWeakBlow(f.entity, { kind, weapon, element, attacker: playerEntity }));'));
+  assert.ok(read('src/scenes/dungeonContext.js').includes("const _wc = fromPlayer && !peer && foe._ownFrom !== ARENA_PUPPET_OWNER ? blowClassOf(foe.ai, { kind, weapon, claws: !weapon && !!playerEntity?.isInBeastForm, round }, playerFeet, !round && damage > 0 && feudWeakBlow(foe.entity, { kind, weapon, element, attacker: playerEntity })) : null;"));
 });
 
 test('AUDIT FEUD W2: AN HEIR KEEPS SENDING - a foe I adopted (its revenant no id of mine) writes what it stands with, on both streams (mutants: either gate back on the id)', () => {
@@ -299,7 +300,8 @@ test('AUDIT FEUD H2: PRIVATEER\'S HOLD\'S IN-PLACE RESPAWN is a respawn like the
 test('AUDIT FEUD H3: THE DUNGEON - a band breaks when its master runs (the street\'s law); no lair on the Burning Court, the Arena\'s floor or a spawned dungeon (mutants: the scatter dropped; the guard unread at either door)', () => {
   const d = read('src/scenes/dungeonContext.js');
   assert.match(d, /if \(_flee === 'escape'\) \{ escapeDungeonFoe\(f\); continue; \}\n\s*if \(_flee === 'start'\) scatterDungeonBand\(f\);/);
-  assert.match(d, /function lairable\(\) \{ return !\(dfLocation\?\.spawned \|\| isGateArena\(dfLocation\) \|\| isArenaFloor\(dfLocation\)\); \}/);
+  // PIN MOVED (AUDIT FEUD 2: nor the Ocean Holes abyss - its pixel its template's)
+  assert.match(d, /function lairable\(\) \{ return !\(dfLocation\?\.spawned \|\| isGateArena\(dfLocation\) \|\| isArenaFloor\(dfLocation\) \|\| /);
   assert.match(d, /if \(!mt \|\| !lairable\(\)\) return null;/);
   assert.match(d, /if \(!mt \|\| !dfLocation\.name \|\| !lairable\(\)\) return null;/);
 });
@@ -320,16 +322,18 @@ test('AUDIT FEUD H4: EVERY COMMENT ON ITS OWN LINE - the trailing notes FEUD\'s 
 // ── section 28: the revenant's duel ─────────────────────────────────
 
 // PIN MOVED (FEUD BALANCE, Feud-Arc.md OPEN 22-24 - Mac: one stagger or one perfect dodge breaks the will; dodging pays in
-// the blows not taken, never slower)
-test('AUDIT FEUD (section 28): THE REVENANT\'S DUEL - an Orc revenant fought to its end through the pools\' own law: its last stand from rank 3, then its will - its weakness struck, it kneels; traded with and never staggered, it tears away; one perfect dodge, it kneels; a rank-1 kneels with no stand; RVN\'s targets as the arc names them (mutants: the stand skipped; the will unread; the dodge left before the late sample; a target moved)', async () => {
+// the blows not taken, never slower; AUDIT FEUD 2: the harness's fights re-seeded by its faithful steps)
+test('AUDIT FEUD (section 28): THE REVENANT\'S DUEL - an Orc revenant fought to its end through the pools\' own law: its last stand from rank 3, then its will - its weakness struck, it kneels; traded with and never staggered, it tears away; one stagger, it kneels; one perfect dodge, it kneels; a rank-1 kneels with no stand; RVN\'s targets as the arc names them (mutants: the stand skipped; the will unread; the dodge left before the late sample; a target moved)', async () => {
   const { revenantFight, FEUD_TARGETS } = await import('../tools/tellDuel.mjs');
   assert.deepEqual(JSON.parse(JSON.stringify(FEUD_TARGETS)), { DODGE_SPARES: 0.1, KNEEL_WEAK: 0.9, KNEEL_DODGE: 0.7, KNEEL_TRADE_MAX: 0.2, RANK_RATIO: [2, 3] });
-  const weak = revenantFight({ rank: 3, weak: true, seed: 3 });
+  const weak = revenantFight({ rank: 3, weak: true, seed: 1 });
   assert.deepEqual([weak.end, weak.stood, weak.weak > 0], ['knelt', true, true]);
-  const trade = revenantFight({ rank: 3, seed: 4 });
-  assert.deepEqual([trade.end, trade.stood, trade.staggers, trade.perfect], ['tore', true, 0, 0]);
-  const dodge = revenantFight({ rank: 3, mode: 'dodge', seed: 4 });
+  const tore = revenantFight({ rank: 3, seed: 2 });
+  assert.deepEqual([tore.end, tore.stood, tore.staggers, tore.perfect], ['tore', true, 0, 0]);
+  const staggered = revenantFight({ rank: 3, seed: 1 });
+  assert.deepEqual([staggered.end, staggered.staggers, staggered.perfect, staggered.hitsOnMe], ['knelt', 1, 0, 2], 'one stagger breaks it; a trader is struck');
+  const dodge = revenantFight({ rank: 3, mode: 'dodge', seed: 7 });
   assert.deepEqual([dodge.end, dodge.staggers, dodge.perfect, dodge.hitsOnMe], ['knelt', 0, 1, 0], 'one perfect dodge breaks it');
-  const one = revenantFight({ rank: 1, seed: 3 });
+  const one = revenantFight({ rank: 1, seed: 1 });
   assert.deepEqual([one.end, one.stood], ['knelt', false]);
 });

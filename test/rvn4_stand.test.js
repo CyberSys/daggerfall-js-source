@@ -119,7 +119,7 @@ test('RVN4 THE STAND on the REAL street pool: the killing blow brings a rank-3 o
   assert.equal(f.entity.health, Math.round(max * 0.3));   // PIN MOVED (FEUD BALANCE, OPEN 23)
   assert.ok(f.roaring, 'roaring');
   pool.damageFoe(f, 99999, [0, 0, 3], null, { fromPlayer: true });
-  assert.equal(f.entity.health, Math.round(max * 0.3), 'no blow reaches it while it roars');
+  assert.equal(f.entity.health, Math.round(max * 0.3), 'no blow reaches it while it roars');   // PIN MOVED (FEUD BALANCE, OPEN 23)
   assert.deepEqual({ ...f.entity.revenant.p2 }, { ...F.phaseTwo() }, 'phase two stood');
   assert.ok(Math.abs(f.entity.damageScale - scale * 1.2) < 1e-9);
   assert.equal(f.entity.stats.speed, speed + 20);

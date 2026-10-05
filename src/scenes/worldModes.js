@@ -1717,10 +1717,10 @@ export function createWorldModes(host) {
    *  billboard is CENTRE-anchored, so the base ends up ON the marker
    *  inside a building and half a height BELOW it inside a dungeon.
    *  This port's billboard shader is BOTTOM-anchored (position = base,
-   *  the C11 law dungeonContext.js:2452 states), so the same visual
+   *  the C11 law dungeonContext.js:2454 states), so the same visual
    *  result needs the shift on the DUNGEON side - which is exactly the
    *  shift the dungeon's own RDB flats already take
-   *  (dungeonContext.js:2336, `y - size.h / 2`), and which a building's
+   *  (dungeonContext.js:2338, `y - size.h / 2`), and which a building's
    *  flats correctly do not (interiorContext.js passes its centers
    *  straight through).
    *
@@ -7959,7 +7959,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:8666), so the OUTER host's one rides in.
+          // (dungeonContext.js:8669), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:847 -> the
@@ -9237,7 +9237,7 @@ export function createWorldModes(host) {
         // host's sinks do (`insideFoeSinks`), so a killed watchman
         // runs the crime and the corpse in the pool that owns it.
         dealDamage: (f, d) => (f._encounter
-          ? interiorFoes?.damageFoe(f, d, player.pos, m.dir, { kind: 'arrow' })   // WORLD6b-iii(e): the kind rides the hit
+          ? interiorFoes?.damageFoe(f, d, player.pos, m.dir, { kind: 'arrow', weapon: m.weapon ?? null })   // AUDIT FEUD 2: the bow (a metal weakness rides to a puppet's owner)   // WORLD6b-iii(e): the kind rides the hit
           : interiorGuards?.hurtGuard(f, d, player.pos, m.dir, { kind: 'arrow' })),   // TELL1: a shaft's weight on a wind-up
         audio, hitEffects: interiorHitEffects, say: (l) => say(l),
         onInflictPoison: (att, tgt, pt) => (t._encounter ? interiorFoes?.poisonFoe(t, pt) : inflictPoison(tgt, pt, false, { currentMinute: Math.floor(interiorTicker.ownMinutes) })),   // WORLD6b-iii(e): the pool's one poison door, split by pool as the damage door above
@@ -11986,7 +11986,7 @@ export function createWorldModes(host) {
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
      *  HARD2c: this used to spell them out, and named `world.js:11163`
-     *  and `dungeonContext.js:8678` for its two sibling copies - lines
+     *  and `dungeonContext.js:8681` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

@@ -4,8 +4,9 @@
 // to 30 / 35 / 40% of its health by rank (35 / 45 / 55%: a rank 5 was 3.25 times a rank 1's fight). OPEN 24 - dodging
 // pays in the will and in the blows not taken, never in speed: the harness's target is a perfect dodger struck by a
 // tenth of a trader's telegraphed blows or fewer, and no slower.
-// Pinned: the law; the will through the real ledger's writers (a perfect dodge at me, a stagger by my blow; neither a
-// peer's) and the real pool's yield; the page's words; the harness's target and its verdict.
+// Pinned: the law; the will through the ledger's counts (a perfect dodge, a stagger) and the fate's own ask; the page's
+// words; the harness's target and its verdict through the real measure. (The brain's writer of a perfect dodge - mine
+// alone, only when I left its shape - is pinned in auditfeud2's B1.)
 import './modsOff.js';
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -66,7 +67,13 @@ test('FEUD BALANCE THE HARNESS: dodging pays in the blows not taken - a tenth of
   const { FEUD_TARGETS } = await import('../tools/tellDuel.mjs');
   assert.equal(FEUD_TARGETS.DODGE_SPARES, 0.1);
   assert.equal('DODGE_PAYS' in FEUD_TARGETS, false, 'the old time share is gone');
-  const { readFileSync } = await import('node:fs');
-  const src = readFileSync(new URL('../tools/tellDuel.mjs', import.meta.url), 'utf8');
-  assert.match(src, /held: at\(ref, 'dodge', false\)\.hitsOnMe <= T\.DODGE_SPARES \* at\(ref, 'trade', false\)\.hitsOnMe && at\(ref, 'dodge', false\)\.mean <= at\(ref, 'trade', false\)\.mean \}/);
+  // PIN MOVED (AUDIT FEUD 2: the verdict is its own function - its ratios from the cells' unrounded means)
+  const { feudVerdict, measureFeud } = await import('../tools/tellDuel.mjs');
+  const cell = (weapon, mode, weak, mean, hits, kneel = 0.5) => ({ weapon, mode, weak, kneel, raw: { mean, hitsOnMe: hits } });
+  const ranks = ['trade', 'dodge'].flatMap((mode) => [1, 2, 3, 4, 5].map((rank) => ({ mode, rank, raw: { mean: 5 + rank, hitsOnMe: 0 } })));
+  const v = (dodgeMean, dodgeHits) => feudVerdict([cell('Longsword', 'trade', false, 12, 2), cell('Longsword', 'dodge', false, dodgeMean, dodgeHits), cell('Longsword', 'trade', true, 9, 1.6, 1)], ranks).DODGE_PAYS;
+  assert.deepEqual(v(11, 0.1), { struck: 0.05, time: 0.917, held: true }, 'a twentieth of the blows, faster');
+  assert.equal(v(13, 0.1).held, false, 'slower: not paid');
+  assert.equal(v(11, 0.4).held, false, 'struck a fifth as often: not paid');
+  assert.deepEqual(Object.keys(measureFeud({ fights: 2, weapons: ['Longsword'] }).verdict.DODGE_PAYS).sort(), ['held', 'struck', 'time'], 'the real measure reads it so');
 });

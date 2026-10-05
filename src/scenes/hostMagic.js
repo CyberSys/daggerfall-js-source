@@ -98,6 +98,7 @@ export function createPlayerMagic({
   // ABORT raises neither - AbortReadySpell (:361-365) is silent,
   // which is precisely why the machine latches instead of polling.
   lairHere = null,     // RVN7 (bible/12-Enhanced-AI/Feud-Arc.md 18.1): where a revenant's deed is done here, for its lair (systems/playerDoor.js)
+  isPuppet = null,     // AUDIT FEUD 2: the host's word on a foe another client runs (a dungeon room's carries no `puppet`)
   onNewReadySpell = null,
   onCastReadySpell = null,
   // ROAD-E6: THE HANDS, AND THE RELEASE FRAME THEY OWN.
@@ -211,6 +212,7 @@ export function createPlayerMagic({
     say: (line) => say?.(line),   // RVN3: a line the scene's HUD speaks (a revenant's weakness found, on the classic skin)
     sfx: (id, at) => audio?.play3d?.(id, at, 1, { maxDistance: 16 }),   // RVN3: a sound where a foe stands (its hiss)
     lairHere: () => { try { return lairHere?.() ?? null; } catch { return null; } },   // RVN7: the host's word on where a deed is done
+    isPuppet: (f) => !!f?.puppet || (typeof isPuppet === 'function' && !!isPuppet(f)),   // AUDIT FEUD 2: run by another client - no deed of mine (a rout)
   });
   /** The party mates as foe-shaped marks ({ally, id, name, ai:{feet, height}}) - the shape every target helper in
    *  spellcast.js already reads - for a spell that may be given (allyCastable) and is not a FREE ready (AUDIT

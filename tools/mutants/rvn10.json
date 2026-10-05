@@ -389,8 +389,8 @@
   {
     "name": "RVN10-sweep-everyone",
     "file": "src/systems/revenant.js",
-    "old": "    if (!revenantRoutable(f, { now: wall })) continue;\n",
-    "new": "    if (!f) continue;\n",
+    "old": "if (door?.isPuppet?.(f) || !revenantRoutable(f, { now: wall })) continue;",
+    "new": "if (!f) continue;",
     "tests": [
       "test/rvn10_deeds.test.js"
     ]

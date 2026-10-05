@@ -318,14 +318,15 @@ function ensureMirror(player) {
     const r = _state.list[i], s = saved.get(r.id);
     // RVN11b (22.2): and one that deserted since - its pack was split between its record and the player's, who reloaded
     // to before it: it comes back as the save had it. AUDIT FEUD: a betrayal splits it the same (RVN11c); and one
-    // forgotten since (the cap, the fallen's prune) comes back so too - its pack is no one's to lose
-    const left = r.fate === 'released' || (r.history ?? []).some((h) => (h.deed === 'deserted' || h.deed === 'betrayed') && h.at >= (s?.swornAt ?? 0));
-    if (s?.sworn && s.companion?.items?.length && !r.sworn && (r.gone || left)) { _state.list[i] = { ...s, rev: (r.rev | 0) + 1 }; continue; }
-    if (r.gone) continue;
-    if (r.companion) r.companion.items = s?.companion?.items ? s.companion.items.slice() : [];
+    // forgotten since (the cap, the fallen's prune) comes back so too - its pack is no one's to lose. AUDIT FEUD 2: by
+    // any road (its history keeps twelve deeds - a leaving scrolls off), and at the save's OWN revision: a newer save's
+    // copy still wins, and the restore leaks into no other save
+    if (s?.sworn && s.companion?.items?.length && !r.sworn) { _state.list[i] = { ...s }; continue; }
+    if (!r.gone && r.companion) r.companion.items = s?.companion?.items ? s.companion.items.slice() : [];
     // AUDIT FEUD: what the save's living, unsworn copy held, on a record the mirror has since seen fall or sworn - the fall
-    // dropped it, the oath handed it back, and the reloaded pack never had it: mine again
-    if (player && s?.took?.length && !s.defeated && !s.sworn && (r.defeated || r.sworn)) { player.items ??= []; for (const it of s.took) addItem(player.items, it); r.took = []; continue; }
+    // dropped it, the oath handed it back, and the reloaded pack never had it: mine again. AUDIT FEUD 2: or forgotten since
+    if (player && s?.took?.length && !s.defeated && !s.sworn && (r.gone || r.defeated || r.sworn)) { player.items ??= []; for (const it of s.took) addItem(player.items, it); if (!r.gone) r.took = []; continue; }
+    if (r.gone) continue;
     r.took = s?.took ? s.took.slice() : [];   // RVN8 (Feud-Arc.md 19): what it took is inventory too - the save's copy wins (the mirror never brings back a piece the save holds)
   }
   _state.mirrorId = id;
@@ -431,7 +432,9 @@ export function revenantDeed(player, entity, deedName, { mobileType = entity?.mo
   const lair = lairAfter(r, playerDoor()?.lairHere?.() ?? null);
   if (!sameLair(lair, r.lair)) { r.lair = lair; r.lairKnown = false; }
   // the foe that did it wears its name at once - while it still stands (a killer over my body), it IS the revenant
+  const p2 = entity.revenant?.p2 ?? null;   // AUDIT FEUD 2: a felling in its last stand keeps the stand's phase two
   entity.revenant = revenantStamp(r);   // RVN2: and what it learned, at once
+  if (p2) entity.revenant.p2 = p2;
   computeEntityMods(entity);
   r.out = deedName === 'slew' || deedName === 'felled';   // RVN10 (21.1): a felling foe still stands, as a killer over my body does
   r.outAt = r.out ? Date.now() : 0;
@@ -499,8 +502,9 @@ setFeudWeakTest((entity, { cls = null, metal = null, kind = 'melee', weapon = nu
 }, revealWeakness);
 /** RVN3: my blow of its weakness - the "Weakness" word on its number (each blow), and once a stand the hiss and, the
  *  first time it is found, the record's `weakKnown` 2 and its card. */
-function revealWeakness(entity) {
-  Promise.resolve().then(() => { try { tagHit(entity, HIT_TAGS.weakness); } catch { /* no numbers mounted */ } });   // after the number the blow raises
+function revealWeakness(entity, { peer = false } = {}) {
+  // after the number the blow raises - my own blow's (AUDIT FEUD 2: a peer's raises none here, and its word is its screen's)
+  if (!peer) Promise.resolve().then(() => { try { tagHit(entity, HIT_TAGS.weakness); } catch { /* no numbers mounted */ } });
   if (entity._weakTold) return;
   entity._weakTold = true;
   const door = playerDoor();
@@ -1240,8 +1244,9 @@ export function revenantRouted(player, f, { now = nowMinutes(), rolls = Math.ran
  *  I leave - the host's door) routed before the sweep takes it. Answers [{ r, f }], for the host to tell. */
 export function revenantRoutSweep(player, foes = playerDoor()?.foes?.() ?? [], { now = nowMinutes(), rolls = Math.random, wall = Date.now() } = {}) {
   const out = [];
+  const door = playerDoor();
   for (const f of foes ?? []) {
-    if (!revenantRoutable(f, { now: wall })) continue;
+    if (door?.isPuppet?.(f) || !revenantRoutable(f, { now: wall })) continue;   // AUDIT FEUD 2: a room's puppet (a dungeon's carries no `puppet`) is its host's
     const r = revenantRouted(player, f, { now, rolls });
     if (r) out.push({ r, f });
   }

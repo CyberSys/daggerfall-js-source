@@ -29,7 +29,7 @@
   {
     "name": "AUDIT-A4-the-mirror-s-pack",
     "file": "src/systems/revenant.js",
-    "old": "    if (r.companion) r.companion.items = s?.companion?.items ? s.companion.items.slice() : [];\n",
+    "old": "    if (!r.gone && r.companion) r.companion.items = s?.companion?.items ? s.companion.items.slice() : [];\n",
     "new": "",
     "tests": [
       "test/revenant_audit.test.js"

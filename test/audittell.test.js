@@ -344,8 +344,8 @@ test('AUDIT TELL H1/L6/H6/P1 by source: the foes\' clock held under a dungeon\'s
   // PIN MOVED (RVN1: one `mine` for the tag and the fight's ledger)
   assert.match(rd('src/scenes/hostCombat.js'), /const mine = fromPlayer && !peer && !striker;[\s\S]*if \(mine\) \{ windupTag\(word, f, true\);[\s\S]*if \(mine\) \{ windupTag\(word, f, false\);/, 'U6: a foe\'s own spell, a SetHealth(0), raises no word of mine (RVN1: one `mine` for the tag and the ledger)');
   assert.match(wm, /hurt: \(g, dmg, at, dir, wc = null, kind = 'melee'\) => interiorGuards\?\.hurtGuard\(g, dmg, at, dir, \{ fromPlayer: false, peer: true, wc, kind \}\)/, 'P1: the building\'s watch as the street\'s');
-  // PIN MOVED (AUDIT FEUD: the blow's weakness rides after its feet - blowClassOf's fourth argument)
-  assert.match(rd('src/scenes/dungeonContext.js'), /blowClassOf\(foe\.ai, \{ kind, weapon, claws: !weapon && !!playerEntity\?\.isInBeastForm, round \}, playerFeet, !round && feudWeakBlow\(/, 'the back judged from the blow\'s own feet, as the local door judges it');
+  // PIN MOVED (AUDIT FEUD: the blow's weakness rides after its feet - blowClassOf's fourth argument; AUDIT FEUD 2: a blow that landed)
+  assert.match(rd('src/scenes/dungeonContext.js'), /blowClassOf\(foe\.ai, \{ kind, weapon, claws: !weapon && !!playerEntity\?\.isInBeastForm, round \}, playerFeet, !round && damage > 0 && feudWeakBlow\(/, 'the back judged from the blow\'s own feet, as the local door judges it');
 });
 
 // ── the screen ──────────────────────────────────────────────────────

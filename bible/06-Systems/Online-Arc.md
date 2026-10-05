@@ -4801,7 +4801,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:6030`). With the property missing that call is a
+(`dungeonContext.js:6033`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4930,7 +4930,7 @@ arrival, that is not rare. The blow is dropped instead.
   in it.
 - **A foe's blast on a puppet is credited to ME.** `world.js:9430` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
-  provenance argument `applySpellToFoe` hands them (`hostMagic.js:482`)
+  provenance argument `applySpellToFoe` hands them (`hostMagic.js:484`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
   Threading it touches four hosts.
 - **A building interior streams no foes at all.** `makeInteriorFoes`
@@ -14286,6 +14286,9 @@ while the puppet wound up. Now both senders pass it (`ai/puppetBlows.js blowClas
 weakness test on the puppet's wire-stood record), and a blow of its weakness carries its class winding up or not (no
 facing, so never from behind) - the owner's reveal and its poise meter read it. No new field: the relay is unchanged.
 An heir's stream (a foe adopted after its owner left, a room's new authority) keeps writing `ad`, `wq` and `p2`.
+AUDIT FEUD 2: only a blow that landed (`damage > 0`) carries the weakness - a miss carried it as "bare hands"; the
+owner's reveal raises no word on its own screen for a peer's blow (the peer's says it); each player's shaft carries its
+bow, so a metal weakness rides too.
 
 ## TELL8 - a wind-up on the foe stream (2026-10-04)
 

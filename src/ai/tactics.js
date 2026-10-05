@@ -576,7 +576,7 @@ function beginWindup(ai, s, ent, shape, dx, dz, now, chain = 0, sig = null) {
   ai._blowHold = swings; ai._blowWind = swings;   // TELL2: the swing begins now and stands at its raised arm until the landing
 }
 /** RVN4 (bible/12-Enhanced-AI/Feud-Arc.md 15.2): ITS LAST STAND'S ROAR - an iron ring about its feet wound up for
- *  `seconds` and landing as the roar ends (TELL6a's shape, TELL6e's push and rattle), whatever its kind's shapes. Its
+ *  `seconds` and landing as the roar ends (TELL6a's shape; TELL6e's rattle and, iron, its knockdown), whatever its kind's shapes. Its
  *  wind-up before is dropped. The switch off, a puppet, or no brain yet: nothing (the pool holds the motor - the roar
  *  alone). Answers whether it was wound. */
 export function beginRoar(ai, ent, seconds, now = clock()) {
@@ -687,8 +687,10 @@ function resolveLanding(ai, s, b, verdict, now, cooled, atMe = true) {
       return true;
     }
   }
-  // TELL4 (6.1): it missed - OVERREACHED; inside at the late sample and out at the landing, a perfect dodge
-  if (!verdict) { beginOverreach(ai, s, b, now, b.lateIn === true, atMe); return true; }   // AUDIT TELL O5: a peer's perfect dodge is the peer's to see
+  // TELL4 (6.1): it missed - OVERREACHED; inside at the late sample and out at the landing, a perfect dodge. AUDIT FEUD 2:
+  // OUT, judged here - a leap a ledge stopped short, a charge a wall stopped, misses a target that never left its shape:
+  // no dodge of its, and (FEUD BALANCE) no will broken by it
+  if (!verdict) { const tfo = targetFeet(ai, b.key !== undefined ? b.key : targetKey(ai)); beginOverreach(ai, s, b, now, b.lateIn === true && !(tfo && inBlow(b, tfo[0], tfo[2])), atMe); return true; }   // AUDIT TELL O5: a peer's perfect dodge is the peer's to see
   s.state = 'engage';
   ai._tacStrike = true;
   return false;

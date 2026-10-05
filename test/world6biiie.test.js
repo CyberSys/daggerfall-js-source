@@ -120,11 +120,11 @@ test('WORLD6b-iii(e): the pools - the striker\'s dose at a PUPPET does not run o
 test('WORLD6b-iii(e): the hosts and the dungeon twin, by source - the exterior\'s arrow blow says its kind and routes its poison through the pool\'s door (the watch dosed here); the interior host splits by pool; the dungeon has the same door, the same divert and the same landing; the disease rider is the monster\'s alone', () => {
   for (const [p, ticker] of [['src/scenes/world.js', 'playerTicker'], ['src/scenes/exterior.js', 'playerTicker']]) {
     const s = rd(p);
-    assert.match(s, /: exteriorFoes\.damageFoe\(f, d, player\.pos, m\.dir, \{ kind: 'arrow' \}\)\),/, `${p}: the shaft's kind rides`);
+    assert.match(s, /: exteriorFoes\.damageFoe\(f, d, player\.pos, m\.dir, \{ kind: 'arrow', weapon: m\.weapon \?\? null \}\)\),/, `${p}: the shaft's kind rides`);   // PIN MOVED (AUDIT FEUD 2: and its bow)
     assert.match(s, new RegExp(`onInflictPoison: \\(att, tgt, pt\\) => \\(cityGuards\\.guards\\.includes\\(t\\) \\? inflictPoison\\(tgt, pt, false, \\{ currentMinute: Math\\.floor\\(${ticker}\\.ownMinutes\\) \\}\\) : exteriorFoes\\.poisonFoe\\(t, pt\\)\\),`), `${p}: the pool's one poison door, the watch its own`);
   }
   const m = rd('src/scenes/worldModes.js');
-  assert.match(m, /\? interiorFoes\?\.damageFoe\(f, d, player\.pos, m\.dir, \{ kind: 'arrow' \}\)/);
+  assert.match(m, /\? interiorFoes\?\.damageFoe\(f, d, player\.pos, m\.dir, \{ kind: 'arrow', weapon: m\.weapon \?\? null \}\)/);   // PIN MOVED (AUDIT FEUD 2: and its bow)
   assert.match(m, /onInflictPoison: \(att, tgt, pt\) => \(t\._encounter \? interiorFoes\?\.poisonFoe\(t, pt\) : inflictPoison\(tgt, pt, false, \{ currentMinute: Math\.floor\(interiorTicker\.ownMinutes\) \}\)\),/);   // LIVED1: a dose is dated on the character's own clock
   const d = rd('src/scenes/dungeonContext.js');
   assert.match(d, /function poisonFoe\(f, pt\) \{\s*\n\s*if \(!f\) return null;\s*\n\s*const pi = foes\.indexOf\(f\);\s*\n\s*if \(\(!_authority && isRoomFoe\(f, pi\)\) \|\| f\._ownFrom != null\) \{ f\._divertPt = pt; return null; \}[^\n]*\n\s*return inflictPoison\(f\.entity, pt, false, \{ currentMinute: Math\.floor\(classicMinutesRef\.value\) \}\);/, 'the dungeon\'s door: a layout foe while another hosts is a puppet');

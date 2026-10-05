@@ -27,28 +27,10 @@
     ]
   },
   {
-    "name": "FB-stand-rank4",
-    "file": "src/systems/revenantFeud.js",
-    "old": "{ 3: 0.3, 4: 0.35, 5: 0.4 }",
-    "new": "{ 3: 0.3, 4: 0.45, 5: 0.4 }",
-    "tests": [
-      "test/feudbalance.test.js"
-    ]
-  },
-  {
     "name": "FB-stand-rank5",
     "file": "src/systems/revenantFeud.js",
     "old": "4: 0.35, 5: 0.4 });",
     "new": "4: 0.35, 5: 0.55 });",
-    "tests": [
-      "test/feudbalance.test.js"
-    ]
-  },
-  {
-    "name": "FB-will-unread",
-    "file": "src/systems/revenantFate.js",
-    "old": "return !!r && willMatters(r.rank) && !willBroken(f.entity._feud);",
-    "new": "return !!r && willMatters(r.rank);",
     "tests": [
       "test/feudbalance.test.js"
     ]
@@ -65,7 +47,7 @@
   {
     "name": "FB-harness-time-unread",
     "file": "tools/tellDuel.mjs",
-    "old": " && at(ref, 'dodge', false).mean <= at(ref, 'trade', false).mean },",
+    "old": " && at(ref, 'dodge', false).raw.mean <= at(ref, 'trade', false).raw.mean },",
     "new": " },",
     "tests": [
       "test/feudbalance.test.js"

@@ -2593,14 +2593,14 @@ export async function bootExterior(canvas, renderer, params, status) {
     say: (l) => townTalk.say(l),
     surfacePlayer,
     // QG1: the ready-spell doors - EntityEffectManager's two events
-    // (hostMagic.js:101-102), which are the ONLY route into the quest
+    // (hostMagic.js:102-103), which are the ONLY route into the quest
     // machine's CastSpellDo / CastEffectDo latches (machine.js:935/:941;
     // actions.js:2753). This host owns its own cast engine and passed
     // neither key, so on this route - and, because worldModes takes THIS
     // instance indoors, in every shop entered from it - `cast X spell do`
     // and `cast X effect do` could never latch and never fire. The other
     // two engine-owning hosts wire the identical pair (world.js:8991-8992,
-    // dungeonContext.js:3001-3002); `questBridge` is assigned below this
+    // dungeonContext.js:3003-3004); `questBridge` is assigned below this
     // mount, so the chain is optional both ways.
     onNewReadySpell: (sp) => questBridge?.machine?.notifyNewReadySpell?.(sp),
     onCastReadySpell: (sp) => questBridge?.machine?.notifyCastReadySpell?.(sp),
@@ -2858,7 +2858,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // (chronicleDoor.js:110 `if (!questJournalArtLoaded()) return null`),
     // so a readiness test placed AHEAD of the preload that satisfies it
     // made the classic skin answer null for ever - the warm behind the
-    // gate could never run. dungeonContext.js:2070-2075 is the shape:
+    // gate could never run. dungeonContext.js:2072-2077 is the shape:
     // warm, then let the door refuse.
     preloadQuestJournalArt({ renderer, fetchBytes, palette });
     return createChronicleWindow({
@@ -5610,7 +5610,7 @@ export async function bootExterior(canvas, renderer, params, status) {
         playerEntity, playerWeapon: weaponRig.playerWeapon, playerFeet: player.pos,
         dealDamage: (f, d) => (cityGuards.guards.includes(f)
           ? cityGuards.hurtGuard(f, d, player.pos, m.dir, { kind: 'arrow' })   // AUDIT-39r: WeaponManager's KnockbackDirection, the missile's forward; TELL1: a shaft's weight on a wind-up
-          : exteriorFoes.damageFoe(f, d, player.pos, m.dir, { kind: 'arrow' })),   // WORLD6b-iii(e): the kind rides the hit - a puppet's owner lands the shaft (ar), as the dungeon's host has since WORLD3
+          : exteriorFoes.damageFoe(f, d, player.pos, m.dir, { kind: 'arrow', weapon: m.weapon ?? null })),   // AUDIT FEUD 2: the bow (a metal weakness rides to a puppet's owner)   // WORLD6b-iii(e): the kind rides the hit - a puppet's owner lands the shaft (ar), as the dungeon's host has since WORLD3
         audio, hitEffects, say: (l) => townTalk.say(l),
         onInflictPoison: (att, tgt, pt) => (cityGuards.guards.includes(t) ? inflictPoison(tgt, pt, false, { currentMinute: Math.floor(playerTicker.ownMinutes) }) : exteriorFoes.poisonFoe(t, pt)),   // WORLD6b-iii(e): the pool's one poison door - a puppet's dose rides the hit to its owner; the watch is dosed here (the player's own)
         // AUDIT 58: WeaponManager.cs:630's HandleAttackFromSource sits

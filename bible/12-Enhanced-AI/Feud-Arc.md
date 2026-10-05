@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL, RVN1-RVN13, AUDIT FEUD and FEUD BALANCE built)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL, RVN1-RVN13, AUDIT FEUD, FEUD BALANCE and AUDIT FEUD 2 built)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -7,7 +7,7 @@ detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
 (section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts), AUDIT
-TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), RVN8, RVN9, RVN10, RVN11 in three parts (RVN11a loyalty, RVN11b desertion, RVN11c betrayal), RVN12 in two (RVN12a the words, RVN12b the page and the card), RVN13, AUDIT FEUD (its balance table measured three of RVN's targets missed - section 31's OPEN 22-24) and FEUD BALANCE (Mac's calls on them, built: every target of section 28 holds); each slice's record is at the foot.**
+TELL, RVN1 to RVN6, RVN7 in four parts (RVN7a the lair, RVN7b the rumour, RVN7c the map and the journal, RVN7d the lair stand), RVN8, RVN9, RVN10, RVN11 in three parts (RVN11a loyalty, RVN11b desertion, RVN11c betrayal), RVN12 in two (RVN12a the words, RVN12b the page and the card), RVN13, AUDIT FEUD (its balance table measured three of RVN's targets missed - section 31's OPEN 22-24) FEUD BALANCE (Mac's calls on them, built) and AUDIT FEUD 2 (both read again; the duel harness made faithful to the pools - every target of section 28 holds); each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -59,7 +59,7 @@ section 31). Everything else is the proposal.
 - **Its will must be broken.** From rank 3 a revenant kneels only if, in that fight, its weakness was struck or it was
   staggered twice (FEUD BALANCE, OPEN 22: once - or a perfect dodge of its blow). Otherwise, at the killing blow, it
   escapes - ranked up, and adapted again.
-- **The last stand.** From rank 3, the first killing blow instead brings it roaring back (35-55% health, a ring burst,
+- **The last stand.** From rank 3, the first killing blow instead brings it roaring back (35-55% health - FEUD BALANCE: 30-40%, a ring burst,
   faster, harder, ember-lit) - once a stand.
 - **A signature blow** from rank 2, named for it ("Grushnak's Skullsplitter"), iron from rank 3.
 - **A band** from rank 2: one to three of its kin, who scatter when it falls.
@@ -650,8 +650,9 @@ before the yield in both damage doors (`exteriorFoes.js damageFoe`, `dungeonCont
 - **Health** to `LAST_STAND_HEALTH` of its maximum: 0.35 at rank 3, 0.45 at 4, 0.55 at 5 (FEUD BALANCE, OPEN 23: 0.30,
   0.35, 0.40).
 - **The roar** (`LAST_STAND_ROAR`, 1.2 s): no blow reaches it (the held refusal the yield uses); the attack frame held;
-  with Enhanced AI, an iron ring about its feet lands as the roar ends (8.1: push and rattle). Without it, the roar
-  alone.
+  with Enhanced AI, an iron ring about its feet lands as the roar ends (8.1: push and rattle - AUDIT FEUD 2: as built, an
+  iron ring rattles and knocks down, and pushes nothing: BLOW_EFFECT.PUSH is the lunge's and the charge's). Without it,
+  the roar alone.
 - **Phase two** for the rest of the stand: blows x1.2, +20 Speed, wind-ups x0.85, cooldowns x0.7, chains to three, iron
   one in two; lit by the elite lane's rim in an ember red (`eliteFoes.setBatchEliteGlow` with a revenant colour) and
   stood x1.1 (`eliteSize`'s precedent).
@@ -826,7 +827,8 @@ deed underground makes that dungeon its lair.
   sessions. OPEN 17.
 - **As built (RVN9; the record at the foot)**: the day's count rides the notice's step (`takeRevenantNotice` - the
   encounter tick asks it beside `revenantPresence`, and it knows the player); the first count only sets the day; a clock
-  wound back counts no day and starts again from it. A wrath falls on the days three, six, nine... past its due day
+  wound back counts no day and starts again from it (AUDIT FEUD corrected it: a clock behind the last counted day - an
+  older save's - counts nothing until it passes it, so no day festers twice). A wrath falls on the days three, six, nine... past its due day
   (`festersOn`), each caught-up day in turn. Its wrath is applied at the stand over its rank's health and blows, then
   cleared.
 
@@ -1076,8 +1078,8 @@ revenant at each rank; a thousand seeded fights a cell. It prints a table, and t
 | A light weapon rarely breaks alone | a dagger, solo, at a medium foe's front: 15% of the wind-ups its blows land on or fewer |
 | A heavy weapon usually does | a warhammer, the same: 60% or more (of the wind-ups it lands on - AUDIT TELL: one swing at most comes in a wind-up, and DFU's hit roll on it, so a miss or a late swing breaks nothing whatever the weapon) |
 | Massive means massive | no single blow of a non-weakness weapon at a giant's front breaks it |
-| Dodging pays | a perfect dodger kills a rank-3 revenant at least 25% faster than one who trades blows - FEUD BALANCE (OPEN 24): a perfect dodger takes a tenth of the telegraphed blows a trader does or fewer, and is no slower to bring a rank-3 revenant to its end (what dodging buys: the will, and the blows not taken) |
-| The will is learnable | a rank-3 revenant fought with its weakness kneels 90% of the time or more; without it, but dodging, 70% or more; by trading blows alone, 20% or less |
+| Dodging pays | a perfect dodger takes a tenth of the telegraphed blows a trader does or fewer, and is no slower to bring a rank-3 revenant to its end - what dodging buys: the will (below), and the blows not taken (FEUD BALANCE, OPEN 24; it read "kills a rank-3 revenant at least 25% faster than one who trades blows") |
+| The will is learnable | a rank-3 revenant fought with its weakness kneels 90% of the time or more; without it, but dodging, 70% or more; by trading blows alone, 20% or less (measured with the reference longsword - a heavy weapon's poise breaks are its own way to the will) |
 | A rank means something | a rank-5 revenant takes about 2.5 times a rank-1's time to kill |
 | Fair | no telegraphed blow lands on a player who leaves its shape inside its first 70% |
 
@@ -1089,7 +1091,10 @@ over rank 1: 3.25 trading, 2.98 dodging - the last stand's share grows with the 
 12, 5), so AUDIT FEUD tuned none: OPEN 22-24 below put them to him, each measured. **FEUD BALANCE** built his calls
 (each as recommended): the will by dodging 89.7%, by its weakness 100%, by trading 13.9%; a perfect dodger struck by
 5.6% of a trader's telegraphed blows, in 90.4% of its time; rank 5 over rank 1, 2.95 trading and 2.70 dodging - every
-target holds.
+target holds. **AUDIT FEUD 2** made the harness faithful to the pools (the AUDIT FEUD 2 record) and measured again: the will
+by dodging 94.6%, by its weakness 100%, by trading 12.7%; a perfect dodger struck by 0.2% of a trader's telegraphed blows,
+in 98.4% of its time; rank 5 over rank 1, 2.66 trading and 2.63 dodging; TELL's four hold (LIGHT 0.5%, HEAVY 91.0%,
+MASSIVE 97.7% of the floor, FAIR 0) - every target holds, each with room.
 
 ## 29. Tests, mutants and probes
 
@@ -2464,7 +2469,7 @@ was fixed. "Every host" is the four by name: `scenes/world.js`, `scenes/exterior
   owner's own id, which an adopted foe's record never has (W2).
 - **The words (V1-V3)** - a piece it took is named after "your", "my" or "lovely" without its article
   (`revenant.takenName`): a legendary's "The Glenmoril Bow" read "Your The Glenmoril Bow drinks blood just fine in my
-  hand" - the theft's line, the taunt, the deserter's card and the page (V1). Twenty-one lines took a number from
+  hand" - the theft's line, the taunt, the deserter's card and the page (V1). Twenty lines took a number from
   `{how}` or `{item}` ("Your arrows is beneath me now", "Your Leather Gauntlets is consecrated now") or named it back as
   "it" - each reworded so either number reads (V2). A return speaks only of what came after its oath: a deserter or a
   betrayer with nothing since speaks its leaving (`deserted`, `betrayed`), never a felling it did before it served me
@@ -2577,4 +2582,70 @@ was fixed. "Every host" is the four by name: `scenes/world.js`, `scenes/exterior
   `rvn4_stand` (the shares, four places, and the page), `auditfeud` (the duel's seeds and the target). Mutants
   `tools/mutants/feudbalance.json` (8), all dead; re-aimed by content (4): `rvn3` (2), `rvn4` (1), `auditfeud`'s target
   (1) - each judged again, all dead.
+
+### AUDIT FEUD 2 - 2026-10-05 (Mac: "Let's audit this and ensure perfection")
+
+AUDIT FEUD and FEUD BALANCE read again by four lenses - the record and its flows, the hosts and the wire, the duel
+harness's fidelity to the pools, the pins and the docs - every finding reproduced (most through the real modules) before
+it was fixed.
+
+- **The brain (B1)** - FEUD BALANCE made a perfect dodge break the will, and a "perfect dodge" was any miss whose target
+  was inside at the late sample: a leap a ledge stopped short, a charge a wall stopped, "missed" a player who never left
+  its shape - and broke the will for nothing. A perfect dodge is now inside at the late sample AND out of its shape at
+  the landing (`tactics.resolveLanding`, judged there).
+- **The record (R1-R6)** - a restore of an older save's sworn copy took a bumped revision, so it leaked into a NEWER save
+  loaded after it (a betrayer slain there came back sworn; a forgotten one past the retinue's cap): restored at the
+  save's own revision now (R1). It reads no history - its twelve deeds scroll a leaving off: the save holding it sworn
+  with a pack and the mirror not, it left by some road (R2). What the save's living copy held is handed to me for a
+  record since forgotten too, not only fallen or sworn (R3). A felling in its last stand keeps phase two - the re-stamp
+  dropped its iron share, its chains and its quicker wind-ups mid-stand (R4). The oath's hand-back line names a piece
+  without its article ("your Glenmoril Bow"), and `takenName` takes an article only at the start ("Amulet of the Nine")
+  (R5). A rout keeps a kill's waiting card as a felling does - AUDIT FEUD changed both, its record named the felling
+  alone (R6).
+- **The wire and the hosts (W1-W5)** - a peer's blow rode its weakness's class whatever it did: a miss (a zero blow, no
+  weapon - "bare hands" to the test) revealed an h2h weakness, a daylight one every blow by day; only a blow that landed
+  now (`damage > 0`, both senders) (W1). A peer's reveal raised the "Weakness" word on the OWNER's screen with no number
+  under it - the peer's screen says it; the owner's reveal keeps its card and its found, no word (W2). A Recall routed
+  a dungeon room's puppet (it carries no `puppet`) and minted a revenant of mine from another player's foe: the player
+  door says which foes another client runs (`isPuppet`, the dungeon hands `isPuppetFoe`), and the sweep passes them (W3).
+  No lair in the Ocean Holes abyss - it borrows its template's map table, its pixel another dungeon's; a spawned
+  dungeon's reason corrected (it comes and goes) (W4). Every player's shaft carries its bow, so a metal weakness rides
+  to a puppet's owner; a duplicated comment in `hostCombat.js` given its own words (W5).
+- **The duel harness, made faithful** - its knocked-down trader swung on (the swing machine stands while `paralyzed`);
+  a knockdown came of every landing (the pools queue it only for a blow that did damage - the foe's hit roll on me now
+  rolled); the foe was never shoved (DFU's knockback on every landed blow the poise did not hold, a stagger's half
+  again); a swing's hit frame out of reach waited for the foe instead of missing; the foe's Speed was a fixed 50 (its
+  live Speed now - phase two's +20); the revenant bore no signature (drawn from rank 2, as a deed draws it) and its id
+  was random (the seed's now - its draws are the seed's); the dodger walked back at the landing itself and into it (it
+  waits the brain's next turn). Both halves take the pools' steps (TELL's cells measured again), the verdict is its own
+  function on the cells' unrounded means, and `--tell --feud` runs both. Measured, a thousand fights a cell:
+
+  | A rank-3 Orc revenant | knelt | time to its end (mean) | telegraphed blows on me |
+  |---|---|---|---|
+  | Longsword, trading | 12.7% | 12.6 s | 1.97 |
+  | Longsword, dodging | 94.6% | 12.4 s | 0.00 |
+  | Longsword, its weakness | 100% | 9.2 s | 1.60 |
+  | Dagger, trading / dodging | 0% / 94.4% | 23.3 / 23.0 s | 2.52 / 0.00 |
+  | Warhammer, trading / dodging | 21.5% / 97.7% | 12.6 / 13.8 s | 1.82 / 0.04 |
+
+  Rank 5 over rank 1: 2.66 trading (16.5 / 6.2 s), 2.63 dodging (16.1 / 6.1 s). Every RVN target holds - the will
+  100 / 94.6 / 12.7% (the warhammer trader's 21.5% its heavy blows' own way), dodging pays (struck 0.2%, time 98.4%),
+  the ranks 2.66 / 2.63 - with room; FEUD BALANCE's calls stand as Mac made them. TELL's: LIGHT 0.5%, HEAVY 91.0%,
+  MASSIVE 97.7% of the floor, FAIR 0 of 11 378 - all four hold.
+- **The pins and the docs** - the harness's own steps and its seeds pinned (the hits counted, the knockdown, the shove,
+  the frozen swing, the dodger's wait, the stream, the signature); the routed card, the article's anchor, the new game
+  through `newGameModSaveRecords`, the heir's frame and the peer's weak blow through the real street pool; the verdict
+  through its function on synthetic cells. Stale words of the old law put right: section 0's last stand, RVN9's wound
+  clock (as built), section 28's two rows, Revenants.md 20, Testing.md's rvn3, rvn4, auditfeud and feudbalance rows,
+  `rvn3_weak`'s header and title (its pool test now breaks the will with ONE stagger, telling the laws apart), the roar's
+  "push" (an iron ring rattles and knocks down). FEUD BALANCE's two duplicate mutants dropped (FB-will-unread was
+  `rvn3`'s; FB-stand-rank4 `rvn4`'s): six there now.
+- **Not changed** - a revenant puppet's blows at a peer (section 32); the band and the flight in the harness (disclosed).
+- Pins `test/auditfeud2.test.js` (14). Pins moved (each marked): `auditfeud` (both senders' `damage > 0`, the abyss, the
+  duel's seeds), `feudbalance` (the verdict through `feudVerdict`), `rvn3_weak` (one stagger), `rvn4_stand` (a marker),
+  `audittell` and `tell8_online` (the senders' `damage > 0`), `world2`, `waveD_dungeonHost`, `world6biiie` (two) and
+  `audit39_worldmodes` (every shaft carries its bow); the lifted harnesses unchanged.
+  Mutants `tools/mutants/auditfeud2.json` (29), all dead. Re-aimed by content (17): `auditfeud` (7), `tell4` (3), and
+  `audittell`, `feudbalance`, `revenantaudit`, `rvn10`, `rvn11b`, `rvn13`, `rvn8` (one each) - each judged again, all
+  dead.
 

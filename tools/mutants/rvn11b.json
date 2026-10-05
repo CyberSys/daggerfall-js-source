@@ -254,8 +254,8 @@
   {
     "name": "RVN11b-save-deserter-kept",
     "file": "src/systems/revenant.js",
-    "old": "    const left = r.fate === 'released' || (r.history ?? []).some((h) => (h.deed === 'deserted' || h.deed === 'betrayed') && h.at >= (s?.swornAt ?? 0));",
-    "new": "    const left = r.fate === 'released' || (r.history ?? []).some((h) => h.deed === 'betrayed' && h.at >= (s?.swornAt ?? 0));",
+    "old": "if (s?.sworn && s.companion?.items?.length && !r.sworn) {",
+    "new": "if (s?.sworn && s.companion?.items?.length && !r.sworn && !(r.history ?? []).some((h) => h.deed === 'deserted')) {",
     "tests": [
       "test/rvn11b_desert.test.js"
     ]

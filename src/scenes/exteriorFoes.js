@@ -857,7 +857,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         const _pt = f._divertPt ?? null; f._divertPt = null;
         // TELL8 (10.4): a blow on a puppet WINDING UP rides with its class - its K, my feet against its facing - so the
         // owner's meter weighs it as its own
-        const _wc = blowClassOf(f.ai, { kind, weapon, claws: !weapon && !!playerEntity?.isInBeastForm, round }, playerFeet, !round && feudWeakBlow(f.entity, { kind, weapon, element, attacker: playerEntity }));   // AUDIT FEUD: and a blow of its weakness, winding up or not (RVN13: its owner's reveal)
+        const _wc = blowClassOf(f.ai, { kind, weapon, claws: !weapon && !!playerEntity?.isInBeastForm, round }, playerFeet, !round && damage > 0 && feudWeakBlow(f.entity, { kind, weapon, element, attacker: playerEntity }));   // AUDIT FEUD: and a blow of its weakness, winding up or not (RVN13: its owner's reveal); AUDIT FEUD 2: a blow that landed (a miss is no blow of any class)
         f._divertFrame = _peerFrame;
         f._struckAt = _now();   // DISC10-E: the owner's `slain` answers THIS blow, inside SLAIN_WINDOW_MS, or nothing
         _net?.onPeerHit?.({ to: f.puppet, k: _owners.get(f.puppet)?.k ?? _net.room?.() ?? null, i: f.seq, dmg: Math.max(0, Math.round(Number(damage) || 0)), kind,   // WORLD6b-iii(b): keyed to the OWNER's cell (its frame's k) - across the seam that is not mine

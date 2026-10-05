@@ -21,8 +21,7 @@
 //
 // PURE but for the clock and the records it is handed - the pools (scenes/exteriorFoes.js, scenes/dungeonContext.js)
 // call in, and draw what it answers.
-import { revenantHandBack, revenantById, revenantOn, revenantYielded, revenantExecuted, revenantSpared, revenantMomentEvent, revenantPortrait, revenantRankNumeral, revenantLastStand, revenantLastStandEvent } from './revenant.js';
-import { itemLongName } from './itemInfo.js';   // RVN8: a piece handed back, by its name
+import { takenName, revenantHandBack, revenantById, revenantOn, revenantYielded, revenantExecuted, revenantSpared, revenantMomentEvent, revenantPortrait, revenantRankNumeral, revenantLastStand, revenantLastStandEvent } from './revenant.js';
 import { revenantTrophy, trophyKindWords } from './revenantTrophy.js';
 import { PERSONALITIES } from './revenantPersonality.js';
 import { retinueHasRoom, swornPlace, REVENANT_RETINUE_MAX, setRetinuePlayer, holdSworn, swornWitness } from './revenantCompanions.js';
@@ -200,7 +199,7 @@ export function beginSpare(player, f, { now = Date.now(), rolls = Math.random } 
   const body = (state === 'with'
     ? `Sworn to you. ${r.given} walks at your side now.`
     : `Sworn to you. Your companions are full - ${r.given} waits until you call it.`)
-    + (back.length ? ` It hands back your ${back.map((it) => itemLongName(it)).join(' and ')}: "It's yours. It always was."` : '');
+    + (back.length ? ` It hands back your ${back.map((it) => takenName(it)).join(' and ')}: "It's yours. It always was."` : '');   // AUDIT FEUD 2: its article gone after "your"
   return { r, state, event: revenantMomentEvent('spared', r, player?.name, { body, archive: f.archive, rolls }) };
 }
 /** The sworn one has stepped through its portal - take its kneeling body out. */

@@ -3,7 +3,8 @@
 // of it lands x1.5 (a weapon class, a metal), an element's on the saving throw at -50, the daylight's x1.25 on every
 // blow while the sky reads day, and on a wind-up it weighs twice. The first blow of it REVEALS it (the "Weakness" word,
 // a hiss, the card); under half its health, unknown, it FLINCHES from it (a hint). From rank 3 its WILL must be broken
-// - its weakness struck, or staggered twice in the fight - or at the killing blow it does not kneel: it TEARS AWAY into
+// - its weakness struck, or staggered twice in the fight (FEUD BALANCE: once, or a perfect dodge of its blow) - or at the
+// killing blow it does not kneel: it TEARS AWAY into
 // the smoke, an escape (it ranks up and learns). Disintegrate's kill is a kill.
 // Pinned: the law; through the REAL formulas, both landings and the REAL saving throw; the poise door's x2 (a spell's
 // element threaded to it); the reveal from the real strike and the real spell landing; the flinch; the will; on the
@@ -314,7 +315,7 @@ function revenantOf(p, rank) {
   return r;
 }
 
-test('RVN3 THE WILL: from rank 3 a revenant my fight has not broken does not kneel - at the killing blow it TEARS AWAY: held at 1, untouchable, ashing out in ember, then gone - an escape (ranked up, `fled`, its words "unbroken"); broken (two staggers, or its weakness struck) it kneels; at rank 2 it kneels; Disintegrate kills (mutants: the will unread; it kneels unbroken; no ember; the escape unranked; a broken one tearing away; the whole kill withheld)', async () => {
+test('RVN3 THE WILL: from rank 3 a revenant my fight has not broken does not kneel - at the killing blow it TEARS AWAY: held at 1, untouchable, ashing out in ember, then gone - an escape (ranked up, `fled`, its words "unbroken"); broken (one stagger - FEUD BALANCE, or its weakness struck) it kneels; at rank 2 it kneels; Disintegrate kills (mutants: the will unread; it kneels unbroken; no ember; the escape unranked; a broken one tearing away; the whole kill withheld)', async () => {
   const p = me();
   // unbroken, rank 3
   const r = revenantOf(p, 3);
@@ -354,7 +355,7 @@ test('RVN3 THE WILL: from rank 3 a revenant my fight has not broken does not kne
   const g = await pool2.spawnFoe(2, [0, 0, 0], { feetGiven: true, level: 6, revenant: r2 });
   frame(pool2);
   g._lastStood = true;
-  L.noteFeud(g.entity, 'staggers'); L.noteFeud(g.entity, 'staggers');
+  L.noteFeud(g.entity, 'staggers');   // PIN MOVED (AUDIT FEUD 2: one stagger - FEUD BALANCE's law; two told the laws apart from nothing)
   pool2.damageFoe(g, 99999, [0, 0, 3], null, { fromPlayer: true });
   assert.ok(g.yielded, 'broken, it kneels');
   // its weakness struck: it kneels

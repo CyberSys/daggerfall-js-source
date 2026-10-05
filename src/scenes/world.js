@@ -9538,7 +9538,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:3237 mounts the same one, gated on
+  // and dungeonContext.js:3240 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:7105
@@ -12284,7 +12284,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:8650), so exterior mode and a
+    // composer, dungeonContext.js:8653), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -27271,7 +27271,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         playerEntity, playerWeapon: weaponRig.playerWeapon, playerFeet: player.pos,
         dealDamage: (f, d) => (cityGuards.guards.includes(f)
           ? cityGuards.hurtGuard(f, d, player.pos, m.dir, { kind: 'arrow' })   // AUDIT-39r: the shaft shoves the watch too (WeaponManager.cs:576-595); TELL1: a shaft's weight on a wind-up
-          : exteriorFoes.damageFoe(f, d, player.pos, m.dir, { kind: 'arrow' })),   // WORLD6b-iii(e): the kind rides the hit - a puppet's owner lands the shaft (ar), as the dungeon's host has since WORLD3
+          : exteriorFoes.damageFoe(f, d, player.pos, m.dir, { kind: 'arrow', weapon: m.weapon ?? null })),   // AUDIT FEUD 2: the bow (a metal weakness rides to a puppet's owner)   // WORLD6b-iii(e): the kind rides the hit - a puppet's owner lands the shaft (ar), as the dungeon's host has since WORLD3
         audio, hitEffects, say: (l) => townTalk.say(l),
         onInflictPoison: (att, tgt, pt) => (cityGuards.guards.includes(t) ? inflictPoison(tgt, pt, false, { currentMinute: Math.floor(playerTicker.ownMinutes) }) : exteriorFoes.poisonFoe(t, pt)),   // WORLD6b-iii(e): the pool's one poison door - a puppet's dose rides the hit to its owner; the watch is dosed here (the player's own)
         // AUDIT 58: WeaponManager.cs:630's HandleAttackFromSource sits

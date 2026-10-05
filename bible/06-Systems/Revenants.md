@@ -399,7 +399,7 @@ weakness as known and the will's rule. The law: `bible/12-Enhanced-AI/Feud-Arc.m
 ## 20. The last stand (FEUD RVN4, 2026-10-04)
 
 From rank 3, once a fight, the blow that would kneel or kill a revenant brings it back instead - to 35%, 45% or 55% of
-its health by rank - roaring: for 1.2 seconds no blow reaches it, and (Enhanced AI on) an iron ring about its feet lands
+its health by rank (since FEUD BALANCE, section 34: 30%, 35% or 40%) - roaring: for 1.2 seconds no blow reaches it, and (Enhanced AI on) an iron ring about its feet lands
 as the roar ends; with the switch off it stands and roars. Then phase two for the rest of the fight: heavier and quicker
 blows, more Speed, shorter wind-ups and cooldowns, chains of three, iron one in two, an ember rim and a tenth more size.
 A Disintegrate still kills. The page names it from rank 3. The law: `bible/12-Enhanced-AI/Feud-Arc.md` section 15 and its
@@ -541,3 +541,16 @@ in nine, so a player who fought well rarely saw it kneel; its last stand rises t
 dodging is promised what it really buys - the will, and the blows not taken - rather than a faster kill. Measured: a
 player who dodges perfectly makes a rank-3 kneel nine fights in ten; one who only trades blows, about one in seven. The
 law: `bible/12-Enhanced-AI/Feud-Arc.md` section 31's OPEN 22-24 and the FEUD BALANCE record.
+
+## 35. The second audit (FEUD AUDIT FEUD 2, 2026-10-05)
+
+The audit and the balance read again: a leap or a charge stopped short against a wall no longer counts as your perfect
+dodge (and breaks no will); reloading an older save no longer bleeds into a newer one, nor loses a companion's pack
+whose leaving has scrolled out of its history, nor a piece a since-forgotten revenant held; a revenant in its last stand
+keeps its fury when it fells your companion; "It hands back your Glenmoril Bow"; online, only a party member's blow that
+landed reveals a weakness (a miss did), and you no longer see a stray "Weakness" for theirs; a Recall no longer turns
+another player's dungeon foe into your revenant; no lair in the Ocean Holes. The balance was measured again with the
+duel harness made faithful to the game - every target holds: a perfect dodger makes a rank-3 kneel 19 fights in 20, a
+trader about one in eight, and a rank 5 is about two and two-thirds times a rank 1's fight. The law:
+`bible/12-Enhanced-AI/Feud-Arc.md`, the AUDIT FEUD 2 record.
+

@@ -281,7 +281,7 @@
   {
     "name": "RVN8-handback-unsaid",
     "file": "src/systems/revenantFate.js",
-    "old": "    + (back.length ? ` It hands back your ${back.map((it) => itemLongName(it)).join(' and ')}: \"It's yours. It always was.\"` : '');",
+    "old": "    + (back.length ? ` It hands back your ${back.map((it) => takenName(it)).join(' and ')}: \"It's yours. It always was.\"` : '');",
     "new": "    + '';",
     "tests": [
       "test/rvn8_took.test.js"

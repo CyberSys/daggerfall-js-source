@@ -11,7 +11,7 @@
   {
     "name": "AF-W1-street-unpassed",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "playerFeet, !round && feudWeakBlow(f.entity, { kind, weapon, element, attacker: playerEntity }));",
+    "old": "playerFeet, !round && damage > 0 && feudWeakBlow(f.entity, { kind, weapon, element, attacker: playerEntity }));",
     "new": "playerFeet, false);",
     "tests": [
       "test/auditfeud.test.js"
@@ -20,7 +20,7 @@
   {
     "name": "AF-W1-deep-unpassed",
     "file": "src/scenes/dungeonContext.js",
-    "old": "playerFeet, !round && feudWeakBlow(foe.entity, { kind, weapon, element, attacker: playerEntity })) : null;",
+    "old": "playerFeet, !round && damage > 0 && feudWeakBlow(foe.entity, { kind, weapon, element, attacker: playerEntity })) : null;",
     "new": "playerFeet) : null;",
     "tests": [
       "test/auditfeud.test.js"
@@ -137,8 +137,8 @@
   {
     "name": "AF-R1-betrayal-no-leaving",
     "file": "src/systems/revenant.js",
-    "old": "(h.deed === 'deserted' || h.deed === 'betrayed')",
-    "new": "h.deed === 'deserted'",
+    "old": "if (s?.sworn && s.companion?.items?.length && !r.sworn) {",
+    "new": "if (s?.sworn && s.companion?.items?.length && !r.sworn && !(r.history ?? []).some((h) => h.deed === 'betrayed')) {",
     "tests": [
       "test/auditfeud.test.js"
     ]
@@ -146,8 +146,8 @@
   {
     "name": "AF-R2-stranded",
     "file": "src/systems/revenant.js",
-    "old": "    if (player && s?.took?.length && !s.defeated && !s.sworn && (r.defeated || r.sworn)) {",
-    "new": "    if (false && player && s?.took?.length && !s.defeated && !s.sworn && (r.defeated || r.sworn)) {",
+    "old": "    if (player && s?.took?.length && !s.defeated && !s.sworn && (r.gone || r.defeated || r.sworn)) {",
+    "new": "    if (false && player && s?.took?.length && !s.defeated && !s.sworn && (r.gone || r.defeated || r.sworn)) {",
     "tests": [
       "test/auditfeud.test.js"
     ]
@@ -155,7 +155,7 @@
   {
     "name": "AF-R2-handed-for-the-living",
     "file": "src/systems/revenant.js",
-    "old": "!s.defeated && !s.sworn && (r.defeated || r.sworn)) {",
+    "old": "!s.defeated && !s.sworn && (r.gone || r.defeated || r.sworn)) {",
     "new": "!s.defeated && !s.sworn) {",
     "tests": [
       "test/auditfeud.test.js"
@@ -164,8 +164,8 @@
   {
     "name": "AF-R3-tombstone-first",
     "file": "src/systems/revenant.js",
-    "old": "!r.sworn && (r.gone || left)) {",
-    "new": "!r.sworn && left) {",
+    "old": "if (s?.sworn && s.companion?.items?.length && !r.sworn) {",
+    "new": "if (s?.sworn && s.companion?.items?.length && !r.sworn && !r.gone) {",
     "tests": [
       "test/auditfeud.test.js"
     ]
@@ -399,8 +399,8 @@
   {
     "name": "AF-H3-lair-anywhere",
     "file": "src/scenes/dungeonContext.js",
-    "old": "  function lairable() { return !(dfLocation?.spawned || isGateArena(dfLocation) || isArenaFloor(dfLocation)); }",
-    "new": "  function lairable() { return !(dfLocation?.spawned || isGateArena(dfLocation)); }",
+    "old": " || isArenaFloor(dfLocation) || (Number(",
+    "new": " || (Number(",
     "tests": [
       "test/auditfeud.test.js"
     ]

@@ -22,7 +22,7 @@
 //                   world (its map pixel and the named dungeons in reach), { underground } in a dungeon, or null
 // }
 
-/** @type {null | { foes: () => any[], feet: () => number[]|null, hurtFoe: (f: any, n: number) => void, castOnPlayer: (b: any) => void, player?: () => any, clear?: (a: number[], b: number[]) => boolean, say?: (line: string) => void, sfx?: (id: number, at: number[]) => void, lairHere?: () => any }} */
+/** @type {null | { foes: () => any[], feet: () => number[]|null, hurtFoe: (f: any, n: number) => void, castOnPlayer: (b: any) => void, player?: () => any, clear?: (a: number[], b: number[]) => boolean, say?: (line: string) => void, sfx?: (id: number, at: number[]) => void, lairHere?: () => any, isPuppet?: (f: any) => boolean }} */
 let _door = null;
 /** The running host's word: this is the scene now. `null` takes it down. */
 export function setPlayerDoor(door) { _door = door && typeof door === 'object' ? door : null; }

@@ -308,7 +308,7 @@
   {
     "name": "RVN13-reveal-unwired",
     "file": "src/systems/feudLedger.js",
-    "old": "  try { _onWeak(entity); } catch { /* the reveal is no blow's business */ }",
+    "old": "  try { _onWeak(entity, { peer: true }); } catch { /* the reveal is no blow's business */ }",
     "new": "",
     "tests": [
       "test/rvn13_wire.test.js"
