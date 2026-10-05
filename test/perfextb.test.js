@@ -356,7 +356,7 @@ test('PERF-EXT11: no flat ever draws with a stale size or origin - GL walked as 
 
 test('PERF-EXT12: the streaming host asks the far-flat rule POSITIONALLY - no `{ ring, height, animated }` built for every flat batch of every pixel in sight or reach, every frame (the base: an object literal at the call); nothing in src/ builds one for it', () => {
   const w = rd('src/scenes/world.js');
-  assert.match(w, /if \(!farFlatVisibleAt\(ring, b\.size\?\.h \?\? 0, b\.frame != null\)\) continue;/, 'the pixel walk\'s call');
+  assert.match(w, /if \(!farFlatVisibleAt\(ring, b\.farH \?\? b\.size\?\.h \?\? 0, b\.frame != null\)\) continue;/, 'the pixel walk\'s call (LPT1: a far picture\'s batch hands its flat\'s own height - AUDIT LPT B1)');
   assert.match(w, /import \{ farFlatVisibleAt \} from '\.\.\/world\/flatDistance\.js'/);
   const objectCalls = [];
   const walk = (d) => { for (const e of readdirSync(join(ROOT, d))) { const p = `${d}/${e}`; if (statSync(join(ROOT, p)).isDirectory()) walk(p); else if (p.endsWith('.js') && /(?<!function )farFlatVisible\(\s*\{/.test(rd(p))) objectCalls.push(p); } };
