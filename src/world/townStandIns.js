@@ -247,12 +247,14 @@ export function hillMesh(shape, surface) {
 // blocks (RESIAS08, TVRNAS00, TVRNAS01, TVRNAS03, TEMPASH3, WEAPAS02) stand TEXTURE.504's trees as misc flats on the
 // RMB Resource Pack's hills, at the heights the author read off the pack's own meshes: 130 of them a metre to 13 m over
 // the plane. DFU stands each where it is authored (AddMiscBlockFlats reads no terrain and no model) on the pack's hill,
-// and draws them floating without the pack. The port's mounds are smaller than the pack's (`RMBRP_HILLS`, sized by the
-// catalogue), so 121 of the 130 hung more than 1.5 m over the mound or the ground. While the port draws a block's hills
-// as these stand-ins, a nature flat of that block stands on the top of what is drawn under it - the higher of the
-// ground and the mounds; a hill the port does not draw as its own (no stand-in on) leaves the block as DFU stands it.
+// and draws them floating without the pack. The port's mounds were smaller than the pack's (sized by the catalogue), so
+// 121 of the 130 hung more than 1.5 m over the mound or the ground; drawn at the pack's measured shape since FIELD BUGS
+// 2026-10-05 HILL-SHAPES, one does. While the port draws a block's hills as these stand-ins, a nature flat of that
+// block stands on the top of what is drawn under it - the higher of the ground and the hills (AUDIT FB1005 H4: so the
+// dozen the author left on the plane under a hill, which the pack's hill buries, stand on its slope instead); a hill
+// the port does not draw as its own (no stand-in on) leaves the block as DFU stands it.
 
-/** The mound the port draws for `id` - its stand-in, while the town mods' stand-ins are on (customModelFor, the door the
+/** The hill the port draws for `id` - its stand-in, while the town mods' stand-ins are on (customModelFor, the door the
  *  pipeline asks before any other: scenes/dataPipeline.js buildGpuMesh) - or null: not a hill, or not drawn as ours. */
 export const drawnHillStandIn = (id) => (RMBRP_HILLS[id] ? customModelFor(id) : null);
 

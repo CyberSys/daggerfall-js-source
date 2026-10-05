@@ -23,7 +23,8 @@ byte (section 11).
 
 - **Online, a rest is an act at a rest point, not hours on a dial.** A rest point is a lit fire (a dungeon's own
   campfire, a placed Campfire, a tent's fire, a world brazier or hearth), a bed (a rented room, an owned house, a ship,
-  a guild hall where DFU lets you rest) or, as the poor substitute, a Bedroll. You face it, the loot plaque offers
+  a guild hall where DFU lets you rest; a dungeon's bed since FIELD BUGS 2026-10-05 DUNGEON-BEDS) or, as the poor
+  substitute, a Bedroll. You face it, the loot plaque offers
   **Rest**, you hold still for a few seconds, and you wake.
 - **A rest is one night.** The recommended model (OPEN 1) moves the character's own clock eight hours at once - the
   same raise a rest makes today, made once and never chosen - so every system that reads the character's time
@@ -89,11 +90,13 @@ byte (section 11).
 | A world fire: DFU's fire bowl, flame or brazier (TEXTURE.210 records 0, 1, 20) | `src/systems/survival/hearth.js` `collectHearths`, dungeons' `dungeonHearths` | Camp |
 | An Ember Jar's fire (new, section 6) | `camps.js` pool, kind Fire, no pick-up | Camp |
 | A bed: rented room, owned house (`homeBed`), ship, guild hall | `restSession.js` `canRest` / `interiorRestPlace` | Bed |
+| A dungeon's bed (FIELD BUGS 2026-10-05 DUNGEON-BEDS; none in a palace, AUDIT FB1005 B3) | `dungeonContext.js` `dungeonBeds`, `restAct.js` `bedInReach` | Bed |
 | A Bedroll (new, section 6) | the item, laid where a camp could stand, and in dungeons | Rough |
 
 A rest point is **in reach** within `BY_FIRE_REACH` (4 m) of a fire, inside the room where DFU allows the rest for a
-bed (the rented room, the house, the ship's cabin, a guild hall - `canRest`'s own answer), and on the spot for a
-Bedroll. Climates & Calories off, the rest kinds still decide nothing but the yield (every rest priced as a bed today,
+bed (the rented room, the house, the ship's cabin, a guild hall - `canRest`'s own answer), within `BY_FIRE_REACH` of a
+dungeon's bed on its own floor (`bedInReach`: to the bed's nearest point, the feet within 1.5 m of its foot), and on the
+spot for a Bedroll. Climates & Calories off, the rest kinds still decide nothing but the yield (every rest priced as a bed today,
 `src/scenes/shared.js` `createRestDeps`; section 2.4 keeps that).
 
 ### 2.2 The act

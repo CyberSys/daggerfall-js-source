@@ -142,3 +142,20 @@ test('SEALED-CELLAR: the walk\'s clear spot takes a test - the nearest cell that
   assert.ok(far && Math.abs(Math.hypot(far.x - 3, far.z - 3) - 1.5) < 0.26, `the nearest that passes: ${JSON.stringify(far)}`);
   assert.equal(walk.clearSpot(p, () => false), null, 'none passes: none');
 });
+
+test('SEALED-CELLAR: every marker moved past a hatch stands BY it - within 2.5 m of one of its design\'s 199.14 / 199.13, read off the vendored pack (AUDIT FB1005 T6: the spots were pinned only on ARENA2_PATH)', () => {
+  const PACKS = { [BC]: packJson(BC), 'beautiful-villages': packJson('beautiful-villages') };
+  const UNIT = 0.025;
+  let designs = 0;
+  for (const d of CURATED_QUEST_MARKERS) {
+    const [vendor, block, record] = d.where[0];
+    const hatch = subRecordsOf(PACKS[vendor], `${block}.json`)[record].Interior.BlockFlatObjectRecords.filter((f) => f.TextureArchive === 199 && (f.TextureRecord === 13 || f.TextureRecord === 14));
+    if (!hatch.length) continue;   // QUEST-MARKERS' own six: lost in geometry, no hatch
+    designs++;
+    for (const m of d.markers) {
+      const near = Math.min(...hatch.map((f) => Math.hypot(m.to[0] - f.XPos, m.to[2] - f.ZPos) * UNIT));
+      assert.ok(near <= 2.5, `${d.design}: 199.${m.record}'s spot ${m.to} is ${near.toFixed(2)} m from its hatch`);
+    }
+  }
+  assert.equal(designs, 14, 'the fourteen sealed designs');
+});

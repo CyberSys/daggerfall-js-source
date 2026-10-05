@@ -21,7 +21,7 @@ by `tools/rmbrpHills.mjs`, nothing of it kept. Nothing here was seen in a browse
 
 `world/interiorLayout.js` (hasInteriorModels - AssignBlockData's refusal, DaggerfallInterior.cs:388-389, as a law the
 layout and the market both ask), `systems/talkTopics.js` (locationBuildings and buildingDataForDoor stamp
-`hasInterior`), `systems/onlineHomes.js` (homePurchasable). Measured: of 13,510 exterior doors, ten rooms cannot be
+`hasInterior`), `systems/onlineHomes.js` (homePurchasable). Measured: of Daggerfall's own 11,458 building doors (the packs add no such room), ten rooms cannot be
 entered - six crypts (`GRVEAS05` #19, `GRVEAS09` #11, `GRVEAL09` #11, `GRVEAM09` #11, `GRVEAM05` #19, `GRVEAL05` #0, the
 only House5 records with a door) and four House2 rooms VOID-ENTRY refuses (placed in no town). The crypts stand in 67
 places with a door and a price online (24,600-67,600): Wayrest's `GRVEAL09` #11 (key 66059), Fontgate Hollow's, the
@@ -31,9 +31,12 @@ none; the online market's door was the only seller. Entering one fails in DFU to
 be laid out is not for sale now; homeCandidate is unchanged, so a crypt already bought stays its owner's home - the
 plaque says so and its "Sell it" row pays the 85% (HOME_SALE_SHARE). **A full refund is Mac's call**: the account
 service reads no game data, so it would need the 67 (mapId, buildingKey) pairs. THE FOUR HOSTS: the door's offer is
-worldModes.js's (world.js and exterior.js build it); dungeonContext.js sells no home. `test/fb1005_cryptsale.test.js`
-(4: the producers' stamp, the door's record, the law, every graveyard of the world with ARENA2_PATH);
-`tools/mutants/fb1005_cryptsale.json` (6, all dead); `home1.json`'s two records the change moved re-aimed by content.
+worldModes.js's (world.js and exterior.js build it); dungeonContext.js sells no home. HOME2's House5 widening sells
+nothing now - the six crypts were the only House5 records with a door (House6: CUSTAA05 #0 and #1). The account
+service does not check the room: a tab opened before the deploy, or a desktop build not yet updated, can still claim a
+crypt until it reloads (AUDIT FB1005 C1, stood - the 67 pairs the service would need are the refund's list too).
+`test/fb1005_cryptsale.test.js` (6); `tools/mutants/fb1005_cryptsale.json` (10, all dead); `home1.json`'s two records
+the change moved re-aimed by content.
 
 ## SEALED-CELLAR (2)
 
@@ -41,20 +44,22 @@ worldModes.js's (world.js and exterior.js build it); dungeonContext.js sells no 
 `systems/quest/markerCuration.js` (CURATED_QUEST_MARKERS). The Possessed Child (C0B00Y02, `local house2`) stands its
 child at the house's 199.11. Beautiful Cities lays Tigonus (Dak'fron, location 54) again; in its GEMSAL00 #7 the one
 199.11 is 3.15 m down in a cellar whose stair (40018, the rail 6700 and posts 62319 - the "wooden frame" in the
-screenshot) the author shut with a floor tile laid over its head (1000, its ceiling 2000 under it) and two rugs on top
-(69471 - the port's stand-in, brown with a red lozenge). Every such hatch is marked with the editor's 199.14 over the
-plug and 199.13 at the other side - numbers neither Daggerfall's 11,452 interiors nor DFU read. DFU lays the plug as
+screenshot) the author shut with a floor tile laid over its head (1000, its ceiling 2000 under it), a rug on top
+(69471 - the port's stand-in, brown with a red lozenge) and its pair (69472) turned over beneath, facing the cellar. Every such hatch is marked with the editor's 199.14 over the
+plug and 199.13 at the other side - numbers no interior of Daggerfall's own BLOCKS.BSA carries and DFU does not read. DFU lays the plug as
 the port does (AddModels places every record), so with the mod DFU's child stands in the sealed cellar too; the floor
 is sound, so QUEST-MARKERS' ray passed it. The tool lists a marker the entrance's walk does not reach and the walk from
-a hatch's far side does, its spot the floor nearest the hatch's near side (with THE RAY's floor under it): 14 designs,
+a hatch's far side does, its spot the floor nearest the hatch's near side (with THE RAY's floor under it, and 1.5 m off the room's entrance -
+AUDIT FB1005 S1: TEMPASF0 #7's foe stood 0.95 m from the door): 14 designs,
 128 buildings, 14 markers - eleven cellars and three lofts. Tigonus holds 21 buildings of the list. The committed list
 is the measure again (`--check`: 20 designs). **Not built: a hatch that opens.** The author's markers name both sides,
 and the investigation sketched one (an activation that moves the player across) - the port's own mechanic, so Mac's
 call; the curation makes every quest of the 128 doable meanwhile. THE FOUR HOSTS: as QUEST-MARKERS (worldModes.js's
-interior adapter; world.js's load mend; dungeonContext.js unaffected). `test/fb1005_sealedcellar.test.js` (4);
+interior adapter; world.js's load mend; dungeonContext.js unaffected). If a hatch that opens is ever built, these
+fourteen entries retire with it. `test/fb1005_sealedcellar.test.js` (7);
 `test/fb1004d_questmarkers.test.js` (its counts moved, its gated measure accepts a sealed marker, its building-type read
-taught a file that edits the classic list entry by entry - KSCAAL01); `tools/mutants/fb1005_sealedcellar.json` (6, all
-dead - one gated on ARENA2_PATH).
+taught a file that edits the classic list entry by entry - KSCAAL01); `tools/mutants/fb1005_sealedcellar.json` (11, all
+dead - three only with ARENA2_PATH).
 
 ## HILL-SHAPES (3, 6)
 
@@ -71,16 +76,28 @@ pack's reach 5-47 m and stand 1.4-16 m (TREES-SEATED said the mounds, not fixed,
 profile measured off the pack's mesh as Unity imports it (x mirrored - the orientation all 40 authored trees of
 TVRNAS03 and TEMPASH3 sit on within 0.75 m): the raised footprint's centre, 16 bearings, each with its reach and ten
 rings' heights, each the median of the pack's surface in its cell; the rim the mesh's base, under the plane. Drawn, it is
-0.03-0.32 m from the pack's surface at the median per hill; Ipsham's houses stand on it to 0.07 m (they hung 4.1-4.2 m),
-the gazebo's base is in its hill, and over both packs no classic model the pack's hill holds within 0.5 m hangs a
-metre over the stand-in (before: five blocks, 513 grid cells, up to 7.3 m). 12 bearings by 8 rings left one prop 1.9 m
+0.03-0.32 m from the pack's surface at the median per hill - the 90th percentile 1.05-1.34 m on the four lumpiest
+(52548, 52508, 52458, 52638), and the median fills the pack's hollows: over 15.4% of 52548's raised ground the
+stand-in stands more than 0.5 m over the pack (up to 2.51 m), 4.4% of 52458's and 52508's. Ipsham's houses stand on it
+to 0.08 m (they hung 4.1-4.2 m), the gazebo's base is in its hill, and over both packs no classic model the author stood
+up on a hill hangs a metre over the stand-in (before: five blocks, 513 grid cells, up to 7.55 m - TEMPASH4's 43715).
+What the median's hollows cost, found by the audit: a DET sheep in RESIAS04 stands 0.64 m into the stand-in (the pack
+leaves it 0.09 m over), a vertex of TEMPASH3's 40719 1.14 m under it, one foot of TEMPASD1's 21728 1.08 m over it; the
+hill's foot meets the plane at a grazing angle over 4-81 m2 a hill, which may z-fight far off (the pack's mesh in DFU
+meets it the same way). A door: Beautiful Villages' TEMPASD1 stands its House2 #6 (model 159) inside hills 52458 and
+52713, under 10.1-10.4 m of the stand-ins and 10.5-11.2 m of the pack's own meshes - DFU with the pack buries it too;
+the old mound did not reach it (AUDIT FB1005 T3, carried in `test/wd3_standins.test.js`, Mac's call). 12 bearings by 8 rings left one prop 1.9 m
 up, so 16 by 10. TREES-SEATED's seat reads the drawn triangles, so the 130 trees follow: 1 hangs more than 1.5 m, where
-121 did. **A peer-derived measurement, as the docks and the domes are** - nothing of the pack's file is carried, but the
-shape is read off it; the investigation named it a doctrine call, and it is Mac's to confirm (`03-World/Beautiful-Towns.md`).
+121 did - and the dozen nature flats the author left on the plane under a hill, which the pack's hill buries, stand on
+its slope now (AUDIT FB1005 H4). **A peer-derived measurement - and a larger one than the docks' and the domes'**: nothing of the pack's file is carried,
+but 23 hills x 179 numbers (4,117) are read off it, a 16 x 10 heightfield that keeps each sculpt's footprint; the
+meshes are `CPT_Mountain_*` .blend files and the pack's manifest names its authors "Asset creators (maintained by
+carademono)", with no licence file in the clone. Mac's call (AUDIT FB1005 H3).
 THE FOUR HOSTS: the stand-ins are the pipeline's (customModelFor) for every host that stands a town block - world.js,
-exterior.js; worldModes.js's rooms hold no hill; dungeonContext.js stands none. `test/fb1005_hills.test.js` (4, one on
-ARENA2_PATH: Ipsham itself); `test/fb1003b_trees.test.js` (121 -> 1) and `test/wd3_standins.test.js` (the hills' sizes)
-re-aimed; `tools/mutants/fb1005_hills.json` (7, all dead).
+exterior.js; worldModes.js's rooms hold no hill; dungeonContext.js stands none. `test/fb1005_hills.test.js` (5, two on
+ARENA2_PATH: Ipsham itself, and both packs swept); `test/fb1003b_trees.test.js` (121 -> 1) and `test/wd3_standins.test.js`
+(the hills' sizes; a door walled by a hill's surface, not its box) re-aimed; `tools/mutants/fb1005_hills.json` (9, 8
+dead, 1 recorded equivalent).
 
 ## DEATH-HOLDS (4)
 
@@ -93,8 +110,8 @@ had, beside the ghost (a Resurrect where one fell, Privateer's Hold in place). T
 Wraith's silence and the fatigue and magicka drains (a fatigue drain defeats DISC28-E's floor). The KEPT list stands -
 a disease and an infection are not cured by dying - and a living release ends nothing. THE FOUR HOSTS: every revival is
 reviveForPlay's (world.js's respawn and Resurrect; worldModes.js's interior screen and Privateer's Hold;
-dungeonContext.js through worldModes.js); exterior.js ends the run. `test/fb1005_deathholds.test.js` (4, the effects
-minted by applySpell); `test/deathloop1.test.js`'s comment retired; `tools/mutants/fb1005_deathholds.json` (7, all dead).
+dungeonContext.js through worldModes.js); exterior.js ends the run. `test/fb1005_deathholds.test.js` (5, the effects
+minted by applySpell); `test/deathloop1.test.js`'s comment retired; `tools/mutants/fb1005_deathholds.json` (8, all dead).
 
 ## The Matchmaker (5) - not reproduced
 
@@ -119,7 +136,13 @@ dirt to 78.5 m from it, grass to 141.9 m) and on the dry half of every shore rec
 generatePixelTerrain. The cast stands only over water the feet would swim in now; ground not built is not refused; a
 cast already flying keeps its node when the look swings onto the bank. The swim and the water walk were never the
 fault (they follow the drawn coverage since MAC2). THE FOUR HOSTS: the gather host is world.js's alone.
-`test/fb1005_shorecast.test.js` (4); `tools/mutants/fb1005_shorecast.json` (6, all dead).
+The audit (AUDIT FB1005) found two holes: a cast the gathering host DROPPED (a window, a door, the helm) was
+never ended, so its exemption kept the sand a target until the next cast finished (W2 - `gatherHost.js` ends a dropped
+act now, as at every other drop); and the exemption began at the WIND, so a look turned onto the sand while E was held
+threw the net there (W3 - it begins at the throw). A throw lands 3-12 m out and only the 3 m point is asked, so a long
+throw across a narrow inlet may land on the far bank (stood). `test/fb1005_shorecast.test.js` (5);
+`tools/mutants/fb1005_shorecast.json` (10, all dead); MAC2's source pin (`test/roadb_exterior_water.test.js`) re-aimed at
+`groundSampleAt`.
 
 ## DUNGEON-BEDS (8)
 
@@ -129,13 +152,18 @@ DFU rests in, and the dungeon host's point was `camps.restPointAt` - fires alone
 blocks (in 2,056 of the 4,232 dungeons) said "Find a fire or a bed to rest." A bed within a fire's reach (BY_FIRE_REACH,
 4 m to its box's nearest point) is a bed's rest point now, priced as a bed, and a bed pressed below deck (CSA-J's
 `_restFromBed`, which restPoint never read) is one too; the enemies-near gates and the night's interval are unchanged.
+The audit (AUDIT FB1005) narrowed it: on the bed's own floor (B4 - five beds were in reach from the storey above or
+below), none in a palace (B3, AUDIT REST II F2's own predicate - Castle Daggerfall's and Sentinel's beds), and a bed's
+night spends no Bedroll or Campfire laid beside it (B1). Offline the hosts' restKind reads it too, so in Hard a rest
+beside a dungeon's bed is priced as a bed's (B2 - SURV4's "a bed is the sleep", kept); an elite dungeon halves its
+fires and keeps every bed.
 The reply in the thread ("That Torch to the right you can click on to rest like a campfire") holds only for a brazier
 (210_20) - HEARTH1 counts no wall torch. Not built: a dungeon bed is no click target (Roleplay Realism's activation;
 AUDIT-RR named "beds only in buildings"); the rest key and the rest window find it. THE FOUR HOSTS: dungeonContext.js
 wired; worldModes.js's rooms rest anywhere already; world.js's beds are a ship's; exterior.js stands none.
 `test/fb1005_dungeonbeds.test.js` (3, 108 beds in 42 blocks on ARENA2_PATH); `test/rest1_act.test.js` and
-`test/surv4_rest.test.js`'s source pins and `survtiers.json`'s record re-aimed; `tools/mutants/fb1005_dungeonbeds.json`
-(7, all dead).
+`test/surv4_rest.test.js`'s and `test/rest6_consumables.test.js`'s source pins and `survtiers.json`'s record re-aimed;
+`tools/mutants/fb1005_dungeonbeds.json` (11, all dead).
 
 ## Integration
 
@@ -148,6 +176,7 @@ hand to the tool's mapping, each checked by content, the other struck rows keepi
 
 - Nothing was rendered or played: no browser, no GPU, no online room. The hills were measured as triangles, not seen;
   their grass and rock texture wraps the larger mesh at the old 4 m a repeat.
-- CRYPT-SALE needs no service deploy; a refund of crypts already bought does.
+- CRYPT-SALE needs no service deploy; a refund of crypts already bought, or a refusal the service makes itself, does.
 - SEALED-CELLAR's spots were measured through the port's own layout and stand-ins, not in Daggerfall Unity.
 - The Matchmaker report stays open until the player answers.
+- The audit of this batch: `01-Overview/Audit-FB1005.md` (AUDIT FB1005).

@@ -217,7 +217,10 @@ elsewhere.
   wall. Each of the eight stands at its measured floor spot, keyed by pack, block, record, kind and position
   (`systems/quest/markerCuration.js`, measured by `tools/townQuestMarkers.mjs`); a save's sites are mended at the load;
   and any building marker with no floor within 4 m under it stands its person, foe or item at the site's nearest marker
-  that has one (FIELD BUGS 2026-10-04d QUEST-MARKERS).
+  that has one (FIELD BUGS 2026-10-04d QUEST-MARKERS). And fourteen more designs (128 buildings) hold one past a
+  stair the author shut with a floor tile and marked with the editor's 199.14 and 199.13, which no game reads - eleven
+  cellars, three lofts; each stands by the shut stair, off the room's entrance (FIELD BUGS 2026-10-05 SEALED-CELLAR,
+  The Possessed Child in Tigonus). The list: 20 designs, 179 interiors, 22 markers - 13,084 buildings in 4,073 towns.
 - **The port's curation: a tavern with no tavern.** Beautiful Villages rebuilds
   `TVRNAS00` and `TVRNAS06` as houses (the classic blocks hold three taverns
   each) and leaves the 274 roadside taverns standing on them (their location

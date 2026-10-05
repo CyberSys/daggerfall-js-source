@@ -98,5 +98,15 @@
       "test/fb1005_sealedcellar.test.js"
     ],
     "note": "AUDIT FB1005 S5: the clear spot's test never asked"
+  },
+  {
+    "name": "SEALEDCELLAR-spot-far-from-hatch",
+    "file": "src/systems/quest/markerCuration.js",
+    "old": "{ record: 11, at: [-24, 125, 52], to: [28, -2, 216] }",
+    "new": "{ record: 11, at: [-24, 125, 52], to: [28, -2, 416] }",
+    "tests": [
+      "test/fb1005_sealedcellar.test.js"
+    ],
+    "note": "AUDIT FB1005 T6: GEMSAM01 #12's spot five metres from its hatch (no game data)"
   }
 ]

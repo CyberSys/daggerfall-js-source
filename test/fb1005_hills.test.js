@@ -126,3 +126,67 @@ test('HILL-SHAPES with ARENA2: Ipsham itself - Beautiful Villages\' grid stands 
     WDR._resetWorldDataReplacement();
   }
 });
+
+test('HILL-SHAPES with ARENA2: over every block of both packs that stands a hill, no classic model the author stood up on one hangs a metre over the drawn hill (AUDIT FB1005 T4: the record\'s whole-pack claim, pinned - five blocks\' did before, up to 7.55 m)', { skip: HAVE_ARENA2 ? false : 'ARENA2_PATH not set', timeout: 300000 }, async () => {
+  const rd = (f) => new Uint8Array(readFileSync(join(ARENA2, f)));
+  const { MapsFile } = await import('../src/formats/mapsFile.js');
+  const { BlocksFile } = await import('../src/formats/blocksFile.js');
+  const { Arch3dFile } = await import('../src/formats/arch3dFile.js');
+  const { dfMeshToModel } = await import('../src/world/meshReader.js');
+  const WDR = await import('../src/formats/worldDataReplacement.js');
+  const { openWorldDataPack } = await import('../src/formats/worldDataPack.js');
+  const { setValue } = await import('../src/systems/settings.js');
+  const maps = new MapsFile(); maps.load(rd('MAPS.BSA'), rd('CLIMATE.PAK'), rd('POLITIC.PAK'));
+  const blocks = new BlocksFile(); blocks.load(rd('BLOCKS.BSA'));
+  const arch = new Arch3dFile(); arch.load(rd('ARCH3D.BSA')); arch.autoDiscard = false;
+  const quiet = console.log; console.log = () => {};
+  const hung = [];
+  let blocksWithHills = 0, placed = 0;
+  try {
+    WDR._resetWorldDataReplacement();
+    setValue('Enhancements', 'AssetInjection', 'True');
+    WDR.installWorldDataReplacement(); WDR.bindWorldDataBlocks(blocks);
+    const names = new Set();
+    for (const [v, priority] of [['beautiful-villages', 10], ['beautiful-cities', 20]]) {
+      const raw = JSON.parse(zlib.gunzipSync(readFileSync(new URL(`../vendor/${v}/WorldDataPack/${v}.pack.json.gz`, import.meta.url))).toString('utf8'));
+      for (const n of Object.keys(raw.files)) if (n.endsWith('.RMB.json')) names.add(n.slice(0, -5));
+      WDR.registerWorldDataPack(openWorldDataPack(raw, { blocks }), () => true, { priority });
+    }
+    for (let r = 0; r < maps.regionCount; r++) {   // the packs' new blocks are named by the towns that stand them
+      for (let l = 0; l < (maps.baseLocationCount(r) ?? 0); l++) {
+        const loc = maps.getLocation(r, l), ex = loc?.exterior?.exteriorData;
+        if (ex) for (let y = 0; y < ex.height; y++) for (let x = 0; x < ex.width; x++) blocks.checkName(maps.getRmbBlockName(loc, x, y));
+      }
+    }
+    const models = new Map();
+    const positions = (id) => { if (!models.has(id)) { const i = arch.getRecordIndex(id); models.set(id, i < 0 ? null : dfMeshToModel(arch.getMesh(i), () => ({ width: 64, height: 64 })).positions); } return models.get(id); };
+    for (const name of [...names].sort()) {
+      let b = null;
+      try { b = blocks.getBlockByName(name); } catch { b = null; }
+      if (!b?.rmbBlock) continue;
+      const { models: laid } = layoutRmbBlock(b, { enhanced: true });
+      const seat = blockHillSeat(laid, drawn);
+      if (!seat) continue;
+      blocksWithHills++;
+      for (const m of laid) {
+        if (RMBRP_HILLS[m.modelIdNum]) continue;
+        const p = positions(m.modelIdNum);
+        if (!p) continue;
+        const M = m.matrix, lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+        for (let k = 0; k < p.length; k += 3) for (let a = 0; a < 3; a++) { const w = M[a] * p[k] + M[4 + a] * p[k + 1] + M[8 + a] * p[k + 2] + M[12 + a]; lo[a] = Math.min(lo[a], w); hi[a] = Math.max(hi[a], w); }
+        const mid = [(lo[0] + hi[0]) / 2, (lo[2] + hi[2]) / 2];
+        if (lo[1] < 0.5 || seat.topAt(mid[0], mid[1]) === null) continue;   // on the plane, or on no hill
+        placed++;
+        const gaps = [];
+        for (let u = 0; u <= 4; u++) for (let v = 0; v <= 4; v++) gaps.push(lo[1] - Math.max(0, seat.topAt(lo[0] + (hi[0] - lo[0]) * (0.25 + u / 8), lo[2] + (hi[2] - lo[2]) * (0.25 + v / 8)) ?? 0));
+        gaps.sort((a, b2) => a - b2);
+        if (gaps[12] > 1) hung.push(`${name} ${m.modelIdNum} ${gaps[12].toFixed(2)} m`);
+      }
+    }
+  } finally {
+    console.log = quiet;
+    WDR._resetWorldDataReplacement();
+  }
+  assert.ok(blocksWithHills >= 20 && placed > 20, `${blocksWithHills} blocks stand hills, ${placed} models up on them`);
+  assert.deepEqual(hung, [], 'none hangs');
+});

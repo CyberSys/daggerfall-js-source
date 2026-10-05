@@ -1,5 +1,6 @@
-// TREES-SEATED (FIELD BUGS 2026-10-03b): THE RMB RESOURCE PACK'S HILLS, MEASURED - the table the port's stand-ins
-// (src/world/townStandIns.js RMBRP_HILLS, sized by the catalogue's Small/Medium/Large) would be re-sized from.
+// TREES-SEATED (FIELD BUGS 2026-10-03b): THE RMB RESOURCE PACK'S HILLS, MEASURED - and since FIELD BUGS 2026-10-05
+// HILL-SHAPES the shapes the port's stand-ins are drawn at (src/world/rmbrpHillShapes.js; they had been the catalogue's
+// Small/Medium/Large mounds).
 //
 //   git clone --depth 1 https://github.com/drcarademono/rmb-resource-pack <dir>   (GIT_LFS_SKIP_SMUDGE=1 is enough)
 //   node tools/rmbrpHills.mjs <dir>

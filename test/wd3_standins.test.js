@@ -28,7 +28,7 @@ import zlib from 'node:zlib';
 import {
   TOWN_BED_FIRST, TOWN_BED_COUNT, TOWN_BED_ARCHIVE, TOWN_BED_MODELS, TOWN_BEDCLOTHS, TOWN_BED_COLOURS, townBedOf, bedclothRecord,
   isBedclothGreen, recolourBedcloth, CLASSIC_PAINTINGS, TOWN_PAINTINGS, paintingModel, ROSYS_PIECES, TOWN_CROP_FIELDS, RMBRP_ROCKS,
-  RMBRP_HILLS, RMBRP_STALLS, RMBRP_DOCKS, DOCK_SCALE, RMBRP_PIECES, TOWN_CLUTTER, TOWN_CLUTTER_ARCHIVE, TOWN_GARDEN, TOWN_GARDEN_ARCHIVE,
+  RMBRP_HILLS, blockHillSeat, RMBRP_STALLS, RMBRP_DOCKS, DOCK_SCALE, RMBRP_PIECES, TOWN_CLUTTER, TOWN_CLUTTER_ARCHIVE, TOWN_GARDEN, TOWN_GARDEN_ARCHIVE,
   installTownStandIns, _resetTownStandIns,
 } from '../src/world/townStandIns.js';
 import { RMBRP_HILL_SHAPES, SHAPE_BEARINGS, SHAPE_RINGS } from '../src/world/rmbrpHillShapes.js';   // FIELD BUGS 2026-10-05 HILL-SHAPES
@@ -536,6 +536,13 @@ test('WD3 with ARENA2: no stand-in walls up a door - every exterior door of both
       for (const m of rmb.Misc3dObjectRecords) if (box(m.ModelIdNum)) pieces.push({ id: m.ModelIdNum, M: trs(m.XPos * G, (-m.YPos - 4) * G, (m.ZPos + 4096) * G, -m.XRotation / RD, -m.YRotation / RD, -m.ZRotation / RD, m.XScale || 1, m.YScale || 1, m.ZScale || 1) });
       doorCount += ds.length;
       for (const pc of pieces) {
+        // AUDIT FB1005 T3: a hill is a surface, not a box - since HILL-SHAPES drew the pack's hills at their size, a
+        // door BESIDE one stood inside its bounding box (27 of 29); a hill walls a door that stands under its top
+        if (RMBRP_HILLS[pc.id]) {
+          const seat = blockHillSeat([{ modelIdNum: pc.id, matrix: pc.M }]);
+          for (const d of ds) for (const pt of d.pts) if ((seat.topAt(pt[0], pt[2]) ?? -Infinity) > pt[1]) walled.push(`${v} ${name}: ${pc.id} at the door of record ${d.ri} (model ${d.id})`);
+          continue;
+        }
         const b = box(pc.id), inv = local(pc.M);
         for (const d of ds) for (const pt of d.pts) if (inv(pt).every((x, i) => x > b.lo[i] + 0.02 && x < b.hi[i] - 0.02)) walled.push(`${v} ${name}: ${pc.id} at the door of record ${d.ri} (model ${d.id})`);
       }
@@ -543,7 +550,11 @@ test('WD3 with ARENA2: no stand-in walls up a door - every exterior door of both
     p.release();
   }
   assert.ok(doorCount > 10000, `${doorCount} doors`);
-  assert.deepEqual([...new Set(walled)], []);
+  // AUDIT FB1005 T3: ONE door, and it is the pack's own - Beautiful Villages' TEMPASD1 stands its House2 #6 (model 159)
+  // inside hills 52458 and 52713, and the pack's published meshes stand 10.5-11.2 m over the door's foot there (measured with the
+  // clone; the stand-ins 10.1-10.4 m): DFU with the RMB Resource Pack buries it too. Carried, named, Mac's call (FIELD
+  // BUGS 2026-10-05's audit) - any other door a stand-in walls is still a failure here.
+  assert.deepEqual([...new Set(walled)].sort(), ['beautiful-villages TEMPASD1.RMB.json: 52458 at the door of record 6 (model 159)', 'beautiful-villages TEMPASD1.RMB.json: 52713 at the door of record 6 (model 159)']);
   resetAll();
 });
 
