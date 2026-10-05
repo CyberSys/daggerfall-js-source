@@ -165,7 +165,8 @@ test('LPT1 every vendored atlas paints from records of the classic sizes without
 
 test('LPT1 atlasMips: the chain halves to 1x1, a level\'s colour is its DRAWN texels\' mean (a clear texel never darkens a leaf\'s edge) and its alpha the four\'s mean; the steps are LPT_MIP_ROWS rows', () => {
   const pic = { width: 4, height: 2, data: new Uint8Array(4 * 2 * 4) };
-  pic.data.set([200, 100, 50, 255], 0);   // one drawn texel of the first 2x2, three clear (black)
+  for (let i = 0; i < 8; i++) pic.data.set([90, 90, 90, 0], i * 4);   // clear texels with a colour of their own, which must not bleed in
+  pic.data.set([200, 100, 50, 255], 0);   // one drawn texel of the first 2x2, three clear
   pic.data.set([10, 20, 30, 255, 30, 40, 50, 255], 8);   // two of the second's top row
   const mips = atlasMips(pic);
   assert.deepEqual(mips.map((m) => [m.width, m.height]), [[4, 2], [2, 1], [1, 1]]);
@@ -194,9 +195,11 @@ test('LPT1 renderImpostor: the tree from the side at LPT_IMPOSTOR_PER_M texels a
   for (let i = 3; i < pic.data.length; i += 4) if (pic.data[i]) any++;
   assert.ok(bottom > 0, 'it stands on the ground');
   assert.ok(any > pic.width * pic.height * 0.05, 'a tree, not a speck');
-  const none = renderImpostor(LPT, proto, () => clear);
-  const opaque = proto.subs.some((s) => s.opaque);
-  assert.equal(none.data.some((v, i) => i % 4 === 3 && v), opaque, 'clear texels cut unless the material is opaque');
+  // a clear atlas: an alpha-cut tree (500_1) draws nothing of it, 504_12's opaque card (its *_Opaque material) draws it all the same
+  const cutOnly = lptProto(LPT, 500, 1);
+  assert.ok(cutOnly.subs.every((s) => !s.opaque) && proto.subs.some((s) => s.opaque));
+  assert.equal(renderImpostor(LPT, cutOnly, () => clear).data.some((v, i) => i % 4 === 3 && v), false, 'clear texels cut');
+  assert.equal(renderImpostor(LPT, proto, () => clear).data.some((v, i) => i % 4 === 3 && v), true, 'an opaque card is never cut');
   const tris = JSON_.meshes[proto.mesh].subs.reduce((n, s) => n + s[1] / 3, 0);
   let steps = 0;
   const g = impostorSteps(LPT, proto, () => solid);

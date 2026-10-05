@@ -121,7 +121,28 @@ when the world loads; `?trees=off` the kill door.
 
 ## Performance
 
-TBD
+What the trees add, by construction: the near set is **one instanced
+draw a prototype's submesh** (a climate stands ~20 prototypes, most one
+or two submeshes: some 45 draws), its instances re-gathered only when
+the eye moves 3 m (a pixel's 3x3 neighbourhood walked, the instances
+re-uploaded - 24 bytes a tree), and a frame between gathers hands the
+renderer the same object (nothing allocated). The trees average 84-385
+triangles a prototype by climate (16 to 4,488), so a few hundred trees
+inside 160 m are a few hundred thousand triangles at most. Everything
+past the radius is the flats' own cost: one quad a tree in the pixel's
+batch, as before. The atlases are painted once a source, a step between
+the stream's breaths (a record a step, 64 mip rows a step, 256 triangles
+of a far picture a step), so a pixel's first trees never take a frame
+whole; each 1024 atlas is ~5.6 MB of GPU memory with its chain, a
+climate using four to seven.
+
+Measured (2026-10-05) in the headless game on SwiftShader (software GL,
+so frame time is not a measurement - only the counts and the script are),
+Daggerfall at land view 1, `?trees=off` against the trees: draws 583 ->
+628, script 15.2 -> 16.8 ms a frame over eight one-second samples (noisy
+at one frame a second). The GPU's frame time is the owner's machine's to
+measure: `HEADED=1 SCENES=road TREES=off npm run perf` and again without
+`TREES=off` (`tools/perfProbe.mjs`).
 
 ## Translations recorded (not departures)
 

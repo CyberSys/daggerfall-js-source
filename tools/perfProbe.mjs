@@ -38,8 +38,8 @@ const GROUND = process.env.GROUND ? `&ground=${encodeURIComponent(process.env.GR
 const TREES = process.env.TREES === 'off' ? '&trees=off' : '';
 
 const SCENES = {
-  city: `/play/?world&region=Daggerfall&loc=Daggerfall&class=1&novideo&shot&fps`,
-  road: `/play/?world&spawn=random&class=1&novideo&shot&fps`,
+  city: `/play/?world&region=Daggerfall&loc=Daggerfall&class=1&novideo&shot&fps${TREES}`,
+  road: `/play/?world&spawn=random&class=1&novideo&shot&fps${TREES}`,
   dungeon: `/play/?shot&class=0&fps`,
 };
 
@@ -56,7 +56,7 @@ const rows = [];
 for (const name of WANT) {
   const url = SCENES[name];
   if (!url) { console.warn(`perf: no scene "${name}"`); continue; }
-  await page.goto(`http://localhost:${PORT}${url}${GROUND}${TREES}`);
+  await page.goto(`http://localhost:${PORT}${url}${GROUND}`);
   await page.waitForFunction(() => window.__shotReady === true, null, { timeout: 300000 });
   await page.waitForTimeout(1000);   // the first second after settling is the stream's tail, not the scene
   const samples = [];

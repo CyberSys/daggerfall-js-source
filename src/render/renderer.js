@@ -5182,11 +5182,13 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     // flat - a pixel-wide wood's sphere reaches every shadow in its pixel,
     // its trees do not. Never for one built dynamic: its centres move.
     // DW-F: `dwColumn`, the host's - one flat standing in a carved sea's column (the water column's share).
+    // LPT1: `_scales` and `_tints`, each flat's own share of the size and its tint (a move keeps them), and
+    // `lptProto`, the host's - the 3D tree a far picture gives way to near the eye.
     // DISC29-E: the shadow record's `_shAnim` (a flat animating in place, which the lo tier keeps) - a boolean, born
     // undefined as `_shMovedAt` (AUDIT PRE-MERGE 0929 E1: `_shPlacedAt`, the stillness it was once judged by, is gone).
     return {
       vao, indexCount: count * 6, archive, record, size, buffers: [vb, ib], origin: null, frame: null, bounds, _quads: count, _dyn: !!dynamic,
-      _scales: scales ?? null, _tints: tints ?? null, lptProto: undefined,   // LPT1: the flats' own scales and tints (kept by a move) and the 3D tree a far picture gives way to near the eye
+      _scales: scales ?? null, _tints: tints ?? null, lptProto: undefined,
       _place: count > 1 && !dynamic ? placementGrid(centers) : null,
       _box: undefined, sway: undefined, tip: undefined, conceal: undefined, hitFlash: undefined, eliteGlow: undefined, eliteTime: undefined, elitePad: undefined, dissolve: undefined, tint: undefined, noShadow: undefined, selfCard: undefined, _dead: undefined, _moveScratch: undefined, dwColumn: undefined,
       _bbKey: undefined, _bbKeyId: undefined, _bbKeyRecord: undefined, _bbKeyFrame: undefined, _bbKeyArchive: undefined,
