@@ -434,15 +434,16 @@ test('SERAPH-WINGS on the back of an Eye of the Beholder sprite: its bones read 
   await new Promise((res) => setTimeout(res, 2));
   b.draw(null, { eye: cp, feet: [0, 2, 0], yaw });
   assert.ok(Math.abs(b.figure().yaw - (yaw + Math.PI / 2)) < 1e-6, 'strafing: side on');
+  assert.ok(b.figure(), 'a figure stands from the last frame drawn');
+  b.toggle(false, false);
+  assert.equal(b.draw(null, { eye: [0, 3.5, -2], feet: [0, 2, 0], yaw: 0 }), false);
+  assert.equal(b.figure(), null, 'nothing drawn this frame: no figure kept from the last');
   // AUDIT 3: none in first person - the billboard stands on the camera, and a figure lifted the hood off the eye
   b.toggle(true, true);
   for (let i = 0; i < 12; i++) b.tick(1 / 60, still);
   await new Promise((res) => setTimeout(res, 2));
   assert.equal(b.draw(null, { eye: [0, 3.7, 0], feet: [0, 2, 0], yaw: 0 }), true, 'drawn (its shadow)');
   assert.equal(b.figure(), null, 'but no figure');
-  b.toggle(false, false);
-  assert.equal(b.draw(null, { eye: [0, 3.5, -2], feet: [0, 2, 0], yaw: 0 }), false);
-  assert.equal(b.figure(), null, 'nothing drawn this frame: no figure kept from the last');
   // the plumbing: the door hands the figure, the view keeps it, a peer's walker or beast gives its own
   const src = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
   assert.match(src('src/player/eotbBody.js'), /setEotbDrawBody\(\(canvas, f\) => this\.draw\(canvas, f\), \(\) => this\.figure\(\)\);/);

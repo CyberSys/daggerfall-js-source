@@ -215,7 +215,8 @@ test('AURA-LIVE: the host asks for it when MY aura changes from the one the last
   const w = rd('src/scenes/world.js');
   assert.match(w, /if \(who && 'aura' in who\) _auraHeard = who\.aura \?\? null;/, 'a mint\'s token said this one');
   assert.match(w, /const mine = ownAura\(\); if \(_auraHeard !== undefined && mine !== _auraHeard && online\.rehello\?\.\(\)\) _auraHeard = mine;/, 'a change since: said again');
-  assert.match(w, /let _auraHeard; const adoptIssued = /, 'declared before anything can call the minter\'s hook');
+  assert.match(w, /let renownXp = null, _auraHeard;/, 'declared before anything can call the minter\'s hook');
+  assert.ok(w.indexOf('let renownXp = null, _auraHeard;') < w.indexOf('const adoptIssued = (who) => {'));
   assert.doesNotMatch(w, /Others see it once you change area/);
   assert.match(w, /Wearing \$\{row\.name\}\.`/);
 });

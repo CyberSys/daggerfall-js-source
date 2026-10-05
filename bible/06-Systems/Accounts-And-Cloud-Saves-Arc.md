@@ -4947,9 +4947,9 @@ the grant, versions and docs. What they found, and what was done:
 - **The net:** a crouched or mounted wearer's upright back (a zeroed torso collapsed every strand onto the shoulder,
   unpinned); a back laid flat; a peer's figure driven through the real layers; the light off the pose's shoulders; the
   saddle pinned to the motor's (RIDE_EYE_HEIGHT less EYE_HEIGHT). `tools/mutants/seraphwings.json` 93 (18 new),
-  `tools/mutants/auralive.json` 12, `primarch.json` one more (the inside fade by the ground alone); seven records
-  re-aimed by content (the shoulder line, the frame's height, the crouch, the light's aura, the symbols, my facing, the
-  late token, the flames).
+  `tools/mutants/auralive.json` 12, `primarch.json` one more (the inside fade by the ground alone); records re-aimed
+  by content (the shoulder line, the frame's height, the crouch, the light's aura, the symbols, my facing, the flames);
+  ACC1d's late token recorded equivalent - the promotion's own guard (`_promote`) refuses a replaced socket's hello too.
 - **Docs:** the cloak on a sprite (SHADOW-CLOAK and Rendering.md no longer say it hangs at rest there), the probe's
   count (the wings' 9), the flutter (every strand's), the header of `auraRing.js`.
 - **Left as they are, said:** a rider's cloak stays folded (v1's own law - "It folds away while you ride"), the wings

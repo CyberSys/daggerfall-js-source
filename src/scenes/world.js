@@ -17366,7 +17366,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   let renownNow = null;
   // RENOWN4: and the account's TOTAL, for my own bar (ui/hudRenown.js) - the mint's answer and every report's carry it,
   // and like the level it only rises: a total never falls, and an answer that arrives late must not take one back.
-  let renownXp = null;
+  let renownXp = null, _auraHeard;   // AURA-LIVE: `_auraHeard` the aura the last minted token said (undefined until a service that says one) - auraFrame says a change since again (online.rehello)
   const renownXpAdopt = (xp) => {
     if (onlineOn && Number.isSafeInteger(xp) && xp >= 0 && (renownXp === null || xp > renownXp)) renownXp = xp;
   };
@@ -17379,7 +17379,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     computeEntityMods(playerEntity);   // SET3: a set's stat tier wakes, or rises a stage, with my Renown - now, not at the next round
     return renownNow;
   };
-  let _auraHeard; const adoptIssued = (who) => {   // AURA-LIVE: `_auraHeard` the aura the last minted token said (undefined until a service that says one) - auraFrame says a change since again (online.rehello)
+  const adoptIssued = (who) => {
     renownXpAdopt(who?.xp);   // RENOWN4: the total, before the level - so no frame draws the new level over the old total
     who = { ...who, level: renownAdopt(who?.level) };   // RENOWN1: the highest level this page has known, never a stale token's lower one
     _staffGlyphs = Array.isArray(who?.glyphs) ? who.glyphs : [];   // STAFF1: the service's own word on my glyphs, each issue
