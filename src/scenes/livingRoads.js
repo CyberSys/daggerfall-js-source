@@ -14,7 +14,13 @@
 //    and the camp's words, lines.js ROAD_TALKS / CAMP_TALKS) and a word to the player passing close, by regard.
 //  - A TALK on the road is the street's (townTalk's talk ray takes `talkSeats()`); the person's `living.town` is this
 //    layer, which notes the word in the resident's regard and refuses the talk of an enemy.
-import { partiesNear, partyAt, wayAt, NATIVE_PER_M, NATIVE_PIXEL } from '../systems/livingWorld/trips.js';
+//  - LW4: TROUBLE (trouble.js). A party beset FIGHTS where it stands: its people in a ring FIGHT_RING_N about their
+//    place, facing out, the armed striking; the foes about them at FOE_RING_N, facing in, striking - for the fight's
+//    own minutes; then the party holds there, binding its wounds, until its halt is done. The FALLEN lie where they fell
+//    a day (trips.js remainsNear), on the class corpse's own picture. Under the Overworld a beset party's mark says so
+//    (`wayfarer fight`, "Caravan beset by Orcs").
+import { partiesNear, partyAt, wayAt, membersAt, remainsNear, NATIVE_PER_M, NATIVE_PIXEL } from '../systems/livingWorld/trips.js';
+import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { circleLine, lineMinutes, ROUND_S, TALK_SHARE } from '../systems/livingWorld/meetups.js';
 import { ROAD_GREETINGS, fillLine, firstNameOf } from '../systems/livingWorld/lines.js';
 import { lwSeed, textSeed } from '../systems/livingWorld/seed.js';
@@ -38,14 +44,58 @@ export const ROAD_GREET_M = 4;
 export const ROAD_GREET_REST_MIN = 120;
 /** How long a word to the player stands (real seconds). */
 export const ROAD_GREET_S = 3.4;
+/** LW4: a beset party's ring (native - 1.6 m), facing out; its foes' about it (native - 4.75 m), facing in. */
+export const FIGHT_RING_N = 64;
+export const FOE_RING_N = 190;
+/** LW4: a fighter strikes about this often (real seconds), each on its own beat. */
+export const STRIKE_S = 1.3;
+/** LW4: the picture the fallen lie as - the human corpse (enemyBasics.js: the eighteen classes' one, TEXTURE.380's
+ *  first record), whatever their trade. */
+export const corpseLook = () => ENEMY_BASICS[128].corpseTexture;
 
-/** A party's mark's label, by what it is (the leader's job) and where it is bound. @param {any} trip @param {string} [home] */
-export function partyLabel(trip, home = '') {
+/** A party's mark's label, by what it is (the leader's job) and where it is bound - LW4: or, beset, by what besets it.
+ *  @param {any} trip @param {string} [home] @param {string} [beset] */
+export function partyLabel(trip, home = '', beset = '') {
   const to = trip.to?.name ?? '';
   const n = trip.party?.length ?? 1;
   const bound = trip.kind === 'merchant' ? 'Caravan' : trip.kind === 'pilgrim' ? (n > 1 ? 'Pilgrims' : 'Pilgrim')
     : trip.kind === 'courier' ? 'Courier' : trip.kind === 'adventurer' ? (n > 1 ? 'Adventurers' : 'Adventurer') : (n > 1 ? 'Travellers' : 'Pedlar');
+  if (beset) return `${bound} beset by ${beset}`;
   return to ? `${bound} to ${to}` : (home ? `${bound} of ${home}` : bound);
+}
+
+/**
+ * LW4: a beset party in its ring, facing out at what besets it - the armed to strike, the rest within.
+ * @param {any} trip @param {ReturnType<typeof partyAt>} at @param {any[]} members
+ * @returns {{ res: any, x: number, z: number, yaw: number, moving: boolean }[]}
+ */
+export function fightPlaces(trip, at, members) {
+  const out = [];
+  const n = members.length;
+  const turn = (lwSeed(textSeed(trip.id), 0x66696768) % 628) / 100;   // 'figh'
+  for (let i = 0; i < n; i++) {
+    const a = (i / Math.max(1, n)) * Math.PI * 2 + turn;
+    const r = members[i].cls != null ? FIGHT_RING_N : FIGHT_RING_N * 0.4;   // the unarmed in the middle
+    const x = /** @type {number} */ (at.x) + Math.sin(a) * r, z = /** @type {number} */ (at.z) + Math.cos(a) * r;
+    out.push({ res: members[i], x, z, yaw: Math.atan2(x - /** @type {number} */ (at.x), z - /** @type {number} */ (at.z)), moving: false });
+  }
+  return out;
+}
+
+/**
+ * LW4: what besets a party, about it and facing in - each foe a body of its own kind (`res.cls` its mobile type, the
+ * sprites' class look), no talk target.
+ * @param {any} trip @param {ReturnType<typeof partyAt>} at
+ * @returns {{ key: string, res: any, x: number, z: number, yaw: number }[]}
+ */
+export function foePlaces(trip, at) {
+  const foes = trip.enc?.foes ?? [];
+  const turn = (lwSeed(textSeed(trip.id), 0x666f6573) % 628) / 100;   // 'foes'
+  return foes.map((type, i) => {
+    const a = ((i + 0.5) / foes.length) * Math.PI * 2 + turn;
+    const x = /** @type {number} */ (at.x) + Math.sin(a) * FOE_RING_N, z = /** @type {number} */ (at.z) + Math.cos(a) * FOE_RING_N;
+    return { key: `${trip.enc.id}:${i}`, res: { id: `${trip.enc.id}:${i}`, cls: type, sex: 'male', name: '' }, x, z, yaw: Math.atan2(/** @type {number} */ (at.x) - x, /** @type {number} */ (at.z) - z) };
+  });
 }
 
 /**
@@ -83,15 +133,22 @@ export function partyPlaces(trip, at) {
  *   here: () => ({ x: number, z: number } | null),
  *   sprites: ReturnType<typeof import('../world/travellerSprites.js').createTravellerSprites>,
  *   memo?: Map<string, any>,
- *   relations?: () => any, playerName?: () => string, weather?: () => (string|null),
+ *   relations?: () => any, playerName?: () => string, weather?: () => (string|null), foeName?: (type: number, n: number) => string,
  * }} deps - `here` the player's native place (null: nowhere on the map - indoors, underground); `baseRate` the clock's
- *   minutes a real second at the walking pace's own rate (the rounds' and the lines' beat on the clock)
+ *   minutes a real second at the walking pace's own rate (the rounds' and the lines' beat on the clock); `foeName` a
+ *   foe's word for a mark ("Orcs")
  */
 export function createLivingRoads(deps) {
   /** @type {{ trip: any, at: any }[]} */
   let parties = [];
+  /** LW4: the fallen lying near. @type {{ key: string, res: any, x: number, z: number, yaw: number, trip: any }[]} */
+  let remains = [];
+  /** LW4: each fighter's next strike (real seconds). @type {Map<string, number>} */
+  const strikes = new Map();
+  /** LW4: the bodies busy in a fight this frame (no word to the player from them). @type {Set<string>} */
+  const busy = new Set();
   let timer = Infinity;
-  /** @type {{ key: string, res: any, feet: number[], yaw: number, moving: boolean, distM: number }[]} */
+  /** @type {{ key: string, res: any, feet: number[], yaw: number, moving: boolean, distM: number, striking?: boolean, talk?: boolean, flat?: { archive: number, record: number } | null }[]} */
   const list = [];
   /** @type {Map<string, number>} */
   const greeted = new Map();
@@ -103,9 +160,19 @@ export function createLivingRoads(deps) {
 
   function refresh(t) {
     const here = deps.here();
-    if (!here) { parties = []; return; }
+    if (!here) { parties = []; remains = []; return; }
     const px = Math.floor(here.x / NATIVE_PIXEL), py = 499 - Math.floor(here.z / NATIVE_PIXEL);
     parties = partiesNear(px, py, t, deps.world, { mpm: deps.mpm, memo }, ROADS_VIEW_PX).parties;
+    remains = remainsNear(px, py, t, deps.world, { mpm: deps.mpm, memo }, ROADS_VIEW_PX).remains;
+  }
+
+  /** LW4: whether a fighter strikes this frame - its own beat, begun at a seeded part of it. @param {string} key */
+  function strikesNow(key) {
+    let next = strikes.get(key);
+    if (next == null) { next = realNow + ((lwSeed(textSeed(key), 0x7374) % 1000) / 1000) * STRIKE_S; strikes.set(key, next); }   // 'st'
+    if (realNow < next) return false;
+    strikes.set(key, next + STRIKE_S * (realNow - next > STRIKE_S ? Math.ceil((realNow - next) / STRIKE_S) : 1));
+    return true;
   }
 
   /**
@@ -121,19 +188,37 @@ export function createLivingRoads(deps) {
     if (timer >= ROADS_TICK_S) { timer = 0; refresh(t); }
     const here = deps.here();
     list.length = 0;
+    busy.clear();
     if (here) {
       const reach = overworld ? TRAVELLER_FAR_M + 60 : ROADS_PLAY_M;
       for (const p of parties) {
         const at = partyAt(p.trip, t);
         if (at.phase !== 'out' && at.phase !== 'back') continue;
         if (Math.hypot(/** @type {number} */ (at.x) - here.x, /** @type {number} */ (at.z) - here.z) / NATIVE_PER_M > reach + 40) continue;
-        for (const m of partyPlaces(p.trip, at)) {
+        const members = membersAt(p.trip, t);
+        const fight = !!at.fight;
+        const places = fight ? fightPlaces(p.trip, at, members) : partyPlaces(members === p.trip.party ? p.trip : { ...p.trip, party: members }, at);
+        for (const m of places) {
           const distM = Math.hypot(m.x - here.x, m.z - here.z) / NATIVE_PER_M;
           if (distM > reach) continue;
-          list.push({ key: m.res.id, res: m.res, feet: deps.sceneOf(m.x, m.z), yaw: m.yaw, moving: m.moving, distM });
+          if (fight) busy.add(m.res.id);
+          list.push({ key: m.res.id, res: m.res, feet: deps.sceneOf(m.x, m.z), yaw: m.yaw, moving: m.moving, distM, striking: fight && m.res.cls != null && strikesNow(m.res.id) });
+        }
+        if (fight) {
+          for (const f of foePlaces(p.trip, at)) {
+            const distM = Math.hypot(f.x - here.x, f.z - here.z) / NATIVE_PER_M;
+            if (distM > reach) continue;
+            list.push({ key: f.key, res: f.res, feet: deps.sceneOf(f.x, f.z), yaw: f.yaw, moving: false, distM, striking: strikesNow(f.key), talk: false });
+          }
         }
       }
+      for (const r of remains) {
+        const distM = Math.hypot(r.x - here.x, r.z - here.z) / NATIVE_PER_M;
+        if (distM > reach) continue;
+        list.push({ key: r.key, res: r.res, feet: deps.sceneOf(r.x, r.z), yaw: r.yaw, moving: false, distM, talk: false, flat: corpseLook() });
+      }
     }
+    for (const key of [...strikes.keys()]) if (!list.some((m) => m.key === key)) strikes.delete(key);
     deps.sprites.sync(list, { dt, eye, grow: overworld?.grow ?? 1, fade: overworld?.blend ?? 1, ground: !overworld });
     if (!overworld && dt > 0) greet(t);
   }
@@ -141,7 +226,7 @@ export function createLivingRoads(deps) {
   /** A word to the player passing close - by regard, once in ROAD_GREET_REST_MIN of the clock. */
   function greet(t) {
     for (const m of list) {
-      if (m.distM > ROAD_GREET_M) continue;
+      if (m.distM > ROAD_GREET_M || m.talk === false || busy.has(m.res.id)) continue;   // LW4: no word from a fighter, a foe or the fallen
       const last = greeted.get(m.res.id);
       if (last != null && t - last < ROAD_GREET_REST_MIN) continue;
       greeted.set(m.res.id, t);
@@ -176,10 +261,12 @@ export function createLivingRoads(deps) {
     for (const p of parties) {
       if (p.trip.party.length < 2) continue;
       const at = partyAt(p.trip, t);
-      if (at.phase !== 'out' && at.phase !== 'back') continue;
+      if ((at.phase !== 'out' && at.phase !== 'back') || at.halt) continue;   // LW4: a party beset has other things to do
       const round = Math.floor(t / roundMin);
       const seed = lwSeed(textSeed(p.trip.id), round);
-      const circle = { members: p.trip.party, seed, start: round * roundMin, end: (round + 1) * roundMin, talks: (seed % 1000) / 1000 < TALK_SHARE, index: 0 };
+      const members = membersAt(p.trip, t);
+      if (members.length < 2) continue;
+      const circle = { members, seed, start: round * roundMin, end: (round + 1) * roundMin, talks: (seed % 1000) / 1000 < TALK_SHARE, index: 0 };
       const line = circleLine(circle, t, lineMin, { place: p.trip.to?.name, weather: deps.weather?.() ?? null, hour: Math.floor((((t % DAY_MIN) + DAY_MIN) % DAY_MIN) / 60), road: at.camp ? 'camp' : 'walk' });
       if (!line) continue;
       const b = deps.sprites.bodyOf(line.who.id);
@@ -198,8 +285,10 @@ export function createLivingRoads(deps) {
     for (const p of parties) {
       const at = partyAt(p.trip, t);
       if (at.phase !== 'out' && at.phase !== 'back') continue;
-      out.push({ key: `party:${p.trip.id}`, at: deps.sceneOf(/** @type {number} */ (at.x), /** @type {number} */ (at.z)), label: partyLabel(p.trip),
-        kind: p.trip.kind === 'merchant' ? 'wayfarer caravan' : 'wayfarer', trip: p.trip });
+      const foes = at.fight ? p.trip.enc?.foes ?? [] : [];
+      const beset = foes.length ? (deps.foeName?.(foes[0], foes.length) ?? 'foes') : '';   // LW4: what besets it, while it does
+      out.push({ key: `party:${p.trip.id}`, at: deps.sceneOf(/** @type {number} */ (at.x), /** @type {number} */ (at.z)), label: partyLabel(p.trip, '', beset),
+        kind: `${p.trip.kind === 'merchant' ? 'wayfarer caravan' : 'wayfarer'}${beset ? ' fight' : ''}`, trip: p.trip });
     }
     return out;
   }
@@ -237,6 +326,6 @@ export function createLivingRoads(deps) {
       return s === 'enemy' || s === 'hostile' ? fillLine(LIVING_REFUSAL, { a: firstNameOf(person.nameNPC) }) : null;
     },
     /** Every body freed and the parties forgotten (the host's teardown). */
-    clear() { deps.sprites.clear(); parties = []; list.length = 0; greetings = []; timer = Infinity; },
+    clear() { deps.sprites.clear(); parties = []; remains = []; list.length = 0; greetings = []; timer = Infinity; strikes.clear(); busy.clear(); },
   };
 }

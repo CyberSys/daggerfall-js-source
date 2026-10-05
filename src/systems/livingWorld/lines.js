@@ -185,7 +185,67 @@ export const LIVING_GREETINGS = Object.freeze({
 });
 
 /** The fallback for a token the reader cannot fill. */
-export const TOKEN_FALLBACK = Object.freeze({ town: 'town', region: 'the court', a: 'friend', b: 'friend', place: 'the next town', player: 'friend' });
+export const TOKEN_FALLBACK = Object.freeze({ town: 'town', region: 'the court', a: 'friend', b: 'friend', place: 'the next town', player: 'friend', who: 'someone', foe: 'brigands' });
+
+/**
+ * LW4: WHAT THE TOWN SAYS OF THE ROAD - two- and three-line scripts on a trouble its own travellers met: `{who}` the one
+ * it befell (the party's leader, or the one who fell), `{foe}` what met them, `{place}` the town they were bound for.
+ * By the end: driven off, won hard, fled home, and fallen.
+ */
+export const ROAD_NEWS = Object.freeze({
+  driven: Object.freeze([
+    Object.freeze(['{who} saw off a pack of {foe} on the road to {place}, I hear.', 'Good. The roads are no place for the timid.']),
+    Object.freeze(['{foe} tried {who} on the way to {place}.', 'And?', 'And ran for it. {who} barely broke stride.']),
+  ]),
+  won: Object.freeze([
+    Object.freeze(['{who} came through a hard fight with {foe} near {place}.', 'Hard enough to show?', 'Bandages and a new limp. {who} will live.']),
+    Object.freeze(['They say {foe} fell on {who} on the {place} road.', 'And {who} is still walking. The gods favour the stubborn.']),
+  ]),
+  fled: Object.freeze([
+    Object.freeze(['{who} turned back before {place}. {foe} on the road.', 'No shame in that. Better turned back than carried back.']),
+    Object.freeze(['Did you hear? {who} ran from {foe}, all the way home.', 'I would have run faster.']),
+  ]),
+  fell: Object.freeze([
+    Object.freeze(['{who} never came back from the road to {place}.', '{foe}?', 'So the ones who made it home say.']),
+    Object.freeze(['Have you heard about {who}? {foe}, near {place}.', 'Gods. I spoke with {who} only last week.', 'The road takes the best of us.']),
+    Object.freeze(['They buried what they could find of {who}.', 'The road to {place}. Always that road.']),
+  ]),
+});
+/** Of a meeting with news to tell, the share that tells it. */
+export const NEWS_SHARE = 0.4;
+
+/**
+ * LW4: a meeting's news, if it tells one - NEWS_SHARE of the meetings with news to tell, the item drawn on the seed -
+ * and its script by the news's end.
+ * @param {number} seed @param {readonly { kind: string }[] | null | undefined} news
+ * @returns {{ item: any, script: readonly string[] } | null}
+ */
+export function newsScript(seed, news) {
+  if (!news?.length) return null;
+  const rng = seededRng((seed ^ 0x4e455753) >>> 0);   // 'NEWS'
+  if (rng() >= NEWS_SHARE) return null;
+  const item = news[Math.floor(rng() * news.length)];
+  const pool = ROAD_NEWS[/** @type {keyof typeof ROAD_NEWS} */ (item.kind)];
+  return pool ? { item, script: pool[Math.floor(rng() * pool.length)] } : null;
+}
+
+/** LW4: the names Daggerfall's foes take more than one at a time that no rule makes. */
+const FOE_PLURALS = Object.freeze({ Werewolf: 'Werewolves', Wereboar: 'Wereboars', Thief: 'Thieves', Slaughterfish: 'Slaughterfish', Dreugh: 'Dreugh', Lich: 'Liches', 'Ancient Lich': 'Ancient Liches' });
+
+/**
+ * LW4: a foe's word for the town's talk and a mark - many ("Orcs", "Harpies", "Frost Daedra") or one ("a Giant", "an
+ * Imp"). `name` the foe's own (enemyBasics.js enemyDisplayName).
+ * @param {string} name @param {number} n
+ */
+export function foeWord(name, n) {
+  const w = String(name ?? '').trim() || 'foe';
+  if (n === 1) return `${/^[AEIOU]/i.test(w) ? 'an' : 'a'} ${w}`;
+  if (FOE_PLURALS[/** @type {keyof typeof FOE_PLURALS} */ (w)]) return FOE_PLURALS[/** @type {keyof typeof FOE_PLURALS} */ (w)];
+  if (/Daedra$/.test(w)) return w;
+  if (/[^aeiou]y$/i.test(w)) return `${w.slice(0, -1)}ies`;
+  if (/(s|sh|ch|x)$/i.test(w)) return `${w}es`;
+  return `${w}s`;
+}
 
 /** A line with its tokens filled. @param {string} text @param {Record<string, string|undefined|null>} ctx */
 export function fillLine(text, ctx = {}) {

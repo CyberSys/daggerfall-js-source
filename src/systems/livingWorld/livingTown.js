@@ -90,7 +90,8 @@ export class LivingTown {
    *   suppressSpawns?: () => boolean,
    *   relations?: () => (ReturnType<typeof import('./relations.js').createRelations> | null),
    *   playerName?: () => string, weather?: () => (string|null), townName?: string, regionName?: string,
-   *   tripsOf?: (day: number) => ({ away: Map<string, { t0: number, t1: number, yaw: number, armed: boolean }[]>, visitors: { res: Resident, inT: number, outT: number, yaw: number }[] } | undefined),
+   *   tripsOf?: (day: number) => ({ away: Map<string, { t0: number, t1: number, yaw: number, armed: boolean }[]>, visitors: { res: Resident, inT: number, outT: number, yaw: number }[],
+   *     holders?: Map<string, Resident|null>, news?: { kind: string, who: string, foe: string, place: string }[] } | undefined),
    *   armOf?: (res: Resident) => ({ mobileType: number, basics: any, archive: number, frameCount: (record: number) => number, sex?: 'male'|'female' } | null),
    * }} o - `tripsOf(day)` the roads' word on the town for a day (trips.js through the host's book: who of it is away
    *   when, who of elsewhere stays here), undefined while its ways are still being asked; `armOf(res)` a resident's
@@ -130,6 +131,8 @@ export class LivingTown {
     this._live = [];
     /** @type {{ person: any, out: any }[]} */
     this._rows = [];
+    /** LW4: today's people, kept while the roads' word for the day stands. @type {{ day: number, roads: any, list: Resident[] } | null} */
+    this._people = null;
   }
 
   /** The living day `t` falls in. @param {number} t */
@@ -164,7 +167,9 @@ export class LivingTown {
     if (this._roads?.day === day) return this._roads;
     const got = this.o.tripsOf(day);
     if (!got) return null;
-    this._roads = { day, away: got.away, visitorOf: new Map(got.visitors.map((v) => [v.res.id, v])), visitors: got.visitors.map((v) => v.res) };
+    this._roads = { day, away: got.away, visitorOf: new Map(got.visitors.map((v) => [v.res.id, v])), visitors: got.visitors.map((v) => v.res),
+      holders: got.holders ?? null, news: got.news ?? null };   // LW4: who holds each traveller's place today; the town's news of the road
+    this._people = null;
     for (const [id, e] of this._plans) if (e.day === day && !e.roads) this._plans.delete(id);   // planned before the roads were known: again
     return this._roads;
   }
@@ -175,10 +180,18 @@ export class LivingTown {
     return taverns.length ? taverns[lwSeed(textSeed(res.id), 0x6c6f6467) % taverns.length] : (this.places.square ?? null);   // 'lodg'
   }
 
-  /** Everyone the town reads today: its people, and its visitors. @param {number} day */
+  /** Everyone the town reads today: its people - LW4: each traveller's place as its holder today (a newcomer after a
+   *  death on the road; nobody while the place stands empty) - and its visitors. @param {number} day */
   peopleOf(day) {
-    const v = this._roadsOf(day)?.visitors;
-    return v?.length ? this.residents.concat(v) : this.residents;
+    const roads = this._roadsOf(day);
+    if (this._people?.day === day && this._people.roads === roads) return this._people.list;
+    const h = roads?.holders;
+    // the census's own while it holds the place; a newcomer lodged where the place is (the census's home for it)
+    const own = h ? this.residents.flatMap((r) => { if (!h.has(r.id)) return [r]; const x = h.get(r.id); return !x ? [] : [x.id === r.id ? r : { ...x, home: r.home }]; }) : this.residents;
+    const v = roads?.visitors;
+    const list = v?.length ? own.concat(v) : own;
+    this._people = { day, roads, list };
+    return list;
   }
 
   /** The entry a resident is in at minute `t` (with the one before and the one after), or null. @param {Resident} res @param {number} t */
@@ -420,7 +433,7 @@ export class LivingTown {
     const out = [];
     const lineMin = lineMinutes(this._baseRate());
     const hour = Math.floor((((this._now % DAY_MIN) + DAY_MIN) % DAY_MIN) / 60);
-    const ctx = { town: this.o.townName, region: this.o.regionName, weather: this.o.weather?.() ?? null, hour };
+    const ctx = { town: this.o.townName, region: this.o.regionName, weather: this.o.weather?.() ?? null, hour, news: this._roads?.news ?? null };   // LW4: the road's news
     this._greetings = this._greetings.filter((g) => g.until > this._realNow);
     for (const row of this.pool) {
       if (!row.visible || !row.res) continue;

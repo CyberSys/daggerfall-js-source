@@ -78,7 +78,7 @@ Taken at the design, in the request's own order; each is Mac's to overrule.
 - LW1 - the census, the places, the day, the meetings, the lines, the relations store (pure).
 - LW2 - the town: residents walk the streets in the streaming host.
 - LW3 - the roads: trips, caravans, camps, the gear; the wilderness and the Overworld.
-- LW4 - trouble on the road.
+- LW4 - trouble on the road (LW4b: the fight stood live, the player's to turn).
 - LW5 - the ports.
 - LW6 - the deep.
 - LW7 - friends and enemies, in full.
@@ -233,6 +233,59 @@ the trample (`retire`), the probes.
   no town). A party talks among itself in rounds (the road's words walking, the fire's at night - lines.js
   `ROAD_TALKS`, `CAMP_TALKS`) and has a word for the player passing within `ROAD_GREET_M` (4 m) by regard
   (`ROAD_GREETINGS`).
+
+## LW4 - trouble on the road (2026-10-04)
+
+`systems/livingWorld/lives.js` and `trouble.js`, pure; `trips.js` carries them; the host composes them
+(`scenes/world.js`), the roads' layer shows them (`scenes/livingRoads.js`), the town tells them.
+
+- **The lives** (`lives.js`). Each traveller's PLACE rolls its fate once a cycle - its own cycle, a sellsword's its
+  contract merchant's (`trips.js placeCycle`) - against its job's `HAZARD` (a merchant 0.006, a sellsword 0.01, an
+  adventurer 0.012, a pilgrim 0.006, a courier and a pedlar 0.004: a town of a dozen travellers loses one a season or
+  so; a sailor's is the sea's, LW5). A roll under it is a death that cycle, COUNTED unless another fell in the
+  `VACANT_CYCLES` (3) before - the rule reads the rolls alone, so a place's history is never a chain. A counted death
+  empties the place for the three cycles after; then a NEWCOMER holds it - the census's own mint with the death's
+  cycle in the seed (`census.js mintResident` `gen`: a new name, face and trade's record, `L<map>.t<slot>~<cycle>`),
+  the same newcomer for every reader. `placeAt` reads a place back to the world's first cycle, never through a window,
+  so a death long ago never falls out of the reading. A fated holder SETS OUT whatever the cycle's chance said
+  (`ownTrip`), a fated contract sellsword goes with its merchant whatever the hire (`formCaravans`): the road keeps its
+  appointment. One with no road that cycle (`setsOut`) dies abroad, unseen - gone from its town the whole cycle.
+- **The trouble** (`trouble.js troubleOf`). At most one encounter a trip: its chance the walk's - `RISK_PER_DAY`
+  (0.09) a day of walking, out and home, weighed by the ground the way crosses (`GROUND_RISK`: a road 0.6, a track 0.9,
+  open country 1.4), to `RISK_MAX` (0.55); a party carrying a fated death always meets it. It falls on the way out or
+  home at a seeded stretch of the walk, or - a leg its first day does not finish - now and then (`CAMP_SHARE`, 0.3) on
+  that night's camp at eleven. THE FOES are the land's own: the climate's encounter table at the place it falls, day or
+  night, the campers' themed group (`campEncounters.js rollGroupComposition`, the TV7 bands' own roll), at the party's
+  level (its armed's best, two at least), sized to the party (the fated: the party and two more), to `FOES_MAX` (6).
+  THE END: a fated encounter's is the lives' - the leader among the fated, the party FELL (the rest turn home); else
+  WON at that cost. Any other is the party's strength (`strengthOf`: the armed 4 and 1.5 a level, a merchant 1.5, the
+  rest 1) against the foes' (`foeStrength`: 1 and 0.6 a level): DRIVEN off with ease, WON hard, or FLED.
+- **What the trip becomes** (`troubledTrip`, `partyAt`). The party is HELD where it fell its `HALT_MIN` (driven 25,
+  won 60, fled 15, fell 45 minutes of the clock) - the fight its first `FIGHT_MIN` (10, 25, 8, 20) - then walks on at
+  `HALT_CATCH_UP` (half again) its pace until it has made the halt up: never a sprint, and no jump (the pins walk 300
+  troubled trips five minutes at a time). The FALLEN leave the party at the fight's middle (`membersAt`); they never
+  walk home (`awayOf`: their window open). A party that fled or fell on the way out is TURNED: home from where it stood
+  once the halt is done (`backT0` the halt's end, `backT1` the walk home), never at the town it set out for
+  (`visitorsOf` sees no turned party, and none of the fallen).
+- **What the towns see.** Each traveller's place as its HOLDER that day (`tripsOf`'s `holders`: the census's own
+  resident while it holds the place, the newcomer lodged at the place's home, nobody while it stands empty), each
+  holder's away windows by their own id; and the NEWS (`trips.js newsOf`): its own parties' troubles, each known from
+  when the party came home (none coming home: when it was due), for `NEWS_DAYS` (3), the fallen first named - told at
+  the town's meetings `NEWS_SHARE` (0.4) of the time, the news's own scripts by its end (`lines.js ROAD_NEWS`:
+  `{who}`, `{foe}` - `foeWord`, "Orcs", "Harpies", "a Giant" - and `{place}`). Never on the road.
+- **What the road shows** (`livingRoads.js`). A beset party FIGHTS where it stands - its people in a ring
+  `FIGHT_RING_N` (1.6 m) facing out, the unarmed within, the armed striking; its foes about it at `FOE_RING_N` (4.75 m)
+  facing in, each its own kind's sprite, no talk target, striking - each fighter on its own `STRIKE_S` (1.3 s) beat
+  (the sprites hand the unit its attack's edge, `travellerSprites.js`); then the party holds there, binding its
+  wounds. No word to the player from a fighter. The FALLEN lie where they fell a day (`trips.js remainsNear`,
+  `REMAINS_MIN`) on the human corpse's picture (`corpseLook`: TEXTURE.380's first record, the eighteen classes' one).
+  Under the Overworld a beset party's mark is `wayfarer fight`, in the bands' red, "Caravan beset by Orcs".
+- **The character's turns of fate** (`relations.js turn`, `turns`): a member the road would have taken who lived
+  because the player fought beside them (`spared`), one cut down beside them (`fallen`) - keyed by the PLACE and the
+  cycle (`lives.js turnKey`) - and a fight won or lost for a party (`won`, `lost`, the encounter's id: a won fight is
+  won, a lost one fled). Read over the dice (`fateHits`, `troubleOf`'s `turnOf`), kept `TURNS_MAX` (200) a kind, saved
+  beside the regards (a record with none reads as before). The host's books (the places, the fates, the trips) are
+  made again at each turn and each load (`livingTurnsFresh`). The live fight that makes them is LW4b.
 
 ## The four hosts
 

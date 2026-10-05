@@ -92,13 +92,16 @@ const TEMPER_OF = Object.freeze({
 const DEFAULT_TEMPER = Object.freeze([2, 7, 1]);
 
 /**
- * One resident from the town, the roll, the slot and the job.
+ * One resident from the town, the roll, the slot and the job. LW4: `at.gen` - a NEWCOMER to a place the road emptied
+ * (lives.js): the cycle of the death they came after, in the seed and the id (`L<map>.t<slot>~<gen>`), so the same
+ * place holds the same newcomer for every reader.
  * @param {LwTown} town @param {'h'|'t'|'w'} roll @param {number} slot @param {string} job
- * @param {{ home?: number|null, work?: number|null, faction?: number }} [at]
+ * @param {{ home?: number|null, work?: number|null, faction?: number, gen?: number|null }} [at]
  * @returns {Resident}
  */
 export function mintResident(town, roll, slot, job, at = {}) {
-  const seed = lwSeed(town.mapId >>> 0, roll.charCodeAt(0), slot);
+  const gen = at.gen ?? null;
+  const seed = gen == null ? lwSeed(town.mapId >>> 0, roll.charCodeAt(0), slot) : lwSeed(town.mapId >>> 0, roll.charCodeAt(0), slot, 0x67656e, gen);   // 'gen'
   const rng = seededRng(seed);
   const race = raceOfPeople(town.people);
   const guard = job === 'guard';
@@ -118,7 +121,7 @@ export function mintResident(town, roll, slot, job, at = {}) {
   else if (job === 'courier') { cls = pickOf(rng, COURIER_CLASSES); level = rollInt(rng, 2, 8); }
   else if (job === 'guard') level = rollInt(rng, 5, 15);
   return {
-    id: `L${town.mapId >>> 0}.${roll === 'h' ? '' : roll}${slot}`,
+    id: `L${town.mapId >>> 0}.${roll === 'h' ? '' : roll}${slot}${gen == null ? '' : `~${gen}`}`,
     town: town.mapId >>> 0, slot, roll,
     name: residentName(seed ^ 0x5eed1e55, getNameBankOfRegion(town.region ?? -1), gender),
     gender, sex: female ? 'female' : 'male', race, variant,

@@ -105,8 +105,11 @@ import { livingWorldOn } from '../systems/livingWorld/livingSwitch.js';
 import { createRelations, LIVING_WORLD_VENDOR } from '../systems/livingWorld/relations.js';   // LW2: how the living world regards this character (modData `LivingWorld`)
 import { ResidentWalker } from '../characters/residentWalker.js';
 import { firstNameOf } from '../systems/livingWorld/lines.js';
-import { travellerRoster } from '../systems/livingWorld/census.js';   // LW3: a town's travellers, off its MAPS row alone
-import { townTrips, visitorsOf as tripVisitorsOf, awayOf as tripAwayOf } from '../systems/livingWorld/trips.js';   // LW3: the roads, pure
+import { travellerRoster, mintResident } from '../systems/livingWorld/census.js';   // LW3: a town's travellers, off its MAPS row alone; LW4: a newcomer to a place the road emptied
+import { townTrips, visitorsOf as tripVisitorsOf, awayOf as tripAwayOf, placeCycle, setsOut, newsOf, paceScale, NEWS_DAYS } from '../systems/livingWorld/trips.js';   // LW3: the roads, pure; LW4: the places' cycles, the town's news
+import { placeAt, turnKey } from '../systems/livingWorld/lives.js';   // LW4: who holds a traveller's place
+import { troubleOf, troubledTrip } from '../systems/livingWorld/trouble.js';   // LW4: trouble on the road
+import { foeWord } from '../systems/livingWorld/lines.js';   // LW4: a foe's word for the town's talk and a mark
 import { createWayBook } from '../systems/livingWorld/ways.js';   // LW3: the travellers' ways, planned by the living world itself
 import { createLivingRoads } from './livingRoads.js';   // LW3: the parties on the road near the player
 import { createTravellerSprites, classLookOf } from '../world/travellerSprites.js';   // LW3: their bodies, and the armed walk's sprite
@@ -2167,15 +2170,84 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   const _livingTripMemo = new Map();
   let _livingWaysSeen = 0;
+  // LW4: THE LIVES AND THE TROUBLE (lives.js, trouble.js) - who holds each traveller's place in a cycle (the census's
+  // newcomer after a death on the road; nobody while the place stands empty) and what befalls each party, read over the
+  // character's own turns of fate (relations.js); each kept in a book, made again when a turn is made or a save loaded
+  const _livingTownById = new Map();
+  const livingTownOfId = (id) => { if (!_livingTownById.size) for (const t of livingTownsIndex().values()) _livingTownById.set(t.mapId, t); return _livingTownById.get(id) ?? null; };
+  const _livingPlaces = new Map();
+  const _livingFates = new Map();
+  let _livingTurnsRel = null, _livingTurnsV = -1;
+  const livingTurnsFresh = () => {
+    const v = livingRelations.turnsVersion();
+    if (_livingTurnsRel === livingRelations && _livingTurnsV === v) return;
+    _livingTurnsRel = livingRelations; _livingTurnsV = v;
+    _livingPlaces.clear(); _livingFates.clear(); _livingTripMemo.clear();
+  };
+  /** A traveller's place in cycle `k`: who holds it (null: empty) and whether its holder dies that cycle. */
+  const livingPlaceOf = (res, k) => {
+    const key = turnKey(res, k);
+    let got = _livingPlaces.get(key);
+    if (!got) {
+      const pl = placeAt(res, k, livingRelations.turns());
+      const town = pl.vacant || pl.holder == null ? null : livingTownOfId(res.town);
+      const holder = pl.vacant ? null : pl.holder == null ? res : (town ? mintResident(town, 't', res.slot, res.job, { gen: pl.holder }) : res);
+      got = { holder, dies: !pl.vacant && pl.dies };
+      if (_livingPlaces.size > 30000) _livingPlaces.clear();
+      _livingPlaces.set(key, got);
+    }
+    return got;
+  };
+  const livingScale = () => paceScale(PERSON_MOVE_SPEED / livingBaseRate());
+  const livingTroubleWorld = {
+    climateAt: (px, py) => maps.getClimateIndex(px, py),
+    foesOf: ({ climateIndex, minute, level, size, rolls }) => rollGroupComposition({ climateIndex, skyMinutes: minute, inLocationRect: false, playerLevel: level, size }, rolls)?.mobileTypes ?? null,
+    foeLevel: (type, level) => (type >= 128 ? level : ENEMY_BASICS[type]?.level ?? level),
+    dies: (res, trip) => {
+      const town = livingTownOfId(res.town);
+      const roster = town ? livingTripWorld.rosterOf(town) : [];
+      const place = roster.find((r) => r.slot === res.slot) ?? res;
+      return livingPlaceOf(place, placeCycle(place, roster, Math.floor(trip.outT0 / 1440), livingScale())).dies;
+    },
+    turnOf: (id) => { const t = livingRelations.turns(); return t.won.has(id) ? 'won' : t.lost.has(id) ? 'lost' : null; },
+  };
+  livingTripWorld.holderOf = (res, k) => livingPlaceOf(res, k).holder;
+  livingTripWorld.fated = (res, k) => livingPlaceOf(res, k).dies;
+  livingTripWorld.fate = (trip) => {
+    const key = `${trip.id}|${trip.party.map((m) => m.id).join(',')}`;
+    let f = _livingFates.get(key);
+    if (!f) { f = troubledTrip(trip, troubleOf(trip, livingTroubleWorld)); if (_livingFates.size > 20000) _livingFates.clear(); _livingFates.set(key, f); }
+    return f;
+  };
+  /** A foe's word for the town's talk and a mark ("Orcs", "a Giant"). */
+  const livingFoeWord = (type, n) => foeWord(enemyDisplayName(type) ?? '', n);
   const livingTripsOf = (town, day) => {
     if (_livingTripMemo.size > 40000 || livingWays.generation !== _livingWaysSeen) { _livingTripMemo.clear(); _livingWaysSeen = livingWays.generation; }   // a new network, new ways
+    livingTurnsFresh();
     const o = { mpm: PERSON_MOVE_SPEED / livingBaseRate(), memo: _livingTripMemo };
-    const trips = townTrips(town, day * 1440 + 240 + 720, livingTripWorld, o);
+    const noon = day * 1440 + 240 + 720;
+    const trips = townTrips(town, noon, livingTripWorld, o);
     const visitors = tripVisitorsOf(town, day, livingTripWorld, o);
     if (trips === undefined || visitors === undefined) return undefined;
-    const away = new Map();
-    for (const res of livingTripWorld.rosterOf(town)) { const w = tripAwayOf(res, trips); if (w.length) away.set(res.id, w); }
-    return { away, visitors };
+    // LW4: who holds each traveller's place today (a holder the road takes with no road to meet it on is gone abroad,
+    // the whole cycle), and each one's away windows by their own id
+    const roster = livingTripWorld.rosterOf(town);
+    const scale = paceScale(o.mpm);
+    const holders = new Map(), away = new Map();
+    for (const res of roster) {
+      const k = placeCycle(res, roster, day, scale);
+      const pl = livingPlaceOf(res, k);
+      const h = pl.holder && pl.dies && setsOut(pl.holder, town, k, livingTripWorld, o) === false ? null : pl.holder;
+      holders.set(res.id, h);
+      if (!h) continue;
+      const w = tripAwayOf(h, trips);
+      if (w.length) away.set(h.id, w);
+    }
+    // LW4: the town's news of the road - its own parties' troubles of the last days, each known once they were home
+    const told = [];
+    for (let d = 0; d <= NEWS_DAYS; d++) { const tr = townTrips(town, noon - d * 1440, livingTripWorld, o); if (tr) told.push(...tr); }
+    const news = newsOf(told, noon).map((n) => ({ ...n, foe: n.foe != null ? livingFoeWord(n.foe, 2) : '' }));
+    return { away, visitors, holders, news };
   };
   /** LW3: a resident's class sprite for the armed walk - its art loaded into the people's own texture table (the people
    *  pass reads its frames there), null until it is. */
@@ -2200,6 +2272,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     here: () => (playerSpawned ? state.worldCoords(walkMode ? player.pos : cam.pos) : null),
     sprites: createTravellerSprites({ renderer, getTexture, uploadRecordFrame, living: _livingRoadsDoor }),
     memo: _livingTripMemo, relations: () => livingRelations, playerName: () => playerEntity.name ?? '', weather: () => weather,
+    foeName: livingFoeWord,   // LW4: what besets a party, on its mark
   }));
   /** LW3: the bodies on the road as the street's talk targets, beside the town's (`_livePersons`) - for the talk ray and
    *  the hover alone: the watch's conversion and the trample are the town's. */
@@ -27385,6 +27458,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // LW3: THE ROADS - the living world's parties near, in file by day and about their fires by night (scenes/
     // livingRoads.js), on the ground and grown under the Overworld; the planner asked a few ways a frame
     livingWays.frame(); if (livingWays.generation !== _livingWaysSeen) { _livingTripMemo.clear(); _livingWaysSeen = livingWays.generation; }   // LW3: a new network, new ways
+    livingTurnsFresh();   // LW4: a turn of fate made, or a save loaded - the books made again
     if (livingWorldOn() && _mode() === 'exterior') {
       livingRoadsOf().frame(townTalk.overlayActive ? 0 : dt, cam.pos, { overworld: tvf ? { grow: tvf.grow, blend: tvf.blend } : null });
       livePersonBatches.push(...livingRoads.batches());

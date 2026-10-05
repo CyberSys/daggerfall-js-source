@@ -67,10 +67,19 @@ export const CALENDAR_MPM = 1.3 / 0.2;
  *   routeOf: (a: LwTown, b: LwTown) => (RoutePlan | null | undefined),
  *   rosterOf: (town: LwTown) => Resident[],
  *   templeTown?: (town: LwTown) => boolean,
+ *   holderOf?: (res: Resident, k: number) => (Resident | null),
+ *   fated?: (res: Resident, k: number) => boolean,
+ *   fate?: (trip: Trip) => Trip,
  * }} TripWorld - the host's: towns near a pixel (the game's own rows, populated); the planner's way between two towns
- *   (undefined while it is being asked, null for none); a town's travellers (census.js travellerRoster)
- * @typedef {{ id: string, kind: string, leader: Resident, party: Resident[], from: LwTown, to: LwTown, way: Way,
- *   pace: number, outT0: number, outT1: number, backT0: number, backT1: number, trim0: number, trim1: number }} Trip
+ *   (undefined while it is being asked, null for none); a town's travellers (census.js travellerRoster). LW4: who holds
+ *   a traveller's place in a cycle (lives.js - null while it stands empty; unasked, the census's own), whether its
+ *   holder dies that cycle (and so sets out whatever the chance said - a fated death is on the road), and the trouble
+ *   a trip meets (trouble.js - the trip as it left it)
+ * @typedef {{ id: string, k?: number, kind: string, leader: Resident, party: Resident[], from: LwTown, to: LwTown, way: Way,
+ *   pace: number, outT0: number, outT1: number, backT0: number, backT1: number, trim0: number, trim1: number,
+ *   enc?: any, halt?: { t0: number, t1: number, fightEnd: number, s: number, leg: 'out'|'back' },
+ *   fallen?: { res: Resident, t: number, s: number }[], turned?: boolean }} Trip - LW4: `k` its cycle; the trouble's
+ *   `enc`, its `halt`, the `fallen` and whether it `turned` home (trouble.js troubledTrip)
  */
 
 /** How much slower a clock's walking pace is than the calendar's (online's sky walks half as far a minute). @param {number} mpm */
@@ -153,7 +162,7 @@ export function ownTrip(res, home, k, world, { mpm }) {
   const phase = lwSeed(res.town, res.slot, 0x6379) % len;
   const start = k * len - phase;
   const rng = lwRng(res.town, res.slot, k, 0x74726970);   // 'trip'
-  if (rng() >= chance) return null;
+  if (rng() >= chance && !world.fated?.(res, k)) return null;   // LW4: a death the lives hold for this cycle is met on the road
   const [rMin, rMax] = TRIP_RANGE_PX[/** @type {keyof typeof TRIP_RANGE_PX} */ (res.job)] ?? [3, 12];
   const near = world.townsNear(home.px ?? 0, home.py ?? 0, rMax)
     .filter((t) => t.mapId !== home.mapId && Math.max(Math.abs((t.px ?? 0) - (home.px ?? 0)), Math.abs((t.py ?? 0) - (home.py ?? 0))) >= rMin);
@@ -197,10 +206,65 @@ export function ownTrip(res, home, k, world, { mpm }) {
     const backT0 = Math.max(outT1 + 60, stay > 0 ? morning(arriveDay + stay) : (outT1 - arriveDay * DAY_MIN < 12 * 60 ? outT1 + 120 : morning(arriveDay + 1)));
     const backT1 = whenWalked(backT0, walk);
     if (backT1 > (start + len) * DAY_MIN + DAY_START_MIN) continue;
-    return { id: `${res.id}:${k}`, kind: res.job, leader: res, party: [res], from: home, to: /** @type {LwTown} */ (to), way, pace,
+    return { id: `${res.id}:${k}`, k, kind: res.job, leader: res, party: [res], from: home, to: /** @type {LwTown} */ (to), way, pace,
       outT0, outT1, backT0, backT1, trim0, trim1 };
   }
   return null;
+}
+
+/**
+ * A traveller's own trip of a cycle, kept in the book (`o.memo`) - a trip of a cycle never changes, so it is asked
+ * again only while it waits on a way (undefined).
+ * @param {Resident} res @param {LwTown} town @param {number} k @param {TripWorld} world @param {{ mpm: number, memo?: Map<string, Trip|null> }} o
+ * @returns {Trip|null|undefined}
+ */
+export function memoTrip(res, town, k, world, o) {
+  const key = `${res.id}:${k}`;
+  let trip = o.memo?.get(key);
+  if (trip === undefined) { trip = ownTrip(res, town, k, world, o); if (trip !== undefined) o.memo?.set(key, trip); }
+  return trip;
+}
+
+/** The contract's deal: the town's merchants and its sellswords, each in slot order (formCaravans, contractOf). @param {Resident[]} roster */
+const dealOf = (roster) => ({
+  merchants: roster.filter((r) => r.job === 'merchant').sort((a, b) => a.slot - b.slot),
+  sellswords: roster.filter((r) => r.job === 'mercenary').sort((a, b) => a.slot - b.slot),
+});
+
+/** LW4: the merchant whose contract a sellsword's place is under (formCaravans' deal), or null. @param {Resident} res @param {Resident[]} roster */
+export function contractOf(res, roster) {
+  const { merchants, sellswords } = dealOf(roster);
+  const i = sellswords.findIndex((r) => r.slot === res.slot);
+  return merchants.length && i >= 0 ? merchants[i % merchants.length] : null;
+}
+
+/**
+ * LW4: the cycle a traveller's PLACE lives by on `day` (lives.js reads its fate by it): its own (cycleOf), a
+ * sellsword's its contract merchant's - the trips it rides are that merchant's.
+ * @param {Resident} res @param {Resident[]} roster @param {number} day @param {number} scale
+ */
+export function placeCycle(res, roster, day, scale) {
+  const m = res.job === 'mercenary' ? contractOf(res, roster) : null;
+  return cycleOf(m ?? res, day, scale).k;
+}
+
+/**
+ * LW4: does the holder of a place set out at all in its cycle `k` - its own trip, a sellsword its contract merchant's
+ * (a fated sellsword goes with it whatever the hire said)? A fated holder who does not dies abroad, unseen. Undefined
+ * while a way is asked.
+ * @param {Resident} res @param {LwTown} town @param {number} k @param {TripWorld} world @param {{ mpm: number, memo?: Map<string, Trip|null> }} o
+ * @returns {boolean|undefined}
+ */
+export function setsOut(res, town, k, world, o) {
+  let who = res;
+  if (res.job === 'mercenary') {
+    const m = contractOf(res, world.rosterOf(town));
+    const held = m && (world.holderOf ? world.holderOf(m, k) : m);
+    if (!held) return false;
+    who = held;
+  }
+  const trip = memoTrip(who, town, k, world, o);
+  return trip === undefined ? undefined : !!trip;
 }
 
 /**
@@ -215,12 +279,9 @@ export function townTrips(town, t, world, o) {
   const day = Math.floor(t / DAY_MIN);
   const roster = world.rosterOf(town);
   let pending = false;
-  // a traveller's trip of a cycle never changes: the book keeps it (o.memo), and asks again only while it waits on a way
   /** @param {Resident} res @param {number} k */
   const tripOf = (res, k) => {
-    const key = `${res.id}:${k}`;
-    let trip = o.memo?.get(key);
-    if (trip === undefined) { trip = ownTrip(res, town, k, world, o); if (trip !== undefined) o.memo?.set(key, trip); }
+    const trip = memoTrip(res, town, k, world, o);
     if (trip === undefined) pending = true;
     return trip ?? null;
   };
@@ -230,13 +291,16 @@ export function townTrips(town, t, world, o) {
     if (!(TRIP_CHANCE[/** @type {keyof typeof TRIP_CHANCE} */ (res.job)] > 0)) continue;
     const cyc = cycleOf(res, day, scale);
     for (const k of [cyc.k - 1, cyc.k]) {
-      const trip = tripOf(res, k);
+      const holder = world.holderOf ? world.holderOf(res, k) : res;   // LW4: whoever holds the place that cycle - none while it stands empty
+      if (!holder) continue;
+      const trip = tripOf(holder, k);
       if (trip && trip.backT1 > t - DAY_MIN && trip.outT0 < t + DAY_MIN) trips.push(trip);
     }
   }
   if (pending) return undefined;
-  const made = formCaravans(town, trips, roster, tripOf, scale);
-  return pending ? undefined : made;
+  const made = formCaravans(town, trips, roster, tripOf, scale, world.holderOf, world.fated);
+  if (pending) return undefined;
+  return world.fate ? made.map((tr) => /** @type {Trip} */ (/** @type {any} */ (world.fate)(tr))) : made;   // LW4: each party's trouble
 }
 
 /** The jobs that ride in a merchant's train when it sets out the day they do, for the town they go to. */
@@ -250,20 +314,25 @@ const JOINS = new Set(['pilgrim', 'courier', 'pedlar']);
  *    (the trip's own roll, 0 to HIRE_MAX). A merchant's trips never overlap (each fits its cycle), so neither do theirs.
  *  - A pilgrim's, courier's or pedlar's trip that sets out the day a merchant's does, for the same town, JOINS that
  *    merchant's train - the first merchant in slot order with such a trip - and walks its timeline, its pace.
- * `tripOf(res, k)` the town's traveller's own trip of a cycle (townTrips' book); pure over it.
+ * `tripOf(res, k)` the town's traveller's own trip of a cycle (townTrips' book); pure over it. LW4: the contract and
+ * the joiners are the PLACES' (the census roster's slots); `holderOf(res, k)` who holds each that cycle (a place
+ * standing empty hires nobody and joins nobody).
  * @param {LwTown} town @param {Trip[]} trips - the window's own trips
  * @param {Resident[]} roster @param {(res: Resident, k: number) => Trip|null} tripOf @param {number} scale
+ * @param {(res: Resident, k: number) => (Resident | null)} [holderOf] @param {(res: Resident, k: number) => boolean} [fated]
  * @returns {Trip[]}
  */
-export function formCaravans(town, trips, roster, tripOf, scale) {
-  const merchants = roster.filter((r) => r.job === 'merchant').sort((a, b) => a.slot - b.slot);
-  const sellswords = roster.filter((r) => r.job === 'mercenary').sort((a, b) => a.slot - b.slot);
+export function formCaravans(town, trips, roster, tripOf, scale, holderOf, fated) {
+  const { merchants, sellswords } = dealOf(roster);
   const dayOf = (/** @type {Trip} */ tr) => Math.floor(tr.outT0 / DAY_MIN);
+  const held = (/** @type {Resident} */ r, /** @type {number} */ k) => (holderOf ? holderOf(r, k) : r);
+  /** A place's own trip of the cycle holding day `d`, through whoever holds it then. @param {Resident} r @param {number} d */
+  const placeTrip = (r, d) => { const k = cycleOf(r, d, scale).k; const h = held(r, k); return h ? tripOf(h, k) : null; };
   /** The merchant's trip a joiner's rides in, or null. @param {Trip} j */
   const trainOf = (j) => {
     const d = dayOf(j);
     for (const m of merchants) {
-      const mt = tripOf(m, cycleOf(m, d, scale).k);
+      const mt = placeTrip(m, d);
       if (mt && mt.to.mapId === j.to.mapId && dayOf(mt) === d) return mt;
     }
     return null;
@@ -272,43 +341,88 @@ export function formCaravans(town, trips, roster, tripOf, scale) {
   const out = [];
   for (const tr of trips) {
     if (tr.kind === 'merchant') {
-      const mi = merchants.findIndex((m) => m.id === tr.leader.id);
+      const mi = merchants.findIndex((m) => m.slot === tr.leader.slot);
       const want = seededRng(lwSeed(tr.leader.town, tr.leader.slot, tr.outT0 | 0, 0x68697265))() * (HIRE_MAX + 1) | 0;   // 'hire'
-      const hired = mi < 0 ? [] : sellswords.filter((_, i) => i % merchants.length === mi).slice(0, want);
+      const k = tr.k ?? cycleOf(tr.leader, dayOf(tr), scale).k;
+      // the contract's first `want` places, and any place of it whose holder the road takes this cycle (a fated death is met on the road)
+      const contract = mi < 0 ? [] : sellswords.filter((_, i) => i % merchants.length === mi);
+      const hired = contract.map((sw, i) => { const h = held(sw, k); return h && (i < want || !!fated?.(h, k)) ? h : null; }).filter((h) => !!h);
       const d = dayOf(tr);
       const joined = [];
       for (const r of roster) {
         if (!JOINS.has(r.job)) continue;
-        const jt = tripOf(r, cycleOf(r, d, scale).k);
-        if (jt && jt.to.mapId === tr.to.mapId && dayOf(jt) === d && trainOf(jt)?.id === tr.id) joined.push(r);
+        const jt = placeTrip(r, d);
+        if (jt && jt.to.mapId === tr.to.mapId && dayOf(jt) === d && trainOf(jt)?.id === tr.id) joined.push(jt.leader);
       }
-      out.push({ ...tr, party: [tr.leader, ...hired, ...joined] });
+      out.push({ ...tr, party: [tr.leader, .../** @type {Resident[]} */ (hired), ...joined] });
     } else if (!(JOINS.has(tr.kind) && trainOf(tr))) out.push(tr);
   }
   return out;
 }
 
+/** LW4: how long a town talks of a trouble on the road (days from when it was known). */
+export const NEWS_DAYS = 3;
+
+/**
+ * LW4: WHAT A TOWN KNOWS OF THE ROAD at minute `t` - its own parties' troubles (trouble.js), each known from when the
+ * party came home (a party none of whom came home, from when it was due: `trip.backT1`), for NEWS_DAYS - newest
+ * first. `who` the one it befell (the first of the fallen, else the leader), `foe` the first of the foes, `place`
+ * the town they were bound for.
+ * @param {Trip[]} trips - the town's own, about the minute (and the days before it) @param {number} t
+ * @returns {{ id: string, kind: string, who: string, foe: number|null, place: string, t: number }[]}
+ */
+export function newsOf(trips, t) {
+  const seen = new Set();
+  const out = [];
+  for (const tr of trips) {
+    const enc = tr.enc;
+    if (!enc || seen.has(tr.id)) continue;
+    seen.add(tr.id);
+    const known = tr.backT1;
+    if (!(known <= t && t - known < NEWS_DAYS * DAY_MIN)) continue;
+    const who = tr.fallen?.[0]?.res ?? tr.leader;
+    out.push({ id: tr.id, kind: tr.fallen?.length ? 'fell' : enc.kind, who: who.name, foe: enc.foes?.[0] ?? null, place: tr.to?.name ?? '', t: known });
+  }
+  return out.sort((a, b) => b.t - a.t);
+}
+
 /**
  * Where a party is at minute `t`: 'out' or 'back' on the road (walking by day, `camp` by night), 'stay' at the town it
  * went to, 'home' before and after. On the road, `x`/`z` its place (native) and `yaw` the way it walks.
+ * LW4: a trip's trouble (trouble.js troubledTrip) HOLDS the party where it fell - `halt` (and `fight` for the fight's
+ * own minutes) - and then it walks on, making up the halt at HALT_CATCH_UP again its pace; a party TURNED walks home
+ * from where it stood.
  * @param {Trip} trip @param {number} t
- * @returns {{ phase: 'home'|'out'|'stay'|'back', x?: number, z?: number, yaw?: number, camp?: boolean, s?: number }}
+ * @returns {{ phase: 'home'|'out'|'stay'|'back', x?: number, z?: number, yaw?: number, camp?: boolean, s?: number, halt?: boolean, fight?: boolean }}
  */
 export function partyAt(trip, t) {
   const { way, pace, trim0, trim1 } = trip;
   const walk = Math.max(0, way.len - trim0 - trim1);
   const daylight = (m) => { const h = (((m % DAY_MIN) + DAY_MIN) % DAY_MIN) / 60; return h >= WALK_FROM_H && h < WALK_TO_H; };
   if (t < trip.outT0 || t >= trip.backT1) return { phase: 'home' };
-  if (t < trip.outT1) {
-    const s = trim0 + Math.min(walk, pace * walkedMinutes(trip.outT0, t));
+  const h = trip.halt;
+  const placed = (/** @type {'out'|'back'} */ phase, /** @type {number} */ s, extra = {}) => {
     const p = wayAt(way, s);
-    return { phase: 'out', x: p.x, z: p.z, yaw: p.yaw, camp: !daylight(t), s };
-  }
+    return { phase, x: p.x, z: p.z, yaw: phase === 'back' ? p.yaw + Math.PI : p.yaw, camp: !daylight(t), s, ...extra };
+  };
+  if (h && t >= h.t0 && t < h.t1) return placed(h.leg, h.s, { halt: true, fight: t < h.fightEnd });
+  if (trip.turned && h && t >= h.t1) return placed('back', Math.max(trim0, h.s - Math.min(h.s - trim0, pace * walkedMinutes(h.t1, t))));
+  // the lag a halt left - the ground the day's walk would have covered while the party stood - made up at HALT_CATCH_UP
+  // again the pace (a party hurrying on, never a sprint); what is still owed at the leg's end is made up at its town
+  const lag = (/** @type {'out'|'back'} */ leg) => {
+    if (!h || h.leg !== leg || t < h.t1) return 0;
+    return Math.max(0, pace * walkedMinutes(h.t0, h.t1) - HALT_CATCH_UP * pace * walkedMinutes(h.t1, t));
+  };
+  if (t < trip.outT1) return placed('out', Math.max(trim0, trim0 + Math.min(walk, pace * walkedMinutes(trip.outT0, t)) - lag('out')));
   if (t < trip.backT0) return { phase: 'stay' };
-  const s = way.len - trim1 - Math.min(walk, pace * walkedMinutes(trip.backT0, t));
-  const p = wayAt(way, s);
-  return { phase: 'back', x: p.x, z: p.z, yaw: p.yaw + Math.PI, camp: !daylight(t), s };
+  return placed('back', Math.min(way.len - trim1, way.len - trim1 - Math.min(walk, pace * walkedMinutes(trip.backT0, t)) + lag('back')));
 }
+
+/** LW4: how much faster than its pace a party walks to make up a halt (a half again). */
+export const HALT_CATCH_UP = 0.5;
+
+/** LW4: the party at minute `t` - its members less the fallen by then. @param {Trip} trip @param {number} t */
+export const membersAt = (trip, t) => (trip.fallen?.length ? trip.party.filter((m) => !trip.fallen?.some((f) => f.res.id === m.id && f.t <= t)) : trip.party);
 
 /** The way a trip leaves its home toward (a world yaw, off its way's first leg past the town's trim). @param {Trip} trip */
 export const leavingYaw = (trip) => wayAt(trip.way, trip.trim0 + 1).yaw;
@@ -323,7 +437,11 @@ export const arrivingYaw = (trip) => wayAt(trip.way, trip.way.len - trip.trim1 -
  */
 export function awayOf(res, trips) {
   const out = [];
-  for (const tr of trips) if (tr.party.some((p) => p.id === res.id)) out.push({ t0: tr.outT0, t1: tr.backT1, yaw: leavingYaw(tr), armed: res.cls != null });
+  for (const tr of trips) {
+    if (!tr.party.some((p) => p.id === res.id)) continue;
+    const fell = tr.fallen?.some((f) => f.res.id === res.id);   // LW4: one the road took never walks home
+    out.push({ t0: tr.outT0, t1: fell ? Infinity : tr.backT1, yaw: leavingYaw(tr), armed: res.cls != null });
+  }
   return out.sort((a, b) => a.t0 - b.t0);
 }
 
@@ -343,8 +461,8 @@ export function visitorsOf(town, day, world, o) {
     const trips = townTrips(from, D0 + DAY_MIN / 2, world, o);
     if (trips === undefined) { pending = true; continue; }
     for (const tr of trips) {
-      if (tr.to.mapId !== town.mapId || !(tr.outT1 < D1 && tr.backT0 > D0)) continue;
-      for (const res of tr.party) out.push({ res, trip: tr, inT: tr.outT1, outT: tr.backT0, yaw: arrivingYaw(tr) });
+      if (tr.to.mapId !== town.mapId || tr.turned || !(tr.outT1 < D1 && tr.backT0 > D0)) continue;   // LW4: a party turned home never comes
+      for (const res of membersAt(tr, tr.outT1)) out.push({ res, trip: tr, inT: tr.outT1, outT: tr.backT0, yaw: arrivingYaw(tr) });
     }
   }
   return pending ? undefined : out;
@@ -372,4 +490,36 @@ export function partiesNear(px, py, t, world, o, rPx = 6) {
     }
   }
   return { parties, pending };
+}
+
+/** LW4: how long the fallen lie where they fell (minutes of the clock). */
+export const REMAINS_MIN = DAY_MIN;
+
+/**
+ * LW4: THE FALLEN near a pixel at minute `t` - each of the towns' parties' dead within `rPx` map pixels, lying where
+ * the trouble took them for REMAINS_MIN (native `x`, `z`; `yaw` the way the party walked). `pending` as partiesNear's.
+ * @param {number} px @param {number} py @param {number} t @param {TripWorld} world @param {{ mpm: number, memo?: Map<string, Trip|null> }} o
+ * @param {number} [rPx]
+ * @returns {{ remains: { key: string, res: Resident, x: number, z: number, yaw: number, trip: Trip }[], pending: boolean }}
+ */
+export function remainsNear(px, py, t, world, o, rPx = 6) {
+  const remains = [];
+  let pending = false;
+  for (const town of world.townsNear(px, py, rPx + TRIP_REACH_PX)) {
+    const trips = townTrips(town, t, world, o);
+    if (trips === undefined) { pending = true; continue; }
+    for (const trip of trips) {
+      if (!trip.fallen?.length) continue;
+      trip.fallen.forEach((f, i) => {
+        if (!(f.t <= t && t < f.t + REMAINS_MIN)) return;
+        const p = wayAt(trip.way, f.s);
+        const ppx = Math.floor(p.x / NATIVE_PIXEL), ppy = 499 - Math.floor(p.z / NATIVE_PIXEL);
+        if (Math.max(Math.abs(ppx - px), Math.abs(ppy - py)) > rPx) return;
+        // laid a pace apart across the way, as they fell
+        const side = (i - (trip.fallen.length - 1) / 2) * 60;
+        remains.push({ key: `rem:${f.res.id}`, res: f.res, x: p.x + Math.cos(p.yaw) * side, z: p.z - Math.sin(p.yaw) * side, yaw: p.yaw, trip });
+      });
+    }
+  }
+  return { remains, pending };
 }

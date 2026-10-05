@@ -851,7 +851,7 @@ function drawMarks(marks, vw, vh, dpr, feet = null) {
   for (const q of placed) {
     const { m, held, x, y, look } = q;
     g.globalAlpha = q.fade ? TV_UNDER_HUD_ALPHA : 1;   // OW-EDGES: faint where it would lie over the compass or the hotbar
-    const color = look === 'gather' ? (m.color ?? C.brass) : look === 'party' ? C.party : look === 'traveller' ? C.traveller : look === 'lair' ? C.lair : look === 'band' ? C.band : look === 'raider' ? C.raider : look === 'camp' ? C.camp : look === 'bounty' ? C.bounty : look === 'wayfarer' ? C.wayfarer : C.brass;   // OWS3: a raider in the cinnabar; OW6: a camp in the ember; LW3: a party on the road in its dust
+    const color = look === 'gather' ? (m.color ?? C.brass) : look === 'party' ? C.party : look === 'traveller' ? C.traveller : look === 'lair' ? C.lair : look === 'band' ? C.band : look === 'raider' ? C.raider : look === 'camp' ? C.camp : look === 'bounty' ? C.bounty : look === 'wayfarer' ? (/\bfight\b/.test(m.kind ?? '') ? C.band : C.wayfarer) : C.brass;   // OWS3: a raider in the cinnabar; OW6: a camp in the ember; LW3: a party on the road in its dust (LW4: beset, in the bands' red)
     g.fillStyle = color; g.strokeStyle = '#000'; g.lineWidth = 1;
     if (held) {   // the arrow, turned the way it lies (0 up, clockwise)
       g.save(); g.translate(x, y); g.rotate((held.angle * Math.PI) / 180);

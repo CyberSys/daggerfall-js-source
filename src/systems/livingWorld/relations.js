@@ -12,6 +12,11 @@
 //
 // The record rides the character's save (`snapshot` / `createRelations(record)`; the host registers it with
 // modSaveData as vendor `LivingWorld`) - online in the character's snapshot like every modData record.
+//
+// LW4: THE CHARACTER'S TURNS OF FATE ride it too (`turn`, `turns`): a member of a party the road would have taken who
+// lived because the player fought beside them (`spared`, `<place>@<cycle>`), one cut down beside them (`fallen`), and a
+// fight the player won or lost for a party (`won`, `lost`, the encounter's id). The world is shared; what one player
+// changed in it is theirs (lives.js, trouble.js read them over the dice).
 
 /** The save's record's vendor (modSaveData): the character's regards ride their save under it. */
 export const LIVING_WORLD_VENDOR = 'LivingWorld';
@@ -25,6 +30,10 @@ export const REGARD_MAX = 100;
 export const EASE_PER_DAY = 0.5;
 /** The most residents kept: the least-regarded-either-way and longest-unseen leave first. */
 export const RELATIONS_MAX = 600;
+
+/** LW4: the kinds of a character's turns of fate, and the most kept of each (the oldest leave first). */
+export const TURN_KINDS = Object.freeze(['spared', 'fallen', 'won', 'lost']);
+export const TURNS_MAX = 200;
 
 /** What moves a regard, and by how much. `talk` counts once a day per resident. */
 export const EVENTS = Object.freeze({
@@ -53,6 +62,16 @@ export function createRelations(record = null) {
   const map = new Map();
   const clamp = (v) => Math.max(REGARD_MIN, Math.min(REGARD_MAX, v));
   const ok = (id) => typeof id === 'string' && id.length > 0 && id.length <= 40;
+  /** @type {Record<string, Set<string>>} */
+  const turns = Object.fromEntries(TURN_KINDS.map((k) => [k, new Set()]));
+  let turnsVersion = 0;
+  const turnOk = (key) => typeof key === 'string' && key.length > 0 && key.length <= 80;
+  if (record && typeof record === 'object' && record.v === 1 && record.turns && typeof record.turns === 'object') {
+    for (const k of TURN_KINDS) {
+      const list = /** @type {any} */ (record.turns)[k];
+      if (Array.isArray(list)) for (const key of list.slice(-TURNS_MAX)) if (turnOk(key)) turns[k].add(key);
+    }
+  }
   if (record && typeof record === 'object' && record.v === 1 && record.people && typeof record.people === 'object') {
     for (const [id, e] of Object.entries(record.people)) {
       if (!ok(id) || !e || typeof e !== 'object') continue;
@@ -98,6 +117,23 @@ export function createRelations(record = null) {
     },
     /** The player saw `id` on `day` (the regard stops easing from today). @param {string} id @param {number} day */
     seen(id, day) { const e = map.get(id); if (e) { e.r = eased(e, day); e.seen = day; } },
+    /**
+     * LW4: a turn of fate this character made - `kind` one of TURN_KINDS, `key` a place's `<place>@<cycle>` or an
+     * encounter's id. Answers whether it was new.
+     * @param {'spared'|'fallen'|'won'|'lost'} kind @param {string} key
+     */
+    turn(kind, key) {
+      const set = turns[kind];
+      if (!set || !turnOk(key) || set.has(key)) return false;
+      set.add(key);
+      if (set.size > TURNS_MAX) set.delete(/** @type {string} */ (set.values().next().value));
+      turnsVersion++;
+      return true;
+    },
+    /** LW4: the character's turns of fate, by kind (read them; `turn` writes). */
+    turns: () => turns,
+    /** LW4: bumped at each new turn (the host's books read through them are made again). */
+    turnsVersion: () => turnsVersion,
     /** Everyone known, for a list (the player's own). */
     entries: () => [...map.entries()].map(([id, e]) => ({ id, ...e })),
     size: () => map.size,
@@ -106,7 +142,8 @@ export function createRelations(record = null) {
       /** @type {Record<string, Regard>} */
       const people = {};
       for (const [id, e] of map) people[id] = { r: Math.round(e.r * 10) / 10, met: e.met, seen: e.seen, talked: e.talked };
-      return { v: 1, people };
+      const t = TURN_KINDS.some((k) => turns[k].size) ? { turns: Object.fromEntries(TURN_KINDS.map((k) => [k, [...turns[k]]])) } : {};   // LW4: only once there is one
+      return { v: 1, people, ...t };
     },
   };
 }

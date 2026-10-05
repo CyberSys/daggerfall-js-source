@@ -17,7 +17,7 @@
 // their own about the spot.
 import { CREW_LINE_S } from '../naval/crewLife.js';   // the crew's beat: one export, read here
 import { lwSeed, textSeed } from './seed.js';
-import { pickScript, fillLine, firstNameOf } from './lines.js';
+import { pickScript, fillLine, firstNameOf, newsScript } from './lines.js';
 
 /** A round at a spot, in the reader's real seconds (the host lays it on the clock). */
 export const ROUND_S = 40;
@@ -63,21 +63,26 @@ export function spotCircles(spotKey, present, t, roundMin) {
 /**
  * The line a circle is saying at minute `t`: its script (lines.js pickScript on the circle's seed, the speakers'
  * trades, the reader's weather and hour) a line every `lineMin` of the clock from the round's start, the first member
- * first and each in turn; between lines and after the last, nothing.
+ * first and each in turn; between lines and after the last, nothing. LW4: a town meeting with `news` of the road to
+ * tell (trips.js newsOf - `{ kind, who, foe, place }`, the foe a word) tells it NEWS_SHARE of the time instead.
  * @param {Circle} circle @param {number} t @param {number} lineMin
- * @param {{ town?: string, region?: string, place?: string, weather?: string|null, hour?: number, road?: 'walk'|'camp'|null }} [ctx]
+ * @param {{ town?: string, region?: string, place?: string, weather?: string|null, hour?: number, road?: 'walk'|'camp'|null,
+ *   news?: readonly { kind: string, who: string, foe: string, place: string }[] | null }} [ctx]
  * @returns {{ who: Talker, text: string, index: number } | null}
  */
 export function circleLine(circle, t, lineMin, ctx = {}) {
   if (!circle?.talks || !(lineMin > 0) || t < circle.start || t >= circle.end) return null;
   const index = Math.floor((t - circle.start) / lineMin);
-  const script = pickScript(circle.seed, { jobs: circle.members.map((m) => m.job), weather: ctx.weather ?? null, hour: ctx.hour ?? 12, road: ctx.road ?? null });
+  // LW4: the town's news of the road, told now and then (lines.js newsScript) - else the meeting's own talk
+  const told = ctx.road ? null : newsScript(circle.seed, ctx.news);
+  const script = told ? told.script : pickScript(circle.seed, { jobs: circle.members.map((m) => m.job), weather: ctx.weather ?? null, hour: ctx.hour ?? 12, road: ctx.road ?? null });
   if (index >= script.length) return null;
   const who = circle.members[index % circle.members.length];
   const other = circle.members[(index + 1) % circle.members.length];
   const text = fillLine(script[index], {
-    town: ctx.town, region: ctx.region, place: ctx.place,
+    town: ctx.town, region: ctx.region, place: told ? told.item.place : ctx.place,
     a: firstNameOf(circle.members[0].name), b: firstNameOf(circle.members[1]?.name ?? other.name),
+    who: told ? firstNameOf(told.item.who) : null, foe: told ? told.item.foe : null,
   });
   return { who, text, index };
 }
