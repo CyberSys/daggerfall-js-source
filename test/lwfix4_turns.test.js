@@ -11,12 +11,12 @@ import { readFileSync } from 'node:fs';
 import { livingMap, partiesOver } from './lwRoads.mjs';
 import { placeAt, turnKey } from '../src/systems/livingWorld/lives.js';
 import { troubleOf, troubledTrip, HALT_MIN, FIGHT_MIN } from '../src/systems/livingWorld/trouble.js';
-import { placeCycle, membersAt, partyAt, CALENDAR_MPM } from '../src/systems/livingWorld/trips.js';
+import { placeCycle, membersAt, partyAt, remainsNear, CALENDAR_MPM, NATIVE_PIXEL, TRIP_REACH_PX } from '../src/systems/livingWorld/trips.js';
 import { createRelations } from '../src/systems/livingWorld/relations.js';
 import { createRoadFights, ENDED_MAX } from '../src/scenes/roadFights.js';
 import { createRoadStands } from '../src/scenes/roadStands.js';
 import { createDungeonDivers } from '../src/scenes/dungeonDivers.js';
-import { createLivingRoads } from '../src/scenes/livingRoads.js';
+import { createLivingRoads, ROADS_TOWNS_PER_FRAME, ROADS_VIEW_PX } from '../src/scenes/livingRoads.js';
 import { DAY_MIN } from '../src/systems/livingWorld/dayPlan.js';
 
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -143,8 +143,15 @@ test('LW-FIX4 a fight ENDED here is never stood again (a re-read halt running pa
   await settle();
   assert.ok(roadRig.fights.alliesOf(beset.id).has(fallen.res.id), 'stood alive in the fight');
   clock.t = fallen.t + 0.5;   // the road's minute for their fall passes while they fight
+  const [px, py] = [Math.floor(atM.x / NATIVE_PIXEL), 499 - Math.floor(atM.z / NATIVE_PIXEL)];
+  assert.ok(remainsNear(px, py, clock.t, map.world, o, ROADS_VIEW_PX).remains.some((r) => r.res.id === fallen.res.id),
+    'the road lays them now - the skip alone keeps their body off');
+  // LW-PERF reads the roads over a few frames (ROADS_TOWNS_PER_FRAME towns a frame, the last read standing till the new
+  // one is done): the pin waits for the read that holds their remains - two frames read the old one, which drew no body
+  // with the skip gone (LW-FIX4-remains-drawn survived it)
   roads.frame(1.1, [0, 0, 0]);
-  roads.frame(0.1, [0, 0, 0]);
+  const frames = Math.ceil(map.world.townsNear(px, py, ROADS_VIEW_PX + TRIP_REACH_PX).length / ROADS_TOWNS_PER_FRAME);
+  for (let f = 0; f < frames; f++) roads.frame(0.01, [0, 0, 0]);
   assert.ok(roadRig.fights.alliesOf(beset.id).has(fallen.res.id), 'still standing');
   assert.ok(!synced.some((x) => x.key === `rem:${fallen.res.id}`), 'no body of theirs drawn beside them');
 });

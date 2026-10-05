@@ -843,6 +843,14 @@ ARENA2 - its numbers are the CPU's, comparable before and after). Pinned by `tes
 - **The town's places** (`places.js streetNet`, the square, the exits). Paid once as a town streams in: the street net
   read off the grid's own bytes, the square's windows off the net's running sums, the four exits in one pass - the
   same places as before.
+- **Two pins it blinded** (found at the merge with main, 2026-10-05: the branch's 918 mutants judged again on the
+  merged tree - 911 dead, 5 equivalent as recorded, 2 survived, both LW-PERF's and neither the merge's: each survives
+  on LW-PERF's own commit and dies on LW-FIX6's). LW1's favourites pin read the favourites twice off the same places,
+  and the second reading was the kept one: a re-drawn seed (`LW1-favourites-daily`) passed it - it reads them off a
+  second reader's own places now. LW-FIX4's remains pin ran two frames past the fall, inside the roads' read under way,
+  where the old read stands: the skip it pins (`LW-FIX4-remains-drawn`) was never met - it waits for the read that
+  lays them, and asks the road first that they lie there. Both dead now (and the 79 records naming either file). PIN
+  MOVED: `lw1_livingWorld`, `lwfix4_turns`.
 
 ## The four hosts
 
