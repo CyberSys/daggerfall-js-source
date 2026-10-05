@@ -19,6 +19,10 @@ export const BLOW = Object.freeze({
   // TELL6 (8.1): the aimed shot - a line from the archer to its target, locked at its start; the arrow leaves along it
   // x1.3 as fast (`speed`) and x`mult` its damage. The arrow's own flight decides: stepping off the line dodges it
   aimed: Object.freeze({ windup: 0.6, halfW: 0.25, mult: 1.4, speed: 1.3 }),
+  // RVN5 (bible/12-Enhanced-AI/Feud-Arc.md 16.1): the pyre - a revenant's signature where its family reaches no other: a
+  // disc at its target's feet, locked at its start, out to `range`; its landing a blast of its own element (a spell -
+  // the player's saving throw answers it), never a swing
+  pyre: Object.freeze({ windup: 1.2, r: 2.2, mult: 1, range: 12 }),
 });
 
 // TELL2 (bible/12-Enhanced-AI/Feud-Arc.md section 4): the numbers the ground's pass reads beside the brain - their one

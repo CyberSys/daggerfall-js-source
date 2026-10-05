@@ -61,7 +61,7 @@ import { getSeed, setSeed, srand } from '../formats/dfRandom.js';
 import { personalityFor, isPersonality, personalityLabel, voiceLine, beastBody, possessive, MUTE_KINDS } from './revenantPersonality.js';   // REVENANT-VOICE: who it is, and how it talks
 // FEUD, Part B (bible/12-Enhanced-AI/Feud-Arc.md sections 12-26): what a revenant remembers - its record's new fields and
 // the draws it is born with (systems/revenantFeud.js), and the fight's ledger (systems/feudLedger.js, a leaf)
-import { feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK, lessonOf, withLesson, adaptEdge, adaptBlowClass, ADAPT, isWeakBlow, metalOf, WEAK, WEAK_NAMES, FLINCH_LINES, FLINCH_HEALTH, WEAKNESS_ELEMENTS } from './revenantFeud.js';
+import { feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK, lessonOf, withLesson, adaptEdge, adaptBlowClass, ADAPT, isWeakBlow, metalOf, WEAK, WEAK_NAMES, FLINCH_LINES, FLINCH_HEALTH, WEAKNESS_ELEMENTS, signatureStamp } from './revenantFeud.js';
 import { tagHit, HIT_TAGS } from '../ui/hitNumbers.js';   // RVN3: the "Weakness" word on my blow's number
 import { SOUND } from './soundClips.js';   // RVN3: the hiss of a weakness found
 import { revenantSay as sayRevenant } from './revenantVoice.js';   // RVN3: the reveal's card (the re-export below binds no local name)
@@ -180,7 +180,7 @@ const voiceIdOf = (entity) => entity?.revenant?.id ?? (entity._voiceId ??= mintC
 /** RVN2: what a standing revenant carries of its record - its name and rank (FOE-TITLE, TELL's tier), what it learned and
  *  its weakness, and `edge`, what they do (systems/revenantFeud.js adaptEdge: the brain, the motor, the doors and the
  *  formulas read it there). */
-const revenantStamp = (r) => ({ id: r.id, name: r.name, rank: r.rank, learned: [...(r.learned ?? [])], weak: r.weak ?? null, edge: adaptEdge(r.learned, r.weak) });
+const revenantStamp = (r) => ({ id: r.id, name: r.name, rank: r.rank, learned: [...(r.learned ?? [])], weak: r.weak ?? null, edge: adaptEdge(r.learned, r.weak), sigBlow: signatureStamp(r) });   // RVN5: its signature (rank 2 and up)
 
 /** A REVENANT'S GIVEN NAME: DFU's own banks - a monster's from Monster1/Monster2, a class foe's (a person) a first
  *  name from one of the eight races' banks - drawn on a stream SEEDED by the revenant's id, the shared DFRandom put
@@ -750,6 +750,8 @@ const KICKERS = Object.freeze({
   arrive: 'Companion', dismiss: 'Sent away', downed: 'Companion down', kill: 'Companion', battle: 'Companion', release: 'Released',
   // RVN3: its weakness found or hinted; its will unbroken; RVN4: its last stand
   weakness: 'Weakness', unbroken: 'Unbroken', laststand: 'Last stand',
+  // RVN5: its signature, called out
+  signature: 'Signature',
 });
 /** @typedef {{ kind: string, kicker: string, id: string|null, name: string, rank: number, sub: string, mood: string|null,
  *   portrait: { archive: number, record: number } | null, speech: string|null, body: string|null, line: string }} RevenantEvent */
@@ -815,6 +817,12 @@ export function revenantWeaknessEvent(r, { found = false, archive = null } = {})
 export function revenantUnbrokenEvent(r, playerName, { rolls = Math.random, archive = null } = {}) {
   const body = `${r.given} staggers into the smoke, unbroken.`;
   return revenantEvent('unbroken', r, { speech: voiceParts(r, 'escape', playerName, rolls).speech, body, line: body, archive });
+}
+/** RVN5 (16.1): its signature called out - the first time a stand it winds it up ("Grushnak readies Skullsplitter!" -
+ *  its `noun`). */
+export function revenantSignatureEvent(r, noun, { archive = null } = {}) {
+  const body = `${r.given} readies ${noun ?? 'its signature'}!`;
+  return revenantEvent('signature', r, { body, line: body, archive });
 }
 /** RVN4 (section 15): ITS LAST STAND, written on its record - the deed (`laststand`) at the character's minute. Answers
  *  the record, or null for one that is no revenant of mine. */

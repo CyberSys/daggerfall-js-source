@@ -1233,6 +1233,9 @@ export function createPlayerMagic({
     barCast: () => barredHere(),
     explodeAt,             // the dungeon's enemy half reuses these (M3)
     applySpellToPlayer,
+    /** RVN5 (bible/12-Enhanced-AI/Feud-Arc.md 16.1): a FOE's spell on me with no missile - a revenant's pyre - its caster
+     *  the wrapper a missile carries (missileCaster: its entity, its sinks), so my reflection sends it back at its body. */
+    strikePlayerFrom: (spell, casterLevel, foe) => applySpellToPlayer(spell, casterLevel, foe?.entity ? { entity: foe.entity, sinks: foeSinks(foe), foe } : null),
     /** X11: the FOE door, beside the player one it has always sat
      *  next to internally. Both are needed from outside now - each is
      *  half of Spell Reflection's re-target, and a probe that can only

@@ -158,7 +158,8 @@ test('AUDIT TELL B2/B3/B6/B7/B8/B9/B10/B11 by source: the run breaks as the wind
   assert.match(t, /function dashTurn\(ai, s, now, skipped = false\) \{/, 'B2: the run hears the skipped step');
   assert.match(t, /if \(s\.state === 'dash'\) return dashTurn\(ai, s, now, skipped\);/);
   assert.match(t, /\/\/ AUDIT TELL B3: a leap lands on its disc only where its foe got to/);
-  assert.match(t, /if \(chain === 0 && shape !== 'aimed' && !GAP_CLOSERS\.includes\(shape\) && feints\(/, 'B6: a charge and a leap never feint');
+  // PIN MOVED (RVN5: a signature and a pyre never feint either - bible/12-Enhanced-AI/Feud-Arc.md 16.1)
+  assert.match(t, /if \(chain === 0 && !sig && shape !== 'aimed' && shape !== 'pyre' && !GAP_CLOSERS\.includes\(shape\) && feints\(/, 'B6: a charge and a leap never feint');
   assert.match(t, /\/\/ AUDIT TELL B7: aimed at its TARGET's feet/);
   assert.match(t, /b\.key = targetKey\(ai\);   \/\/ AUDIT TELL B8/);
   assert.match(t, /tf = ck === s\.chainKey \? targetFeet\(ai, ck\) : null;/, 'B8: the chain at its own target');

@@ -284,8 +284,8 @@
   {
     "name": "TELL2-feint-winds",
     "file": "src/scenes/hostCombat.js",
-    "old": "    if (!b.feint) {\n      if (ignoreHumanSounds",
-    "new": "    if (true) {\n      if (ignoreHumanSounds",
+    "old": "    if (!b.feint) {\n      // RVN5 (Feud-Arc.md 16.1): a signature's WIND deeper (`b.windPitch`)\n      if (ignoreHumanSounds",
+    "new": "    if (true) {\n      // RVN5 (Feud-Arc.md 16.1): a signature's WIND deeper (`b.windPitch`)\n      if (ignoreHumanSounds",
     "tests": [
       "test/tell2_tell.test.js"
     ]
@@ -302,7 +302,7 @@
   {
     "name": "TELL2-break-lands",
     "file": "src/scenes/hostCombat.js",
-    "old": "    c.land = (landed && c.blow.kind !== 'aimed' && (ai._blowHold === false || ai._blowHold === 'spent'))",
+    "old": "    c.land = (landed && c.blow.kind !== 'aimed' && c.blow.kind !== 'pyre' && (ai._blowHold === false || ai._blowHold === 'spent'))",
     "new": "    c.land = (true)",
     "tests": [
       "test/tell2_tell.test.js"

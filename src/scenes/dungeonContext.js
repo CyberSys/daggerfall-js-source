@@ -232,7 +232,7 @@ import { elitesAllowed, pickDungeonElites, promoteEliteFoe, grantEliteLoot, elit
 import { ELITE_FOE_MULTIPLIER, ELITE_HEALTH_SCALE, ELITE_DAMAGE_SCALE, ELITE_LOOT_DROP_MULT, ELITE_LOOT_QUALITY_MULT } from '../world/spawnedDungeons.js';   // ELITE: an elite spawn's foe count and strength
 import { ENEMY_BASICS, enemyDisplayName } from '../characters/enemyBasics.js';
 import { foeTitle } from '../systems/foeTitle.js';   // FOE-TITLE: what a revenant, a champion or an elite is called
-import { revenantFleeStep, revenantFleeHealth, revenantDeed, revenantSlain, revenantSay, revenantFleeEvent, revenantCorneredEvent, revenantEscapeEvent, revenantSlainEvent, revenantUnbrokenEvent, revenantFlinch } from '../systems/revenant.js';
+import { revenantFleeStep, revenantFleeHealth, revenantDeed, revenantSlain, revenantSay, revenantFleeEvent, revenantCorneredEvent, revenantEscapeEvent, revenantSlainEvent, revenantUnbrokenEvent, revenantFlinch, revenantSignatureEvent, revenantById } from '../systems/revenant.js';
 import { revenantMayYield, beginYield, yieldStep, slipEvent, kneelPose, beginExecution, executionStep, finishExecution, beginSpare, spareDone, fateDissolve, fateModel, dropFateHeld, revenantWillHolds, beginTearAway, revenantLastStandDue, beginLastStand, roarStep } from '../systems/revenantFate.js';   // REVENANT-FATE: beaten, it yields - kill it or spare it (the open world's law, one home)
 import { setBatchDissolve } from '../systems/dissolve.js';   // DISSOLVE
 import { createPortalSet } from './portalFx.js';   // COMPANION-PORTAL   // REVENANT-DUNGEON: a special foe of mine alone may run, and get away
@@ -278,7 +278,7 @@ import { foeHitFlash, setBatchHitFlash, puppetHurtStep, setBatchGlint, prefersRe
 import { coverDistance, coverStep, createCoverIndex, isCoverFlat, coverProxy } from '../ai/cover.js';   // TACT1: billboards are cover
 import { blowConnects, blowScaled } from '../ai/foeBlows.js';   // TACT4
 import { foeGlint, tacticsNow, beginRoar } from '../ai/tactics.js';   // TELL2: a wind-up's glint (bible/12-Enhanced-AI/Feud-Arc.md section 4.2); TELL8: the record's wind-up on the foes' clock; RVN4: a last stand's roar
-import { lastStandGlint, lastStandSize } from '../systems/revenantFeud.js';   // RVN4: phase two's rim and size
+import { lastStandGlint, lastStandSize, pyreSpell } from '../systems/revenantFeud.js';   // RVN4: phase two's rim and size; RVN5: the pyre's blast
 import { blowWire, blowWireKey, applyBlowRecord, puppetBlowTurn, blowClassOf } from '../ai/puppetBlows.js';   // TELL8: a wind-up on the wire - the host's word, the joiner's puppet, each judging its own feet, a blow's class
 import { ambushNight } from '../systems/restAct.js';   // AUDIT REST-PARTY A1: a resting encounter stood breaks the night that rolled it
 
@@ -308,7 +308,7 @@ const q3 = (v) => Math.round(v * 1000) / 1000; const GENDER_BIT = ['male', 'fema
 const HIT_POS_MAX = 1e6;
 // AUDIT FOES FOE5: the most damage one peer's blow may claim. The host TRUSTS the number (it never recomputes - the
 // striker's own calc is the game's), so without a bound any joiner could one-shot every foe in the room and empty it
-// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2757); the dungeon
+// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2776); the dungeon
 // had none. Past anything a legal swing, shaft or blast can roll.
 const HIT_DMG_MAX = 10000;
 /** REST-SYNC: a joiner's ask is answered - or given up on - inside this long: its rest breaks once, at the next hour. */
@@ -1614,6 +1614,24 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const r = revenantDeed(playerEntity, f.entity, 'fled', { mobileType: f.mobileType, gender: f.gender, rec: f, archive: f.mobileArchive });
     if (r) revenantSay(slip ? slipEvent(playerEntity, r, { archive: f.mobileArchive }) : unbroken ? revenantUnbrokenEvent(r, playerEntity?.name, { archive: f.mobileArchive }) : revenantEscapeEvent(r, playerEntity?.name, { archive: f.mobileArchive }), (l) => hudText.add(l));   // REVENANT-FATE: a slip says the hesitation; RVN3: the unbroken its own
   }
+  /** RVN5 (Feud-Arc.md 16.1): its signature called once a stand, and a pyre's blast on me - the open world's law
+   *  (scenes/exteriorFoes.js signatureFrame), through this host's own cast engine. */
+  function signatureDungeonFrame(f) {
+    const sb = f.entity?.revenant?.sigBlow;
+    if (f.ai._sigCall) {
+      f.ai._sigCall = null;
+      const r = sb && !f._sigCalled ? revenantById(f.entity.revenant.id) : null;
+      if (r) { f._sigCalled = true; revenantSay(revenantSignatureEvent(r, sb.noun, { archive: f.mobileArchive }), (l) => hudText.add(l)); }
+    }
+    const p = f.ai._blowPyre;
+    if (p) {
+      f.ai._blowPyre = null;
+      if (sb?.kind === 'pyre') {
+        audio.play3dId?.(SPELL_CAST_SOUND[sb.element] ?? SPELL_CAST_SOUND[4], [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], 1, { maxDistance: 16 });
+        magic.strikePlayerFrom(pyreSpell(sb.name, sb.element, p.mult), f.entity.level ?? 1, f);
+      }
+    }
+  }
   /** RVN4 (Feud-Arc.md 15.2): its last stand - the open world's law (scenes/exteriorFoes.js lastStand). */
   function lastStandDungeonFoe(f) {
     const ev = beginLastStand(playerEntity, f, { now: Date.now(), clock: tacticsNow(), roar: (s) => beginRoar(f.ai, f.entity, s) });
@@ -2187,7 +2205,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:16454 / exterior.js:3939), set
+  // host's own townTalk sink (world.js:16455 / exterior.js:3940), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2824,7 +2842,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // copied mount would have diverged the first time an arm grew.
   /** DR1: THE TWO SPELL WINDOWS THIS HOST MOUNTS NOW, and the one door
    *  they go through. `mountSpellWindow` is worldModes'
-   *  mountSpellWindow DUNGEON ARM (worldModes.js:1452,
+   *  mountSpellWindow DUNGEON ARM (worldModes.js:1453,
    *  `dungeonCtx?.showOverlay(win)`) resolved to what it actually
    *  calls here - this file's own pushDungeonWindow, which IS
    *  UserInterfaceManager.PushWindow. So a spell window raised over an
@@ -3371,7 +3389,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1129 against :1159; worldModes.js:8502 against :8522).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1129 against :1159; worldModes.js:8503 against :8523).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -4284,8 +4302,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:27200,
-              // exterior.js:5605 and worldModes.js:9228 already ran;
+              // playerArrowHitFoe is the one copy world.js:27201,
+              // exterior.js:5606 and worldModes.js:9229 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -5174,7 +5192,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const i = data.i | 0, dmg = Number(data.dmg);
     const xs = data.xs === 1;   // REST-SYNC: a shared encounter, by the room's number - not a layout index
     const f = xs ? (_sharedById.get(i) ?? null) : foes[i];
-    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2757). The number is a peer's
+    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2776). The number is a peer's
     // word and the host trusts it without recomputing, so an unbounded one let any joiner one-shot every foe in the
     // room - and, through the kill door, empty it. 10000 is past anything a legal swing, shaft or blast can roll.
     if (!f || (!xs && i >= _layoutFoes) || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
@@ -5753,7 +5771,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // InstantiatePrefab's a fresh GameObject per saved record, so
     // EnemyEntity's `PickpocketByPlayerAttempted` default is the loaded
     // truth for every enemy. The re-minting pools match that by
-    // construction (exteriorFoes.js:2105's restoreWorld goes through
+    // construction (exteriorFoes.js:2124's restoreWorld goes through
     // spawnFoe), but this host patches the LIVE foes in place, so a
     // same-dungeon reload kept a raised latch and a failed pickpocket
     // could never be retried - falsifying the law
@@ -6939,6 +6957,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       else if (_flee === 'cornered') revenantSay(revenantCorneredEvent(f.entity, foeTitle(f.entity, enemyDisplayName(f.mobileType)), { gender: f.gender, archive: f.mobileArchive, playerName: playerEntity?.name }), (l) => hudText.add(l));
       if (_flee === 'start' || _flee === 'run') _tgt = null;
       if (f.roaring) roarStep(f);   // RVN4: its roar spent - blows reach it again
+      if (f.ai._sigCall || f.ai._blowPyre) signatureDungeonFrame(f);   // RVN5: its signature called, its pyre's blast
       // RVN3 (Feud-Arc.md 14.1): under half its health, its weakness unknown, it shies from it - once a stand
       if (f.entity?.revenant?.id && !f._flinched) { const ev = revenantFlinch(f, { archive: f.mobileArchive }); if (ev) revenantSay(ev, (l) => hudText.add(l)); }
       // CH3 (characters-8): a past-threshold landing bills the

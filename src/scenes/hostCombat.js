@@ -752,8 +752,9 @@ export function tellCues(f, audio, hearing = 1, now = tacticsNow()) {
     c.blow = b; c.released = false; c.land = false;
     if (s.key === LOCAL_TARGET) markFoeThreat(f);   // TELL9: a foe winding up at me takes the target bar
     if (!b.feint) {
-      if (ignoreHumanSounds(f.mobileType)) play(SOUND.SwingMediumPitch, TELL.WIND_CLASS_PITCH, TELL.WIND_CLASS_VOLUME);
-      else play(row?.barkSound, TELL.WIND_PITCH);
+      // RVN5 (Feud-Arc.md 16.1): a signature's WIND deeper (`b.windPitch`)
+      if (ignoreHumanSounds(f.mobileType)) play(SOUND.SwingMediumPitch, b.windPitch ? TELL.WIND_CLASS_PITCH * (b.windPitch / TELL.WIND_PITCH) : TELL.WIND_CLASS_PITCH, TELL.WIND_CLASS_VOLUME);
+      else play(row?.barkSound, b.windPitch ?? TELL.WIND_PITCH);
     }
   }
   if (b && !c.released && now >= b.land - TELL.RELEASE_LEAD) { c.released = true; play(SOUND.SwingLowPitch, TELL.RELEASE_PITCH); }
@@ -762,7 +763,7 @@ export function tellCues(f, audio, hearing = 1, now = tacticsNow()) {
     // landed (the brain stamped its landing at or after this blow's), or broken - only a landing strikes; its strike may
     // already be this frame's (the sprite stepped past the release before this call)
     const landed = ai._blowLandedAt != null && ai._blowLandedAt >= c.blow.land - 1e-6;
-    c.land = (landed && c.blow.kind !== 'aimed' && (ai._blowHold === false || ai._blowHold === 'spent'))   // TELL4: a miss strikes too, then stands spent; TELL6d: a shot strikes nothing - its arrow flies
+    c.land = (landed && c.blow.kind !== 'aimed' && c.blow.kind !== 'pyre' && (ai._blowHold === false || ai._blowHold === 'spent'))   // TELL4: a miss strikes too, then stands spent; TELL6d: a shot strikes nothing - its arrow flies; RVN5: nor a pyre - its blast is its cast's sound
       || c.blow.cut != null;   // TELL5: a cut feint's plain blow sounds at its strike
     // TELL4 (6.2): a perfect dodge - the bright parry ring, at the landing
     if (landed && ai._perfectAt != null && ai._perfectAt >= c.blow.land - 1e-6) { play(SOUND.Parry6, TELL.PERFECT_PITCH); showWord(HIT_TAGS.perfect, 'perfect'); }   // TELL9: and says so

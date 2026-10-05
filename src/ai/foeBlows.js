@@ -139,6 +139,7 @@ export function inBlow(b, px, pz) {
   if (b.kind === 'ring') { const P = BLOW.ring, d = Math.hypot(rx, rz); return d >= P.rIn && d <= P.rOut; }   // TELL6: safe at its feet
   if (b.kind === 'leap') return Math.hypot(along - (b.ahead ?? 0), across) <= BLOW.leap.r;   // TELL6: a disc at its point
   if (b.kind === 'aimed') return along >= -0.3 && along <= (b.ahead ?? 0) && Math.abs(across) <= BLOW.aimed.halfW;   // TELL6: its line to its target
+  if (b.kind === 'pyre') return Math.hypot(along - (b.ahead ?? 0), across) <= BLOW.pyre.r;   // RVN5: a disc at its target's feet
   return false;
 }
 

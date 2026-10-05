@@ -404,3 +404,14 @@ blows, more Speed, shorter wind-ups and cooldowns, chains of three, iron one in 
 A Disintegrate still kills. The page names it from rank 3. The law: `bible/12-Enhanced-AI/Feud-Arc.md` section 15 and its
 RVN4 record.
 
+## 21. Signature blows (FEUD RVN5, 2026-10-04)
+
+From rank 2 a revenant has one signature, drawn on its id: a blade a slam or a charge, a beast a charge or a leap, a
+brute a ring or a charge; a caster, a spectral, a small kind or a flyer the **pyre** - a disc at your feet that lands as
+a blast of its element (an atronach's and an imp's fire, a lich's frost, vermin's poison, a harpy's shock, any other's
+magic), a spell your saving throw and resistances answer. Twice its blow, its own cooldown of 12 to 18 seconds, iron
+from rank 3, drawn in its ember, its wind-up's bark deeper, and called out the first time a fight it winds it up
+("Grushnak readies Skullsplitter!"). It is named "<given>'s <noun>"; the page shows it from rank 2, and says "(with
+Enhanced AI)" with that switch off - the signature is a telegraph, and only the Enhanced AI throws one. The law:
+`bible/12-Enhanced-AI/Feud-Arc.md` section 16 and its RVN5 record.
+

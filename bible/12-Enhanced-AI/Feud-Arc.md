@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL and RVN1-RVN4 built; RVN5-RVN13 next)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL and RVN1-RVN5 built; RVN6-RVN13 next)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -7,7 +7,7 @@ detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
 (section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts), AUDIT
-TELL, and RVN1 to RVN4; each slice's record is at the foot.**
+TELL, and RVN1 to RVN5; each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -671,6 +671,15 @@ before the yield in both damage doors (`exteriorFoes.js damageFoe`, `dungeonCont
 - **Called out** the first time a stand: the card's *Signature* kicker ("Grushnak readies Skullsplitter!") and a deeper
   WIND (pitch 0.7).
 - **Needs** the Enhanced AI switch; off, the page says "(with Enhanced AI)".
+- **As built (RVN5; the record at the foot)**: the pyre's element by its KIND, not its career (DFU's spell lists index
+  SPELLS.STD, data read at run time, and the name the page draws with no body standing must be the one its stand calls
+  out) - an atronach's own and an imp's fire, a lich's frost, the vermin's, a bat's, a spriggan's, the dead's and a
+  fish's poison, a harpy's shock, any other's magic (a fire daedra and a frost daedra are blades: their signature is a
+  slam or a charge). The blast goes through `hostMagic.strikePlayerFrom` (`applySpellToPlayer` with the foe's caster
+  wrapper, so a reflection goes back at it). x2.0 is the signature's multiplier on its blow, in the shapes' own units
+  (it replaces the shape's: a slam's x1.75 becomes x2.0). The ember lies between TELL's amber and its iron red, and is
+  hatched only where it IS iron (rank 3 up) - the hatch is TELL3's word for "no stagger", and a rank-2 signature
+  staggers. The pyre is wound up only at me (a peer's or a foe's is RVN13's - off the wire).
 
 ### 16.2 Its name
 
@@ -992,7 +1001,7 @@ here so the plan is checkable:
   the will - kneels broken, escapes unbroken, ranks up and learns; Disintegrate kills.
 - **RVN4**: the last stand once, at rank 3 and up, health by rank, the roar's refusal, phase two's numbers, rank 5's
   band; never at rank 2.
-- **RVN5**: the signature drawn on the id, iron from rank 3, the name bank, pyre's element by career.
+- **RVN5**: the signature drawn on the id, iron from rank 3, the name bank, pyre's element by its kind (16.1 as built).
 - **RVN6**: the band's count by rank, its kin by faction, the cap trimming followers first, no infighting, the scatter;
   a follower never a candidate.
 - **RVN7**: the lair from the ring for a fixed id and pixel; the rumour's odds and its answer counter; the map mark and
@@ -1887,3 +1896,44 @@ and `dungeonContext.js`.
   1.2 s; the roar's own mutant is killed). Mutant records re-aimed by content (9): `tell5` (2), `rvn3` (2),
   `revenantfate`, `rvn2`, `tell4`, `tell6b`, `tell7` (one each) - all judged again: dead, but `tell7`'s
   `TELL7-unbuilt-shapes`, recorded equivalent (since TELL6 every shape of the whole set has its row; not this slice's).
+
+### RVN5 - BUILT 2026-10-04 (the loot-rarity row on and the Enhanced AI switch; every host)
+
+- **The law** - `systems/revenantFeud.js`: `SIG` (x2.0, its cooldown 12-18 s, iron from rank 3, its ember, its WIND
+  0.7, the pyre's magnitude 3-6 plus 1 a level), `SIG_NOUNS` and `PYRE_NOUNS` (16.2, whole), `pyreElement` (by kind -
+  16.1 as built), `signatureName` (`<given>'s <noun>` - `revenantPersonality.possessive`; the noun drawn on its id's
+  side stream, the shared DFRandom unmoved - `signatureNoun`; derived, never stored; no given name, the noun alone),
+  `signatureStamp` (what its stand carries, frozen: null under rank 2), `pyreSpell` (one Damage Health (4, 0) of its element at range -
+  never CasterOnly, so DFU's saving throw answers it - x its mult). The draw itself (`drawSignature`) is RVN1's.
+- **The shape** - the PYRE (`ai/blowShapes.js`: a 2.2 m disc, its point locked at its target's feet out to 12 m, 1.2 s):
+  the brain's verdict (`ai/foeBlows.js inBlow`), the ground's field, quad and shader branch (`render/foeTelegraph.js` -
+  the leap's disc, its own radius).
+- **The brain** - `ai/tactics.js`: the stand's `revenant.sigBlow` (`revenant.js revenantStamp`, at the deed and the
+  return). With its melee token, its signature AHEAD of every other blow whenever its cooldown (`s.sigReady`) is spent
+  and its shape reaches (`signatureReaches`: a gap-closer out of reach with its lane free, the pyre in range and in sight
+  at me, any other in reach) - on BLOW_CHANCE's roll, as every blow. A caster that fights at range winds its pyre as
+  its shot would go, with its ranged token - the casters' first tell. `beginWindup(..., sig)`: iron from rank 3, x2.0,
+  its ember, its WIND pitch, its cooldown drawn, `_sigCall` for the pools; a signature never feints. The pyre draws no
+  held swing; its landing on my feet asks the pool for its blast (`_blowPyre`) and the foe waits - its landing was its
+  blow; off them, nothing, and it overreaches (TELL4).
+- **The pools** - `scenes/exteriorFoes.js signatureFrame` and the dungeon's `signatureDungeonFrame`: the callout once a
+  stand (the card's *Signature* kicker: "Grushnak readies Skullsplitter!" - `revenantSignatureEvent`, its stamp's `noun`), and a
+  pyre's blast - its element's cast sound at its feet (`SPELL_CAST_SOUND`, the ID space) and `pyreSpell` through the
+  host's door. A signature of reach casts nothing whatever is asked.
+- **The cues** - `scenes/hostCombat.js tellCues`: a signature's WIND at 0.7 (a person's low swing as deep, by the same
+  share); a pyre plays no LAND - its blast is its cast's sound.
+- **The page** - from rank 2, "Signature: Grushnak's Skullsplitter - an overhead slam." (", unstoppable" where iron; a
+  pyre "a blast of frost at your feet"; " (with Enhanced AI)" with the switch off) - `revenantPage.signatureWords`.
+- **Four hosts** - `scenes/world.js` WIRED (its pool's `magicHooks.strikePlayer`, `fireMissile`'s gate: walking and
+  spawned); `scenes/exterior.js` WIRED (the gate: walking) - FLAGGED (section 32): no `fates`; `scenes/worldModes.js`
+  WIRED (its interior pool); `scenes/dungeonContext.js` WIRED (its own engine's `strikePlayerFrom`; `scenes/dungeon.js`
+  hosts it). The ONE cast engine gains `strikePlayerFrom(spell, level, foe)` - a missile's caster wrapper (its entity,
+  its sinks), so my Spell Reflection sends the pyre back at its body.
+- **Not built here** - the signature on the wire: a signature of reach rides as its shape and its iron, at its shape's
+  multiplier on a peer's machine; the pyre not at all, and so it is wound up only at me (RVN13); the card's iron-red
+  edge and the *signature* voice moment (RVN12).
+- Pins `test/rvn5_sig.test.js` (13). Pins moved (each marked `PIN MOVED (RVN5: ...)`): `tell6c_leap` (the shader's
+  disc uniforms shared with the pyre), `audittell` (B6: the feint's guard reads the signature and the pyre too).
+- Mutants `tools/mutants/rvn5.json` (91): 91 dead. Mutant records re-aimed by content (16): `tell2` (2), `tell3` (2),
+  `tell4`, `tell5` (2), `tell6a` (2), `tell6c` (4), `tell6d` (3), and the cite shift's two (`survtiers`,
+  `survtiers3` - a citation their mutant reads moved) - all judged again: dead.

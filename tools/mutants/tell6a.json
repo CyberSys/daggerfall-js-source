@@ -83,8 +83,8 @@
   {
     "name": "TELL6a-quad-tight",
     "file": "src/render/foeTelegraph.js",
-    "old": "? ahead + (kind === 'leap' ? BLOW.leap.r : 0) : REACH[kind] ?? BLOW_QUAD_HALF) + 0.6;",
-    "new": "? ahead + (kind === 'leap' ? BLOW.leap.r : 0) : REACH[kind] ?? BLOW_QUAD_HALF) + 0.2;",
+    "old": "? ahead + (kind === 'leap' ? BLOW.leap.r : kind === 'pyre' ? BLOW.pyre.r : 0) : REACH[kind] ?? BLOW_QUAD_HALF) + 0.6;",
+    "new": "? ahead + (kind === 'leap' ? BLOW.leap.r : kind === 'pyre' ? BLOW.pyre.r : 0) : REACH[kind] ?? BLOW_QUAD_HALF) + 0.2;",
     "tests": [
       "test/tell6a_ring.test.js"
     ]
@@ -92,8 +92,8 @@
   {
     "name": "TELL6a-kind-id",
     "file": "src/render/foeTelegraph.js",
-    "old": "export const BLOW_KIND = Object.freeze({ lunge: 0, sweep: 1, slam: 2, ring: 3, charge: 0, leap: 2, aimed: 0 });",
-    "new": "export const BLOW_KIND = Object.freeze({ lunge: 0, sweep: 1, slam: 2, ring: 2, charge: 0, leap: 2, aimed: 0 });",
+    "old": "export const BLOW_KIND = Object.freeze({ lunge: 0, sweep: 1, slam: 2, ring: 3, charge: 0, leap: 2, aimed: 0, pyre: 2 });",
+    "new": "export const BLOW_KIND = Object.freeze({ lunge: 0, sweep: 1, slam: 2, ring: 2, charge: 0, leap: 2, aimed: 0, pyre: 2 });",
     "tests": [
       "test/tell6a_ring.test.js"
     ]

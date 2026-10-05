@@ -475,6 +475,12 @@ export function tacticsStep(ai, dx, dz) {
     // TELL6d (8.1): an archer of the whole set aims one shot in three - the attack component asks as its shot comes
     // (`_wantAimed`), and the brain winds it up instead: its line on the ground, locked; its landing looses it
     const ent = ai.vitals?.();
+    // RVN5 (16.1): a caster's signature, the pyre - with its token, as its shot or its spell would go: the casters' first tell
+    const sig = ent?.revenant?.sigBlow;
+    if (has && sig?.kind === 'pyre' && _me && ai.canAct !== false && now >= (s.blowReady ?? 0) && now >= (s.sigReady ?? 0) && !windupNear(_me.feet, now, ai) && signatureReaches(ai, ent, 'pyre', dist, false, 0, 0) && Math.random() < BLOW_CHANCE) {
+      beginWindup(ai, s, ent, 'pyre', _me.feet[0] - ai.feet[0], _me.feet[2] - ai.feet[2], now, 0, sig);
+      return windupTurn(ai, s, now, skipped);
+    }
     ai._aimReady = has && key === LOCAL && !!_me && ai.canAct !== false && now >= (s.blowReady ?? 0) && aimsShots(ai, ent) && !windupNear(_me.feet, now, ai);
     if (ai._wantAimed) {
       ai._wantAimed = false;
@@ -504,6 +510,13 @@ export function tacticsStep(ai, dx, dz) {
     // AUDIT TELL B7: aimed at its TARGET's feet - the motor's (dx, dz) is its destination, a detour's point or a search's
     const tdx = tf[0] - ai.feet[0], tdz = tf[2] - ai.feet[2];
     const near = dist <= reach + 0.5;
+    // RVN5 (bible/12-Enhanced-AI/Feud-Arc.md 16.1): ITS SIGNATURE - a revenant's own blow, ahead of any other whenever its
+    // own cooldown is spent and its shape reaches (its stand's `revenant.sigBlow`)
+    const sig = ent?.revenant?.sigBlow;
+    if (sig && now >= (s.sigReady ?? 0) && !windupNear(tf, now, ai) && signatureReaches(ai, ent, sig.kind, dist, near, tdx, tdz) && Math.random() < BLOW_CHANCE) {
+      beginWindup(ai, s, ent, sig.kind, tdx, tdz, now, 0, sig);
+      return windupTurn(ai, s, now, skipped);
+    }
     const shapes = blowPool(ai, ent, dist, near, tdx, tdz);
     // RVN2: an Arrow-wise revenant out of reach closes with its charge or its leap whenever its lane is free (no roll)
     if (shapes.length && !windupNear(tf, now, ai) && ((!near && ent?.revenant?.edge?.closes === true) || Math.random() < BLOW_CHANCE)) {
@@ -533,26 +546,33 @@ function walkAway(ai, wx, wz, speed) {
 /** TACT4: a telegraphed blow wound up - `shape` aimed along (dx, dz). TELL3: its guard; TELL5: its drawn length (a
  *  chain's quick and undrawn), a feint one wind-up in FEINT_CHANCE for a blade of the higher tier (never two within
  *  FEINT_GAP; never a chain's). `chain` its place in a chain (0 the first). */
-function beginWindup(ai, s, ent, shape, dx, dz, now, chain = 0) {
-  const guard = blowGuard(shape, ENEMY_BASICS[ent.mobileType]?.weight ?? 0, ent);   // TELL3: iron or poise (the kind's own weight - no class throws an iron shape)
+function beginWindup(ai, s, ent, shape, dx, dz, now, chain = 0, sig = null) {
+  const guard = sig?.iron ? 'iron' : blowGuard(shape, ENEMY_BASICS[ent.mobileType]?.weight ?? 0, ent);   // TELL3: iron or poise (the kind's own weight - no class throws an iron shape); RVN5: a signature iron from rank 3
   const windup = chain > 0
     ? windupSeconds(TELL.CHAIN_WINDUP, ent, { guard, roll: null, floor: TELL.CHAIN_FLOOR })
     : windupSeconds(BLOW[shape].windup, ent, { guard });
-  const b = fitBlowToGround(makeBlow(shape, ai.feet, Math.atan2(dx, dz), now, guard === 'iron' ? IRON_COLOR : BLOW_COLOR, guard, windup), ai.collider);   // AUDIT TACT D8: on the ground it marks
+  const b = fitBlowToGround(makeBlow(shape, ai.feet, Math.atan2(dx, dz), now, sig ? sig.color : guard === 'iron' ? IRON_COLOR : BLOW_COLOR, guard, windup), ai.collider);   // AUDIT TACT D8: on the ground it marks; RVN5: a signature in its ember
   b.chain = chain; b.trackedAt = now;
   b.n = ai._blowN = ((ai._blowN ?? 0) + 1) & 255;   // AUDIT TELL O2: its serial on the wire (ai/puppetBlows.js `wn`)
   b.key = targetKey(ai);   // AUDIT TELL B8: whom it is aimed at - a foe that turns on another breaks it (the owner and the struck peer agree)
   if (shape === 'leap') { b.ahead = Math.min(BLOW.leap.range, Math.hypot(dx, dz)); b.jumpAt = b.land - BLOW.leap.arc; fitBlowToGround(b, ai.collider); }   // TELL6c: its point - my feet now, locked
   if (shape === 'aimed') b.ahead = Math.hypot(dx, dz);   // TELL6d: its line to me, locked
+  if (shape === 'pyre') b.ahead = Math.min(BLOW.pyre.range, Math.hypot(dx, dz));   // RVN5: its disc at my feet, locked
+  if (sig) {   // RVN5: its signature - x2.0, its own cooldown, a deeper WIND, called out (the pools say it once a stand)
+    b.sig = true; b.mult = sig.mult; b.windPitch = sig.windPitch;
+    const [lo, hi] = sig.cooldown;
+    s.sigReady = now + lo + (hi - lo) * Math.random();
+    ai._sigCall = now;
+  }
   const n = (s.windups ?? 0) + 1;
   s.windups = n;
-  if (chain === 0 && shape !== 'aimed' && !GAP_CLOSERS.includes(shape) && feints(blowFamily(ent.mobileType), ent, n - (s.lastFeint ?? -Infinity)) && Math.random() < feintChance(ent)) {   // RVN2: a Patient one's one in three
+  if (chain === 0 && !sig && shape !== 'aimed' && shape !== 'pyre' && !GAP_CLOSERS.includes(shape) && feints(blowFamily(ent.mobileType), ent, n - (s.lastFeint ?? -Infinity)) && Math.random() < feintChance(ent)) {   // RVN2: a Patient one's one in three
     b.feint = true; b.cutAt = b.start + TELL.FEINT_AT * (b.land - b.start); s.lastFeint = n;
   }
   s.blow = b;
   setLiveBlow(ai, b);
   s.state = 'windup';
-  const swings = shape !== 'aimed';   // TELL6d: a shot draws no held swing - its landing looses it (ai._blowShot)
+  const swings = shape !== 'aimed' && shape !== 'pyre';   // TELL6d: a shot draws no held swing - its landing looses it (ai._blowShot); RVN5: nor a pyre - its landing is a spell
   ai._blowHold = swings; ai._blowWind = swings;   // TELL2: the swing begins now and stands at its raised arm until the landing
 }
 /** RVN4 (bible/12-Enhanced-AI/Feud-Arc.md 15.2): ITS LAST STAND'S ROAR - an iron ring about its feet wound up for
@@ -613,6 +633,15 @@ function windupTurn(ai, s, now, skipped) {
     ai._blowLandedAt = now; s.landed = { blow: b0, at: now };   // AUDIT TELL O2: its landing, for the wire
     if (atMe) ai._blowShot = { yaw: b0.yaw, at: now, fired: false };   // the attack component draws, the sprite looses
     s.blowReady = cooled; s.state = 'wait'; s.blow = null;
+    return false;
+  }
+  if (now >= s.blow.land && b0.kind === 'pyre') {   // RVN5: its blast - a spell at my feet (the pool casts it), never a swing
+    ai._blowLandedAt = now; s.landed = { blow: b0, at: now };
+    const hit = !!tf && inBlow(b0, tf[0], tf[2]);
+    s.blow = null; s.blowReady = cooled;
+    if (atMe && hit) ai._blowPyre = { at: now, mult: b0.mult };
+    if (tf && !hit) { beginOverreach(ai, s, b0, now, b0.lateIn === true, atMe); return true; }   // TELL4: missed - it stands spent
+    s.state = 'wait';   // the aimed shot's law: its landing was its blow - no swing, no spell on top
     return false;
   }
   if (now >= s.blow.land) {
@@ -681,6 +710,13 @@ export function aimsShots(ai, ent) {
 registerBlowTakenMod('tell-aimed', (attacker, target, weapon, info) => (info?.aimed ? BLOW.aimed.mult : 1));
 /** The shapes begun out of reach. */
 export const GAP_CLOSERS = Object.freeze(['charge', 'leap']);
+/** RVN5 (16.1): does its signature's shape reach its target now - a gap-closer out of reach with its lane free, the pyre
+ *  in its range and in sight at me (its blast is cast at the local player alone), any other in reach? */
+export function signatureReaches(ai, ent, kind, dist, near, dx, dz) {
+  if (GAP_CLOSERS.includes(kind)) return !near && gapCloses(ai, kind, dist, dx, dz, ent);
+  if (kind === 'pyre') return dist <= BLOW.pyre.range && !!ai.inSight && targetKey(ai) === LOCAL;   // its blast is mine alone: a peer's or a foe's is RVN13's (off the wire)
+  return near;
+}
 /** May `kind` be begun from `dist` out along (dx, dz)? The charge: 5-12 m, its lane free of the collider and of cover
  *  (ai/cover.js) to the target and a metre past. TELL6c the leap: 3-9 m, a clear line to the target, ground under its
  *  point, never a flyer. A shape of reach: never out of it. */

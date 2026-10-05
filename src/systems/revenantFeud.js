@@ -15,6 +15,7 @@ import { weaponSkillUsed, WEAPON_MATERIALS } from '../characters/weapons.js';
 import { SKILLS } from './skills.js';
 import { setItemFields } from './itemTemplates.js';
 import { FEUD_CLASSES } from './feudLedger.js';
+import { possessive } from './revenantPersonality.js';   // RVN5: a signature's name
 
 // ── the numbers (section 27) ────────────────────────────────────────
 /** RVN1: a fight's leading source - this share of the damage dealt or more - is a scar. */
@@ -73,6 +74,19 @@ export const PHASE_TWO = Object.freeze({
 });
 /** RVN5: from this rank a revenant has a signature blow. */
 export const SIG_RANK = 2;
+/** RVN5 (section 16.1): its signature blow - x2.0, its own cooldown (s), iron from IRON_RANK, drawn in the revenant's
+ *  ember (between TELL's amber and its iron red; the hatch only where it IS iron - TELL3's word for "no stagger", and a
+ *  rank-2 signature staggers), its WIND deeper. The pyre's blast (a spell of its element): its Damage Health per DFU's GetMagnitude -
+ *  base PYRE_BASE, plus PYRE_PER a level - doubled with the rest. */
+export const SIG = Object.freeze({
+  MULT: 2.0,
+  COOLDOWN: Object.freeze([12, 18]),
+  IRON_RANK: 3,
+  COLOR: Object.freeze([0.95, 0.25, 0.04]),
+  WIND_PITCH: 0.7,
+  PYRE_BASE: Object.freeze([3, 6]),
+  PYRE_PER: 1,
+});
 /** RVN6: its band's size by rank (1 to 5). */
 export const RETINUE = Object.freeze([0, 0, 1, 2, 3, 3]);
 /** RVN8: the most it holds of what it took. */
@@ -267,6 +281,59 @@ export function signatureFamily(mobileType) {
   return null;
 }
 const SIG_POOL = Object.freeze({ blade: ['slam', 'charge'], beast: ['charge', 'leap'], brute: ['ring', 'charge'] });
+/** RVN5 (16.2): a signature's noun, by its shape (drawn on its id); the pyre's by its element (DFU's order). */
+export const SIG_NOUNS = Object.freeze({
+  slam: Object.freeze(['Skullsplitter', 'Gravefall', 'Anvil', 'Hammerfall', 'Bonebreaker', 'Mountainfall']),
+  sweep: Object.freeze(['Widowmaker', 'Red Harvest', 'Reaping', 'Crescent', 'Scythe-Wind']),
+  lunge: Object.freeze(['Heartseeker', "Viper's Kiss", 'Spite', 'Last Word']),
+  charge: Object.freeze(['Bloodrush', 'Stampede', "Bull's Folly", 'Avalanche']),
+  leap: Object.freeze(['Skyfall', "Raptor's Drop", 'Pounce of Ruin']),
+  ring: Object.freeze(['Earthbreaker', 'Quake', 'Ruin-Circle']),
+});
+export const PYRE_NOUNS = Object.freeze(['Pyre', 'Rimefall', 'Blight', 'Stormcall', 'Unmaking']);   // fire, frost, poison, shock, magic
+/** RVN5 (16.1): the element a pyre burns in - by the nature of the kinds that throw one (signatureFamily null): an
+ *  atronach's own and an imp's fire; a lich's frost; the vermin's, the bat's, the spriggan's, the dead's and the fish's
+ *  poison (Blight); a harpy's storm; any other's (a ghost, a wraith, a nymph, a shaman, a mage) magic. Decided here: by
+ *  its KIND, not its career's spells - DFU's spell lists index SPELLS.STD, data read at run time
+ *  (systems/enemySpells.js), and the signature's name, which the page draws with no body standing, must be the name its
+ *  stand calls out. */
+const PYRE_ELEMENT = new Map([
+  [M.FireAtronach, 0], [M.Imp, 0],
+  [M.IceAtronach, 1], [M.Lich, 1], [M.AncientLich, 1],
+  [M.Rat, 2], [M.GiantBat, 2], [M.Spriggan, 2], [M.Zombie, 2], [M.Slaughterfish, 2],
+  [M.Harpy, 3],
+]);
+export const pyreElement = (mobileType) => PYRE_ELEMENT.get(mobileType) ?? 4;
+/** RVN5 (16.2): its signature's noun, drawn on its id from its shape's bank (a pyre's by its element) - what its stand
+ *  calls out ("Grushnak readies Skullsplitter!"). */
+export function signatureNoun(r) {
+  if (!r?.sig) return null;
+  const bank = r.sig === 'pyre' ? [PYRE_NOUNS[pyreElement(r.mobileType)]] : SIG_NOUNS[r.sig];
+  if (!bank?.length) return null;
+  return bank[Math.min(bank.length - 1, Math.floor(idStream(r.id, 'signame')() * bank.length))];
+}
+/** RVN5 (16.2): its signature's name - "<given>'s <noun>". Derived, never stored. */
+export function signatureName(r) {
+  const noun = signatureNoun(r);
+  if (!noun) return null;
+  return r.given ? `${possessive(r.given)} ${noun}` : noun;   // a record has its given name; none, the noun alone
+}
+/** RVN5: its signature as its stand carries it (`entity.revenant.sigBlow` - the brain reads it; null under SIG_RANK or
+ *  with none): its shape, iron from IRON_RANK, x MULT, its cooldown, its colour and its WIND, its name and its noun. */
+export function signatureStamp(r) {
+  if (!r || (r.rank | 0) < SIG_RANK || !isSignature(r.sig)) return null;
+  return Object.freeze({ kind: r.sig, iron: (r.rank | 0) >= SIG.IRON_RANK, mult: SIG.MULT, cooldown: SIG.COOLDOWN, color: SIG.COLOR, windPitch: SIG.WIND_PITCH, name: signatureName(r), noun: signatureNoun(r), element: pyreElement(r.mobileType) });
+}
+/** RVN5 (16.1): THE PYRE'S BLAST - a strike spell of its element (Damage Health, DFU's GetMagnitude: SIG.PYRE_BASE plus
+ *  SIG.PYRE_PER a level, both x `mult`), cast at the player through the host's own door so the saving throw answers it. */
+export function pyreSpell(name, element, mult = SIG.MULT) {
+  const e = (type, subType, o = {}) => ({ type, subType, magnitudeBaseLow: 0, magnitudeBaseHigh: 0, magnitudeLevelBase: 0, magnitudeLevelHigh: 0, magnitudePerLevel: 1, durationBase: 0, durationMod: 0, durationPerLevel: 1, chanceBase: 100, chanceMod: 0, chancePerLevel: 1, ...o });
+  const m = mult > 0 ? mult : 1;
+  return Object.freeze({
+    name: name ?? 'Pyre', index: -1, element: Number.isInteger(element) ? element : 4, rangeType: 2, icon: 0,   // at range, at its target: never CasterOnly - the save answers it
+    effects: [e(4, 0, { magnitudeBaseLow: Math.round(SIG.PYRE_BASE[0] * m), magnitudeBaseHigh: Math.round(SIG.PYRE_BASE[1] * m), magnitudeLevelBase: Math.round(SIG.PYRE_PER * m), magnitudeLevelHigh: Math.round(SIG.PYRE_PER * m) }), { type: -1, subType: -1 }, { type: -1, subType: -1 }],
+  });
+}
 /** RVN5: its signature, drawn on its id from the shapes past its family's ordinary set; no family, the pyre. */
 export function drawSignature(id, mobileType) {
   const fam = signatureFamily(mobileType);

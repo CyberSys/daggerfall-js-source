@@ -74,8 +74,8 @@
   {
     "name": "TELL6c-mirror-at-feet",
     "file": "src/render/foeTelegraph.js",
-    "old": "    const r = BLOW.leap.r, d = Math.hypot(across, along - ahead);",
-    "new": "    const r = BLOW.leap.r, d = Math.hypot(across, along);",
+    "old": "    const r = BLOW[kind].r, d = Math.hypot(across, along - ahead);",
+    "new": "    const r = BLOW[kind].r, d = Math.hypot(across, along);",
     "tests": [
       "test/tell6c_leap.test.js"
     ]
@@ -83,7 +83,7 @@
   {
     "name": "TELL6c-up-unset",
     "file": "src/render/foeTelegraph.js",
-    "old": "      else if (b.kind === 'leap') gl.uniform4f(U.uP, P.r, b.ahead ?? 0, 0, 0);\n",
+    "old": "      else if (b.kind === 'leap' || b.kind === 'pyre') gl.uniform4f(U.uP, P.r, b.ahead ?? 0, 0, 0);   // RVN5: the pyre's disc at its point\n",
     "new": "",
     "tests": [
       "test/tell6c_leap.test.js"
@@ -92,8 +92,8 @@
   {
     "name": "TELL6c-quad-fixed",
     "file": "src/render/foeTelegraph.js",
-    "old": "ahead + (kind === 'leap' ? BLOW.leap.r : 0) :",
-    "new": "ahead + 0 :",
+    "old": "ahead + (kind === 'leap' ? BLOW.leap.r : kind === 'pyre' ? BLOW.pyre.r : 0) :",
+    "new": "ahead + (kind === 'pyre' ? BLOW.pyre.r : 0) :",
     "tests": [
       "test/tell6c_leap.test.js"
     ]
@@ -101,8 +101,8 @@
   {
     "name": "TELL6c-kind-id",
     "file": "src/render/foeTelegraph.js",
-    "old": "ring: 3, charge: 0, leap: 2, aimed: 0 });",
-    "new": "ring: 3, charge: 0, leap: 3, aimed: 0 });",
+    "old": "ring: 3, charge: 0, leap: 2, aimed: 0, pyre: 2 });",
+    "new": "ring: 3, charge: 0, leap: 3, aimed: 0, pyre: 2 });",
     "tests": [
       "test/tell6c_leap.test.js"
     ]

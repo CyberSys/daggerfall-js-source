@@ -13,7 +13,8 @@ import { revenantsFor, revenantOn, revenantPortrait, revenantRankNumeral, REVENA
 import { ownMinutes } from '../systems/worldTick.js';
 import { requestFittedIcon, fittedImg } from './textureCanvas.js';
 import { PERSONALITIES } from '../systems/revenantPersonality.js';   // REVENANT-VOICE: who each is
-import { WEAK_NAMES, WEAK_HINTS, weaknessKind, willMatters, LAST_STAND_RANK, lastStandHealth } from '../systems/revenantFeud.js';   // RVN3: its weakness, its will; RVN4: its last stand
+import { WEAK_NAMES, WEAK_HINTS, weaknessKind, willMatters, LAST_STAND_RANK, lastStandHealth, signatureStamp } from '../systems/revenantFeud.js';   // RVN3: its weakness, its will; RVN4: its last stand; RVN5: its signature
+import { tacticsSwitchOn } from '../ai/tactics.js';   // RVN5: a signature is a telegraph - the Enhanced AI switch's
 
 export const REVENANT_PAGE_SECTIONS = Object.freeze([['revenants', 'Revenants']]);
 export const REVENANT_PAGE_STYLE_ID = 'revenant-page-css';
@@ -126,6 +127,19 @@ export function weaknessWords(r) {
 export const willWords = (r) => (willMatters(r?.rank) ? 'Its will must be broken - strike its weakness, or stagger it twice.' : '');
 /** RVN4 (section 15): from rank 3, its last stand - once a fight it rises again from the edge of death. */
 export const lastStandWords = (r) => ((r?.rank | 0) >= LAST_STAND_RANK ? `Last stand: once a fight it rises again, at ${Math.round(lastStandHealth(r.rank) * 100)}% of its health.` : '');
+/** RVN5 (section 16; RVN12 completes the page): what its signature does, by its shape (a pyre's by its element). */
+const SIG_SHAPES = Object.freeze({
+  slam: 'an overhead slam', sweep: 'a sweeping arc', lunge: 'a lunge', charge: 'a charge', leap: 'a leap', ring: 'a ring about it',
+});
+const PYRE_WORDS = Object.freeze(['fire', 'frost', 'poison', 'shock', 'magic']);
+/** RVN5 (16.1): from rank 2, its signature - its name and what it is; with the Enhanced AI switch off it never winds one
+ *  up, and the page says so. */
+export function signatureWords(r, enhanced = tacticsSwitchOn()) {
+  const sig = signatureStamp(r);
+  if (!sig?.name) return '';
+  const what = sig.kind === 'pyre' ? `a blast of ${PYRE_WORDS[sig.element] ?? 'magic'} at your feet` : SIG_SHAPES[sig.kind];
+  return `Signature: ${sig.name}${what ? ` - ${what}` : ''}${sig.iron ? ', unstoppable' : ''}${enhanced ? '' : ' (with Enhanced AI)'}.`;
+}
 /** Its scars, newest first and each once - the ways it was hurt and what it learned (a deed's scar is the history's). */
 export function scarWords(r) {
   const seen = new Set();
@@ -192,6 +206,8 @@ function row(el, r, now, kindName) {
   if (will) text.append(el('span', 'rvn-will', will));
   const stand = fallen ? '' : lastStandWords(r);   // RVN4
   if (stand) text.append(el('span', 'rvn-will', stand));
+  const sig = fallen ? '' : signatureWords(r);   // RVN5
+  if (sig) text.append(el('span', 'rvn-will', sig));
   const hist = (r.history ?? []).slice(-5);
   if (hist.length) {
     const ul = el('ul', 'rvn-history');

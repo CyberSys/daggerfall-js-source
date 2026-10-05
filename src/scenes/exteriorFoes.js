@@ -24,7 +24,7 @@ import { EnemyAI, isBackFacing, withinYaw, MELEE_DISTANCE, foeFrameDt } from '..
 import { spaceFoes } from '../characters/foeSpacing.js';   // FOE-SPACING: the pack keeps apart
 import { blowConnects, blowScaled } from '../ai/foeBlows.js';   // TACT4
 import { foeGlint, tacticsNow, beginRoar } from '../ai/tactics.js';   // TELL2: a wind-up's glint (bible/12-Enhanced-AI/Feud-Arc.md section 4.2); TELL8: the record's wind-up on the foes' clock; RVN4: a last stand's roar
-import { lastStandGlint, lastStandSize } from '../systems/revenantFeud.js';   // RVN4: phase two's rim and size
+import { lastStandGlint, lastStandSize, pyreSpell } from '../systems/revenantFeud.js';   // RVN4: phase two's rim and size; RVN5: the pyre's blast
 import { runTargetMachine, boutGate, isPlayerTarget, isLocalPlayerTarget, isPeerTarget, resetAllyTeamOnPlayerAttack, PLAYER_TARGET, PEER_CAST_TARGET, targetAimPoint, enemyArrowOrigin, enemyTransformPoint, arrowAimDirection, wireRecipient, bumpAtkCount, staticTeamOf } from '../characters/enemyTargets.js';   // AUDIT WATCH1: the wire's spellings, one home   // WORLD6b-ii: the local player told from a peer, the peer told from a foe   // MT-ii   // ROAD-H H1/H1b: the ONE arrow loose point and the crouch dip
 import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_HEIGHT } from '../player/motor.js';   // CH3: the shared fall formula
 import { SOUND, hitSoundFor, ENEMY_HIT_VOLUME } from '../systems/soundClips.js';   // CH3: the FallDamage clip; WORLD6b: a peer's blow rung at the owner
@@ -88,7 +88,7 @@ import { CAMP_SIGHT_RADIUS, CAMP_ALERT_RADIUS, PACK_ALERT_RADIUS } from '../syst
 import { combatVisualsOn, foeDraw, markConcealedHit } from '../systems/combatVisuals.js';   // ECV1: what the enhanced skin draws for a concealed foe
 import { foeHitFlash, setBatchHitFlash, puppetHurtStep, setBatchGlint, prefersReducedMotion } from '../systems/hitFlash.js';   // TELL2: a wind-up's glint
 import { isOnlinePage } from '../systems/onlineLane.js';   // ELITE FOES: online play only
-import { revenantFleeStep, revenantUnbrokenEvent, revenantFlinch, revenantFleeHealth, revenantDeed, revenantSlain, applyRevenant, grantRevenantLoot, revenantById, revenantSay, revenantTauntEvent, revenantFleeEvent, revenantCorneredEvent, revenantEscapeEvent, revenantSlainEvent, REVENANT_TAUNT_DISTANCE } from '../systems/revenant.js';   // REVENANT: the foes that kill you or run, and come back
+import { revenantFleeStep, revenantUnbrokenEvent, revenantFlinch, revenantSignatureEvent, revenantFleeHealth, revenantDeed, revenantSlain, applyRevenant, grantRevenantLoot, revenantById, revenantSay, revenantTauntEvent, revenantFleeEvent, revenantCorneredEvent, revenantEscapeEvent, revenantSlainEvent, REVENANT_TAUNT_DISTANCE } from '../systems/revenant.js';   // REVENANT: the foes that kill you or run, and come back
 import { revenantMayYield, beginYield, yieldStep, slipEvent, kneelPose, beginExecution, executionStep, finishExecution, beginSpare, spareDone, fateDissolve, fateModel, dropFateHeld, revenantWillHolds, beginTearAway, revenantLastStandDue, beginLastStand, roarStep } from '../systems/revenantFate.js';   // REVENANT-FATE: beaten, it yields - kill it or spare it
 import { setBatchDissolve } from '../systems/dissolve.js';   // DISSOLVE: burnt away, or gathered through a portal
 import { createPortalSet } from './portalFx.js';   // COMPANION-PORTAL
@@ -254,7 +254,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   // (scenes/deepWatersPlayer.js waterLevelY), so an aquatic foe swims
   // only then, as it does under the mod. Absent: no water.
   waterLevelY = null, groundStands = null,   // FALL-HOLD: (x, z) => whether ground is BUILT under that column (the streaming host's heightAt) - a foe over none is held (EnemyAI.holdFrame); absent, nothing is
-  magicHooks = null,  // X3-slice: { explodeAt, fireMissile } - the host's spell release seams
+  magicHooks = null,  // X3-slice: { explodeAt, fireMissile } - the host's spell release seams; RVN5: and strikePlayer (a pyre's blast)
   // REVENANT-FATE: the host can open a yielded revenant's choice (its activation's door) - a host that cannot leaves
   // its revenants dying as ever; `dropLoot(items, feet)` where an executed one's pile is minted (the host's dropped-loot
   // pool), absent a body is left holding it; `shake(k)` the camera's kick
@@ -1160,6 +1160,24 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     const r = revenantDeed(playerEntity, f.entity, 'fled', { mobileType: f.mobileType, gender: f.gender, rec: f, archive: f.archive });
     if (r) revenantSay(slip ? slipEvent(playerEntity, r, { archive: f.archive }) : unbroken ? revenantUnbrokenEvent(r, playerEntity?.name, { archive: f.archive }) : revenantEscapeEvent(r, playerEntity?.name, { archive: f.archive }), say);   // REVENANT-FATE: a slip says the hesitation; RVN3: the unbroken its own
   }
+  /** RVN5 (Feud-Arc.md 16.1): ITS SIGNATURE - called out the first time a stand it winds it up (its card), and a pyre
+   *  that landed on me: a blast of its element through the host's own spell door (my saving throw answers it). */
+  function signatureFrame(f) {
+    const sb = f.entity?.revenant?.sigBlow;
+    if (f.ai._sigCall) {
+      f.ai._sigCall = null;
+      const r = sb && !f._sigCalled ? revenantById(f.entity.revenant.id) : null;
+      if (r) { f._sigCalled = true; revenantSay(revenantSignatureEvent(r, sb.noun, { archive: f.archive }), say); }
+    }
+    const p = f.ai._blowPyre;
+    if (p) {
+      f.ai._blowPyre = null;
+      if (sb?.kind === 'pyre') {
+        audio?.play3dId?.(SPELL_CAST_SOUND[sb.element] ?? SPELL_CAST_SOUND[4], [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], 1, { maxDistance: 16 });
+        magicHooks?.strikePlayer?.(pyreSpell(sb.name, sb.element, p.mult), f.entity.level ?? 1, f);
+      }
+    }
+  }
   /** RVN4 (Feud-Arc.md 15.2): ITS LAST STAND - back on its feet, roaring (no blow reaches it; the brain's iron ring, or
    *  its motor held), then phase two - its bark low, the camera's kick, its card. */
   function lastStand(f) {
@@ -1402,6 +1420,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         if (r) revenantSay(revenantTauntEvent(r, playerEntity?.name, { archive: f.archive }), say);   // REVENANT-CARD: its portrait and its words
       }
       if (f.roaring) roarStep(f);   // RVN4: its roar spent - blows reach it again
+      if (f.ai._sigCall || f.ai._blowPyre) signatureFrame(f);   // RVN5: its signature called, its pyre's blast
       // RVN3 (Feud-Arc.md 14.1): under half its health, its weakness unknown, it shies from it - once a stand
       if (f.entity.revenant?.id && !f._flinched) { const ev = revenantFlinch(f, { archive: f.archive }); if (ev) revenantSay(ev, say); }
       // MT-ii: the foe now aims at whatever it SELECTED - the player

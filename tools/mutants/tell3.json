@@ -160,8 +160,8 @@
   {
     "name": "TELL3-brain-never-iron",
     "file": "src/ai/tactics.js",
-    "old": "  const guard = blowGuard(shape, ENEMY_BASICS[ent.mobileType]?.weight ?? 0, ent);",
-    "new": "  const guard = 'poise';",
+    "old": "  const guard = sig?.iron ? 'iron' : blowGuard(shape, ENEMY_BASICS[ent.mobileType]?.weight ?? 0, ent);",
+    "new": "  const guard = sig?.iron ? 'iron' : 'poise';",
     "tests": [
       "test/tell3_iron.test.js"
     ]
@@ -178,8 +178,8 @@
   {
     "name": "TELL3-brain-weightless",
     "file": "src/ai/tactics.js",
-    "old": "  const guard = blowGuard(shape, ENEMY_BASICS[ent.mobileType]?.weight ?? 0, ent);",
-    "new": "  const guard = blowGuard(shape, 0, ent);",
+    "old": "  const guard = sig?.iron ? 'iron' : blowGuard(shape, ENEMY_BASICS[ent.mobileType]?.weight ?? 0, ent);",
+    "new": "  const guard = sig?.iron ? 'iron' : blowGuard(shape, 0, ent);",
     "tests": [
       "test/tell3_iron.test.js"
     ]
