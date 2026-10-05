@@ -188,10 +188,11 @@ export function puppetGapLanded(ai, now = tacticsNow()) {
 
 /** 10.4: my blow on a foe winding up, as its class for its owner's meter - `{ k, back, weak }` (K by its kind and
  *  weapon, the door's `opts`; from behind its facing, judged from `from`, my feet; its weakness, RVN3's) - or null when
- *  it is not winding up (no class to weigh). */
+ *  it is not winding up (no class to weigh). AUDIT FEUD: a blow of its WEAKNESS rides whether or not it winds up (no
+ *  facing to be behind) - its owner's reveal reads it (RVN13, Feud-Arc.md 25). */
 export function blowClassOf(ai, { kind = 'melee', weapon = null, claws = false, round = false } = {}, from = null, weak = false) {
   const s = ai?._tac, b = s?.state === 'windup' ? s.blow : null;
-  if (!b) return null;
+  if (!b) return weak ? { k: blowK({ kind, weapon, claws, round }), back: false, weak: true } : null;
   return { k: blowK({ kind, weapon, claws, round }), back: behind(b.origin, b.yaw, from), weak: !!weak };
 }
 

@@ -83,13 +83,12 @@
   {
     "name": "RVN9-day-twice",
     "file": "src/systems/revenant.js",
-    "old": "  if (day === _state.lastDay) return [];   // the encounter tick's every ask: nothing new (a clock wound back counts no day, and starts again from it)\n",
+    "old": "  if (day <= _state.lastDay) return [];   // the encounter tick's every ask: nothing new. AUDIT FEUD: nor a clock behind it (a reload of an older save) - the mirror counted those days; none counts twice\n",
     "new": "",
     "tests": [
-      "test/rvn9_fester.test.js"
-    ],
-    "equivalent": true,
-    "why": "a fast path for the encounter tick's every ask: without it the loop runs no day (it starts past the day) and the day is set to itself - nothing observable changes"
+      "test/rvn9_fester.test.js",
+      "test/auditfeud.test.js"
+    ]
   },
   {
     "name": "RVN9-no-cap",

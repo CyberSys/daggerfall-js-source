@@ -299,7 +299,7 @@
   {
     "name": "RVN11a-standing-a-win",
     "file": "src/systems/revenantCompanions.js",
-    "old": "  return !!(last.dead || !(last.entity?.health > 0));",
+    "old": "  return !(last.entity?.health > 0);",
     "new": "  return true;",
     "tests": [
       "test/rvn11a_loyalty.test.js"
@@ -308,8 +308,8 @@
   {
     "name": "RVN11a-won-twice",
     "file": "src/systems/revenantCompanions.js",
-    "old": "  rec._fightLast = null;\n  return !!(last.dead",
-    "new": "  return !!(last.dead",
+    "old": "  rec._fightLast = null;\n  return !(last.entity",
+    "new": "  return !(last.entity",
     "tests": [
       "test/rvn11a_loyalty.test.js"
     ]

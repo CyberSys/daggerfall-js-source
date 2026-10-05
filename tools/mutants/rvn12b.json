@@ -29,7 +29,7 @@
   {
     "name": "RVN12b-took-unnamed",
     "file": "src/ui/revenantPage.js",
-    "old": "  const names = (r?.took ?? []).map((it) => itemLongName(it)).filter(Boolean);",
+    "old": "  const names = (r?.took ?? []).map((it) => takenName(it)).filter(Boolean);",
     "new": "  const names = (r?.took ?? []).map(() => 'piece');",
     "tests": [
       "test/rvn12b_page.test.js"

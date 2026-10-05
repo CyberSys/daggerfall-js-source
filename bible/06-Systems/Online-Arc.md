@@ -4786,7 +4786,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7941` read, on one physical line:
+`src/scenes/worldModes.js:7946` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4801,7 +4801,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:6027`). With the property missing that call is a
+(`dungeonContext.js:6030`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -14280,6 +14280,12 @@ The Feud arc's revenants online (`bible/12-Enhanced-AI/Feud-Arc.md` section 25 a
 puppet stands with them, so a peer's roll against it sees what its owner's would (the owner applies none twice: a
 relayed blow is a final number). A peer's blow of the owner's revenant's weakness (the hit's `wc`) reveals it to the
 owner. The theft, loyalty, festering, the lair and the rumours stay the character's own.
+
+**AUDIT FEUD (2026-10-05)**: that reveal never fired - no sender set the class's weakness bit, and a class rode only
+while the puppet wound up. Now both senders pass it (`ai/puppetBlows.js blowClassOf`'s fourth argument, the blow's own
+weakness test on the puppet's wire-stood record), and a blow of its weakness carries its class winding up or not (no
+facing, so never from behind) - the owner's reveal and its poise meter read it. No new field: the relay is unchanged.
+An heir's stream (a foe adopted after its owner left, a room's new authority) keeps writing `ad`, `wq` and `p2`.
 
 ## TELL8 - a wind-up on the foe stream (2026-10-04)
 

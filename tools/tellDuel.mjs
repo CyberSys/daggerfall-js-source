@@ -6,7 +6,7 @@
 // and the real swing tempo (characters/weaponStates.js, the weapon in the hand through combat/swingLaw.js) - against a
 // scripted player who stands at the foe's front and either TRADES blows or DODGES. Every fight seeded.
 //
-//     node tools/tellDuel.mjs [--fights 1000] [--seconds 30] [--json]
+//     node tools/tellDuel.mjs [--fights 1000] [--seconds 30] [--json] [--tell | --feud]
 //
 // It measures the TELL targets the arc names:
 //   LIGHT    a dagger, solo, at a medium foe's front breaks 15% of the wind-ups its blows land on or fewer;
@@ -16,11 +16,14 @@
 //            long weapon, steel and daedric, from the reference player and from the strongest one, against the poise of
 //            the weakest giant DFU rolls);
 //   FAIR     no telegraphed blow lands on a player who is out of its shape from 70% of its wind-up on.
-// The revenant's targets (dodging pays, the will, the ranks) are RVN's, measured when it lands. A class foe needs its
-// CLASS*.CFG (ARENA2's data, not in the repository), so the class Warrior's cells are measured where the game's data is.
-// Exit 1 when a target is missed.
+// AUDIT FEUD: and RVN's (revenantFight, below) - an Orc revenant fought to its end, trading or dodging perfectly:
+//   DODGE PAYS  a perfect dodger brings a rank-3 revenant to its end in 75% of a trader's time or less;
+//   THE WILL    at rank 3, with its weakness it kneels 90% or more; without it but dodging, 70% or more; trading, 20% or less;
+//   THE RANKS   a rank-5 takes about 2.5 times a rank-1's time (2 to 3).
+// `--tell` measures TELL's alone, `--feud` RVN's alone. A class foe needs its CLASS*.CFG (ARENA2's data, not in the
+// repository), so the class Warrior's cells are measured where the game's data is. Exit 1 when a target is missed.
 import { MOD_SETTINGS, setModSetting, _resetModSettings } from '../src/systems/modSettings.js';
-import { setPref, _resetForTests } from '../src/systems/uiPrefs.js';
+import { setPref, getPref, _resetForTests } from '../src/systems/uiPrefs.js';
 import { setTacticsClock, resetTactics, noteLocalPlayer, windupStruck, LOCAL_TARGET } from '../src/ai/tactics.js';
 import { resetBlows, inBlow, BLOW_TIER_LEVEL } from '../src/ai/foeBlows.js';
 import { blowK, blowWeight, behind, poiseOf, weightClass } from '../src/ai/tells.js';
@@ -38,6 +41,7 @@ import { getMeleeWeaponAnimTime, MELEE_NUM_FRAMES, HIT_FRAME_MELEE } from '../sr
 import '../src/combat/swingLaw.js';   // registers the reader: the swing reads the weapon in the hand
 import { weaponTypeForItem } from '../src/combat/fpsWeapon.js';
 import { EQUIP_SLOTS } from '../src/systems/equip.js';
+import { getSeed, setSeed } from '../src/formats/dfRandom.js';   // AUDIT FEUD: DFU's shared stream (the hit roll, the attack's reflex gate) - each fight's own seed
 import { isMain } from './lib/isMain.mjs';   // AUDIT 68: the one "am I the program" test
 
 // DFU's own numbers, as the suites pin them: every vendored mod off (test/modsOff.js's three lines)
@@ -85,8 +89,9 @@ const METAL = Object.freeze({ 1: 'steel', 2: 'silver', 5: 'mithril' });
  *  reach) or 'dodge' (no swing; out of each wind-up's shape by FAIR_TO_70 of it, then still). Answers its counts. */
 export function fight({ type, weapon, elite = false, mode = 'trade', seconds = 30, seed = 1 }) {
   const rand = seeded(seed);
-  const was = Math.random;
+  const was = Math.random, wasDf = getSeed();
   Math.random = rand;
+  setSeed(seed);   // AUDIT FEUD: DFU's stream too - a fight was the order it ran in, not its seed
   let T = 0;
   setTacticsClock(() => T);
   resetTactics(); resetBlows();
@@ -143,6 +148,7 @@ export function fight({ type, weapon, elite = false, mode = 'trade', seconds = 3
     return out;
   } finally {
     Math.random = was;
+    setSeed(wasDf);
     setTacticsClock(null);
   }
 }
@@ -178,9 +184,9 @@ export function massive(rolls = 20000) {
         const pl = makePlayer(weapon, o);
         pl.item = createWeapon(WEAPONS[weapon], material, () => 0.5); pl.entity.items = [pl.item];
         const rand = seeded(rolls + weapon.length * 31 + material);
-        const was = Math.random; Math.random = rand;
+        const was = Math.random, wasDf = getSeed(); Math.random = rand; setSeed(rolls + weapon.length * 31 + material);
         let max = 0;
-        try { for (let i = 0; i < rolls; i++) max = Math.max(max, calculateAttackDamage(pl.entity, { ...g.entity }, { weapon: pl.item })); } finally { Math.random = was; }
+        try { for (let i = 0; i < rolls; i++) max = Math.max(max, calculateAttackDamage(pl.entity, { ...g.entity }, { weapon: pl.item })); } finally { Math.random = was; setSeed(wasDf); }
         const v = blowWeight(max, blowK({ kind: 'melee', weapon: pl.item }));
         rows.push({ weapon, metal, who, maxDamage: max, maxV: +v.toFixed(2), poise: +P.toFixed(2), share: +(v / P).toFixed(3) });
       }
@@ -217,12 +223,160 @@ export function measureAll({ fights = 1000, seconds = 30 } = {}) {
   return { fights, seconds, trade, fair, massive: m, verdict };
 }
 
+// ── AUDIT FEUD: RVN's targets (section 28) ──────────────────────────────────────────────────────────────────────────
+// A revenant at a rank - its record stood on the real foe (systems/revenant.js applyRevenant: its rank's health and
+// blows, its weakness's edge, its signature, its stamp the brain reads), its fight's ledger the real one (the strike
+// listener's weak blows, the poise door's staggers - scenes/hostCombat.js windupDoor), its down the pools' own law
+// (systems/revenantFate.js: its last stand from rank 3 - the roar no blow reaches, phase two - then its will: broken, it
+// kneels; unbroken, it tears away). The player trades blows, or dodges PERFECTLY: in the shape until the brain's late
+// sample (TELL4's TELL_LATE), out of it before the landing - then the overreach it earned, x1.3 and its first blow a
+// stagger. Both swing whenever the foe is in reach; an iron slam, ring or charge that lands knocks the trader down
+// (BLOW_EFFECT.KNOCKDOWN_S, no swing). Never modelled: a flight (the chase is not the duel), the player's own health.
+globalThis.localStorage ??= (() => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { m.set(k, String(v)); }, removeItem: (k) => { m.delete(k); }, clear: () => m.clear(), key: (i) => [...m.keys()][i] ?? null, get length() { return m.size; } }; })();
+const RV = await import('../src/systems/revenant.js');
+const FATE = await import('../src/systems/revenantFate.js');
+const { windupDoor } = await import('../src/scenes/hostCombat.js');
+const { beginRoar } = await import('../src/ai/tactics.js');
+const { TELL } = await import('../src/ai/tells.js');
+const { BLOW_EFFECT, blowEffectOf } = await import('../src/systems/blowEffects.js');
+const { weaponFeudClass } = await import('../src/systems/revenantFeud.js');
+const { walkSpeed } = await import('../src/player/motor.js');
+
+/** Section 28's RVN targets: the dodger's time to its end at most this share of the trader's; the will's kneels; a
+ *  rank-5's time over a rank-1's in this band ("about 2.5 times"). */
+export const FEUD_TARGETS = Object.freeze({ DODGE_PAYS: 0.75, KNEEL_WEAK: 0.9, KNEEL_DODGE: 0.7, KNEEL_TRADE_MAX: 0.2, RANK_RATIO: Object.freeze([2, 3]) });
+const WALK = walkSpeed(50);   // player/motor.js: DFU's walk at Speed 50 (4.43 m/s)
+const CLOSE = 0.25;           // the dodger and the trader close to this inside their reach
+const FEUD_ME = Object.freeze({ isPlayer: true, name: 'Duelist', characterId: 'char-duel', level: 10, items: [] });
+
+/** One revenant fight to its end (or `seconds`): the player 4 m off its front; `weak` - the player's weapon is of its
+ *  weakness (else its weakness is fire, which a blade never strikes). Answers how it ended ('knelt', 'tore' - its will
+ *  held - or 'time'), when (s), and its counts. */
+export function revenantFight({ type = M.Orc, weapon = 'Longsword', rank = 3, mode = 'trade', weak = false, seconds = 240, seed = 1 } = {}) {
+  const rand = seeded(seed);
+  const was = Math.random, wasOn = getPref('lootRarity'), wasDf = getSeed();
+  Math.random = rand;
+  setSeed(seed);   // DFU's stream, the fight's own
+  setPref('lootRarity', true);   // the revenants' switch - for this fight alone (TELL's cells stand as they were measured)
+  let T = 0;
+  setTacticsClock(() => T);
+  resetTactics(); resetBlows();
+  RV._resetRevenantForTests(); globalThis.localStorage.clear();
+  try {
+    const foe = makeFoe(type);
+    const ent = foe.entity;
+    ent.level = Math.max(ent.level | 0, RV.REVENANT_MIN_LEVEL);
+    const player = makePlayer(weapon, { material: metalFor(type) });
+    const r = RV.revenantDeed(FEUD_ME, { mobileType: type, level: ent.level, champion: 'mighty', health: 1, maxHealth: 50, team: 'Monster' }, 'fled', { mobileType: type, rolls: () => 0, now: 1 });
+    Object.assign(r, { rank, learned: [], wrath: 0, weak: weak ? weaponFeudClass(player.item).cls : 'fire', out: false });
+    RV.applyRevenant(ent, r, { now: 2 });
+    const ai = new EnemyAI(new Collider(() => 0), [0, 0, 4], Math.PI, { vitals: () => ent });
+    const atk = new EnemyAttack({ liveSpeed: () => 50, playerLevel: () => 10, reflexes: 2 });
+    const f = { entity: ent, ai, mobileType: type, gender: 'male', dead: false };
+    const p = [0, 0, 0];
+    const out = { end: 'time', t: seconds, staggers: 0, weak: 0, stood: false, windups: 0, overreach: 0, hitsOnMe: 0, perfect: 0, swings: 0 };
+    let lastState = null;
+    let blow = null, downUntil = -Infinity, guardUntil = -Infinity;
+    let swingT = rand() * player.swing, struck = false;
+    const done = (end) => { const l = ent._feud ?? {}; Object.assign(out, { end, t: +T.toFixed(3), staggers: l.staggers | 0, weak: l.weak | 0, perfect: l.perfect | 0 }); return out; };
+    for (let step = 0; step < Math.round(seconds / DT); step++) {
+      T += DT;
+      const fx = ai.feet[0] - p[0], fz = ai.feet[2] - p[2];
+      noteLocalPlayer(p, [fx, 0, fz]);
+      FATE.roarStep(f, T * 1000);
+      ai.update(DT, p);
+      atk.update(DT, ai, p);
+      const s = ai._tac;
+      const b = s?.state === 'windup' && s.key === LOCAL_TARGET ? s.blow : null;
+      if (b && b !== blow) { blow = b; out.windups++; }
+      if (s?.state === 'overreach' && lastState !== 'overreach') out.overreach++;
+      lastState = s?.state ?? null;
+      // the perfect dodge: inside at the brain's late sample (its first 16 Hz turn inside TELL_LATE of the landing - by
+      // TELL_LATE less a turn), out before the landing: half TELL_LATE before it
+      if (mode === 'dodge' && blow && T >= blow.land - TELL.TELL_LATE / 2 && T < blow.land && inBlow(blow, p[0], p[2])) stepOut(blow, p);
+      if (ai._blowFx) {   // a landing that hit me (TELL6e)
+        out.hitsOnMe++;
+        if (blowEffectOf(ai._blowFx.kind, ai._blowFx.iron).knockdown && T >= guardUntil) { downUntil = T + BLOW_EFFECT.KNOCKDOWN_S; guardUntil = downUntil + BLOW_EFFECT.KNOCKDOWN_GUARD; }
+        ai._blowFx = null;
+      }
+      // back into reach at a walk (DFU's at Speed 50) - the dodger once the wind-up it left has landed
+      const d = Math.hypot(fx, fz);
+      if (d > REACH - CLOSE && T >= downUntil && !(mode === 'dodge' && blow && T < blow.land)) {
+        const k = Math.min(WALK * DT, d - (REACH - CLOSE)) / d;
+        p[0] += fx * k; p[2] += fz * k;
+      }
+      swingT += DT;
+      if (swingT >= player.swing) { swingT -= player.swing; struck = false; out.swings++; }
+      if (struck || swingT < player.hitAt || T < downUntil || Math.hypot(ai.feet[0] - p[0], ai.feet[2] - p[2]) > REACH) continue;
+      struck = true;
+      if (FATE.fateHeld(f) || f.roaring) continue;   // the pools' door: no blow reaches it
+      const dmg = calculateAttackDamage(player.entity, ent, { weapon: player.item });
+      if (!(dmg > 0)) continue;
+      ent.health -= dmg;
+      if (ent.health <= 0) {
+        if (FATE.revenantLastStandDue(f)) { FATE.beginLastStand(FEUD_ME, f, { now: T * 1000, clock: T, roar: (sec) => beginRoar(ai, ent, sec), rolls: rand }); out.stood = true; continue; }
+        return done(FATE.revenantWillHolds(f) ? 'tore' : 'knelt');
+      }
+      if (s?.state === 'windup' || s?.state === 'overreach') {
+        windupDoor(f, dmg, { kind: 'melee', weapon: player.item, from: p, weight: foe.weight });
+      }
+    }
+    return done('time');
+  } finally {
+    Math.random = was;
+    setSeed(wasDf);
+    setPref('lootRarity', wasOn);
+    setTacticsClock(null);
+  }
+}
+
+/** A revenant cell: `fights` fights - how they ended, and the mean and median time to the end. */
+export function revenantCell(opts, fights) {
+  const rows = [];
+  for (let i = 0; i < fights; i++) rows.push(revenantFight({ ...opts, seed: 0xfe0d + i * 7919 }));
+  const ts = rows.map((x) => x.t).sort((a, b) => a - b);
+  const n = (end) => rows.filter((x) => x.end === end).length;
+  return {
+    fights, knelt: n('knelt'), tore: n('tore'), time: n('time'),
+    kneel: +(n('knelt') / fights).toFixed(3),
+    mean: +(ts.reduce((a, x) => a + x, 0) / fights).toFixed(2), median: ts[Math.floor(fights / 2)],
+    stood: rows.filter((x) => x.stood).length, staggers: +(rows.reduce((a, x) => a + x.staggers, 0) / fights).toFixed(2),
+    perfect: +(rows.reduce((a, x) => a + x.perfect, 0) / fights).toFixed(2), hitsOnMe: +(rows.reduce((a, x) => a + x.hitsOnMe, 0) / fights).toFixed(2),
+    windups: +(rows.reduce((a, x) => a + x.windups, 0) / fights).toFixed(2), overreach: +(rows.reduce((a, x) => a + x.overreach, 0) / fights).toFixed(2),
+    twoStaggers: +(rows.filter((x) => x.staggers >= 2).length / fights).toFixed(3),
+  };
+}
+
+export function measureFeud({ fights = 1000, weapons = ['Dagger', 'Longsword', 'Warhammer'] } = {}) {
+  const duel = [];
+  for (const weapon of weapons) {
+    for (const mode of ['trade', 'dodge']) duel.push({ weapon, mode, weak: false, rank: 3, ...revenantCell({ weapon, mode, rank: 3 }, fights) });
+    duel.push({ weapon, mode: 'trade', weak: true, rank: 3, ...revenantCell({ weapon, mode: 'trade', rank: 3, weak: true }, fights) });
+  }
+  const ranks = [];
+  for (const mode of ['trade', 'dodge']) for (let rank = 1; rank <= 5; rank++) ranks.push({ weapon: 'Longsword', mode, rank, ...revenantCell({ weapon: 'Longsword', mode, rank }, fights) });
+  const at = (weapon, mode, weak) => duel.find((x) => x.weapon === weapon && x.mode === mode && x.weak === weak);
+  const T = FEUD_TARGETS;
+  const ratio = (mode) => +(ranks.find((x) => x.mode === mode && x.rank === 5).mean / ranks.find((x) => x.mode === mode && x.rank === 1).mean).toFixed(2);
+  const ref = 'Longsword';
+  const verdict = {
+    DODGE_PAYS: { share: +(at(ref, 'dodge', false).mean / at(ref, 'trade', false).mean).toFixed(3), held: at(ref, 'dodge', false).mean <= T.DODGE_PAYS * at(ref, 'trade', false).mean },
+    WILL_WEAK: { kneel: at(ref, 'trade', true).kneel, held: at(ref, 'trade', true).kneel >= T.KNEEL_WEAK },
+    WILL_DODGE: { kneel: at(ref, 'dodge', false).kneel, held: at(ref, 'dodge', false).kneel >= T.KNEEL_DODGE },
+    WILL_TRADE: { kneel: at(ref, 'trade', false).kneel, held: at(ref, 'trade', false).kneel <= T.KNEEL_TRADE_MAX },
+    RANKS: { trade: ratio('trade'), dodge: ratio('dodge'), held: ['trade', 'dodge'].every((m) => ratio(m) >= T.RANK_RATIO[0] && ratio(m) <= T.RANK_RATIO[1]) },
+  };
+  return { fights, duel, ranks, verdict };
+}
+
 if (isMain(import.meta.url)) {
   const arg = (n, d) => (process.argv.includes(n) ? Number(process.argv[process.argv.indexOf(n) + 1]) : d);
   const t0 = Date.now();
-  const r = measureAll({ fights: arg('--fights', 1000), seconds: arg('--seconds', 30) });
-  if (process.argv.includes('--json')) console.log(JSON.stringify(r, null, 2));
-  else {
+  const onlyFeud = process.argv.includes('--feud'), onlyTell = process.argv.includes('--tell');
+  const r = onlyFeud ? null : measureAll({ fights: arg('--fights', 1000), seconds: arg('--seconds', 30) });
+  const fr = onlyTell ? null : measureFeud({ fights: arg('--fights', 1000) });
+  if (process.argv.includes('--json')) console.log(JSON.stringify({ tell: r, feud: fr }, null, 2));
+  else if (r) {
     console.log(`THE DUEL HARNESS - ${r.fights} fights a cell, ${r.seconds} s each (${((Date.now() - t0) / 1000).toFixed(0)} s)\n`);
     console.log('TRADING BLOWS at the foe\'s front: wind-ups at me (poise), those my blows landed on, broken - of those, and of all; iron apart');
     const pct = (v) => (v == null ? '    -' : `${(v * 100).toFixed(1).padStart(5)}%`);
@@ -234,5 +388,14 @@ if (isMain(import.meta.url)) {
     console.log('\nTARGETS');
     for (const [k, v] of Object.entries(r.verdict)) console.log(`  ${v.held ? 'held  ' : 'MISSED'} ${k} ${JSON.stringify(v)}`);
   }
-  process.exit(Object.values(r.verdict).every((v) => v.held) ? 0 : 1);
+  if (fr && !process.argv.includes('--json')) {
+    const pct = (v) => `${(v * 100).toFixed(1).padStart(5)}%`;
+    console.log(`\nTHE REVENANT (an Orc revenant, ${fr.fights} fights a cell, to its end): how it ended, the time to the end, its staggers and my perfect dodges a fight`);
+    for (const x of fr.duel) console.log(`  ${x.weapon.padEnd(10)} rank ${x.rank} ${x.mode.padEnd(6)} ${x.weak ? 'its weakness' : 'plain       '}  knelt ${pct(x.kneel)}  mean ${String(x.mean).padStart(6)} s  median ${String(x.median).padStart(7)} s  staggers ${x.staggers}  two+ ${pct(x.twoStaggers)}  perfect ${x.perfect}  wind-ups ${x.windups}  blows on me ${x.hitsOnMe}`);
+    console.log('\nTHE RANKS (a Longsword): the time to the end');
+    for (const x of fr.ranks) console.log(`  rank ${x.rank} ${x.mode.padEnd(6)} knelt ${pct(x.kneel)}  mean ${String(x.mean).padStart(6)} s  median ${String(x.median).padStart(7)} s  stood ${x.stood}`);
+    console.log('\nRVN TARGETS');
+    for (const [k, v] of Object.entries(fr.verdict)) console.log(`  ${v.held ? 'held  ' : 'MISSED'} ${k} ${JSON.stringify(v)}`);
+  }
+  process.exit([...Object.values(r?.verdict ?? {}), ...Object.values(fr?.verdict ?? {})].every((v) => v.held) ? 0 : 1);
 }

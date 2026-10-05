@@ -182,8 +182,8 @@
   {
     "name": "RVN8-line-moved",
     "file": "src/systems/revenant.js",
-    "old": "line: `${r.name} took your ${itemLongName(item)}.` };",
-    "new": "line: `${r.given} took your ${itemLongName(item)}.` };",
+    "old": "line: `${r.name} took your ${takenName(item)}.` };",
+    "new": "line: `${r.given} took your ${takenName(item)}.` };",
     "tests": [
       "test/rvn8_took.test.js"
     ]

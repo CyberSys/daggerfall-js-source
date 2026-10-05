@@ -9,13 +9,12 @@
 // Dressed by the stone-and-brass kit's roles (ui/enhancedFrame.js FRAME_ROLES: a row a tile, the portrait a well, the
 // rank a chip) - this sheet writes geometry and the words' colours alone, as the stats card's does.
 
-import { revenantsFor, revenantOn, revenantPortrait, revenantRankNumeral, REVENANT_MAX } from '../systems/revenant.js';
+import { revenantsFor, revenantOn, revenantPortrait, revenantRankNumeral, REVENANT_MAX, takenName } from '../systems/revenant.js';
 import { ownMinutes } from '../systems/worldTick.js';
 import { requestFittedIcon, fittedImg } from './textureCanvas.js';
 import { PERSONALITIES } from '../systems/revenantPersonality.js';   // REVENANT-VOICE: who each is
 import { WEAK_NAMES, WEAK_HINTS, weaknessKind, willMatters, LAST_STAND_RANK, lastStandHealth, signatureStamp, bandMembers, bandName, WRATH_MAX, loyaltyLabel } from '../systems/revenantFeud.js';   // RVN3: its weakness, its will; RVN4: its last stand; RVN5: its signature; RVN6: its band
-import { tacticsSwitchOn } from '../ai/tactics.js';
-import { itemLongName } from '../systems/itemInfo.js';   // RVN12b: the pieces it took, by the names the pack shows   // RVN5: a signature is a telegraph - the Enhanced AI switch's
+import { tacticsSwitchOn } from '../ai/tactics.js';   // RVN5: a signature is a telegraph - the Enhanced AI switch's
 
 export const REVENANT_PAGE_SECTIONS = Object.freeze([['revenants', 'Revenants']]);
 export const REVENANT_PAGE_STYLE_ID = 'revenant-page-css';
@@ -137,7 +136,7 @@ export function learnedWords(r) {
 export const learnedChips = (r) => (r?.learned ?? []).filter((a) => ADAPT_NAMES[a]).map((a) => ({ id: a, name: ADAPT_NAMES[a], effect: ADAPT_EFFECTS[a] ?? '', title: `${ADAPT_NAMES[a]} - ${ADAPT_EFFECTS[a] ?? ''}` }));
 /** RVN12b (24.1): RVN8's theft - the pieces it carries of mine. */
 export function tookWords(r) {
-  const names = (r?.took ?? []).map((it) => itemLongName(it)).filter(Boolean);
+  const names = (r?.took ?? []).map((it) => takenName(it)).filter(Boolean);   // RVN12b: the pieces it took, by the names the pack shows (AUDIT FEUD: their article gone after "your")
   if (!names.length) return '';
   return `Took: your ${names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0]} - take ${names.length > 1 ? 'them' : 'it'} back from it.`;
 }

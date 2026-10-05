@@ -65,8 +65,8 @@
   {
     "name": "RVN12a-cold-line-emptied",
     "file": "src/systems/revenantPersonality.js",
-    "old": "    learned: ['Your {how} is known to me now.', 'I have adapted to your {how}, {p}.'],",
-    "new": "    learned: ['Your {how} is known to me now.'],",
+    "old": "    learned: ['I have measured your {how}. Nothing remains.', 'I have adapted to your {how}, {p}.'],",
+    "new": "    learned: ['I have measured your {how}. Nothing remains.'],",
     "tests": [
       "test/rvn12a_words.test.js"
     ]
@@ -146,8 +146,8 @@
   {
     "name": "RVN12a-stole-first-piece",
     "file": "src/systems/revenant.js",
-    "old": "vars: { item: itemLongName(r.took[r.took.length - 1]) } };",
-    "new": "vars: { item: itemLongName(r.took[0]) } };",
+    "old": "vars: { item: takenName(r.took[r.took.length - 1]) } };",
+    "new": "vars: { item: takenName(r.took[0]) } };",
     "tests": [
       "test/rvn12a_words.test.js"
     ]

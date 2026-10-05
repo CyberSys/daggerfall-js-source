@@ -164,7 +164,7 @@
   {
     "name": "RVN10-escape-counted",
     "file": "src/systems/revenant.js",
-    "old": "else { if (deedName === 'fled') r.escapes++; r.notice = null; }",
+    "old": "else if (deedName === 'fled') { r.escapes++; r.notice = null; }",
     "new": "else { r.escapes++; r.notice = null; }",
     "tests": [
       "test/rvn10_deeds.test.js"
@@ -254,8 +254,8 @@
   {
     "name": "RVN10-felled-dead-striker",
     "file": "src/systems/revenant.js",
-    "old": "  if (!striker?.entity || striker.dead || !(striker.entity.health > 0) || !name) return null;",
-    "new": "  if (!striker?.entity || !(striker.entity.health > 0) || !name) return null;",
+    "old": "  if (!striker?.entity || striker.dead || !(striker.entity.health > 0) || striker.yielded || striker.executing || striker.sparing || striker.leaving || !name) return null;",
+    "new": "  if (!striker?.entity || !(striker.entity.health > 0) || striker.yielded || striker.executing || striker.sparing || striker.leaving || !name) return null;",
     "tests": [
       "test/rvn10_deeds.test.js"
     ]
@@ -263,8 +263,8 @@
   {
     "name": "RVN10-felled-down-striker",
     "file": "src/systems/revenant.js",
-    "old": "  if (!striker?.entity || striker.dead || !(striker.entity.health > 0) || !name) return null;",
-    "new": "  if (!striker?.entity || striker.dead || !name) return null;",
+    "old": "  if (!striker?.entity || striker.dead || !(striker.entity.health > 0) || striker.yielded || striker.executing || striker.sparing || striker.leaving || !name) return null;",
+    "new": "  if (!striker?.entity || striker.dead || striker.yielded || striker.executing || striker.sparing || striker.leaving || !name) return null;",
     "tests": [
       "test/rvn10_deeds.test.js"
     ]
@@ -272,8 +272,8 @@
   {
     "name": "RVN10-felled-unnamed",
     "file": "src/systems/revenant.js",
-    "old": "  if (!striker?.entity || striker.dead || !(striker.entity.health > 0) || !name) return null;",
-    "new": "  if (!striker?.entity || striker.dead || !(striker.entity.health > 0)) return null;",
+    "old": "  if (!striker?.entity || striker.dead || !(striker.entity.health > 0) || striker.yielded || striker.executing || striker.sparing || striker.leaving || !name) return null;",
+    "new": "  if (!striker?.entity || striker.dead || !(striker.entity.health > 0) || striker.yielded || striker.executing || striker.sparing || striker.leaving) return null;",
     "tests": [
       "test/rvn10_deeds.test.js"
     ]
@@ -290,8 +290,8 @@
   {
     "name": "RVN10-routable-dead",
     "file": "src/systems/revenant.js",
-    "old": "  if (!f?.entity || f.dead || f._routed || !(f.entity.health > 0) || f.yielded || f.fleeing) return false;",
-    "new": "  if (!f?.entity || f._routed || !(f.entity.health > 0) || f.yielded || f.fleeing) return false;",
+    "old": "  if (!f?.entity || f.dead || f._routed || !(f.entity.health > 0) || f.yielded || f.executing || f.sparing || f.leaving || f.fleeing) return false;",
+    "new": "  if (!f?.entity || f._routed || !(f.entity.health > 0) || f.yielded || f.executing || f.sparing || f.leaving || f.fleeing) return false;",
     "tests": [
       "test/rvn10_deeds.test.js"
     ]
@@ -299,8 +299,8 @@
   {
     "name": "RVN10-routable-twice",
     "file": "src/systems/revenant.js",
-    "old": "  if (!f?.entity || f.dead || f._routed || !(f.entity.health > 0) || f.yielded || f.fleeing) return false;",
-    "new": "  if (!f?.entity || f.dead || !(f.entity.health > 0) || f.yielded || f.fleeing) return false;",
+    "old": "  if (!f?.entity || f.dead || f._routed || !(f.entity.health > 0) || f.yielded || f.executing || f.sparing || f.leaving || f.fleeing) return false;",
+    "new": "  if (!f?.entity || f.dead || !(f.entity.health > 0) || f.yielded || f.executing || f.sparing || f.leaving || f.fleeing) return false;",
     "tests": [
       "test/rvn10_deeds.test.js"
     ]
@@ -308,8 +308,8 @@
   {
     "name": "RVN10-routable-down",
     "file": "src/systems/revenant.js",
-    "old": "  if (!f?.entity || f.dead || f._routed || !(f.entity.health > 0) || f.yielded || f.fleeing) return false;",
-    "new": "  if (!f?.entity || f.dead || f._routed || f.yielded || f.fleeing) return false;",
+    "old": "  if (!f?.entity || f.dead || f._routed || !(f.entity.health > 0) || f.yielded || f.executing || f.sparing || f.leaving || f.fleeing) return false;",
+    "new": "  if (!f?.entity || f.dead || f._routed || f.yielded || f.executing || f.sparing || f.leaving || f.fleeing) return false;",
     "tests": [
       "test/rvn10_deeds.test.js"
     ]
@@ -317,8 +317,8 @@
   {
     "name": "RVN10-routable-kneeling",
     "file": "src/systems/revenant.js",
-    "old": "  if (!f?.entity || f.dead || f._routed || !(f.entity.health > 0) || f.yielded || f.fleeing) return false;",
-    "new": "  if (!f?.entity || f.dead || f._routed || !(f.entity.health > 0) || f.fleeing) return false;",
+    "old": "  if (!f?.entity || f.dead || f._routed || !(f.entity.health > 0) || f.yielded || f.executing || f.sparing || f.leaving || f.fleeing) return false;",
+    "new": "  if (!f?.entity || f.dead || f._routed || !(f.entity.health > 0) || f.executing || f.sparing || f.leaving || f.fleeing) return false;",
     "tests": [
       "test/rvn10_deeds.test.js"
     ]
@@ -326,8 +326,8 @@
   {
     "name": "RVN10-routable-running",
     "file": "src/systems/revenant.js",
-    "old": "  if (!f?.entity || f.dead || f._routed || !(f.entity.health > 0) || f.yielded || f.fleeing) return false;",
-    "new": "  if (!f?.entity || f.dead || f._routed || !(f.entity.health > 0) || f.yielded) return false;",
+    "old": "  if (!f?.entity || f.dead || f._routed || !(f.entity.health > 0) || f.yielded || f.executing || f.sparing || f.leaving || f.fleeing) return false;",
+    "new": "  if (!f?.entity || f.dead || f._routed || !(f.entity.health > 0) || f.yielded || f.executing || f.sparing || f.leaving) return false;",
     "tests": [
       "test/rvn10_deeds.test.js"
     ]

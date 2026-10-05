@@ -22,7 +22,7 @@ import { wodSiteId, yieldsTo } from '../world/wodShared.js';   // WOD7: a camp's
 import { alignBillboardToGround, alignControllerToGround } from '../world/groundAlign.js';   // WOD3: SpawnLoot's drop; CSA-D: BoardBoat's AlignControllerToGround
 import { PRIVATEERS_HOLD_BLOCK, HOLD_MODELS, HOLD_FLATS, holdModelMatrix, holdFireLights, rollHoldFoes } from '../world/wodPrivateersHold.js';   // WOD4: the camp at Privateer's Hold
 import { rollLootRarity, pileSource, dungeonRarityTier, dungeonFamily, stampWonWeapons } from '../systems/lootRarity.js';   // WOD3: LR1 over the camps' piles; SIGIL1: their weapons' sigils
-import { revenantToReturn, revenantSpawnOptions, revenantPresence, takeRevenantNotice, revenantSay, releaseRevenantStand, revenantRecord, revenantMomentEvent, revenantRumor, revenantMapMarks, revenantHuntEntries, revenantTakes, revenantFelled, revenantFelledEvent, revenantRoutSweep, revenantRoutedEvent, revenantWarnEvent, revenantBetrayEvent } from '../systems/revenant.js';   // REVENANT: who comes back, and what the player is told
+import { revenantToReturn, revenantSpawnOptions, revenantPresence, takeRevenantNotice, revenantSay, releaseRevenantStand, revenantRecord, revenantMomentEvent, revenantRumor, revenantMapMarks, revenantHuntEntries, revenantTakes, revenantFelled, revenantFelledEvent, revenantRoutSweep, revenantRoutedEvent, revenantWarnEvent, revenantBetrayEvent, forgetLastSlew } from '../systems/revenant.js';   // REVENANT: who comes back, and what the player is told
 import { endPlayerFights } from '../systems/harmMark.js';   // RVN10 (bible/12-Enhanced-AI/Feud-Arc.md 21.2): a respawn's jump is no flight
 import { DEVOTED } from '../systems/revenantFeud.js';   // RVN11 (Feud-Arc.md 22.1): a Devoted one's wait between warnings
 import { SKY_CLEAR } from '../render/renderer.js'; import { centreFromFeet } from '../characters/enemyAnchor.js';   // REVIEW 2026-09-05: one line, so the cites below it hold
@@ -8074,8 +8074,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   });
   /** AUDIT (2026-10-02): the sworn's layer lifted for a load - its bodies, the words still to say, and every member (so
    *  no spell the last game's body wore stands with the loaded one). */
-  const clearSworn = () => { revenantAshore.clear(); _revenantArrivals.clear(); _revenantDepartures.length = 0; forgetSwornMember(); };
-  setRetinueBodies((id) => revenantAshore.bodies().find((b) => b.revenantCompanion === id && !b.dead)?.entity ?? null);
+  const clearSworn = () => { revenantAshore.clear(); _revenantArrivals.clear(); _revenantDepartures.length = 0; _revenantBetrayals.length = 0; forgetSwornMember(); };   // AUDIT FEUD: and a turning queued under a window - the loaded game's is its own
+  setRetinueBodies((id) => revenantAshore.bodies().find((b) => b.revenantCompanion === id && !b.dead && !b._knockedOut)?.entity ?? null);   // AUDIT FEUD: a knocked-out one stands for nothing - no turning, no warning, no witness
   registerCompanionRoster('crew', () => (navalOn() ? (naval?.companions?.party ?? []).map((c) => ({ name: c.name, role: c.role })) : []));
   /** REVENANT-COMPANION: A SWORN ONE'S WORD IN A FIGHT, now and then and never a chatter - as it goes in (BARK_BATTLE), over
    *  a foe it put down (BARK_KILL) - each one's own wait between, and a quiet spell for the whole party after any. */
@@ -8158,9 +8158,9 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  set on me. No body here (another place, or none stood): it comes later, as any living revenant. */
   function turnSworn(r) {
     revenantSay(revenantBetrayEvent(r, { playerName: playerEntity?.name }), (l) => townTalk.say(l));   // RVN12a: its words, my name in them
-    const rec = revenantAshore.bodies().find((b) => b.revenantCompanion === r.id && !b.dead && b.ai?.feet);
+    const rec = revenantAshore.bodies().find((b) => b.revenantCompanion === r.id && !b.dead && !b._knockedOut && b.ai?.feet);
     const place = rec ? companionPlace({ crew: false }) : null;
-    if (!rec || !place?.turn) return;
+    if (!rec || !place?.turn || place.has?.(rec) === false) return;   // AUDIT FEUD: a body a respawn's sweep took is no place to stand it (AUDIT CC-A1's `has`)
     const feet = [rec.ai.feet[0], rec.ai.feet[1], rec.ai.feet[2]], yaw = rec.ai.yaw ?? 0;
     try { place.remove(rec); } catch (e) { console.warn('[companions] a betrayer would not lift', e?.message ?? e); }
     Promise.resolve(place.turn(r, feet, yaw)).then((f) => {
@@ -9538,10 +9538,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:3234 mounts the same one, gated on
+  // and dungeonContext.js:3237 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:7103
+  // that context through modes.dungeonCtx - so worldModes.js:7105
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -11025,6 +11025,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     _reskin.clear();   // ...and the frame's own re-skin has nothing left to re-skin
     _seasonHoldKey = null;    // ...nor a held motor: the spawn below re-anchors it anyway
     _wasInLocationRect = false;   // F062: ResetState (:398-401) - no exit event on arrival
+    if (modEvent !== 'load') routByJump();   // RVN10 (Feud-Arc.md 21.2): a jump out of a fight routs me - never a load's
     // AUDIT 39: CleanupUntrackedObjects (StreamingWorld.cs:1620-1644,
     // on SaveLoadManager_OnStartLoad) - "remove loose enemies,
     // missiles, etc. on load or new game" - and the same sweep a
@@ -11035,7 +11036,6 @@ export async function bootWorld(canvas, renderer, params, status) {
     // mid-fight left the fight standing and restoreWorld spawned the
     // save's copies on top of it. The distance cull spares anything
     // that has detected you, so nothing else was going to.
-    if (modEvent !== 'load') routByJump();   // RVN10 (Feud-Arc.md 21.2): a jump out of a fight routs me - never a load's
     handOverSiteFoes();
     exteriorFoes.clearLive();
     wodCarry.clear();   // WOD3/WOD4: a sweep is an unload - nothing carries past it
@@ -11812,6 +11812,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     _rezSeen = null;
     _deadMark = null; _partyComposedAt = -Infinity;   // PCORPSE3: my body is gone - my party pose says so at once
     reviveForPlay(playerEntity, { force: true });
+    forgetLastSlew();   // AUDIT FEUD (RVN8): no respawn - its killer takes nothing, now or at a later death
     playerEntity.health = Math.max(1, Math.round((playerEntity.maxHealth ?? playerEntity.health) * RESURRECT_HEALTH_PCT / 100));
     player.stopAutorun();   // AUDIT 27h S2: SEA-RISE's law for every rise - a drowned autorunner raised on the seabed walked on
     _deathWasOnline = null;
@@ -12283,7 +12284,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:8645), so exterior mode and a
+    // composer, dungeonContext.js:8650), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -15367,7 +15368,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10800-10864 -
+  // worldModes answers it in BOTH modes (worldModes.js:10805-10869 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a

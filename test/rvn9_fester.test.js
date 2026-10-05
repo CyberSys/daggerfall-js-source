@@ -83,7 +83,9 @@ test('RVN9 THE DAYS: the first count only sets the day; then each whole day caug
   assert.equal(q.wrath, 1, 'counted by the notice\'s step');
 });
 
-test('RVN9 THE CATCH-UP: a long absence counts seven days at most; a clock wound back starts again from there; the switch off, nothing (mutants: no cap; the cap moved; the wound clock counted)', () => {
+// PIN MOVED (AUDIT FEUD: a clock behind the last counted day - a reload of an older save - counts nothing and moves nothing
+// back; the mirror counted those days, and none counts twice)
+test('RVN9 THE CATCH-UP: a long absence counts seven days at most; a clock wound back counts nothing until it passes the last counted day; the switch off, nothing (mutants: no cap; the cap moved; the wound clock counted)', () => {
   const p = me();
   const r = made(p, { dueDay: 10 });
   N.revenantFester(p, at(10));
@@ -93,6 +95,9 @@ test('RVN9 THE CATCH-UP: a long absence counts seven days at most; a clock wound
   N.revenantFester(p, at(5));   // wound back
   N.revenantFester(p, at(6));
   assert.equal(r.wrath, 0, 'nothing before its due day');
+  N.revenantFester(p, at(41));   // past it again: day 41 alone - never days 35-40 a second time
+  assert.equal(r.wrath, 0, 'no day counted twice');
+  assert.equal(r.rank, 2);
   setPref('lootRarity', false);
   assert.deepEqual(N.revenantFester(p, at(60)), []);
   assert.equal(r.wrath, 0);

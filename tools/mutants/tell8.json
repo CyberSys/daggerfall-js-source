@@ -373,7 +373,7 @@
   {
     "name": "TELL8-class-not-winding",
     "file": "src/ai/puppetBlows.js",
-    "old": "  if (!b) return null;\n  return { k:",
+    "old": "  if (!b) return weak ? { k: blowK({ kind, weapon, claws, round }), back: false, weak: true } : null;\n  return { k:",
     "new": "  return { k:",
     "tests": [
       "test/tell8_online.test.js"

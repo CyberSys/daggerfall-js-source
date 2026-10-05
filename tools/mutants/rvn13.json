@@ -218,7 +218,7 @@
   {
     "name": "RVN13-street-unwritten",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "      if (!onWatch && f.entity?.revenant?.id) Object.assign(r, feudWire(f.entity.revenant));",
+    "old": "      if (!onWatch && f.entity?.revenant) Object.assign(r, feudWire(f.entity.revenant));",
     "new": "      // none",
     "tests": [
       "test/rvn13_wire.test.js"
@@ -272,7 +272,7 @@
   {
     "name": "RVN13-deep-unwritten",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    if (f.entity?.revenant?.id) Object.assign(r, feudWire(f.entity.revenant));",
+    "old": "    if (f.entity?.revenant) Object.assign(r, feudWire(f.entity.revenant));",
     "new": "",
     "tests": [
       "test/rvn13_wire.test.js"

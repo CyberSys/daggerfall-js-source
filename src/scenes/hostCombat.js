@@ -39,7 +39,7 @@ import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';
 import { ATTRACT_RADIUS, ignoreHumanSounds } from '../characters/enemySounds.js';   // AUDIT 24 (wave 41); TELL2: a person's wind-up is a swing, not a voice
 import { enemyDisplayName, ENEMY_BASICS } from '../characters/enemyBasics.js';   // AUDIT 24 (wave 42); TELL1: the bark a breaking blow wrings out
 import { windupHolds, windupStruck, tacticsNow, overreachOpen, poiseTrack, LOCAL_TARGET } from '../ai/tactics.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL2: the cues' clock; TELL4: the punish window
-import { blowK, blowWeight, behind, TELL } from '../ai/tells.js';
+import { blowK, blowWeight, behind, TELL } from '../ai/tells.js';   // TELL1: a blow's weight on the poise meter; TELL2: the cues' numbers
 import { noteFeud, feudWeakBlow } from '../systems/feudLedger.js';   // RVN1: my staggers and back hits, in a fight's ledger (a leaf); RVN3: a blow of its weakness
 import { BLOW } from '../ai/blowShapes.js';   // TELL6d: the aimed shot's speed
 import { blowEffectOf, queueBlowEffect, drainBlowEffects, tickBleed } from '../systems/blowEffects.js';   // TELL6e: what a landing does to the player

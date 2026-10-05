@@ -49,8 +49,8 @@ import { markPlayerHarm, playerHarmMark, clearPlayerHarm, HARM_MARK_STRUCK_MS, h
 import { playerDoor } from './playerDoor.js';
 import { MAX_ANSWERS_TELL_ME_ABOUT_OR_RUMORS } from './rumorMill.js';   // RVN7b: a person's one answer, the mill's own gate
 import { compassWord, distanceWord } from './bountyBoard.js';   // RVN7b: a town crier's words for where
-import { setHuntJournal, HUNT_QUEST_PREFIX } from './huntJournal.js';
-import { MINUTES_PER_DAY } from './gameDate.js';   // RVN9: the character's day   // RVN7c: a hunt in the quest log, and its Abandon
+import { setHuntJournal, HUNT_QUEST_PREFIX } from './huntJournal.js';   // RVN7c: a hunt in the quest log, and its Abandon
+import { MINUTES_PER_DAY } from './gameDate.js';   // RVN9: the character's day
 import { registerModSaveData } from './modSaveData.js';
 import { appStorage } from './appStorage.js';
 import { characterIdOf, mintCharacterId } from './characterId.js';
@@ -316,12 +316,16 @@ function ensureMirror(player) {
   for (const l of live) { const r = revenantById(l.id); if (r) { r.out = l.out; r.outAt = l.outAt; } }   // a live stand is this session's, not the mirror's
   for (let i = 0; i < _state.list.length; i++) {
     const r = _state.list[i], s = saved.get(r.id);
-    if (r.gone) continue;
     // RVN11b (22.2): and one that deserted since - its pack was split between its record and the player's, who reloaded
-    // to before it: it comes back as the save had it
-    const left = r.fate === 'released' || (r.history ?? []).some((h) => h.deed === 'deserted' && h.at >= (s?.swornAt ?? 0));
-    if (s?.sworn && s.companion?.items?.length && !r.sworn && left) { _state.list[i] = { ...s, rev: (r.rev | 0) + 1 }; continue; }
+    // to before it: it comes back as the save had it. AUDIT FEUD: a betrayal splits it the same (RVN11c); and one
+    // forgotten since (the cap, the fallen's prune) comes back so too - its pack is no one's to lose
+    const left = r.fate === 'released' || (r.history ?? []).some((h) => (h.deed === 'deserted' || h.deed === 'betrayed') && h.at >= (s?.swornAt ?? 0));
+    if (s?.sworn && s.companion?.items?.length && !r.sworn && (r.gone || left)) { _state.list[i] = { ...s, rev: (r.rev | 0) + 1 }; continue; }
+    if (r.gone) continue;
     if (r.companion) r.companion.items = s?.companion?.items ? s.companion.items.slice() : [];
+    // AUDIT FEUD: what the save's living, unsworn copy held, on a record the mirror has since seen fall or sworn - the fall
+    // dropped it, the oath handed it back, and the reloaded pack never had it: mine again
+    if (player && s?.took?.length && !s.defeated && !s.sworn && (r.defeated || r.sworn)) { player.items ??= []; for (const it of s.took) addItem(player.items, it); r.took = []; continue; }
     r.took = s?.took ? s.took.slice() : [];   // RVN8 (Feud-Arc.md 19): what it took is inventory too - the save's copy wins (the mirror never brings back a piece the save holds)
   }
   _state.mirrorId = id;
@@ -380,7 +384,9 @@ export function revenantCandidate(entity, rec = null) {
  *  the record, or null when it may not be one. `mobileType`/`gender` from the pool's record where the entity lacks
  *  them. */
 export function revenantDeed(player, entity, deedName, { mobileType = entity?.mobileType, gender = 'male', rec = null, archive = null, now = nowMinutes(), rolls = Math.random, ally = null, unbroken = false } = {}) {   // RVN10: `ally` the companion a felling knocked out; RVN12b: `unbroken` - its will held at the killing blow (RVN3's tear-away)
-  const ledger = takeFeud(entity);   // RVN1: the fight is over - its ledger taken whatever the answer (it dies with the fight)
+  // RVN1: the fight is over - its ledger taken whatever the answer (it dies with the fight). AUDIT FEUD: but a felling
+  // is no end - the foe fights on, its will read from that ledger (RVN3): it stays whole for the deed that ends the fight
+  const ledger = deedName === 'felled' ? null : takeFeud(entity);
   if (!revenantCandidate(entity, rec) || !Number.isInteger(mobileType)) return null;
   ensureMirror(player);
   const pName = player?.name ?? '';
@@ -410,7 +416,7 @@ export function revenantDeed(player, entity, deedName, { mobileType = entity?.mo
     trimLiving(r);
   }
   r.name = joinName(r.given, r.epithet);
-  if (deedName === 'slew') { r.kills++; r.notice = 'slew'; _lastSlew = { id: r.id, at: Date.now() }; } else { if (deedName === 'fled') r.escapes++; r.notice = null; }   // RVN8: this death's killer, for the respawn   // RVN10: a felling or a rout is no escape of its own
+  if (deedName === 'slew') { r.kills++; r.notice = 'slew'; _lastSlew = { id: r.id, at: Date.now() }; } else if (deedName === 'fled') { r.escapes++; r.notice = null; }   // RVN8: this death's killer, for the respawn   // RVN10: a felling or a rout is no escape of its own (AUDIT FEUD: nor clears the card a kill left waiting)
   r.dueAt = dueFrom(now, rolls);
   deed(r, deedName, now, deedName === 'felled' && allyName(ally) ? { ally: allyName(ally) } : deedName === 'fled' && unbroken ? { unbroken: true } : null);
   // RVN1 (section 12): the fight folded into its SCARS - its leading source, its lessons, the deed - and counted
@@ -650,12 +656,18 @@ export function revenantToReturn(player, { now = nowMinutes(), rolls = Math.rand
   return due[0];
 }
 // ── RVN8: what it takes (bible/12-Enhanced-AI/Feud-Arc.md 19) ─────────────────────────────────────────────────────
-/** This death's killer, by the slew deed - taken (once) at the respawn. */
+/** This death's killer, by the slew deed - taken (once) at the respawn; AUDIT FEUD: forgotten by a rise that is none
+ *  (a Resurrect - forgetLastSlew), a load and a new game. */
 let _lastSlew = null;
+/** AUDIT FEUD: a rise where I fell (a party member's Resurrect) - no respawn, so its killer takes nothing then or later. */
+export function forgetLastSlew() { _lastSlew = null; }
 /** RVN8 (19): may it take `item` - never a quest item, a summoned piece, the Materials Bag, gold, or a locked piece
  *  (LOCK1's promise, "A LOCKED PIECE STAYS YOURS"). */
 export const revenantMayTake = (item) => !!item && typeof item === 'object' && Number.isInteger(item.templateIndex)
   && !item.questItem && !isSummoned(item) && !isGoldPieces(item) && !isBagItem(item) && !isLocked(item);
+/** AUDIT FEUD: a piece it took, named after "your", "my" or "lovely" - the name the pack shows, its own article gone
+ *  (a legendary's "The Glenmoril Bow": "your Glenmoril Bow", never "your The ..."). */
+export const takenName = (item) => String(itemLongName(item) ?? '').replace(/^the\s+/i, '');
 /** RVN8 (19): the piece it takes - drawn on its id and its kill count from my equipped weapon and my pack's five most
  *  valuable pieces (each takeable). Null with none. */
 export function pickTaken(id, kills, weapon, items) {
@@ -686,7 +698,7 @@ export function revenantTakes(player, { online = false } = {}) {
   if (body) carryTaken(body);   // the killer standing over my body carries it now
   touch(r);
   persist();
-  return { r, item, line: `${r.name} took your ${itemLongName(item)}.` };
+  return { r, item, line: `${r.name} took your ${takenName(item)}.` };
 }
 /** RVN8 (19): SPARED - what it took handed back at the oath ("It's yours. It always was."). Answers the pieces. */
 export function revenantHandBack(player, r, entity = null) {
@@ -820,17 +832,23 @@ const TAUNT_DEEDS = new Set(['slew', 'fled', 'felled', 'routed', 'festered']);
 /** RVN12a (23): WHAT ITS RETURN SAYS - its newest deed against me speaks first: a companion it felled (`felled_return`,
  *  by name), my flight (`routed_return`), its long wait (`festered`); after a kill, what it took of mine (`stole`, the
  *  piece); every other return (its first, third...), what it learned (`learned`, the habit - its newest); else as ever.
- *  Answers { event, vars }. */
+ *  AUDIT FEUD: only deeds since its oath, if it swore one - a deserter or a betrayer with none since speaks its leaving
+ *  (`deserted`, `betrayed`). Answers { event, vars }. */
 export function tauntMoment(r) {
+  // AUDIT FEUD: nothing from before an oath - a deserter's or a betrayer's return speaks of no deed it did before it served me
   const hist = [...(r?.history ?? [])].reverse();
-  const last = hist.find((d) => TAUNT_DEEDS.has(d.deed));
+  const oath = hist.findIndex((d) => d.deed === 'spared');
+  const since = oath >= 0 ? hist.slice(0, oath) : hist;
+  const last = since.find((d) => TAUNT_DEEDS.has(d.deed));
+  const left = oath >= 0 ? since.find((d) => d.deed === 'deserted' || d.deed === 'betrayed') : null;
+  if (!last && left) return { event: left.deed, vars: {} };   // nothing against me since it left: its leaving speaks
   if (last?.deed === 'felled' && last.ally) return { event: 'felled_return', vars: { ally: last.ally } };
   if (last?.deed === 'routed') return { event: 'routed_return', vars: {} };
   if (last?.deed === 'festered') return { event: 'festered', vars: {} };
-  if (last?.deed === 'slew' && r.took?.length) return { event: 'stole', vars: { item: itemLongName(r.took[r.took.length - 1]) } };
+  if (last?.deed === 'slew' && r.took?.length) return { event: 'stole', vars: { item: takenName(r.took[r.took.length - 1]) } };
   const how = ADAPT_HOW[r?.learned?.[r.learned.length - 1]];
   if (how && (r.returns | 0) % 2 === 1) return { event: 'learned', vars: { how } };
-  const lastSF = hist.find((d) => d.deed === 'slew' || d.deed === 'fled')?.deed ?? 'slew';
+  const lastSF = since.find((d) => d.deed === 'slew' || d.deed === 'fled')?.deed ?? 'slew';
   // AUDIT (2026-10-02): the risen's taunt counts its kills ("I've killed you so often...") - one that only ever ran has none
   return { event: r.rank >= 3 && (r.kills | 0) >= 2 ? 'taunt_risen' : lastSF === 'fled' ? 'taunt_fled' : 'taunt_slew', vars: {} };
 }
@@ -1051,7 +1069,7 @@ export function revenantFester(player, { now = nowMinutes(), rolls = Math.random
   const day = Math.floor(now / MINUTES_PER_DAY);
   if (!Number.isInteger(day) || day < 0) return [];
   if (_state.lastDay == null) { _state.lastDay = day; persist(); return []; }   // the first count: from here
-  if (day === _state.lastDay) return [];   // the encounter tick's every ask: nothing new (a clock wound back counts no day, and starts again from it)
+  if (day <= _state.lastDay) return [];   // the encounter tick's every ask: nothing new. AUDIT FEUD: nor a clock behind it (a reload of an older save) - the mirror counted those days; none counts twice
   const up = [];
   for (let d = Math.max(_state.lastDay + 1, day - FESTER.CATCHUP + 1); d <= day; d++) {
     for (const r of livingRevenants()) {
@@ -1107,7 +1125,7 @@ export function revenantDeserts(player, r, { now = nowMinutes(), rolls = Math.ra
   r.notice = 'deserted';
   deed(r, 'deserted', now);
   trimLiving(r);   // a living one again: the cap holds
-  _desertWords.set(r.id, { kept: kept.map((it) => itemLongName(it)), back: back.length });
+  _desertWords.set(r.id, { kept: kept.map((it) => takenName(it)), back: back.length });
   touch(r);
   persist();
   try { _swornLeft?.(r.id); } catch { /* the party's bookkeeping is no record's failure */ }
@@ -1117,7 +1135,9 @@ export function revenantDeserts(player, r, { now = nowMinutes(), rolls = Math.ra
  *  record (RVN8's `took`: room TOOK_MAX less what it took), the rest into my pack and its gold into my purse. Answers
  *  { kept, back }. */
 function splitPack(player, r) {
-  const { kept, back } = deserterSplit(r.companion?.items ?? [], { value: itemValueOf, isGold: isGoldPieces, room: TOOK_MAX - (r.took?.length ?? 0) });
+  // AUDIT FEUD: it keeps only what RVN8 lets it take (never a locked piece - LOCK1 - a quest item, a summoned one, the
+  // Materials Bag); the rest comes back with its gold
+  const { kept, back } = deserterSplit(r.companion?.items ?? [], { value: itemValueOf, isGold: (it) => isGoldPieces(it) || !revenantMayTake(it), room: TOOK_MAX - (r.took?.length ?? 0) });
   if (player) {
     player.items ??= [];
     for (const it of back) { if (isGoldPieces(it)) addGoldPieces(player, it.stackCount ?? 1); else addItem(player.items, it); }
@@ -1184,7 +1204,7 @@ export function revenantWarnEvent(r, playerName, { rolls = Math.random } = {}) {
  *  so it is out. Answers the record, or null (a striker dead or down, a companion unnamed, or no candidate). */
 export function revenantFelled(player, striker, ally, { now = nowMinutes(), rolls = Math.random } = {}) {
   const name = allyName(ally);
-  if (!striker?.entity || striker.dead || !(striker.entity.health > 0) || !name) return null;
+  if (!striker?.entity || striker.dead || !(striker.entity.health > 0) || striker.yielded || striker.executing || striker.sparing || striker.leaving || !name) return null;   // AUDIT FEUD: nor one held by its fate (kneeling at 1, burning, tearing away)
   return revenantDeed(player, striker.entity, 'felled', {
     mobileType: striker.mobileType ?? striker.entity.mobileType, gender: striker.gender ?? 'male', rec: striker,
     archive: striker.archive ?? striker.mobileArchive ?? null, now, rolls, ally: name,
@@ -1200,7 +1220,8 @@ export function revenantFelledEvent(r, ally, { archive = null } = {}) {
  *  running itself, whose fight with me is live (its harm within harmMark's HARM_FIGHT_MS) and saw a hurt leave me under
  *  ROUT.LOW? The street pool asks it past ROUT.DISTANCE; a jump's sweep asks it of the pool I leave. */
 export function revenantRoutable(f, { now = Date.now() } = {}) {
-  if (!f?.entity || f.dead || f._routed || !(f.entity.health > 0) || f.yielded || f.fleeing) return false;
+  if (!f?.entity || f.dead || f._routed || !(f.entity.health > 0) || f.yielded || f.executing || f.sparing || f.leaving || f.fleeing) return false;   // AUDIT FEUD: a tear-away is its escape, not my rout
+  if (f.puppet) return false;   // AUDIT FEUD: a peer's foe is its owner's - my jump routs none of it (the street's distance asks none)
   if (!f.ai?.isHostile || !f.ai.detected || f.ai.targetIsLocalPlayer === false) return false;
   if (!revenantCandidate(f.entity, f)) return false;
   return playerLowSince(harmFightSince(f.entity, now));
@@ -1314,8 +1335,8 @@ registerModSaveData(REVENANT_SAVE, {
   // AUDIT (2026-10-02): one standing as the save is made comes back later (REVENANT_LOST_MINUTES), not at once beside
   // the street's copy of it - the street's save leaves it out (scenes/exteriorFoes.js snapshotWorld)
   getSaveData: () => ({ v: 1, list: _state.list.map((r) => (r.gone ? r : { ...r, out: false, outAt: 0, dueAt: r.out ? Math.max(r.dueAt, nowMinutes() + REVENANT_LOST_MINUTES) : r.dueAt })), lastDay: _state.lastDay }),
-  restoreSaveData: (rec) => { _state.list = mergeRevenants(rec?.list ?? [], []); _state.lastDay = sanitizeDay(rec?.lastDay); _state.mirrorId = null; clearPlayerHarm(); endPlayerFights(); },   // the last game's harm is no one's death in this one (RVN10: nor its fights a rout)
-  newGame: () => { _state.list = []; _state.lastDay = null; _state.mirrorId = null; clearPlayerHarm(); endPlayerFights(); },
+  restoreSaveData: (rec) => { _state.list = mergeRevenants(rec?.list ?? [], []); _state.lastDay = sanitizeDay(rec?.lastDay); _state.mirrorId = null; _lastSlew = null; clearPlayerHarm(); endPlayerFights(); },   // the last game's harm is no one's death in this one (RVN10: nor its fights a rout; AUDIT FEUD: nor its killer a thief)
+  newGame: () => { _state.list = []; _state.lastDay = null; _state.mirrorId = null; _lastSlew = null; clearPlayerHarm(); endPlayerFights(); },
 });
 
 /** Tests only: forget everything. */

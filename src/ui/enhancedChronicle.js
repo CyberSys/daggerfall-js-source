@@ -28,8 +28,8 @@ import { entryTarget, targetWords, WHERE_TEXT } from './questLens.js';   // GUID
 import { followOn, trackButton } from './questTracker.js';   // GUIDE4: the HUD's card - the Track toggle's one home
 import { breakableNote } from '../systems/notebook.js';   // JOURNAL1: a note the notebook's wrap can take, whatever was typed
 import { pageOfNote, pageRefusalText } from '../net/journalPage.js';   // JOURNAL1: a note as the page it would be shown as, or why it cannot be
-import { isBountyQuestId, abandonBountyQuest, shareBountyQuest, bountyQuestShareable } from '../systems/bountyJournal.js';
-import { isHuntQuestId, abandonHuntQuest } from '../systems/huntJournal.js';   // RVN7c: a revenant's hunt - its Abandon   // BOUNTY1: a bounty's Abandon and Share
+import { isBountyQuestId, abandonBountyQuest, shareBountyQuest, bountyQuestShareable } from '../systems/bountyJournal.js';   // BOUNTY1: a bounty's Abandon and Share
+import { isHuntQuestId, abandonHuntQuest } from '../systems/huntJournal.js';   // RVN7c: a revenant's hunt - its Abandon
 
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);

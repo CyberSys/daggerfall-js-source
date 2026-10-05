@@ -294,7 +294,8 @@ test('TELL8: the hosts by source - both pools write the wind-up into the record 
   assert.match(x, /const _pb = f\.ai\._tac\?\.puppet \? puppetBlowTurn\(f\.ai, playerFeet\) : NO_PUPPET_BLOW;/);
   assert.match(x, /hurting: f\.ai\.hurtKnock \|\| _pb\.staggered, casting: !!f\._castPending, hold: _pb\.hold \}/);
   assert.match(x, /if \(f\._pup\?\.leap && !puppetGapLanded\(f\.ai\)\) return false;/);
-  assert.match(x, /const _wc = f\.ai\?\._tac\?\.state === 'windup' \? blowClassOf\(f\.ai, \{ kind, weapon, claws: !weapon && !!playerEntity\?\.isInBeastForm, round \}, playerFeet\) : null;/);
+  // PIN MOVED (AUDIT FEUD: a blow of its weakness rides its class winding up or not - blowClassOf answers null otherwise)
+  assert.match(x, /const _wc = blowClassOf\(f\.ai, \{ kind, weapon, claws: !weapon && !!playerEntity\?\.isInBeastForm, round \}, playerFeet, !round && feudWeakBlow\(f\.entity, \{ kind, weapon, element, attacker: playerEntity \}\)\);/);
   assert.match(x, /\.\.\.\(_wc \? \{ wc: hitClassField\(_wc\) \} : \{\}\),/);
   assert.match(x, /whole: data\.z === 1, \.\.\.\(data\.wc != null \? \{ wc: hitClassOf\(data\) \} : \{\}\) \}\);/);
   assert.match(x, /if \(onWatch\) _net\.watch\.hurt\(f, dmg, at, dir, data\.wc != null \? hitClassOf\(data\) : null, kind\);/);   // PIN MOVED (AUDIT TELL P1: and its kind)

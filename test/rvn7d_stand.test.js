@@ -123,7 +123,8 @@ test('RVN7d THE STAND: asked once a visit, the first frame I stand there; this d
   assert.match(D, /f\._lairStand = true;\n\s*if \(f\.ai\) \{ f\.ai\.detected = false; f\.ai\.target = null; \}   \/\/ found resting/);
   assert.match(D, /standDungeonBand\(f, bandMembers\(r, effectiveLevel\(playerEntity\)\)\);\n\s*return f;/);
   // the pixel is the lair door's own
-  assert.match(D, /function lairPixel\(\) \{\n\s*const mt = dfLocation\.mapTableData;\n\s*if \(!mt\) return null;\n\s*const p = longitudeLatitudeToMapPixel\(mt\.longitude, mt\.latitude\);\n\s*return \{ px: p\.x, py: p\.y \};/);
+  // PIN MOVED (AUDIT FEUD: no lair on the Burning Court, the Arena's floor or a spawned dungeon - `lairable`)
+  assert.match(D, /function lairPixel\(\) \{\n\s*const mt = dfLocation\.mapTableData;\n\s*if \(!mt \|\| !lairable\(\)\) return null;\n\s*const p = longitudeLatitudeToMapPixel\(mt\.longitude, mt\.latitude\);\n\s*return \{ px: p\.x, py: p\.y \};/);
 });
 
 test('RVN7d THE BAND UNDERGROUND: stood about it in the ring, loose, marked, in its camp, named, resting with it; scattered by its kneel, its tear-away, its escape, its death and its execution, said once a break; a scattering follower gone when its run is spent; rank 5\'s rally (mutants: any door unwired; the run kept; no rally)', () => {

@@ -219,7 +219,7 @@ export function swornFightStep(rec) {
   const last = rec?._fightLast ?? null;
   if (!last) return false;
   rec._fightLast = null;
-  return !!(last.dead || !(last.entity?.health > 0));
+  return !(last.entity?.health > 0);   // AUDIT FEUD: killed - a foe that escaped, was culled or scattered is `dead` with its health
 }
 /** A fight won at the player's side: +3. */
 export function swornFightWon(id) {

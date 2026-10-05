@@ -371,8 +371,8 @@
   {
     "name": "RVN1-the-ledger-kept",
     "file": "src/systems/revenant.js",
-    "old": "  const ledger = takeFeud(entity);",
-    "new": "  const ledger = entity?._feud ?? null;",
+    "old": "  const ledger = deedName === 'felled' ? null : takeFeud(entity);",
+    "new": "  const ledger = deedName === 'felled' ? null : entity?._feud ?? null;",
     "tests": [
       "test/rvn1_ledger.test.js"
     ]

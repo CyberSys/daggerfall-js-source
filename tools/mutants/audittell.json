@@ -663,8 +663,8 @@
   {
     "name": "AUDITTELL-back-feet",
     "file": "src/scenes/dungeonContext.js",
-    "old": "round }, playerFeet) : null;   // AUDIT TELL:",
-    "new": "round }, playerFeet ?? lastPlayerFeet) : null;   // AUDIT TELL:",
+    "old": "round }, playerFeet, !round && feudWeakBlow(foe.entity",
+    "new": "round }, playerFeet ?? lastPlayerFeet, !round && feudWeakBlow(foe.entity",
     "tests": [
       "test/audittell.test.js"
     ]

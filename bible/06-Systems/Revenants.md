@@ -518,3 +518,15 @@ sees its last stand's ember rim; a follower is named for its band on every scree
 reveals that weakness to you. What it took, its festering, its lair, the rumours and a sworn one's loyalty stay your
 character's own. The law: `bible/12-Enhanced-AI/Feud-Arc.md` section 25 and its RVN13 record.
 
+## 33. The audit (FEUD AUDIT FEUD, 2026-10-05)
+
+Everything FEUD gave the revenants was read again whole and corrected: a party member's blow of your revenant's
+weakness now really reveals it to you; a piece it took is named properly ("your Glenmoril Bow", never "your The
+Glenmoril Bow") and no line says "your arrows is"; a deserter or betrayer that comes back speaks of its leaving, not of
+what it did before it served you. A reload no longer loses a betrayer's pack, strands what it held on a record that has
+since fallen, or counts festering and loyalty days twice; a deserter never rides off with a locked piece or a quest item;
+a Resurrect or a load leaves no killer waiting to take something at a later death. A felling no longer mends a will you
+broke, nor wipes the "it killed you" card; a kneeling or vanishing foe fells and routs nobody; a companion knocked out
+cannot betray you; a foe that walked off is no fight won; a dungeon band breaks when its master runs; no lair lands on
+the Burning Court or the Arena's sand. The duel harness now fights revenants too, and measures the arc's three balance
+targets for them. The law: `bible/12-Enhanced-AI/Feud-Arc.md`, the AUDIT FEUD record.

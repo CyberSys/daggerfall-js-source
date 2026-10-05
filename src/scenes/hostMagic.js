@@ -60,8 +60,8 @@ import { CAPSULE_HEIGHT } from '../player/motor.js';   // PlayerController.heigh
 import { setPlayerDoor } from '../systems/playerDoor.js';   // SET2: this host publishes itself as the scene a set's power reaches into
 import { createHitEffects } from './hitEffects.js';   // AUDIT 26 F033: DaggerfallMissile's impact flash
 import { duelSpellOf } from '../combat/duelCombat.js';   // DUEL1: the harmful half of a spell, which alone may reach a duel opponent
-import { markPlayerHarm } from '../systems/harmMark.js';
-import { knockedDown } from '../systems/blowEffects.js';   // TELL6e: knocked down, no cast   // REVENANT-HARM: a foe's spell on the player leaves its mark (a death no blow names is its)
+import { markPlayerHarm } from '../systems/harmMark.js';   // REVENANT-HARM: a foe's spell on the player leaves its mark (a death no blow names is its)
+import { knockedDown } from '../systems/blowEffects.js';   // TELL6e: knocked down, no cast
 import { sparedByPlayer, isShipmate } from '../combat/friendlyFire.js';   // SHIPMATES: who the player's spells pass by, and whose blasts pass the player by
 import { coverDistance, coverStep } from '../ai/cover.js';   // TACT1: billboards are cover; AUDIT TACT B5: met by touch
 import { blowTaken } from '../systems/blowTaken.js';   // TELL1: what a spell's target takes (a staggered foe a quarter more)

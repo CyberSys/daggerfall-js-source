@@ -91,7 +91,8 @@ test('RVN12a THE TAUNT\'S MOMENT: its newest deed against me first - a felling (
   // its card: a theft's taunt is its own kicker, the piece named
   const t = N.revenantTauntEvent(rec({ history: [{ deed: 'slew', at: 3 }], took: [sword] }), 'Ayla Stormwind', { rolls: () => 0 });
   assert.deepEqual([t.kind, t.kicker], ['stole', 'It took']);
-  assert.equal(t.speech, `Your ${itemLongName(sword)} remains with me.`);
+  // PIN MOVED (AUDIT FEUD: no verb takes a number - "Your {item} remains" read "Your Leather Gauntlets remains")
+  assert.equal(t.speech, `I still hold your ${itemLongName(sword)}.`);
   assert.equal(N.revenantTauntEvent(rec(), 'Ayla', { rolls: () => 0 }).kind, 'taunt');
 });
 
