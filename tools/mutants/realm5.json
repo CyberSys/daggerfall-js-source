@@ -130,7 +130,7 @@
   {
     "name": "REALM5-book-never-reserves",
     "file": "src/net/guildBook.js",
-    "old": "        reserve: () => { w.pay(gold); return () => w.credit(gold); },\n        call: (/** @type {any} */ at) => this.door.deposit(",
+    "old": "        reserve: walletReserve(w, gold).reserve,   // MARKET-AUDIT: a refusal gives back exactly what it took\n        call: (/** @type {any} */ at) => this.door.deposit(",
     "new": "        call: (/** @type {any} */ at) => this.door.deposit(",
     "tests": [
       "test/realm5.test.js"

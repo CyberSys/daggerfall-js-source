@@ -1028,11 +1028,24 @@ and reproduced each finding before it was fixed (`test/marketaudit.test.js`, `to
   a market that shuts while its tab is read keeps the tab and its shut word (AUDIT 30 U11's word was unreachable). U5: a
   failed read keeps the view's filters and the counters. U6: an act's word stays with its view. U7: another character's
   delivery says it waits for that one, and is not asked after.
-- **Not changed, named.** Other realm-gold acts pay with the same `credit`-the-whole-cost undo (`guildBook.js`,
-  `decorTool.js`, `homeRent.js`, `onlineHomes.js`) - outside the market, each its own slice. A 200 whose body is lost
-  reads as an empty success at the account door (`accountClient.js` call) - every route's, not the market's. The
-  minute's cache is not keyed by account. `MARKET-ANY-service-the-goods-family-unfiltered` survives on the base too (the
-  Goods view's family is filtered in its query since the LATTY patch; the JS filter after it is redundant).
+- **The rest, fixed (2026-10-05, Mac: "Fix everything").** Every realm act that pays out of the purse reserves through
+  one law, `net/realmGoldLaw.js` walletReserve: the payment's own undo (`systems/court.js` payUndoable - the purse and
+  its letters, then the account, each given back where it was, once) on a refusal or a `repeat`, and a wallet's whole-cost
+  `credit` only where its `pay` answers none - the guild's founding and deposits, a room's rent, a home's claim, a decor
+  piece and its change, as the market's gold buy; every online wallet's `pay` answers it (`world.js`, `worldModes.js`
+  bankPurse `pay`). The account door: a 2xx whose body never came is `offline`, `unknown` - no word on the act, never an
+  empty success (`accountClient.js` call). The book: the minute's cache keyed by the account and character; a cache hit
+  says its board's listing cap; a collect the service refused is said, and an act still kept; a realm act's own words
+  (`held`, `left`, `unknown`) worded. The tab: the opening settle reads "Reading the market..."; the family filters
+  offer only what the market knows a material of (the Spoils of War's two are a metal and a cloth); a closed listing
+  reads its whole; an answer's redraw waits while one of its lists is held open. The window: an act that throws leaves
+  no button greyed (all four of its doors). The service: a home's trader's stock is its own count (`VENDOR_STOCK_MAX`,
+  60 - "such a listing stands on no regional board", yet thirty at a stall shut the board; `vendor-full`); an auction
+  posted settles first, as a listing does; the default Materials view keeps the board's own region's fifty cheapest
+  beside the Bay's hundred. The host: the Market tab stands while the professions' read is unanswered (its own read says
+  whether it is open). `MARKET-ANY-service-the-goods-family-unfiltered` is recorded equivalent - the Goods view's
+  family is chosen in its query; the JS filter after it is belt-and-braces. `test/marketaudit2.test.js`,
+  `tools/mutants/marketaudit2.json`.
 
 ## 11. Writs - the Work tab
 

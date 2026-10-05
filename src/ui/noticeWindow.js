@@ -186,7 +186,7 @@ export function mountNoticeBoard(host, deps) {
       if (marketBusy) return;
       marketBusy = true; render();
       let r = null;
-      try { r = await start(); } finally { marketBusy = false; }
+      try { r = await start(); } catch (e) { console.warn('[board] act', e); r = { ok: false, text: accountRefusalText('server') }; } finally { marketBusy = false; }   // MARKET-AUDIT: an act that threw left every button greyed
       if (!alive) return;
       word = { ok: !!r?.ok, text: r?.text ?? '' };
       render();
@@ -206,7 +206,7 @@ export function mountNoticeBoard(host, deps) {
       if (vendorBusy) return;
       vendorBusy = true; render();
       let r = null;
-      try { r = await start(); } finally { vendorBusy = false; }
+      try { r = await start(); } catch (e) { console.warn('[board] act', e); r = { ok: false, text: accountRefusalText('server') }; } finally { vendorBusy = false; }   // MARKET-AUDIT: an act that threw left every button greyed
       if (!alive) return;
       word = { ok: !!r?.ok, text: r?.text ?? '' };
       render();
@@ -226,7 +226,7 @@ export function mountNoticeBoard(host, deps) {
       if (seatBusy) return;
       seatBusy = true; render();
       let r = null;
-      try { r = await start(); } finally { seatBusy = false; }
+      try { r = await start(); } catch (e) { console.warn('[board] act', e); r = { ok: false, text: accountRefusalText('server') }; } finally { seatBusy = false; }   // MARKET-AUDIT: an act that threw left every button greyed
       if (!alive) return;
       word = { ok: !!r?.ok, text: r?.text ?? '' };
       render();
@@ -248,7 +248,7 @@ export function mountNoticeBoard(host, deps) {
       if (workBusy) return;
       workBusy = true; render();
       let r = null;
-      try { r = await start(); } finally { workBusy = false; }
+      try { r = await start(); } catch (e) { console.warn('[board] act', e); r = { ok: false, text: accountRefusalText('server') }; } finally { workBusy = false; }   // MARKET-AUDIT: an act that threw left every button greyed
       if (!alive) return;
       word = { ok: !!r?.ok, text: r?.text ?? '' };
       render();

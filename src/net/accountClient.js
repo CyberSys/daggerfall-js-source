@@ -564,6 +564,11 @@ export const REFUSALS = Object.freeze({
   // REALM P2.2: an act that moves a realm character's gold on its record (server-account/src/realm.js)
   'realm-needed': 'This online character must be playing in the realm to do that. Rejoin and try again.',
   'realm-gold': 'The realm holds less gold for this character than that costs.',
+  // MARKET-AUDIT (P6): a realm act's own words (systems/realmSaves.js realmGoldAct), as the market's tab and the stall read
+  // them - said "The account service had a problem" (realmRefusalText says the realm door's own)
+  'held': 'A trade or a purchase is being settled - try again in a moment.',
+  'left': 'You left the realm.',
+  'unknown': 'The realm did not answer. Join again - the realm holds how it ended.',
   // CUSTOMS-PASS: the developer's route (server-account/src/realm.js grantCustomsPass), said by tools/customsPass.mjs - its
   // `not-developer` is MARKS1's one word above (MERGE 2: both sides wrote it; the one refusal says both routes)
   ambiguous: 'More than one account goes by that name - name the account by its id instead.',
@@ -590,7 +595,7 @@ export const handleShapeOk = (handle) => typeof handle === 'string' && HANDLE_RE
  * @param {boolean} [io.keepalive]  AUDIT RENOWN1 GAME-8: finish the call after the page is gone (the pagehide report)
  * @param {string} path  a `/v1/...` route
  * @param {object|null} [body]  POST body, or null for a GET
- * @returns {Promise<{ok: boolean, data?: any, error?: string, status?: number}>}
+ * @returns {Promise<{ok: boolean, data?: any, error?: string, status?: number, unknown?: boolean}>}
  */
 export async function call({ fetch, base = DEFAULT_ACCOUNT_SERVICE, secret = null, keepalive = false }, path, body = null) {
   const headers = { accept: 'application/json' };
@@ -617,8 +622,8 @@ export async function call({ fetch, base = DEFAULT_ACCOUNT_SERVICE, secret = nul
     return { ok: false, error: 'offline' };
   }
 
-  let data = null;
-  try { data = await res.json(); } catch { data = null; }
+  let data = null, read = false;
+  try { data = await res.json(); read = true; } catch { data = null; }
 
   if (!res.ok) {
     // The service says `{ error: '<word>' }`. A proxy, a 502 or an
@@ -626,6 +631,11 @@ export async function call({ fetch, base = DEFAULT_ACCOUNT_SERVICE, secret = nul
     // honest answer for that rather than a guess at which word it meant.
     return { ok: false, error: typeof data?.error === 'string' ? data.error : 'server', ...(typeof data?.why === 'string' ? { why: data.why } : {}), ...(Number.isSafeInteger(data?.seq) ? { seq: data.seq } : {}), ...(Number.isSafeInteger(data?.at) ? { at: data.at } : {}), status: res.status };   // AUDIT WB A5: and the rung, where the service names one; REALM P2.2: and a realm record's sequence; AUDIT2 GUILD2 S7: and when a refused act may come again
   }
+  // MARKET-AUDIT (P1): every JSON route answers a body, so a 2xx whose body never came (the door's wait ended mid-body, a
+  // dropped connection) is no word on the act - `offline`, as a request that never left: an act is kept and asked again
+  // with its own id (the service's `repeat` answers one that landed), a read shows the last good view. As `ok` with no
+  // data it let a kept purchase go unminted and cached a blank market for a minute. A 204 says it has nothing to say.
+  if (!read && res.status !== 204) return { ok: false, error: 'offline', unknown: true, status: res.status };
   return { ok: true, data, status: res.status };
 }
 

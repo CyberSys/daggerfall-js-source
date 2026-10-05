@@ -82,21 +82,23 @@
   },
   {
     "name": "SCALE1-C-idx_market_deliveries_provenance-dropped",
-    "file": "server-account/migrations/0043_scale_indexes.sql",
-    "old": "CREATE INDEX IF NOT EXISTS idx_market_deliveries_provenance ON market_deliveries (provenance, collected);\n",
+    "file": "server-account/migrations/0044_market_goods.sql",
+    "old": "CREATE INDEX IF NOT EXISTS idx_market_deliveries_provenance ON market_deliveries (provenance, collected);   -- SCALE1 (0043)\n",
     "new": "",
     "tests": [
       "test/scale1.test.js"
-    ]
+    ],
+    "note": "MARKET-AUDIT (PIN MOVED: 0043): MARKET-ANY's 0044 rebuilds the table and makes the index again - the live definition is 0044's; dropped from 0043 alone it survived."
   },
   {
     "name": "SCALE1-C-idx_market_deliveries_at-dropped",
-    "file": "server-account/migrations/0043_scale_indexes.sql",
-    "old": "CREATE INDEX IF NOT EXISTS idx_market_deliveries_at ON market_deliveries (collected, at);\n",
+    "file": "server-account/migrations/0044_market_goods.sql",
+    "old": "CREATE INDEX IF NOT EXISTS idx_market_deliveries_at ON market_deliveries (collected, at);   -- SCALE1 (0043)\n",
     "new": "",
     "tests": [
       "test/scale1.test.js"
-    ]
+    ],
+    "note": "MARKET-AUDIT (PIN MOVED: 0043): MARKET-ANY's 0044 rebuilds the table and makes the index again - the live definition is 0044's; dropped from 0043 alone it survived."
   },
   {
     "name": "SCALE1-C-idx_realm_trades_waiting-dropped",
@@ -136,12 +138,13 @@
   },
   {
     "name": "SCALE1-C-idx_market_listings_closed-dropped",
-    "file": "server-account/migrations/0043_scale_indexes.sql",
-    "old": "CREATE INDEX IF NOT EXISTS idx_market_listings_closed ON market_listings (closed_at);\n",
+    "file": "server-account/migrations/0044_market_goods.sql",
+    "old": "CREATE INDEX IF NOT EXISTS idx_market_listings_closed ON market_listings (closed_at);   -- SCALE1 (0043)\n",
     "new": "",
     "tests": [
       "test/scale1.test.js"
-    ]
+    ],
+    "note": "MARKET-AUDIT (PIN MOVED: 0043): MARKET-ANY's 0044 rebuilds the table and makes the index again - the live definition is 0044's; dropped from 0043 alone it survived."
   },
   {
     "name": "SCALE1-C-idx_market_orders_closed-dropped",
@@ -182,8 +185,8 @@
   {
     "name": "SCALE1-D-the-materials-bound-one-each",
     "file": "server-account/src/market.js",
-    "old": "      ${keys ? 'AND material IN (SELECT value FROM json_each(?2))' : ''} ORDER BY price, at LIMIT ${MARKET_SHOWN}`)\n      .bind(nowS, ...(keys ? [JSON.stringify(keys)] : [])).all();",
-    "new": "      ${keys ? `AND material IN (${keys.map((_, i) => `?${i + 2}`).join(', ')})` : ''} ORDER BY price, at LIMIT ${MARKET_SHOWN}`)\n      .bind(nowS, ...(keys ?? [])).all();",
+    "old": "      ${keys ? 'AND material IN (SELECT value FROM json_each(?2))' : ''} ${local ? `AND region = ?${keys ? 3 : 2}` : ''} ORDER BY price, at LIMIT ${local ? MARKET_SHOWN / 2 : MARKET_SHOWN}`;\n    const binds = [nowS, ...(keys ? [JSON.stringify(keys)] : [])];",
+    "new": "      ${keys ? `AND material IN (${keys.map((_, i) => `?${i + 2}`).join(', ')})` : ''} ${local ? `AND region = ?${keys ? keys.length + 2 : 2}` : ''} ORDER BY price, at LIMIT ${local ? MARKET_SHOWN / 2 : MARKET_SHOWN}`;\n    const binds = [nowS, ...(keys ?? [])];",
     "tests": [
       "test/scale1.test.js"
     ]

@@ -250,7 +250,9 @@
     "new": "return !!it;",
     "tests": [
       "test/fb1001_market_goods.test.js"
-    ]
+    ],
+    "equivalent": true,
+    "why": "MARKET-AUDIT: the Goods view's family is chosen in its query (GOODS_FAMILY_SQL, the LATTY patch's family-before-the-cutoff) from the one GOOD_GROUP_FAMILIES table goodFamily reads - this JS filter after it is belt-and-braces, kept, and survives on the base too"
   },
   {
     "name": "MARKET-ANY-service-the-buy-delivery-unwritten",

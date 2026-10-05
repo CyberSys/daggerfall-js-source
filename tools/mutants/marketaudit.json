@@ -46,9 +46,9 @@
   },
   {
     "name": "MARKET-AUDIT-B1-undo-ignored",
-    "file": "src/net/marketBook.js",
-    "old": "return typeof undo === 'function' ? undo : () => w.credit(cost); }",
-    "new": "return () => w.credit(cost); }",
+    "file": "src/net/realmGoldLaw.js",
+    "old": "    if (undo) undo(); else wallet.credit?.(n);",
+    "new": "    wallet.credit?.(n);",
     "tests": [
       "test/marketaudit.test.js"
     ]

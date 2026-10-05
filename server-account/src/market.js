@@ -79,7 +79,7 @@ import {
 } from '../../src/net/marketLaw.js';
 import { MASTERWORK, PROVENANCE_RE } from '../../src/net/recipeLaw.js';
 import { takeTradeGoods, giveTradeGoods } from '../../src/net/realmTradeLaw.js';   // MARKET-ANY: a piece out of one record and into another, as a trade moves it
-import { vendorOf, VENDOR_STATION, VENDOR_LISTING_S, VENDOR_STOCK_SHOWN, VENDOR_BOARD_SHOWN } from '../../src/net/vendorLaw.js';   // HOME-VENDOR: a home's trader
+import { vendorOf, VENDOR_STATION, VENDOR_LISTING_S, VENDOR_STOCK_SHOWN, VENDOR_STOCK_MAX, VENDOR_BOARD_SHOWN } from '../../src/net/vendorLaw.js';   // HOME-VENDOR: a home's trader
 
 const DAY_S = 86_400;
 /** GOLD-MARKET: the Stores origin of units bought in the row's own currency (a listing's or a sale's `currency`). */
@@ -223,9 +223,12 @@ const rowBoard = (r) => (r?.board_x == null ? null : [Number(r.board_x), Number(
  *  else burnt (PROF0 18: "SEAT1 writes the Tithe's line (to the holder, or burnt)"). `g` the guild id's parameter, `amt`
  *  the amount's expression. */
 const titheEnd = (g, amt) => `EXISTS (SELECT 1 FROM guilds WHERE id = ${g}) AND COALESCE((SELECT balance FROM guild_marks WHERE guild_id = ${g}), 0) + ${amt} <= ${MARKS_MAX}`;
+/** MARKET-AUDIT: a home's traders' stock an account (`?1`) stands - its own count (VENDOR_STOCK_MAX), never the board's
+ *  thirty: "such a listing stands on no regional board" (vendorLaw.js), yet thirty pieces at a stall shut the board. */
+const stallSalesSql = () => `(SELECT COUNT(*) FROM market_listings WHERE seller = ?1 AND state = 'open' AND vendor_id IS NOT NULL)`;
 /** PROF5b: the open sales an account (`?1`) stands - its listings and its auctions (10.2's thirty are both); AUDIT 31
  *  L1: an auction past its end, a won one waiting on its seller's Marks cap, stands no longer - the moment at `now`. */
-const openSalesSql = (now) => `((SELECT COUNT(*) FROM market_listings WHERE seller = ?1 AND state = 'open')
+const openSalesSql = (now) => `((SELECT COUNT(*) FROM market_listings WHERE seller = ?1 AND state = 'open' AND vendor_id IS NULL)   -- MARKET-AUDIT: a trader's stock is its own count
   + (SELECT COUNT(*) FROM market_auctions WHERE seller = ?1 AND state = 'open' AND ends_at > ${now}))`;
 const orderView = (o, me) => ({
   id: o.id, region: Number(o.region), material: o.material, units: Number(o.units), left: Number(o.left_units), price: Number(o.price),
@@ -548,9 +551,14 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
           : null;
     if (keys && !keys.length) return { ...(await base()), rows: [], medians: {} };
     // GOLD-MARKET: one currency a view - a gold price and a Drakes price sort nothing together
-    const { results = [] } = await db.prepare(`SELECT * FROM market_listings WHERE state = 'open' AND kind = 'material' AND expires_at > ?1 AND currency = '${currency}'
-      ${keys ? 'AND material IN (SELECT value FROM json_each(?2))' : ''} ORDER BY price, at LIMIT ${MARKET_SHOWN}`)
-      .bind(nowS, ...(keys ? [JSON.stringify(keys)] : [])).all();   // SCALE1: one bound array - a search's 120 were 121 parameters
+    // MARKET-AUDIT: the Bay's cheapest listed AND this board's own region's - a hundred cheaper listings elsewhere hid the
+    // ones here, which may be the cheapest landed (the tab sorts by the courier's share)
+    const listedSql = (local) => `SELECT * FROM market_listings WHERE state = 'open' AND kind = 'material' AND expires_at > ?1 AND currency = '${currency}'
+      ${keys ? 'AND material IN (SELECT value FROM json_each(?2))' : ''} ${local ? `AND region = ?${keys ? 3 : 2}` : ''} ORDER BY price, at LIMIT ${local ? MARKET_SHOWN / 2 : MARKET_SHOWN}`;
+    const binds = [nowS, ...(keys ? [JSON.stringify(keys)] : [])];   // SCALE1: one bound array - a search's 120 were 121 parameters
+    const { results: bay = [] } = await db.prepare(listedSql(false)).bind(...binds).all();
+    const { results: home = [] } = await db.prepare(listedSql(true)).bind(...binds, region).all();
+    const results = [...new Map([...bay, ...home].map((l) => [l.id, l])).values()];
     const rows = results.filter((l) => material(l.material));
     const quotes = await quote(rows, (l) => Number(l.own) + Number(l.bought));
     const medians = await mediansOf(db, [...new Set(rows.map((l) => l.material))], today, currency);
@@ -867,9 +875,11 @@ async function listGood(ctx, player, env, { character, region, item, pick, price
   }
   if (await overRate(ctx, `market-post:${me}`, MARKET_POSTS_MAX, MARKET_WINDOW_S)) return { error: 'market-rate' };
   await settle(ctx, player);
-  const open = await db.prepare(`SELECT ${openSalesSql('?2')} AS n`).bind(me, nowS).first();
-  const listingsMax = await listingsCapAt(db, nowS, boardOf(board));   // AUDIT SEATS-3 D2: a Market Hall's town lists a piece a quarter more a tier too, as every other listing
-  if (Number(open?.n ?? 0) >= listingsMax) return { error: 'market-listings-max' };
+  // MARKET-AUDIT: a trader's stock its own count, a board listing the board's - each its own cap
+  const salesSql = vend ? stallSalesSql() : openSalesSql('?2');
+  const open = await db.prepare(`SELECT ${salesSql} AS n`).bind(...(vend ? [me] : [me, nowS])).first();
+  const listingsMax = vend ? VENDOR_STOCK_MAX : await listingsCapAt(db, nowS, boardOf(board));   // AUDIT SEATS-3 D2: a Market Hall's town lists a piece a quarter more a tier too, as every other listing
+  if (Number(open?.n ?? 0) >= listingsMax) return { error: vend ? 'vendor-full' : 'market-listings-max' };
   // THE RECORD'S OWN PIECE: the very record at `pick`, as offered, out of it - never what the tab says it holds
   let moved = null;
   const prep = await prepareRealmRecord(ctx, me, side.at, (save) => {
@@ -888,7 +898,7 @@ async function listGood(ctx, player, env, { character, region, item, pick, price
       // THE DECISION: a place among the thirty, the id not spent - the record's piece on the listing, for gold
       // HOME-VENDOR: a trader's piece at its stall (`vendor_map`, `vendor_id`), its thirty days, while the stall stands
       db.prepare(`INSERT OR IGNORE INTO market_listings (id, seller, char_id, region, kind, units, own, bought, price, fee, at, expires_at, rid, n, currency, item, vendor_map, vendor_id)
-        SELECT ?3, ?1, ?2, ?4, 'item', 1, 1, 0, ?5, ?6, ?7, ?8, ?9, ?10, 'gold', ?11, ?13, ?14 WHERE ${openSalesSql('?7')} < ?12
+        SELECT ?3, ?1, ?2, ?4, 'item', 1, 1, 0, ?5, ?6, ?7, ?8, ?9, ?10, 'gold', ?11, ?13, ?14 WHERE ${vend ? stallSalesSql() : openSalesSql('?7')} < ?12
           AND (?14 IS NULL OR EXISTS (SELECT 1 FROM home_decor d JOIN homes h ON h.map_id = d.map_id AND h.building_key = d.building_key
             WHERE d.map_id = ?13 AND d.id = ?14 AND d.yard = 0 AND json_extract(d.place, '$.station') = '${VENDOR_STATION}' AND h.player = ?1 AND h.char_id = ?2))`)
         .bind(me, character, id, region, price, listingFee(price), nowS, nowS + (vend ? VENDOR_LISTING_S : MARKET_LISTING_S), rid, nonce, JSON.stringify(moved), listingsMax,
@@ -1537,6 +1547,7 @@ export async function marketAuction(ctx, player, env, { character, region, prove
   if (made && !pieceListable(made.recipe)) return { error: 'market-not-listable' };
   if (made && !auctionable(made.recipe, Number(made.quality))) return { error: 'auction-not-masterwork' };
   if (await overRate(ctx, `market-post:${me}`, MARKET_POSTS_MAX, MARKET_WINDOW_S)) return { error: 'market-rate' };
+  await settle(ctx, player);   // MARKET-AUDIT: as a listing posted - a listing past its hours, unsettled, stood among the thirty
   if (await db.prepare('SELECT 1 FROM market_deliveries WHERE provenance = ?1 AND collected = 0').bind(provenance).first()) return { error: 'market-uncollected' };
   if (await db.prepare("SELECT 1 FROM home_decor WHERE json_extract(item, '$.pv') = ?1").bind(provenance).first()) return { error: 'market-standing' };
   const fee = listingFee(opening);

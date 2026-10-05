@@ -249,6 +249,8 @@ test('AUDIT MERGE-PLUS A1 the host: the door\'s buy (worldModes.js buyHomeAt, li
   let gold = 50_000;
   const account = { accountGold: 0 };
   const purse = { totalGold: () => gold, deductGold: (n) => { const take = Math.min(gold, n); gold -= take; return n - take; } };
+  // MARKET-AUDIT (PIN MOVED: the door paid `purse.deductGold`): an online payment answers its undo
+  purse.pay = (n, a) => { const short = purse.deductGold(n); if (a) a.accountGold -= short; return () => { gold += n - short; if (a) a.accountGold += short; }; };
   const said = [];
   const cache = createSceneCache();
   const buyHomeAt = lift({ onlineHomes: homes }, (b) => b.townMapId, () => purse, () => account, buyOnlineHome, HOME_BUY_BUSY,

@@ -51,6 +51,7 @@ import { GUILD_HALL_ENTRIES, GUILD_HALL_ENTRY_WORDS, guildHallPrice } from '../n
 import { heraldryOf } from '../net/heraldryLaw.js';   // GUILD1d: a hall's heraldry, off the town's answer
 import { layoutStampOfMapId, CLASSIC_LAYOUT } from './layoutPins.js';   // WD3: a home is bought in its town's layout
 import { goldSum as gold, EMPIRE_ACCOUNT_WORDS } from './homeWords.js';   // HOME-PRICE: every sum with its thousands; online, the Empire's account (EMPIRE-ACCOUNT)
+import { walletReserve } from '../net/realmGoldLaw.js';   // MARKET-AUDIT: a refusal gives back exactly what the payment took
 
 /** How long a town's answer is believed before a door asks again. */
 export const HOME_TOWN_TTL_MS = 60_000;
@@ -571,11 +572,13 @@ export async function buyOnlineHome(homes, { mapId, buildingKey, region, price, 
     if (realm) {
       // REALM P2.2b: the claim and the record's payment are one write on the service - the purse pays at once and gets it
       // back on a refusal (systems/realmSaves.js realmGoldAct); there is no claim to give back
+      // MARKET-AUDIT: a refusal and a repeat give back exactly what the payment took (purse, letters, account)
+      const paid = walletReserve({ pay, credit: (n) => refund?.(n) }, price);
       const r = await realm.act({
-        reserve: () => { pay(price); return () => refund?.(price); },
+        reserve: paid.reserve,
         // AUDIT REALM: a claim answered as the house already this character's (`repeat`) moved no gold on the record - the
         // purse's reserve comes back, or the next checkpoint would write the price paid twice
-        apply: (/** @type {any} */ res) => { if (res?.repeat) refund?.(price); },
+        apply: (/** @type {any} */ res) => { if (res?.repeat) paid.back(); },
         call: (/** @type {any} */ at) => homes.claim({ mapId, buildingKey, region, price, realm: at, layout }),
       });
       return r?.ok ? { ok: true } : { ok: false, error: r?.error ?? 'server' };

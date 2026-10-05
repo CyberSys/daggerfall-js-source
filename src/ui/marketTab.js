@@ -40,7 +40,7 @@
 // service says each may list (`ways` - a piece whose maker's record names another lists from the pack). A piece from a
 // pack that arrives - bought, or come back - is collected into the record as a crafted one is minted.
 import { accountRefusalText } from '../net/accountClient.js';
-import { MARKET_MOVED } from '../net/marketBook.js';   // AUDIT 31 B8
+import { MARKET_MOVED, MARKET_KEPT_TEXT } from '../net/marketBook.js';   // AUDIT 31 B8
 import {
   MARKET_VIEWS, MARKET_FAMILIES, CRAFTED_FAMILIES, MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX, MARKET_WORTH_MAX,
   listingFee, saleTax, fillTaxOn, sellerGets, courierFee, wearOf, wearText, medianText, marketCatalogue, AUCTION_S, AUCTION_RAISE_PCT, AUCTION_LATE_S, AUCTION_ADD_S, AUCTION_BID_MAX,
@@ -88,6 +88,9 @@ const GOODS_SAID = 8;
 const MOVED = MARKET_MOVED;
 /** AUDIT PROF-541 R2-C7: why a spoiled dish of your own make does not list. */
 export const SPOILED_DISH_WHY = 'spoiled - only a fresh dish of your own make goes to the market';
+/** MARKET-AUDIT: the material families the filters offer - those the market knows a material of (the Spoils of War, a
+ *  family the Stores keep, has none: its two materials are a metal and a cloth, and its filter read nothing ever). */
+const LISTED_FAMILIES = Object.freeze(MARKET_FAMILIES.filter(([f]) => marketCatalogue().some((c) => c.family === f)));
 /** AUDIT 30 U11: the words that say the market is not this account's. */
 const SHUT = ['market-closed', 'prof-need-account'];
 const plural = (n, one) => `${n.toLocaleString('en-US')} ${one}${n === 1 ? '' : 's'}`;
@@ -207,8 +210,18 @@ export function createMarketTab(m, ui) {
     if (!ui.alive() || mine !== seq) return;
     st.loading = false;
     st.data = r.data; st.error = r.ok ? null : r.error; st.stale = !!r.stale;
-    ui.rerender();
+    redraw();
     collectArrived();
+  }
+  /** MARKET-AUDIT: an answer's redraw waits while one of the tab's lists is held open - the window rebuilds every node, and a
+   *  Family, Tier or Material list closed under the pointer mid-choice; it draws once the list is let go. */
+  function redraw() {
+    const a = /** @type {any} */ (globalThis.document?.activeElement);
+    if (a?.tagName === 'SELECT' && a.classList?.contains?.('market-select')) {
+      a.addEventListener?.('blur', () => { if (ui.alive()) ui.rerender(); }, { once: true });
+      return;
+    }
+    ui.rerender();
   }
   /** AUDIT 30 U4: the kept acts settled and the arrived pieces collected - an act through the window's door, so no
    *  other press is made while it runs (the market book refuses one, `market-busy`, besides). */
@@ -216,7 +229,10 @@ export function createMarketTab(m, ui) {
     const r = await m.book.settle(m.mint, m.putBack, m.drop ?? null);
     for (const x of arrived()) if (r?.ok) tried.add(x.id);
     if (r?.settled) load(true);
-    return { ok: !!r?.ok, text: r?.settled ? 'The counting-house has settled what it held for you.' : (r?.ok ? '' : accountRefusalText(r?.error)) };
+    // MARKET-AUDIT P5: a collect refused is said, and an act still kept - each was said nowhere, and asked after no more
+    const refused = (r?.refused ?? []).find(Boolean);
+    return { ok: !!r?.ok && !refused, text: refused ? accountRefusalText(refused) : r?.settled ? 'The counting-house has settled what it held for you.'
+      : !r?.ok ? accountRefusalText(r?.error) : m.book.pending ? MARKET_KEPT_TEXT : '' };
   });
   /** MARKET-AUDIT U7: whether a delivery is this character's - another of the account's waits for that one (the book's settle
    *  collects this character's alone), and is never asked after here. */
@@ -228,7 +244,8 @@ export function createMarketTab(m, ui) {
   const collectArrived = () => { if (arrived().length && !ui.busy()) settle(); };
   /** On the tab shown: the kept acts settled (and the arrived pieces collected), then the view read. */
   async function open() {
-    if (m.book.pending || arrived().length) await settle();
+    // MARKET-AUDIT P4: the opening settle reads as the read does - its kept acts may take a while, never a blank tab
+    if (m.book.pending || arrived().length) { st.loading = true; ui.rerender(); await settle(); }
     await load(false);
   }
   const go = (view) => { ui.hush?.(); st.view = view; st.picked = null; st.family = null; st.tier = 0; st.data = m.book.cached(view, q()); load(false); };   // MARKET-AUDIT U6: the last act's word is its view's
@@ -717,7 +734,8 @@ export function createMarketTab(m, ui) {
     const ul = el('ul', 'market-list');
     for (const l of rows) {
       const li = el('li', `market-listing state-${l.state}`);
-      li.append(el('b', null, l.kind === 'piece' ? m.pieceName(l.piece) : l.kind === 'item' ? goodName(l.item) : `${m.name(l.material)} - ${l.units} of ${l.listed} left`),
+      // MARKET-AUDIT: a closed listing's units are its listed whole - "5 of 10 left · cancelled" read as if five stood
+      li.append(el('b', null, l.kind === 'piece' ? m.pieceName(l.piece) : l.kind === 'item' ? goodName(l.item) : l.state === 'open' ? `${m.name(l.material)} - ${l.units} of ${l.listed} left` : `${m.name(l.material)} x${l.listed}`),
         el('span', 'market-price', `${priceText(l.price, l.currency)}${l.kind === 'material' ? ' each' : ''}`),
         el('span', 'market-where', l.region === m.region ? 'here' : m.regionNameOf(l.region)),
         el('span', 'market-state', l.state === 'open' ? `${plural(Math.max(0, Math.ceil((l.expiresAt - ui.nowS()) / 3600)), 'hour')} left` : l.state));
@@ -832,7 +850,7 @@ export function createMarketTab(m, ui) {
       if (st.data && !rows.length) list.append(el('p', 'notice-empty', st.family ? 'No Masterwork of that kind is up for auction.' : 'No Masterwork is up for auction.'));
       box.append(list);
     } else if (st.view === 'materials' || st.view === 'crafted') {
-      box.append(filtersNode(st.view === 'materials' ? MARKET_FAMILIES : CRAFTED_FAMILIES));
+      box.append(filtersNode(st.view === 'materials' ? LISTED_FAMILIES : CRAFTED_FAMILIES));
       const rows = [...(st.data?.rows ?? [])].sort((a, b) => landed(a) - landed(b) || a.price - b.price);
       const list = el('div', 'market-rows');
       for (const r of rows) {
@@ -857,7 +875,7 @@ export function createMarketTab(m, ui) {
       box.append(list);
     } else if (st.view === 'mine') box.append(mineNode());
     else if (st.view === 'orders') {
-      box.append(filtersNode(MARKET_FAMILIES));
+      box.append(filtersNode(LISTED_FAMILIES));
       const ul = el('ul', 'market-list');
       // AUDIT 30 U7: this account's own orders stand among the region's, Withdraw beside them
       const orders = st.data?.orders ?? [];

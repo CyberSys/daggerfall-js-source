@@ -351,6 +351,22 @@ export function deductGoldUndoable(player, amount) {
   };
   return { owed, undo };
 }
+/** MARKET-AUDIT: an online payment's order - the purse and its letters (deductGold), then what they could not cover off
+ *  `account` (a bank account's `accountGold`, or none) - answering the undo of exactly that: the purse's coins, each
+ *  letter, the account's share, once. Every realm act's `reserve` gives this back on a refusal; a whole-cost `credit` as
+ *  coins turned letters and the bank's gold into a purse past carrying. */
+export function payUndoable(player, amount, account = null) {
+  const { owed, undo } = deductGoldUndoable(player, amount);
+  const fromBank = account && owed > 0 ? owed : 0;
+  if (fromBank) account.accountGold -= fromBank;
+  let undone = false;
+  return () => {
+    if (undone) return;
+    undone = true;
+    undo();
+    if (fromBank) account.accountGold += fromBank;
+  };
+}
 /** `playerEntity.GoldPieces += amount` - E3's sale proceeds and every
  *  other credit. E4 made it the counter's write; nothing lands in the
  *  pack, so a purse that grows past MaxEncumbrance is DFU's own

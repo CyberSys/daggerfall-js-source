@@ -274,7 +274,7 @@ test('PROF5 wiring: the host builds the market book online, its answers told to 
   const w = src('src/scenes/world.js');
   assert.match(w, /const marketBook = params\.has\('online'\)\n\s*\? createMarketBook\(\{ door: accountMarket\(/);
   assert.match(w, /now: \(\) => Date\.now\(\) \+ _sharedOffsetMs, marks: marksBook,\n\s*stores: \{ apply: \(st\) => profBook\?\.applyStore\(st\) \},/);   // AUDIT 30 U1: the Stores told too (AUDIT 31: its holds after)
-  assert.match(w, /const market = marketBook && profBook\?\.state\.open === true && marksBook\?\.state\?\.open !== false && Number\.isInteger\(region\) \? \{/);   // AUDIT 30 U11
+  assert.match(w, /const market = marketBook && profBook && profBook\.state\.open !== false && marksBook\?\.state\?\.open !== false && Number\.isInteger\(region\) \? \{/);   // AUDIT 30 U11; MARKET-AUDIT (PIN MOVED: `=== true` - the tab stands while the professions' read is unanswered)
   // GUILD1e: the board's window built by the host's one builder (showNoticeWindow), which adds the book and the character
   assert.match(w, /gate: \(\) => noticeGateCard\(\), answer: \(note\) => answerNote\(note\), work, market,\n/);
   assert.match(w, /book: noticeBook, character: \(\) => characterIdOf\(playerEntity\),/);

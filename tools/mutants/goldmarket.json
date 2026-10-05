@@ -191,7 +191,7 @@
   {
     "name": "GOLDMARKET-book-reserves-nothing",
     "file": "src/net/marketBook.js",
-    "old": "reserve: () => { const undo = w.pay(cost); return typeof undo === 'function' ? undo : () => w.credit(cost); }",
+    "old": "reserve: walletReserve(w, cost).reserve",
     "new": "reserve: () => () => {}",
     "tests": [
       "test/goldmarket_client.test.js"

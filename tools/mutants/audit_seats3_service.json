@@ -191,8 +191,8 @@
  {
   "name": "SEATS3-D2-piece-the-constant",
   "file": "server-account/src/market.js",
-  "old": "const listingsMax = await listingsCapAt(db, nowS, boardOf(board));   // AUDIT SEATS-3 D2: a Market Hall",
-  "new": "const listingsMax = 30;   // AUDIT SEATS-3 D2: a Market Hall",
+  "old": "const listingsMax = vend ? VENDOR_STOCK_MAX : await listingsCapAt(db, nowS, boardOf(board));   // AUDIT SEATS-3 D2: a Market Hall",
+  "new": "const listingsMax = vend ? VENDOR_STOCK_MAX : 30;   // AUDIT SEATS-3 D2: a Market Hall",
   "tests": [
    "test/audit_seats3_service.test.js"
   ]
