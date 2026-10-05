@@ -1,0 +1,58 @@
+[
+  {
+    "name": "HILLSHAPES-catalogue-mound",
+    "file": "src/world/townStandIns.js",
+    "old": "[id, () => hillMesh(RMBRP_HILL_SHAPES[id], surface)]",
+    "new": "[id, () => hillMesh({ ...RMBRP_HILL_SHAPES[id], top: 1.6, reach: RMBRP_HILL_SHAPES[id].reach.map(() => 10), rings: RMBRP_HILL_SHAPES[id].rings.map((r) => r.map((h, j) => (j === r.length - 1 ? h : 1.6 * (1 - j / r.length)))) }, surface)]",
+    "tests": ["test/fb1005_hills.test.js"],
+    "note": "the catalogue's 10 m, 1.6 m mound again: Ipsham's houses hang over it"
+  },
+  {
+    "name": "HILLSHAPES-reach-halved",
+    "file": "src/world/townStandIns.js",
+    "old": "    const b = k % K, a = (b / K) * Math.PI * 2, r = (shape.reach[b] * j) / N;",
+    "new": "    const b = k % K, a = (b / K) * Math.PI * 2, r = (shape.reach[b] * j) / N / 2;",
+    "tests": ["test/fb1005_hills.test.js"],
+    "note": "a hill half its measured reach"
+  },
+  {
+    "name": "HILLSHAPES-ring-shifted",
+    "file": "src/world/townStandIns.js",
+    "old": "    return [cx + Math.cos(a) * r, shape.rings[b][j - 1], cz + Math.sin(a) * r];",
+    "new": "    return [cx + Math.cos(a) * r, shape.rings[b][Math.min(j, N - 1)], cz + Math.sin(a) * r];",
+    "tests": ["test/fb1005_hills.test.js"],
+    "note": "each ring a ring further out's height"
+  },
+  {
+    "name": "HILLSHAPES-unmirrored",
+    "file": "src/world/townStandIns.js",
+    "old": "    return [cx + Math.cos(a) * r, shape.rings[b][j - 1], cz + Math.sin(a) * r];",
+    "new": "    return [-(cx + Math.cos(a) * r), shape.rings[b][j - 1], cz + Math.sin(a) * r];",
+    "tests": ["test/fb1005_hills.test.js"],
+    "note": "the hill mirrored back across x: the profile no longer stands where the pack's surface does"
+  },
+  {
+    "name": "HILLSHAPES-centre-dropped",
+    "file": "src/world/townStandIns.js",
+    "old": "    if (j === 0) return [cx, shape.top, cz];",
+    "new": "    if (j === 0) return [cx, 0, cz];",
+    "tests": ["test/fb1005_hills.test.js"],
+    "note": "a pit at the hill's centre"
+  },
+  {
+    "name": "HILLSHAPES-faces-down",
+    "file": "src/world/townStandIns.js",
+    "old": "l = Math.hypot(...n) || 1, sgn = n[1] < 0 ? -1 : 1;",
+    "new": "l = Math.hypot(...n) || 1, sgn = n[1] < 0 ? 1 : -1;",
+    "tests": ["test/fb1005_hills.test.js"],
+    "note": "every face turned down: the hill seen from above is its back"
+  },
+  {
+    "name": "HILLSHAPES-cell-one-triangle",
+    "file": "src/world/townStandIns.js",
+    "old": "    else { face(a, b, c); face(a, c, d); }",
+    "new": "    else { face(a, b, c); }",
+    "tests": ["test/fb1005_hills.test.js"],
+    "note": "half of every cell out to the rim left open"
+  }
+]

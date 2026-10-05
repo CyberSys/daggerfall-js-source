@@ -31,6 +31,7 @@ import {
   RMBRP_HILLS, RMBRP_STALLS, RMBRP_DOCKS, DOCK_SCALE, RMBRP_PIECES, TOWN_CLUTTER, TOWN_CLUTTER_ARCHIVE, TOWN_GARDEN, TOWN_GARDEN_ARCHIVE,
   installTownStandIns, _resetTownStandIns,
 } from '../src/world/townStandIns.js';
+import { RMBRP_HILL_SHAPES, SHAPE_BEARINGS, SHAPE_RINGS } from '../src/world/rmbrpHillShapes.js';   // FIELD BUGS 2026-10-05 HILL-SHAPES
 import { DET_TOWN_MODELS, DET_FLAT_STAND_INS, DET_FLAT_DRAWINGS, DET_TOWN_FLATS, DET_OLD_ARCHIVES, detStandInsOn, _resetDetStandIns } from '../src/world/detStandIns.js';
 import { TOWN_PICTURE_ARCHIVE, TOWN_PICTURES, PICTURE, townPictureEntries } from '../src/world/townPictures.js';
 import { STAND_IN_SPRITES } from '../src/world/standInSprites.js';
@@ -212,10 +213,14 @@ test('WD3 stand-ins, every built piece is sound - Rosy\'s hangings and rugs, the
     assert.ok(near(hi[1], up) && near(lo[1], -Math.max(down, 0.05)), `${id}: ${up} up, ${down} down`);
     assert.ok(hi[0] - lo[0] <= w * 1.13 && hi[0] - lo[0] >= w * 0.75 && hi[2] - lo[2] <= l * 1.13 && hi[2] - lo[2] >= l * 0.75, `${id}: ${w} x ${l}`);
   }
-  for (const [id, [r, h, surface]] of Object.entries(RMBRP_HILLS)) {
-    const { lo, hi, tex } = box[id];
+  // FIELD BUGS 2026-10-05 HILL-SHAPES: each hill at its measured polar profile - its top the highest of its rings, its
+  // foot the rim (the pack's base), its x across the reach of its bearings
+  for (const [id, surface] of Object.entries(RMBRP_HILLS)) {
+    const { lo, hi, tex } = box[id], s = RMBRP_HILL_SHAPES[id], K = SHAPE_BEARINGS;
     assert.deepEqual([...tex], [surface === 'rock' ? '302_3' : '302_2'], id);
-    assert.ok(near(hi[1], h - 0.3, 1e-5) && near(lo[1], -0.3, 1e-5) && near(hi[0], r, 1e-5) && near(lo[0], -r, 1e-5), `${id}: radius ${r}, ${h} high, sunk 0.3`);
+    const xs = s.reach.map((r, k) => s.c[0] + Math.cos((k / K) * Math.PI * 2) * r);
+    assert.ok(near(hi[1], Math.max(s.top, ...s.rings.flat()), 1e-5) && near(lo[1], Math.min(...s.rings.map((r) => r[SHAPE_RINGS - 1])), 1e-5), `${id}: its top and its rim`);
+    assert.ok(near(hi[0], Math.max(...xs), 1e-5) && near(lo[0], Math.min(...xs), 1e-5), `${id}: across its reach`);
   }
   for (const [id, [a, r]] of Object.entries(RMBRP_STALLS)) {
     const { lo, hi, tex } = box[id];
