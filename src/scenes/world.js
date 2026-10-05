@@ -112,6 +112,7 @@ import { troubleOf, troubledTrip } from '../systems/livingWorld/trouble.js';   /
 import { foeWord } from '../systems/livingWorld/lines.js';   // LW4: a foe's word for the town's talk and a mark
 import { createWayBook } from '../systems/livingWorld/ways.js';   // LW3: the travellers' ways, planned by the living world itself
 import { createLivingRoads } from './livingRoads.js';   // LW3: the parties on the road near the player
+import { createRoadFights, LIVE_M } from './roadFights.js';   // LW4b: a beset party's fight, stood live
 import { createTravellerSprites, classLookOf } from '../world/travellerSprites.js';   // LW3: their bodies, and the armed walk's sprite
 import { GUARD_TEXTURE, MobilePerson, PERSON_TEXTURES, PERSON_MOVE_SPEED } from '../characters/mobilePerson.js';
 import { bowDamageArrow, weaponOfMaterial, armorOfMaterial } from '../combat/enemyEquipment.js';   // MAC-N1: the recovered shaft is CreateWeapon's arrow, value and all; OH-E: UpgradeLoot's SetItem + ApplyWeaponMaterial / ApplyArmorSettings
@@ -2273,6 +2274,26 @@ export async function bootWorld(canvas, renderer, params, status) {
     sprites: createTravellerSprites({ renderer, getTexture, uploadRecordFrame, living: _livingRoadsDoor }),
     memo: _livingTripMemo, relations: () => livingRelations, playerName: () => playerEntity.name ?? '', weather: () => weather,
     foeName: livingFoeWord,   // LW4: what besets a party, on its mark
+    // LW4b: THE FIGHT STOOD - a beset party near the player on foot, its foes the encounter pool's own and its armed the
+    // player's allies, when this player stands it (the camps' election, by the players' own feet)
+    fights: createRoadFights({
+      spawn: (type, feet, o) => exteriorFoes.spawnFoe(type, feet, { yaw: o.yaw, gender: o.gender, level: o.level, allied: o.allied, loose: true, transient: true }),
+      remove: (f) => exteriorFoes.removeFoe(f),
+      inPool: (f) => exteriorFoes.foes.includes(f),
+      owner: () => amGroupRollOwner(online?.id ?? null, player.feetAt(), peersNear() ?? [], LIVE_M * 2),
+      ready: () => !!walkMode && !!playerSpawned && !_loading && !modes?.transitioning && _mode() === 'exterior' && !playerAfloat(),
+      sceneOf: (nx, nz) => tvSceneOf(nx, nz, 0),
+      clock: skyMinutes,
+      relations: () => livingRelations,
+      turnKeyOf: (res, trip) => {
+        const town = livingTownOfId(res.town);
+        const roster = town ? livingTripWorld.rosterOf(town) : [];
+        const place = roster.find((r) => r.slot === res.slot) ?? res;
+        return turnKey(place, placeCycle(place, roster, Math.floor(trip.outT0 / 1440), livingScale()));
+      },
+      dies: (res, trip) => livingTroubleWorld.dies(res, trip),
+      door: _livingRoadsDoor,
+    }),
   }));
   /** LW3: the bodies on the road as the street's talk targets, beside the town's (`_livePersons`) - for the talk ray and
    *  the hover alone: the watch's conversion and the trample are the town's. */

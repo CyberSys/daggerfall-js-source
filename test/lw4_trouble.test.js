@@ -6,7 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { synthMap } from './lwRoads.mjs';
+import { synthMap, livingMap, partiesOver } from './lwRoads.mjs';
 import { synthTown } from './lwTown.mjs';
 import { HAZARD, VACANT_CYCLES, fateHits, deathCounted, placeAt, placeKeyOf, turnKey } from '../src/systems/livingWorld/lives.js';
 import { troubleOf, troubledTrip, strengthOf, foeStrength, RISK_PER_DAY, GROUND_RISK, RISK_MAX, CAMP_SHARE, HALT_MIN, FIGHT_MIN, FOES_MAX } from '../src/systems/livingWorld/trouble.js';
@@ -32,42 +32,6 @@ import { PERSON_MOVE_SPEED } from '../src/characters/mobilePerson.js';
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const wayAtOf = (trip, s) => wayAtOf0(trip.way, s);
 const O = () => ({ mpm: CALENDAR_MPM, memo: new Map() });
-
-/** The synthetic map with the lives and the trouble on it, as the host composes them (world.js). */
-function livingMap({ turns = null, climate = 230 } = {}) {
-  const m = synthMap();
-  const { towns, world } = m;
-  const byId = new Map(towns.map((t) => [t.mapId, t]));
-  const book = new Map();
-  const placeOf = (res, k) => {
-    const key = turnKey(res, k);
-    let g = book.get(key);
-    if (!g) {
-      const pl = placeAt(res, k, turns);
-      g = { holder: pl.vacant ? null : pl.holder == null ? res : mintResident(byId.get(res.town), 't', res.slot, res.job, { gen: pl.holder }), dies: !pl.vacant && pl.dies };
-      book.set(key, g);
-    }
-    return g;
-  };
-  const trouble = {
-    climateAt: () => climate,
-    foesOf: ({ climateIndex, minute, level, size, rolls }) => rollGroupComposition({ climateIndex, skyMinutes: minute, inLocationRect: false, playerLevel: level, size }, rolls)?.mobileTypes ?? null,
-    foeLevel: (type, level) => (type >= 128 ? level : ENEMY_BASICS[type]?.level ?? level),
-    dies: (res, trip) => { const roster = world.rosterOf(byId.get(res.town)); const place = roster.find((r) => r.slot === res.slot) ?? res; return placeOf(place, placeCycle(place, roster, Math.floor(trip.outT0 / DAY_MIN), 1)).dies; },
-    turnOf: (id) => (turns?.won?.has(id) ? 'won' : turns?.lost?.has(id) ? 'lost' : null),
-  };
-  world.holderOf = (res, k) => placeOf(res, k).holder;
-  world.fated = (res, k) => placeOf(res, k).dies;
-  world.fate = (trip) => troubledTrip(trip, troubleOf(trip, trouble));
-  return { ...m, byId, placeOf, trouble };
-}
-
-/** Every party of every town over a run of days, each once, troubled as the host troubles them. */
-function partiesOver(map, d0, d1, o = O()) {
-  const seen = new Map();
-  for (let day = d0; day < d1; day++) for (const town of map.towns) for (const tr of townTrips(town, day * DAY_MIN + 720, map.world, o)) seen.set(tr.id, tr);
-  return [...seen.values()];
-}
 
 /** A traveller place with a counted death at some cycle, and the cycles around it. */
 function aDeath(job = 'merchant') {

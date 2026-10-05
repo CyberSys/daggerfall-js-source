@@ -78,7 +78,7 @@ Taken at the design, in the request's own order; each is Mac's to overrule.
 - LW1 - the census, the places, the day, the meetings, the lines, the relations store (pure).
 - LW2 - the town: residents walk the streets in the streaming host.
 - LW3 - the roads: trips, caravans, camps, the gear; the wilderness and the Overworld.
-- LW4 - trouble on the road (LW4b: the fight stood live, the player's to turn).
+- LW4 - trouble on the road; LW4b - the fight stood live, the player's to turn.
 - LW5 - the ports.
 - LW6 - the deep.
 - LW7 - friends and enemies, in full.
@@ -285,7 +285,33 @@ the trample (`retire`), the probes.
   cycle (`lives.js turnKey`) - and a fight won or lost for a party (`won`, `lost`, the encounter's id: a won fight is
   won, a lost one fled). Read over the dice (`fateHits`, `troubleOf`'s `turnOf`), kept `TURNS_MAX` (200) a kind, saved
   beside the regards (a record with none reads as before). The host's books (the places, the fates, the trips) are
-  made again at each turn and each load (`livingTurnsFresh`). The live fight that makes them is LW4b.
+  made again at each turn and each load (`livingTurnsFresh`). The live fight that makes them is LW4b's.
+
+## LW4b - the fight, stood (2026-10-05)
+
+`scenes/roadFights.js`, the host's; the roads' layer carries it (`fights`).
+
+- **Stood.** A player ON THE GROUND within `LIVE_M` (150 m) of a party at its fight, and the one to stand it (online
+  the camps' own election, `campEncounters.js amGroupRollOwner` by the players' own feet at twice the reach - one
+  player stands each fight; offline always), stands it LIVE: its FOES as the encounter pool's own (`exteriorFoes.js
+  spawnFoe`, loose and transient - never a save's), each its kind at the encounter's level, `FOE_STAND_M` (7 to 13 m)
+  about the party's place facing it, shared online as any encounter's; its ARMED as the player's ALLIES (team
+  PlayerAlly - every foe may fight them; a `shipmate`, no blow of the player's reaches them), each in their class at
+  their own level, by their own name, where they stood in the ring. The unarmed stay in the ring as the roads draw them.
+  Never from the sky (the Overworld up), never while nothing can stand (`ready`: on foot in the open world, nothing
+  loading, nothing in passage, not afloat). The roads then draw none of the bodies the pool holds; a fight a PEER
+  stands (`peerStands`) shows no foes of the roads' own - the peer's come through the stream.
+- **The end is what happens** (`judge`). An ally cut down FELL (the turn `fallen` at the member's place and cycle: the
+  lives read it - the place stands empty, a newcomer comes). Every foe dead: WON (the turn `won` - the trouble reads it
+  and the party walks on, never turned), each member the road would have taken who still stands SPARED (the turn
+  `spared`), and each survivor's regard moved - `saved` (35) the spared, `helped` (20) the rest, nothing for the fallen.
+  Every armed ally down with foes standing: LOST (the turn `lost`: the party flees home) - and the foes are the
+  player's own trouble, left to the pool's own law.
+- **Let go.** A fight left unfinished - the player past `LIVE_KEEP_M` (260 m), `LIVE_GRACE_MIN` (90) past its halt,
+  or nothing able to stand - is let go: its bodies taken out, the pure end standing (a member cut down in it fell all
+  the same). A fight won lets its allies go when its halt is done and the party walks on, its own again. EVERY
+  ALLOCATION HAS AN OWNER: each body stood is the layer's until its fight ends, and `clear()` (the roads' own, at every
+  sweep: indoors, a mode's change, the teardown) takes out every one.
 
 ## The four hosts
 

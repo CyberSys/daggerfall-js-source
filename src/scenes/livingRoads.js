@@ -19,6 +19,9 @@
 //    own minutes; then the party holds there, binding its wounds, until its halt is done. The FALLEN lie where they fell
 //    a day (trips.js remainsNear), on the class corpse's own picture. Under the Overworld a beset party's mark says so
 //    (`wayfarer fight`, "Caravan beset by Orcs").
+//  - LW4b: THE FIGHT STOOD (scenes/roadFights.js `fights`): a beset party near the player on the ground is fought for
+//    real - its foes and its armed the encounter pool's bodies, which the roads then draw not; a fight a peer stands
+//    (online) shows no foes of the roads' own - the peer's come through the stream.
 import { partiesNear, partyAt, wayAt, membersAt, remainsNear, NATIVE_PER_M, NATIVE_PIXEL } from '../systems/livingWorld/trips.js';
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { circleLine, lineMinutes, ROUND_S, TALK_SHARE } from '../systems/livingWorld/meetups.js';
@@ -134,6 +137,7 @@ export function partyPlaces(trip, at) {
  *   sprites: ReturnType<typeof import('../world/travellerSprites.js').createTravellerSprites>,
  *   memo?: Map<string, any>,
  *   relations?: () => any, playerName?: () => string, weather?: () => (string|null), foeName?: (type: number, n: number) => string,
+ *   fights?: ReturnType<typeof import('./roadFights.js').createRoadFights> | null,
  * }} deps - `here` the player's native place (null: nowhere on the map - indoors, underground); `baseRate` the clock's
  *   minutes a real second at the walking pace's own rate (the rounds' and the lines' beat on the clock); `foeName` a
  *   foe's word for a mark ("Orcs")
@@ -189,6 +193,8 @@ export function createLivingRoads(deps) {
     const here = deps.here();
     list.length = 0;
     busy.clear();
+    const fights = deps.fights ?? null;
+    if (fights) fights.frame(parties.map((p) => ({ trip: p.trip, at: partyAt(p.trip, t) })), here, t, { ground: !overworld });   // LW4b: the fights stood live
     if (here) {
       const reach = overworld ? TRAVELLER_FAR_M + 60 : ROADS_PLAY_M;
       for (const p of parties) {
@@ -197,14 +203,17 @@ export function createLivingRoads(deps) {
         if (Math.hypot(/** @type {number} */ (at.x) - here.x, /** @type {number} */ (at.z) - here.z) / NATIVE_PER_M > reach + 40) continue;
         const members = membersAt(p.trip, t);
         const fight = !!at.fight;
+        const live = !!fights?.stood(p.trip.id);   // LW4b: its foes and its armed the pool's bodies now
+        const allies = live ? fights?.alliesOf(p.trip.id) : null;
         const places = fight ? fightPlaces(p.trip, at, members) : partyPlaces(members === p.trip.party ? p.trip : { ...p.trip, party: members }, at);
         for (const m of places) {
+          if (allies?.has(m.res.id)) continue;
           const distM = Math.hypot(m.x - here.x, m.z - here.z) / NATIVE_PER_M;
           if (distM > reach) continue;
           if (fight) busy.add(m.res.id);
           list.push({ key: m.res.id, res: m.res, feet: deps.sceneOf(m.x, m.z), yaw: m.yaw, moving: m.moving, distM, striking: fight && m.res.cls != null && strikesNow(m.res.id) });
         }
-        if (fight) {
+        if (fight && !live && !(fights && !overworld && fights.peerStands({ x: /** @type {number} */ (at.x), z: /** @type {number} */ (at.z) }, here))) {
           for (const f of foePlaces(p.trip, at)) {
             const distM = Math.hypot(f.x - here.x, f.z - here.z) / NATIVE_PER_M;
             if (distM > reach) continue;
@@ -326,6 +335,6 @@ export function createLivingRoads(deps) {
       return s === 'enemy' || s === 'hostile' ? fillLine(LIVING_REFUSAL, { a: firstNameOf(person.nameNPC) }) : null;
     },
     /** Every body freed and the parties forgotten (the host's teardown). */
-    clear() { deps.sprites.clear(); parties = []; remains = []; list.length = 0; greetings = []; timer = Infinity; strikes.clear(); busy.clear(); },
+    clear() { deps.sprites.clear(); deps.fights?.clear(); parties = []; remains = []; list.length = 0; greetings = []; timer = Infinity; strikes.clear(); busy.clear(); },
   };
 }
