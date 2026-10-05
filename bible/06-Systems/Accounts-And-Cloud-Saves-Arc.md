@@ -4594,8 +4594,8 @@ left in it.) SirMcMobdon already holds SHADOW-FANG's title and glyph (black #0d0
   case-folded, never a guest's. Held is not worn: SirMcMobdon wears it from the account card's Aura row (`player.aura`),
   as every aura is.
 - **The vocabulary** (`src/net/identityToken.js`, in the relay bundle): `shadowcloak` joins AURAS last. A relay before it
-  refuses a token carrying it (`claimsValid`), so the relay is **world167** and the account service **acct79** (world165 and acct78 on its branch, renumbered
-  past main's SERPENT1 and then SERPENT2 at the merges); the account deploy waits on the relay's `/health` to serve world167 (SHADOW-FANG's
+  refuses a token carrying it (`claimsValid`), so the relay is **world167** and the account service **acct79** (world165 and acct78 on its branch, both renumbered
+  past main's SERPENT1, then the relay past SERPENT2, at the merges); the account deploy waits on the relay's `/health` to serve world167 (SHADOW-FANG's
   AUDIT B1). No frame changes shape.
 - **The face** (`src/ui/playerBadge.js`): "Holo Shadow Cloak" (`AURA_TEXT`), its button on the account card in the
   Shadow Fang's own paint (`AURA_PAINT.shadowcloak = 'shadowfang'`).
@@ -4730,7 +4730,7 @@ left in it.) SirMcMobdon already holds SHADOW-FANG's title and glyph (black #0d0
   All of the shader RUN in `test/glsl.mjs`. `tools/mutants/shadowcloak.json` (126, all dead). The vocabulary's
   newest-word and one-list pins in `aegis.test.js` and `primarch.test.js` moved (PIN MOVED), `shadowfang.test.js`'s
   wardrobe holds the cloak; the relay's pins moved to world167 crediting SHADOW-CLOAK (`auditbounty1.test.js` holds the
-  credit), the account's to acct79 (past SERPENT1's world165 and acct78, then SERPENT2's world166, at the merges of main). Re-aimed by
+  credit), the account's to acct79 (past SERPENT1's world165 and acct78, then the relay alone past SERPENT2's world166, at the merges of main). Re-aimed by
   content, all dead: `aegis.json` (4), `primarch.json` (4), `wb9g.json` (1) and the version records in `soc1.json`,
   `gatekeys.json` and `fb1004d_knight_house.json`. The revisions changed nothing on the wire: the relay and the account
   are world167 and acct79.
