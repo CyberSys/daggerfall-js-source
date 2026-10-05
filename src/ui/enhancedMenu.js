@@ -101,7 +101,7 @@ import { mwRaceId } from '../formats/mwNpc.js';
 import { EQUIP_SLOTS, equipTableOf } from '../systems/equip.js';
 import { dfWornEquipment } from '../formats/mwItemMap.js';
 import { ARMOR_ENUM } from '../combat/enemyEquipment.js';
-import { morrowindDataCount, morrowindDataCounted, countMorrowindArchives, assetPickerOpen } from '../scenes/dataSource.js';   // MAC1: the boot door counts the store itself; AUDIT 65 XL-6: by NAME - it never reads a stored file   // MW-IMPORT: the attach door; MWFIX: and the modal it opens owns the keyboard
+import { morrowindDataCount, morrowindDataCounted, countMorrowindArchives, assetPickerOpen, textureStoreRegistered, textureStoreSettled } from '../scenes/dataSource.js';   // MAC1: the boot door counts the store itself; AUDIT 65 XL-6: by NAME - it never reads a stored file   // MW-IMPORT: the attach door; MWFIX: and the modal it opens owns the keyboard
 import { CATEGORIES, keysOf } from '../ui/settingsMap.js';
 import { widgetFor, blockedReason, formatValue, stepValue, COLOUR_KEYS, ENUM_LAW } from '../ui/settingsLaw.js';   // FT14: the enum's own values are the bar's segments
 import { labelOf, helpOf, INSTEAD, TIER_TEXT } from '../ui/settingsCopy.js';
@@ -128,7 +128,7 @@ import { replacementCount } from '../systems/musicReplacement.js';   // M-EXT: t
 import { brandMark } from './brandMark.js';   // INTRO2: Mac's supplied logo, shared with the final splash
 import { soundReplacementCount } from '../systems/soundReplacer.js';   // SNDREP1: the sound pack's count
 import { textureReplacementCount, bundleTextureCount } from '../systems/textureReplacement.js';   // M-TEX: and the texture half; DFMOD1: and the bundles'
-import { attachedDfmods, DFMOD_DETAIL, dfmodMaxSize, setDfmodEnabled } from '../systems/dfmodTextures.js';   // VE3: a mod switched on or off
+import { attachedDfmods, DFMOD_DETAIL, dfmodMaxSize, setDfmodEnabled, unregisteredDfmods } from '../systems/dfmodTextures.js';   // VE3: a mod switched on or off; AUDIT VE R5: and one stored that did not register
 import { isIilMod } from '../systems/improvedInteriorLighting.js';   // IIL3: the lighting mod's own section   // DFMOD1: the attached texture mods, one row each; DFMOD2: the detail choice
 import { isTouchDevice } from './touch.js';   // TI2: the Touch card mounts only where a finger can reach it
 import { dateFromClassicMinutes, dateString, dateTimeString } from '../systems/gameDate.js';
@@ -2360,12 +2360,23 @@ function peerSpritesCard() {
   return c;
 }
 
+/** AUDIT VE R2: THE TEXTURE STORE, READ BEFORE A CARD READS THE TEXTURE-MOD DOOR. The enhanced main menu runs before
+ *  any host boots, and the store's mods register at a host's boot - so the Texture Overhaul card and the packs card read
+ *  a door holding the shipped mods alone. The first pane that reads the door begins the page's registration
+ *  (dataSource.js textureStoreRegistered), and the menu is drawn again when it lands. */
+let _storeWait = null;
+function waitForTextureStore() {
+  if (textureStoreSettled() || _storeWait) return;
+  _storeWait = textureStoreRegistered().catch(() => 0).finally(() => { _storeWait = null; render(); });
+}
+
 /** M-EXT: the replacement packs - music and textures - attach here.
  *  The launcher's row was the only door; FD1 removed the launcher.
  *  DFMOD1: and every pack comes OFF here too - each has a Remove beside its Attach once something is attached,
  *  behind the same confirm Delete Save uses - and Daggerfall Unity .dfmod texture mods (DREAM and its kin) attach
  *  as files, each listed with its own Remove. */
 function packsCard() {
+  waitForTextureStore();   // AUDIT VE R2: the attached mods registered before they are listed - a host may not have yet
   installVanillaEnhancedPack();   // VE4: the shipped mods are listed even before a host has registered the store
   const c = el('div', 'card');
   c.append(el('h3', null, 'Replacement packs'));
@@ -2418,6 +2429,7 @@ function packsCard() {
   // VE1: listed in load order - a mod loads after the mods it depends on, and where two carry the same texture the one
   // loaded later is drawn (DFU's ModManager)
   if (mods.length > 1) c.append(el('p', 'meta', 'In load order: where two mods carry the same texture, the later one is drawn. A mod always loads after the mods it is built on.'));
+  if (!textureStoreSettled()) c.append(el('p', 'meta', 'Reading your attached texture mods\u2026'));   // AUDIT VE R2
   for (const m of mods) {
     const row = el('div', 'card');
     row.append(el('p', null, `${m.title}${m.version ? ` ${m.version}` : ''}${m.author ? ` \u00b7 ${m.author}` : ''}`));
@@ -2431,6 +2443,16 @@ function packsCard() {
     ]));
     c.append(row);
   }
+  // AUDIT VE R5/R11: a stored mod that did not register - still being read, one that will not read, or the page opened
+  // with ?nomods - is listed with why, and its Remove: it was listed nowhere, so a mod that would not read could not go
+  for (const u of unregisteredDfmods()) {
+    const row = el('div', 'card');
+    row.append(el('p', null, u.fileName));
+    row.append(el('p', 'meta', u.state === 'indexing' ? 'Being read - it joins the load order when that is done.'
+      : u.state === 'nomods' ? 'Not loaded: this page was opened with ?nomods.' : `Not working: ${u.error}.`));
+    row.append(acts([remove('Remove', `Remove ${u.fileName}`, `This clears ${u.fileName} from this browser.${later}`, (d) => d.removeStoredDfmod(u.key))]));
+    c.append(row);
+  }
   // DFMOD2: TEXTURE DETAIL - the longest side a mod's picture is decoded at (a smaller mip past it). Full-resolution
   // packs (DREAM's HD set) are gigabytes of pixels; 512 keeps them several times Daggerfall's own and inside memory
   const cap = dfmodMaxSize();
@@ -2440,7 +2462,7 @@ function packsCard() {
   c.append(acts([
     { label: `Texture detail: ${detailLabel}`, onClick: () => { setPref('dfmodTextureDetail', nextDetail()); render(); } },
     { label: 'Add texture mods', primary: !mods.some((m) => !m.shipped), onClick: async () => { const ds = await import('../scenes/dataSource.js'); await ds.pickDfmodFiles(); render(); } },
-    ...(mods.filter((m) => !m.shipped).length > 1 ? [remove('Remove all texture mods', 'Remove all texture mods', `This clears every attached .dfmod texture mod from this browser; the built-in ones stay.${later}`, (d) => d.clearStoredDfmods())] : []),
+    ...(mods.filter((m) => !m.shipped).length + unregisteredDfmods().length > 1 ? [remove('Remove all texture mods', 'Remove all texture mods', `This clears every attached .dfmod texture mod from this browser; the built-in ones stay.${later}`, (d) => d.clearStoredDfmods())] : []),
   ]));
   return c;
 }
@@ -3189,15 +3211,21 @@ function overhaulPanel(p) {
     }
     card.append(row);
   }
+  // AUDIT VE R2: the texture store not yet read (the main menu runs before any host registers it) - a look worn now would
+  // miss the attached mods; AUDIT VE R10: what stands in a look's way (a loose texture pack, Classic's)
+  const reading = p.id === 'texture' && !textureStoreSettled();
+  const blocked = o.blocked?.() ?? null;
   const use = el('button', 'act primary look-use', o === cur ? 'In use' : `Use ${o.name}`);
   use.type = 'button';
-  use.disabled = o === cur;
+  use.disabled = o === cur || reading || !!blocked;
   use.onclick = () => {
     const r = o.apply();
     if (r?.reload) { location.replace(r.url); return; }
     render();
   };
   card.append(use);
+  if (reading) card.append(el('p', 'look-note', 'Reading your texture mods\u2026'));
+  else if (blocked && o !== cur) card.append(el('p', 'look-note', blocked));
   if (!cur) card.append(el('p', 'look-note', p.custom ?? 'Custom: your own mix from Features. Using a look sets every switch it covers.'));
   const forced = isOnlinePage() && p.online ? p.online : null;
   card.append(el('p', 'look-note', forced ? `${p.effect} ${forced}` : p.effect));
@@ -3263,6 +3291,7 @@ function plusControllerRows() {
 }
 
 function paneOverhauls(body) {
+  waitForTextureStore();   // AUDIT VE R2
   body.classList.add('wide');
   const grid = el('div', 'look-grid');
   for (const p of OVERHAUL_PANELS) grid.append(overhaulPanel(p));

@@ -6,7 +6,7 @@
       "test/ve4_vanillaEnhancedShipped.test.js",
       "test/ve1_vanillaEnhanced.test.js"
     ],
-    "old": "  _shippedLive = new Set(_shipped.filter((s) => !_storedKeys.includes(s.key)).map((s) => s.key));",
+    "old": "  _shippedLive = new Set(_shipped.filter((s) => !shadowed.has(s.key)).map((s) => s.key));",
     "new": "  _shippedLive = new Set(_shipped.map((s) => s.key));"
   },
   {
@@ -34,8 +34,8 @@
       "test/ve4_vanillaEnhancedShipped.test.js",
       "test/ve1_vanillaEnhanced.test.js"
     ],
-    "old": "  _mods = dfmodLoadOrder([...mods, ...liveShipped()]);",
-    "new": "  _mods = [...dfmodLoadOrder(mods), ...liveShipped()];"
+    "old": "  _mods = dfmodLoadOrder([..._attached, ...liveShipped()]);   // VE1: AutoSortMods' order, not the listing's; VE4: the shipped among them",
+    "new": "  _mods = [...dfmodLoadOrder(_attached), ...liveShipped()];"
   },
   {
     "name": "VE4-shipped-installed-outside-the-load-order",
@@ -44,13 +44,14 @@
       "test/ve4_vanillaEnhancedShipped.test.js",
       "test/ve1_vanillaEnhanced.test.js"
     ],
-    "old": "  _mods = dfmodLoadOrder([..._mods.filter((m) => _storedKeys.includes(m.key)), ...liveShipped()]);",
-    "new": "  _mods = [..._mods.filter((m) => _storedKeys.includes(m.key)), ...liveShipped()];"
+    "old": "  _shipped = (list ?? []).filter((s) => typeof s?.key === 'string' && s.key.startsWith(DFMOD_PREFIX) && s.index && typeof s.open === 'function');\n  _mods = dfmodLoadOrder([..._attached, ...liveShipped()]);",
+    "new": "  _shipped = (list ?? []).filter((s) => typeof s?.key === 'string' && s.key.startsWith(DFMOD_PREFIX) && s.index && typeof s.open === 'function');\n  _mods = [..._attached, ...liveShipped()];"
   },
   {
     "name": "VE4-same-list-installed-again",
     "file": "src/systems/dfmodTextures.js",
     "tests": [
+      "test/auditve.test.js",
       "test/ve4_vanillaEnhancedShipped.test.js"
     ],
     "old": "  if (list === _shippedSrc) return _registered;\n",
@@ -185,16 +186,16 @@
     "tests": [
       "test/ve4_vanillaEnhancedShipped.test.js"
     ],
-    "old": "attachedDfmods().some((m) => !m.shipped)",
-    "new": "attachedDfmods().length"
+    "old": "const composeScale = () => (dfmodCarriesDollArt() ? PAPERDOLL_HD_SCALE : 1);",
+    "new": "const composeScale = () => PAPERDOLL_HD_SCALE;"
   },
   {
     "name": "VE4-boot-without-the-pack",
-    "file": "src/scenes/shared.js",
+    "file": "src/scenes/dataSource.js",
     "tests": [
       "test/ve4_vanillaEnhancedShipped.test.js"
     ],
-    "old": "          installVanillaEnhancedPack();   // VE4: the shipped mods, in one load order with the attached\n",
+    "old": "  installVanillaEnhancedPack();   // VE4: the shipped mods, in one load order with the attached\n",
     "new": ""
   },
   {

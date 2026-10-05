@@ -52,6 +52,18 @@ export const veWorn = () => textureReplacementEnabled() && veBase()?.enabled ===
 export const classicTexturesWorn = () => !textureReplacementEnabled() || (!textureMods().some((m) => m.enabled) && textureReplacementCount() === 0);
 
 const keptAddons = () => { const v = getPref(VE_ADDONS_PREF); return Array.isArray(v) ? v.filter((k) => typeof k === 'string') : []; };
+/** AUDIT VE R10: a loose texture pack - a folder of pictures, not a mod - is drawn: behind Replace Game Artwork, with no
+ *  switch of its own (the packs card removes it). Classic switches mods off and could not wear Classic past it: the
+ *  card stood on Custom saying "a mix of texture mods is switched on" with every mod off, its Use doing nothing seen. */
+export const looseTexturesWorn = () => textureReplacementEnabled() && textureReplacementCount() > 0;
+/** AUDIT VE R10: why Classic cannot be worn by a switch now - a loose texture pack is attached - or null. */
+export const classicBlocked = () => (looseTexturesWorn()
+  ? 'A loose texture pack is attached (a folder of pictures, not a mod). Remove it on the Replacement packs card at the foot of Features to wear Classic.'
+  : null);
+/** AUDIT VE R10: the Custom note's words - a loose pack alone is not a mix of texture mods. */
+export const customTextureNote = () => (looseTexturesWorn() && !textureMods().some((m) => m.enabled)
+  ? 'Custom: a loose texture pack is attached (a folder of pictures, not a mod). The Replacement packs card at the foot of Features removes it.'
+  : 'Custom: a mix of texture mods is switched on. The Replacement packs card at the foot of Features lists them.');
 
 /** Wear Vanilla Enhanced: the Base switched on with the add-ons it was last worn with, and Replace Game Artwork with
  *  them (the switch every texture pack stands behind - DFU's Enhancements/AssetInjection). Other texture mods are left

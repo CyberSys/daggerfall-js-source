@@ -77,8 +77,8 @@
     "tests": [
       "test/ve1_vanillaEnhanced.test.js"
     ],
-    "old": "  for (const { key, index } of [..._mods].reverse()) {",
-    "new": "  for (const { key, index } of [..._mods]) {"
+    "old": "  for (const { key, index, stamp } of [..._mods].reverse()) {",
+    "new": "  for (const { key, index, stamp } of [..._mods]) {"
   },
   {
     "name": "VE1-load-order-not-applied",
@@ -86,8 +86,8 @@
     "tests": [
       "test/ve1_vanillaEnhanced.test.js"
     ],
-    "old": "  _mods = dfmodLoadOrder([...mods, ...liveShipped()]);",
-    "new": "  _mods = [...mods, ...liveShipped()];"
+    "old": "  _mods = dfmodLoadOrder([..._attached, ...liveShipped()]);   // VE1: AutoSortMods' order, not the listing's; VE4: the shipped among them",
+    "new": "  _mods = [..._attached, ...liveShipped()];"
   },
   {
     "name": "VE1-xml-from-the-lowest-mod",
@@ -176,8 +176,8 @@
     "tests": [
       "test/ve1_vanillaEnhanced.test.js"
     ],
-    "old": "if (imgs?.length === n && imgs.every(",
-    "new": "if (imgs?.length >= n && imgs.every("
+    "old": "if (imgs?.length === n && first && imgs.every(",
+    "new": "if (imgs?.length >= n && first && imgs.every("
   },
   {
     "name": "VE2-mismatched-picture-kept",
@@ -302,8 +302,10 @@
     "tests": [
       "test/ve1_vanillaEnhanced.test.js"
     ],
-    "old": "  if (sig === _sig && load === _load && _registered !== null) return _registered;",
-    "new": "  if (sig === _sig && load === _load && _registered) return _registered;"
+    "old": "  if (sig === _sig && load === _load && _registered !== null) {",
+    "new": "  if (sig === _sig && load === _load && _registered) {",
+    "equivalent": true,
+    "why": "AUDIT VE R1/R4: a registration of the same set now reads its indexes first and installs the same walk, which moves no generation (install's walk signature) - with every mod off it closes nothing either, so the truthiness test re-registers at no cost any pin can see. The law it guarded (the same set, no new generation) is held by the walk signature, whose own mutant is AUDITVE-R1-walk-always-new."
   },
   {
     "name": "VE2-every-record-decoded-together",

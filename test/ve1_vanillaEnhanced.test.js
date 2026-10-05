@@ -18,8 +18,9 @@ import { readFileSync, readdirSync } from 'node:fs';
 import {
   setDfmodSources, attachedDfmods, dfmodLoadOrder, dfmodFileName, manifestDeps, buildDfmodIndex, DFMOD_INDEX_VERSION,
   setDfmodEnabled, dfmodEnabled, forgetDfmodOff, DFMOD_OFF_PREF, DFMOD_SHIPPED_PREF, dfmodGroundLayers, groundSource, hasDfmodGround,
-  dfmodImgImage, dfmodGeneration, _resetDfmodForTests,
+  dfmodImgImage, dfmodGeneration, noteDfmodAttached, _resetDfmodForTests,
 } from '../src/systems/dfmodTextures.js';
+import { installVanillaEnhancedPack } from '../src/systems/vanillaEnhancedPack.js';
 import { preloadTextureRecord, setTextureReplacements, clearTextureReplacements, looseTextureExists, looseTextureGeneration, PRELOAD_CONCURRENCY } from '../src/systems/textureReplacement.js';
 import { billboardXmlScale } from '../src/world/billboardXml.js';
 import { setValue, getBool } from '../src/systems/settings.js';
@@ -52,8 +53,15 @@ function fakeMod(title, { deps = [], textures = [], arrays = {}, xml = {}, guid 
 }
 
 /** Attach `mods` ({ storeKey: fakeMod }) through the real registration, indexing each as an attach does. */
-async function attach(mods) {
+/** The mods registered from the store, as a boot registers them - or (`asPlayer`) attached as the packs card attaches:
+ *  the shipped pack in the door, and each mod's attach step first (AUDIT VE R3: a mod attached is on, and a copy over
+ *  a shipped mod switches that mod's switch). */
+async function attach(mods, { asPlayer = false } = {}) {
   _resetDfmodForTests();
+  if (asPlayer) {
+    installVanillaEnhancedPack();
+    for (const [k, b] of Object.entries(mods)) noteDfmodAttached(k, buildDfmodIndex(b));
+  }
   const stored = new Map();
   const load = async (k) => stored.get(k) ?? (mods[k] ? enc(k) : null);
   const open = async (bytes) => mods[new TextDecoder().decode(bytes)];
@@ -283,13 +291,15 @@ test('VE3/VE4 the Texture Overhaul card: Classic and Vanilla Enhanced - the pack
   // PIN MOVED (AUDIT VE, Mac: "Ensure this is on by default"): nothing attached was Classic while the shipped pack was off
   assert.equal(currentOption(tex), ve, 'nothing attached: the shipped Base, on by default');
   assert.equal(ve.by, 'carademono, version 3.4.7', 'VE4: the shipped Base');
+  // PIN MOVED (AUDIT VE R3, one switch a mod): a copy over a shipped mod wears that mod's switch, so the attach's own
+  // step is what switches it on - this registered the copies without it, and each was on by its own empty shelf
   await attach({
     'dfmod/dream - sprites.dfmod': fakeMod('DREAM - Sprites', { textures: [['210_0-0', 2, 2]] }),
     'dfmod/improved interior lighting.dfmod': fakeMod('Improved Interior Lighting', { guid: IIL_MOD.guid }),
     [VE]: fakeMod('Vanilla Enhanced - Base', { guid: VE_BASE_GUID, version: '3.5.0', textures: [['302_0-0', 2, 2]] }),
     [MASKED]: fakeMod('Vanilla Enhanced - Masked Roads', { deps: [['world of daggerfall - biomes', true], [VE_BASE]] }),
     [WINTER]: fakeMod('Vanilla Enhanced - Winter Tracks', { deps: [[VE_BASE]] }),
-  });
+  }, { asPlayer: true });
   assert.equal(ve.by, 'carademono, version 3.5.0', 'the copy attached is the one read');
   assert.deepEqual(attachedDfmods().filter(isVeFamily).map((m) => [m.fileName, m.shipped, m.enabled]), [
     [VE_BASE, false, true], ['vanilla enhanced - masked roads', false, true],

@@ -205,9 +205,12 @@ in unityBundleClient's shape:
   pixels.
 
 The rules around them:
-- **Shadowing:** an attached `.dfmod` under the same key shadows the shipped
-  mod, so a newer copy from Nexus is the one read. Removing it brings the
-  shipped mod back as its own switch left it.
+- **Shadowing:** an attached `.dfmod` under the same key, or with the same
+  Title (AUDIT VE R9: DFU loads one mod a Title, so the browser's "(1)"
+  download counts), shadows the shipped mod once it is registered (R5), so a
+  newer copy from Nexus is the one read. **One switch a mod** (R3, DFU's
+  Mod.Enabled by Title): the copy wears the shipped mod's switch, attaching it
+  switches it on, and removing it leaves the shipped mod on that switch.
 - **On by default (AUDIT VE, Mac: "Ensure this is on by default"):** a
   shipped mod stands at its own default until the player chooses. The Base
   ships ON, as a mod in DFU's Mods folder is; its add-ons ship OFF until they
@@ -252,7 +255,15 @@ Enhanced is that pack, beside **Classic** (`systems/vanillaEnhanced.js`,
 - The effect line is the card's own: it takes effect when the world next
   loads. What is drawn keeps its pictures until its area loads again, and a
   tile set already uploaded stays until PLACE-LRU lets it go (true of every
-  texture mod since DFMOD1).
+  texture mod since DFMOD1). What is drawn after a switch is the switch's
+  (AUDIT VE R1): a decoded picture answers only the entry it came from, and a
+  scene's next ask of an archive it holds decodes what answers now.
+- **The store is read before the card** (AUDIT VE R2): the main menu runs
+  before any host, so the card and the packs card begin the store's one
+  registration and offer no Use until it lands. With a loose texture pack
+  attached, Classic says it cannot be worn by a switch (R10). `?nomods`
+  registers no attached mod from anywhere; the shipped pack registers either
+  way (R11).
 - The packs card carries a **Switch off / Switch on** for every texture mod.
   An attached mod also has a Remove; a shipped one says it ships with the
   game.

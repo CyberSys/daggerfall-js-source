@@ -994,7 +994,7 @@ export const ASSET_PICKER_Z = 40;
 /** MWFIX: is the asset picker on screen? A modal opened FROM another
  *  overlay has to be able to say so, because the opener may own the
  *  keyboard - the enhanced shell takes Escape on `globalThis` in
- *  CAPTURE and stops it (enhancedMenu.js:4864), which is right for a
+ *  CAPTURE and stops it (enhancedMenu.js:4893), which is right for a
  *  screen with nothing above it and wrong the moment something is.
  *  Its own stated law is that a modal overlay owns its input; this is
  *  how the one above it says "that's me". */
@@ -1090,8 +1090,28 @@ export async function pickSoundFolder() {
 }
 
 /** DFMOD1: EVERY REGISTRY THE TEXTURE STORE FEEDS, in one place - a pick, a removal and the boot all re-register
- *  the same way. Resolves to how many replacements the store now carries. */
-export async function registerTextureStore() {
+ *  the same way. Resolves to how many replacements the store now carries.
+ *  AUDIT VE R2: THE ONE REGISTRATION. The boot seam kept its own copy of this (scenes/shared.js ensureAudio), with its own
+ *  `?nomods` rule, and nothing else registered the store - so the enhanced main menu, which runs before any host boots,
+ *  read a texture-mod door holding the shipped mods alone: an attached DREAM read as "Classic, in use", and "Use Classic"
+ *  switched off only the shipped mods. The seam calls this now; the page's latest is kept, and the menus ask for it
+ *  (textureStoreRegistered) before they read the door. `warm` opens the attached bundles after (a host's boot). */
+let _textureStore = null;   // the page's latest registration of the store
+let _textureStoreSettled = false;
+export function registerTextureStore({ warm = true } = {}) {
+  const p = registerTextureStoreNow({ warm });
+  _textureStore = p;
+  _textureStoreSettled = false;
+  const land = () => { if (_textureStore === p) _textureStoreSettled = true; };
+  p.then(land, land);
+  return p;
+}
+/** AUDIT VE R2: the menus' door - the page's registration of the texture store, begun here (unwarmed) if no host's boot
+ *  or pick has begun one. */
+export const textureStoreRegistered = () => _textureStore ?? registerTextureStore({ warm: false });
+/** AUDIT VE R2: the page's latest registration of the store has landed - a card that reads the registered mods waits. */
+export const textureStoreSettled = () => _textureStoreSettled;
+async function registerTextureStoreNow({ warm }) {
   const { setTextureReplacements } = await import('../systems/textureReplacement.js');
   const { setSeasonsSources } = await import('../systems/seasonsIliacBayAssets.js');
   const { setWeaponWidgetSources } = await import('../combat/weaponWidgetAssets.js');   // WW1
@@ -1106,7 +1126,7 @@ export async function registerTextureStore() {
   setWeaponWidgetSources(names, loadTextureFile);   // WW1: Weapon Widget's bundle, its double-scale textures
   setDiverseWeaponsSources(names, loadTextureFile);   // DW1: Diverse Weapons' bundle, a sprite set per weapon
   const seasons = setSeasonsSources(names, loadTextureFile);   // SIB1: the mod's own files (its bundle counts one)
-  const mods = await setDfmodSources(names, loadTextureFile, { saveIndex: saveTextureJson, loadBlob: loadTextureBlob, warm: true });   // DFMOD1: every other bundle; DFMOD2: by range, warmed
+  const mods = await setDfmodSources(names, loadTextureFile, { saveIndex: saveTextureJson, loadBlob: loadTextureBlob, warm });   // DFMOD1: every other bundle; DFMOD2: by range, warmed at a host's boot
   return n + seasons + mods;
 }
 /** DFMOD1: a small JSON beside the bundles (a bundle's name index), as a Blob in the texture store. */
@@ -1123,7 +1143,7 @@ export async function saveTextureJson(key, json) {
 /** DFMOD1: store picked `.dfmod` bundles and index each once (opened in a worker, names written beside it), so a
  *  boot registers from the index and opens a bundle only when one of its pictures is drawn. */
 export async function storeDfmodFiles(files, progress = null) {
-  const { dfmodStoreKey, dfmodIndexKey, indexDfmodBytes, hasOwnDoor, forgetDfmodOff } = await import('../systems/dfmodTextures.js');
+  const { dfmodStoreKey, dfmodIndexKey, indexDfmodBytes, hasOwnDoor, forgetDfmodOff, noteDfmodAttached } = await import('../systems/dfmodTextures.js');
   const picked = [...files].filter((f) => dfmodStoreKey(f.name));
   let kept = 0;
   for (const f of picked) {
@@ -1136,6 +1156,7 @@ export async function storeDfmodFiles(files, progress = null) {
       try {
         const index = await indexDfmodBytes(f);   // DFMOD2: the File is a Blob - read by range in the worker, never whole
         await saveTextureJson(dfmodIndexKey(key), JSON.stringify(index));
+        noteDfmodAttached(key, index);   // AUDIT VE R3: on - and over a shipped mod (its name or its Title), that mod's switch with it
       } catch (e) {
         await deleteAssets(TEXTURE_STORE, [key]);   // a bundle this reader cannot open is not kept
         throw new Error(`${f.name}: ${e?.message ?? e}`);

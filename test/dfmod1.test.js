@@ -136,9 +136,10 @@ test('DFMOD1 door: names onto the bundle tier by dye and map, xml onto the billb
 });
 
 test('DFMOD1 wiring: the boot, the pick, the doll, the portraits and the packs card', () => {
-  const shared = src('scenes/shared.js');
-  assert.match(shared, /setDfmodSources\(names, loadTextureFile, \{ saveIndex: saveTextureJson, loadBlob: loadTextureBlob, warm: true \}\)/);
+  // PIN MOVED (AUDIT VE R2): the boot seam calls the store's one registration, which registers the bundles (warmed at a boot)
+  assert.match(src('scenes/shared.js'), /const textures = registerTextureStore\(\)/);
   const ds = src('scenes/dataSource.js');
+  assert.match(ds, /setDfmodSources\(names, loadTextureFile, \{ saveIndex: saveTextureJson, loadBlob: loadTextureBlob, warm \}\)/);
   assert.match(ds, /export async function pickDfmodFiles\(\)/);
   assert.match(ds, /export async function removeStoredDfmod\(key\)/);
   assert.match(ds, /export async function clearStoredMusic\(\)/);
@@ -192,11 +193,13 @@ test('DFMOD2 sources: a Uint8Array or a ranged source reads the same; a Blob is 
 
 test('DFMOD2 wiring: the boot never indexes on its way in, opens by range and warms, asks wait a bounded time, detail is the player\'s', () => {
   const door = src('systems/dfmodTextures.js');
-  assert.match(door, /if \(missing\.length\) \{ if \(background\) indexMissing\(\); else await indexMissing\(\); \}/);
+  // PIN MOVED (AUDIT VE R6): what is indexed in the background is the missing AND the version before's rebuild
+  assert.match(door, /if \(todo\.length\) \{ if \(background\) indexMissing\(\); else await indexMissing\(\); \}/);
   assert.match(door, /if \(blob\?\.size\) return _opener\(blob, \{ maxTextureSize: maxSize\(\), knownTextures: knownOf\(key\) \}\);/);
   assert.match(door, /const b = await Promise\.race\(\[bundleFor\(key\), waited\]\);/);
   assert.match(src('scenes/dataSource.js'), /const index = await indexDfmodBytes\(f\);/, 'an attach reads the picked File by range, not whole');
-  assert.match(src('scenes/shared.js'), /if \(noMods\(\)\) return n;/, 'the ?nomods escape hatch');
+  // PIN MOVED (AUDIT VE R11): the escape hatch is the door's own rule, wherever a registration comes from
+  assert.match(door, /const names = noMods \? \[\] : stored;/, 'the ?nomods escape hatch');
   assert.match(src('ui/enhancedMenu.js'), /label: `Texture detail: \$\{detailLabel\}`/);
 });
 

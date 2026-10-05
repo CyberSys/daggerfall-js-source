@@ -73,7 +73,7 @@ function fresh() {
   fetched.length = 0;
 }
 
-test('VE4 the pack: three mods, every file its directory holds listed with the repository path and the bytes it was written from; a mod\'s records are exactly the PNGs its own manifest names; the only other files are Masked Roads\' road slices, each proved within BC7\'s error of its slice', () => {
+test('VE4 the pack: three mods, every file its directory holds listed with the repository path and the bytes it was written from; a mod\'s records are exactly the PNGs its own manifest names; the only other files are Masked Roads\' road slices, each with its recorded proof within BC7\'s error. AUDIT VE R14: the proof is the vendoring tool\'s - it decodes every BC7 slice against the pictures (the arrays are not in the repo), and its check re-runs it against a clone (`node tools/vanillaEnhancedVendor.mjs <clone>`); this reads the record it wrote and the bytes, not the slices', () => {
   assert.equal(INDEX.Commit, VE_COMMIT, 'the index is the pinned commit\'s');
   assert.deepEqual(VE_PACK_SOURCE, { repo: 'https://github.com/drcarademono/vanilla-enhanced', commit: VE_COMMIT });
   assert.deepEqual(INDEX.Mods.map((m) => m.dir), VE_MODS.map((m) => m.dir));
@@ -94,7 +94,7 @@ test('VE4 the pack: three mods, every file its directory holds listed with the r
     for (const f of road) {
       const [, arr, i] = /^(\d{3}-TexArray)_(\d+)\.png$/.exec(f);
       const proof = listing.Proofs[arr].find((p) => p[0] === Number(i));
-      assert.ok(proof[1] <= BC7_MEAN && proof[2] <= BC7_MAX, `${f}: within BC7's error of its slice`);
+      assert.ok(proof[1] <= BC7_MEAN && proof[2] <= BC7_MAX, `${f}: its recorded proof within BC7's error of its slice`);
       assert.match(listing.From[f], /^Textures\/Terrain - Masked Roads\/\d{3}_\d+-0\.png$/, `${f}: the repository's own source picture`);
     }
     for (const proof of Object.values(listing.Proofs).flat()) assert.ok(proof[1] <= BC7_MEAN && proof[2] <= BC7_MAX);
@@ -177,6 +177,10 @@ test('VE4 the door: the shipped mods register beside the attached in one load or
   assert.deepEqual(attachedDfmods().map((m) => m.key), [BASE, MASKED, SNOWLESS], 'a clear of the attached leaves what ships');
   setShippedDfmods([]);
   assert.deepEqual(attachedDfmods(), [], 'another list replaces it');
+  // the pack put in AFTER an attached add-on registered (AUDIT VE R2: a menu may read the store first) - one order still
+  await setDfmodSources([WINTER], wload, wopts);
+  installVanillaEnhancedPack();
+  assert.deepEqual(attachedDfmods().map((m) => m.key), [BASE, MASKED, SNOWLESS, WINTER], 'the pack put in after the attached: AutoSortMods over both');
 });
 
 test('VE4 the ground, over the real index: the Base\'s arrays dress the terrain from its own records; Masked Roads, loaded after it, decides its arrays - the Base\'s tiles but its road tiles; its 403 array, 57 deep, is refused and 403 is made of records - the Base\'s and its own three road records; Snowless Swamps, loaded last, decides 402 (DFU: TryImportTextureArray, the first mod in TryGetAsset\'s walk)', async () => {
@@ -267,10 +271,12 @@ test('VE4 the card over the shipped pack: Vanilla Enhanced is a fresh game\'s lo
   assert.equal(currentOption(tex), null, 'an add-on without its Base is neither look: Custom');
 });
 
-test('VE4 wiring: the boot seam and the store\'s registration put the pack in before the attached register; the packs card lists it before any host boots; the paper doll\'s HD compose counts the attached alone', () => {
-  assert.match(src('scenes/shared.js'), /installVanillaEnhancedPack\(\);   \/\/ VE4[^\n]*\n[^\n]*\n\s+return setDfmodSources\(names, loadTextureFile,/);
+test('VE4 wiring: the store\'s one registration puts the pack in before the attached register, and the boot seam calls it; the packs card lists it before any host boots; the paper doll\'s HD compose waits for a mod carrying doll art (AUDIT VE R13)', () => {
+  // PIN MOVED (AUDIT VE R2): the boot seam's registration is the store's one, which puts the pack in first
+  assert.match(src('scenes/shared.js'), /const textures = registerTextureStore\(\)/);
   assert.match(src('scenes/dataSource.js'), /installVanillaEnhancedPack\(\);   \/\/ VE4[^\n]*\n\s+const names = await storedTextureNames\(\);/);
-  assert.match(src('ui/enhancedMenu.js'), /function packsCard\(\) \{\n\s+installVanillaEnhancedPack\(\);/);
-  assert.match(src('ui/paperDoll.js'), /const composeScale = \(\) => \(attachedDfmods\(\)\.some\(\(m\) => !m\.shipped\) \? PAPERDOLL_HD_SCALE : 1\);/);
+  assert.match(src('ui/enhancedMenu.js'), /function packsCard\(\) \{\n[^\n]*\n\s+installVanillaEnhancedPack\(\);/);   // PIN MOVED (AUDIT VE R2): after the wait for the store
+  // PIN MOVED (AUDIT VE R13): a mod switched on that carries doll art, not any attached mod
+  assert.match(src('ui/paperDoll.js'), /const composeScale = \(\) => \(dfmodCarriesDollArt\(\) \? PAPERDOLL_HD_SCALE : 1\);/);
   assert.match(src('systems/vanillaEnhanced.js'), /const doorMods = \(\) => \{ installVanillaEnhancedPack\(\); return attachedDfmods\(\); \};/);
 });

@@ -209,15 +209,23 @@ const offKeys = () => { const v = getPref(DFMOD_OFF_PREF); return Array.isArray(
 // VE4: a SHIPPED mod stands at its own default until the player chooses - AUDIT VE (Mac, 2026-10-05: "Ensure this is on
 // by default"): Vanilla Enhanced's Base ships ON, as a mod in DFU's Mods folder is, and its add-ons OFF - so its switch
 // is the player's CHOICE either way, `{ key: on }` on its own shelf entry, and a key with no choice reads the mod's
-// default (`on` in setShippedDfmods' list). It is read while the shipped copy is the one registered; an attached copy
-// that shadows it is an attached mod.
+// default (`on` in setShippedDfmods' list).
+// AUDIT VE R3/R9: ONE SWITCH A MOD. DFU keeps one Mod.Enabled a Title (ModManager.cs:859-868 restores it by
+// GetModIndex(Title)), so a copy the player attaches over a shipped mod - under its file name, or another with its Title
+// (R9) - wears the shipped mod's switch: switching the copy off was a key on the attached shelf, and removing the copy
+// brought the shipped mod back as it was before (Classic worn over the copy came back as Vanilla Enhanced).
 export const DFMOD_SHIPPED_PREF = 'dfmodShipped';
 const shippedChoices = () => { const v = getPref(DFMOD_SHIPPED_PREF); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; };
+/** The switch a registered mod wears: a copy over a shipped mod wears the shipped mod's, every other mod its own. */
+const switchKeyOf = (key) => _shadowOf.get(key) ?? key;
+const shippedOf = (key) => _shipped.find((s) => s.key === key) ?? null;
 /** The mod registered under `key` is switched on (Mod.Enabled). */
 export const dfmodEnabled = (key) => {
-  if (!_shippedLive.has(key)) return !offKeys().includes(key);
-  const choice = shippedChoices()[key];
-  return typeof choice === 'boolean' ? choice : _shipped.find((s) => s.key === key)?.on === true;   // AUDIT VE: the shipped default
+  const k = switchKeyOf(key);
+  const shipped = shippedOf(k);
+  if (!shipped) return !offKeys().includes(k);
+  const choice = shippedChoices()[k];
+  return typeof choice === 'boolean' ? choice : shipped.on === true;   // AUDIT VE: the shipped default
 };
 
 /** Open a bundle's bytes, index it and close it - the attach step. */
@@ -229,7 +237,7 @@ export async function indexDfmodBytes(bytes, { open = openUnityBundle } = {}) {
 
 // ---- the registry ------------------------------------------------------
 
-let _mods = [];                 // [{ key, index }] in DFU's load order (VE1: dfmodLoadOrder), every attached mod, off or on
+let _mods = [];                 // [{ key, index, stamp }] in DFU's load order (VE1: dfmodLoadOrder), every registered mod, off or on
 let _prio = [];                 // VE1/VE2: the mods switched on, LAST LOADED FIRST - [{ key, names, arrays }], TryGetAsset's walk
 let _open = new Map();          // store key -> Promise<bundle client | null>
 let _openErrors = new Map();    // DFMOD2: store key -> why it would not open (the packs card says so)
@@ -239,17 +247,42 @@ let _load = null;
 let _loadBlob = null;           // DFMOD2: the stored Blob, for a by-range open
 let _opener = poolOpen;
 let _generation = 0;
-let _sig = null;          // the stored set last registered
+let _reads = 0;           // AUDIT VE R4: the newest registration's ticket - an older one's reads stop where they are
+let _sig = null;          // the stored set last registered - AUDIT VE R4: its keys AND each index's content
+let _sigParts = new Map();      // AUDIT VE R4: store key -> its index's fingerprint, or 'missing'
 let _registered = null;   // Promise-free count it registered
+let _warmedGen = -1;      // DFMOD2: the registration whose bundles were last warmed
 let _shippedSrc = null;         // VE4: the list setShippedDfmods was handed - the same list again changes nothing
-let _shipped = [];              // VE4: [{ key, index, open }], the mods that ship with the port
-let _storedKeys = [];           // VE4: the attached keys of the last registration - each shadows a shipped mod of its key
+let _shipped = [];              // VE4: [{ key, index, open, on, stamp }], the mods that ship with the port
+let _attached = [];             // AUDIT VE R5: the attached mods REGISTERED - [{ key, index, stamp }]; only these shadow
+let _unregistered = new Map();  // AUDIT VE R5/R11: store key -> { state: 'indexing' | 'error' | 'nomods', error } - stored, not registered
 let _shippedLive = new Set();   // VE4: the shipped keys no attached copy shadows - read from the port's own files
+let _shadowOf = new Map();      // AUDIT VE R3/R9: an attached copy's key -> the shipped key it shadows (whose switch it wears)
 
-/** VE4: the shipped mods no attached copy shadows, as `_mods` holds a mod - and `_shippedLive` brought up to date. */
+/** DFU loads one mod a Title (ModManager.cs:590-595: `GetModIndex(mod.Title)`, the second never added). */
+const sameMod = (s, m) => s.key === m.key || (!!s.index?.title && s.index.title === m.index?.title);
+/** VE4: the shipped mods no attached copy shadows, as `_mods` holds a mod - `_shippedLive` and `_shadowOf` brought up to
+ *  date. AUDIT VE R5: only a REGISTERED copy shadows (one still being indexed, or one that will not index, left the
+ *  shipped mod unregistered and itself unlisted); R9: by its key or its Title. */
 function liveShipped() {
-  _shippedLive = new Set(_shipped.filter((s) => !_storedKeys.includes(s.key)).map((s) => s.key));
-  return _shipped.filter((s) => _shippedLive.has(s.key)).map(({ key, index }) => ({ key, index }));
+  _shadowOf = new Map();
+  for (const m of _attached) { const s = _shipped.find((x) => sameMod(x, m)); if (s) _shadowOf.set(m.key, s.key); }
+  const shadowed = new Set(_shadowOf.values());
+  _shippedLive = new Set(_shipped.filter((s) => !shadowed.has(s.key)).map((s) => s.key));
+  return _shipped.filter((s) => _shippedLive.has(s.key)).map(({ key, index, stamp }) => ({ key, index, stamp: `s:${stamp ?? index.version ?? ''}` }));
+}
+
+/** DFMOD2 / AUDIT VE R11: `?nomods` - the page registers no attached mod, wherever the registration comes from (the boot,
+ *  a menu, a pick): the way back in when a mod will not load on this machine. The packs card lists them to remove. The
+ *  shipped mods are the port's own and register either way. */
+const NO_MODS = /[?&]nomods\b/;
+export const noModsPage = (search = globalThis.location?.search ?? '') => NO_MODS.test(search);
+
+/** AUDIT VE R4: a stored index's fingerprint - FNV-1a over its text, with its length. */
+function fingerprint(text) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return `${text.length}:${h.toString(16)}`;
 }
 
 function forgetOpen() {
@@ -277,10 +310,7 @@ function bundleFor(key) {
       return _opener(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes), { maxTextureSize: maxSize(), knownTextures: knownOf(key) });
     })().catch((e) => {
       console.warn(`[dfmod] ${key} would not open:`, e?.message ?? e);
-      _openErrors.set(key, e?.name === 'NotReadableError' || /could not be read/i.test(e?.message ?? '')
-        ? 'the browser could not read the stored file - remove it and add it again'
-        : /allocation failed|out of memory/i.test(e?.message ?? '') ? 'ran out of memory - lower Texture detail, or attach fewer mods'
-          : String(e?.message ?? e));
+      _openErrors.set(key, openWords(e));
       return null;
     }));
   }
@@ -299,14 +329,26 @@ async function bundleImage(key, name, { floor = 0 } = {}) {
   try { return await b.rgba(name, { maxSize: Math.max(maxSize(), floor), deadline: Date.now() + ASK_DEADLINE_MS }); } catch (e) { console.warn(`[dfmod] ${name} would not decode:`, e?.message ?? e); return null; }
 }
 
+/** A stored index - `{ index, fp, stale }` - or null when there is none to read. AUDIT VE R6: an index of the version
+ *  before (2: no dependencies) registers as it is, its order the listing's, and is rebuilt in the background (`stale`) -
+ *  VE1's bump refused it, and every attached mod stood unregistered on the first boot after the update until its
+ *  rebuild landed, and one that could not be rebuilt vanished with no word. */
 async function readIndex(key, load) {
   try {
     const bytes = await load(dfmodIndexKey(key));
     if (!bytes || !bytes.byteLength) return null;
-    const idx = JSON.parse(new TextDecoder().decode(bytes));
-    return idx?.v === DFMOD_INDEX_VERSION ? idx : null;
+    const text = new TextDecoder().decode(bytes);
+    const idx = JSON.parse(text);
+    if (idx?.v === DFMOD_INDEX_VERSION) return { index: idx, fp: fingerprint(text), stale: false };
+    if (idx?.v === 2) return { index: { ...idx, deps: [] }, fp: fingerprint(text), stale: true };
+    return null;
   } catch { return null; }
 }
+/** Why a stored bundle would not open or index, in the packs card's words. */
+const openWords = (e) => (e?.name === 'NotReadableError' || /could not be read/i.test(e?.message ?? '')
+  ? 'the browser could not read the stored file - remove it and add it again'
+  : /allocation failed|out of memory/i.test(e?.message ?? '') ? 'ran out of memory - lower Texture detail, or attach fewer mods'
+    : String(e?.message ?? e));
 
 /**
  * Register every generic `.dfmod` among the texture store's names. `load(key)` answers stored bytes;
@@ -314,49 +356,89 @@ async function readIndex(key, load) {
  * Resolves to how many textures the bundles put on the door. Never throws.
  */
 export async function setDfmodSources(fileNames, load, { saveIndex = null, open = null, loadBlob = null, background = true, warm = false } = {}) {
-  const names = (fileNames ?? []).filter((n) => typeof n === 'string' && n.startsWith(DFMOD_PREFIX) && /\.dfmod$/i.test(n) && !hasOwnDoor(n)).sort();
+  const stored = (fileNames ?? []).filter((n) => typeof n === 'string' && n.startsWith(DFMOD_PREFIX) && /\.dfmod$/i.test(n) && !hasOwnDoor(n)).sort();
+  const noMods = noModsPage();   // AUDIT VE R11: the door's own rule
+  const names = noMods ? [] : stored;
+  // AUDIT VE R4: what a registration is, is its stored indexes - not only their keys. The signature was the key list,
+  // so a mod attached again under its own file name (a newer version) was the "same set": the old index stood, and the
+  // bundle opened under it, for the rest of the session. The indexes are read first (a few small JSON files), and a
+  // registration that reads the same is the same one.
+  const ticket = ++_reads;
+  const reads = [];
+  for (const key of names) {
+    if (typeof load !== 'function') break;
+    reads.push([key, await readIndex(key, load)]);
+    if (ticket !== _reads) return 0;   // a newer registration overtook this one
+  }
+  const parts = new Map(reads.map(([key, r]) => [key, r ? r.fp : 'missing']));
+  const sig = [...stored.map((k) => `${k}=${noMods ? 'nomods' : parts.get(k) ?? 'missing'}`)].join('\n');
   // IDEMPOTENT: the boot seam registers on every host boot (scenes/shared.js ensureAudio), and closing a bundle a
   // player has already paid seconds to open, for the same set, would pay them again at every door
-  const sig = names.join('\n');
   // VE3: a registration that put NOTHING on the doors is still a registration - every texture mod switched off (the
   // Classic look) counts 0, and a truthiness test read that as none, registering again at every host's boot
-  if (sig === _sig && load === _load && _registered !== null) return _registered;
+  if (sig === _sig && load === _load && _registered !== null) {
+    if (warm) warmOpen(_generation);   // a menu's registration came first, unwarmed (AUDIT VE R2)
+    return _registered;
+  }
   const gen = ++_generation;
-  forgetOpen();
   _load = typeof load === 'function' ? load : null;
   _loadBlob = typeof loadBlob === 'function' ? loadBlob : null;
   if (open) _opener = open;
-  const mods = [];
-  const missing = [];
-  for (const key of names) {
-    if (!_load) break;
-    const index = await readIndex(key, _load);
-    if (index) mods.push({ key, index }); else missing.push(key);
-    if (gen !== _generation) return 0;   // a newer registration overtook this one
-  }
-  _storedKeys = names;   // VE4: an attached copy shadows the shipped mod of its key
-  _mods = dfmodLoadOrder([...mods, ...liveShipped()]);   // VE1: AutoSortMods' order, not the listing's; VE4: the shipped among them
-  _sig = sig;
+  // AUDIT VE R7: the opened bundles are let go HERE, where the new registration replaces the old in one step - not
+  // before the reads above. A picture asked during them was the old registration's to serve, and its client (the
+  // shipped one, under a key a copy now takes) stood cached for the new one; a removed copy's open cached its null.
+  forgetOpen();
+  _attached = reads.filter(([, r]) => r).map(([key, r]) => ({ key, index: r.index, stamp: `a:${r.fp}` }));
+  _unregistered = new Map([
+    ...stored.filter(() => noMods).map((k) => [k, { state: 'nomods', error: null }]),
+    ...reads.filter(([, r]) => !r).map(([k]) => [k, { state: 'indexing', error: null }]),
+  ]);
+  _mods = dfmodLoadOrder([..._attached, ...liveShipped()]);   // VE1: AutoSortMods' order, not the listing's; VE4: the shipped among them
+  _sig = sig; _sigParts = parts;
   _registered = install();
   // DFMOD2: a bundle stored without its index (a folder pick, an attach that did not finish) is indexed OFF the boot
-  // path - the game starts with what is indexed, and the rest lands as a new generation when it is ready
+  // path - the game starts with what is indexed, and the rest lands as a new generation when it is ready. AUDIT VE R6:
+  // and one registered from the version before is rebuilt the same way; a rebuild that fails keeps what it had.
+  const todo = reads.filter(([, r]) => !r || r.stale).map(([key]) => key);
   const indexMissing = async () => {
-    for (const key of missing) {
-      let index = null;
+    for (const key of todo) {
+      let index = null, why = null;
       try {
         const src = (_loadBlob && await _loadBlob(key)) || await _load(key);
         if (src && (src.size || src.byteLength)) index = await indexDfmodBytes(src, { open: _opener === poolOpen ? openUnityBundle : _opener });   // DFMOD3: an index needs the full answer, not the pool's quiet open
-        if (index && saveIndex) await saveIndex(dfmodIndexKey(key), JSON.stringify(index)).catch(() => null);
-      } catch (e) { console.warn(`[dfmod] ${key} could not be indexed:`, e?.message ?? e); }
+        else why = new Error('nothing stored to read');
+        if (index && saveIndex) {
+          const text = JSON.stringify(index);
+          if (await saveIndex(dfmodIndexKey(key), text).then(() => true, () => false) && gen === _generation) {
+            _sigParts.set(key, fingerprint(text));   // the next boot reads it back: the same registration
+            _sig = stored.map((k) => `${k}=${_sigParts.get(k) ?? 'missing'}`).join('\n');
+          }
+        }
+      } catch (e) { why = e; console.warn(`[dfmod] ${key} could not be indexed:`, e?.message ?? e); }
       if (gen !== _generation) return;
-      if (index) { _mods = dfmodLoadOrder([..._mods, { key, index }]); _registered = install(); }   // VE1
+      if (index) {
+        const text = JSON.stringify(index);
+        _attached = [..._attached.filter((m) => m.key !== key), { key, index, stamp: `a:${fingerprint(text)}` }];
+        _unregistered.delete(key);
+        _mods = dfmodLoadOrder([..._attached, ...liveShipped()]);   // VE1; AUDIT VE R5: a copy shadows from here
+        _registered = install();
+      } else if (!_attached.some((m) => m.key === key)) {
+        _unregistered.set(key, { state: 'error', error: openWords(why) });   // AUDIT VE R5: said, with a Remove
+      }
     }
   };
-  if (missing.length) { if (background) indexMissing(); else await indexMissing(); }
-  // DFMOD2: WARM - open the bundles now, one after another, off the boot path, so the first area's pictures find
-  // them open rather than waiting (each open is a worker reading its index by range); VE3: a mod switched off is not
-  if (warm) (async () => { for (const { key } of _mods) { if (gen !== _generation) return; if (dfmodEnabled(key)) await bundleFor(key); } })();
+  if (todo.length) { if (background) indexMissing(); else await indexMissing(); }
+  if (warm) warmOpen(gen);
   return _registered;
+}
+
+/** DFMOD2: WARM - open the bundles now, one after another, off the boot path, so the first area's pictures find them
+ *  open rather than waiting (each open is a worker reading its index by range); VE3: a mod switched off is not. Once
+ *  a registration. */
+function warmOpen(gen) {
+  if (_warmedGen === gen) return;
+  _warmedGen = gen;
+  (async () => { for (const { key } of _mods) { if (gen !== _generation) return; if (dfmodEnabled(key)) await bundleFor(key); } })();
 }
 
 /** Put the registered mods' names on the doors. VE1: TryGetAsset's walk (ModManager.cs:404-415, :429-442) - the mods switched
@@ -366,9 +448,14 @@ export async function setDfmodSources(fileNames, load, { saveIndex = null, open 
 function install() {
   const entries = [];
   const table = {};
-  _img = new Map(); _cifRci = new Map(); _prio = []; _groundCache = new Map();
-  for (const { key, index } of [..._mods].reverse()) {
+  _img = new Map(); _cifRci = new Map(); _prio = [];
+  // AUDIT VE R1: the walk this install puts on the doors - each mod switched on, with its content. The same walk again (a
+  // switch pressed twice, a registration that reads the same) keeps every picture built from it: the ground's tile
+  // sets, the IMG and CIF pictures, the doll's (dfmodGeneration).
+  const walk = [];
+  for (const { key, index, stamp } of [..._mods].reverse()) {
     if (!dfmodEnabled(key)) continue;   // VE3: EnumerateEnabledModsReverse - a mod switched off answers nothing
+    walk.push(`${key}@${stamp ?? ''}`);
     const rects = new Map();
     for (const [name, text] of Object.entries(index.xml ?? {})) {
       const rect = xmlRect(text);
@@ -391,6 +478,7 @@ function install() {
         if (e.map === 'Albedo' && !e.dye && !names.has(textureKey(e.archive, e.record, e.frame))) names.set(textureKey(e.archive, e.record, e.frame), name);
         entries.push({
           archive: e.archive, record: e.record, frame: e.frame, map: e.map, dye: e.dye, fileName: `${key}:${name}`,
+          src: `${key}@${stamp ?? ''}:${name}`,   // AUDIT VE R1: the mod, its content and the name - a decode is kept while this answers
           image: () => bundleImage(key, name), lazy: isItemArchive(e.archive), rect: rects.get(name) ?? null,
         });
         continue;
@@ -403,10 +491,23 @@ function install() {
   }
   const n = setBundleTextures(entries);
   if (Object.keys(table).length) registerBillboardXml('dfmod', table); else unregisterBillboardXml('dfmod');
-  _imgCache = new Map();
-  _installGen++;
+  // AUDIT VE R13: the doll's own art - a backdrop or body (IMG), a head (CIF/RCI), an item's picture (233-252)
+  _dollArt = _img.size > 0 || _cifRci.size > 0 || entries.some((e) => isItemArchive(e.archive));
+  const sig = walk.join('|');
+  if (sig !== _walkSig) {   // AUDIT VE R1
+    _walkSig = sig;
+    _groundCache = new Map();
+    _imgCache = new Map();
+    _installGen++;
+  }
   return n + _img.size + _cifRci.size;
 }
+let _walkSig = null;   // AUDIT VE R1: the walk last put on the doors
+let _dollArt = false;  // AUDIT VE R13
+/** AUDIT VE R13: a mod switched on carries the paper doll's own art - what makes its 4x compose worth its cost. It was
+ *  "any attached mod", so the lighting mod, a mod switched off and a copy of Vanilla Enhanced (none of them carries any)
+ *  composed the classic doll at four times for nothing. */
+export const dfmodCarriesDollArt = () => _dollArt;
 
 /**
  * VE4: register the mods that ship with the port - `[{ key, index, open, on }]`: `index` in buildDfmodIndex's shape,
@@ -420,15 +521,15 @@ export function setShippedDfmods(list) {
   _shippedSrc = list;
   for (const key of _shippedLive) { const p = _open.get(key); if (p) { _open.delete(key); p.then((b) => b?.close?.()).catch(() => null); } }
   _shipped = (list ?? []).filter((s) => typeof s?.key === 'string' && s.key.startsWith(DFMOD_PREFIX) && s.index && typeof s.open === 'function');
-  _mods = dfmodLoadOrder([..._mods.filter((m) => _storedKeys.includes(m.key)), ...liveShipped()]);
+  _mods = dfmodLoadOrder([..._attached, ...liveShipped()]);
   _registered = install();
   return _registered;
 }
 
 /** Forget every attached mod's registration. VE4: the shipped mods stay - they are not the store's. */
 export function clearDfmodSources() {
-  _generation++;
-  _load = null; _sig = null; _registered = null; _storedKeys = [];
+  _generation++; _reads++;   // AUDIT VE R4: a registration still reading stops too
+  _load = null; _sig = null; _sigParts = new Map(); _registered = null; _attached = []; _unregistered = new Map();
   forgetOpen();
   _mods = dfmodLoadOrder(liveShipped());
   install();
@@ -445,8 +546,9 @@ export function setDfmodEnabled(keys, on) {
   const off = new Set(offKeys());
   const choices = { ...shippedChoices() };   // VE4 / AUDIT VE: a shipped mod's switch is the player's choice, either way
   let attached = false, shipped = false;
-  for (const k of list) {
-    if (_shippedLive.has(k)) { shipped = true; choices[k] = !!on; }
+  for (const key of list) {
+    const k = switchKeyOf(key);   // AUDIT VE R3/R9: a copy over a shipped mod switches the shipped mod's switch
+    if (shippedOf(k)) { shipped = true; choices[k] = !!on; }
     else { attached = true; if (on) off.delete(k); else off.add(k); }
   }
   let saved = true;
@@ -469,6 +571,13 @@ export function forgetDfmodOff(keys) {
   const off = offKeys();
   if (off.some((k) => drop.has(k))) setPref(DFMOD_OFF_PREF, off.filter((k) => !drop.has(k)));
 }
+/** VE3: a mod attached is on, whatever an earlier copy of it was - AUDIT VE R3/R9: a copy over a shipped mod (its key, or
+ *  its Title in `index`) wears the shipped mod's switch, so that switch goes on with it. */
+export function noteDfmodAttached(key, index = null) {
+  forgetDfmodOff(key);
+  const s = _shipped.find((x) => sameMod(x, { key, index }));
+  if (s && shippedChoices()[s.key] !== true) setPref(DFMOD_SHIPPED_PREF, { ...shippedChoices(), [s.key]: true });
+}
 
 /** The registered mods, for the menu, in load order (VE1): [{ key, fileName, title, version, author, textures, arrays,
  *  deps, enabled, error, guid, shipped }] - the attached, and (VE4) the shipped no attached copy shadows. */
@@ -482,6 +591,11 @@ export const attachedDfmods = () => _mods.map(({ key, index }) => ({
   guid: index.guid ?? null,   // IIL1: a script mod (Improved Interior Lighting) is known by its GUID
   shipped: _shippedLive.has(key),   // VE4: ships with the port - switched, never removed
 }));
+/** AUDIT VE R5/R11: the stored mods NOT registered, for the packs card to list with their state and a Remove -
+ *  [{ key, fileName, state, error }]: 'indexing' (its index is being built), 'error' (it will not index: `error` says
+ *  why), 'nomods' (the page was opened with ?nomods). A stored mod that never registered was listed nowhere, so a mod
+ *  that would not read could not be removed. */
+export const unregisteredDfmods = () => [..._unregistered].map(([key, u]) => ({ key, fileName: dfmodFileName(key), state: u.state, error: u.error ?? null }));
 
 // ---- IMG and CIF/RCI pictures --------------------------------------------
 
@@ -605,11 +719,18 @@ export function dfmodGroundLayers(archive, tex, { decode = decodePng } = {}) {
   _groundCache.delete(id);   // AUDIT VE P2: re-entered last - the Map's order is the cache's recency
   if (hit) { _groundCache.set(id, hit); return hit; }
   for (const k of _groundCache.keys()) if (k.startsWith(`${Number(archive)}:`)) _groundCache.delete(k);   // a set built off an older loose pick
-  _groundCache.set(id, groundLayers(Number(archive), tex, decode));
+  // AUDIT VE R12: a set that lost a picture to a failure (a dropped fetch, a decode that threw) is answered, not kept -
+  // the next ask builds it again rather than the failure standing for the page
+  const answer = groundLayers(Number(archive), tex, decode).then(({ layers, whole }) => {
+    if (!whole && _groundCache.get(id) === answer) _groundCache.delete(id);
+    return layers;
+  });
+  _groundCache.set(id, answer);
   while (_groundCache.size > GROUND_CACHE_SETS) _groundCache.delete(_groundCache.keys().next().value);   // AUDIT VE P2: the least recently asked goes
   return _groundCache.get(id);
 }
 
+/** The set and whether every picture it asked for came (`whole`) - AUDIT VE R12. */
 async function groundLayers(archive, tex, decode) {
   const n = tex.recordCount;
   const src = groundSource(archive);
@@ -620,28 +741,34 @@ async function groundLayers(archive, tex, decode) {
       const b = await bundleFor(src.key);
       if (b?.layers) {
         try {
+          // AUDIT VE R12: a slice that would not load answers null (the shipped pack's are files, one by one) and stands
+          // as the classic record, as a record-built set's missing record does - one dropped fetch cost the climate
           const imgs = await b.layers(src.name);
-          if (imgs?.length === n && imgs.every((i) => i.width === imgs[0].width && i.height === imgs[0].height)) return imgs.map((i) => toColor32(i));
-        } catch (e) { console.warn(`[dfmod] ${src.name} would not decode:`, e?.message ?? e); }
+          const first = imgs?.find(Boolean);
+          if (imgs?.length === n && first && imgs.every((i) => !i || (i.width === first.width && i.height === first.height))) {
+            return { layers: imgs.map((i, r) => (i ? toColor32(i) : classicAt(classicLayer(tex, r), first.width, first.height))), whole: imgs.every(Boolean) };
+          }
+        } catch (e) { console.warn(`[dfmod] ${src.name} would not decode:`, e?.message ?? e); return { layers: null, whole: false }; }
       }
-      return null;   // the array decided and would not draw - the classic set, as when a mod's array fails to load
+      return { layers: null, whole: !!b?.layers };   // the array decided and would not draw - the classic set, as when a mod's array fails to load
     }
     console.warn(`[dfmod] ${src.name}: expected depth ${n} but got ${src.depth} - the records are sought instead`);
   }
   const owners = recordOwners(archive, n);
-  if (!owners.some(Boolean)) return null;
+  if (!owners.some(Boolean)) return { layers: null, whole: true };
   // the records decode a few at once, as an archive's preload does (PRELOAD_CONCURRENCY) - 56 PNGs of an HD pack
   // decoded together would hold every one of them at once
   const pics = new Array(n).fill(null);
   let next = 0;
   const lane = async () => { while (next < n) { const r = next++; if (owners[r]) pics[r] = await recordPicture(archive, r, owners[r], decode); } };
   await Promise.all(Array.from({ length: Math.min(PRELOAD_CONCURRENCY, n) }, lane));
-  if (!pics.some(Boolean)) return null;
+  const whole = owners.every((o, r) => !o || !!pics[r]);   // AUDIT VE R12: every record a tier carries came
+  if (!pics.some(Boolean)) return { layers: null, whole };
   const size = pics[0] ?? classicLayer(tex, 0);
-  return pics.map((p, r) => (p && p.width === size.width && p.height === size.height ? p : classicAt(classicLayer(tex, r), size.width, size.height)));
+  return { layers: pics.map((p, r) => (p && p.width === size.width && p.height === size.height ? p : classicAt(classicLayer(tex, r), size.width, size.height))), whole };
 }
 
 export { resampleRgba };   // DFMOD2: its home is formats/resample.js (the worker downscales with it too)
 
 /** Test seam. */
-export function _resetDfmodForTests() { _shippedSrc = null; _shipped = []; clearDfmodSources(); _opener = poolOpen; }
+export function _resetDfmodForTests() { _shippedSrc = null; _shipped = []; clearDfmodSources(); _opener = poolOpen; _warmedGen = -1; }

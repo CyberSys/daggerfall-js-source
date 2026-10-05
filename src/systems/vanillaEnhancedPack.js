@@ -126,10 +126,12 @@ export function vePackClient(mod) {
     async layers(name) {
       const paths = mod.slices?.[name] ?? [];
       if (!paths.length) throw new Error(`${mod.index.title}: ${name} carries no slices`);
-      // a few at a time, as an archive's preload decodes (PRELOAD_CONCURRENCY)
+      // a few at a time, as an archive's preload decodes (PRELOAD_CONCURRENCY); AUDIT VE R12: a slice that will not load
+      // is null, said once - the ground stands the classic record there (dfmodTextures.js groundLayers), not the climate
       const out = new Array(paths.length);
       let next = 0;
-      const lane = async () => { while (next < paths.length) { const i = next++; out[i] = await picture(paths[i]); } };
+      const one = (i) => picture(paths[i]).catch((e) => { console.warn(`[vanilla-enhanced] ${paths[i]} would not load:`, e?.message ?? e); return null; });
+      const lane = async () => { while (next < paths.length) { const i = next++; out[i] = await one(i); } };
       await Promise.all(Array.from({ length: Math.min(PRELOAD_CONCURRENCY, paths.length) }, lane));
       return out;
     },

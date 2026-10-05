@@ -22,7 +22,7 @@ import { modSetting, setModSetting } from './modSettings.js';
 import { onlineForcedPref, onlineForcedModSetting } from './onlineLane.js';
 import { uiSkin, setUiSkin, SKIN_NAMES } from './uiSkin.js';
 import { activeUiPack, setUiPack, UI_PACKS, UI_PACK_NONE } from './uiPack.js';
-import { veBase, veAddons, veWorn, classicTexturesWorn, wearVanillaEnhanced, wearClassicTextures } from './vanillaEnhanced.js';   // VE3; VE4: its add-ons
+import { veBase, veAddons, veWorn, classicTexturesWorn, wearVanillaEnhanced, wearClassicTextures, classicBlocked, customTextureNote } from './vanillaEnhanced.js';   // VE3; VE4: its add-ons; AUDIT VE R10: a loose pack's say
 
 const row = (id) => {
   const f = FEATURES.find((x) => x.id === id);
@@ -88,9 +88,10 @@ const uiOption = (id, name, skin, pack, { by, blurb }) => Object.freeze({
 
 /** VE3: a texture look - the texture mods switched on or off as one (systems/vanillaEnhanced.js). VE4: `addons` lists
  *  the look's optional mods, which the card offers as switches while the look is worn; `vendor` names the vendor/
- *  folder of the pack it wears (the credits' way to it). */
-const textureOption = (id, name, { by, blurb, isOn, wear, addons = null, vendor = null }) => Object.freeze({
-  id, name, blurb, isOn, addons, vendor,
+ *  folder of the pack it wears (the credits' way to it). AUDIT VE R10: `blocked` says what stands in its way now (the
+ *  card offers no Use while it does), or null. */
+const textureOption = (id, name, { by, blurb, isOn, wear, addons = null, vendor = null, blocked = null }) => Object.freeze({
+  id, name, blurb, isOn, addons, vendor, blocked,
   get by() { return typeof by === 'function' ? by() : by; },
   apply: () => { wear(); return { reload: false }; },
 });
@@ -104,12 +105,12 @@ export const OVERHAUL_PANELS = Object.freeze([
     id: 'texture', title: 'Texture Overhaul',
     effect: 'Takes effect when the world next loads.',
     online: null,
-    custom: 'Custom: a mix of texture mods is switched on. The Replacement packs card at the foot of Features lists them.',
+    get custom() { return customTextureNote(); },   // AUDIT VE R10: a loose pack alone is no mix of mods
     options: Object.freeze([
       textureOption('classic', 'Classic', {
         by: 'Daggerfall',
         blurb: 'The original textures from Daggerfall for adventurers who want that classic look from the old days.',
-        isOn: classicTexturesWorn, wear: wearClassicTextures,
+        isOn: classicTexturesWorn, wear: wearClassicTextures, blocked: classicBlocked,
       }),
       textureOption('vanilla-enhanced', 'Vanilla Enhanced', {
         by: () => { const b = veBase(); return b?.version ? `carademono, version ${b.version}` : 'carademono'; },
