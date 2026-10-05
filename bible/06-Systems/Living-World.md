@@ -446,6 +446,26 @@ by name, an enemy will not talk, and an armed one draws on you beyond the walls"
   done the dead stay the pool's and the living go. With none hostile, its ENEMIES keep away and the rest stand with the
   player as LW6's company; a company all enemies passes the player by.
 
+## LW7c - the people who know you (2026-10-05)
+
+`systems/livingWorld/people.js` (`residentOfId`, `peoplePage`, `personWords`), pure; `ui/enhancedChronicle.js` (the
+People section), `ui/chronicleDoor.js` (the `people` door), the host's (`scenes/world.js`).
+
+- **Nothing new is saved.** A resident's id names their town, roll, slot and generation, and the census's mint is a
+  pure function of those - a name reads the seed, the region's bank and the sex, and the sex no trade but the watch's -
+  so the page mints each resident again from their id (`residentOfId`: every one of a town's census, household, watch
+  or traveller, bears the census's own name; a newcomer's generation rides in the id).
+- **The page** (`peoplePage`): FRIENDS the warmest first, ENEMIES (the hostile and the enemies) the bitterest first, the
+  KNOWN the latest seen first, each to `PEOPLE_MAX` (60) - each by name and town, their standing, their regard on the
+  living day, the days since they were last seen, and their FATE: slain by the player's hand, or fallen at their side
+  (the character's hand deaths, told by their place and the name they bore - a newcomer to the place is not them). The
+  page says it in words (`personWords`): "A friend. Seen today.", "An enemy - they will not speak to you.", "Slain by
+  your hand.".
+- **In the chronicle** (the L key's window): a People section of its own where the host hands the page over - the
+  four sections as they were otherwise - its count the people known, a group for each standing with its cards (the
+  name, the town, the words), and "No one in the Bay knows you yet." before anyone does. The streaming host hands it
+  over where the living world is on.
+
 ## The four hosts
 
 - `scenes/world.js` - WIRED (LW2 the towns, LW3 the roads and the Overworld).
