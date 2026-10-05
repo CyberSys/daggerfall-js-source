@@ -271,7 +271,8 @@ import { rollLootRarity, pileSource, dungeonRarityTier, dungeonFamily, stampWonW
 import { foeHitFlash, setBatchHitFlash, puppetHurtStep } from '../systems/hitFlash.js';   // HITFLASH1
 import { coverDistance, coverStep, createCoverIndex, isCoverFlat, coverProxy } from '../ai/cover.js';   // TACT1: billboards are cover
 import { blowConnects, blowScaled } from '../ai/foeBlows.js';   // TACT4
-import { ambushNight } from '../systems/restAct.js';   // AUDIT REST-PARTY A1: a resting encounter stood breaks the night that rolled it
+import { ambushNight, bedInReach } from '../systems/restAct.js';   // AUDIT REST-PARTY A1: a resting encounter stood breaks the night that rolled it
+import { isBedModel } from '../systems/rrRealism.js';   // FIELD BUGS 2026-10-05 DUNGEON-BEDS: Roleplay Realism's three bed models, the buildings' own
 
 
 
@@ -544,6 +545,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   /** SEARCH1 (systems/searchables.js): the layout's searchable models - `{ kind, aabb, key, lock }` - a coffin, a shelf,
    *  a headstone, a chest or a crate; `key` the placement's own `${bi}:${position}` (the save's and the room's key). */
   const searchables = [];
+  /** FIELD BUGS 2026-10-05 DUNGEON-BEDS: the layout's beds - `{ aabb }` - each a rest point (restAct.js bedInReach). */
+  const dungeonBeds = [];
   let colliderTris = 0;
 
   const ensureRemap = async (id) => {
@@ -672,6 +675,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // arms below and the automap reveal index both read it.
       const aabb = worldAabb(cpu.positions, matrix);
       if (b.layout.castleBlock && isShopShelfModel(p.modelIdNum)) castleShelves.push({ aabb });   // AUDIT-SEATS: a crown's Hall of Records
+      if (!p.action && isBedModel(p.modelIdNum)) dungeonBeds.push({ aabb });   // FIELD BUGS 2026-10-05 DUNGEON-BEDS: a bed is a rest point
       meshTopY = Math.max(meshTopY, boundsTopY(cpu.positions, matrix));   // OH-D
       let standable = null;   // DISC29-A: the effect or relay this model is, for triggerSurfaces below
       if (p.action) {
@@ -2618,8 +2622,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // on to something else (the death screen, above all).
     onClose: () => { if (activeOverlay?.isRestWindow) activeOverlay = null; },
     day: () => false, inside: () => true,
-    restKind: () => (_fpFeet && camps.fireNear(_fpFeet) ? 'camp' : 'rough'),   // SURV4: a fire on the floor is the sleep; the bare floor is rough (AUDIT SURV-TIERS: the world's fire, in every tier)
-    restPoint: () => (_fpFeet ? camps.restPointAt(_fpFeet) : null),   // REST1: online a dungeon's rest point is a lit fire in reach - a brazier, a camp, a placed fire
+    // FIELD BUGS 2026-10-05 DUNGEON-BEDS: ...and a bed in reach, or a bed's own press (CSA-J's `_restFromBed`, which these
+    // two never read - a ship's bed below deck was refused online) - the Rest-Arc's "a bed", which the dungeon never had
+    restKind: () => (_restFromBed || bedInReach(dungeonBeds, _fpFeet) ? 'bed' : _fpFeet && camps.fireNear(_fpFeet) ? 'camp' : 'rough'),   // SURV4: a fire on the floor is the sleep; the bare floor is rough (AUDIT SURV-TIERS: the world's fire, in every tier)
+    restPoint: () => (_restFromBed || bedInReach(dungeonBeds, _fpFeet) ? { kind: 'bed', where: null } : _fpFeet ? camps.restPointAt(_fpFeet) : null),   // REST1: online a dungeon's rest point is a lit fire in reach - a brazier, a camp, a placed fire
     onNightSlept: () => camps.spendNightNear(_fpFeet),   // REST2: a night at your own camp spends a charge
   });
   // U4: the ONE player-damage door - every source (traps, melee,

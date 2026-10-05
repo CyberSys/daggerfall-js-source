@@ -258,6 +258,14 @@ export function fishKind({ book, host }) {
       // water is everywhere, so the cast stood under the crosshair at the helm and over the guns' aim; while the hands
       // are the ship's (the helm, the guns laid, a boarding) there is no cast - a deck stood on still fishes
       if (dungeon || host.busy?.() || !foragingToolIn(entity, FT.FishingNet) || !inWater()) return [];
+      // SHORE-CAST (FIELD BUGS 2026-10-05, Discord: "The sea level hitbox is too high in some places", Westhead Moor's
+      // beach - "Open Water" under a crosshair on the sand): the net's law above is the ANGLER's - the Ocean's region
+      // (31, a whole 819 m pixel, POLITIC.PAK never dilated) or a shore record's whole tile - so its cast stood on dry
+      // beach 10 m and more from the water. The cast's own point must be over water the player would swim in
+      // (`host.waterAt`: true, false, or null for ground not built - unknown is not refused). Not while a cast is live:
+      // the gather host ends the act when its node goes, and a look swung onto the bank is not a reason to lose the haul.
+      const acting = !!live && !live.act.state.done && !live.act.state.cancelled;
+      if (!acting && host.waterAt?.(castAt(host.eye())) === false) return [];
       const c = castNow();
       if (!c) return [];
       // CAST-LOOK: on the look at its distance ahead, at any pitch to CAST_RISE_M - and the look itself, so a node in the
