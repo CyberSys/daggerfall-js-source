@@ -82,7 +82,7 @@ Taken at the design, in the request's own order; each is Mac's to overrule.
 - LW5 - the ports; LW5b - the passage by sea.
 - LW6 - the deep; LW6b - the fallen in the deep; LW6c - carried home.
 - LW7 - the deeds; LW7b - friends and enemies beyond the walls; LW7c - the people who know you.
-- LW8 - the doors open; LW8b - the room's talk.
+- LW8 - the doors open; LW8b - the room's talk; LW8c - the room astir.
 
 ## LW1 - the census, the places, the day, the meetings, the lines, the regards (2026-10-04)
 
@@ -570,7 +570,7 @@ all have tasks ... perform activities" - LW2 shut the door behind a resident; th
 - **The host** stands the layer in a building of a living town (the room's collider and floor, its static people, the
   sky's clock), steps it in the modal frame and frees it in the street. EVERY ALLOCATION HAS AN OWNER: each body is the
   sprites' (`travellerSprites.js`), synced each frame from the layer's list; `clear()` frees them all.
-- **Not yet:** a resident walking in the room (it has no grid). Their talk to each other indoors is LW8b's.
+- **Not yet:** a resident walking in the room (it has no grid) - LW8c's. Their talk to each other indoors is LW8b's.
 
 ## LW8b - the room's talk (2026-10-05)
 
@@ -601,6 +601,21 @@ conversations with each other ... much like the crew on board ships" - LW8 stood
   under a window, out of a building or paused - only once the living world has stood a room.
 - **Every reader alike**: a table's circle and its words are the table's key, the round and its members' (pure over
   who stands at it); those in the room on the way in stand alike for every reader (LW8).
+
+## LW8c - the room astir (2026-10-05)
+
+`scenes/livingIndoors.js` (`stirPlace`, `INDOOR_STIR_S`, `INDOOR_WALK_M`, `INDOOR_WALK_SPEED`; the layer's stirring and walks).
+Mac: NPCs "perform activities" - the room's residents no longer stand where they came in all evening.
+
+- **Who stirs**: one in no TALKING circle (a quiet one may get up), once their own wait is up - `INDOOR_STIR_S`, 30 to 90
+  real seconds, their id's own between - and again after each walk.
+- **Where to** (`stirPlace`, pure): a free place of the room within `INDOOR_WALK_M` (7 m) - a table where one stands alone
+  first (never one of two, one walking or their own; its nearest free place: company), else one their own dice pick - along a line the room's own collider lets them walk (sounded as the
+  room was: never through a wall, a counter or a table). None: they stay, and try again after another wait.
+- **The walk**: at `INDOOR_WALK_SPEED` (1.2 m a second), facing the way they go, moving; the place they make for is
+  theirs from the moment they set out (no newcomer takes it). Between tables they are at none - no circle, no table to
+  face, and the word to the player from where they are.
+- **Not yet:** a resident's errand in the room (the bar, a shelf, a hearth).
 
 ## The four hosts
 
