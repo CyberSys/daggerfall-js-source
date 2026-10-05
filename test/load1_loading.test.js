@@ -14,14 +14,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   fitWithin, pickLoadingShot, sortShots, shotCaption, keepShot, listShots, deleteShot, setShotLoading, shotCount,
-  loadingShot, setGalleryBackend, setShotEncoder, memoryGalleryBackend, onGalleryChange, GALLERY_MAX, FULL_EDGE, THUMB_W,
+  loadingShot, setGalleryBackend, setShotEncoder, memoryGalleryBackend, galleryBackendOver, onGalleryChange, GALLERY_MAX, FULL_EDGE, THUMB_W,
 } from '../src/systems/shotGallery.js';
 import { takeScreenshot, keptLine, printScreen, setScreenshotCanvas, setShotPlace, SHOT_DOWNLOAD_PREF } from '../src/ui/screenshot.js';
 import {
   beginLoading, syncLoading, withLoading, loadingShown, loadingHeld, removeLoadingScreen, setLoadingPlace, setLoadingLine,
   bootLine, loadingMode, tipAt, LOADING_TIPS, LOADING_ID, APPEAR_MS, MIN_SHOWN_MS, LOADING_FADE_MS, HOLD_MAX_MS, LOADING_Z,
+  setLoadingAside, loadingAside, loadingPlaceOf, loadingGroundDraws, LOADING_CSS, _resetLoadingAsideForTests,
 } from '../src/ui/loadingScreen.js';
-import { drawShotsPane, releaseShotsPane, shotKeyName } from '../src/ui/shotsPane.js';
+import { drawShotsPane, releaseShotsPane, shotKeyName, addPictures, loadingWordsKey, LOADING_WORDS } from '../src/ui/shotsPane.js';
 import { setPref, getPref, PREF_DEFAULTS } from '../src/systems/uiPrefs.js';
 import { FEATURES, checkFeature } from '../src/systems/features.js';
 import { SYSTEM_PANES } from '../src/ui/enhancedMenu.js';
@@ -32,6 +33,64 @@ const enc = async () => ({ blob: new Blob(['full']), thumb: new Blob(['thumb']),
 const flush = async (n = 6) => { for (let i = 0; i < n; i++) await new Promise((r) => setImmediate(r)); };
 const screen = () => document.body.children.find((c) => c.id === LOADING_ID) ?? null;
 const textOf = (root, cls) => root?.querySelector(`.${cls}`)?.textContent ?? null;
+/** A working classList on one fake node (chargenDom's toggle and remove are no-ops) - the set it reads and writes. */
+function liveClasses(n) {
+  const cls = new Set(String(n.className ?? '').split(/\s+/).filter(Boolean));
+  Object.defineProperty(n, 'classList', { configurable: true, value: {
+    add: (c) => cls.add(c), remove: (c) => cls.delete(c), contains: (c) => cls.has(c),
+    toggle: (c, on = !cls.has(c)) => { if (on) cls.add(c); else cls.delete(c); return on; },
+  } });
+  return cls;
+}
+/** A minimal IndexedDB: one database, in-line keys with a key generator, requests answered on the next turn. */
+function fakeIdb({ failOpen = false } = {}) {
+  const stores = new Map();
+  const later = (fn) => setImmediate(fn);
+  const db = {
+    objectStoreNames: { contains: (n) => stores.has(n) },
+    createObjectStore(name, opts) { stores.set(name, { opts, rows: new Map(), next: 1 }); },
+    close() {},
+    transaction(name, mode) {
+      const st = stores.get(name);
+      const tx = { error: null };
+      const ask = (fn) => {
+        const r = { result: undefined };
+        try { r.result = fn(); } catch (e) { later(() => tx.onerror?.({ target: { error: e } })); return r; }
+        later(() => tx.oncomplete?.());
+        return r;
+      };
+      tx.objectStore = () => ({
+        put(v) {
+          return ask(() => {
+            if (mode !== 'readwrite') throw new Error('a readonly transaction');
+            let id = v[st.opts.keyPath];
+            if (id == null) id = st.next++; else if (id >= st.next) st.next = id + 1;
+            st.rows.set(id, { ...v, [st.opts.keyPath]: id });
+            return id;
+          });
+        },
+        get: (k) => ask(() => st.rows.get(k)),
+        getAll: () => ask(() => [...st.rows.values()]),
+        delete: (k) => ask(() => { st.rows.delete(k); }),
+        count: () => ask(() => st.rows.size),
+      });
+      return tx;
+    },
+  };
+  return {
+    stores,
+    idb: { open() {
+      const r = {};
+      later(() => {
+        if (failOpen) { r.error = new Error('storage denied'); r.onerror?.(); return; }
+        r.result = db;
+        if (!stores.size) r.onupgradeneeded?.();
+        r.onsuccess?.();
+      });
+      return r;
+    } },
+  };
+}
 
 test('LOAD1 gallery: the kept copy fits FULL_EDGE and the thumb THUMB_W, never up; the turn is a uniform pick of the shots still in it (mutants: upscaled; a shot taken out still drawn; the last shot never picked)', () => {
   assert.deepEqual(fitWithin(3840, 2160, FULL_EDGE), { w: 1920, h: 1080 });
@@ -211,11 +270,12 @@ test('LOAD1 the screen: NEVER TRAPS - a hold whose load threw past its end lets 
     assert.equal(screen(), null, 'and the screen went with it');
     assert.match(String(warn.mock.calls[0]?.arguments[0]), /a test load held the loading screen past/);
   } finally { warn.mock.restore(); removeLoadingScreen(); mock.timers.reset(); }
-  await assert.rejects(withLoading({ delay: 0 }, async () => { throw new Error('the build threw'); }), /the build threw/);
-  assert.equal(loadingHeld(), false, 'the throw ended its hold');
-  assert.equal(await withLoading({ delay: 0 }, async (h) => { assert.equal(h.open, true); return 5; }), 5);
-  assert.equal(loadingHeld(), false);
-  removeLoadingScreen();
+  try {
+    await assert.rejects(withLoading({ delay: 0 }, async () => { throw new Error('the build threw'); }), /the build threw/);
+    assert.equal(loadingHeld(), false, 'the throw ended its hold');
+    assert.equal(await withLoading({ delay: 0 }, async (h) => { assert.equal(h.open, true); return 5; }), 5);
+    assert.equal(loadingHeld(), false);
+  } finally { removeLoadingScreen(); }
 });
 
 test('LOAD1 the frame\'s question: a move raises one hold, its place and step asked every frame; the still frame ends it; a ceiling\'s let-go is not raised again for the same stuck move (mutants: a hold per frame; never ended; re-raised)', () => {
@@ -311,7 +371,15 @@ test('LOAD1 the hosts: the boot raises the screen at once and its title steps ar
   assert.ok(boot.indexOf('status(null);   // FB0930-TITLE') > 0, 'the boot\'s end is the hold\'s end');
   const frame = boot.slice(boot.indexOf('  function frame(now) {'));
   assert.match(read('src/scenes/shared.js'), /export function claimFrame\(\) \{ syncLoading\(false\); return \+\+_frameGeneration; \}/, 'a claimed loop lets its hold go - no frame of it will end it');
-  assert.match(frame, /const _moving = worldMoveBusy\(\) \|\| !!modes\?\.transitioning;\n\s*syncLoading\(_moving, \{ place: loadingPlaceNow, line: loadingLineNow \}\);\n\s*if \(!_moving\) _loadingDest = null;/);
+  assert.match(frame, /const _moving = worldMoveBusy\(\) \|\| !!modes\?\.transitioning;\n\s*setLoadingAside\('window', townTalk\.overlayActive \|\| !!modes\?\.overlayHeld\);\n\s*syncLoading\(_moving, \{ place: loadingPlaceNow, line: loadingLineNow \}\);\n\s*if \(!_moving\) \{ _loadingDest = null; _partyWaitLine = ''; \}/,
+    'every frame: a window up takes the screen aside, then the one question');
+  assert.match(w, /const loadingPlaceNow = \(\) => loadingPlaceOf\(\{ dest: _loadingDest, moving: worldMoveBusy\(\), placeAt: placeAtPixel, here: placeHere \}\);/);
+  assert.match(w, /_traveling \? \(_partyWaitLine \|\| 'Travelling'\)/, 'the party landing\'s wait is said on the screen over the chat line');
+  assert.match(w, /onWait: \(\) => \{ _partyWaitLine = PARTY_ARRIVAL_TEXT\.waiting; townTalk\.say\(PARTY_ARRIVAL_TEXT\.waiting\); \}/);
+  assert.match(w, /function placeAtPixel\(px, py\) \{\n\s*const key = `\$\{px\},\$\{py\}`;\n\s*if \(_ohGpsName\?\.key === key && _ohGpsName\.name\) return _ohGpsName\.name;/, 'the abyss wears its own name over the pixel it borrows');
+  assert.match(w, /if \(!params\.has\('load'\) && !\(params\.has\('classicload'\) && peekPendingClassicSave\(\)\)\) setLoadingPlace\(startLoc\?\.name \|\| locationName\);/, 'a stale ?classicload imports nothing: the start is the place');
+  assert.match(w, /setLoadingAside\('window', true\);[^\n]*\n\s*townTalk\.showOverlay\(createChargenWindow\(flow, \{/, 'the chargen shown mid-boot takes the boot\'s screen aside');
+  assert.match(w, /onDone: \(r\) => \{\n\s*setLoadingAside\('window', false\);/, '...and a boot still going stands it again when the wizard is done');
   const at = frame.indexOf('syncLoading(_moving');
   assert.ok(at > frame.indexOf('if (frameHeld())') && at > frame.indexOf('else lookFilter.tick(dt, cam);'), 'below the film\'s wait and the look\'s tick, whose heads AUDIT 39 #160 and AUDIT 28 W7 keep');
   assert.ok(at < frame.indexOf('capturePendingScreenshot(canvas);   // SS1: a save armed from a modal mode'), '...and above the indoor mode\'s return, so every drawn frame asks');
@@ -325,14 +393,12 @@ test('LOAD1 the hosts: the boot raises the screen at once and its title steps ar
   assert.match(w, /setShotPlace\(placeHere\);/);
 });
 
-test('LOAD1 a film and a claimed loop: a video\'s frame hold takes the standing screen aside and the last release brings it back; a loop claimed by another lets the frame\'s hold go (mutants: the film hidden under the screen; aside for ever; the claimed loop\'s screen kept)', () => {
+test('LOAD1 aside, never over: a film\'s hold or a window takes the screen aside; when the last goes mid-load it waits for the frame\'s answer - back if still loading, ending hidden if not; a screen built aside is born hidden; a claimed loop lets go (mutants: the film under the screen; aside for ever; the flash back; built over a window; the claimed loop\'s screen kept)', () => {
   mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'] });
   try {
     removeLoadingScreen();
     syncLoading(true, { delay: 0 });
-    const s = screen();
-    const cls = new Set(String(s.className).split(/\s+/));
-    Object.defineProperty(s, 'classList', { value: { add: (c) => cls.add(c), remove: (c) => cls.delete(c), toggle: (c, on) => (on ? cls.add(c) : cls.delete(c)), contains: (c) => cls.has(c) } });
+    const cls = liveClasses(screen());
     const a = holdFrame();
     const b = holdFrame();
     assert.ok(cls.has('aside'), 'the film owns the canvas: the screen steps aside');
@@ -340,11 +406,159 @@ test('LOAD1 a film and a claimed loop: a video\'s frame hold takes the standing 
     assert.ok(cls.has('aside'), 'still aside while any hold stands');
     b();
     b();   // a release is once, however many paths call it
-    assert.ok(!cls.has('aside'), 'the last release brings it back');
+    assert.ok(cls.has('aside'), 'the film let go mid-load: hidden until the frame answers');
+    syncLoading(true, { delay: 0 });
+    assert.ok(!cls.has('aside'), 'the load goes on: the screen is back');
     assert.equal(loadingHeld(), true, 'its hold untouched throughout');
+    // the move that ends under the film ends hidden - never a flash of the whole screen before its fade
+    const c = holdFrame();
+    c();
+    syncLoading(false, { delay: 0 });
+    assert.ok(cls.has('aside'), 'ended under the film: it never comes back');
+    mock.timers.tick(MIN_SHOWN_MS);
+    mock.timers.tick(LOADING_FADE_MS);
+    assert.ok(cls.has('aside'), 'hidden through its fade');
+    assert.equal(screen(), null);
+    // a window: the frame says so every frame
+    syncLoading(true, { delay: 0 });
+    const w = liveClasses(screen());
+    setLoadingAside('window', true);
+    assert.ok(w.has('aside') && loadingAside());
+    setLoadingAside('window', false);
+    assert.ok(w.has('aside'), 'closed mid-load: hidden until the frame answers');
+    syncLoading(true, { delay: 0 });
+    assert.ok(!w.has('aside'));
     claimFrame();
     assert.equal(loadingHeld(), false, 'a claimed loop lets the frame\'s hold go');
+    mock.timers.tick(MIN_SHOWN_MS);
+    mock.timers.tick(LOADING_FADE_MS);
+    // a screen built while a window stands is born hidden (the boot's chargen is shown before the boot's screen ends)
+    setLoadingAside('window', true);
+    const h = beginLoading({ delay: 0 });
+    assert.ok(String(screen().className).split(/\s+/).includes('aside'), 'born aside');
+    setLoadingAside('window', false);
+    h.end();
+  } finally { _resetLoadingAsideForTests(); removeLoadingScreen(); mock.timers.reset(); }
+});
+
+test('LOAD1 the words: the first hold of a load sets the place and step afresh, a hold inside it adds only what it names; the frame\'s place is the destination once named, nothing while unnamed, here for a door (mutants: the first hold additive; the nested hold wiping; the place left being said)', () => {
+  mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'] });
+  try {
+    removeLoadingScreen();
+    const a = beginLoading({ delay: 0, place: 'Daggerfall', line: 'Entering' });
+    const b = beginLoading({ delay: 0 });
+    assert.deepEqual([textOf(screen(), 'ld-place'), textOf(screen(), 'ld-line')], ['Daggerfall', 'Entering'], 'a hold inside names nothing: the words stand');
+    const c = beginLoading({ delay: 0, line: 'Travelling' });
+    assert.deepEqual([textOf(screen(), 'ld-place'), textOf(screen(), 'ld-line')], ['Daggerfall', 'Travelling'], '...and what it names, it adds');
+    a.end(); b.end(); c.end();
+    const d = beginLoading({ delay: 0 });   // the next load, begun inside the last one's stand
+    assert.deepEqual([textOf(screen(), 'ld-place'), textOf(screen(), 'ld-line')], ['', 'Loading'], 'a new load never inherits the last one\'s place');
+    d.end();
   } finally { removeLoadingScreen(); mock.timers.reset(); }
+  const placeAt = (x, y) => `${x},${y}`;
+  assert.equal(loadingPlaceOf({ dest: { x: 3, y: 4 }, moving: true, placeAt, here: () => 'Here' }), '3,4');
+  assert.equal(loadingPlaceOf({ dest: null, moving: true, placeAt, here: () => 'Here' }), '', 'a move not yet bound names nothing - never the place being left');
+  assert.equal(loadingPlaceOf({ dest: null, moving: false, placeAt, here: () => 'Here' }), 'Here', 'a door\'s build opens where the player stands');
+});
+
+test('LOAD1 the layers: over the death screen and under the crash banner, read off their own sheets; the HUD pieces that stand higher go while the screen is SEEN, each a selector its own module draws (mutants: the CSS off the constant; the veil never lifted; a renamed piece)', () => {
+  const death = /\.dth \{[^}]*z-index: (\d+);/.exec(read('src/ui/enhancedDeath.js'));
+  const crash = /el\.id = 'crash';\s*el\.style\.cssText = '[^']*z-index:(\d+)/.exec(read('src/main.js'));
+  assert.ok(death && crash);
+  assert.ok(Number(death[1]) < LOADING_Z && LOADING_Z < Number(crash[1]), `death ${death[1]} < loading ${LOADING_Z} < crash ${crash[1]}`);
+  assert.equal(Number(/\.ld \{ position: fixed; inset: 0; z-index: (\d+);/.exec(LOADING_CSS)?.[1]), LOADING_Z, 'the sheet draws at the constant');
+  const veil = /((?:body\.ld-up [^,{]+,\s*)*body\.ld-up [^,{]+) \{ visibility: hidden !important; \}/.exec(LOADING_CSS);
+  assert.ok(veil, 'the veil rule');
+  const sels = veil[1].split(',').map((x) => x.trim().replace(/^body\.ld-up /, ''));
+  assert.deepEqual(sels.sort(), ['#plus-pad-prompts', '.arena-hud', '.rvncard-stack', '.sg-hud', '.wb-dmg-chart', '.wb-gate-banner', '.wb-title-card']);
+  const home = { '.wb-gate-banner': 'gateBanner.js', '.wb-title-card': 'gateTitleCard.js', '.wb-dmg-chart': 'gateDamageChart.js', '.sg-hud': 'siegeHud.js', '.arena-hud': 'arenaHud.js', '.rvncard-stack': 'revenantCard.js', '#plus-pad-prompts': 'plusPad.js' };
+  for (const sel of sels) assert.ok(read(`src/ui/${home[sel]}`).includes(sel.slice(1)), `${sel} is still drawn by ui/${home[sel]}`);
+  // and the body wears the veil only while the screen is seen
+  mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'] });
+  const body = liveClasses(document.body);
+  try {
+    removeLoadingScreen();
+    const h = beginLoading({ delay: 0 });
+    assert.ok(body.has('ld-up'), 'seen: the higher HUD goes');
+    setLoadingAside('window', true);
+    assert.ok(!body.has('ld-up'), 'aside: the HUD is the player\'s again');
+    setLoadingAside('window', false);
+    assert.ok(body.has('ld-up'));
+    h.end();
+    mock.timers.tick(MIN_SHOWN_MS);
+    assert.ok(!body.has('ld-up'), 'gone: the HUD is back');
+  } finally { delete document.body.classList; _resetLoadingAsideForTests(); removeLoadingScreen(); mock.timers.reset(); }
+});
+
+test('LOAD1 the sky is drawn once per window size and kept - no timer redraws it under a load (mutants: the 125 ms redraw back; a draw per screen)', () => {
+  mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'] });
+  const prev = { mm: globalThis.matchMedia, w: globalThis.innerWidth };
+  globalThis.matchMedia = () => ({ matches: false, addEventListener() {} });   // motion allowed: the old timer's case
+  try {
+    removeLoadingScreen();
+    globalThis.innerWidth = 1111;
+    const n0 = loadingGroundDraws();
+    let h = beginLoading({ delay: 0 });
+    mock.timers.tick(2000);
+    assert.equal(loadingGroundDraws(), n0 + 1, 'one draw, however long the screen stands');
+    h.end();
+    removeLoadingScreen();
+    h = beginLoading({ delay: 0 });
+    assert.equal(loadingGroundDraws(), n0 + 1, 'the next screen at the same size reuses it');
+    h.end();
+    removeLoadingScreen();
+    globalThis.innerWidth = 1112;
+    h = beginLoading({ delay: 0 });
+    assert.equal(loadingGroundDraws(), n0 + 2, 'a new size draws once more');
+    h.end();
+  } finally { globalThis.matchMedia = prev.mm; globalThis.innerWidth = prev.w; removeLoadingScreen(); mock.timers.reset(); }
+});
+
+test('LOAD1 the gallery as it ships: the real encode keeps a FULL_EDGE copy and a THUMB_W thumbnail; the IndexedDB backend mints a key for a new shot and updates a kept one in place; a database that will not open falls back to the tab; keeps run one at a time so the cap holds (mutants: the thumb at FULL_EDGE; the id-strip inverted - a switch duplicates the shot; no fallback; the cap raced)', async () => {
+  // the encode, through a decoder and canvases that report their sizes
+  const prevCIB = globalThis.createImageBitmap;
+  const ce = document.createElement;
+  globalThis.createImageBitmap = async () => ({ width: 3840, height: 2160, close() {} });
+  document.createElement = (t) => {
+    const n = ce(t);
+    if (t === 'canvas') n.toBlob = (cb, type) => cb(new Blob([`${n.width}x${n.height}`], { type }));
+    return n;
+  };
+  setGalleryBackend(memoryGalleryBackend());
+  try {
+    const id = await keepShot(new Blob(['png']), { place: 'Wayrest' });
+    assert.ok(Number.isInteger(id), `kept: ${id}`);
+    const [r] = await listShots();
+    assert.deepEqual([r.w, r.h, await r.blob.text(), await r.thumb.text(), r.blob.type], [1920, 1080, '1920x1080', '320x180', 'image/jpeg']);
+  } finally { globalThis.createImageBitmap = prevCIB; document.createElement = ce; setGalleryBackend(null); }
+  // the IndexedDB backend
+  const io = fakeIdb();
+  const b = galleryBackendOver(io.idb);
+  const rec = { at: 1, place: 'Daggerfall', w: 1, h: 1, loading: true, blob: new Blob(['a']), thumb: new Blob(['t']) };
+  const one = await b.put({ ...rec });
+  const two = await b.put({ ...rec, at: 2 });
+  assert.deepEqual([one, two], [1, 2], 'a new shot: the store mints its key');
+  await b.put({ ...(await b.get(one)), loading: false });
+  assert.equal(await b.count(), 2, 'a kept shot written again is UPDATED - a switch press never duplicates it');
+  assert.equal((await b.get(one)).loading, false);
+  await b.del(two);
+  assert.deepEqual((await b.all()).map((x) => x.id), [1]);
+  const warn = mock.method(console, 'warn', () => {});
+  try {
+    const dead = galleryBackendOver(fakeIdb({ failOpen: true }).idb);
+    assert.equal(await dead.put({ ...rec }), 1, 'the open failed: the tab keeps it');
+    assert.equal(await dead.count(), 1);
+    assert.match(String(warn.mock.calls[0]?.arguments[0]), /IndexedDB refused/);
+  } finally { warn.mock.restore(); }
+  // one at a time: three presses inside one encode at 119 keep ONE
+  setGalleryBackend(memoryGalleryBackend());
+  try {
+    for (let i = 0; i < GALLERY_MAX - 1; i++) await keepShot(new Blob(['x']), { at: i, encode: enc });
+    const slow = async () => { await flush(3); return enc(); };
+    const got = await Promise.all([1, 2, 3].map(() => keepShot(new Blob(['x']), { encode: slow })));
+    assert.equal(got.filter((x) => x === 'full').length, 2, `the second and third find it full: ${got}`);
+    assert.equal(await shotCount(), GALLERY_MAX);
+  } finally { setGalleryBackend(null); }
 });
 
 test('LOAD1 the menu: Screenshots is on every rail, the System page and both dispatch tables; the door\'s foot carries it beside About; the unmount lets its pictures go (mutants: a rail without it; a dead dispatch; no release)', () => {
@@ -392,6 +606,59 @@ test('LOAD1 the pane: it fills when the gallery answers - each shot\'s caption, 
     assert.equal((await listShots()).some((s) => s.id === id), false);
     body.remove();
   } finally { releaseShotsPane(); setGalleryBackend(null); }
+});
+
+test('LOAD1 the pane, a visit at a time: a new pane forgets the last one\'s armed Delete and open view; the keyboard stays on the pressed button through the refill, and a deleted tile hands it to its neighbour; pictures from files are dated by the file and every one unread is said; the classic skin\'s words (mutants: the arm outliving its pane; the focus dropped; the unread silent; the classic words lost)', async () => {
+  setGalleryBackend(memoryGalleryBackend());
+  try {
+    const older = await keepShot(new Blob(['a']), { place: 'Sentinel', at: 100, encode: enc });
+    const newer = await keepShot(new Blob(['b']), { place: 'Wayrest', at: 200, encode: enc });
+    const body = document.createElement('div');
+    document.body.append(body);
+    drawShotsPane(body);
+    await flush();
+    const buttonKeyed = (key) => body.querySelectorAll('button').find((x) => x.getAttribute('data-focus') === key);
+    buttonKeyed(`del:${newer}`).click();
+    await flush();
+    assert.equal(buttonKeyed(`del:${newer}`).textContent, 'Delete it?');
+    const again = document.createElement('div');
+    document.body.append(again);
+    body.remove();
+    drawShotsPane(again);
+    await flush();
+    const inAgain = (key) => again.querySelectorAll('button').find((x) => x.getAttribute('data-focus') === key);
+    assert.equal(inAgain(`del:${newer}`).textContent, 'Delete', 'a new visit: the arm is the last pane\'s, gone');
+    // the keyboard stays where it was
+    const turn = inAgain(`turn:${newer}`);
+    turn.focus();
+    turn.click();
+    await flush();
+    assert.notEqual(inAgain(`turn:${newer}`), turn, 'the pane refilled');
+    assert.equal(document.activeElement?.getAttribute?.('data-focus'), `turn:${newer}`, '...and the focus is on the same button');
+    inAgain(`del:${newer}`).focus();
+    inAgain(`del:${newer}`).click();
+    await flush();
+    inAgain(`del:${newer}`).click();
+    await flush();
+    assert.equal(await shotCount(), 1);
+    assert.equal(document.activeElement?.getAttribute?.('data-focus'), `thumb:${older}`, 'a deleted tile hands the keyboard to its neighbour');
+    // pictures from files
+    setShotEncoder(async (f) => { if (f.bad) throw new Error('no decoder reads it'); return enc(); });
+    const day = new Date(2026, 0, 2).getTime();
+    const r = await addPictures(again, [{ bad: true, lastModified: day }, { lastModified: day }]);
+    assert.deepEqual(r, { kept: 1, unread: 1, full: false });
+    assert.equal(textOf(again, 'shots-say'), 'One picture could not be read.', 'NEVER SILENT');
+    assert.ok((await listShots()).some((x) => x.at === day), 'dated by the file\'s own day');
+    again.remove();
+  } finally { setShotEncoder(null); releaseShotsPane(); setGalleryBackend(null); }
+  const skin = getPref('skin');
+  try {
+    setPref('skin', 'classic');
+    assert.equal(loadingWordsKey(), 'classic');
+    assert.match(LOADING_WORDS[loadingWordsKey()], /drawn under the enhanced UI/);
+    setPref('skin', 'enhanced');
+    assert.equal(loadingWordsKey(), 'shots');
+  } finally { setPref('skin', skin); }
 });
 
 test('LOAD1 the doctrine: the gallery touches no network and no repository path - a render of game data stays in the player\'s own browser (mutants: a fetch; an upload)', () => {

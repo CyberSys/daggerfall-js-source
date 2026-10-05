@@ -27,20 +27,27 @@
 // THE SLOT IS EMPTIED BEFORE THE OCCUPANT IS TOLD (bible Home, Process): the node is taken out of `node` before it is
 // faded or removed, so a hold begun while the last one fades builds a fresh screen rather than reviving a dying one.
 //
-// EVERY ALLOCATION HAS AN OWNER: the ground's interval and the shot's object URL are let go in `teardown`, the one
-// path that ends the screen's life.
+// EVERY ALLOCATION HAS AN OWNER: the shot's object URL is let go in `teardown`, the one path that ends the screen's
+// life. The ground is drawn ONCE per window size and kept (AUDIT LOAD1 1): the menu's 125 ms redraw costs 100 ms a
+// draw at 1080p, and a loading screen that eats the main thread slows the very load it covers.
+//
+// ASIDE, NEVER OVER (AUDIT LOAD1 2): a window the player must act on - the chargen at a new game's boot, a pause, a
+// level-up box - and a full-screen film own the screen while they stand; the loading screen hides under them, its
+// holds untouched, and comes back only if the load is still going when they close.
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { drawPixelGround } from './pixelGround.js';
 import { isEnhanced } from '../systems/uiSkin.js';
 import { pageHas } from '../systems/pageQuery.js';
 import { getPref } from '../systems/uiPrefs.js';
-import { loadingShot, shotCaption } from '../systems/shotGallery.js';
+import { loadingShot, shotCaption, GALLERY_MAX } from '../systems/shotGallery.js';
 
 export const LOADING_ID = 'enhanced-loading';
 /** The Features row's key (systems/features.js `loading-screen`): 'shots', 'art' or 'off'. */
 export const LOADING_PREF = 'loadingScreen';
 export const LOADING_MODES = Object.freeze(['shots', 'art', 'off']);
-/** Over the HUD, the windows and the death screen (18); under the crash banner (20). */
+/** Over the world, the base HUD and the death screen (18); under the crash banner (20). The HUD pieces that stand
+ *  higher (the gate's banner and cards, the siege and arena HUDs, the revenant cards, the pad's prompts) are hidden
+ *  while it shows (`body.ld-up`, LOADING_CSS); the windows above it are the windows it steps aside for. */
 export const LOADING_Z = 19;
 /** An in-game load shorter than this shows nothing. The boot passes 0: it is never this short. */
 export const APPEAR_MS = 280;
@@ -53,7 +60,7 @@ export const HOLD_MAX_MS = 180_000;
 /** Lines for the corner when no screenshot stands there - each one a thing this game does, none naming a key (keys
  *  are the player's to rebind, and a tip naming the default would lie to anyone who did). */
 export const LOADING_TIPS = Object.freeze([
-  'Every screenshot you take is kept under Screenshots in the menu, and can stand on this screen while the world loads.',
+  `Up to ${GALLERY_MAX} of the screenshots you take are kept under Screenshots in the menu, and can stand on this screen while the world loads.`,
   'Banks keep your gold, write letters of credit for the road and lend to those in good standing.',
   'Members of the Mages Guild can make spells of their own at the guild’s spellmaker.',
   'Ask anyone in town where a place is, and they may mark it on your map.',
@@ -116,7 +123,7 @@ export function beginLoading({ place: p = '', line: l = '', delay = APPEAR_MS, m
     ceiling = setTimeout(() => { console.warn(`[loading] ${why} held the loading screen past ${maxMs} ms - letting it go`); hold.end(); }, maxMs);
   }
   if (leaveTimer) { clearTimeout(leaveTimer); leaveTimer = null; }   // a screen about to leave stays for the new hold
-  if (node) paint();
+  if (node) { node._keepHidden = false; paint(); paintAside(); }
   else if (!appearTimer) {
     if (delay > 0) appearTimer = setTimeout(() => { appearTimer = null; if (holds.size && !node) build(); }, delay);
     else build();
@@ -124,16 +131,36 @@ export function beginLoading({ place: p = '', line: l = '', delay = APPEAR_MS, m
   return hold;
 }
 
-// ── ASIDE FOR A FILM ─────────────────────────────────────────────
-// A full-screen video owns the canvas (scenes/shared.js holdFrame - DFU's vid window pauses the game), and the hosts'
-// frames that raise and end the screen wait it out. A screen left standing would hide the film, so the hold steps it
-// aside for the film's lifetime: hidden, its holds untouched, back the moment the film lets the frame go.
-let aside = false;
-export function stepAsideLoading(on) {
-  aside = !!on;
-  node?.classList.toggle('aside', aside);
+// ── ASIDE ────────────────────────────────────────────────────────
+// Two things own the screen over a load. A FILM (scenes/shared.js holdFrame - DFU's vid window pauses the game, and the
+// hosts' frames that raise and end the screen wait it out) and a WINDOW (the world host's frame asks, every frame, and
+// the boot's chargen says so itself - it is shown mid-boot, before any frame runs). Each is a reason; the screen is
+// hidden while any stands, its holds untouched.
+//
+// BACK ONLY IF STILL LOADING (AUDIT LOAD1 6): when the last reason goes while the frame's hold is open, the screen stays
+// hidden until the frame's next answer - a move that ended under the film ends hidden, rather than flashing back whole
+// for the one frame before its fade.
+const asideFor = new Set();
+let revealOnSync = false;
+const hiddenNow = () => asideFor.size > 0 || revealOnSync;
+/** @param {'film'|'window'} reason @param {boolean} on */
+export function setLoadingAside(reason, on) {
+  const had = asideFor.has(reason);
+  if (on) asideFor.add(reason); else asideFor.delete(reason);
+  if (had && !on && !asideFor.size && framed?.open) revealOnSync = true;
+  paintAside();
 }
-export const loadingAside = () => aside;
+/** A film's hold (scenes/shared.js) - the 'film' reason. */
+export function stepAsideLoading(on) { setLoadingAside('film', on); }
+export const loadingAside = () => hiddenNow();
+function paintAside() {
+  if (node) node.classList.toggle('aside', hiddenNow() || !!node._keepHidden);
+  paintHudVeil();
+}
+/** The HUD pieces that stand above the screen's z-index go while it is SEEN - not while it is aside or gone. */
+function paintHudVeil() {
+  globalThis.document?.body?.classList?.toggle('ld-up', !!node && !hiddenNow() && !node._keepHidden);
+}
 
 /** The step line and the place, on the screen of the holds open now - nothing with none open, so a word set between
  *  loads never stands on the next one. */
@@ -157,11 +184,18 @@ export async function withLoading(opts, fn) {
 // The world host asks one question every frame - is the world being moved (scenes/world.js worldMoveBusy, and a
 // door's build, worldModes `transitioning`) - and this answers it: a hold begun on the first frame it is true, ended
 // on the first it is false. Every mover is behind that question already (AUDIT 68 S22 made it the one), and every one
-// of them lowers its flag in a `finally`, so the screen cannot outlive the move. `place` and `line` are asked again
+// of them lowers its flag in a `finally` - the teleport core's own window from its build's wait on; a throw in its
+// synchronous teardown above that is a crash (the banner stands over the screen), and the hold's ceiling lets the
+// screen go. `place` and `line` are asked again
 // every frame the hold is open: a load knows where it is going only once its teleport starts.
 let framed = null;
 /** @param {boolean} busy @param {{ place?: () => string, line?: () => string, delay?: number }} [ask] */
 export function syncLoading(busy, { place: placeOf = () => '', line: lineOf = () => '', delay = APPEAR_MS } = {}) {
+  if (revealOnSync) {
+    revealOnSync = false;
+    if (!busy && node) node._keepHidden = true;   // the move ended under the film or the window: it ends hidden
+    paintAside();
+  }
   if (!busy) {
     if (framed) { const h = framed; framed = null; h.end(); }   // the slot first (bible Home: THE SLOT IS EMPTIED...)
     return;
@@ -169,6 +203,14 @@ export function syncLoading(busy, { place: placeOf = () => '', line: lineOf = ()
   // a hold its ceiling let go stays let go for the rest of this move - the flag is stuck, and the screen is not
   if (!framed) framed = beginLoading({ place: placeOf(), line: lineOf(), delay, why: 'a world move' });
   else if (framed.open) { framed.place(placeOf()); framed.line(lineOf()); }
+}
+
+/** The frame's place (scenes/world.js loadingPlaceNow): where a world move is bound, once its teleport has named it;
+ *  nothing while a move has not yet named one (never the place being LEFT); the place itself for a door's build, which
+ *  opens where the player stands. */
+export function loadingPlaceOf({ dest = null, moving = false, placeAt = () => '', here = () => '' } = {}) {
+  if (dest) return placeAt(dest.x, dest.y);
+  return moving ? '' : here();
 }
 
 /** What the boot's steps say on the screen (scenes/world.js names them on the window's title through `status`). A step
@@ -196,6 +238,7 @@ function leave() {
   const gone = node;
   node = null;   // the slot first: a hold begun during the fade builds its own screen
   place = ''; line = '';
+  paintHudVeil();
   if (!gone) return;
   gone.classList.add('out');
   setTimeout(() => teardown(gone), LOADING_FADE_MS);
@@ -209,6 +252,7 @@ function teardown(root) {
 /** Every screen up, gone now - the tests' reset, and a host's own (a page going away). */
 export function removeLoadingScreen() {
   framed = null;
+  revealOnSync = false;
   for (const h of [...holds]) h.end();
   holds.clear();
   if (appearTimer) { clearTimeout(appearTimer); appearTimer = null; }
@@ -217,8 +261,11 @@ export function removeLoadingScreen() {
   node = null;
   place = ''; line = '';
   if (gone) teardown(gone);
+  paintHudVeil();
   document?.getElementById?.(LOADING_ID)?.remove();
 }
+/** The tests' reset of the aside reasons - in the game each reason is owned by its holder (the film's count, the frame). */
+export function _resetLoadingAsideForTests() { asideFor.clear(); revealOnSync = false; }
 
 function paint() {
   if (!node) return;
@@ -227,6 +274,24 @@ function paint() {
   if (pl && pl.textContent !== place) pl.textContent = place;
   if (ln && ln.textContent !== (line || 'Loading')) ln.textContent = line || 'Loading';
   node.classList.toggle('noplace', !place);
+}
+
+let groundKept = null;   // { w, h, canvas } - the last size drawn
+let groundDraws = 0;
+/** How many times the sky has been drawn this session - the tests' window on the once-per-size law. */
+export const loadingGroundDraws = () => groundDraws;
+function groundFor(w, h) {
+  const c = el('canvas', 'px-ground ld-ground');
+  if (!groundKept || groundKept.w !== w || groundKept.h !== h) {
+    const kept = el('canvas');
+    drawPixelGround(kept, w, h, 0);
+    groundDraws++;
+    groundKept = { w, h, canvas: kept };
+  }
+  c.width = groundKept.canvas.width;
+  c.height = groundKept.canvas.height;
+  c.getContext('2d')?.drawImage(groundKept.canvas, 0, 0);
+  return c;
 }
 
 function build() {
@@ -240,18 +305,11 @@ function build() {
   root.setAttribute('aria-live', 'polite');
   const still = typeof globalThis.matchMedia === 'function' && globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (still) root.classList.add('still');
-  if (aside) root.classList.add('aside');
+  if (hiddenNow()) root.classList.add('aside');
 
-  // THE GROUND: the menu's own night (PX1), the screen's floor whatever stands on it.
-  const ground = el('canvas', 'px-ground ld-ground');
-  const vw = () => globalThis.innerWidth || 1280;
-  const vh = () => globalThis.innerHeight || 720;
-  drawPixelGround(ground, vw(), vh(), 0);
-  let groundTimer = null;
-  if (!still) {
-    const t0 = Date.now();
-    groundTimer = setInterval(() => drawPixelGround(ground, vw(), vh(), (Date.now() - t0) / 1000), 125);
-  }
+  // THE GROUND: the menu's own night (PX1), the screen's floor whatever stands on it - drawn once per window size and
+  // kept; its drift is the menu's own CSS (`.px-ground`), on the compositor, never the main thread.
+  const ground = groundFor(globalThis.innerWidth || 1280, globalThis.innerHeight || 720);
   const shot = el('img', 'ld-shot');
   shot.alt = '';
   shot.decoding = 'async';
@@ -269,13 +327,13 @@ function build() {
   root.append(plate, corner);
 
   root._stop = () => {
-    if (groundTimer) { clearInterval(groundTimer); groundTimer = null; }
     if (shotUrl) { URL.revokeObjectURL(shotUrl); shotUrl = null; }
   };
   document.body.append(root);
   node = root;
   shownAt = Date.now();
   paint();
+  paintHudVeil();
 
   // THE PICTURE: asked once per screen, and only on the row's Your screenshots. It arrives when the gallery answers;
   // the ground stands until then, and for good if the gallery holds nothing in the turn.
@@ -307,6 +365,8 @@ export const LOADING_CSS = `
   color: #d8cfae; font-family: var(--data); pointer-events: auto; cursor: progress; user-select: none;
   animation: ld-in ${LOADING_FADE_MS}ms steps(4, end) both; }
 .ld.aside { visibility: hidden; pointer-events: none; }
+body.ld-up .wb-gate-banner, body.ld-up .wb-title-card, body.ld-up .wb-dmg-chart, body.ld-up .sg-hud,
+body.ld-up .arena-hud, body.ld-up .rvncard-stack, body.ld-up #plus-pad-prompts { visibility: hidden !important; }
 .ld.out { animation: ld-out ${LOADING_FADE_MS}ms steps(4, end) both; pointer-events: none; }
 @keyframes ld-in { from { opacity: 0 } to { opacity: 1 } }
 @keyframes ld-out { from { opacity: 1 } to { opacity: 0 } }
