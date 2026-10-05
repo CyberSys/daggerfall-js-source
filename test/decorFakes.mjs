@@ -19,14 +19,15 @@ export const near = (a, b, eps = 1e-6) => Math.abs(a - b) < eps;
 
 
 /** A parsed RMB block holding one room with `models` (ids) and `flats` ([a, r] pairs) - HOME-DOORS: and `doors`, its
- *  door records' model indices. */
-export const rmb = (models = [], flats = [], doors = []) => ({
+ *  door records' model indices; NUDE-DECOR: and `people`, the room's people ([a, r] pairs, its blockPeopleRecords). */
+export const rmb = (models = [], flats = [], doors = [], people = []) => ({
   rmbBlock: {
     subRecords: [{
       interior: {
         block3dObjectRecords: models.map((id) => ({ objectType: PROP_MODEL_TYPE, modelIdNum: id })),
         blockFlatObjectRecords: flats.map(([a, r]) => ({ textureArchive: a, textureRecord: r })),
         blockDoorRecords: doors.map((i) => ({ doorModelIndex: i })),
+        blockPeopleRecords: people.map(([a, r]) => ({ textureArchive: a, textureRecord: r })),
       },
     }],
   },
@@ -130,11 +131,13 @@ export const ACTIONS = new Map([['KeyW', 'MoveForwards'], ['KeyS', 'MoveBackward
  * `walls` its walls' filter - neither unless a pin hands one. HOME-RENT: `rent` the host's rooms door (none unless handed).
  * HOME-LOOK: `look` the painter's door; HOME-YARD: `placeOk`, `lot` and `yardCap` - the lot's law (each none unless handed).
  * SEAT-HALL: `charterClear` the host's two metres from the court (none unless handed).
+ * NUDE-DECOR: `extraPeople` the second block's room's people ([a, r] pairs - Vendors in the catalogue), and the texture
+ * door's records sized by `recordSize(archive, record)` ({ width, height }; 16 x 32 for every record, as before).
  */
-export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 1000, homeDecor = null, locked = true, touch = false, radius = () => 0.8, base = null, mwPicture = null, collider = null, iconUrl = async () => null, getGpuMesh = async (id) => ({ gpu: id }), now = () => 0, extraFlats = [], realm = null, doors = [], doorsHere = null, walls = null, rent = null, look = null, placeOk = null, lot = null, yardCap = null, charterClear = null } = {}) {
+export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 1000, homeDecor = null, locked = true, touch = false, radius = () => 0.8, base = null, mwPicture = null, collider = null, iconUrl = async () => null, getGpuMesh = async (id) => ({ gpu: id }), now = () => 0, extraFlats = [], extraPeople = [], recordSize = () => ({ width: 16, height: 32 }), realm = null, doors = [], doorsHere = null, walls = null, rent = null, look = null, placeOk = null, lot = null, yardCap = null, charterClear = null } = {}) {
   const doc = fakeDoc();
   const win = fakeWin();
-  const entries = decorCatalogue(collectDecor([rmb([41000, 41000, 41001, 41811], [[210, 3], [209, 0]]), rmb([41000], [[209, 0]], doors)]));
+  const entries = decorCatalogue(collectDecor([rmb([41000, 41000, 41001, 41811], [[210, 3], [209, 0]]), rmb([41000], [[209, 0]], doors, extraPeople)]));
   const standing = [];
   const holds = new Set();
   const owned = new Map();   // DECOR2a: the owner's own items by piece id (scenes/decorRoom.js keepOwn and its kin)
@@ -194,11 +197,11 @@ export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 
     room: () => state.room,
     base: () => base,   // BASE-HIDE: the room's own furniture (scenes/decorBase.js), none unless a pin hands one
     scanDeps: () => ({
-      blocks: fakeBlocks([{ type: TOWN, block: rmb([41000, 41000, 41001, 41811], [[210, 3], [209, 0]]) }, { type: TOWN, block: rmb([41000], [[209, 0], ...extraFlats], doors) }]),   // DECOR-MODFLATS: `extraFlats`, a pin's own; HOME-DOORS: `doors`
+      blocks: fakeBlocks([{ type: TOWN, block: rmb([41000, 41000, 41001, 41811], [[210, 3], [209, 0]]) }, { type: TOWN, block: rmb([41000], [[209, 0], ...extraFlats], doors, extraPeople) }]),   // DECOR-MODFLATS: `extraFlats`, a pin's own; HOME-DOORS: `doors`; NUDE-DECOR: `extraPeople`
       isTownBlock: (t) => t === TOWN, modelRadius: radius, flatRadius: async () => 0.2,
     }),
     getGpuMesh, cpuModels,
-    getTexture: async () => ({ recordCount: 64, getSize: () => ({ width: 16, height: 32 }), getScale: () => ({ width: 0, height: 0 }) }),
+    getTexture: async (a) => ({ recordCount: 64, getSize: (r) => recordSize(a, r), getScale: () => ({ width: 0, height: 0 }) }),   // NUDE-DECOR: `recordSize`
     uploadRecord: (a, r, opts = {}) => {   // DECOR2c: the icon arm answers its variant, as dataPipeline.js's does
       if (opts.mips !== false) return undefined;
       textures.set(`${a}_${r}#ui`, `tex:${a}.${r}`);

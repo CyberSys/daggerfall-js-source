@@ -1,0 +1,83 @@
+[
+  {
+    "name": "NUDEDECOR-offer-ungated",
+    "file": "src/systems/decorCatalogue.js",
+    "old": "    && !(room?.yard && e.kind === 'door')\n    && !(nude && e.flat && isNudeFlat(e.flat[0], e.flat[1]))) ?? null;",
+    "new": "    && !(room?.yard && e.kind === 'door')) ?? null;",
+    "tests": [
+      "test/nudedecor.test.js"
+    ]
+  },
+  {
+    "name": "NUDEDECOR-offer-setting-unread",
+    "file": "src/systems/decorCatalogue.js",
+    "old": "  const nude = !(show ?? showNudity());",
+    "new": "  const nude = !(show ?? true);",
+    "tests": [
+      "test/nudedecor.test.js"
+    ]
+  },
+  {
+    "name": "NUDEDECOR-room-born",
+    "file": "src/scenes/decorRoom.js",
+    "old": "      const [a, r] = drawnFlat(piece.flat[0], piece.flat[1]);",
+    "new": "      const [a, r] = piece.flat;",
+    "tests": [
+      "test/nudedecor.test.js"
+    ]
+  },
+  {
+    "name": "NUDEDECOR-ghost-born",
+    "file": "src/scenes/decorTool.js",
+    "old": "      const [ga, gr] = drawnFlat(entry.flat[0], entry.flat[1]);",
+    "new": "      const [ga, gr] = entry.flat;",
+    "tests": [
+      "test/nudedecor.test.js"
+    ]
+  },
+  {
+    "name": "NUDEDECOR-thumb-born",
+    "file": "src/scenes/decorTool.js",
+    "old": "        return entry.flat ? deps.iconUrl?.(...drawnFlat(entry.flat[0], entry.flat[1])) ?? null : null;",
+    "new": "        return entry.flat ? deps.iconUrl?.(entry.flat[0], entry.flat[1]) ?? null : null;",
+    "tests": [
+      "test/nudedecor.test.js"
+    ]
+  },
+  {
+    "name": "NUDEDECOR-thumb-key-entry",
+    "file": "src/scenes/decorTool.js",
+    "old": "      thumbKeyOf: (entry) => (entry.flat && !entry.icon && drawnFlat(entry.flat[0], entry.flat[1]).join('.') !== entry.flat.join('.') ? `${entry.key}#clothed` : entry.key),",
+    "new": "      thumbKeyOf: (entry) => entry.key,",
+    "tests": [
+      "test/nudedecor.test.js"
+    ]
+  },
+  {
+    "name": "NUDEDECOR-panel-key-unread",
+    "file": "src/ui/decorPanel.js",
+    "old": "    const k = thumbKeyOf(e);",
+    "new": "    const k = e.key;",
+    "tests": [
+      "test/nudedecor.test.js"
+    ]
+  },
+  {
+    "name": "NUDEDECOR-panel-placed-row-key-unread",
+    "file": "src/ui/decorPanel.js",
+    "old": "    if (shape.flat && it.entry) {\n      const img = el('img', '');\n      img.setAttribute('alt', '');\n      thumb.append(img);\n      const known = thumbs.get(thumbKeyOf(shape));",
+    "new": "    if (shape.flat && it.entry) {\n      const img = el('img', '');\n      img.setAttribute('alt', '');\n      thumb.append(img);\n      const known = thumbs.get(shape.key);",
+    "tests": [
+      "test/nudedecor.test.js"
+    ]
+  },
+  {
+    "name": "NUDEHOSTS-arena-born",
+    "file": "src/scenes/arenaBouts.js",
+    "old": "      const [archive, record] = drawnFlat(s.archive, s.record);",
+    "new": "      const [archive, record] = [s.archive, s.record];",
+    "tests": [
+      "test/nudedecor.test.js"
+    ]
+  }
+]

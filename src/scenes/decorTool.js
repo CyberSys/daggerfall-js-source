@@ -106,6 +106,7 @@ import { billboardSize } from '../world/rmbFlats.js';
 import { lookAt, perspective, mirrorProjectionX, trs, multiply } from '../world/mat4.js';
 import { isTextEntryTarget } from '../ui/input.js';
 import { walletReserve } from '../net/realmGoldLaw.js';   // MARKET-AUDIT: a refusal gives back exactly what the payment took
+import { drawnFlat } from '../characters/nudeFlats.js';   // NUDE-DECOR: a nude figure shows its clothed stand-in while Show Nudity is off
 
 /** The free camera's pace, metres a second; Run's pace; and how far it may go from where it began. */
 export const DECOR_FLY_SPEED = 3;
@@ -414,8 +415,11 @@ export function createDecorTool(deps) {
         // AUDIT DYE-ICON 1: a hung one "In this room" is the pack's picture too, dyed off its numbers as it hangs - asked
         // bare, an Ebony blade previewed as the base metal's (Mac's "daedric but show steel", in the panel)
         if (decorIsMount(entry)) return deps.iconUrl?.(entry.flat[0], entry.flat[1], decorMountDye(entry.item), decorMountDyeTarget(entry.item)) ?? null;
-        return entry.flat ? deps.iconUrl?.(entry.flat[0], entry.flat[1]) ?? null : null;
+        return entry.flat ? deps.iconUrl?.(...drawnFlat(entry.flat[0], entry.flat[1])) ?? null : null;   // NUDE-DECOR: the picture it stands as
       },
+      // NUDE-DECOR: a figure's picture is kept apart while it is its stand-in - the panel keeps a picture for the session,
+      // and the setting turned off after a nude figure's was drawn would go on showing it in "In this room"
+      thumbKeyOf: (entry) => (entry.flat && !entry.icon && drawnFlat(entry.flat[0], entry.flat[1]).join('.') !== entry.flat.join('.') ? `${entry.key}#clothed` : entry.key),
       onMove: (piece) => beginPlacing(entryOf(piece), piece),
       onRemove: (piece) => { removePiece(piece); },
       onToggle: (piece, what) => { togglePiece(piece, what); },
@@ -812,7 +816,8 @@ export function createDecorTool(deps) {
       // MW-ASSIGN: one's own thing set down shows the Morrowind picture it will stand as (the room's own door and cache,
       // scenes/decorRoom.js standPicture) - else its own world picture, as ever
       const mw = entry.kind === 'own' && entry.item ? Promise.resolve(pool.standPicture?.(entry.item) ?? null).catch(() => null) : Promise.resolve(null);
-      Promise.all([deps.getTexture?.(entry.flat[0]), mw]).then(([t, pic]) => {
+      const [ga, gr] = drawnFlat(entry.flat[0], entry.flat[1]);   // NUDE-DECOR: a figure moved shows the stand-in the room stands it as
+      Promise.all([deps.getTexture?.(ga), mw]).then(([t, pic]) => {
         if (placing !== p) return;
         if (pic) {
           p.flatSize = { w: pic.w, h: pic.h };
@@ -820,11 +825,11 @@ export function createDecorTool(deps) {
           if (renderer?.createBillboardBatch) p.batch = renderer.createBillboardBatch(MW_STAND_ARCHIVE, pic.key, { ...p.flatSize }, [[0, 0, 0]]);
           return;
         }
-        if (!t || !(entry.flat[1] < t.recordCount)) return;
-        deps.uploadRecord?.(entry.flat[0], entry.flat[1]);
-        p.flatSize = billboardSize(t, entry.flat[1]);
+        if (!t || !(gr < t.recordCount)) return;
+        deps.uploadRecord?.(ga, gr);
+        p.flatSize = billboardSize(t, gr);
         p.placer = createDecorPlacer(entry, { radius, from: editing, free });
-        if (renderer?.createBillboardBatch) p.batch = renderer.createBillboardBatch(entry.flat[0], entry.flat[1], { ...p.flatSize }, [[0, 0, 0]]);
+        if (renderer?.createBillboardBatch) p.batch = renderer.createBillboardBatch(ga, gr, { ...p.flatSize }, [[0, 0, 0]]);
       }, () => {});
     }
     listen(true);

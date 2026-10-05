@@ -308,7 +308,7 @@
   {
     "name": "DECOR1d-the-chosen-piece-pictureless",
     "file": "src/ui/decorPanel.js",
-    "old": "      if (e.flat && !thumbs.has(e.key)) askThumb(e);",
+    "old": "      if (e.flat && !thumbs.has(thumbKeyOf(e))) askThumb(e);",
     "new": "      void 0;",
     "tests": [
       "test/decor1d.test.js"

@@ -10137,7 +10137,8 @@ and `test/decor2b.test.js` (the sale's line, the tap under a flight) and the ACC
   the item, the owner and the town (vendorSearch).
 - **The catalogue** (`systems/decorCatalogue.js`): the people Daggerfall stands in its rooms (`blockPeopleRecords`) are
   catalogue pieces too, kind Vendors (Mac: "People category sounds wrong call it vendors") - placed, one is made the
-  trader.
+  trader. NUDE-HOSTS (FIELD BUGS 2026-10-05): Show Nudity governs them as it does the world's people - off, no nude
+  figure is offered, and one placed stands, flies and is pictured as its clothed stand-in (`01-Overview/Field-Bugs-2026-10-05.md`).
 - **The service** (`server-account/src/market.js` over `migrations/0080_home_vendors.sql` - `market_listings.vendor_map`,
   `vendor_id`; routes `/v1/market/vendor`, `/vendors`, `/myvendors`). A listing named at a trader is the owner's
   character's own trader (`vendor-not-yours`), in the HOME's region whatever the client says; it is filtered out of the

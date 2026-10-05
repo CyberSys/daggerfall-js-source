@@ -47,6 +47,7 @@ import { toColor32 } from '../formats/color32Order.js';   // MW-MOUNT: a rendere
 import { preloadTextureRecord } from '../systems/textureReplacement.js';   // MOUNT-LAZY: the record's own replacement, decoded before its upload
 import { writeDecalQuad, clearDecalQuad, DECAL_FLOATS } from '../combat/bloodDecals.js';
 import { decorIsDoor } from '../systems/decorDoorways.js';   // HOME-DOORS: a door piece hangs as one of the room's own doors
+import { drawnFlat } from '../characters/nudeFlats.js';   // NUDE-DECOR: a nude figure stands as its clothed stand-in while Show Nudity is off
 
 /** How far the eye reaches a placed piece - the room's own furniture's reach (a bed's, a shelf's: 128 units). */
 export const DECOR_REACH = DEFAULT_ACTIVATION_DISTANCE;
@@ -300,7 +301,9 @@ export function createDecorRoom({
       });
       stand();
     } else {
-      const [a, r] = piece.flat;
+      // NUDE-DECOR: the picture a flat DRAWS - a nude figure's clothed stand-in while Show Nudity is off, on the piece's
+      // own base, at the stand-in's size; the piece stays the figure it was placed as (its key, its name, its station)
+      const [a, r] = drawnFlat(piece.flat[0], piece.flat[1]);
       // MW-ASSIGN: one's own thing set down stands as its Morrowind picture while a build stands (a garment, not the
       // classic pile of cloth), on the billboard pass as every flat - else as its own world picture, as ever
       const mw = decorStandsOwn(piece) ? standArtOf(piece.item) : Promise.resolve(null);

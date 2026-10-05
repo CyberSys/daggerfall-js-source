@@ -42,6 +42,7 @@ import { HOUSE_CONTAINER_NAMES } from './worldTooltips.js';
 import { interiorLightProperties } from '../world/interiorLights.js';
 import { decorPrice } from '../net/decorLaw.js';
 import { BULLETIN_BOARD_MODEL_ID } from '../world/rmbLayout.js';   // GUILD1e: the hall's board is Daggerfall's own
+import { isNudeFlat, showNudity } from '../characters/nudeFlats.js';   // NUDE-DECOR: no nude figure offered while Show Nudity is off
 
 /** A piece's KIND - the panel's filter - and what it reads as. */
 export const DECOR_KINDS = Object.freeze({
@@ -189,9 +190,15 @@ export const HALL_BOARD_ENTRY = Object.freeze({
   key: `m${BULLETIN_BOARD_MODEL_ID}`, model: BULLETIN_BOARD_MODEL_ID, flat: null, kind: 'furniture', name: 'Notice Board',
   count: 0, storage: false, light: null, hall: true,
 });
-/** The catalogue a room offers: a hall's board in a hall's room alone; HOME-YARD: no door in a yard. */
-export const decorRoomEntries = (entries, room) => entries?.filter((e) => (!e.hall || (!!room?.hall && !room?.yard))
-  && !(room?.yard && e.kind === 'door')) ?? null;
+/** The catalogue a room offers: a hall's board in a hall's room alone; HOME-YARD: no door in a yard. NUDE-DECOR: and no
+ *  nude figure while Show Nudity is off (`show`, the setting unless told) - one chosen would stand as that figure to
+ *  every visitor whose setting is on, and here as its stand-in, a piece its owner never saw. */
+export function decorRoomEntries(entries, room, show = null) {
+  const nude = !(show ?? showNudity());
+  return entries?.filter((e) => (!e.hall || (!!room?.hall && !room?.yard))
+    && !(room?.yard && e.kind === 'door')
+    && !(nude && e.flat && isNudeFlat(e.flat[0], e.flat[1]))) ?? null;
+}
 
 /** A piece's SIZE band, by its radius in metres - the panel's size filter. */
 export const DECOR_SIZES = Object.freeze({ small: 'Small', medium: 'Medium', large: 'Large' });
